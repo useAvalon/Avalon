@@ -75,54 +75,62 @@ export const MetaTagSchema: z.ZodObject<{
 /**
  * Script configuration schema - supports both simple URLs and complex script objects
  */
-export const ScriptConfigSchema: z.ZodUnion<[
-	z.ZodString,
-	z.ZodEffects<
-		z.ZodObject<{
-			src: z.ZodOptional<z.ZodString>;
-			content: z.ZodOptional<z.ZodString>;
-			data: z.ZodOptional<z.ZodUnion<[z.ZodRecord<z.ZodString, z.ZodUnknown>, z.ZodArray<z.ZodUnknown, 'many'>]>>;
-			type: z.ZodOptional<z.ZodString>;
-			async: z.ZodOptional<z.ZodBoolean>;
-			defer: z.ZodOptional<z.ZodBoolean>;
-			crossorigin: z.ZodOptional<z.ZodEnum<['anonymous', 'use-credentials']>>;
-			integrity: z.ZodOptional<z.ZodString>;
-			nomodule: z.ZodOptional<z.ZodBoolean>;
-			referrerpolicy: z.ZodOptional<z.ZodEnum<[
-				'no-referrer',
-				'no-referrer-when-downgrade',
-				'origin',
-				'origin-when-cross-origin',
-				'same-origin',
-				'strict-origin',
-				'strict-origin-when-cross-origin',
-				'unsafe-url'
-			]>>;
-			attributes: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
-		}>,
-		{
-			src?: string;
-			content?: string;
-			data?: Record<string, unknown> | unknown[];
-			type?: string;
-			async?: boolean;
-			defer?: boolean;
-			crossorigin?: 'anonymous' | 'use-credentials';
-			integrity?: string;
-			nomodule?: boolean;
-			referrerpolicy?:
-				| 'no-referrer'
-				| 'no-referrer-when-downgrade'
-				| 'origin'
-				| 'origin-when-cross-origin'
-				| 'same-origin'
-				| 'strict-origin'
-				| 'strict-origin-when-cross-origin'
-				| 'unsafe-url';
-			attributes?: Record<string, string>;
-		}
-	>
-]> = z.union([
+export const ScriptConfigSchema: z.ZodUnion<
+	[
+		z.ZodString,
+		z.ZodEffects<
+			z.ZodObject<{
+				src: z.ZodOptional<z.ZodString>;
+				content: z.ZodOptional<z.ZodString>;
+				data: z.ZodOptional<
+					z.ZodUnion<[z.ZodRecord<z.ZodString, z.ZodUnknown>, z.ZodArray<z.ZodUnknown, 'many'>, z.ZodString]>
+				>;
+				type: z.ZodOptional<z.ZodString>;
+				async: z.ZodOptional<z.ZodBoolean>;
+				defer: z.ZodOptional<z.ZodBoolean>;
+				crossorigin: z.ZodOptional<z.ZodEnum<['anonymous', 'use-credentials']>>;
+				integrity: z.ZodOptional<z.ZodString>;
+				nomodule: z.ZodOptional<z.ZodBoolean>;
+				referrerpolicy: z.ZodOptional<
+					z.ZodEnum<
+						[
+							'no-referrer',
+							'no-referrer-when-downgrade',
+							'origin',
+							'origin-when-cross-origin',
+							'same-origin',
+							'strict-origin',
+							'strict-origin-when-cross-origin',
+							'unsafe-url'
+						]
+					>
+				>;
+				attributes: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodString>>;
+			}>,
+			{
+				src?: string;
+				content?: string;
+				data?: Record<string, unknown> | unknown[] | string;
+				type?: string;
+				async?: boolean;
+				defer?: boolean;
+				crossorigin?: 'anonymous' | 'use-credentials';
+				integrity?: string;
+				nomodule?: boolean;
+				referrerpolicy?:
+					| 'no-referrer'
+					| 'no-referrer-when-downgrade'
+					| 'origin'
+					| 'origin-when-cross-origin'
+					| 'same-origin'
+					| 'strict-origin'
+					| 'strict-origin-when-cross-origin'
+					| 'unsafe-url';
+				attributes?: Record<string, string>;
+			}
+		>
+	]
+> = z.union([
 	// Simple string URL (backward compatible)
 	z.string().min(1),
 	// Complex script object with attributes
@@ -130,7 +138,7 @@ export const ScriptConfigSchema: z.ZodUnion<[
 		.object({
 			src: z.string().min(1).optional(),
 			content: z.string().optional(), // For inline scripts
-			data: z.record(z.unknown()).or(z.array(z.unknown())).optional(), // For structured data (JSON-LD)
+			data: z.union([z.record(z.unknown()), z.array(z.unknown()), z.string()]).optional(), // For structured data (JSON-LD)
 			type: z.string().optional(),
 			async: z.boolean().optional(),
 			defer: z.boolean().optional(),
@@ -227,7 +235,7 @@ export const RenderOptionsSchema: z.ZodEffects<
 			| {
 					src?: string;
 					content?: string;
-					data?: Record<string, unknown> | unknown[];
+					data?: Record<string, unknown> | unknown[] | string;
 					type?: string;
 					async?: boolean;
 					defer?: boolean;
@@ -277,7 +285,7 @@ export const PartialRenderOptionsSchema: z.ZodType<{
 		| {
 				src?: string;
 				content?: string;
-				data?: Record<string, unknown> | unknown[];
+				data?: Record<string, unknown> | unknown[] | string;
 				type?: string;
 				async?: boolean;
 				defer?: boolean;
