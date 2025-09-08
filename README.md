@@ -1,4 +1,4 @@
-# avalon Islands
+# Avalon
 
 A lightweight, framework-agnostic islands architecture library for building interactive web applications with minimal JavaScript.
 
@@ -144,23 +144,6 @@ export default function VanillaInteractiveWidget() {
 
 **Recommendation**: Use static rendering by default, and only add `condition` directives when interactivity is truly needed.
 
-## How avalon Compares to Other Frameworks
-
-avalon stands out in the islands architecture landscape with its unique approach to framework-agnostic development and true static-by-default behavior.
-
-### Islands Architecture Frameworks Comparison
-
-| Framework  | Philosophy                 | Framework Support                 | Default Behavior       | Runtime Size       |
-| ---------- | -------------------------- | --------------------------------- | ---------------------- | ------------------ |
-| **avalon** | Framework-agnostic islands | Preact, Solid, Vue, Vanilla       | **Static by default**  | Zero to minimal    |
-| **Astro**  | Content-first with islands | React, Preact, Vue, Svelte, Solid | **Zero JS by default** | Zero to minimal    |
-| **Fresh**  | Server-side rendering      | Preact only                       | Islands always hydrate | ~10KB + Preact     |
-| **Qwik**   | Resumable applications     | Qwik components only              | Progressive hydration  | ~1KB + lazy chunks |
-
-### Key Differentiators
-
-#### ✅ **avalon's Unique Advantages**
-
 **Framework Flexibility:**
 
 ```typescript
@@ -173,9 +156,6 @@ avalon stands out in the islands architecture landscape with its unique approach
 
 **True Static by Default:**
 
-- ✅ **Astro**: Zero JavaScript by default, explicit hydration directives
-- ❌ **Fresh**: Always includes Preact runtime
-- ❌ **Qwik**: Uses progressive hydration (still includes runtime)
 - ✅ **avalon**: Zero JavaScript for components without `condition`
 
 **Development Simplicity:**
@@ -185,69 +165,11 @@ avalon stands out in the islands architecture landscape with its unique approach
 - Direct ES modules serving from `/src/*`
 - Works with existing TypeScript/JavaScript knowledge
 
-#### 🎯 **When to Choose avalon Over Alternatives**
-
-**Choose avalon over Astro when:**
-
-- You want to mix different frameworks in the same component
-- You prefer runtime-based hydration over build-time compilation
-- You want simpler development without build-time optimizations
-- You need framework-agnostic islands (Astro requires framework-specific setup)
-
-**Choose avalon over Fresh when:**
-
-- You want to use frameworks other than Preact
-- You need truly static components (Fresh always hydrates islands)
-- You want more control over when components become interactive
-
-**Choose avalon over Qwik when:**
-
-- You have existing React/Vue/Solid knowledge (no need to learn Qwik syntax)
-- You want true static rendering (Qwik uses progressive hydration)
-- You prefer explicit hydration control over automatic resumability
-
-### Framework Ecosystem Comparison
-
-| Aspect                      | avalon                 | Astro                    | Fresh                     | Qwik                       |
-| --------------------------- | ---------------------- | ------------------------ | ------------------------- | -------------------------- |
-| **Component Reuse**         | ✅ Any framework       | ✅ Multiple frameworks   | ❌ Preact only            | ❌ Qwik only               |
-| **Learning Curve**          | ✅ Use existing skills | ⚠️ Learn Astro syntax    | ⚠️ Learn Fresh patterns   | ❌ Learn new framework     |
-| **Static Performance**      | ✅ True zero-JS        | ✅ Zero-JS by default    | ❌ Always includes Preact | ❌ Always includes runtime |
-| **Interactive Performance** | ✅ Lazy loading        | ✅ Lazy loading          | ⚠️ Immediate hydration    | ✅ Progressive hydration   |
-| **Build Complexity**        | ✅ Simple (no build)   | ⚠️ Complex optimizations | ✅ Simple                 | ⚠️ Complex optimizations   |
-
-### Real-World Use Cases
-
-**avalon excels for:**
-
-- **Multi-framework teams** - Use everyone's preferred framework
-- **Content sites with selective interactivity** - Blog with interactive widgets
-- **Performance-critical applications** - E-commerce with minimal JavaScript
-- **Gradual modernization** - Add interactivity to existing static sites
-
-**Example: E-commerce Site**
-
-```typescript
-// Static product listing (zero JS)
-<Island component={ProductGrid} />
-
-// Interactive cart (loads on interaction)
-<Island component={CartWidget} condition="on:interaction" />
-
-// Search (loads when visible)
-<Island component={SearchComponent} condition="on:visible" />
-
-// Reviews (different framework team preference)
-<Island component={VueReviewsWidget} condition="on:visible" />
-```
-
-This gives you the best of all worlds: **minimal JavaScript by default**, **framework flexibility**, and **precise control** over when interactivity loads.
-
 ## Installation
 
 ```bash
 # Install from JSR (JavaScript Registry)
-deno add jsr:@avalon/islands
+deno add jsr:@avalon/avalon
 ```
 
 ## Import System
@@ -258,22 +180,22 @@ avalon Islands uses a modular import system with framework-specific exports. Eac
 
 ```typescript
 // Vanilla JavaScript
-import { Island, withImports, from } from '@avalon/islands/vanilla';
+import { Island, withImports, from } from '@avalon/avalon/vanilla';
 
 // Preact
-import { Island, withImports, from } from '@avalon/islands/preact';
+import { Island, withImports, from } from '@avalon/avalon/preact';
 
 // Solid
-import { Island, withImports, from } from '@avalon/islands/solid';
+import { Island, withImports, from } from '@avalon/avalon/solid';
 
 // Vue
-import { Island, withImports, from } from '@avalon/islands/vue';
+import { Island, withImports, from } from '@avalon/avalon/vue';
 
 // Server utilities
-import { createServer, renderToHtml } from '@avalon/islands/server';
+import { createServer, renderToHtml } from '@avalon/avalon/server';
 
 // Core utilities and types (shared)
-import { mergeOptions, validators } from '@avalon/islands';
+import { mergeOptions, validators } from '@avalon/avalon';
 ```
 
 ### Dynamic Imports with `from` Helper
@@ -284,7 +206,7 @@ The `from` helper makes **local modules** from your `src` folder available for i
 
 ```typescript
 import { createSignal, onCleanup } from 'solid-js';
-import { withImports, from } from '@avalon/islands/solid';
+import { withImports, from } from '@avalon/avalon/solid';
 import { $count } from '@store/store.ts';
 
 // Helper for store imports
@@ -333,7 +255,7 @@ const SolidCounterComponent = withStore(['$count', '$history'])(() => {
 For cleaner, more readable code, you can create helper functions that work with `withImports`:
 
 ```typescript
-import { withImports, from } from '@avalon/islands/preact';
+import { withImports, from } from '@avalon/avalon/preact';
 
 // Helper function for common store imports
 const withStore = (imports: string[]) =>
@@ -350,7 +272,7 @@ const DealAlertsComponent = withStore(['addTrackedTrip'])(() => {
 #### Vanilla Example
 
 ```typescript
-import { withImports, from, Island } from '@avalon/islands/vanilla';
+import { withImports, from, Island } from '@avalon/avalon/vanilla';
 import { $count, increment, decrement } from '@store/store.ts';
 import { formatNumber } from '@utils/formatters.ts';
 
@@ -457,7 +379,7 @@ const routes: Routes = {
 ```typescript
 // Example: Solid island with component-level imports
 import { createSignal } from 'solid-js';
-import { withImports, from, Island } from '@avalon/islands/solid';
+import { withImports, from, Island } from '@avalon/avalon/solid';
 import { formatData, calculateStats } from '@utils/data.ts';
 import { logger } from '@utils/logger.ts';
 
@@ -513,7 +435,7 @@ export default function Chart() {
 Define imports that are available across all routes:
 
 ```typescript
-import { createServer } from '@avalon/islands/server';
+import { createServer } from '@avalon/avalon/server';
 
 const server = createServer({
 	routes: {
@@ -545,7 +467,7 @@ const server = createServer({
 Define route-specific imports in the server configuration that are only loaded on certain pages:
 
 ```typescript
-import { createServer, type Routes } from '@avalon/islands/server';
+import { createServer, type Routes } from '@avalon/avalon/server';
 import HomePage from './pages/home.tsx';
 import DashboardPage from './pages/dashboard.tsx';
 
@@ -607,7 +529,7 @@ const server = createServer({
 Define imports at the component level for local modules using the `from` helper:
 
 ```typescript
-import { vanillaComponent, from, Island } from '@avalon/islands/vanilla';
+import { vanillaComponent, from, Island } from '@avalon/avalon/vanilla';
 import { formatData, processData } from 'utils/data.ts';
 import { logger } from 'debug/logger.ts';
 
@@ -659,7 +581,7 @@ const routes: Routes = {
 };
 
 // Component with local module imports
-import { vanillaComponent, from, Island } from '@avalon/islands/vanilla';
+import { vanillaComponent, from, Island } from '@avalon/avalon/vanilla';
 import { calculateStats, generateReport } from 'analytics/stats.ts';
 import { formatNumber, formatCurrency } from 'utils/formatters.ts';
 
@@ -727,7 +649,7 @@ const serverConfig: ServerConfig = {
 
 ```typescript
 // src/components/VanillaCounter.tsx
-import { withImports, Island } from '@avalon/islands/vanilla';
+import { withImports, Island } from '@avalon/avalon/vanilla';
 
 // Simple component without imports
 const CounterComponent = withImports()((container, props = { count: 0 }) => {
@@ -769,7 +691,7 @@ export default function VanillaCounter() {
 
 ```typescript
 // src/components/PreactCounter.tsx
-import { withImports, Island } from '@avalon/islands/preact';
+import { withImports, Island } from '@avalon/avalon/preact';
 import { useState } from 'preact/hooks';
 
 // Simple component without imports
@@ -797,7 +719,7 @@ export default function PreactCounter() {
 ### Solid
 
 ```typescript
-import { Island, withImports, from } from '@avalon/islands/solid';
+import { Island, withImports, from } from '@avalon/avalon/solid';
 
 // Helper for client utilities
 const withClient = (imports: string[]) =>
@@ -821,7 +743,7 @@ export default function SolidCounter() {
 
 ```typescript
 // src/components/VueCounter.tsx
-import { withImports, Island } from '@avalon/islands/vue';
+import { withImports, Island } from '@avalon/avalon/vue';
 import { ref } from 'vue';
 
 // Simple component without imports
@@ -883,7 +805,7 @@ deno task compress-images  # Compress when needed
 **Create `compress-images.ts` in your project:**
 
 ```typescript
-import { compressImages } from '@avalon/islands/server';
+import { compressImages } from '@avalon/avalon/server';
 
 await compressImages({
 	enabled: true,
@@ -940,7 +862,7 @@ Hot reload is automatically enabled in development mode. You can customize the b
 
 ```typescript
 // server.ts
-import { createServer } from '@avalon/islands/server';
+import { createServer } from '@avalon/avalon/server';
 
 const server = createServer({
 	routes,
@@ -993,7 +915,7 @@ First, configure Nanostore in your server's import map:
 
 ```typescript
 // server.ts
-import { createServer } from '@avalon/islands/server';
+import { createServer } from '@avalon/avalon/server';
 import { routes } from './routes.ts';
 
 const server = createServer({
@@ -1054,7 +976,7 @@ When using Nanostore with avalon Islands, you'll notice a dual import pattern in
 ```typescript
 // src/components/PreactCounter.tsx
 import { useState, useEffect } from 'preact/hooks';
-import { withImports, from, Island } from '@avalon/islands/preact';
+import { withImports, from, Island } from '@avalon/avalon/preact';
 
 // TypeScript import for development (syntax highlighting, type checking)
 // This is NOT sent to the client - it's only for your IDE and TypeScript compiler
@@ -1094,7 +1016,7 @@ export default function PreactGlobalUtil() {
 ```typescript
 // src/components/SolidCounter.tsx
 import { createSignal, onCleanup } from 'solid-js';
-import { withImports, from, Island } from '@avalon/islands/solid';
+import { withImports, from, Island } from '@avalon/avalon/solid';
 
 // Helper for store imports
 const withStore = (imports: string[]) =>
@@ -1127,7 +1049,7 @@ export default function SolidCounter() {
 
 ```typescript
 // src/components/VanillaCounter.tsx
-import { withImports, from, Island } from '@avalon/islands/vanilla';
+import { withImports, from, Island } from '@avalon/avalon/vanilla';
 
 function createCounter(container: HTMLElement) {
 	const updateDisplay = () => {
@@ -1274,7 +1196,7 @@ avalon Islands provides a powerful server setup with native Deno.serve and URLPa
 ### Basic Server Configuration
 
 ```typescript
-import { createServer, type Routes, type ServerConfig } from '@avalon/islands/server';
+import { createServer, type Routes, type ServerConfig } from '@avalon/avalon/server';
 import HomePage from './pages/home.tsx';
 import DashboardPage from './pages/dashboard.tsx';
 
@@ -1426,7 +1348,7 @@ Validates a server configuration and returns detailed validation results.
 All server configuration is fully typed with comprehensive TypeScript definitions:
 
 ```typescript
-import type { ServerConfig, Routes, RouteConfig, RenderOptions, ImportMap } from '@avalon/islands/server';
+import type { ServerConfig, Routes, RouteConfig, RenderOptions, ImportMap } from '@avalon/avalon/server';
 ```
 
 ### Error Handling
@@ -1522,8 +1444,8 @@ Create a file in `src/api/` to define an API endpoint:
 **src/api/hello.ts**
 
 ```typescript
-import { json } from '@avalon/islands/server';
-import type { ApiContext } from '@avalon/islands/server';
+import { json } from '@avalon/avalon/server';
+import type { ApiContext } from '@avalon/avalon/server';
 
 export default function handler(context: ApiContext) {
 	const { request, query } = context;
@@ -1544,8 +1466,8 @@ Handle different HTTP methods with an object export:
 **src/api/users/index.ts**
 
 ```typescript
-import { json, badRequest, parseJson } from '@avalon/islands/server';
-import type { ApiContext } from '@avalon/islands/server';
+import { json, badRequest, parseJson } from '@avalon/avalon/server';
+import type { ApiContext } from '@avalon/avalon/server';
 
 const users = new Map();
 
@@ -1581,8 +1503,8 @@ Use square brackets for dynamic parameters:
 **src/api/users/[id].ts**
 
 ```typescript
-import { json, notFound } from '@avalon/islands/server';
-import type { ApiContext } from '@avalon/islands/server';
+import { json, notFound } from '@avalon/avalon/server';
+import type { ApiContext } from '@avalon/avalon/server';
 
 export default {
 	async GET(context: ApiContext) {
@@ -1638,7 +1560,7 @@ import {
 	internalServerError, // 500 response
 	methodNotAllowed, // 405 response
 	corsHeaders, // CORS headers helper
-} from '@avalon/islands/server';
+} from '@avalon/avalon/server';
 
 // Usage examples
 return json({ message: 'Success' });
@@ -1651,7 +1573,7 @@ return notFound('Resource not found');
 ### Request Parsing Helpers
 
 ```typescript
-import { parseJson, parseFormData, getQueryParams } from '@avalon/islands/server';
+import { parseJson, parseFormData, getQueryParams } from '@avalon/avalon/server';
 
 export default async function handler(context: ApiContext) {
 	// Parse JSON body
@@ -1670,7 +1592,7 @@ export default async function handler(context: ApiContext) {
 ### CORS Support
 
 ```typescript
-import { json, corsHeaders } from '@avalon/islands/server';
+import { json, corsHeaders } from '@avalon/avalon/server';
 
 export default {
 	// Handle preflight requests
@@ -1764,7 +1686,7 @@ Control when islands hydrate for optimal performance. You can specify conditions
 
 ```typescript
 // src/components/ConditionalComponents.tsx
-import { withImports, Island } from '@avalon/islands/preact';
+import { withImports, Island } from '@avalon/avalon/preact';
 
 // Simple components without imports
 const ImmediateCounter = withImports()(() => {
@@ -1823,7 +1745,7 @@ export default function DesktopOnlyCounter() {
 
 ### Framework-Specific Exports
 
-#### Vanilla (`@avalon/islands/vanilla`)
+#### Vanilla (`@avalon/avalon/vanilla`)
 
 ```typescript
 import {
@@ -1839,10 +1761,10 @@ import {
 	type ImportConfig,
 	type IslandCondition,
 	type ComponentMetadata,
-} from '@avalon/islands/vanilla';
+} from '@avalon/avalon/vanilla';
 ```
 
-#### Preact (`@avalon/islands/preact`)
+#### Preact (`@avalon/avalon/preact`)
 
 ```typescript
 import {
@@ -1856,10 +1778,10 @@ import {
 	type ImportConfig,
 	type IslandCondition,
 	type ComponentMetadata,
-} from '@avalon/islands/preact';
+} from '@avalon/avalon/preact';
 ```
 
-#### Solid (`@avalon/islands/solid`)
+#### Solid (`@avalon/avalon/solid`)
 
 ```typescript
 import {
@@ -1873,10 +1795,10 @@ import {
 	type ImportConfig,
 	type IslandCondition,
 	type ComponentMetadata,
-} from '@avalon/islands/solid';
+} from '@avalon/avalon/solid';
 ```
 
-#### Vue (`@avalon/islands/vue`)
+#### Vue (`@avalon/avalon/vue`)
 
 ```typescript
 import {
@@ -1889,10 +1811,10 @@ import {
 	type ImportConfig,
 	type IslandCondition,
 	type ComponentMetadata,
-} from '@avalon/islands/vue';
+} from '@avalon/avalon/vue';
 ```
 
-#### Server (`@avalon/islands/server`)
+#### Server (`@avalon/avalon/server`)
 
 ```typescript
 import {
@@ -1908,10 +1830,10 @@ import {
 	type RouteConfig,
 	type RenderOptions,
 	type ImportMap,
-} from '@avalon/islands/server';
+} from '@avalon/avalon/server';
 ```
 
-#### Core (`@avalon/islands`)
+#### Core (`@avalon/avalon`)
 
 ```typescript
 import {
@@ -1943,7 +1865,7 @@ import {
 	type ValidationResult,
 	type ValidationSuccess,
 	type ValidationFailure,
-} from '@avalon/islands';
+} from '@avalon/avalon';
 ```
 
 ## Best Practices
@@ -1981,8 +1903,6 @@ import {
 5. **Test Hydration Conditions**: Actually resize your browser window to test media queries
 
 6. **Component Organization**: Export each component with its own island wrapper for cleaner imports and better separation of concerns
-
-7. **Emoji Support**: Emojis and Unicode characters are fully supported out of the box with proper UTF-8 encoding
 
 ## License
 
