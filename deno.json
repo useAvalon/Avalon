@@ -1,0 +1,75 @@
+{
+	"tasks": {
+		"dev": "deno run --allow-all src/server.tsx",
+		"start": "DENO_ENV=production deno run --allow-all src/server.tsx",
+		"test": "deno test --allow-all",
+		"test-schema": "cd src && deno run --allow-all test_schema.ts",
+		"test-minification": "deno run --allow-all tests/minification-test.ts",
+		"test-islands": "deno run --allow-all tests/islands-ssr-test.ts",
+		"test-static-default": "deno run --allow-all tests/static-by-default-test.ts",
+		"test-all": "deno task test-minification && deno task test-islands && deno task test-static-default",
+		"lint": "deno lint --unstable",
+		"format": "deno fmt --check",
+		"publish-check": "deno publish --dry-run --unstable --allow-dirty",
+		"publish": "deno publish --unstable",
+		"package-size": "deno info mod.ts",
+		"clear": "deno cache --reload ."
+	},
+	"name": "@avalon/avalon",
+	"version": "0.1.0",
+	"license": "MIT",
+	"nodeModulesDir": "auto",
+
+	"exports": {
+		".": "./mod.ts",
+		"./preact": "./preact.ts",
+		"./solid": "./solid.ts",
+		"./vue": "./vue.ts",
+		"./vanilla": "./vanilla.ts",
+		"./server": "./server.ts"
+	},
+
+	"imports": {
+		"@/utils/": "./src/utils/",
+		"@/schemas/": "./src/schemas/",
+		"@avalon/hot-reload": "jsr:@avalon/hot-reload@^0.1.0",
+		"@std/fs": "jsr:@std/fs@^1.0.8",
+		"@std/path": "jsr:@std/path@^1.0.8",
+		"@swc/core": "npm:@swc/core@1.3.107",
+		"preact": "npm:preact@10.26.9",
+		"preact-render-to-string": "npm:preact-render-to-string@6.5.13",
+		"solid-js": "npm:solid-js@1.9.3",
+		"typescript": "npm:typescript@5.3.3",
+		"zod": "npm:zod@3.25.28"
+	},
+	"compilerOptions": {
+		"jsx": "precompile",
+		"jsxImportSource": "preact",
+		"lib": ["dom", "dom.iterable", "esnext", "deno.ns"]
+	},
+
+	"publish": {
+		"include": [
+			"mod.ts",
+			"preact.ts",
+			"solid.ts",
+			"vue.ts",
+			"vanilla.ts",
+			"server.ts",
+			"src/**/*",
+			"README.md",
+			"deno.json"
+		],
+		"exclude": [
+			"node_modules/**/*",
+			"npm:**/*",
+			"**/*.test.ts",
+			"**/test/**/*",
+			"examples/**/*",
+			"docs/**/*",
+			".git/**/*",
+			"dist/**/*",
+			"build/**/*"
+		]
+	}
+}
