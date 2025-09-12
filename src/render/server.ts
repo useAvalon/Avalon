@@ -1,10 +1,11 @@
 import { join } from '@std/path';
 import { renderToHtml } from './ssr.ts';
-import { transform } from '@swc/core';
 import { mergeOptions } from '../functions/merge.ts';
 import { discoverApiRoutes, handleApiRequest } from '../functions/api.ts';
-import { HotReloadServer } from '@avalon/hot-reload';
+import { loadIslandManifest } from '../build/island-manifest.ts';
+import type { IslandManifest as _IslandManifest } from '../build/island-manifest.ts';
 import type { z } from 'zod';
+import type { ViteDevServer } from 'vite';
 import {
 	validateServerConfig,
 	safeValidateServerConfig,
@@ -15,11 +16,36 @@ import {
 
 const STATIC_FILES_DIR = join(Deno.cwd(), 'public');
 
+// Proxy requests to Vite dev server
+async function proxyToVite(req: Request, viteUrl: string): Promise<Response> {
+	try {
+		const url = new URL(req.url);
+		const viteRequestUrl = `${viteUrl}${url.pathname}${url.search}`;
+
+		const response = await fetch(viteRequestUrl, {
+			method: req.method,
+			headers: req.headers,
+			body: req.body,
+		});
+
+		return new Response(response.body, {
+			status: response.status,
+			statusText: response.statusText,
+			headers: response.headers,
+		});
+	} catch (error) {
+		console.error('Vite proxy error:', error);
+		return new Response('Vite proxy failed', { status: 502 });
+	}
+}
+
 const MIME_TYPES: Record<string, string> = {
 	// JavaScript/TypeScript
 	'.js': 'application/javascript',
-	'.ts': 'application/javascript',
-	'.tsx': 'application/javascript',
+	'.ts': 'application/typescript',
+	'.tsx': 'application/typescript',
+	'.vue': 'text/x-vue',
+	'.jsx': 'application/javascript',
 	'.mjs': 'application/javascript',
 
 	// Stylesheets
@@ -74,12 +100,7 @@ const MIME_TYPES: Record<string, string> = {
 	'.manifest': 'text/cache-manifest',
 } as const;
 
-async function serveStaticFile(
-	path: string,
-	rootDir: string,
-	shouldMinify = false,
-	originalUrl?: string
-): Promise<Response> {
+async function serveStaticFile(path: string, rootDir: string, originalUrl?: string): Promise<Response> {
 	try {
 		// Security: Prevent directory traversal attacks
 		if (path.includes('..') || path.includes('\\') || path.startsWith('/')) {
@@ -161,50 +182,13 @@ async function serveStaticFile(
 
 			return new Response(fileBytes, { headers });
 		} else {
-			// For text files, read as text and potentially minify
+			// For text files, read as text (Vite handles all processing)
 			const fileContent = await Deno.readTextFile(filePath);
-			let processedContent = fileContent;
 
-			if (shouldMinify && (extension === '.ts' || extension === '.tsx' || extension === '.js')) {
-				const { code } = await transform(fileContent, {
-					jsc: {
-						parser: {
-							syntax: extension === '.js' ? 'ecmascript' : 'typescript',
-							tsx: extension === '.tsx',
-						},
-						target: 'es2020',
-						minify: {
-							compress: {
-								arrows: true,
-								booleans: true,
-								collapse_vars: true,
-								comparisons: true,
-								computed_props: true,
-								conditionals: true,
-								dead_code: true,
-								evaluate: true,
-								if_return: true,
-								inline: 0,
-								join_vars: true,
-								keep_classnames: false,
-								keep_fnames: false,
-								loops: true,
-								negate_iife: true,
-								reduce_vars: true,
-								unused: true,
-								toplevel: true,
-							},
-						},
-					},
-					minify: true,
-				});
-				processedContent = code;
-			}
-
-			return new Response(processedContent, {
+			return new Response(fileContent, {
 				headers: {
 					'Content-Type': MIME_TYPES[extension] || 'text/plain',
-					'Cache-Control': shouldMinify ? 'no-cache' : 'public, max-age=3600',
+					'Cache-Control': 'no-cache', // Let Vite handle caching in dev
 				},
 			});
 		}
@@ -224,32 +208,47 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 	// Validate the entire server configuration
 	const validatedConfig = validateServerConfig(config);
 
-	const { routes, port = 8000, defaultOptions = {}, importMap } = validatedConfig;
+	const { routes, port = 8000, defaultOptions = {} } = validatedConfig;
 
-	// Merge options with validation
-	const mergedDefaultOptions = mergeOptions({}, defaultOptions, {
-		importMap,
-	});
+	// Merge options with validation (no more importMap with Vite)
+	const mergedDefaultOptions = mergeOptions({}, defaultOptions, {});
 
 	// Get API routes (development vs production)
 	const isDev = Deno.env.get('DENO_ENV') !== 'production';
 
-	// Start hot reload server in development
-	let hotReloadServer: HotReloadServer | null = null;
+	// Load island manifest for production
+	const islandManifest: _IslandManifest | null = isDev ? null : await loadIslandManifest();
+
+	// Vite dev server (always in development for efficient compilation and HMR)
+	let viteDevServer: ViteDevServer | null = null;
+	let viteServerUrl = '';
 	if (isDev) {
-		// Hot reload enabled - for source code changes (TS/JS/CSS/HTML)
 		try {
-			hotReloadServer = new HotReloadServer({
-				port: port + 1, // Use next port for WebSocket (8000 + 1 = 8001)
-				watchDirs: ['src'], // Only watch source code, not public build outputs
-				watchExtensions: ['.ts', '.tsx', '.js', '.jsx', '.html'],
-				debounceMs: 50,
+			// Import Vite dynamically to avoid production dependencies
+			const { createServer } = await import('vite');
+			viteDevServer = await createServer({
+				configFile: 'vite.config.ts',
+				server: {
+					middlewareMode: false, // Run as standalone server
+					port: 8002,
+					strictPort: true,
+					cors: true,
+					hmr: { port: 8003 },
+				},
+				root: Deno.cwd(),
 			});
-			await hotReloadServer.start();
+			await viteDevServer.listen();
+			viteServerUrl = 'http://localhost:8002';
+
+			// Make Vite server available globally for SSR
+			globalThis.__viteDevServer = viteDevServer;
+
+			console.log('✅ Vite dev server started on http://localhost:8002');
+			console.log('🔥 HMR WebSocket: ws://localhost:8003');
 		} catch (error) {
-			console.warn('Hot reload server failed to start:', error);
-			console.warn('Continuing without hot reload...');
-			hotReloadServer = null;
+			console.error('❌ Failed to start Vite dev server. This is required for development:', error);
+			console.log('💡 Make sure you have vite.config.ts and @deno/vite-plugin installed');
+			throw error;
 		}
 	}
 
@@ -282,14 +281,100 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			},
 		},
 
+		// Client script serving (always available) - served from Avalon's location
 		{
-			pattern: new URLPattern({ pathname: '/src/*' }),
+			pattern: new URLPattern({ pathname: '/src/client/main.js' }),
+			handler: async () => {
+				try {
+					// Serve from Avalon's client script, not user's repo
+					const clientScriptPath = new URL('../client/main.js', import.meta.url);
+					const clientScript = await Deno.readTextFile(clientScriptPath);
+					return new Response(clientScript, {
+						headers: {
+							'Content-Type': 'application/javascript; charset=utf-8',
+							'Cache-Control': 'no-cache',
+						},
+					});
+				} catch (error) {
+					console.error('Failed to serve Avalon client script:', error);
+					return new Response('Client script not found', { status: 404 });
+				}
+			},
+		},
+
+		// Vite dev server middleware (development only)
+		...(isDev && viteServerUrl
+			? [
+					{
+						pattern: new URLPattern({ pathname: '/@vite/*' }),
+						handler: (req: Request) => proxyToVite(req, viteServerUrl),
+					},
+					{
+						pattern: new URLPattern({ pathname: '/@fs/*' }),
+						handler: (req: Request) => proxyToVite(req, viteServerUrl),
+					},
+					{
+						pattern: new URLPattern({ pathname: '/@id/*' }),
+						handler: (req: Request) => proxyToVite(req, viteServerUrl),
+					},
+					{
+						pattern: new URLPattern({ pathname: '/node_modules/*' }),
+						handler: (req: Request) => proxyToVite(req, viteServerUrl),
+					},
+					{
+						pattern: new URLPattern({ pathname: '/@solid-refresh' }),
+						handler: (req: Request) => proxyToVite(req, viteServerUrl),
+					},
+					{
+						pattern: new URLPattern({ pathname: '/src/*' }),
+						handler: (req: Request) => proxyToVite(req, viteServerUrl),
+					},
+					{
+						pattern: new URLPattern({ pathname: '/islands/*' }),
+						handler: (req: Request) => {
+							console.log(`🏝️ Proxying island request: ${req.url}`);
+							return proxyToVite(req, viteServerUrl);
+						},
+					},
+					{
+						pattern: new URLPattern({ pathname: '/components/*' }),
+						handler: (req: Request) => proxyToVite(req, viteServerUrl),
+					},
+			  ]
+			: [
+					{
+						pattern: new URLPattern({ pathname: '/src/*' }),
+						handler: async (req: Request) => {
+							const url = new URL(req.url);
+							const path = url.pathname.replace(/^\/src\//, '');
+							// Special case: serve Avalon's client script
+							if (path === 'client/main.js') {
+								try {
+									const clientScriptPath = new URL('../client/main.js', import.meta.url);
+									const clientScript = await Deno.readTextFile(clientScriptPath);
+									return new Response(clientScript, {
+										headers: {
+											'Content-Type': 'application/javascript; charset=utf-8',
+											'Cache-Control': 'no-cache',
+										},
+									});
+								} catch (error) {
+									console.error('Failed to serve Avalon client script:', error);
+								}
+							}
+							// Otherwise serve from user's repo
+							return await serveStaticFile(path, join(Deno.cwd(), 'src'));
+						},
+					},
+			  ]),
+
+		// Serve built island bundles (production)
+		{
+			pattern: new URLPattern({ pathname: '/dist/islands/*' }),
 			handler: async (req: Request) => {
 				const url = new URL(req.url);
-				const path = url.pathname.replace(/^\/src\//, '');
-
-				// Use existing serveStaticFile function
-				return await serveStaticFile(path, join(Deno.cwd(), 'src'), true);
+				const path = url.pathname.replace(/^\/dist\//, '');
+				return await serveStaticFile(path, join(Deno.cwd(), 'dist'));
 			},
 		},
 		// CSS files
@@ -298,7 +383,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			handler: async (req: Request) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/css\//, 'css/');
-				return await serveStaticFile(path, STATIC_FILES_DIR, false);
+				return await serveStaticFile(path, STATIC_FILES_DIR);
 			},
 		},
 		// JavaScript files
@@ -307,7 +392,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			handler: async (req: Request) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/js\//, 'js/');
-				return await serveStaticFile(path, STATIC_FILES_DIR, false);
+				return await serveStaticFile(path, STATIC_FILES_DIR);
 			},
 		},
 		// Image files
@@ -316,7 +401,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			handler: async (req: Request) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/images\//, 'images/');
-				return await serveStaticFile(path, STATIC_FILES_DIR, false);
+				return await serveStaticFile(path, STATIC_FILES_DIR);
 			},
 		},
 		// Font files
@@ -326,7 +411,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/fonts\//, 'fonts/');
 				console.log(`Font request: ${url.pathname} -> serving from: ${path}`);
-				return await serveStaticFile(path, STATIC_FILES_DIR, false, url.pathname);
+				return await serveStaticFile(path, STATIC_FILES_DIR, url.pathname);
 			},
 		},
 		// Assets folder (for videos, other media, etc.)
@@ -336,7 +421,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/assets\//, 'assets/');
 				console.log(`Assets request: ${url.pathname} -> serving from: ${path}`);
-				return await serveStaticFile(path, STATIC_FILES_DIR, false);
+				return await serveStaticFile(path, STATIC_FILES_DIR);
 			},
 		},
 
@@ -344,8 +429,14 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			pattern: new URLPattern({ pathname: path }),
 			handler: async () => {
 				try {
-					const hotReloadPort = isDev ? port + 1 : undefined;
-					const htmlContent = await renderToHtml(routeConfig as RouteConfig, mergedDefaultOptions, hotReloadPort);
+					// Pass Vite HMR port and island manifest to SSR
+					const viteHmrPort = isDev ? 8003 : undefined;
+					// Create extended options with island manifest
+					const extendedOptions = {
+						...mergedDefaultOptions,
+						...(islandManifest && { islandManifest }),
+					};
+					const htmlContent = await renderToHtml(routeConfig as RouteConfig, extendedOptions, viteHmrPort);
 					return new Response(htmlContent, {
 						headers: {
 							'Content-Type': 'text/html; charset=utf-8',
@@ -411,7 +502,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 
 				if (hasStaticExtension) {
 					console.log(`Static file request: ${url.pathname} -> serving from: ${path}`);
-					return await serveStaticFile(path, STATIC_FILES_DIR, false);
+					return await serveStaticFile(path, STATIC_FILES_DIR);
 				}
 
 				// Not a static file, return 404
@@ -452,8 +543,11 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		{
 			port,
 			onListen: ({ port: serverPort }) => {
-				console.log(`Server running on http://localhost:${serverPort}`);
-				console.log(`Hot reload: ws://localhost:${port + 1}`);
+				console.log(`🚀 Server running on http://localhost:${serverPort}`);
+				if (isDev && viteDevServer) {
+					console.log(`⚡ Vite dev server: http://localhost:8002`);
+					console.log(`🔥 HMR WebSocket: ws://localhost:8003`);
+				}
 			},
 		},
 		requestHandler
@@ -472,10 +566,10 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		console.log('\n🛑 Shutting down server gracefully...');
 
 		try {
-			// Stop hot reload server
-			if (hotReloadServer) {
-				console.log('🔄 Stopping hot reload server...');
-				hotReloadServer.stop();
+			// Stop Vite dev server
+			if (viteDevServer) {
+				console.log('🔄 Stopping Vite dev server...');
+				await viteDevServer.close();
 			}
 
 			// Shutdown main server

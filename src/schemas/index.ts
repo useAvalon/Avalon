@@ -1,29 +1,17 @@
 import { z } from 'zod';
-import { ImportConfigSchema, RenderOptionsSchema } from './core.ts';
+import { RenderOptionsSchema } from './core.ts';
 import { ServerConfigSchema } from './server.ts';
-import {
-	PreactIslandPropsSchema,
-	SolidIslandPropsSchema,
-	VanillaIslandPropsSchema,
-	VueIslandPropsSchema,
-} from './frameworks.ts';
 
 // Re-export all schemas and types
 export * from './core.ts';
-export * from './frameworks.ts';
 export * from './server.ts';
 export * from './api.ts';
 
 // === Explicit Type Definitions ===
 
 // Use z.infer to get the actual output types from schemas
-type ImportConfig = z.infer<typeof ImportConfigSchema>;
 type RenderOptions = z.infer<typeof RenderOptionsSchema>;
 type ServerConfig = z.infer<typeof ServerConfigSchema>;
-type PreactIslandProps = z.infer<typeof PreactIslandPropsSchema>;
-type SolidIslandProps = z.infer<typeof SolidIslandPropsSchema>;
-type VueIslandProps = z.infer<typeof VueIslandPropsSchema>;
-type VanillaIslandProps = z.infer<typeof VanillaIslandPropsSchema>;
 
 // === Validation Result Types ===
 
@@ -125,65 +113,26 @@ export function validate<TOutput, TDef extends z.ZodTypeDef = z.ZodTypeDef, TInp
  * Validation utilities with better error messages
  */
 export const validators = {
-	importConfig: (data: unknown): ImportConfig => validate(ImportConfigSchema, data, 'Invalid import configuration'),
-
 	renderOptions: (data: unknown): RenderOptions => validate(RenderOptionsSchema, data, 'Invalid render options'),
 
 	serverConfig: (data: unknown): ServerConfig => validate(ServerConfigSchema, data, 'Invalid server configuration'),
-
-	preactProps: (data: unknown): PreactIslandProps =>
-		validate(PreactIslandPropsSchema, data, 'Invalid Preact island props'),
-
-	solidProps: (data: unknown): SolidIslandProps => validate(SolidIslandPropsSchema, data, 'Invalid Solid island props'),
-
-	vueProps: (data: unknown): VueIslandProps => validate(VueIslandPropsSchema, data, 'Invalid Vue island props'),
-
-	vanillaProps: (data: unknown): VanillaIslandProps =>
-		validate(VanillaIslandPropsSchema, data, 'Invalid Vanilla island props'),
 } as const;
 
 /**
  * Safe validation utilities with explicit return types
  */
 export const safeValidators = {
-	importConfig: (data: unknown): ValidationResult<ImportConfig> =>
-		safeValidate(ImportConfigSchema, data, 'Invalid import configuration'),
-
 	renderOptions: (data: unknown): ValidationResult<RenderOptions> =>
 		safeValidate(RenderOptionsSchema, data, 'Invalid render options'),
 
 	serverConfig: (data: unknown): ValidationResult<ServerConfig> =>
 		safeValidate(ServerConfigSchema, data, 'Invalid server configuration'),
-
-	preactProps: (data: unknown): ValidationResult<PreactIslandProps> =>
-		safeValidate(PreactIslandPropsSchema, data, 'Invalid Preact island props'),
-
-	solidProps: (data: unknown): ValidationResult<SolidIslandProps> =>
-		safeValidate(SolidIslandPropsSchema, data, 'Invalid Solid island props'),
-
-	vueProps: (data: unknown): ValidationResult<VueIslandProps> =>
-		safeValidate(VueIslandPropsSchema, data, 'Invalid Vue island props'),
-
-	vanillaProps: (data: unknown): ValidationResult<VanillaIslandProps> =>
-		safeValidate(VanillaIslandPropsSchema, data, 'Invalid Vanilla island props'),
 } as const;
 
 /**
  * Development mode validation helpers with explicit return types
  */
 export const devValidators = {
-	/**
-	 * Validates import config and logs warnings instead of throwing
-	 */
-	importConfigSoft: (data: unknown, context = 'unknown'): boolean => {
-		const result: ValidationResult<ImportConfig> = safeValidators.importConfig(data);
-		if (!result.success) {
-			console.warn(`Import config validation warning in ${context}:`, result.error.getErrorMessage());
-			return false;
-		}
-		return true;
-	},
-
 	/**
 	 * Validates render options and logs warnings instead of throwing
 	 */
@@ -207,85 +156,17 @@ export const devValidators = {
 		}
 		return true;
 	},
-
-	/**
-	 * Validates Preact props and logs warnings instead of throwing
-	 */
-	preactPropsSoft: (data: unknown, context = 'unknown'): boolean => {
-		const result: ValidationResult<PreactIslandProps> = safeValidators.preactProps(data);
-		if (!result.success) {
-			console.warn(`Preact props validation warning in ${context}:`, result.error.getErrorMessage());
-			return false;
-		}
-		return true;
-	},
-
-	/**
-	 * Validates Solid props and logs warnings instead of throwing
-	 */
-	solidPropsSoft: (data: unknown, context = 'unknown'): boolean => {
-		const result: ValidationResult<SolidIslandProps> = safeValidators.solidProps(data);
-		if (!result.success) {
-			console.warn(`Solid props validation warning in ${context}:`, result.error.getErrorMessage());
-			return false;
-		}
-		return true;
-	},
-
-	/**
-	 * Validates Vue props and logs warnings instead of throwing
-	 */
-	vuePropsSoft: (data: unknown, context = 'unknown'): boolean => {
-		const result: ValidationResult<VueIslandProps> = safeValidators.vueProps(data);
-		if (!result.success) {
-			console.warn(`Vue props validation warning in ${context}:`, result.error.getErrorMessage());
-			return false;
-		}
-		return true;
-	},
-
-	/**
-	 * Validates Vanilla props and logs warnings instead of throwing
-	 */
-	vanillaPropsSoft: (data: unknown, context = 'unknown'): boolean => {
-		const result: ValidationResult<VanillaIslandProps> = safeValidators.vanillaProps(data);
-		if (!result.success) {
-			console.warn(`Vanilla props validation warning in ${context}:`, result.error.getErrorMessage());
-			return false;
-		}
-		return true;
-	},
 } as const;
 
 /**
  * Runtime Type Guards with Explicit Return Types
  */
-export function isValidImportConfig(data: unknown): data is ImportConfig {
-	return safeValidators.importConfig(data).success;
-}
-
 export function isValidRenderOptions(data: unknown): data is RenderOptions {
 	return safeValidators.renderOptions(data).success;
 }
 
 export function isValidServerConfig(data: unknown): data is ServerConfig {
 	return safeValidators.serverConfig(data).success;
-}
-
-export function isValidPreactIslandProps(data: unknown): data is PreactIslandProps {
-	return safeValidators.preactProps(data).success;
-}
-
-export function isValidSolidIslandProps(data: unknown): data is SolidIslandProps {
-	return safeValidators.solidProps(data).success;
-}
-
-export function isValidVueIslandProps(data: unknown): data is VueIslandProps {
-	return safeValidators.vueProps(data).success;
-}
-
-export function isValidVanillaIslandProps(data: unknown): data is VanillaIslandProps {
-	return safeValidators.vanillaProps(data).success;
 }
 
 // === Batch Validation Utilities ===

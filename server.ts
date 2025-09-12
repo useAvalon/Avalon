@@ -4,6 +4,15 @@ export { mergeOptions, mergePartialOptions } from './src/functions/merge.ts';
 export { discoverApiRoutes, registerApiRoutes, generateStaticRoutes, handleApiRequest } from './src/functions/api.ts';
 export * from './src/helpers/api.ts';
 
+// Island components and helpers
+export {
+	default as Island,
+	AsyncIsland,
+	renderVueIsland,
+	renderPreactIsland,
+	renderSolidIsland,
+} from './src/islands/Island.tsx';
+
 export type { Routes, ServerConfig, RouteConfig } from './src/schemas/server.ts';
 export type { RenderOptions } from './src/schemas/core.ts';
 export type { ApiContext, ApiHandler, ApiRouteConfig, ApiRoute, ApiMethod } from './src/schemas/api.ts';

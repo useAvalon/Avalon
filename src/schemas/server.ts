@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ImportMapSchema, PartialRenderOptionsSchema } from './core.ts';
+import { RenderOptionsSchema } from './core.ts';
 
 // === Internal Schemas (Building Blocks) ===
 
@@ -52,7 +52,7 @@ const RouteComponentSchema: z.ZodSchema = z.function().args().returns(z.any());
  */
 const RouteConfigSchema: z.ZodSchema = z.object({
 	component: RouteComponentSchema,
-	options: PartialRenderOptionsSchema.optional(),
+	options: RenderOptionsSchema.optional(),
 });
 
 /**
@@ -76,8 +76,7 @@ export const ServerConfigSchema: z.ZodSchema = z.object({
 		.min(1, 'Port must be at least 1')
 		.max(65535, 'Port must be at most 65535')
 		.default(8001),
-	defaultOptions: PartialRenderOptionsSchema.optional().default({}),
-	importMap: ImportMapSchema.optional(),
+	defaultOptions: RenderOptionsSchema.optional().default({}),
 });
 
 // === Public Types ===

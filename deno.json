@@ -1,7 +1,9 @@
 {
 	"tasks": {
-		"dev": "deno run --allow-all src/server.tsx",
-		"start": "DENO_ENV=production deno run --allow-all src/server.tsx",
+		"dev": "deno run --allow-all server.ts",
+		"start": "DENO_ENV=production deno run --allow-all server.ts",
+		"build": "deno run --allow-all jsr:@avalon/avalon/build",
+		"preview": "deno run --allow-all --env=production server.ts",
 		"test": "deno test --allow-all",
 		"test-schema": "cd src && deno run --allow-all test_schema.ts",
 		"test-minification": "deno run --allow-all tests/minification-test.ts",
@@ -22,44 +24,39 @@
 
 	"exports": {
 		".": "./mod.ts",
-		"./preact": "./preact.ts",
-		"./solid": "./solid.ts",
-		"./vue": "./vue.ts",
-		"./vanilla": "./vanilla.ts",
-		"./server": "./server.ts"
+		"./server": "./server.ts",
+		"./build": "./build.ts"
 	},
 
 	"imports": {
+		"@/": "./src/",
 		"@/utils/": "./src/utils/",
 		"@/schemas/": "./src/schemas/",
-		"@avalon/hot-reload": "jsr:@avalon/hot-reload@^0.1.0",
+		"@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.5",
 		"@std/fs": "jsr:@std/fs@^1.0.8",
 		"@std/path": "jsr:@std/path@^1.0.8",
-		"@swc/core": "npm:@swc/core@1.3.107",
+		"@vitejs/plugin-vue": "npm:@vitejs/plugin-vue@^6.0.1",
+		"vite-plugin-solid": "npm:vite-plugin-solid@^2.11.8",
 		"preact": "npm:preact@10.26.9",
+		"preact/hooks": "npm:preact@10.26.9/hooks",
 		"preact-render-to-string": "npm:preact-render-to-string@6.5.13",
 		"solid-js": "npm:solid-js@1.9.3",
+		"solid-js/web": "npm:solid-js@1.9.3/web",
+		"vue": "npm:vue@3.5.21",
+		"vue/server-renderer": "npm:vue@3.5.21/server-renderer",
+		"vite": "npm:vite@7.1.5",
 		"typescript": "npm:typescript@5.3.3",
 		"zod": "npm:zod@3.25.28"
 	},
 	"compilerOptions": {
 		"jsx": "precompile",
 		"jsxImportSource": "preact",
-		"lib": ["dom", "dom.iterable", "esnext", "deno.ns"]
+		"lib": ["dom", "dom.iterable", "esnext", "deno.ns"],
+		"types": ["vite/client"]
 	},
 
 	"publish": {
-		"include": [
-			"mod.ts",
-			"preact.ts",
-			"solid.ts",
-			"vue.ts",
-			"vanilla.ts",
-			"server.ts",
-			"src/**/*",
-			"README.md",
-			"deno.json"
-		],
+		"include": ["mod.ts", "server.ts", "src/**/*", "README.md", "deno.json"],
 		"exclude": [
 			"node_modules/**/*",
 			"npm:**/*",
