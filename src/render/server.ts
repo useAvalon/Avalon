@@ -302,6 +302,72 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			},
 		},
 
+		// SolidJS hydration script serving - pre-bundled by Avalon
+		{
+			pattern: new URLPattern({ pathname: '/src/client/solid-hydration.js' }),
+			handler: async () => {
+				try {
+					// Serve pre-bundled solid-hydration script from Avalon's distribution
+					const bundledScriptPath = new URL('../../dist-avalon/solid-hydration.js', import.meta.url);
+					const bundledScript = await Deno.readTextFile(bundledScriptPath);
+					return new Response(bundledScript, {
+						headers: {
+							'Content-Type': 'application/javascript; charset=utf-8',
+							'Cache-Control': 'public, max-age=86400', // Cache for 1 day
+						},
+					});
+				} catch (error) {
+					console.error('Failed to serve pre-bundled SolidJS hydration script:', error);
+					return new Response('SolidJS hydration script not found', { status: 404 });
+				}
+			},
+		},
+
+		// Vue hydration script serving - pre-bundled by Avalon
+		{
+			pattern: new URLPattern({ pathname: '/src/client/vue-hydration.js' }),
+			handler: async () => {
+				try {
+					// Serve pre-bundled vue-hydration script from Avalon's distribution
+					const bundledScriptPath = new URL('../../dist-avalon/vue-hydration.js', import.meta.url);
+					const bundledScript = await Deno.readTextFile(bundledScriptPath);
+					return new Response(bundledScript, {
+						headers: {
+							'Content-Type': 'application/javascript; charset=utf-8',
+							'Cache-Control': 'public, max-age=86400', // Cache for 1 day
+						},
+					});
+				} catch (error) {
+					console.error('Failed to serve pre-bundled Vue hydration script:', error);
+					return new Response('Vue hydration script not found', { status: 404 });
+				}
+			},
+		},
+
+		// Serve Avalon's pre-built chunks (for hydration scripts dependencies)
+		{
+			pattern: new URLPattern({ pathname: '/src/client/*.js' }),
+			handler: async (req: Request) => {
+				try {
+					const url = new URL(req.url);
+					const filename = url.pathname.split('/').pop();
+					if (!filename) throw new Error('Invalid filename');
+
+					const chunkPath = new URL(`../../dist-avalon/${filename}`, import.meta.url);
+					const chunkScript = await Deno.readTextFile(chunkPath);
+					return new Response(chunkScript, {
+						headers: {
+							'Content-Type': 'application/javascript; charset=utf-8',
+							'Cache-Control': 'public, max-age=86400',
+						},
+					});
+				} catch (error) {
+					console.error('Failed to serve Avalon chunk:', error);
+					return new Response('Chunk not found', { status: 404 });
+				}
+			},
+		},
+
 		// Vite dev server middleware (development only)
 		...(isDev && viteServerUrl
 			? [
@@ -347,6 +413,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 						handler: async (req: Request) => {
 							const url = new URL(req.url);
 							const path = url.pathname.replace(/^\/src\//, '');
+
 							// Special case: serve Avalon's client script
 							if (path === 'client/main.js') {
 								try {
@@ -362,6 +429,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 									console.error('Failed to serve Avalon client script:', error);
 								}
 							}
+
 							// Otherwise serve from user's repo
 							return await serveStaticFile(path, join(Deno.cwd(), 'src'));
 						},

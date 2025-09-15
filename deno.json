@@ -3,6 +3,7 @@
 		"dev": "deno run --allow-all server.ts",
 		"start": "DENO_ENV=production deno run --allow-all server.ts",
 		"build": "deno run --allow-all jsr:@avalon/avalon/build",
+		"build-avalon": "deno run --allow-all --unstable-detect-cjs npm:vite build --config avalon-build.vite.config.ts",
 		"preview": "deno run --allow-all --env=production server.ts",
 		"test": "deno test --allow-all",
 		"test-schema": "cd src && deno run --allow-all test_schema.ts",
@@ -12,8 +13,8 @@
 		"test-all": "deno task test-minification && deno task test-islands && deno task test-static-default",
 		"lint": "deno lint --unstable",
 		"format": "deno fmt --check",
-		"publish-check": "deno publish --dry-run --unstable --allow-dirty",
-		"publish": "deno publish --unstable",
+		"publish-check": "deno task build-avalon && deno publish --dry-run --unstable --allow-dirty",
+		"publish": "deno task build-avalon && deno publish --unstable",
 		"package-size": "deno info mod.ts",
 		"clear": "deno cache --reload ."
 	},
@@ -42,6 +43,7 @@
 		"preact-render-to-string": "npm:preact-render-to-string@6.5.13",
 		"solid-js": "npm:solid-js@1.9.3",
 		"solid-js/web": "npm:solid-js@1.9.3/web",
+		"solid-js/jsx-runtime": "npm:solid-js@1.9.3/jsx-runtime",
 		"vue": "npm:vue@3.5.21",
 		"vue/server-renderer": "npm:vue@3.5.21/server-renderer",
 		"vite": "npm:vite@7.1.5",
@@ -56,7 +58,7 @@
 	},
 
 	"publish": {
-		"include": ["mod.ts", "server.ts", "src/**/*", "README.md", "deno.json"],
+		"include": ["mod.ts", "server.ts", "src/**/*", "README.md", "deno.json", "dist-avalon/**/*"],
 		"exclude": [
 			"node_modules/**/*",
 			"npm:**/*",
@@ -66,7 +68,8 @@
 			"docs/**/*",
 			".git/**/*",
 			"dist/**/*",
-			"build/**/*"
+			"build/**/*",
+			"avalon-build.vite.config.ts"
 		]
 	}
 }

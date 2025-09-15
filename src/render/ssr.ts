@@ -8,9 +8,14 @@ export interface RouteConfig {
 }
 
 /**
- * Generate HTML head with Vite integration
+ * Generate HTML head with Vite integration and proper Solid.js hydration support
  */
-function generateHead(options: Partial<RenderOptions>, viteHmrPort?: number): string {
+async function generateHead(
+	options: Partial<RenderOptions>,
+	viteHmrPort?: number,
+	hasSolidComponents = false,
+	hasVueComponents = false
+): Promise<string> {
 	const isDev = Deno.env.get('DENO_ENV') !== 'production';
 
 	// Basic meta tags
@@ -35,12 +40,32 @@ function generateHead(options: Partial<RenderOptions>, viteHmrPort?: number): st
 			})
 			.join('\n    ') || '';
 
+	// Official Solid.js hydration script - only load if Solid components are present
+	let solidHydrationScript = '';
+	if (hasSolidComponents) {
+		try {
+			// Dynamic import to avoid loading Solid when not needed
+			const solidWeb = await import('solid-js/web');
+			if (solidWeb.generateHydrationScript) {
+				solidHydrationScript = `
+    ${solidWeb.generateHydrationScript()}`;
+			}
+		} catch (_error) {
+			// Solid.js not available, skip hydration script
+			console.warn('Solid.js not available, skipping hydration script');
+		}
+	}
+
 	// Vite client and island system
 	const clientScripts = isDev
 		? `
-    <script type="module" src="/src/client/main.js"></script>`
+    <script type="module" src="/src/client/main.js"></script>
+    ${hasSolidComponents ? '<script type="module" src="/src/client/solid-hydration.js"></script>' : ''}
+    ${hasVueComponents ? '<script type="module" src="/src/client/vue-hydration.js"></script>' : ''}`
 		: `
-    <script type="module" src="/dist/client.js"></script>`;
+    <script type="module" src="/dist/client.js"></script>
+    ${hasSolidComponents ? '<script type="module" src="/dist/solid-hydration.js"></script>' : ''}
+    ${hasVueComponents ? '<script type="module" src="/dist/vue-hydration.js"></script>' : ''}`;
 
 	// HMR WebSocket for development
 	const hmrScript =
@@ -59,6 +84,7 @@ function generateHead(options: Partial<RenderOptions>, viteHmrPort?: number): st
       <meta name="viewport" content="width=device-width, initial-scale=1">
       ${metaTags}
       <title>${options.title || 'Avalon App'}</title>
+      ${solidHydrationScript}
       ${styleTags}
       ${scriptTags}${clientScripts}${hmrScript}
     </head>`.trim();
@@ -79,14 +105,26 @@ export async function renderToHtml(
 		const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
 		const content = preactRenderToString(resolvedComponent);
 
+		// Simple check: look for Solid-specific patterns in the rendered HTML
+		const hasSolidComponents =
+			content.includes('solid-js') ||
+			content.includes('SolidIsland') ||
+			content.includes('createSignal') ||
+			content.includes('.solid.') ||
+			(content.includes('data-hydrate') && content.includes('Solid'));
+
+		// Simple check: look for Vue-specific patterns in the rendered HTML
+		const hasVueComponents =
+			content.includes('data-vue-hydrate') || content.includes('.vue') || content.includes('Vue');
+
 		// Merge route options with defaults
 		const options = {
 			...defaultOptions,
 			...routeConfig.options,
 		};
 
-		// Generate head with Vite integration
-		const head = generateHead(options, viteHmrPort);
+		// Generate head with Vite integration and framework detection
+		const head = await generateHead(options, viteHmrPort, hasSolidComponents, hasVueComponents);
 
 		return `<!DOCTYPE html>
 <html lang="en">

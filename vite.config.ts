@@ -153,8 +153,11 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		try {
 			// deno-lint-ignore no-external-import
 			const { default: solid } = await import('vite-plugin-solid');
-			solidPlugin = solid();
-			console.log('✅ Solid plugin loaded for Solid.js support');
+			// Configure Solid plugin with SSR support
+			solidPlugin = solid({
+				ssr: true,
+			});
+			console.log('✅ Solid plugin loaded for Solid.js support with SSR');
 		} catch (error: unknown) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			console.warn('⚠️ Solid.js files detected but vite-plugin-solid not available:', errorMessage);
@@ -194,6 +197,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 					...islandEntries,
 					// Main client entry for shared utilities - use Avalon's client script
 					client: resolve(new URL('../src/client/main.js', import.meta.url).pathname),
+					// NOTE: solid-hydration.js is pre-bundled by Avalon's own build process
 				},
 				output: {
 					// Clean naming for island bundles

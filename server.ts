@@ -5,13 +5,7 @@ export { discoverApiRoutes, registerApiRoutes, generateStaticRoutes, handleApiRe
 export * from './src/helpers/api.ts';
 
 // Island components and helpers
-export {
-	default as Island,
-	AsyncIsland,
-	renderVueIsland,
-	renderPreactIsland,
-	renderSolidIsland,
-} from './src/islands/Island.tsx';
+export { renderIsland } from './src/islands/Island.tsx';
 
 export type { Routes, ServerConfig, RouteConfig } from './src/schemas/server.ts';
 export type { RenderOptions } from './src/schemas/core.ts';
