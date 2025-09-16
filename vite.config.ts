@@ -138,7 +138,15 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		try {
 			// deno-lint-ignore no-external-import
 			const { default: vue } = await import('@vitejs/plugin-vue');
-			vuePlugin = vue();
+			vuePlugin = vue({
+				// Production optimizations
+				template: {
+					compilerOptions: {
+						// Treat is-land as a custom element (don't process as Vue component)
+						isCustomElement: tag => tag === 'is-land',
+					},
+				},
+			});
 			console.log('✅ Vue plugin loaded for .vue file support');
 		} catch (error: unknown) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
@@ -168,6 +176,14 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 	return {
 		root: '.',
 		publicDir: 'public',
+
+		// CRITICAL FIX: Force Vite to pre-bundle Vue.
+		// Because our hydration script is injected by the server and not an HTML file,
+		// Vite's dependency scanner misses it. This explicitly tells Vite
+		// to find 'vue' and make it available in the browser.
+		optimizeDeps: {
+			include: ['vue'],
+		},
 
 		// Plugin configuration
 		plugins: [
@@ -229,6 +245,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		// SSR configuration for framework support
 		ssr: {
 			target: 'webworker',
+			// Ensure Vue is bundled for SSR, but external for client
+			noExternal: ['vue', '@vue/server-renderer'],
 		},
 
 		// Resolve configuration for Deno compatibility
@@ -236,6 +254,9 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			alias: {
 				'@/': resolve('src/'),
 				'~/': resolve('./'),
+				// CRITICAL FIX: Add alias for Vue to ensure a single instance.
+				// This makes `import 'vue'` work correctly in the browser during dev.
+				vue: 'vue/dist/vue.esm-bundler.js',
 			},
 		},
 
@@ -243,6 +264,11 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		define: {
 			__DEV__: command === 'serve',
 			__PROD__: command === 'build',
+
+			// Vue production optimization flags
+			__VUE_OPTIONS_API__: true, // Enable Options API (set to false if not using)
+			__VUE_PROD_DEVTOOLS__: false, // Disable devtools in production
+			__VUE_PROD_HYDRATION_MISMATCH_DETAILS__: command === 'serve', // Only in dev
 		},
 	};
 });

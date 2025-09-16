@@ -302,49 +302,28 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			},
 		},
 
-		// SolidJS hydration script serving - pre-bundled by Avalon
+		// SolidJS hydration script (always available) - pre-bundled from Avalon
 		{
 			pattern: new URLPattern({ pathname: '/src/client/solid-hydration.js' }),
 			handler: async () => {
 				try {
-					// Serve pre-bundled solid-hydration script from Avalon's distribution
+					// Always serve pre-bundled script with dependencies resolved
 					const bundledScriptPath = new URL('../../dist-avalon/solid-hydration.js', import.meta.url);
 					const bundledScript = await Deno.readTextFile(bundledScriptPath);
 					return new Response(bundledScript, {
 						headers: {
 							'Content-Type': 'application/javascript; charset=utf-8',
-							'Cache-Control': 'public, max-age=86400', // Cache for 1 day
+							'Cache-Control': isDev ? 'no-cache' : 'public, max-age=86400',
 						},
 					});
 				} catch (error) {
-					console.error('Failed to serve pre-bundled SolidJS hydration script:', error);
-					return new Response('SolidJS hydration script not found', { status: 404 });
+					console.error('Failed to serve Avalon solid-hydration script:', error);
+					return new Response('Solid hydration script not found', { status: 404 });
 				}
 			},
 		},
 
-		// Vue hydration script serving - pre-bundled by Avalon
-		{
-			pattern: new URLPattern({ pathname: '/src/client/vue-hydration.js' }),
-			handler: async () => {
-				try {
-					// Serve pre-bundled vue-hydration script from Avalon's distribution
-					const bundledScriptPath = new URL('../../dist-avalon/vue-hydration.js', import.meta.url);
-					const bundledScript = await Deno.readTextFile(bundledScriptPath);
-					return new Response(bundledScript, {
-						headers: {
-							'Content-Type': 'application/javascript; charset=utf-8',
-							'Cache-Control': 'public, max-age=86400', // Cache for 1 day
-						},
-					});
-				} catch (error) {
-					console.error('Failed to serve pre-bundled Vue hydration script:', error);
-					return new Response('Vue hydration script not found', { status: 404 });
-				}
-			},
-		},
-
-		// Serve Avalon's pre-built chunks (for hydration scripts dependencies)
+		// Serve Avalon's pre-built chunks (always available - for hydration scripts dependencies)
 		{
 			pattern: new URLPattern({ pathname: '/src/client/*.js' }),
 			handler: async (req: Request) => {
@@ -353,12 +332,18 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 					const filename = url.pathname.split('/').pop();
 					if (!filename) throw new Error('Invalid filename');
 
+					// Skip main.js, solid-hydration.js, vue-hydration.js (handled by specific routes above)
+					if (['main.js', 'solid-hydration.js', 'vue-hydration.js'].includes(filename)) {
+						return new Response('Handled by specific route', { status: 404 });
+					}
+
+					console.log(`📦 Serving Avalon chunk: ${filename}`);
 					const chunkPath = new URL(`../../dist-avalon/${filename}`, import.meta.url);
 					const chunkScript = await Deno.readTextFile(chunkPath);
 					return new Response(chunkScript, {
 						headers: {
 							'Content-Type': 'application/javascript; charset=utf-8',
-							'Cache-Control': 'public, max-age=86400',
+							'Cache-Control': isDev ? 'no-cache' : 'public, max-age=86400',
 						},
 					});
 				} catch (error) {
@@ -368,9 +353,10 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			},
 		},
 
-		// Vite dev server middleware (development only)
+		// Vite dev server middleware (development only) - essential routes
 		...(isDev && viteServerUrl
 			? [
+					// Vite internal routes
 					{
 						pattern: new URLPattern({ pathname: '/@vite/*' }),
 						handler: (req: Request) => proxyToVite(req, viteServerUrl),
@@ -391,10 +377,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 						pattern: new URLPattern({ pathname: '/@solid-refresh' }),
 						handler: (req: Request) => proxyToVite(req, viteServerUrl),
 					},
-					{
-						pattern: new URLPattern({ pathname: '/src/*' }),
-						handler: (req: Request) => proxyToVite(req, viteServerUrl),
-					},
+					// Islands - needed for dynamic imports
 					{
 						pattern: new URLPattern({ pathname: '/islands/*' }),
 						handler: (req: Request) => {
@@ -402,43 +385,60 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 							return proxyToVite(req, viteServerUrl);
 						},
 					},
-					{
-						pattern: new URLPattern({ pathname: '/components/*' }),
-						handler: (req: Request) => proxyToVite(req, viteServerUrl),
-					},
-			  ]
-			: [
+					// Source files - needed for island dependencies (DEVELOPMENT ONLY)
 					{
 						pattern: new URLPattern({ pathname: '/src/*' }),
-						handler: async (req: Request) => {
-							const url = new URL(req.url);
-							const path = url.pathname.replace(/^\/src\//, '');
-
-							// Special case: serve Avalon's client script
-							if (path === 'client/main.js') {
-								try {
-									const clientScriptPath = new URL('../client/main.js', import.meta.url);
-									const clientScript = await Deno.readTextFile(clientScriptPath);
-									return new Response(clientScript, {
-										headers: {
-											'Content-Type': 'application/javascript; charset=utf-8',
-											'Cache-Control': 'no-cache',
-										},
-									});
-								} catch (error) {
-									console.error('Failed to serve Avalon client script:', error);
-								}
-							}
-
-							// Otherwise serve from user's repo
-							return await serveStaticFile(path, join(Deno.cwd(), 'src'));
+						handler: (req: Request) => {
+							console.log(`📦 Proxying src request: ${req.url}`);
+							return proxyToVite(req, viteServerUrl);
 						},
 					},
-			  ]),
+			  ]
+			: []),
+
+		// Serve islands - needed for dynamic imports in both dev and production
+		{
+			pattern: new URLPattern({ pathname: '/islands/*' }),
+			handler: async (req: Request) => {
+				// In development, this is handled by Vite proxy above
+				// In production, serve directly from user's islands directory
+				if (!isDev) {
+					const url = new URL(req.url);
+					const path = url.pathname.replace(/^\/islands\//, '');
+					console.log(`🏝️ Serving island: ${path}`);
+					return await serveStaticFile(path, join(Deno.cwd(), 'islands'));
+				}
+				return new Response('Island not found', { status: 404 });
+			},
+		},
 
 		// Serve built island bundles (production)
 		{
 			pattern: new URLPattern({ pathname: '/dist/islands/*' }),
+			handler: async (req: Request) => {
+				const url = new URL(req.url);
+				const path = url.pathname.replace(/^\/dist\//, '');
+				return await serveStaticFile(path, join(Deno.cwd(), 'dist'));
+			},
+		},
+
+		// Serve Vite-generated chunks (production)
+		{
+			pattern: new URLPattern({ pathname: '/chunks/*' }),
+			handler: async (req: Request) => {
+				if (!isDev) {
+					const url = new URL(req.url);
+					const path = url.pathname.replace(/^\/chunks\//, '');
+					console.log(`📦 Serving chunk: ${path}`);
+					return await serveStaticFile(path, join(Deno.cwd(), 'dist/chunks'));
+				}
+				return new Response('Chunk not found in development', { status: 404 });
+			},
+		},
+
+		// Serve any other dist assets (for Vite-generated files)
+		{
+			pattern: new URLPattern({ pathname: '/dist/*' }),
 			handler: async (req: Request) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/dist\//, '');

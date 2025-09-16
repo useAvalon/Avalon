@@ -21,16 +21,7 @@ export default defineConfig(async (): Promise<UserConfig> => {
 		console.warn('⚠️ Could not load vite-plugin-solid for Avalon build:', errorMessage);
 	}
 
-	// Load Vue plugin for vue-hydration.js
-	try {
-		// deno-lint-ignore no-external-import
-		const { default: vue } = await import('@vitejs/plugin-vue');
-		plugins.push(vue());
-		console.log('✅ Vue plugin loaded for Avalon build');
-	} catch (error: unknown) {
-		const errorMessage = error instanceof Error ? error.message : String(error);
-		console.warn('⚠️ Could not load @vitejs/plugin-vue for Avalon build:', errorMessage);
-	}
+	// Note: Vue hydration is now handled by the unified main.js script
 
 	return {
 		root: '.',
@@ -44,12 +35,12 @@ export default defineConfig(async (): Promise<UserConfig> => {
 			rollupOptions: {
 				input: {
 					'solid-hydration': resolve('./src/client/solid-hydration.js'),
-					'vue-hydration': resolve('./src/client/vue-hydration.js'),
 				},
 				output: {
 					entryFileNames: '[name].js',
 					chunkFileNames: '[name].[hash].js',
 				},
+				// Keep external dependencies minimal for better compatibility
 				external: [],
 			},
 			target: 'es2020',

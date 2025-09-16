@@ -37,8 +37,9 @@ export default function Island({
 	ssr = condition !== 'on:client',
 	framework,
 }: IslandProps): JSX.Element {
-	// Generate unique ID for the island
-	const islandId = `island-${Math.random().toString(36).substr(2, 9)}`;
+	// Generate deterministic ID for the island (SSR-safe)
+	// Use src path to ensure server and client generate the same ID
+	const islandId = `island-${src.replace(/[^a-zA-Z0-9]/g, '-')}`;
 	const bundlePath = getIslandBundlePath(src);
 
 	// If we have SSR content (children), render it directly in the is-land element
@@ -366,7 +367,12 @@ function renderPreactToString(
 }
 
 /**
- * Render Vue component to string with semantic is-land element
+ * Render Vue component to string with proper SSR/hydration setup
+ *
+ * Based on Vue.js SSR documentation and Astro's Vue integration:
+ * - Creates proper SSR app with createSSRApp
+ * - Wraps SSR HTML in a div with data-server-rendered="true"
+ * - Uses consistent container structure for client hydration
  */
 async function renderVueToString(
 	VueComponent: Record<string, unknown>,
@@ -375,68 +381,39 @@ async function renderVueToString(
 	condition: IslandProps['condition'] = 'on:load'
 ): Promise<JSX.Element> {
 	try {
-		console.log(`🔄 Rendering Vue component to string for ${src}`);
+		// CRITICAL FIX: Import the dedicated Vue server renderer.
+		// This ensures the server-generated HTML is compatible with client hydration.
+		const { renderToString: vueRenderToString } = await import('vue/server-renderer');
+		const { createSSRApp } = await import('vue');
 
-		// Import Vue SSR dependencies
-		let vueRenderToString, createSSRApp;
-
-		try {
-			// Try to use Vite's resolved modules first
-			const viteServer = globalThis.__viteDevServer;
-			if (viteServer) {
-				try {
-					const vue = await viteServer.ssrLoadModule('vue');
-					const vueSSR = await viteServer.ssrLoadModule('vue/server-renderer');
-					createSSRApp = vue.createSSRApp || vue.default?.createSSRApp;
-					vueRenderToString = vueSSR.renderToString || vueSSR.default?.renderToString;
-				} catch (_viteVueError) {
-					console.log('Vite Vue loading failed, trying direct import...');
-					const vue = await import('vue');
-					const vueSSR = await import('vue/server-renderer');
-					createSSRApp = vue.createSSRApp;
-					vueRenderToString = vueSSR.renderToString;
-				}
-			} else {
-				const vue = await import('vue');
-				const vueSSR = await import('vue/server-renderer');
-				createSSRApp = vue.createSSRApp;
-				vueRenderToString = vueSSR.renderToString;
-			}
-		} catch (importError: unknown) {
-			const errorMsg = importError instanceof Error ? importError.message : String(importError);
-			throw new Error(`Vue import failed: ${errorMsg}`);
-		}
-
-		if (!createSSRApp || !vueRenderToString) {
-			throw new Error('Vue SSR functions not found after import');
-		}
-
-		// Render Vue component to HTML
+		// Create a new Vue app instance for each server-side render
 		const app = createSSRApp(VueComponent, props);
 		const ssrHtml = await vueRenderToString(app);
 
-		console.log(`✅ Vue component rendered successfully for ${src}`);
+		console.log(`✅ Vue component rendered successfully with vue/server-renderer for ${src}`);
 
-		// Generate unique container ID for this island
-		const containerId = `vue-island-${Math.random().toString(36).slice(2)}`;
+		// Generate deterministic container ID (SSR-safe)
+		const containerId = `vue-component--${src.replace(/[^a-zA-Z0-9]/g, '-')}`;
 
-		// Use semantic is-land element with dedicated Vue hydration attributes
-		return h('is-land', {
+		// CRITICAL FIX: Use standard div element with data-hydrate attributes (working branch pattern)
+		// This matches the working branch's AsyncIsland pattern
+		return h('div', {
 			id: containerId,
-			'data-vue-hydrate': src,
-			'data-vue-props': JSON.stringify(props),
-			'data-vue-condition': condition,
+			'data-hydrate': src,
+			'data-props': JSON.stringify(props),
+			'data-condition': condition,
 			dangerouslySetInnerHTML: { __html: ssrHtml },
 		});
 	} catch (error: unknown) {
 		console.error(`❌ Vue renderToString failed for ${src}:`, error);
 		// Fallback to client-only rendering with placeholder
-		const containerId = `vue-island-${Math.random().toString(36).slice(2)}`;
-		return h('is-land', {
+		const containerId = `vue-component--${src.replace(/[^a-zA-Z0-9]/g, '-')}-fallback`;
+		return h('div', {
 			id: containerId,
-			'data-vue-hydrate': src,
-			'data-vue-props': JSON.stringify(props),
-			'data-vue-condition': 'on:client',
+			'data-hydrate': src,
+			'data-props': JSON.stringify(props),
+			'data-condition': 'on:client',
+			// Empty content - client will render from scratch
 		});
 	}
 }
@@ -469,7 +446,7 @@ async function renderSolidToString(
 				if (!renderToString) {
 					throw new Error('Neither renderToStringAsync nor renderToString found in solid-js/web import');
 				}
-				renderToStringAsync = async fn => renderToString(fn);
+				renderToStringAsync = fn => Promise.resolve(renderToString(fn));
 			}
 		} catch (importError: unknown) {
 			console.error(`Failed to import solid-js/web:`, importError);
@@ -493,8 +470,8 @@ async function renderSolidToString(
 
 		console.log(`✅ Solid component rendered successfully for ${src}, HTML length: ${ssrHtml.length}`);
 
-		// Generate unique container ID for this island
-		const containerId = `solid-island-${Math.random().toString(36).slice(2)}`;
+		// Generate deterministic container ID (SSR-safe)
+		const containerId = `solid-island-${src.replace(/[^a-zA-Z0-9]/g, '-')}`;
 
 		// Use semantic is-land element with dedicated Solid hydration attributes
 		return h('is-land', {
@@ -507,7 +484,7 @@ async function renderSolidToString(
 	} catch (error: unknown) {
 		console.error(`❌ Solid SSR failed for ${src}:`, error);
 		// Fallback to client-only rendering with placeholder
-		const containerId = `solid-island-${Math.random().toString(36).slice(2)}`;
+		const containerId = `solid-island-${src.replace(/[^a-zA-Z0-9]/g, '-')}-fallback`;
 		return h('is-land', {
 			id: containerId,
 			'data-solid-hydrate': src,

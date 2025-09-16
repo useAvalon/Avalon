@@ -60,12 +60,10 @@ async function generateHead(
 	const clientScripts = isDev
 		? `
     <script type="module" src="/src/client/main.js"></script>
-    ${hasSolidComponents ? '<script type="module" src="/src/client/solid-hydration.js"></script>' : ''}
-    ${hasVueComponents ? '<script type="module" src="/src/client/vue-hydration.js"></script>' : ''}`
+    ${hasSolidComponents ? '<script type="module" src="/src/client/solid-hydration.js"></script>' : ''}`
 		: `
     <script type="module" src="/dist/client.js"></script>
-    ${hasSolidComponents ? '<script type="module" src="/dist/solid-hydration.js"></script>' : ''}
-    ${hasVueComponents ? '<script type="module" src="/dist/vue-hydration.js"></script>' : ''}`;
+    ${hasSolidComponents ? '<script type="module" src="/dist/solid-hydration.js"></script>' : ''}`;
 
 	// HMR WebSocket for development
 	const hmrScript =
