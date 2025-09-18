@@ -3,64 +3,62 @@ import { resolve } from '@std/path';
 import deno from '@deno/vite-plugin';
 import type { UserConfig } from 'vite';
 
-// Auto-discover island entry points from user's project directories
-async function discoverIslandEntries() {
+const SUPPORTED_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.vue', '.svelte'] as const;
+const COMPONENT_DIRECTORIES = ['islands', 'components'] as const;
+const FRAMEWORK_DETECTION_DIRS = ['islands', 'components', 'src'] as const;
+const SVELTE_DETECTION_DIRS = ['islands', 'components', 'src', 'examples'] as const;
+
+type SupportedExtension = (typeof SUPPORTED_EXTENSIONS)[number];
+
+function isSupportedFile(filename: string): boolean {
+	return SUPPORTED_EXTENSIONS.some(ext => filename.endsWith(ext));
+}
+
+function getFileNameWithoutExtension(filename: string): string {
+	return filename.replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
+}
+
+async function scanDirectoryForEntries(dirPath: string, prefix: string): Promise<Record<string, string>> {
 	const entries: Record<string, string> = {};
-	const cwd = Deno.cwd();
 
-	// Check user's islands directory
 	try {
-		const islandsPath = resolve(cwd, 'islands');
-		for await (const dirEntry of Deno.readDir(islandsPath)) {
-			if (
-				dirEntry.isFile &&
-				(dirEntry.name.endsWith('.tsx') ||
-					dirEntry.name.endsWith('.ts') ||
-					dirEntry.name.endsWith('.jsx') ||
-					dirEntry.name.endsWith('.vue') ||
-					dirEntry.name.endsWith('.svelte'))
-			) {
-				const name = dirEntry.name.replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
-				entries[`islands/${name}`] = resolve(islandsPath, dirEntry.name);
+		for await (const dirEntry of Deno.readDir(dirPath)) {
+			if (dirEntry.isFile && isSupportedFile(dirEntry.name)) {
+				const name = getFileNameWithoutExtension(dirEntry.name);
+				entries[`${prefix}/${name}`] = resolve(dirPath, dirEntry.name);
 			}
 		}
-	} catch (_error) {
-		// Islands directory doesn't exist, that's fine
-	}
-
-	// Check user's components directory
-	try {
-		const componentsPath = resolve(cwd, 'components');
-		for await (const dirEntry of Deno.readDir(componentsPath)) {
-			if (
-				dirEntry.isFile &&
-				(dirEntry.name.endsWith('.tsx') ||
-					dirEntry.name.endsWith('.ts') ||
-					dirEntry.name.endsWith('.jsx') ||
-					dirEntry.name.endsWith('.vue') ||
-					dirEntry.name.endsWith('.svelte'))
-			) {
-				const name = dirEntry.name.replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
-				entries[`components/${name}`] = resolve(componentsPath, dirEntry.name);
-			}
-		}
-	} catch (_error) {
-		// Components directory doesn't exist, that's fine
+	} catch {
+		// Directory doesn't exist, that's fine
 	}
 
 	return entries;
 }
 
-// Check for Vue files in common directories
-async function checkForVueFiles(): Promise<boolean> {
+async function discoverIslandEntries(): Promise<Record<string, string>> {
 	const cwd = Deno.cwd();
-	const dirsToCheck = ['islands', 'components', 'src'];
+	const allEntries: Record<string, string> = {};
 
-	for (const dir of dirsToCheck) {
+	for (const dir of COMPONENT_DIRECTORIES) {
+		const dirPath = resolve(cwd, dir);
+		const entries = await scanDirectoryForEntries(dirPath, dir);
+		Object.assign(allEntries, entries);
+	}
+
+	return allEntries;
+}
+
+async function hasFilesWithExtension(
+	extension: SupportedExtension,
+	dirs: readonly string[] = FRAMEWORK_DETECTION_DIRS
+): Promise<boolean> {
+	const cwd = Deno.cwd();
+
+	for (const dir of dirs) {
 		try {
 			const dirPath = resolve(cwd, dir);
 			for await (const entry of Deno.readDir(dirPath)) {
-				if (entry.isFile && entry.name.endsWith('.vue')) {
+				if (entry.isFile && entry.name.endsWith(extension)) {
 					return true;
 				}
 			}
@@ -71,17 +69,14 @@ async function checkForVueFiles(): Promise<boolean> {
 	return false;
 }
 
-// Check for Solid files in common directories
-async function checkForSolidFiles(): Promise<boolean> {
+async function hasSolidFiles(): Promise<boolean> {
 	const cwd = Deno.cwd();
-	const dirsToCheck = ['islands', 'components', 'src'];
 
-	for (const dir of dirsToCheck) {
+	for (const dir of FRAMEWORK_DETECTION_DIRS) {
 		try {
 			const dirPath = resolve(cwd, dir);
 			for await (const entry of Deno.readDir(dirPath)) {
 				if (entry.isFile && (entry.name.endsWith('.tsx') || entry.name.endsWith('.jsx'))) {
-					// Check file content for Solid.js imports
 					const content = await Deno.readTextFile(resolve(dirPath, entry.name));
 					if (
 						content.includes('solid-js') ||
@@ -99,207 +94,167 @@ async function checkForSolidFiles(): Promise<boolean> {
 	return false;
 }
 
-// Check for Svelte files in common directories
-async function checkForSvelteFiles(): Promise<boolean> {
-	const cwd = Deno.cwd();
-	const dirsToCheck = ['islands', 'components', 'src', 'examples'];
+async function detectFrameworks(islandEntries: Record<string, string>) {
+	const hasVueInEntries = Object.values(islandEntries).some(path => path.endsWith('.vue'));
+	const hasSvelteInEntries = Object.values(islandEntries).some(path => path.endsWith('.svelte'));
 
-	for (const dir of dirsToCheck) {
-		try {
-			const dirPath = resolve(cwd, dir);
-			for await (const entry of Deno.readDir(dirPath)) {
-				if (entry.isFile && entry.name.endsWith('.svelte')) {
-					return true;
-				}
-			}
-		} catch {
-			// Directory doesn't exist, continue
-		}
-	}
-	return false;
+	return {
+		vue: hasVueInEntries || (await hasFilesWithExtension('.vue')),
+		solid: await hasSolidFiles(),
+		svelte: hasSvelteInEntries || (await hasFilesWithExtension('.svelte', SVELTE_DETECTION_DIRS)),
+	};
 }
 
-// Custom plugin to set JSX import source per file
-function jsxImportSourcePlugin() {
+function createJsxImportSourcePlugin() {
 	return {
 		name: 'jsx-import-source',
 		transform(code: string, id: string) {
 			if (!id.endsWith('.tsx') && !id.endsWith('.jsx')) return;
-
-			// Skip if already has jsxImportSource comment
 			if (code.includes('@jsxImportSource')) return;
 
-			// Detect framework based on imports
+			// Solid.js files are handled by vite-plugin-solid
 			if (code.includes('solid-js') || code.includes('from "solid-js"') || code.includes("from 'solid-js'")) {
-				// Solid.js file - let vite-plugin-solid handle it
 				return;
-			} else if (code.includes('preact') || code.includes('from "preact"') || code.includes("from 'preact'")) {
-				// Preact file
-				return `/** @jsxImportSource preact */\n${code}`;
-			} else {
-				// Default to Preact for other JSX files
-				return `/** @jsxImportSource preact */\n${code}`;
 			}
+
+			// Default to Preact for JSX files
+			return `/** @jsxImportSource preact */\n${code}`;
 		},
 	};
 }
 
-export default defineConfig(async ({ command }): Promise<UserConfig> => {
-	const islandEntries = await discoverIslandEntries();
+interface PluginConfig {
+	name: string;
+	packageName: string;
+	config: () => unknown;
+	successMessage: string;
+	errorMessage: string;
+	installHint: string;
+}
 
-	// Check if we have Vue files in the project
-	const hasVueFiles =
-		Object.keys(islandEntries).some(key => islandEntries[key].endsWith('.vue')) || (await checkForVueFiles());
+async function loadFrameworkPlugin(pluginConfig: PluginConfig) {
+	try {
+		// deno-lint-ignore no-external-import
+		const module = await import(pluginConfig.packageName);
+		const plugin = pluginConfig.name === 'svelte' ? module.svelte : module.default;
+		console.log(`✅ ${pluginConfig.successMessage}`);
+		return plugin(pluginConfig.config());
+	} catch (error: unknown) {
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		console.warn(`⚠️ ${pluginConfig.errorMessage}:`, errorMessage);
+		console.warn(`💡 ${pluginConfig.installHint}`);
+		return null;
+	}
+}
 
-	// Check if we have Solid files in the project
-	const hasSolidFiles = await checkForSolidFiles();
+async function loadFrameworkPlugins(frameworks: { vue: boolean; solid: boolean; svelte: boolean }) {
+	const plugins = [];
 
-	// Check if we have Svelte files in the project
-	const hasSvelteFiles =
-		Object.keys(islandEntries).some(key => islandEntries[key].endsWith('.svelte')) || (await checkForSvelteFiles());
-
-	// Try to load Vue plugin if we have Vue files
-	let vuePlugin = null;
-	if (hasVueFiles) {
-		try {
-			// deno-lint-ignore no-external-import
-			const { default: vue } = await import('@vitejs/plugin-vue');
-			vuePlugin = vue({
-				// Production optimizations
+	if (frameworks.vue) {
+		const vuePlugin = await loadFrameworkPlugin({
+			name: 'vue',
+			packageName: '@vitejs/plugin-vue',
+			config: () => ({
 				template: {
 					compilerOptions: {
-						// Treat is-land as a custom element (don't process as Vue component)
-						isCustomElement: tag => tag === 'is-land',
+						isCustomElement: (tag: string) => tag === 'is-land',
 					},
 				},
-			});
-			console.log('✅ Vue plugin loaded for .vue file support');
-		} catch (error: unknown) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			console.warn('⚠️ Vue files detected but @vitejs/plugin-vue not available:', errorMessage);
-			console.warn('💡 Install with: deno add npm:@vitejs/plugin-vue');
-		}
+			}),
+			successMessage: 'Vue plugin loaded for .vue file support',
+			errorMessage: 'Vue files detected but @vitejs/plugin-vue not available',
+			installHint: 'Install with: deno add npm:@vitejs/plugin-vue',
+		});
+		if (vuePlugin) plugins.push(vuePlugin);
 	}
 
-	// Try to load Solid plugin if we have Solid files
-	let solidPlugin = null;
-	if (hasSolidFiles) {
-		try {
-			// deno-lint-ignore no-external-import
-			const { default: solid } = await import('vite-plugin-solid');
-			// Configure Solid plugin with SSR support
-			solidPlugin = solid({
-				ssr: true,
-			});
-			console.log('✅ Solid plugin loaded for Solid.js support with SSR');
-		} catch (error: unknown) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			console.warn('⚠️ Solid.js files detected but vite-plugin-solid not available:', errorMessage);
-			console.warn('💡 Install with: deno add npm:vite-plugin-solid');
-		}
+	if (frameworks.solid) {
+		const solidPlugin = await loadFrameworkPlugin({
+			name: 'solid',
+			packageName: 'vite-plugin-solid',
+			config: () => ({ ssr: true }),
+			successMessage: 'Solid plugin loaded for Solid.js support with SSR',
+			errorMessage: 'Solid.js files detected but vite-plugin-solid not available',
+			installHint: 'Install with: deno add npm:vite-plugin-solid',
+		});
+		if (solidPlugin) plugins.push(solidPlugin);
 	}
 
-	// Try to load Svelte plugin if we have Svelte files
-	let sveltePlugin = null;
-	if (hasSvelteFiles) {
-		try {
-			// deno-lint-ignore no-external-import
-			const { svelte } = await import('@sveltejs/vite-plugin-svelte');
-			// Configure Svelte plugin with SSR support
-			sveltePlugin = svelte({
-				// Treat is-land as a custom element (don't process as Svelte component)
+	if (frameworks.svelte) {
+		const sveltePlugin = await loadFrameworkPlugin({
+			name: 'svelte',
+			packageName: '@sveltejs/vite-plugin-svelte',
+			config: () => ({
 				compilerOptions: {
 					customElement: false,
 					hmr: true,
 				},
-			});
-			console.log('✅ Svelte plugin loaded for .svelte file support with SSR');
-		} catch (error: unknown) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			console.warn('⚠️ Svelte files detected but @sveltejs/vite-plugin-svelte not available:', errorMessage);
-			console.warn('💡 Install with: deno add npm:@sveltejs/vite-plugin-svelte');
-		}
+			}),
+			successMessage: 'Svelte plugin loaded for .svelte file support with SSR',
+			errorMessage: 'Svelte files detected but @sveltejs/vite-plugin-svelte not available',
+			installHint: 'Install with: deno add npm:@sveltejs/vite-plugin-svelte',
+		});
+		if (sveltePlugin) plugins.push(sveltePlugin);
 	}
+
+	return plugins;
+}
+
+export default defineConfig(async ({ command }): Promise<UserConfig> => {
+	const islandEntries = await discoverIslandEntries();
+	const frameworks = await detectFrameworks(islandEntries);
+	const frameworkPlugins = await loadFrameworkPlugins(frameworks);
+
+	const isDev = command === 'serve';
 
 	return {
 		root: '.',
 		publicDir: 'public',
 
-		// CRITICAL FIX: Force Vite to pre-bundle framework dependencies.
-		// Because our hydration script is injected by the server and not an HTML file,
-		// Vite's dependency scanner misses it. This explicitly tells Vite
-		// to find these packages and make them available in the browser.
 		optimizeDeps: {
+			// Force Vite to pre-bundle framework dependencies since our hydration
+			// script is injected by the server, not discovered from HTML
 			include: ['vue', 'svelte'],
 		},
 
-		// Plugin configuration
-		plugins: [
-			// Official Deno plugin for Vite
-			deno(),
-			// Custom JSX import source plugin
-			jsxImportSourcePlugin(),
-			// Vue plugin for .vue file support (if available)
-			...(vuePlugin ? [vuePlugin] : []),
-			// Solid plugin for Solid.js support (if available)
-			...(solidPlugin ? [solidPlugin] : []),
-			// Svelte plugin for .svelte file support (if available)
-			...(sveltePlugin ? [sveltePlugin] : []),
-		],
+		plugins: [deno(), createJsxImportSourcePlugin(), ...frameworkPlugins],
 
-		// JSX configuration for different frameworks
 		esbuild: {
 			jsx: 'automatic',
-			// Don't set global jsxImportSource - let plugins handle their own files
 		},
 
-		// Build configuration
 		build: {
 			outDir: 'dist',
 			emptyOutDir: true,
 			rollupOptions: {
 				input: {
-					// Island entries for client-side bundles
 					...islandEntries,
-					// Main client entry for shared utilities - use Avalon's client script
 					client: resolve(new URL('../src/client/main.js', import.meta.url).pathname),
-					// NOTE: solid-hydration.js is pre-bundled by Avalon's own build process
 				},
 				output: {
-					// Clean naming for island bundles
 					entryFileNames: (chunkInfo: { name?: string }) => {
-						if (chunkInfo.name?.startsWith('islands/')) {
-							return `islands/[name].[hash].js`;
-						}
-						return '[name].[hash].js';
+						return chunkInfo.name?.startsWith('islands/') ? `islands/[name].[hash].js` : '[name].[hash].js';
 					},
 					chunkFileNames: 'chunks/[name].[hash].js',
 					assetFileNames: 'assets/[name].[hash].[ext]',
 				},
 			},
-			// Target modern browsers for islands
 			target: 'es2020',
 			minify: 'esbuild',
 		},
 
-		// Dev server configuration
 		server: {
-			port: 8002, // Vite dev server on different port
+			port: 8002,
 			strictPort: true,
-			hmr: {
-				port: 8003, // HMR WebSocket
-			},
+			hmr: { port: 8003 },
 			cors: true,
 		},
 
-		// SSR configuration for framework support
 		ssr: {
 			target: 'webworker',
-			// Ensure framework packages are bundled for SSR
 			noExternal: ['vue', '@vue/server-renderer', 'svelte'],
 		},
 
-		// Resolve configuration for Deno compatibility
 		resolve: {
 			alias: {
 				'@/': resolve('src/'),
@@ -307,15 +262,12 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			},
 		},
 
-		// Define globals for different environments
 		define: {
-			__DEV__: command === 'serve',
-			__PROD__: command === 'build',
-
-			// Vue production optimization flags
-			__VUE_OPTIONS_API__: true, // Enable Options API (set to false if not using)
-			__VUE_PROD_DEVTOOLS__: false, // Disable devtools in production
-			__VUE_PROD_HYDRATION_MISMATCH_DETAILS__: command === 'serve', // Only in dev
+			__DEV__: isDev,
+			__PROD__: !isDev,
+			__VUE_OPTIONS_API__: true,
+			__VUE_PROD_DEVTOOLS__: false,
+			__VUE_PROD_HYDRATION_MISMATCH_DETAILS__: isDev,
 		},
 	};
 });

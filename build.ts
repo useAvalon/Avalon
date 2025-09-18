@@ -1,14 +1,19 @@
 #!/usr/bin/env -S deno run --allow-all
 /**
  * Avalon Build Command - Batteries Included
- * Users can run: deno run --allow-all -A jsr:@avalon/avalon/build
+ * Users can run: deno run --allow-all build.ts
  */
 
 import { generateIslandManifest } from './src/build/island-manifest.ts';
 import { resolve } from '@std/path';
 
-async function buildSSRBundles() {
-	// Discover Vue islands
+interface BuildStep {
+	name: string;
+	icon: string;
+	execute: () => Promise<void>;
+}
+
+async function discoverVueIslands(): Promise<Record<string, string>> {
 	const vueIslands: Record<string, string> = {};
 	const cwd = Deno.cwd();
 
@@ -20,63 +25,83 @@ async function buildSSRBundles() {
 				vueIslands[`islands/${name}`] = resolve(islandsPath, dirEntry.name);
 			}
 		}
-	} catch (_error) {
+	} catch {
 		// Islands directory doesn't exist, that's fine
 	}
 
-	if (Object.keys(vueIslands).length === 0) {
-		console.log('No Vue islands found, skipping SSR build');
-		return;
-	}
+	return vueIslands;
+}
 
-	// Build SSR bundles using Vite
-	const ssrBuildProcess = new Deno.Command('deno', {
-		args: ['run', '--allow-all', 'npm:vite', 'build', '--ssr', '--outDir', 'dist/ssr', ...Object.values(vueIslands)],
+async function runCommand(args: string[], description: string): Promise<void> {
+	const process = new Deno.Command('deno', {
+		args,
 		stdout: 'inherit',
 		stderr: 'inherit',
 	});
 
-	const { success } = await ssrBuildProcess.output();
-
+	const { success } = await process.output();
 	if (!success) {
-		console.warn('⚠️ SSR build failed, Vue islands will use client-only rendering');
-	} else {
-		console.log(`✅ Built SSR bundles for ${Object.keys(vueIslands).length} Vue islands`);
+		throw new Error(`${description} failed`);
 	}
 }
 
-async function build() {
-	console.log('🏗️  Building with Avalon + Vite...');
+async function buildSSRBundles(): Promise<void> {
+	const vueIslands = await discoverVueIslands();
+	const islandCount = Object.keys(vueIslands).length;
+
+	if (islandCount === 0) {
+		console.log('No Vue islands found, skipping SSR build');
+		return;
+	}
 
 	try {
-		// Generate island manifest
-		console.log('📋 Generating island manifest...');
-		const manifest = await generateIslandManifest();
+		await runCommand(
+			['run', '--allow-all', 'npm:vite', 'build', '--ssr', '--outDir', 'dist/ssr', ...Object.values(vueIslands)],
+			'SSR build'
+		);
+		console.log(`✅ Built SSR bundles for ${islandCount} Vue islands`);
+	} catch {
+		console.warn('⚠️ SSR build failed, Vue islands will use client-only rendering');
+	}
+}
 
-		// Write manifest to dist directory
-		await Deno.mkdir('dist', { recursive: true });
-		await Deno.writeTextFile('dist/island-manifest.json', JSON.stringify(manifest, null, 2));
+async function generateManifest(): Promise<void> {
+	const manifest = await generateIslandManifest();
+	await Deno.mkdir('dist', { recursive: true });
+	await Deno.writeTextFile('dist/island-manifest.json', JSON.stringify(manifest, null, 2));
+	console.log(`✅ Generated manifest for ${Object.keys(manifest.islands).length} islands`);
+}
 
-		console.log(`✅ Generated manifest for ${Object.keys(manifest.islands).length} islands`);
+async function runViteBuild(): Promise<void> {
+	await runCommand(['run', '--allow-all', 'npm:vite', 'build'], 'Vite build');
+}
 
-		// Run Vite build with Deno
-		console.log('⚡ Running Vite build...');
+async function build(): Promise<void> {
+	console.log('🏗️  Building with Avalon + Vite...');
 
-		const viteProcess = new Deno.Command('deno', {
-			args: ['run', '--allow-all', 'npm:vite', 'build'],
-			stdout: 'inherit',
-			stderr: 'inherit',
-		});
+	const buildSteps: BuildStep[] = [
+		{
+			name: 'Generating island manifest',
+			icon: '📋',
+			execute: generateManifest,
+		},
+		{
+			name: 'Running Vite build',
+			icon: '⚡',
+			execute: runViteBuild,
+		},
+		{
+			name: 'Building SSR bundles',
+			icon: '🔄',
+			execute: buildSSRBundles,
+		},
+	];
 
-		const { success } = await viteProcess.output();
-
-		if (!success) {
-			throw new Error('Vite build failed');
+	try {
+		for (const step of buildSteps) {
+			console.log(`${step.icon} ${step.name}...`);
+			await step.execute();
 		}
-
-		// Build SSR bundles for Vue islands
-		console.log('🔄 Building SSR bundles...');
-		await buildSSRBundles();
 
 		console.log('✅ Build completed successfully!');
 		console.log('📦 Built files are in the dist/ directory');
