@@ -13,7 +13,7 @@ function initializeHydration() {
 	const hydrateElements = document.querySelectorAll('[data-hydrate]');
 
 	hydrateElements.forEach(element => {
-		const condition = element.getAttribute('data-condition') || 'on:load';
+		const condition = element.getAttribute('data-island') || element.getAttribute('data-condition') || 'on:load';
 
 		if (condition === 'on:visible') {
 			setupVisibilityTrigger(element);
@@ -65,15 +65,15 @@ function setupInteractionTrigger(element) {
 }
 
 function setupIdleTrigger(element) {
-	if (window.requestIdleCallback) {
-		window.requestIdleCallback(() => hydrateElement(element));
+	if (globalThis.requestIdleCallback) {
+		globalThis.requestIdleCallback(() => hydrateElement(element));
 	} else {
 		setTimeout(() => hydrateElement(element), 100);
 	}
 }
 
 function setupMediaTrigger(element, mediaQuery) {
-	const mediaQueryList = window.matchMedia(mediaQuery);
+	const mediaQueryList = globalThis.matchMedia(mediaQuery);
 
 	if (mediaQueryList.matches) {
 		hydrateElement(element);
@@ -93,6 +93,7 @@ function setupMediaTrigger(element, mediaQuery) {
 async function hydrateElement(element) {
 	const src = element.getAttribute('data-hydrate');
 	const propsAttr = element.getAttribute('data-props');
+	const framework = element.getAttribute('data-framework');
 
 	if (!src) {
 		console.warn('Element missing data-hydrate attribute');
@@ -103,14 +104,24 @@ async function hydrateElement(element) {
 		// Parse props
 		const props = propsAttr ? JSON.parse(propsAttr) : {};
 
-		// Dynamic import the island module
-		const module = await import(src);
+		// Universal hydration approach - all components should have self-contained hydrate functions
+		const componentModule = await import(src);
 
-		// Call the hydrate function if it exists
-		if (module.hydrate) {
-			module.hydrate(element, props);
+		if (componentModule.hydrate && typeof componentModule.hydrate === 'function') {
+			console.log(`🔄 Hydrating ${framework || 'component'}: ${src}`);
+			componentModule.hydrate(element, props);
+			console.log(`✅ Successfully hydrated: ${src}`);
 		} else {
-			console.warn(`Island ${src} does not export a hydrate function`);
+			// For legacy components without self-contained hydrate functions
+			console.warn(`⚠️ Component ${src} missing hydrate function. Consider adding self-contained hydration.`);
+
+			// Special handling for Solid components that still use the old system
+			if (framework === 'solid' || element.hasAttribute('data-solid-hydrate')) {
+				const solidHydration = await import('./solid-hydration.js');
+				// Solid hydration handles its own component import
+			} else {
+				console.error(`❌ Cannot hydrate ${src} - no hydrate function found`);
+			}
 		}
 	} catch (error) {
 		console.error(`Failed to hydrate island ${src}:`, error);

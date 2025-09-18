@@ -17,9 +17,10 @@ async function discoverIslandEntries() {
 				(dirEntry.name.endsWith('.tsx') ||
 					dirEntry.name.endsWith('.ts') ||
 					dirEntry.name.endsWith('.jsx') ||
-					dirEntry.name.endsWith('.vue'))
+					dirEntry.name.endsWith('.vue') ||
+					dirEntry.name.endsWith('.svelte'))
 			) {
-				const name = dirEntry.name.replace(/\.(tsx?|jsx?|vue)$/, '');
+				const name = dirEntry.name.replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
 				entries[`islands/${name}`] = resolve(islandsPath, dirEntry.name);
 			}
 		}
@@ -36,9 +37,10 @@ async function discoverIslandEntries() {
 				(dirEntry.name.endsWith('.tsx') ||
 					dirEntry.name.endsWith('.ts') ||
 					dirEntry.name.endsWith('.jsx') ||
-					dirEntry.name.endsWith('.vue'))
+					dirEntry.name.endsWith('.vue') ||
+					dirEntry.name.endsWith('.svelte'))
 			) {
-				const name = dirEntry.name.replace(/\.(tsx?|jsx?|vue)$/, '');
+				const name = dirEntry.name.replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
 				entries[`components/${name}`] = resolve(componentsPath, dirEntry.name);
 			}
 		}
@@ -97,6 +99,26 @@ async function checkForSolidFiles(): Promise<boolean> {
 	return false;
 }
 
+// Check for Svelte files in common directories
+async function checkForSvelteFiles(): Promise<boolean> {
+	const cwd = Deno.cwd();
+	const dirsToCheck = ['islands', 'components', 'src', 'examples'];
+
+	for (const dir of dirsToCheck) {
+		try {
+			const dirPath = resolve(cwd, dir);
+			for await (const entry of Deno.readDir(dirPath)) {
+				if (entry.isFile && entry.name.endsWith('.svelte')) {
+					return true;
+				}
+			}
+		} catch {
+			// Directory doesn't exist, continue
+		}
+	}
+	return false;
+}
+
 // Custom plugin to set JSX import source per file
 function jsxImportSourcePlugin() {
 	return {
@@ -131,6 +153,10 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 	// Check if we have Solid files in the project
 	const hasSolidFiles = await checkForSolidFiles();
+
+	// Check if we have Svelte files in the project
+	const hasSvelteFiles =
+		Object.keys(islandEntries).some(key => islandEntries[key].endsWith('.svelte')) || (await checkForSvelteFiles());
 
 	// Try to load Vue plugin if we have Vue files
 	let vuePlugin = null;
@@ -173,16 +199,38 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		}
 	}
 
+	// Try to load Svelte plugin if we have Svelte files
+	let sveltePlugin = null;
+	if (hasSvelteFiles) {
+		try {
+			// deno-lint-ignore no-external-import
+			const { svelte } = await import('@sveltejs/vite-plugin-svelte');
+			// Configure Svelte plugin with SSR support
+			sveltePlugin = svelte({
+				// Treat is-land as a custom element (don't process as Svelte component)
+				compilerOptions: {
+					customElement: false,
+					hmr: true,
+				},
+			});
+			console.log('✅ Svelte plugin loaded for .svelte file support with SSR');
+		} catch (error: unknown) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			console.warn('⚠️ Svelte files detected but @sveltejs/vite-plugin-svelte not available:', errorMessage);
+			console.warn('💡 Install with: deno add npm:@sveltejs/vite-plugin-svelte');
+		}
+	}
+
 	return {
 		root: '.',
 		publicDir: 'public',
 
-		// CRITICAL FIX: Force Vite to pre-bundle Vue.
+		// CRITICAL FIX: Force Vite to pre-bundle framework dependencies.
 		// Because our hydration script is injected by the server and not an HTML file,
 		// Vite's dependency scanner misses it. This explicitly tells Vite
-		// to find 'vue' and make it available in the browser.
+		// to find these packages and make them available in the browser.
 		optimizeDeps: {
-			include: ['vue'],
+			include: ['vue', 'svelte'],
 		},
 
 		// Plugin configuration
@@ -195,6 +243,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			...(vuePlugin ? [vuePlugin] : []),
 			// Solid plugin for Solid.js support (if available)
 			...(solidPlugin ? [solidPlugin] : []),
+			// Svelte plugin for .svelte file support (if available)
+			...(sveltePlugin ? [sveltePlugin] : []),
 		],
 
 		// JSX configuration for different frameworks
@@ -245,8 +295,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		// SSR configuration for framework support
 		ssr: {
 			target: 'webworker',
-			// Ensure Vue is bundled for SSR, but external for client
-			noExternal: ['vue', '@vue/server-renderer'],
+			// Ensure framework packages are bundled for SSR
+			noExternal: ['vue', '@vue/server-renderer', 'svelte'],
 		},
 
 		// Resolve configuration for Deno compatibility
@@ -254,9 +304,6 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			alias: {
 				'@/': resolve('src/'),
 				'~/': resolve('./'),
-				// CRITICAL FIX: Add alias for Vue to ensure a single instance.
-				// This makes `import 'vue'` work correctly in the browser during dev.
-				vue: 'vue/dist/vue.esm-bundler.js',
 			},
 		},
 

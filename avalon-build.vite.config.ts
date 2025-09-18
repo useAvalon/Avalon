@@ -21,8 +21,6 @@ export default defineConfig(async (): Promise<UserConfig> => {
 		console.warn('⚠️ Could not load vite-plugin-solid for Avalon build:', errorMessage);
 	}
 
-	// Note: Vue hydration is now handled by the unified main.js script
-
 	return {
 		root: '.',
 
@@ -32,10 +30,14 @@ export default defineConfig(async (): Promise<UserConfig> => {
 		build: {
 			outDir: 'dist-avalon',
 			emptyOutDir: true,
-			rollupOptions: {
-				input: {
+			lib: {
+				entry: {
 					'solid-hydration': resolve('./src/client/solid-hydration.js'),
+					// Note: Svelte hydration is now handled by self-contained component functions
 				},
+				formats: ['es'],
+			},
+			rollupOptions: {
 				output: {
 					entryFileNames: '[name].js',
 					chunkFileNames: '[name].[hash].js',

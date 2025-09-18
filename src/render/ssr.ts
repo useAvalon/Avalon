@@ -1,6 +1,7 @@
 import type { JSX } from 'preact';
 import { render as preactRenderToString } from 'preact-render-to-string';
 import type { RenderOptions } from '../schemas/core.ts';
+import { getSvelteSSRCSS } from '../islands/island.tsx';
 
 export interface RouteConfig {
 	component: () => JSX.Element | Promise<JSX.Element>;
@@ -14,7 +15,8 @@ async function generateHead(
 	options: Partial<RenderOptions>,
 	viteHmrPort?: number,
 	hasSolidComponents = false,
-	hasVueComponents = false
+	_hasVueComponents = false,
+	hasSvelteComponents = false
 ): Promise<string> {
 	const isDev = Deno.env.get('DENO_ENV') !== 'production';
 
@@ -24,6 +26,10 @@ async function generateHead(
 
 	// Style tags
 	const styleTags = options.styles?.map(href => `<link rel="stylesheet" href="${href}">`).join('\n    ') || '';
+
+	// Collect and inject Svelte SSR CSS
+	const svelteSSRCSS = getSvelteSSRCSS(true); // Get and clear the collected CSS
+	const svelteStyleTags = svelteSSRCSS ? `\n    ${svelteSSRCSS}` : '';
 
 	// Script tags (for additional scripts)
 	const scriptTags =
@@ -60,10 +66,12 @@ async function generateHead(
 	const clientScripts = isDev
 		? `
     <script type="module" src="/src/client/main.js"></script>
-    ${hasSolidComponents ? '<script type="module" src="/src/client/solid-hydration.js"></script>' : ''}`
+    ${hasSolidComponents ? '<script type="module" src="/src/client/solid-hydration.js"></script>' : ''}
+    ${hasSvelteComponents ? '<!-- Svelte components now use self-contained hydration -->' : ''}`
 		: `
     <script type="module" src="/dist/client.js"></script>
-    ${hasSolidComponents ? '<script type="module" src="/dist/solid-hydration.js"></script>' : ''}`;
+    ${hasSolidComponents ? '<script type="module" src="/dist/solid-hydration.js"></script>' : ''}
+    ${hasSvelteComponents ? '<!-- Svelte components now use self-contained hydration -->' : ''}`;
 
 	// HMR WebSocket for development
 	const hmrScript =
@@ -76,14 +84,18 @@ async function generateHead(
     </script>`
 			: '';
 
+	// Import map for framework dependencies - let Vite handle all module resolution
+	const importMap = ''; // Always let Vite handle module resolution
+
 	return `
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
       ${metaTags}
       <title>${options.title || 'Avalon App'}</title>
+      ${importMap}
       ${solidHydrationScript}
-      ${styleTags}
+      ${styleTags}${svelteStyleTags}
       ${scriptTags}${clientScripts}${hmrScript}
     </head>`.trim();
 }
@@ -115,6 +127,10 @@ export async function renderToHtml(
 		const hasVueComponents =
 			content.includes('data-vue-hydrate') || content.includes('.vue') || content.includes('Vue');
 
+		// Simple check: look for Svelte-specific patterns in the rendered HTML
+		const hasSvelteComponents =
+			content.includes('data-framework="svelte"') || content.includes('.svelte') || content.includes('s-');
+
 		// Merge route options with defaults
 		const options = {
 			...defaultOptions,
@@ -122,7 +138,7 @@ export async function renderToHtml(
 		};
 
 		// Generate head with Vite integration and framework detection
-		const head = await generateHead(options, viteHmrPort, hasSolidComponents, hasVueComponents);
+		const head = await generateHead(options, viteHmrPort, hasSolidComponents, hasVueComponents, hasSvelteComponents);
 
 		return `<!DOCTYPE html>
 <html lang="en">

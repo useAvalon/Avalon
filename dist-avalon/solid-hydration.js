@@ -1,1 +1,84 @@
-const p="modulepreload",v=function(u){return"/"+u},f={},I=function(e,t,n){let s=Promise.resolve();if(t&&t.length>0){let y=function(i){return Promise.all(i.map(l=>Promise.resolve(l).then(c=>({status:"fulfilled",value:c}),c=>({status:"rejected",reason:c}))))};var h=y;document.getElementsByTagName("link");const a=document.querySelector("meta[property=csp-nonce]"),o=a?.nonce||a?.getAttribute("nonce");s=y(t.map(i=>{if(i=v(i),i in f)return;f[i]=!0;const l=i.endsWith(".css"),c=l?'[rel="stylesheet"]':"";if(document.querySelector(`link[href="${i}"]${c}`))return;const d=document.createElement("link");if(d.rel=l?"stylesheet":p,l||(d.as="script"),d.crossOrigin="",d.href=i,o&&d.setAttribute("nonce",o),document.head.appendChild(d),l)return new Promise((g,m)=>{d.addEventListener("load",g),d.addEventListener("error",()=>m(new Error(`Unable to preload CSS for ${i}`)))})}))}function r(a){const o=new Event("vite:preloadError",{cancelable:!0});if(o.payload=a,window.dispatchEvent(o),!o.defaultPrevented)throw a}return s.then(a=>{for(const o of a||[])o.status==="rejected"&&r(o.reason);return e().catch(r)})};class b{constructor(){this.hydratedIslands=new Set,this.pendingHydrations=new Map}async init(){document.readyState==="loading"?await document.addEventListener("DOMContentLoaded",()=>this.findAndHydrateIslands()):await this.findAndHydrateIslands()}findAndHydrateIslands(){const e=document.querySelectorAll("[data-solid-hydrate]");for(const t of e){const n=t.getAttribute("data-solid-hydrate"),s=t.getAttribute("data-solid-condition")||"on:load";!n||this.hydratedIslands.has(t)||this.scheduleHydration(t,n,s)}}scheduleHydration(e,t,n){const s=()=>{this.hydratedIslands.has(e)||this.hydrateContainer(e,t)};switch(n){case"on:client":case"on:load":s();break;case"on:visible":this.setupVisibilityTrigger(e,s);break;case"on:interaction":this.setupInteractionTrigger(e,s);break;case"on:idle":this.setupIdleTrigger(s);break;default:n.startsWith("media:")?this.setupMediaTrigger(n.slice(6),s):s()}}async hydrateContainer(e,t){if(!this.hydratedIslands.has(e))try{console.log(`🏝️ Hydrating Solid island: ${t}`),this.hydratedIslands.add(e);const n=e.getAttribute("data-solid-props"),s=n?JSON.parse(n):{},r=await import(t),h=r.default||r;if(!h||typeof h!="function")throw new Error(`Invalid Solid component in ${t}`);const{hydrate:a}=await I(async()=>{const{hydrate:o}=await import("./web.DH2Rh-mZ.js");return{hydrate:o}},[]);a(()=>h(s),e),console.log(`✅ Solid island hydrated successfully: ${t}`)}catch(n){console.error(`❌ Failed to hydrate Solid island ${t}:`,n),this.hydratedIslands.delete(e)}}setupVisibilityTrigger(e,t){const n=new IntersectionObserver(s=>{s[0].isIntersecting&&(t(),n.disconnect())},{threshold:0,rootMargin:"100px"});n.observe(e)}setupInteractionTrigger(e,t){const n=["click","touchstart","mouseover"],s=()=>{t(),n.forEach(r=>e.removeEventListener(r,s))};n.forEach(r=>e.addEventListener(r,s,{once:!0}))}setupIdleTrigger(e){globalThis.requestIdleCallback?globalThis.requestIdleCallback(e):setTimeout(e,200)}setupMediaTrigger(e,t){const n=globalThis.matchMedia(e);if(n.matches){t();return}const s=r=>{r.matches&&(t(),n.removeEventListener("change",s))};n.addEventListener("change",s)}}const w=new b;w.init();
+class r {
+  constructor() {
+    this.hydratedIslands = /* @__PURE__ */ new Set(), this.pendingHydrations = /* @__PURE__ */ new Map();
+  }
+  async init() {
+    document.readyState === "loading" ? await document.addEventListener("DOMContentLoaded", () => this.findAndHydrateIslands()) : await this.findAndHydrateIslands();
+  }
+  findAndHydrateIslands() {
+    const e = document.querySelectorAll("[data-solid-hydrate]");
+    for (const s of e) {
+      const t = s.getAttribute("data-solid-hydrate"), i = s.getAttribute("data-solid-condition") || "on:load";
+      !t || this.hydratedIslands.has(s) || this.scheduleHydration(s, t, i);
+    }
+  }
+  scheduleHydration(e, s, t) {
+    const i = () => {
+      this.hydratedIslands.has(e) || this.hydrateContainer(e, s);
+    };
+    switch (t) {
+      case "on:client":
+      case "on:load":
+        i();
+        break;
+      case "on:visible":
+        this.setupVisibilityTrigger(e, i);
+        break;
+      case "on:interaction":
+        this.setupInteractionTrigger(e, i);
+        break;
+      case "on:idle":
+        this.setupIdleTrigger(i);
+        break;
+      default:
+        t.startsWith("media:") ? this.setupMediaTrigger(t.slice(6), i) : i();
+    }
+  }
+  async hydrateContainer(e, s) {
+    if (!this.hydratedIslands.has(e))
+      try {
+        console.log(`🏝️ Hydrating Solid island: ${s}`), this.hydratedIslands.add(e);
+        const t = e.getAttribute("data-solid-props"), i = t ? JSON.parse(t) : {}, a = await import(s), d = a.default || a;
+        if (!d || typeof d != "function")
+          throw new Error(`Invalid Solid component in ${s}`);
+        const { hydrate: n } = await import("./web.CrCRaKXC.js");
+        n(() => d(i), e), console.log(`✅ Solid island hydrated successfully: ${s}`);
+      } catch (t) {
+        console.error(`❌ Failed to hydrate Solid island ${s}:`, t), this.hydratedIslands.delete(e);
+      }
+  }
+  setupVisibilityTrigger(e, s) {
+    const t = new IntersectionObserver(
+      (i) => {
+        i[0].isIntersecting && (s(), t.disconnect());
+      },
+      { threshold: 0, rootMargin: "100px" }
+    );
+    t.observe(e);
+  }
+  setupInteractionTrigger(e, s) {
+    const t = ["click", "touchstart", "mouseover"], i = () => {
+      s(), t.forEach((a) => e.removeEventListener(a, i));
+    };
+    t.forEach((a) => e.addEventListener(a, i, { once: !0 }));
+  }
+  setupIdleTrigger(e) {
+    globalThis.requestIdleCallback ? globalThis.requestIdleCallback(e) : setTimeout(e, 200);
+  }
+  setupMediaTrigger(e, s) {
+    const t = globalThis.matchMedia(e);
+    if (t.matches) {
+      s();
+      return;
+    }
+    const i = (a) => {
+      a.matches && (s(), t.removeEventListener("change", i));
+    };
+    t.addEventListener("change", i);
+  }
+}
+const o = new r();
+o.init();
+export {
+  o as default
+};

@@ -5,7 +5,7 @@ export { renderToHtml } from './src/render/ssr.ts';
 export { createServer, createServerSafe } from './src/render/server.ts';
 
 // Universal Island component (single function auto-detects framework)
-export { default as Island, renderIsland, type IslandProps } from './src/islands/Island.tsx';
+export { default as Island, renderIsland, type IslandProps } from './src/islands/island.tsx';
 
 // Build utilities
 export { generateIslandManifest, loadIslandManifest, getIslandBundlePath } from './src/build/island-manifest.ts';

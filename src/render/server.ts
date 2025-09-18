@@ -323,6 +323,8 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			},
 		},
 
+		// Note: Svelte hydration is now handled by self-contained component functions
+
 		// Serve Avalon's pre-built chunks (always available - for hydration scripts dependencies)
 		{
 			pattern: new URLPattern({ pathname: '/src/client/*.js' }),

@@ -3,10 +3,33 @@ import { h } from 'preact';
 import { renderToString } from 'preact-render-to-string';
 import { getIslandBundlePath } from '../build/island-manifest.ts';
 import type { ViteDevServer } from 'vite';
+import type { Component } from 'svelte';
 
-// Extend globalThis to include Vite dev server
+// Global CSS collector for SSR
 declare global {
 	var __viteDevServer: ViteDevServer | undefined;
+	var __svelteSSRCSS: Set<string> | undefined;
+}
+
+// Initialize global CSS collector
+if (typeof globalThis !== 'undefined' && !globalThis.__svelteSSRCSS) {
+	globalThis.__svelteSSRCSS = new Set();
+}
+
+/**
+ * Get collected Svelte SSR CSS and optionally clear the collection
+ */
+export function getSvelteSSRCSS(clear = false): string {
+	if (!globalThis.__svelteSSRCSS) {
+		return '';
+	}
+
+	const cssArray = Array.from(globalThis.__svelteSSRCSS);
+	if (clear) {
+		globalThis.__svelteSSRCSS.clear();
+	}
+
+	return cssArray.join('\n');
 }
 
 export interface IslandProps {
@@ -21,7 +44,7 @@ export interface IslandProps {
 	/** Whether to render server-side (default: true unless condition is 'on:client') */
 	ssr?: boolean;
 	/** Framework hint for client hydration */
-	framework?: 'solid' | 'vue' | 'preact' | 'react';
+	framework?: 'solid' | 'vue' | 'preact' | 'react' | 'svelte';
 }
 
 /**
@@ -109,6 +132,12 @@ export async function renderIsland({
 		if (src.endsWith('.vue')) {
 			console.log(`🔍 Detected Vue component: ${src}`);
 			return await renderVueComponent({ src, condition, props, ssr });
+		}
+
+		// Svelte detection
+		if (src.endsWith('.svelte')) {
+			console.log(`🔍 Detected Svelte component: ${src}`);
+			return await renderSvelteComponent({ src, condition, props, ssr });
 		}
 
 		// TypeScript/JavaScript files
@@ -290,6 +319,56 @@ async function renderSolidComponent({
 }
 
 /**
+ * Render Svelte component with SSR
+ */
+async function renderSvelteComponent({
+	src,
+	condition,
+	props,
+	ssr: _ssr,
+}: {
+	src: string;
+	condition: IslandProps['condition'];
+	props: Record<string, unknown>;
+	ssr: boolean;
+}): Promise<JSX.Element> {
+	console.log(`🔄 Attempting Svelte SSR for: ${src}`);
+
+	try {
+		const isDev = Deno.env.get('DENO_ENV') !== 'production';
+
+		if (isDev) {
+			// In development, use Vite's ssrLoadModule
+			const viteServer = globalThis.__viteDevServer;
+			if (viteServer) {
+				console.log(`📡 Loading Svelte component: ${src}`);
+				const module = await viteServer.ssrLoadModule(src);
+				const SvelteComponent = module.default || module;
+
+				if (!SvelteComponent || typeof SvelteComponent.render !== 'function') {
+					throw new Error(`Invalid Svelte component in ${src}`);
+				}
+
+				return await renderSvelteToString(SvelteComponent, props, src, condition);
+			}
+		} else {
+			// In production, load from pre-built SSR bundle
+			const ssrPath = src.replace('/islands/', '/dist/ssr/islands/').replace('.svelte', '.js');
+			console.log(`📦 Loading Svelte SSR bundle: ${ssrPath}`);
+			const module = await import(ssrPath);
+			const SvelteComponent = module.default || module;
+			return await renderSvelteToString(SvelteComponent, props, src, condition);
+		}
+	} catch (error) {
+		console.error(`❌ Svelte SSR failed for ${src}:`, error);
+	}
+
+	// Fallback to client-only
+	console.log(`🔄 Svelte SSR failed, falling back to client-only for ${src}`);
+	return Island({ src, condition: 'on:client', props, ssr: false, framework: 'svelte' });
+}
+
+/**
  * Render Preact component with SSR
  */
 async function renderPreactComponent({
@@ -397,7 +476,7 @@ async function renderVueToString(
 
 		// CRITICAL FIX: Use standard div element with data-hydrate attributes (working branch pattern)
 		// This matches the working branch's AsyncIsland pattern
-		return h('div', {
+		return h('is-land', {
 			id: containerId,
 			'data-hydrate': src,
 			'data-props': JSON.stringify(props),
@@ -406,15 +485,7 @@ async function renderVueToString(
 		});
 	} catch (error: unknown) {
 		console.error(`❌ Vue renderToString failed for ${src}:`, error);
-		// Fallback to client-only rendering with placeholder
-		const containerId = `vue-component--${src.replace(/[^a-zA-Z0-9]/g, '-')}-fallback`;
-		return h('div', {
-			id: containerId,
-			'data-hydrate': src,
-			'data-props': JSON.stringify(props),
-			'data-condition': 'on:client',
-			// Empty content - client will render from scratch
-		});
+		throw `❌ Vue renderToString failed for ${src}: ${error}`;
 	}
 }
 
@@ -483,13 +554,78 @@ async function renderSolidToString(
 		});
 	} catch (error: unknown) {
 		console.error(`❌ Solid SSR failed for ${src}:`, error);
-		// Fallback to client-only rendering with placeholder
-		const containerId = `solid-island-${src.replace(/[^a-zA-Z0-9]/g, '-')}-fallback`;
-		return h('is-land', {
-			id: containerId,
-			'data-solid-hydrate': src,
-			'data-solid-props': JSON.stringify(props),
-			'data-solid-condition': 'on:client',
+		throw `❌ Solid renderToString failed for ${src}: ${error}`;
+	}
+}
+
+/**
+ * Render Svelte component to string using Svelte 5 SSR approach
+ */
+async function renderSvelteToString(
+	SvelteComponent: Component,
+	props: Record<string, unknown> = {},
+	src: string,
+	condition: IslandProps['condition'] = 'on:load'
+): Promise<JSX.Element> {
+	try {
+		console.log(`🔄 Rendering Svelte component to string for ${src}`);
+
+		// Import Svelte 5 render function
+		const { render } = await import('svelte/server');
+		console.log(`📦 Using Svelte 5 render from svelte/server`);
+
+		// Use Svelte 5 render API
+		console.log(`🔍 About to call Svelte render() for ${src}`);
+		const result = render(SvelteComponent, { props });
+		console.log(`🔍 Svelte render() result:`, {
+			hasBody: !!result.body,
+			bodyType: typeof result.body,
+			bodyLength: result.body?.length,
+			hasHead: !!result.head,
+			headType: typeof result.head,
+			headLength: result.head?.length,
+			resultKeys: Object.keys(result),
 		});
+
+		const ssrHtml = result.body; // Svelte 5 returns { body, head }
+		const ssrHead = result.head; // Contains CSS and other head content
+
+		// Log the head content for debugging
+		if (ssrHead) {
+			console.log(`📝 Svelte component has head content: ${ssrHead.length} chars`);
+			console.log(`📝 Head content preview:`, ssrHead.substring(0, 300));
+
+			// Collect CSS globally for document head injection
+			if (globalThis.__svelteSSRCSS && ssrHead.trim()) {
+				globalThis.__svelteSSRCSS.add(ssrHead);
+				console.log(`📝 Added Svelte CSS to global collector, total styles: ${globalThis.__svelteSSRCSS.size}`);
+			}
+		} else {
+			console.log(`⚠️ No head content from Svelte SSR - this is the problem!`);
+		}
+
+		if (!ssrHtml || typeof ssrHtml !== 'string') {
+			throw new Error(`Svelte render returned invalid HTML: ${typeof ssrHtml}`);
+		}
+
+		console.log(`✅ Svelte component rendered successfully for ${src}, HTML length: ${ssrHtml.length}`);
+		console.log(`📝 Body HTML preview:`, ssrHtml.substring(0, 300));
+
+		// For now, let's include the CSS inline to ensure it works
+		// This is not ideal but will help us debug
+		const styledContent = ssrHead ? `${ssrHead}${ssrHtml}` : ssrHtml;
+
+		// Return Island component with SSR content and Svelte-specific attributes
+		return Island({
+			src,
+			condition,
+			props,
+			children: styledContent, // Include CSS inline for now
+			ssr: true,
+			framework: 'svelte',
+		});
+	} catch (error: unknown) {
+		console.error(`❌ Svelte SSR failed for ${src}:`, error);
+		throw `❌ Svelte renderToString failed for ${src}: ${error}`;
 	}
 }
