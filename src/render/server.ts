@@ -27,7 +27,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 	// Validate the entire server configuration
 	const validatedConfig = validateServerConfig(config);
 
-	const { routes, port = DEFAULT_SERVER_PORT, defaultOptions = {} } = validatedConfig;
+	const { routes, port = DEFAULT_SERVER_PORT, defaultOptions = {}, renderOptions = {} } = validatedConfig;
 
 	// Merge options with validation (no more importMap with Vite)
 	const mergedDefaultOptions = mergeOptions({}, defaultOptions, {});
@@ -52,6 +52,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		routes,
 		mergedDefaultOptions,
 		islandManifest,
+		renderOptions,
 	});
 
 	function requestHandler(req: Request): Response | Promise<Response> {

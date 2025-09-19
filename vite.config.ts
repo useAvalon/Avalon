@@ -226,10 +226,11 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		build: {
 			outDir: 'dist',
 			emptyOutDir: true,
+			// Note: Svelte compilation outputs to 'dist' directory, not 'public/dist-svelte-compiled'
 			rollupOptions: {
 				input: {
 					...islandEntries,
-					client: resolve(new URL('../src/client/main.js', import.meta.url).pathname),
+					client: resolve('src/client/main.js'),
 				},
 				output: {
 					entryFileNames: (chunkInfo: { name?: string }) => {

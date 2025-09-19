@@ -4,6 +4,7 @@ import { renderToString } from 'preact-render-to-string';
 import { getIslandBundlePath } from '../build/island-manifest.ts';
 import type { ViteDevServer } from 'vite';
 import type { Component } from 'svelte';
+import { analyzeComponentContent, type AnalyzerOptions } from '../helpers/component-analyzer.ts';
 
 // Global CSS collector for SSR
 declare global {
@@ -36,7 +37,7 @@ export interface IslandProps {
 	/** Path to the island component (e.g., "/islands/Counter.tsx") */
 	src: string;
 	/** Hydration condition */
-	condition?: 'on:load' | 'on:visible' | 'on:interaction' | 'on:idle' | 'on:client' | `media:${string}`;
+	condition?: 'on:visible' | 'on:interaction' | 'on:idle' | 'on:client' | `media:${string}`;
 	/** Props to pass to the island component */
 	props?: Record<string, unknown>;
 	/** Children to render inside the island (for SSR) */
@@ -45,59 +46,86 @@ export interface IslandProps {
 	ssr?: boolean;
 	/** Framework hint for client hydration */
 	framework?: 'solid' | 'vue' | 'preact' | 'react' | 'svelte';
+	/** Force SSR-only rendering without hydration */
+	ssrOnly?: boolean;
+	/** Component render options for intelligent detection */
+	renderOptions?: AnalyzerOptions;
 }
 
 /**
  * Universal Island component - renders <is-land> custom elements for better DOM structure
  *
  * Uses custom elements instead of div wrappers for cleaner, more semantic markup
+ * Supports intelligent rendering strategy detection to skip hydration for SSR-only components
  */
 export default function Island({
 	src,
-	condition = 'on:load',
+	condition = 'on:client',
 	props = {},
 	children,
 	ssr = condition !== 'on:client',
 	framework,
+	ssrOnly = false,
+	renderOptions = {},
 }: IslandProps): JSX.Element {
 	// Generate deterministic ID for the island (SSR-safe)
 	// Use src path to ensure server and client generate the same ID
 	const islandId = `island-${src.replace(/[^a-zA-Z0-9]/g, '-')}`;
-	const bundlePath = getIslandBundlePath(src);
+
+	// Determine if this should be SSR-only based on explicit flag or render options
+	const shouldSkipHydration = ssrOnly || renderOptions.forceSSROnly;
+
+	// Only get bundle path if we need hydration
+	const bundlePath = shouldSkipHydration ? '' : getIslandBundlePath(src);
 
 	// If we have SSR content (children), render it directly in the is-land element
 	if (ssr && children) {
+		const baseAttributes = {
+			id: islandId,
+			...(framework ? { 'data-framework': framework } : {}),
+		};
+
+		// Add hydration attributes only if not SSR-only
+		const hydrationAttributes = shouldSkipHydration
+			? {
+					'data-render-strategy': 'ssr-only',
+			  }
+			: {
+					'data-island': condition,
+					'data-hydrate': bundlePath,
+					'data-props': JSON.stringify(props),
+					'data-render-strategy': 'hydrate',
+			  };
+
+		const allAttributes = { ...baseAttributes, ...hydrationAttributes };
+
 		if (typeof children === 'string') {
 			return h('is-land', {
-				id: islandId,
-				'data-island': condition,
-				'data-hydrate': bundlePath,
-				'data-props': JSON.stringify(props),
-				...(framework ? { 'data-framework': framework } : {}),
+				...allAttributes,
 				dangerouslySetInnerHTML: { __html: children },
 			});
 		} else {
 			// For JSX children, include them directly
-			return h(
-				'is-land',
-				{
-					id: islandId,
-					'data-island': condition,
-					'data-hydrate': bundlePath,
-					'data-props': JSON.stringify(props),
-					...(framework ? { 'data-framework': framework } : {}),
-				},
-				children
-			);
+			return h('is-land', allAttributes, children);
 		}
 	}
 
-	// Client-only: render empty is-land that will be hydrated
+	// Client-only: render empty is-land that will be hydrated (unless SSR-only)
+	if (shouldSkipHydration) {
+		// For SSR-only components without children, render empty element
+		return h('is-land', {
+			id: islandId,
+			'data-render-strategy': 'ssr-only',
+			...(framework ? { 'data-framework': framework } : {}),
+		});
+	}
+
 	return h('is-land', {
 		id: islandId,
 		'data-island': condition,
 		'data-hydrate': bundlePath,
 		'data-props': JSON.stringify(props),
+		'data-render-strategy': 'hydrate',
 		...(framework ? { 'data-framework': framework } : {}),
 	});
 }
@@ -107,37 +135,85 @@ export default function Island({
  *
  * This is the main function you should use - it automatically:
  * - Detects the component framework (Vue, Solid.js, Preact/React)
+ * - Analyzes component for intelligent rendering strategy detection
  * - Handles server-side rendering when possible
  * - Falls back to client-only rendering when needed
  * - Returns the appropriate Island component
  */
 export async function renderIsland({
 	src,
-	condition = 'on:load',
+	condition = 'on:client',
 	props = {},
 	children,
 	ssr = condition !== 'on:client',
+	ssrOnly = false,
+	renderOptions = {},
 }: IslandProps): Promise<JSX.Element> {
-	console.log(`🏝️ renderIsland called for: ${src}, ssr: ${ssr}, condition: ${condition}`);
+	console.log(`🏝️ renderIsland called for: ${src}, ssr: ${ssr}, condition: ${condition}, ssrOnly: ${ssrOnly}`);
+
+	// Perform intelligent component analysis if not explicitly SSR-only
+	let shouldSkipHydration = ssrOnly;
+	let analysisReason = '';
+
+	if (!ssrOnly && renderOptions.detectScripts !== false) {
+		try {
+			// Try to analyze the component for intelligent rendering strategy
+			const analysisResult = await analyzeComponentFile(src, renderOptions);
+			shouldSkipHydration = !analysisResult.decision.shouldHydrate;
+			analysisReason = analysisResult.decision.reason;
+
+			console.log(
+				`🔍 Component analysis for ${src}: ${shouldSkipHydration ? 'SSR-ONLY' : 'HYDRATE'} (${analysisReason})`
+			);
+
+			if (analysisResult.decision.warnings && analysisResult.decision.warnings.length > 0) {
+				analysisResult.decision.warnings.forEach(warning => console.warn(`⚠️ ${src}: ${warning}`));
+			}
+		} catch (error) {
+			console.warn(`⚠️ Component analysis failed for ${src}:`, error);
+			// Continue with original logic on analysis failure
+		}
+	}
+
+	// If component is determined to be SSR-only, handle accordingly
+	if (shouldSkipHydration) {
+		console.log(`📄 Using SSR-only rendering for ${src}: ${analysisReason}`);
+
+		// For SSR-only components, we still want to render them server-side if possible
+		// but without hydration attributes
+		if (ssr && !children) {
+			// Try to render server-side content for SSR-only components
+			try {
+				return await renderComponentSSROnly({ src, condition, props, renderOptions });
+			} catch (error) {
+				console.warn(`SSR failed for SSR-only component ${src}:`, error);
+				// Fall back to basic Island without hydration
+				return Island({ src, condition, props, children: undefined, ssr: false, ssrOnly: true, renderOptions });
+			}
+		} else {
+			// Use basic Island with SSR-only flag
+			return Island({ src, condition, props, children, ssr, ssrOnly: true, renderOptions });
+		}
+	}
 
 	// If SSR is disabled or we already have children, use basic Island
 	if (!ssr || children) {
 		console.log(`📄 Using basic Island (SSR disabled or children provided)`);
-		return Island({ src, condition, props, children, ssr });
+		return Island({ src, condition, props, children, ssr, renderOptions });
 	}
 
-	// Auto-detect framework and attempt SSR
+	// Auto-detect framework and attempt SSR with hydration
 	try {
 		// Vue detection
 		if (src.endsWith('.vue')) {
 			console.log(`🔍 Detected Vue component: ${src}`);
-			return await renderVueComponent({ src, condition, props, ssr });
+			return await renderVueComponent({ src, condition, props, ssr, renderOptions });
 		}
 
 		// Svelte detection
 		if (src.endsWith('.svelte')) {
 			console.log(`🔍 Detected Svelte component: ${src}`);
-			return await renderSvelteComponent({ src, condition, props, ssr });
+			return await renderSvelteComponent({ src, condition, props, ssr, renderOptions });
 		}
 
 		// TypeScript/JavaScript files
@@ -147,23 +223,99 @@ export async function renderIsland({
 
 			switch (framework) {
 				case 'solid':
-					return await renderSolidComponent({ src, condition, props, ssr });
+					return await renderSolidComponent({ src, condition, props, ssr, renderOptions });
 				case 'vue':
-					return await renderVueComponent({ src, condition, props, ssr });
+					return await renderVueComponent({ src, condition, props, ssr, renderOptions });
 				case 'preact':
 				case 'react':
 				default:
-					return await renderPreactComponent({ src, condition, props, ssr });
+					return await renderPreactComponent({ src, condition, props, ssr, renderOptions });
 			}
 		}
 
 		// Unknown file type, use basic Island
 		console.log(`❓ Unknown file type for ${src}, using basic Island`);
-		return Island({ src, condition, props, children: undefined, ssr: false });
+		return Island({ src, condition, props, children: undefined, ssr: false, renderOptions });
 	} catch (error) {
 		console.error(`❌ SSR failed for ${src}:`, error);
 		console.log(`🔄 Falling back to client-only rendering`);
-		return Island({ src, condition: 'on:client', props, ssr: false });
+		return Island({ src, condition: 'on:client', props, ssr: false, renderOptions });
+	}
+}
+
+/**
+ * Analyze component file for rendering strategy
+ */
+async function analyzeComponentFile(src: string, options: AnalyzerOptions = {}) {
+	// Try multiple path variations to find the component
+	const pathVariations = [
+		src.startsWith('/') ? src.substring(1) : src,
+		`examples/${src.split('/').pop()}`,
+		`src/islands/${src.split('/').pop()}`,
+		`islands/${src.split('/').pop()}`,
+	];
+
+	for (const pathVariation of pathVariations) {
+		try {
+			const content = await Deno.readTextFile(pathVariation);
+			return analyzeComponentContent(pathVariation, content, options);
+		} catch {
+			// Continue to next path variation
+			continue;
+		}
+	}
+
+	throw new Error(`Component file not found: ${src}`);
+}
+
+/**
+ * Render component with SSR-only strategy (no hydration)
+ */
+async function renderComponentSSROnly({
+	src,
+	condition,
+	props,
+	renderOptions,
+}: {
+	src: string;
+	condition: IslandProps['condition'];
+	props: Record<string, unknown>;
+	renderOptions: AnalyzerOptions;
+}): Promise<JSX.Element> {
+	console.log(`🔄 Attempting SSR-only rendering for: ${src}`);
+
+	try {
+		// Use the existing SSR rendering functions but with ssrOnly flag
+		// This ensures proper handling of props, styles, and framework-specific features
+
+		if (src.endsWith('.vue')) {
+			return await renderVueComponent({ src, condition, props, ssr: true, renderOptions, ssrOnly: true });
+		}
+
+		if (src.endsWith('.svelte')) {
+			return await renderSvelteComponent({ src, condition, props, ssr: true, renderOptions, ssrOnly: true });
+		}
+
+		if (src.endsWith('.tsx') || src.endsWith('.jsx') || src.endsWith('.ts') || src.endsWith('.js')) {
+			const framework = await detectFramework(src);
+
+			switch (framework) {
+				case 'solid':
+					return await renderSolidComponent({ src, condition, props, ssr: true, renderOptions, ssrOnly: true });
+				case 'vue':
+					return await renderVueComponent({ src, condition, props, ssr: true, renderOptions, ssrOnly: true });
+				case 'preact':
+				case 'react':
+				default:
+					return await renderPreactComponent({ src, condition, props, ssr: true, renderOptions, ssrOnly: true });
+			}
+		}
+
+		// Unknown file type, return empty SSR-only Island
+		return Island({ src, condition, props, children: undefined, ssr: false, ssrOnly: true, renderOptions });
+	} catch (error) {
+		console.error(`❌ SSR-only rendering failed for ${src}:`, error);
+		throw error;
 	}
 }
 
@@ -231,11 +383,15 @@ async function renderVueComponent({
 	condition,
 	props,
 	ssr: _ssr,
+	renderOptions = {},
+	ssrOnly = false,
 }: {
 	src: string;
 	condition: IslandProps['condition'];
 	props: Record<string, unknown>;
 	ssr: boolean;
+	renderOptions?: AnalyzerOptions;
+	ssrOnly?: boolean;
 }): Promise<JSX.Element> {
 	console.log(`🔄 Attempting Vue SSR for: ${src}`);
 
@@ -249,7 +405,7 @@ async function renderVueComponent({
 				console.log(`📡 Using Vite SSR for Vue: ${src}`);
 				const module = await viteServer.ssrLoadModule(src);
 				const VueComponent = module.default || module;
-				return await renderVueToString(VueComponent, props, src, condition);
+				return await renderVueToString(VueComponent, props, src, condition, ssrOnly, renderOptions);
 			}
 		} else {
 			// In production, load from pre-built SSR bundle
@@ -257,15 +413,31 @@ async function renderVueComponent({
 			console.log(`📦 Loading Vue SSR bundle: ${ssrPath}`);
 			const module = await import(ssrPath);
 			const VueComponent = module.default || module;
-			return await renderVueToString(VueComponent, props, src, condition);
+			return await renderVueToString(VueComponent, props, src, condition, ssrOnly, renderOptions);
 		}
 	} catch (error) {
 		console.error(`❌ Vue SSR failed for ${src}:`, error);
 	}
 
-	// Fallback to client-only
-	console.log(`🔄 Vue SSR failed, falling back to client-only for ${src}`);
-	return Island({ src, condition: 'on:client', props, ssr: false });
+	// For SSR-only components, try template-based fallback
+	if (ssrOnly) {
+		console.log(`🔄 Trying template-based fallback for SSR-only Vue component: ${src}`);
+		try {
+			const templateFallback = await renderVueTemplateFallback(src, props, condition, renderOptions);
+			if (templateFallback) {
+				console.log(`✅ Vue template fallback succeeded, returning result`);
+				return templateFallback;
+			} else {
+				console.log(`⚠️ Vue template fallback returned null`);
+			}
+		} catch (fallbackError) {
+			console.error(`❌ Vue template fallback failed:`, fallbackError);
+		}
+	}
+
+	// Fallback to client-only (or SSR-only if specified)
+	console.log(`🔄 Vue SSR failed, falling back to ${ssrOnly ? 'SSR-only' : 'client-only'} for ${src}`);
+	return Island({ src, condition: ssrOnly ? condition : 'on:client', props, ssr: false, ssrOnly, renderOptions });
 }
 
 /**
@@ -276,11 +448,15 @@ async function renderSolidComponent({
 	condition,
 	props,
 	ssr: _ssr,
+	renderOptions = {},
+	ssrOnly = false,
 }: {
 	src: string;
 	condition: IslandProps['condition'];
 	props: Record<string, unknown>;
 	ssr: boolean;
+	renderOptions?: AnalyzerOptions;
+	ssrOnly?: boolean;
 }): Promise<JSX.Element> {
 	console.log(`🔄 Attempting Solid SSR for: ${src}`);
 
@@ -313,9 +489,9 @@ async function renderSolidComponent({
 		console.error(`❌ Solid SSR failed for ${src}:`, error);
 	}
 
-	// Fallback to client-only
-	console.log(`🔄 Solid SSR failed, falling back to client-only for ${src}`);
-	return Island({ src, condition: 'on:client', props, ssr: false });
+	// Fallback to client-only (or SSR-only if specified)
+	console.log(`🔄 Solid SSR failed, falling back to ${ssrOnly ? 'SSR-only' : 'client-only'} for ${src}`);
+	return Island({ src, condition: ssrOnly ? condition : 'on:client', props, ssr: false, ssrOnly, renderOptions });
 }
 
 /**
@@ -326,11 +502,15 @@ async function renderSvelteComponent({
 	condition,
 	props,
 	ssr: _ssr,
+	renderOptions = {},
+	ssrOnly = false,
 }: {
 	src: string;
 	condition: IslandProps['condition'];
 	props: Record<string, unknown>;
 	ssr: boolean;
+	renderOptions?: AnalyzerOptions;
+	ssrOnly?: boolean;
 }): Promise<JSX.Element> {
 	console.log(`🔄 Attempting Svelte SSR for: ${src}`);
 
@@ -349,7 +529,7 @@ async function renderSvelteComponent({
 					throw new Error(`Invalid Svelte component in ${src}`);
 				}
 
-				return await renderSvelteToString(SvelteComponent, props, src, condition);
+				return await renderSvelteToString(SvelteComponent, props, src, condition, ssrOnly, renderOptions);
 			}
 		} else {
 			// In production, load from pre-built SSR bundle
@@ -357,15 +537,56 @@ async function renderSvelteComponent({
 			console.log(`📦 Loading Svelte SSR bundle: ${ssrPath}`);
 			const module = await import(ssrPath);
 			const SvelteComponent = module.default || module;
-			return await renderSvelteToString(SvelteComponent, props, src, condition);
+			return await renderSvelteToString(SvelteComponent, props, src, condition, ssrOnly, renderOptions);
 		}
 	} catch (error) {
 		console.error(`❌ Svelte SSR failed for ${src}:`, error);
+		console.log(`🔍 ssrOnly flag is: ${ssrOnly}`);
+
+		// For SSR-only components, try template-based fallback
+		if (ssrOnly) {
+			console.log(`🔄 Trying template-based fallback for SSR-only component: ${src}`);
+			try {
+				const templateFallback = await renderSvelteTemplateFallback(src, props, condition, renderOptions);
+				if (templateFallback) {
+					console.log(`✅ Template fallback succeeded, returning result`);
+					return templateFallback;
+				} else {
+					console.log(`⚠️ Template fallback returned null`);
+				}
+			} catch (fallbackError) {
+				console.error(`❌ Template fallback failed:`, fallbackError);
+			}
+		}
 	}
 
-	// Fallback to client-only
-	console.log(`🔄 Svelte SSR failed, falling back to client-only for ${src}`);
-	return Island({ src, condition: 'on:client', props, ssr: false, framework: 'svelte' });
+	// For SSR-only components, try template-based fallback
+	if (ssrOnly) {
+		console.log(`🔄 Trying template-based fallback for SSR-only Svelte component: ${src}`);
+		try {
+			const templateFallback = await renderSvelteTemplateFallback(src, props, condition, renderOptions);
+			if (templateFallback) {
+				console.log(`✅ Svelte template fallback succeeded, returning result`);
+				return templateFallback;
+			} else {
+				console.log(`⚠️ Svelte template fallback returned null`);
+			}
+		} catch (fallbackError) {
+			console.error(`❌ Svelte template fallback failed:`, fallbackError);
+		}
+	}
+
+	// Fallback to client-only (or SSR-only if specified)
+	console.log(`🔄 Svelte SSR failed, falling back to ${ssrOnly ? 'SSR-only' : 'client-only'} for ${src}`);
+	return Island({
+		src,
+		condition: ssrOnly ? condition : 'on:client',
+		props,
+		ssr: false,
+		framework: 'svelte',
+		ssrOnly,
+		renderOptions,
+	});
 }
 
 /**
@@ -376,11 +597,15 @@ async function renderPreactComponent({
 	condition,
 	props,
 	ssr: _ssr,
+	renderOptions = {},
+	ssrOnly = false,
 }: {
 	src: string;
 	condition: IslandProps['condition'];
 	props: Record<string, unknown>;
 	ssr: boolean;
+	renderOptions?: AnalyzerOptions;
+	ssrOnly?: boolean;
 }): Promise<JSX.Element> {
 	console.log(`🔄 Attempting Preact SSR for: ${src}`);
 
@@ -399,7 +624,7 @@ async function renderPreactComponent({
 					throw new Error(`Invalid Preact component in ${src}`);
 				}
 
-				return renderPreactToString(PreactComponent, props, src, condition);
+				return renderPreactToString(PreactComponent, props, src, condition, ssrOnly, renderOptions);
 			}
 		} else {
 			// In production, load from pre-built SSR bundle
@@ -407,15 +632,15 @@ async function renderPreactComponent({
 			console.log(`📦 Loading Preact SSR bundle: ${ssrPath}`);
 			const module = await import(ssrPath);
 			const PreactComponent = module.default || module;
-			return renderPreactToString(PreactComponent, props, src, condition);
+			return renderPreactToString(PreactComponent, props, src, condition, ssrOnly, renderOptions);
 		}
 	} catch (error) {
 		console.error(`❌ Preact SSR failed for ${src}:`, error);
 	}
 
-	// Fallback to client-only
-	console.log(`🔄 Preact SSR failed, falling back to client-only for ${src}`);
-	return Island({ src, condition: 'on:client', props, ssr: false });
+	// Fallback to client-only (or SSR-only if specified)
+	console.log(`🔄 Preact SSR failed, falling back to ${ssrOnly ? 'SSR-only' : 'client-only'} for ${src}`);
+	return Island({ src, condition: ssrOnly ? condition : 'on:client', props, ssr: false, ssrOnly, renderOptions });
 }
 
 /**
@@ -425,7 +650,9 @@ function renderPreactToString(
 	component: () => JSX.Element,
 	props: Record<string, unknown> = {},
 	src: string,
-	condition: IslandProps['condition'] = 'on:load'
+	condition: IslandProps['condition'] = 'on:client',
+	ssrOnly: boolean = false,
+	renderOptions: AnalyzerOptions = {}
 ): JSX.Element {
 	try {
 		// Render component directly, then add hydration attributes
@@ -438,10 +665,20 @@ function renderPreactToString(
 			children: ssrHtml,
 			ssr: true,
 			framework: 'preact',
+			ssrOnly,
+			renderOptions,
 		});
 	} catch (error) {
 		console.error(`❌ Preact renderToString failed for ${src}:`, error);
-		return Island({ src, condition: 'on:client', props, ssr: false, framework: 'preact' });
+		return Island({
+			src,
+			condition: ssrOnly ? condition : 'on:client',
+			props,
+			ssr: false,
+			framework: 'preact',
+			ssrOnly,
+			renderOptions,
+		});
 	}
 }
 
@@ -457,7 +694,9 @@ async function renderVueToString(
 	VueComponent: Record<string, unknown>,
 	props: Record<string, unknown> = {},
 	src: string,
-	condition: IslandProps['condition'] = 'on:load'
+	condition: IslandProps['condition'] = 'on:client',
+	ssrOnly: boolean = false,
+	renderOptions: AnalyzerOptions = {}
 ): Promise<JSX.Element> {
 	try {
 		// CRITICAL FIX: Import the dedicated Vue server renderer.
@@ -474,14 +713,15 @@ async function renderVueToString(
 		// Generate deterministic container ID (SSR-safe)
 		const containerId = `vue-component--${src.replace(/[^a-zA-Z0-9]/g, '-')}`;
 
-		// CRITICAL FIX: Use standard div element with data-hydrate attributes (working branch pattern)
-		// This matches the working branch's AsyncIsland pattern
-		return h('is-land', {
-			id: containerId,
-			'data-hydrate': src,
-			'data-props': JSON.stringify(props),
-			'data-condition': condition,
-			dangerouslySetInnerHTML: { __html: ssrHtml },
+		// Use Island component with proper SSR-only handling
+		return Island({
+			src,
+			condition,
+			props,
+			children: ssrHtml,
+			ssr: true,
+			ssrOnly,
+			renderOptions,
 		});
 	} catch (error: unknown) {
 		console.error(`❌ Vue renderToString failed for ${src}:`, error);
@@ -496,7 +736,7 @@ async function renderSolidToString(
 	SolidComponent: (props: Record<string, unknown>) => unknown,
 	props: Record<string, unknown> = {},
 	src: string,
-	condition: IslandProps['condition'] = 'on:load'
+	condition: IslandProps['condition'] = 'on:client'
 ): Promise<JSX.Element> {
 	try {
 		console.log(`🔄 Rendering Solid component to string for ${src}`);
@@ -565,7 +805,9 @@ async function renderSvelteToString(
 	SvelteComponent: Component,
 	props: Record<string, unknown> = {},
 	src: string,
-	condition: IslandProps['condition'] = 'on:load'
+	condition: IslandProps['condition'] = 'on:client',
+	ssrOnly: boolean = false,
+	renderOptions: AnalyzerOptions = {}
 ): Promise<JSX.Element> {
 	try {
 		console.log(`🔄 Rendering Svelte component to string for ${src}`);
@@ -623,9 +865,248 @@ async function renderSvelteToString(
 			children: styledContent, // Include CSS inline for now
 			ssr: true,
 			framework: 'svelte',
+			ssrOnly,
+			renderOptions,
 		});
 	} catch (error: unknown) {
 		console.error(`❌ Svelte SSR failed for ${src}:`, error);
 		throw `❌ Svelte renderToString failed for ${src}: ${error}`;
 	}
+}
+/**
+ * Template-based fallback for Svelte SSR-only components when full SSR fails
+ * This handles props and styles properly without requiring a full Svelte runtime
+ */
+async function renderSvelteTemplateFallback(
+	src: string,
+	props: Record<string, unknown>,
+	condition: IslandProps['condition'],
+	renderOptions: AnalyzerOptions
+): Promise<JSX.Element | null> {
+	try {
+		// Try multiple path variations to find the component
+		const pathVariations = [
+			src.startsWith('/') ? src.substring(1) : src,
+			`examples/${src.split('/').pop()}`,
+			`src/islands/${src.split('/').pop()}`,
+			`islands/${src.split('/').pop()}`,
+		];
+
+		let componentContent = '';
+		for (const pathVariation of pathVariations) {
+			try {
+				componentContent = await Deno.readTextFile(pathVariation);
+				break;
+			} catch {
+				continue;
+			}
+		}
+
+		if (!componentContent) {
+			return null;
+		}
+
+		// Parse the Svelte component more carefully
+		const result = parseSvelteComponent(componentContent, props);
+
+		if (!result.template) {
+			return null;
+		}
+
+		// Combine styles and template
+		let content = result.template;
+		if (result.styles) {
+			content = `<style>${result.styles}</style>${result.template}`;
+		}
+
+		console.log(`✅ Svelte template fallback successful for ${src}`);
+
+		return Island({
+			src,
+			condition,
+			props,
+			children: content,
+			ssr: true,
+			framework: 'svelte',
+			ssrOnly: true,
+			renderOptions,
+		});
+	} catch (error) {
+		console.warn(`Svelte template fallback failed for ${src}:`, error);
+		return null;
+	}
+}
+
+/**
+ * Parse Svelte component and handle props/styles properly
+ */
+function parseSvelteComponent(
+	content: string,
+	props: Record<string, unknown>
+): {
+	template: string;
+	styles: string;
+} {
+	// Extract styles first
+	const styleMatches = content.match(/<style[^>]*>([\s\S]*?)<\/style>/gi);
+	let styles = '';
+	if (styleMatches) {
+		styles = styleMatches
+			.map(match => {
+				const styleContent = match.replace(/<\/?style[^>]*>/gi, '');
+				return styleContent.trim();
+			})
+			.join('\n');
+	}
+
+	// Remove script and style sections to get template
+	let template = content
+		.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove script sections
+		.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove style sections
+		.trim();
+
+	// Handle prop interpolation more intelligently
+	for (const [key, value] of Object.entries(props)) {
+		if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+			// Replace {prop} with the actual value
+			template = template.replace(new RegExp(`\\{\\s*${key}\\s*\\}`, 'g'), String(value));
+		}
+	}
+
+	// Handle common Svelte patterns for static rendering
+	template = template
+		// Remove remaining expressions but preserve the structure
+		.replace(/\{[^}]*\}/g, '')
+		// Remove event handlers but keep the element structure
+		.replace(/\s*on:[a-z-]+\s*=\s*[^>\s]*/gi, '')
+		// Remove bindings
+		.replace(/\s*bind:[a-z-]+\s*=\s*[^>\s]*/gi, '')
+		// Remove actions
+		.replace(/\s*use:[a-z-]+\s*=\s*[^>\s]*/gi, '')
+		// Remove class directives
+		.replace(/\s*class:[a-z-]+\s*=\s*[^>\s]*/gi, '')
+		// Clean up extra whitespace
+		.replace(/\s+/g, ' ')
+		.trim();
+
+	return { template, styles };
+}
+/**
+ * Template-based fallback for Vue SSR-only components when full SSR fails
+ */
+async function renderVueTemplateFallback(
+	src: string,
+	props: Record<string, unknown>,
+	condition: IslandProps['condition'],
+	renderOptions: AnalyzerOptions
+): Promise<JSX.Element | null> {
+	try {
+		// Try multiple path variations to find the component
+		const pathVariations = [
+			src.startsWith('/') ? src.substring(1) : src,
+			`examples/${src.split('/').pop()}`,
+			`src/islands/${src.split('/').pop()}`,
+			`islands/${src.split('/').pop()}`,
+		];
+
+		let componentContent = '';
+		for (const pathVariation of pathVariations) {
+			try {
+				componentContent = await Deno.readTextFile(pathVariation);
+				break;
+			} catch {
+				continue;
+			}
+		}
+
+		if (!componentContent) {
+			return null;
+		}
+
+		// Parse the Vue component
+		const result = parseVueComponent(componentContent, props);
+
+		if (!result.template) {
+			return null;
+		}
+
+		// Combine styles and template
+		let content = result.template;
+		if (result.styles) {
+			content = `<style>${result.styles}</style>${result.template}`;
+		}
+
+		console.log(`✅ Vue template fallback successful for ${src}`);
+
+		return Island({
+			src,
+			condition,
+			props,
+			children: content,
+			ssr: true,
+			ssrOnly: true,
+			renderOptions,
+		});
+	} catch (error) {
+		console.warn(`Vue template fallback failed for ${src}:`, error);
+		return null;
+	}
+}
+
+/**
+ * Parse Vue component and handle props/styles properly
+ */
+function parseVueComponent(
+	content: string,
+	props: Record<string, unknown>
+): {
+	template: string;
+	styles: string;
+} {
+	// Extract template content
+	const templateMatch = content.match(/<template[^>]*>([\s\S]*?)<\/template>/i);
+	if (!templateMatch) {
+		return { template: '', styles: '' };
+	}
+
+	let template = templateMatch[1].trim();
+
+	// Extract styles
+	const styleMatches = content.match(/<style[^>]*>([\s\S]*?)<\/style>/gi);
+	let styles = '';
+	if (styleMatches) {
+		styles = styleMatches
+			.map(match => {
+				const styleContent = match.replace(/<\/?style[^>]*>/gi, '');
+				return styleContent.trim();
+			})
+			.join('\n');
+	}
+
+	// Handle prop interpolation for Vue - replace {{prop}} patterns
+	for (const [key, value] of Object.entries(props)) {
+		if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+			// Replace {{prop}} with the actual value
+			template = template.replace(new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g'), String(value));
+		}
+	}
+
+	// Remove remaining Vue directives and interpolations for static rendering
+	template = template
+		// Remove remaining interpolations
+		.replace(/\{\{[^}]*\}\}/g, '')
+		// Remove Vue directives but keep the element structure
+		.replace(/\s*v-[a-z-]+\s*=\s*"[^"]*"/gi, '')
+		.replace(/\s*v-[a-z-]+\s*=\s*'[^']*'/gi, '')
+		// Remove event handlers
+		.replace(/\s*@[a-z-]+\s*=\s*"[^"]*"/gi, '')
+		.replace(/\s*@[a-z-]+\s*=\s*'[^']*'/gi, '')
+		// Remove prop bindings
+		.replace(/\s*:[a-z-]+\s*=\s*"[^"]*"/gi, '')
+		.replace(/\s*:[a-z-]+\s*=\s*'[^']*'/gi, '')
+		// Clean up extra whitespace
+		.replace(/\s+/g, ' ')
+		.trim();
+
+	return { template, styles };
 }

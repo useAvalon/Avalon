@@ -21,7 +21,7 @@ class SolidIslandHydrator {
 
 		for (const container of solidContainers) {
 			const src = container.getAttribute('data-solid-hydrate');
-			const condition = container.getAttribute('data-solid-condition') || 'on:load';
+			const condition = container.getAttribute('data-solid-condition') || 'on:client';
 
 			if (!src || this.hydratedIslands.has(container)) {
 				continue;
@@ -38,9 +38,15 @@ class SolidIslandHydrator {
 			this.hydrateContainer(container, src);
 		};
 
+		if (condition === 'on:load') {
+			console.warn(
+				`⚠️ on:load directive is not implemented and has been ignored. Use on:client for immediate hydration instead.`
+			);
+			return; // Skip hydration for on:load
+		}
+
 		switch (condition) {
 			case 'on:client':
-			case 'on:load':
 				hydrateNow();
 				break;
 

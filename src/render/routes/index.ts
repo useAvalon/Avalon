@@ -9,6 +9,7 @@ import { createApiRoutes, createAppRoutes } from './app-routes.ts';
 import type { Routes } from '@/schemas/index.ts';
 import type { IslandManifest } from '../../build/island-manifest.ts';
 import type { RenderOptions } from '@/schemas/core.ts';
+import type { ComponentRenderOptions } from '../ssr.ts';
 
 export interface RouteConfig {
 	isDev: boolean;
@@ -17,10 +18,11 @@ export interface RouteConfig {
 	routes: Routes;
 	mergedDefaultOptions: Partial<RenderOptions>;
 	islandManifest: IslandManifest | null;
+	renderOptions?: ComponentRenderOptions;
 }
 
 export function createAllRoutes(config: RouteConfig) {
-	const { isDev, viteServerUrl, apiRoutes, routes, mergedDefaultOptions, islandManifest } = config;
+	const { isDev, viteServerUrl, apiRoutes, routes, mergedDefaultOptions, islandManifest, renderOptions = {} } = config;
 
 	return [
 		// API routes (must be first to catch /api/* before other patterns)
@@ -33,7 +35,7 @@ export function createAllRoutes(config: RouteConfig) {
 		...createViteRoutes(isDev, viteServerUrl),
 
 		// User application routes
-		...createAppRoutes(routes, mergedDefaultOptions, islandManifest, isDev),
+		...createAppRoutes(routes, mergedDefaultOptions, islandManifest, isDev, renderOptions),
 
 		// Static asset routes (must be last as they include fallback)
 		...createStaticRoutes(isDev),

@@ -2,7 +2,7 @@
 	"tasks": {
 		"dev": "deno run --allow-all server.ts",
 		"start": "DENO_ENV=production deno run --allow-all server.ts",
-		"build": "deno run --allow-all build.ts",
+		"build": "deno run --allow-all --unstable-detect-cjs build.ts",
 		"build-avalon": "deno run --allow-all --unstable-detect-cjs npm:vite build --config avalon-build.vite.config.ts",
 		"preview": "deno run --allow-all --env=production server.ts",
 		"test": "deno test --allow-all",

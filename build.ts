@@ -56,7 +56,17 @@ async function buildSSRBundles(): Promise<void> {
 
 	try {
 		await runCommand(
-			['run', '--allow-all', 'npm:vite', 'build', '--ssr', '--outDir', 'dist/ssr', ...Object.values(vueIslands)],
+			[
+				'run',
+				'--allow-all',
+				'--unstable-detect-cjs',
+				'npm:vite',
+				'build',
+				'--ssr',
+				'--outDir',
+				'dist/ssr',
+				...Object.values(vueIslands),
+			],
 			'SSR build'
 		);
 		console.log(`✅ Built SSR bundles for ${islandCount} Vue islands`);
@@ -73,7 +83,7 @@ async function generateManifest(): Promise<void> {
 }
 
 async function runViteBuild(): Promise<void> {
-	await runCommand(['run', '--allow-all', 'npm:vite', 'build'], 'Vite build');
+	await runCommand(['run', '--allow-all', '--unstable-detect-cjs', 'npm:vite', 'build'], 'Vite build');
 }
 
 async function build(): Promise<void> {

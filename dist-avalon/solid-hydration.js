@@ -8,7 +8,7 @@ class r {
   findAndHydrateIslands() {
     const e = document.querySelectorAll("[data-solid-hydrate]");
     for (const s of e) {
-      const t = s.getAttribute("data-solid-hydrate"), i = s.getAttribute("data-solid-condition") || "on:load";
+      const t = s.getAttribute("data-solid-hydrate"), i = s.getAttribute("data-solid-condition") || "on:client";
       !t || this.hydratedIslands.has(s) || this.scheduleHydration(s, t, i);
     }
   }
@@ -16,9 +16,14 @@ class r {
     const i = () => {
       this.hydratedIslands.has(e) || this.hydrateContainer(e, s);
     };
+    if (t === "on:load") {
+      console.warn(
+        "⚠️ on:load directive is not implemented and has been ignored. Use on:client for immediate hydration instead."
+      );
+      return;
+    }
     switch (t) {
       case "on:client":
-      case "on:load":
         i();
         break;
       case "on:visible":
@@ -38,11 +43,11 @@ class r {
     if (!this.hydratedIslands.has(e))
       try {
         console.log(`🏝️ Hydrating Solid island: ${s}`), this.hydratedIslands.add(e);
-        const t = e.getAttribute("data-solid-props"), i = t ? JSON.parse(t) : {}, a = await import(s), d = a.default || a;
-        if (!d || typeof d != "function")
+        const t = e.getAttribute("data-solid-props"), i = t ? JSON.parse(t) : {}, n = await import(s), a = n.default || n;
+        if (!a || typeof a != "function")
           throw new Error(`Invalid Solid component in ${s}`);
-        const { hydrate: n } = await import("./web.CrCRaKXC.js");
-        n(() => d(i), e), console.log(`✅ Solid island hydrated successfully: ${s}`);
+        const { hydrate: d } = await import("./web.CrCRaKXC.js");
+        d(() => a(i), e), console.log(`✅ Solid island hydrated successfully: ${s}`);
       } catch (t) {
         console.error(`❌ Failed to hydrate Solid island ${s}:`, t), this.hydratedIslands.delete(e);
       }
@@ -58,9 +63,9 @@ class r {
   }
   setupInteractionTrigger(e, s) {
     const t = ["click", "touchstart", "mouseover"], i = () => {
-      s(), t.forEach((a) => e.removeEventListener(a, i));
+      s(), t.forEach((n) => e.removeEventListener(n, i));
     };
-    t.forEach((a) => e.addEventListener(a, i, { once: !0 }));
+    t.forEach((n) => e.addEventListener(n, i, { once: !0 }));
   }
   setupIdleTrigger(e) {
     globalThis.requestIdleCallback ? globalThis.requestIdleCallback(e) : setTimeout(e, 200);
@@ -71,8 +76,8 @@ class r {
       s();
       return;
     }
-    const i = (a) => {
-      a.matches && (s(), t.removeEventListener("change", i));
+    const i = (n) => {
+      n.matches && (s(), t.removeEventListener("change", i));
     };
     t.addEventListener("change", i);
   }

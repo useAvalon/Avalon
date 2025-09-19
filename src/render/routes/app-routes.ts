@@ -2,7 +2,7 @@
  * Routes for user application pages and API endpoints
  */
 
-import { renderToHtml } from '../ssr.ts';
+import { renderToHtml, type ComponentRenderOptions } from '../ssr.ts';
 import { handleApiRequest } from '../../functions/api.ts';
 import type { Routes, RouteConfig } from '../../schemas/index.ts';
 import type { IslandManifest } from '../../build/island-manifest.ts';
@@ -23,7 +23,8 @@ export function createAppRoutes(
 	routes: Routes,
 	mergedDefaultOptions: Partial<RenderOptions>,
 	islandManifest: IslandManifest | null,
-	isDev: boolean
+	isDev: boolean,
+	renderOptions: ComponentRenderOptions = {}
 ) {
 	return Object.entries(routes).map(([path, routeConfig]) => ({
 		pattern: new URLPattern({ pathname: path }),
@@ -36,7 +37,7 @@ export function createAppRoutes(
 					...mergedDefaultOptions,
 					...(islandManifest && { islandManifest }),
 				};
-				const htmlContent = await renderToHtml(routeConfig as RouteConfig, extendedOptions, viteHmrPort);
+				const htmlContent = await renderToHtml(routeConfig as RouteConfig, extendedOptions, viteHmrPort, renderOptions);
 				return new Response(htmlContent, {
 					headers: {
 						'Content-Type': 'text/html; charset=utf-8',

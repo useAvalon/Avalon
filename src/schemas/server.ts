@@ -1,6 +1,16 @@
 import { z } from 'zod';
 import { RenderOptionsSchema } from './core.ts';
 
+// Component render options schema
+export const ComponentRenderOptionsSchema = z
+	.object({
+		forceSSROnly: z.boolean().optional(),
+		detectScripts: z.boolean().optional(),
+		suppressWarnings: z.boolean().optional(),
+		logDecisions: z.boolean().optional(),
+	})
+	.optional();
+
 // === Internal Schemas (Building Blocks) ===
 
 /**
@@ -77,6 +87,7 @@ export const ServerConfigSchema: z.ZodSchema = z.object({
 		.max(65535, 'Port must be at most 65535')
 		.default(8001),
 	defaultOptions: RenderOptionsSchema.optional().default({}),
+	renderOptions: ComponentRenderOptionsSchema,
 });
 
 // === Public Types ===
