@@ -1,11 +1,11 @@
-import { assertEquals, assertExists } from 'https://deno.land/std@0.208.0/assert/mod.ts';
+import { assertEquals, assertExists } from 'jsr:@std/assert';
 import {
 	analyzeComponentFile,
 	analyzeComponentContent,
 	shouldHydrate,
 	getComponentFramework,
 	generateAnalysisSummary,
-} from '../src/helpers/component-analyzer.ts';
+} from '../../core/components/component-analyzer.ts';
 
 Deno.test('Component Analyzer Integration', async t => {
 	await t.step('should analyze real component files', async () => {

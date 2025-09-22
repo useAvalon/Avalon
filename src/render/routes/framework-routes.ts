@@ -2,12 +2,15 @@
  * Routes for serving Avalon framework scripts and assets
  */
 
+import type { MiddlewareContext } from '../../schemas/middleware.ts';
+import type { LayoutContext } from '../../types/layout.ts';
+
 export function createFrameworkRoutes(isDev: boolean) {
 	return [
 		// Client script serving (always available) - served from Avalon's location
 		{
 			pattern: new URLPattern({ pathname: '/src/client/main.js' }),
-			handler: async () => {
+			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
 				try {
 					// Serve from Avalon's client script, not user's repo
 					const clientScriptPath = new URL('../../client/main.js', import.meta.url);
@@ -28,7 +31,7 @@ export function createFrameworkRoutes(isDev: boolean) {
 		// SolidJS hydration script (always available) - pre-bundled from Avalon
 		{
 			pattern: new URLPattern({ pathname: '/src/client/solid-hydration.js' }),
-			handler: async () => {
+			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
 				try {
 					// Always serve pre-bundled script with dependencies resolved
 					const bundledScriptPath = new URL('../../../dist-avalon/solid-hydration.js', import.meta.url);
@@ -49,7 +52,7 @@ export function createFrameworkRoutes(isDev: boolean) {
 		// Serve Avalon's pre-built chunks (always available - for hydration scripts dependencies)
 		{
 			pattern: new URLPattern({ pathname: '/src/client/*.js' }),
-			handler: async (req: Request) => {
+			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
 				try {
 					const url = new URL(req.url);
 					const filename = url.pathname.split('/').pop();

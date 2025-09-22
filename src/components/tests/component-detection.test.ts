@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from 'https://deno.land/std@0.208.0/assert/mod.ts';
+import { assertEquals, assertExists } from 'jsr:@std/assert';
 import {
 	analyzeComponent,
 	detectFramework,
@@ -10,7 +10,7 @@ import {
 	extractSvelteScript,
 	extractSolidScript,
 	type ComponentAnalysis,
-} from '../src/helpers/component-detection.ts';
+} from '../../core/components/component-detection.ts';
 
 // Test data - sample component contents
 const sampleComponents = {

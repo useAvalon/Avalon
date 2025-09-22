@@ -17,6 +17,16 @@ import { setupViteServer } from './vite-server.ts';
 import { setupApiRoutes } from './api-setup.ts';
 import { createAllRoutes } from './routes/index.ts';
 
+// Import middleware system
+import { MiddlewareDiscovery } from '../core/middleware/middleware-discovery.ts';
+import { MiddlewareExecutor } from '../core/middleware/middleware-executor.ts';
+import { MiddlewareContextManager } from '../core/middleware/middleware-context.ts';
+import type { MiddlewareContext } from '../schemas/middleware.ts';
+
+// Import layout system
+import { EnhancedLayoutResolver, EnhancedLayoutResolverUtils } from '../core/layout/enhanced-layout-resolver.ts';
+import type { LayoutContext } from '../types/layout.ts';
+
 /**
  * Creates a server with validated configuration
  * @param config - Server configuration object
@@ -44,6 +54,28 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 	// Setup API routes
 	const apiRoutes = await setupApiRoutes(isDev);
 
+	// Initialize middleware system
+	const middlewareDiscovery = new MiddlewareDiscovery({
+		baseDirectory: 'src',
+		filePattern: '_middleware.ts',
+		excludeDirectories: ['node_modules', '.git', 'dist', 'build'],
+		enableWatching: isDev,
+		developmentMode: isDev,
+	});
+
+	const middlewareExecutor = new MiddlewareExecutor({
+		developmentMode: isDev,
+		enableLogging: isDev,
+		maxExecutionTime: 30000,
+	});
+
+	// Initialize layout system
+	const layoutResolver = new EnhancedLayoutResolver(
+		isDev
+			? EnhancedLayoutResolverUtils.createDevelopmentConfig('./src')
+			: EnhancedLayoutResolverUtils.createProductionConfig('./src')
+	);
+
 	// Create all server routes using the modular route system
 	const serverRoutes = createAllRoutes({
 		isDev,
@@ -53,9 +85,10 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		mergedDefaultOptions,
 		islandManifest,
 		renderOptions,
+		layoutResolver, // Pass layout resolver to route creation
 	});
 
-	function requestHandler(req: Request): Response | Promise<Response> {
+	async function requestHandler(req: Request): Promise<Response> {
 		const url = new URL(req.url);
 
 		// Filter out noisy system requests from logging
@@ -66,13 +99,64 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			console.log(`🔍 Request: ${req.method} ${url.pathname}`);
 		}
 
+		try {
+			// Build and execute middleware chain
+			const middlewareChain = await middlewareDiscovery.buildMiddlewareChain(url);
+
+			if (middlewareChain.length > 0) {
+				if (!isSystemRequest && isDev) {
+					console.log(`🔗 Executing ${middlewareChain.length} middleware`);
+				}
+
+				// Create middleware context
+				const middlewareContext = MiddlewareContextManager.createContext(req);
+
+				// Execute middleware chain
+				const middlewareResult = await middlewareExecutor.execute(middlewareChain, middlewareContext);
+
+				// If middleware returned a response, use it (early termination)
+				if (middlewareResult.response) {
+					if (!isSystemRequest && isDev) {
+						console.log(`⚡ Middleware returned response (early termination)`);
+					}
+					return middlewareResult.response;
+				}
+
+				// Continue with route matching, passing middleware context and layout resolver to route handlers
+				return await handleRouteMatching(req, url, isSystemRequest, middlewareResult.context, layoutResolver);
+			} else {
+				// No middleware, proceed with normal route matching
+				return await handleRouteMatching(req, url, isSystemRequest, undefined, layoutResolver);
+			}
+		} catch (error) {
+			console.error('❌ Error in request handler:', error);
+			return new Response('Internal Server Error', { status: 500 });
+		}
+	}
+
+	async function handleRouteMatching(
+		req: Request,
+		url: URL,
+		isSystemRequest: boolean,
+		middlewareContext?: MiddlewareContext,
+		layoutResolver?: EnhancedLayoutResolver
+	): Promise<Response> {
 		// Try to match each route pattern
 		for (const route of serverRoutes) {
 			if (route.pattern.test(url)) {
 				if (!isSystemRequest) {
 					console.log(`✅ Route matched: ${route.pattern.pathname}`);
 				}
-				return route.handler(req);
+
+				// Create layout context from middleware context if available
+				let layoutContext: LayoutContext | undefined;
+				if (middlewareContext && layoutResolver) {
+					layoutContext = MiddlewareContextManager.createLayoutContext(middlewareContext);
+				}
+
+				// Pass middleware context and layout context to route handler if available
+				const response = await route.handler(req, middlewareContext, layoutContext);
+				return response instanceof Response ? response : new Response(response);
 			}
 		}
 

@@ -1,5 +1,5 @@
-import { assertEquals } from 'https://deno.land/std@0.208.0/assert/mod.ts';
-import { analyzeComponent } from '../src/helpers/component-detection.ts';
+import { assertEquals } from 'jsr:@std/assert';
+import { analyzeComponent } from '../../core/components/component-detection.ts';
 
 // Read real component files
 const svelteWithHydrate = await Deno.readTextFile('./examples/SvelteCounter.svelte');

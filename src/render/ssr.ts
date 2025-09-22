@@ -2,7 +2,9 @@ import type { JSX } from 'preact';
 import { render as preactRenderToString } from 'preact-render-to-string';
 import type { RenderOptions } from '../schemas/core.ts';
 import { getSvelteSSRCSS } from '../islands/island.tsx';
-import { analyzeComponentContent, type AnalyzerOptions } from '../helpers/component-analyzer.ts';
+import { analyzeComponentContent, type AnalyzerOptions } from '../core/components/component-analyzer.ts';
+import type { EnhancedLayoutResolver } from '../core/layout/enhanced-layout-resolver.ts';
+import type { LayoutContext, PageModule } from '../types/layout.ts';
 
 export interface RouteConfig {
 	component: () => JSX.Element | Promise<JSX.Element>;
@@ -337,5 +339,93 @@ ${content}
 	} catch (error) {
 		console.error('Error rendering component:', error);
 		throw new Error('Failed to render component');
+	}
+}
+
+/**
+ * Render to HTML with layout system support
+ * Requirements: 8.1, 8.2, 8.3
+ */
+export async function renderToHtmlWithLayouts(
+	routeConfig: RouteConfig,
+	layoutResolver: EnhancedLayoutResolver,
+	layoutContext: LayoutContext,
+	routePath: string,
+	defaultOptions: Partial<RenderOptions> = {},
+	viteHmrPort?: number,
+	renderOptions: ComponentRenderOptions = {}
+): Promise<string> {
+	try {
+		// Create page module from route config
+		const pageModule: PageModule = {
+			default: routeConfig.component,
+			layoutConfig: (routeConfig as any).layoutConfig,
+			loader: (routeConfig as any).loader,
+		};
+
+		// Resolve layouts using the enhanced layout resolver
+		const resolvedLayout = await layoutResolver.resolveAndRender(routePath, pageModule, layoutContext);
+
+		// If no layouts were resolved, fall back to standard rendering
+		if (resolvedLayout.handlers.length === 0) {
+			return await renderToHtml(routeConfig, defaultOptions, viteHmrPort, renderOptions);
+		}
+
+		// Render the page component first
+		const componentResult = routeConfig.component();
+		const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
+		let pageContent = preactRenderToString(resolvedComponent);
+
+		// Apply layout chain from innermost to outermost
+		let wrappedContent = pageContent;
+		for (let i = resolvedLayout.handlers.length - 1; i >= 0; i--) {
+			const handler = resolvedLayout.handlers[i];
+			const layoutData = resolvedLayout.dataLoaders[i] ? await resolvedLayout.dataLoaders[i]!(layoutContext) : {};
+
+			// Create layout props
+			const layoutProps = {
+				children: wrappedContent,
+				data: layoutData,
+				route: {
+					path: routePath,
+					params: layoutContext.params,
+					query: layoutContext.query,
+				},
+			};
+
+			// Render the layout component
+			const layoutElement = handler.component(layoutProps);
+			wrappedContent = preactRenderToString(layoutElement);
+		}
+
+		// Enhance content with intelligent rendering strategy analysis
+		const enhancedContent = await enhanceContentWithRenderingStrategy(wrappedContent, renderOptions);
+
+		// Detect frameworks used in the rendered content
+		const frameworks = detectFrameworks(enhancedContent);
+
+		// Merge route options with defaults
+		const options = { ...defaultOptions, ...routeConfig.options };
+
+		// Generate head with framework-specific optimizations
+		const head = await generateHead(options, frameworks, viteHmrPort);
+
+		return `<!DOCTYPE html>
+<html lang="en">
+${head}
+<body>
+${enhancedContent}
+</body>
+</html>`;
+	} catch (error) {
+		console.error('Error rendering component with layouts:', error);
+
+		// Try to fall back to standard rendering
+		try {
+			return await renderToHtml(routeConfig, defaultOptions, viteHmrPort, renderOptions);
+		} catch (fallbackError) {
+			console.error('Fallback rendering also failed:', fallbackError);
+			throw new Error('Failed to render component with layouts and fallback failed');
+		}
 	}
 }

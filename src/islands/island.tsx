@@ -4,7 +4,7 @@ import { renderToString } from 'preact-render-to-string';
 import { getIslandBundlePath } from '../build/island-manifest.ts';
 import type { ViteDevServer } from 'vite';
 import type { Component } from 'svelte';
-import { analyzeComponentContent, type AnalyzerOptions } from '../helpers/component-analyzer.ts';
+import { analyzeComponentContent, type AnalyzerOptions } from '../core/components/component-analyzer.ts';
 
 // Global CSS collector for SSR
 declare global {

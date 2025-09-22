@@ -5,13 +5,15 @@
 import { join } from '@std/path';
 import { serveStaticFile, hasStaticExtension } from '../file-utils.ts';
 import { STATIC_FILES_DIR } from '../constants.ts';
+import type { MiddlewareContext } from '../../schemas/middleware.ts';
+import type { LayoutContext } from '../../types/layout.ts';
 
 export function createStaticRoutes(isDev: boolean) {
 	return [
 		// Serve islands - needed for dynamic imports in both dev and production
 		{
 			pattern: new URLPattern({ pathname: '/islands/*' }),
-			handler: async (req: Request) => {
+			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
 				// In development, this is handled by Vite proxy above
 				// In production, serve directly from user's islands directory
 				if (!isDev) {
@@ -27,7 +29,7 @@ export function createStaticRoutes(isDev: boolean) {
 		// Serve built island bundles (production)
 		{
 			pattern: new URLPattern({ pathname: '/dist/islands/*' }),
-			handler: async (req: Request) => {
+			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/dist\//, '');
 				return await serveStaticFile(path, join(Deno.cwd(), 'dist'));
@@ -37,7 +39,7 @@ export function createStaticRoutes(isDev: boolean) {
 		// Serve Vite-generated chunks (production)
 		{
 			pattern: new URLPattern({ pathname: '/chunks/*' }),
-			handler: async (req: Request) => {
+			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
 				if (!isDev) {
 					const url = new URL(req.url);
 					const path = url.pathname.replace(/^\/chunks\//, '');
@@ -51,7 +53,7 @@ export function createStaticRoutes(isDev: boolean) {
 		// Serve any other dist assets (for Vite-generated files)
 		{
 			pattern: new URLPattern({ pathname: '/dist/*' }),
-			handler: async (req: Request) => {
+			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/dist\//, '');
 				return await serveStaticFile(path, join(Deno.cwd(), 'dist'));
@@ -61,7 +63,7 @@ export function createStaticRoutes(isDev: boolean) {
 		// CSS files
 		{
 			pattern: new URLPattern({ pathname: '/css/*' }),
-			handler: async (req: Request) => {
+			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/css\//, 'css/');
 				return await serveStaticFile(path, STATIC_FILES_DIR);
@@ -71,7 +73,7 @@ export function createStaticRoutes(isDev: boolean) {
 		// JavaScript files
 		{
 			pattern: new URLPattern({ pathname: '/js/*' }),
-			handler: async (req: Request) => {
+			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/js\//, 'js/');
 				return await serveStaticFile(path, STATIC_FILES_DIR);
@@ -81,7 +83,7 @@ export function createStaticRoutes(isDev: boolean) {
 		// Image files
 		{
 			pattern: new URLPattern({ pathname: '/images/*' }),
-			handler: async (req: Request) => {
+			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/images\//, 'images/');
 				return await serveStaticFile(path, STATIC_FILES_DIR);
@@ -91,7 +93,7 @@ export function createStaticRoutes(isDev: boolean) {
 		// Font files
 		{
 			pattern: new URLPattern({ pathname: '/fonts/*' }),
-			handler: async (req: Request) => {
+			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/fonts\//, 'fonts/');
 				console.log(`Font request: ${url.pathname} -> serving from: ${path}`);
@@ -102,7 +104,7 @@ export function createStaticRoutes(isDev: boolean) {
 		// Assets folder (for videos, other media, etc.)
 		{
 			pattern: new URLPattern({ pathname: '/assets/*' }),
-			handler: async (req: Request) => {
+			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/assets\//, 'assets/');
 				console.log(`Assets request: ${url.pathname} -> serving from: ${path}`);
@@ -113,7 +115,7 @@ export function createStaticRoutes(isDev: boolean) {
 		// General static files (for files directly in public/) - MUST be last as fallback
 		{
 			pattern: new URLPattern({ pathname: '/*' }),
-			handler: async (req: Request) => {
+			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.substring(1); // Remove leading slash
 

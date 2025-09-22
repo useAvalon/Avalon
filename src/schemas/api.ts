@@ -23,6 +23,8 @@ export const ApiContextSchema: z.ZodObject<{
 	url: z.ZodAny;
 	params: z.ZodRecord<z.ZodString, z.ZodString>;
 	query: z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodArray<z.ZodString>]>>;
+	state: z.ZodOptional<z.ZodAny>;
+	locals: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
 }> = z.object({
 	/** HTTP request object */
 	request: z.any(), // Request object
@@ -32,6 +34,10 @@ export const ApiContextSchema: z.ZodObject<{
 	params: z.record(z.string()),
 	/** Query parameters from URL search params */
 	query: z.record(z.union([z.string(), z.array(z.string())])),
+	/** State map from middleware execution (optional) */
+	state: z.any().optional(), // Map object
+	/** Locals object from middleware execution (optional) */
+	locals: z.record(z.unknown()).optional(),
 });
 
 export type ApiContext = {
@@ -39,6 +45,10 @@ export type ApiContext = {
 	url: URL;
 	params: Record<string, string>;
 	query: Record<string, string | string[]>;
+	/** State map from middleware execution (optional) */
+	state?: Map<string, unknown>;
+	/** Locals object from middleware execution (optional) */
+	locals?: Record<string, unknown>;
 };
 
 /**

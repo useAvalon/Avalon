@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from 'https://deno.land/std@0.208.0/assert/mod.ts';
+import { assertEquals, assertExists } from 'jsr:@std/assert';
 
 // Test the enhanced hydration option parsing functionality
 // Since the functions are in main.js, we'll test the behavior through integration

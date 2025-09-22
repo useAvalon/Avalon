@@ -1,17 +1,36 @@
 import { z } from 'zod';
 import { RenderOptionsSchema } from './core.ts';
 import { ServerConfigSchema } from './server.ts';
+import { MiddlewareConfigSchema, MiddlewareDiscoveryOptionsSchema } from './middleware.ts';
+import {
+	LayoutContextSchema,
+	LayoutDataSchema,
+	LayoutHandlerSchema,
+	LayoutDiscoveryOptionsSchema as LayoutDiscoverySchema,
+	LayoutConfigSchema,
+	ResolvedLayoutSchema,
+} from './layout.ts';
 
 // Re-export all schemas and types
 export * from './core.ts';
 export * from './server.ts';
 export * from './api.ts';
+export * from './middleware.ts';
+export * from './layout.ts';
 
 // === Explicit Type Definitions ===
 
 // Use z.infer to get the actual output types from schemas
 type RenderOptions = z.infer<typeof RenderOptionsSchema>;
 type ServerConfig = z.infer<typeof ServerConfigSchema>;
+type MiddlewareConfig = z.infer<typeof MiddlewareConfigSchema>;
+type MiddlewareDiscoveryOptions = z.infer<typeof MiddlewareDiscoveryOptionsSchema>;
+type LayoutContext = z.infer<typeof LayoutContextSchema>;
+type LayoutData = z.infer<typeof LayoutDataSchema>;
+type LayoutHandler = z.infer<typeof LayoutHandlerSchema>;
+type LayoutDiscoveryOptions = z.infer<typeof LayoutDiscoverySchema>;
+type LayoutConfig = z.infer<typeof LayoutConfigSchema>;
+type ResolvedLayout = z.infer<typeof ResolvedLayoutSchema>;
 
 // === Validation Result Types ===
 
@@ -116,6 +135,25 @@ export const validators = {
 	renderOptions: (data: unknown): RenderOptions => validate(RenderOptionsSchema, data, 'Invalid render options'),
 
 	serverConfig: (data: unknown): ServerConfig => validate(ServerConfigSchema, data, 'Invalid server configuration'),
+
+	middlewareConfig: (data: unknown): MiddlewareConfig =>
+		validate(MiddlewareConfigSchema, data, 'Invalid middleware configuration'),
+
+	middlewareDiscoveryOptions: (data: unknown): MiddlewareDiscoveryOptions =>
+		validate(MiddlewareDiscoveryOptionsSchema, data, 'Invalid middleware discovery options'),
+
+	layoutContext: (data: unknown): LayoutContext => validate(LayoutContextSchema, data, 'Invalid layout context'),
+
+	layoutData: (data: unknown): LayoutData => validate(LayoutDataSchema, data, 'Invalid layout data'),
+
+	layoutHandler: (data: unknown): LayoutHandler => validate(LayoutHandlerSchema, data, 'Invalid layout handler'),
+
+	layoutDiscoveryOptions: (data: unknown): LayoutDiscoveryOptions =>
+		validate(LayoutDiscoverySchema, data, 'Invalid layout discovery options'),
+
+	layoutConfig: (data: unknown): LayoutConfig => validate(LayoutConfigSchema, data, 'Invalid layout config'),
+
+	resolvedLayout: (data: unknown): ResolvedLayout => validate(ResolvedLayoutSchema, data, 'Invalid resolved layout'),
 } as const;
 
 /**
@@ -127,6 +165,30 @@ export const safeValidators = {
 
 	serverConfig: (data: unknown): ValidationResult<ServerConfig> =>
 		safeValidate(ServerConfigSchema, data, 'Invalid server configuration'),
+
+	middlewareConfig: (data: unknown): ValidationResult<MiddlewareConfig> =>
+		safeValidate(MiddlewareConfigSchema, data, 'Invalid middleware configuration'),
+
+	middlewareDiscoveryOptions: (data: unknown): ValidationResult<MiddlewareDiscoveryOptions> =>
+		safeValidate(MiddlewareDiscoveryOptionsSchema, data, 'Invalid middleware discovery options'),
+
+	layoutContext: (data: unknown): ValidationResult<LayoutContext> =>
+		safeValidate(LayoutContextSchema, data, 'Invalid layout context'),
+
+	layoutData: (data: unknown): ValidationResult<LayoutData> =>
+		safeValidate(LayoutDataSchema, data, 'Invalid layout data'),
+
+	layoutHandler: (data: unknown): ValidationResult<LayoutHandler> =>
+		safeValidate(LayoutHandlerSchema, data, 'Invalid layout handler'),
+
+	layoutDiscoveryOptions: (data: unknown): ValidationResult<LayoutDiscoveryOptions> =>
+		safeValidate(LayoutDiscoverySchema, data, 'Invalid layout discovery options'),
+
+	layoutConfig: (data: unknown): ValidationResult<LayoutConfig> =>
+		safeValidate(LayoutConfigSchema, data, 'Invalid layout config'),
+
+	resolvedLayout: (data: unknown): ValidationResult<ResolvedLayout> =>
+		safeValidate(ResolvedLayoutSchema, data, 'Invalid resolved layout'),
 } as const;
 
 /**
@@ -156,6 +218,30 @@ export const devValidators = {
 		}
 		return true;
 	},
+
+	/**
+	 * Validates middleware config and logs warnings instead of throwing
+	 */
+	middlewareConfigSoft: (data: unknown, context = 'unknown'): boolean => {
+		const result: ValidationResult<MiddlewareConfig> = safeValidators.middlewareConfig(data);
+		if (!result.success) {
+			console.warn(`Middleware config validation warning in ${context}:`, result.error.getErrorMessage());
+			return false;
+		}
+		return true;
+	},
+
+	/**
+	 * Validates middleware discovery options and logs warnings instead of throwing
+	 */
+	middlewareDiscoveryOptionsSoft: (data: unknown, context = 'unknown'): boolean => {
+		const result: ValidationResult<MiddlewareDiscoveryOptions> = safeValidators.middlewareDiscoveryOptions(data);
+		if (!result.success) {
+			console.warn(`Middleware discovery options validation warning in ${context}:`, result.error.getErrorMessage());
+			return false;
+		}
+		return true;
+	},
 } as const;
 
 /**
@@ -167,6 +253,14 @@ export function isValidRenderOptions(data: unknown): data is RenderOptions {
 
 export function isValidServerConfig(data: unknown): data is ServerConfig {
 	return safeValidators.serverConfig(data).success;
+}
+
+export function isValidMiddlewareConfig(data: unknown): data is MiddlewareConfig {
+	return safeValidators.middlewareConfig(data).success;
+}
+
+export function isValidMiddlewareDiscoveryOptions(data: unknown): data is MiddlewareDiscoveryOptions {
+	return safeValidators.middlewareDiscoveryOptions(data).success;
 }
 
 // === Batch Validation Utilities ===

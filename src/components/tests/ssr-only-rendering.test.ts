@@ -1,5 +1,5 @@
-import { assertEquals, assertExists, assertStringIncludes } from 'https://deno.land/std@0.208.0/assert/mod.ts';
-import { renderIsland } from '../src/islands/island.tsx';
+import { assertEquals, assertExists, assertStringIncludes } from 'jsr:@std/assert';
+import { renderIsland } from '../../islands/island.tsx';
 import { renderToString } from 'preact-render-to-string';
 
 Deno.test('SSR-Only Rendering', async t => {

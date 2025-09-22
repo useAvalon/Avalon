@@ -1,7 +1,8 @@
 import { join, relative } from '@std/path';
 import { walk } from '@std/fs';
 import type { ApiRoute, ApiRouteConfig, ApiContext, ApiMethod } from '../schemas/api.ts';
-import { methodNotAllowed } from '../helpers/api.ts';
+import type { MiddlewareContext } from '../schemas/middleware.ts';
+import { methodNotAllowed } from '../core/api/api.ts';
 
 /**
  * Discover all API routes in the src/api directory
@@ -257,9 +258,20 @@ function extractParams(pattern: URLPattern, url: URL, paramNames: string[]): Rec
 }
 
 /**
- * Handle API request
+ * Handle API request with middleware support
+ *
+ * @param request - The HTTP request object
+ * @param routes - Array of discovered API routes
+ * @param middlewareContext - Optional middleware context from middleware execution
+ * @returns Response object
+ *
+ * Requirements: 3.1, 3.3, 3.4, 5.2
  */
-export async function handleApiRequest(request: Request, routes: ApiRoute[]): Promise<Response> {
+export async function handleApiRequest(
+	request: Request,
+	routes: ApiRoute[],
+	middlewareContext?: MiddlewareContext
+): Promise<Response> {
 	const url = new URL(request.url);
 
 	// Find matching route
@@ -272,29 +284,25 @@ export async function handleApiRequest(request: Request, routes: ApiRoute[]): Pr
 		});
 	}
 
-	// Extract parameters
-	const params = extractParams(matchedRoute.pattern, url, matchedRoute.paramNames);
+	// Extract parameters - prioritize middleware context over fresh extraction
+	// This ensures middleware-processed parameters (e.g., validated, transformed) are used
+	const params = middlewareContext?.params || extractParams(matchedRoute.pattern, url, matchedRoute.paramNames);
 
-	// Parse query parameters
-	const query: Record<string, string | string[]> = {};
-	for (const [key, value] of url.searchParams.entries()) {
-		if (query[key]) {
-			if (Array.isArray(query[key])) {
-				(query[key] as string[]).push(value);
-			} else {
-				query[key] = [query[key] as string, value];
-			}
-		} else {
-			query[key] = value;
-		}
-	}
+	// Parse query parameters - prioritize middleware context over fresh parsing
+	// This ensures middleware-processed query params (e.g., validated, transformed) are used
+	const query = middlewareContext?.query || parseQueryParameters(url);
 
-	// Create context
+	// Create API context with middleware integration
 	const context: ApiContext = {
-		request,
-		url,
+		request: middlewareContext?.request || request, // Use middleware-processed request if available
+		url: middlewareContext?.url || url, // Use middleware-processed URL if available
 		params,
 		query,
+		// Include middleware state and locals for API handlers to access
+		...(middlewareContext && {
+			state: middlewareContext.state,
+			locals: middlewareContext.locals,
+		}),
 	};
 
 	try {
@@ -310,7 +318,7 @@ export async function handleApiRequest(request: Request, routes: ApiRoute[]): Pr
 		const handler = config[method];
 
 		if (!handler) {
-			// Method not allowed
+			// Method not allowed - return available methods
 			const allowedMethods = Object.keys(config).filter(key => config[key as ApiMethod]);
 			return methodNotAllowed(allowedMethods);
 		}
@@ -318,9 +326,44 @@ export async function handleApiRequest(request: Request, routes: ApiRoute[]): Pr
 		return await handler(context);
 	} catch (error) {
 		console.error('API route error:', error);
-		return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+
+		// Enhanced error handling with middleware context information
+		const errorResponse: Record<string, unknown> = {
+			error: 'Internal Server Error',
+		};
+
+		// Add development mode details if available
+		if (middlewareContext?.locals?.developmentMode) {
+			errorResponse.details = error instanceof Error ? error.message : String(error);
+			errorResponse.route = matchedRoute.filePath;
+		}
+
+		return new Response(JSON.stringify(errorResponse), {
 			status: 500,
 			headers: { 'Content-Type': 'application/json' },
 		});
 	}
+}
+
+/**
+ * Parse query parameters from URL
+ * Handles multiple values for the same parameter
+ */
+function parseQueryParameters(url: URL): Record<string, string | string[]> {
+	const query: Record<string, string | string[]> = {};
+
+	for (const [key, value] of url.searchParams.entries()) {
+		if (query[key]) {
+			// Convert to array if multiple values exist
+			if (Array.isArray(query[key])) {
+				(query[key] as string[]).push(value);
+			} else {
+				query[key] = [query[key] as string, value];
+			}
+		} else {
+			query[key] = value;
+		}
+	}
+
+	return query;
 }
