@@ -42,7 +42,7 @@ const FRAMEWORK_PATTERNS = {
 		imports: ['svelte', 'svelte/'],
 	},
 	solid: {
-		fileExtensions: ['.tsx', '.jsx'],
+		fileExtensions: ['.tsx', '.jsx', '.solid.tsx', '.solid.jsx'],
 		scriptTags: [], // Solid uses JSX, no separate script tags
 		hydratePatterns: ['hydrate', 'render', 'createSignal', 'createEffect'],
 		imports: ['solid-js', 'solid-js/web'],
@@ -53,6 +53,11 @@ const FRAMEWORK_PATTERNS = {
  * Detects the framework type based on file extension and content
  */
 export function detectFramework(filePath: string, content: string): ComponentAnalysis['framework'] {
+	// Check for explicit naming conventions first (highest priority)
+	if (filePath.includes('.solid.')) {
+		return 'solid';
+	}
+
 	// Check file extension first
 	for (const [framework, patterns] of Object.entries(FRAMEWORK_PATTERNS)) {
 		if (patterns.fileExtensions.some(ext => filePath.endsWith(ext))) {
@@ -243,8 +248,17 @@ export function shouldHydrateComponent(
 		};
 	}
 
-	// Has script section - only hydrate if explicit hydrate function is found
+	// Has script section - check framework-specific hydration requirements
 	if (analysis.hasScript) {
+		// SolidJS components don't need explicit hydrate functions - they use solid-hydration.js
+		if (analysis.framework === 'solid') {
+			return {
+				shouldHydrate: true,
+				reason: 'SolidJS component detected - uses solid-hydration.js system',
+			};
+		}
+
+		// Other frameworks need explicit hydrate functions
 		if (analysis.hasHydrateFunction) {
 			return {
 				shouldHydrate: true,
