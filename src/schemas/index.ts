@@ -10,6 +10,14 @@ import {
 	LayoutConfigSchema,
 	ResolvedLayoutSchema,
 } from './layout.ts';
+import {
+	FileSystemRouteSchema,
+	RoutePageModuleSchema,
+	RouteDiscoveryOptionsSchema,
+	FileSystemRouterConfigSchema,
+	MetadataSchema,
+	ResolvedMetadataSchema,
+} from './routing.ts';
 
 // Re-export all schemas and types
 export * from './core.ts';
@@ -17,6 +25,7 @@ export * from './server.ts';
 export * from './api.ts';
 export * from './middleware.ts';
 export * from './layout.ts';
+export * from './routing.ts';
 
 // === Explicit Type Definitions ===
 
@@ -31,6 +40,12 @@ type LayoutHandler = z.infer<typeof LayoutHandlerSchema>;
 type LayoutDiscoveryOptions = z.infer<typeof LayoutDiscoverySchema>;
 type LayoutConfig = z.infer<typeof LayoutConfigSchema>;
 type ResolvedLayout = z.infer<typeof ResolvedLayoutSchema>;
+type FileSystemRoute = z.infer<typeof FileSystemRouteSchema>;
+type RoutePageModule = z.infer<typeof RoutePageModuleSchema>;
+type RouteDiscoveryOptions = z.infer<typeof RouteDiscoveryOptionsSchema>;
+type FileSystemRouterConfig = z.infer<typeof FileSystemRouterConfigSchema>;
+type Metadata = z.infer<typeof MetadataSchema>;
+type ResolvedMetadata = z.infer<typeof ResolvedMetadataSchema>;
 
 // === Validation Result Types ===
 
@@ -154,6 +169,23 @@ export const validators = {
 	layoutConfig: (data: unknown): LayoutConfig => validate(LayoutConfigSchema, data, 'Invalid layout config'),
 
 	resolvedLayout: (data: unknown): ResolvedLayout => validate(ResolvedLayoutSchema, data, 'Invalid resolved layout'),
+
+	fileSystemRoute: (data: unknown): FileSystemRoute =>
+		validate(FileSystemRouteSchema, data, 'Invalid file system route'),
+
+	routePageModule: (data: unknown): RoutePageModule =>
+		validate(RoutePageModuleSchema, data, 'Invalid route page module'),
+
+	routeDiscoveryOptions: (data: unknown): RouteDiscoveryOptions =>
+		validate(RouteDiscoveryOptionsSchema, data, 'Invalid route discovery options'),
+
+	fileSystemRouterConfig: (data: unknown): FileSystemRouterConfig =>
+		validate(FileSystemRouterConfigSchema, data, 'Invalid file system router config'),
+
+	metadata: (data: unknown): Metadata => validate(MetadataSchema, data, 'Invalid metadata'),
+
+	resolvedMetadata: (data: unknown): ResolvedMetadata =>
+		validate(ResolvedMetadataSchema, data, 'Invalid resolved metadata'),
 } as const;
 
 /**
@@ -189,6 +221,23 @@ export const safeValidators = {
 
 	resolvedLayout: (data: unknown): ValidationResult<ResolvedLayout> =>
 		safeValidate(ResolvedLayoutSchema, data, 'Invalid resolved layout'),
+
+	fileSystemRoute: (data: unknown): ValidationResult<FileSystemRoute> =>
+		safeValidate(FileSystemRouteSchema, data, 'Invalid file system route'),
+
+	routePageModule: (data: unknown): ValidationResult<RoutePageModule> =>
+		safeValidate(RoutePageModuleSchema, data, 'Invalid route page module'),
+
+	routeDiscoveryOptions: (data: unknown): ValidationResult<RouteDiscoveryOptions> =>
+		safeValidate(RouteDiscoveryOptionsSchema, data, 'Invalid route discovery options'),
+
+	fileSystemRouterConfig: (data: unknown): ValidationResult<FileSystemRouterConfig> =>
+		safeValidate(FileSystemRouterConfigSchema, data, 'Invalid file system router config'),
+
+	metadata: (data: unknown): ValidationResult<Metadata> => safeValidate(MetadataSchema, data, 'Invalid metadata'),
+
+	resolvedMetadata: (data: unknown): ValidationResult<ResolvedMetadata> =>
+		safeValidate(ResolvedMetadataSchema, data, 'Invalid resolved metadata'),
 } as const;
 
 /**
@@ -261,6 +310,30 @@ export function isValidMiddlewareConfig(data: unknown): data is MiddlewareConfig
 
 export function isValidMiddlewareDiscoveryOptions(data: unknown): data is MiddlewareDiscoveryOptions {
 	return safeValidators.middlewareDiscoveryOptions(data).success;
+}
+
+export function isValidFileSystemRoute(data: unknown): data is FileSystemRoute {
+	return safeValidators.fileSystemRoute(data).success;
+}
+
+export function isValidRoutePageModule(data: unknown): data is RoutePageModule {
+	return safeValidators.routePageModule(data).success;
+}
+
+export function isValidRouteDiscoveryOptions(data: unknown): data is RouteDiscoveryOptions {
+	return safeValidators.routeDiscoveryOptions(data).success;
+}
+
+export function isValidFileSystemRouterConfig(data: unknown): data is FileSystemRouterConfig {
+	return safeValidators.fileSystemRouterConfig(data).success;
+}
+
+export function isValidMetadata(data: unknown): data is Metadata {
+	return safeValidators.metadata(data).success;
+}
+
+export function isValidResolvedMetadata(data: unknown): data is ResolvedMetadata {
+	return safeValidators.resolvedMetadata(data).success;
 }
 
 // === Batch Validation Utilities ===

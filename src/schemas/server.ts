@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { RenderOptionsSchema } from './core.ts';
+import { FileSystemRouterConfigSchema } from './routing.ts';
 
 // Component render options schema
 export const ComponentRenderOptionsSchema = z
@@ -88,6 +89,7 @@ export const ServerConfigSchema: z.ZodSchema = z.object({
 		.default(8001),
 	defaultOptions: RenderOptionsSchema.optional().default({}),
 	renderOptions: ComponentRenderOptionsSchema,
+	fileSystemRouting: FileSystemRouterConfigSchema.optional(),
 });
 
 // === Public Types ===

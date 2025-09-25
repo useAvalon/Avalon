@@ -78,7 +78,7 @@ export interface LayoutConfig {
 // === Function Types ===
 
 export type LayoutLoader = (ctx: LayoutContext) => Promise<LayoutData>;
-export type LayoutMatcher = (layoutPath: string, route: RouteInfo) => boolean;
+export type LayoutMatcherFunction = (layoutPath: string, route: RouteInfo) => boolean;
 export type LayoutErrorHandler = (error: Error, errorInfo: LayoutErrorInfo) => void;
 export type LayoutRetryFunction = () => void;
 export type LayoutFallbackRenderer = (error: Error, retry: LayoutRetryFunction) => ComponentChildren;
@@ -474,6 +474,7 @@ export declare class LayoutErrorBoundary
 	implements ILayoutErrorBoundaryComponent
 {
 	constructor(props: LayoutErrorBoundaryProps);
+	render(): ComponentChildren;
 	handleRetry(): void;
 	getErrorState(): { hasError: boolean; error?: Error };
 	resetErrorState(): void;
@@ -481,6 +482,7 @@ export declare class LayoutErrorBoundary
 
 export declare class PersistentIsland extends Component<PersistentIslandProps> implements IPersistentIslandComponent {
 	constructor(props: PersistentIslandProps);
+	render(): ComponentChildren;
 	saveState(): void;
 	loadState(): void;
 	clearState(): void;
