@@ -5,6 +5,7 @@ import { getSvelteSSRCSS } from '../islands/island.tsx';
 import { analyzeComponentContent, type AnalyzerOptions } from '../core/components/component-analyzer.ts';
 import type { EnhancedLayoutResolver } from '../core/layout/enhanced-layout-resolver.ts';
 import type { LayoutContext, PageModule } from '../types/layout.ts';
+import { IsolatedSSRRenderer, type IsolatedRenderRequest, type SSRIsolationConfig } from './isolated-ssr-renderer.ts';
 
 export interface RouteConfig {
 	component: () => JSX.Element | Promise<JSX.Element>;
@@ -32,10 +33,29 @@ interface FrameworkDetection {
 
 // Framework detection patterns
 const FRAMEWORK_PATTERNS = {
-	solid: ['solid-js', 'SolidIsland', 'createSignal', '.solid.', 'data-hydrate'],
+	solid: ['solid-js', 'SolidIsland', 'createSignal', '.solid.', 'data-solid-hydrate'],
 	vue: ['data-vue-hydrate', '.vue', 'Vue'],
 	svelte: ['data-framework="svelte"', '.svelte', 's-'],
 } as const;
+
+// Global isolated SSR renderer instance
+let isolatedRenderer: IsolatedSSRRenderer | null = null;
+
+/**
+ * Gets or creates the isolated SSR renderer
+ */
+function getIsolatedRenderer(): IsolatedSSRRenderer {
+	if (!isolatedRenderer) {
+		const config: Partial<SSRIsolationConfig> = {
+			enableStrictIsolation: true,
+			allowedCrossFrameworkImports: ['preact', 'preact-render-to-string'],
+			errorHandling: 'fallback',
+			debugLogging: Deno.env.get('DENO_ENV') !== 'production',
+		};
+		isolatedRenderer = new IsolatedSSRRenderer(config);
+	}
+	return isolatedRenderer;
+}
 
 function detectFrameworks(content: string): FrameworkDetection {
 	return {
@@ -46,8 +66,64 @@ function detectFrameworks(content: string): FrameworkDetection {
 }
 
 /**
+ * Validates that imports are allowed for the detected framework
+ */
+function validateFrameworkImports(componentPath: string, content: string, detectedFramework: string): string[] {
+	const warnings: string[] = [];
+
+	// Extract import statements
+	const importRegex =
+		/import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+|\w+))*\s+from\s+)?['"]([^'"]+)['"]/g;
+	const imports: string[] = [];
+
+	let match;
+	while ((match = importRegex.exec(content)) !== null) {
+		imports.push(match[1]);
+	}
+
+	// Override framework detection based on naming convention
+	let actualFramework = detectedFramework;
+	if (componentPath.includes('.solid.')) {
+		actualFramework = 'solid';
+	} else if (componentPath.includes('.preact.')) {
+		actualFramework = 'preact';
+	}
+
+	// Check for problematic cross-framework imports
+	const problematicImports = new Map<string, string[]>([
+		['preact', ['solid-js', 'solid-js/web', 'vue', 'svelte']],
+		['solid', ['preact', 'preact-render-to-string', 'vue', 'svelte']],
+		['vue', ['preact', 'solid-js', 'svelte']],
+		['svelte', ['preact', 'solid-js', 'vue']],
+	]);
+
+	const forbidden = problematicImports.get(actualFramework) || [];
+
+	for (const importPath of imports) {
+		for (const forbiddenPattern of forbidden) {
+			if (importPath.startsWith(forbiddenPattern)) {
+				warnings.push(
+					`Cross-framework import detected: ${actualFramework} component (${componentPath}) importing ${importPath}`
+				);
+			}
+		}
+	}
+
+	return warnings;
+}
+
+/**
+ * Filters and sanitizes component content to prevent cross-framework contamination
+ */
+function sanitizeComponentForFramework(content: string, framework: string): string {
+	// For now, return content as-is since the isolation happens at the import level
+	// In the future, we could implement content transformation here
+	return content;
+}
+
+/**
  * Analyzes components in rendered content and adds rendering strategy attributes
- * using the intelligent component detection system
+ * using the intelligent component detection system with import validation
  */
 async function enhanceContentWithRenderingStrategy(
 	content: string,
@@ -69,6 +145,9 @@ async function enhanceContentWithRenderingStrategy(
 
 			// Determine render strategy using intelligent component detection
 			const strategy = await determineRenderStrategy(componentPath, renderOptions);
+
+			// Validate imports for cross-framework contamination
+			await validateComponentImports(componentPath, renderOptions);
 
 			// Skip hydration attribute generation for SSR-only components
 			if (strategy.type === 'ssr-only') {
@@ -102,6 +181,71 @@ async function enhanceContentWithRenderingStrategy(
 	}
 
 	return enhancedContent;
+}
+
+/**
+ * Validates component imports to prevent cross-framework contamination
+ */
+async function validateComponentImports(
+	componentPath: string,
+	renderOptions: ComponentRenderOptions = {}
+): Promise<void> {
+	try {
+		// Try to read and analyze the component file
+		let componentContent: string;
+		let resolvedPath = componentPath;
+
+		// Handle different path formats
+		if (componentPath.startsWith('/')) {
+			resolvedPath = componentPath.substring(1);
+		}
+
+		// Try multiple path variations
+		const pathVariations = [
+			resolvedPath,
+			`examples/${resolvedPath.split('/').pop()}`,
+			`src/islands/${resolvedPath.split('/').pop()}`,
+			`islands/${resolvedPath.split('/').pop()}`,
+		];
+
+		let foundPath = '';
+		for (const pathVariation of pathVariations) {
+			try {
+				componentContent = await Deno.readTextFile(pathVariation);
+				foundPath = pathVariation;
+				break;
+			} catch {
+				// Continue to next path variation
+				continue;
+			}
+		}
+
+		if (!foundPath) {
+			// Component file not found, skip validation
+			return;
+		}
+
+		// Use the enhanced framework detector to identify the framework
+		const renderer = getIsolatedRenderer();
+		const detector = (renderer as any).detector; // Access the detector from the renderer
+
+		if (detector) {
+			const detection = detector.detectFramework(foundPath, componentContent);
+
+			// Validate imports for this framework
+			const importWarnings = validateFrameworkImports(foundPath, componentContent, detection.framework);
+
+			// Log import validation warnings
+			if (importWarnings.length > 0 && !renderOptions.suppressWarnings) {
+				importWarnings.forEach(warning => console.warn(`[Import Validation] ${warning}`));
+			}
+		}
+	} catch (error) {
+		// Validation failed, but don't break the rendering process
+		if (renderOptions.logDecisions !== false) {
+			console.warn(`Import validation failed for ${componentPath}:`, error);
+		}
+	}
 }
 
 /**
@@ -247,6 +391,25 @@ function generateScriptTags(options: Partial<RenderOptions>): string {
 }
 
 async function generateSolidHydrationScript(hasSolidComponents: boolean): Promise<string> {
+	// Always check for Solid components in the project, not just the current page
+	if (!hasSolidComponents) {
+		// Check if any Solid components exist in the project
+		try {
+			// Look for Solid components in the islands directory
+			for await (const dirEntry of Deno.readDir('src/islands')) {
+				if (dirEntry.isFile && dirEntry.name.endsWith('.tsx')) {
+					const content = await Deno.readTextFile(`src/islands/${dirEntry.name}`);
+					if (content.includes('solid-js') || content.includes('createSignal')) {
+						hasSolidComponents = true;
+						break;
+					}
+				}
+			}
+		} catch {
+			// Directory doesn't exist or can't be read, continue without Solid
+		}
+	}
+
 	if (!hasSolidComponents) return '';
 
 	try {
@@ -312,16 +475,56 @@ export async function renderToHtml(
 	renderOptions: ComponentRenderOptions = {}
 ): Promise<string> {
 	try {
-		// Render component (handle both sync and async)
-		const componentResult = routeConfig.component();
-		const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
-		let content = preactRenderToString(resolvedComponent);
+		let content: string;
+		let frameworks: FrameworkDetection;
+
+		// Check if we should use isolated rendering
+		if (renderOptions.forceSSROnly !== true) {
+			try {
+				// Try to use isolated rendering for better framework separation
+				const renderer = getIsolatedRenderer();
+
+				// Create render request - we don't have a specific component path here,
+				// so we'll use a generic path and let the renderer handle it
+				const renderRequest: IsolatedRenderRequest = {
+					componentPath: 'route-component',
+					component: routeConfig.component,
+				};
+
+				const isolatedResult = await renderer.renderWithIsolation(renderRequest);
+
+				if (isolatedResult.success) {
+					content = isolatedResult.html;
+
+					// Detect frameworks from the rendered content
+					frameworks = detectFrameworks(content);
+
+					// Log any warnings from isolated rendering
+					if (isolatedResult.warnings.length > 0 && !renderOptions.suppressWarnings) {
+						isolatedResult.warnings.forEach(warning => console.warn(`[SSR Isolation] ${warning}`));
+					}
+				} else {
+					throw new Error(`Isolated rendering failed: ${isolatedResult.errors.join(', ')}`);
+				}
+			} catch (isolatedError) {
+				console.warn('[SSR] Isolated rendering failed, falling back to standard rendering:', isolatedError);
+
+				// Fallback to standard rendering
+				const componentResult = routeConfig.component();
+				const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
+				content = preactRenderToString(resolvedComponent);
+				frameworks = detectFrameworks(content);
+			}
+		} else {
+			// Standard rendering when explicitly requested
+			const componentResult = routeConfig.component();
+			const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
+			content = preactRenderToString(resolvedComponent);
+			frameworks = detectFrameworks(content);
+		}
 
 		// Enhance content with intelligent rendering strategy analysis
 		content = await enhanceContentWithRenderingStrategy(content, renderOptions);
-
-		// Detect frameworks used in the rendered content
-		const frameworks = detectFrameworks(content);
 
 		// Merge route options with defaults
 		const options = { ...defaultOptions, ...routeConfig.options };
@@ -371,10 +574,45 @@ export async function renderToHtmlWithLayouts(
 			return await renderToHtml(routeConfig, defaultOptions, viteHmrPort, renderOptions);
 		}
 
-		// Render the page component first
-		const componentResult = routeConfig.component();
-		const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
-		let pageContent = preactRenderToString(resolvedComponent);
+		let pageContent: string;
+		let frameworks: FrameworkDetection;
+
+		// Use isolated rendering for page component if not explicitly disabled
+		if (renderOptions.forceSSROnly !== true) {
+			try {
+				const renderer = getIsolatedRenderer();
+
+				const renderRequest: IsolatedRenderRequest = {
+					componentPath: routePath,
+					component: routeConfig.component,
+				};
+
+				const isolatedResult = await renderer.renderWithIsolation(renderRequest);
+
+				if (isolatedResult.success) {
+					pageContent = isolatedResult.html;
+
+					// Log any warnings from isolated rendering
+					if (isolatedResult.warnings.length > 0 && !renderOptions.suppressWarnings) {
+						isolatedResult.warnings.forEach(warning => console.warn(`[SSR Isolation] ${warning}`));
+					}
+				} else {
+					throw new Error(`Isolated rendering failed: ${isolatedResult.errors.join(', ')}`);
+				}
+			} catch (isolatedError) {
+				console.warn('[SSR] Isolated page rendering failed, falling back to standard rendering:', isolatedError);
+
+				// Fallback to standard rendering
+				const componentResult = routeConfig.component();
+				const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
+				pageContent = preactRenderToString(resolvedComponent);
+			}
+		} else {
+			// Standard rendering when explicitly requested
+			const componentResult = routeConfig.component();
+			const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
+			pageContent = preactRenderToString(resolvedComponent);
+		}
 
 		// Apply layout chain from innermost to outermost
 		let wrappedContent = pageContent;
@@ -393,16 +631,36 @@ export async function renderToHtmlWithLayouts(
 				},
 			};
 
-			// Render the layout component
-			const layoutElement = handler.component(layoutProps);
-			wrappedContent = preactRenderToString(layoutElement);
+			// Render the layout component with isolation if possible
+			try {
+				const renderer = getIsolatedRenderer();
+
+				const layoutRenderRequest: IsolatedRenderRequest = {
+					componentPath: `layout-${i}`,
+					component: () => handler.component(layoutProps),
+				};
+
+				const layoutResult = await renderer.renderWithIsolation(layoutRenderRequest);
+
+				if (layoutResult.success) {
+					wrappedContent = layoutResult.html;
+				} else {
+					// Fallback to standard layout rendering
+					const layoutElement = handler.component(layoutProps);
+					wrappedContent = preactRenderToString(layoutElement);
+				}
+			} catch {
+				// Fallback to standard layout rendering
+				const layoutElement = handler.component(layoutProps);
+				wrappedContent = preactRenderToString(layoutElement);
+			}
 		}
 
 		// Enhance content with intelligent rendering strategy analysis
 		const enhancedContent = await enhanceContentWithRenderingStrategy(wrappedContent, renderOptions);
 
 		// Detect frameworks used in the rendered content
-		const frameworks = detectFrameworks(enhancedContent);
+		frameworks = detectFrameworks(enhancedContent);
 
 		// Merge route options with defaults
 		const options = { ...defaultOptions, ...routeConfig.options };

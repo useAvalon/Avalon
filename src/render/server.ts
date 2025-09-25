@@ -27,6 +27,10 @@ import type { MiddlewareContext } from '../schemas/middleware.ts';
 import { EnhancedLayoutResolver, EnhancedLayoutResolverUtils } from '../core/layout/enhanced-layout-resolver.ts';
 import type { LayoutContext } from '../types/layout.ts';
 
+// Import file-system routing
+import { FileSystemRouter } from '../core/routing/file-system-router.ts';
+import type { FileSystemRouterConfig } from '../schemas/routing.ts';
+
 /**
  * Creates a server with validated configuration
  * @param config - Server configuration object
@@ -37,7 +41,13 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 	// Validate the entire server configuration
 	const validatedConfig = validateServerConfig(config);
 
-	const { routes, port = DEFAULT_SERVER_PORT, defaultOptions = {}, renderOptions = {} } = validatedConfig;
+	const {
+		routes,
+		port = DEFAULT_SERVER_PORT,
+		defaultOptions = {},
+		renderOptions = {},
+		fileSystemRouting,
+	} = validatedConfig;
 
 	// Merge options with validation (no more importMap with Vite)
 	const mergedDefaultOptions = mergeOptions({}, defaultOptions, {});
@@ -69,15 +79,78 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		maxExecutionTime: 30000,
 	});
 
-	// Initialize layout system
-	const layoutResolver = new EnhancedLayoutResolver(
-		isDev
-			? EnhancedLayoutResolverUtils.createDevelopmentConfig('./src')
-			: EnhancedLayoutResolverUtils.createProductionConfig('./src')
-	);
+	// Initialize layout system - derive base directory from pages directory
+	const pagesDirectory = fileSystemRouting?.discovery?.pagesDirectory || 'src/pages';
+	const layoutBaseDirectory = pagesDirectory.replace('/pages', '');
+
+	if (isDev) {
+		console.log(`🎨 Layout resolver base directory: ${layoutBaseDirectory}`);
+		console.log(`📁 Pages directory: ${pagesDirectory}`);
+		console.log(`📋 Layouts directory: ${fileSystemRouting?.discovery?.layoutsDirectory || 'not configured'}`);
+
+		// Check what the final discovery directory will be
+		const finalLayoutsDir = fileSystemRouting?.discovery?.layoutsDirectory || `${layoutBaseDirectory}/layouts`;
+		console.log(`🔍 Final layouts discovery directory: ${finalLayoutsDir}`);
+
+		// Check if the directory exists
+		try {
+			const stat = await Deno.stat(finalLayoutsDir);
+			console.log(`✅ Layouts directory exists: ${stat.isDirectory ? 'directory' : 'file'}`);
+		} catch (error) {
+			console.log(`❌ Layouts directory does not exist: ${finalLayoutsDir}`);
+			console.log(`Error: ${error.message}`);
+		}
+	}
+
+	const layoutResolver = new EnhancedLayoutResolver({
+		...(isDev
+			? EnhancedLayoutResolverUtils.createDevelopmentConfig(layoutBaseDirectory)
+			: EnhancedLayoutResolverUtils.createProductionConfig(layoutBaseDirectory)),
+		// Override discovery options directly (not nested in discovery object)
+		baseDirectory: 'src/layouts', // Explicitly set to src/layouts for Avalon demo
+		filePattern: '_layout.tsx',
+		excludeDirectories: ['node_modules', '.git', 'dist', 'build'],
+		enableWatching: isDev,
+		developmentMode: isDev,
+	});
+
+	// Initialize file-system routing if enabled
+	let fileSystemRouter: FileSystemRouter | undefined;
+	if (fileSystemRouting?.enabled !== false) {
+		try {
+			const fileSystemConfig: Partial<FileSystemRouterConfig> = {
+				enabled: true,
+				fallbackToManual: true,
+				enableCaching: !isDev, // Disable caching in development for hot reload
+				...fileSystemRouting,
+				discovery: {
+					pagesDirectory: 'src/pages',
+					apiDirectory: 'src/api',
+					extensions: ['.tsx', '.ts', '.jsx', '.js'],
+					excludeDirectories: ['node_modules', '.git', 'dist', 'build'],
+					enableWatching: isDev,
+					developmentMode: isDev,
+					...fileSystemRouting?.discovery,
+				},
+			};
+
+			fileSystemRouter = new FileSystemRouter(fileSystemConfig);
+
+			if (isDev) {
+				console.log('📁 File-system routing enabled');
+			}
+		} catch (error) {
+			console.error('Failed to initialize file-system routing:', error);
+			if (fileSystemRouting?.fallbackToManual !== false) {
+				console.warn('Falling back to manual routes only');
+			} else {
+				throw error;
+			}
+		}
+	}
 
 	// Create all server routes using the modular route system
-	const serverRoutes = createAllRoutes({
+	const serverRoutes = await createAllRoutes({
 		isDev,
 		viteServerUrl,
 		apiRoutes,
@@ -86,6 +159,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		islandManifest,
 		renderOptions,
 		layoutResolver, // Pass layout resolver to route creation
+		fileSystemRouter, // Pass file-system router if enabled
 	});
 
 	async function requestHandler(req: Request): Promise<Response> {
@@ -148,10 +222,22 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 					console.log(`✅ Route matched: ${route.pattern.pathname}`);
 				}
 
-				// Create layout context from middleware context if available
+				// Create layout context for layout rendering
 				let layoutContext: LayoutContext | undefined;
-				if (middlewareContext && layoutResolver) {
-					layoutContext = MiddlewareContextManager.createLayoutContext(middlewareContext);
+				if (layoutResolver) {
+					if (middlewareContext) {
+						// Create layout context from middleware context if available
+						layoutContext = MiddlewareContextManager.createLayoutContext(middlewareContext);
+					} else {
+						// Create basic layout context for requests without middleware
+						layoutContext = {
+							url,
+							params: {},
+							query: url.searchParams,
+							state: new Map(),
+							request: req,
+						};
+					}
 				}
 
 				// Pass middleware context and layout context to route handler if available
@@ -173,8 +259,8 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			onListen: ({ port: serverPort }) => {
 				console.log(`🚀 Server running on http://localhost:${serverPort}`);
 				if (isDev && viteDevServer) {
-					console.log(`⚡ Vite dev server: http://localhost:8002`);
-					console.log(`🔥 HMR WebSocket: ws://localhost:8003`);
+					console.log(`⚡ Vite dev server: http://localhost:8010`);
+					console.log(`🔥 HMR WebSocket: ws://localhost:8011`);
 				}
 			},
 		},

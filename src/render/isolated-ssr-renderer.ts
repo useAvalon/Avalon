@@ -1,0 +1,678 @@
+/**
+ * Isolated SSR Renderer
+ *
+ * This module provides framework-specific SSR contexts to prevent cross-contamination
+ * between different frameworks during server-side rendering. Each framework gets its
+ * own isolated import context and rendering pipeline.
+ */
+
+import type { JSX } from 'preact';
+import { render as preactRenderToString } from 'preact-render-to-string';
+import {
+	EnhancedFrameworkDetector,
+	type FrameworkDetectionResult,
+} from '../core/components/enhanced-framework-detector.ts';
+
+export interface FrameworkSSRContext {
+	framework: string;
+	imports: Map<string, unknown>;
+	renderFunction: (component: unknown, props: unknown) => Promise<string>;
+	cleanup: () => void;
+	isActive: boolean;
+}
+
+export interface SSRIsolationConfig {
+	enableStrictIsolation: boolean;
+	allowedCrossFrameworkImports: string[];
+	errorHandling: 'strict' | 'fallback' | 'ignore';
+	debugLogging: boolean;
+}
+
+export interface IsolatedRenderRequest {
+	componentPath: string;
+	component: () => JSX.Element | Promise<JSX.Element>;
+	framework?: string;
+	props?: Record<string, unknown>;
+}
+
+export interface IsolatedRenderResult {
+	html: string;
+	framework: string;
+	success: boolean;
+	errors: string[];
+	warnings: string[];
+}
+
+/**
+ * Isolated SSR Renderer with framework-specific contexts
+ */
+export class IsolatedSSRRenderer {
+	private contexts: Map<string, FrameworkSSRContext>;
+	private detector: EnhancedFrameworkDetector;
+	private config: SSRIsolationConfig;
+	private activeContext: string | null = null;
+
+	constructor(config: Partial<SSRIsolationConfig> = {}) {
+		this.contexts = new Map();
+		this.detector = new EnhancedFrameworkDetector();
+		this.config = {
+			enableStrictIsolation: true,
+			allowedCrossFrameworkImports: ['preact', 'preact-render-to-string'],
+			errorHandling: 'fallback',
+			debugLogging: false,
+			...config,
+		};
+
+		// Initialize framework contexts
+		this.initializeFrameworkContexts();
+	}
+
+	/**
+	 * Renders a component with framework isolation
+	 */
+	async renderWithIsolation(request: IsolatedRenderRequest): Promise<IsolatedRenderResult> {
+		const errors: string[] = [];
+		const warnings: string[] = [];
+		let framework = request.framework;
+
+		try {
+			// Detect framework if not provided
+			if (!framework) {
+				const content = await this.getComponentContent(request.componentPath);
+				const detection = this.detector.detectFramework(request.componentPath, content);
+				framework = detection.framework;
+
+				if (detection.confidence === 'low') {
+					warnings.push(`Low confidence framework detection for ${request.componentPath}: ${framework}`);
+				}
+
+				if (this.config.debugLogging) {
+					console.log(`[SSR Isolation] Detected framework: ${framework} for ${request.componentPath}`);
+					console.log(`[SSR Isolation] Evidence: ${detection.evidence.join(', ')}`);
+				}
+			}
+
+			// Get or create framework context
+			const context = await this.getFrameworkContext(framework);
+			if (!context) {
+				throw new Error(`No SSR context available for framework: ${framework}`);
+			}
+
+			// Switch to framework context with isolation
+			await this.switchToContext(framework);
+
+			try {
+				// Render component in isolated context
+				const componentResult = request.component();
+				const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
+
+				// Use framework-specific rendering
+				const html = await context.renderFunction(resolvedComponent, request.props || {});
+
+				return {
+					html,
+					framework,
+					success: true,
+					errors,
+					warnings,
+				};
+			} finally {
+				// Always cleanup context after rendering
+				await this.cleanupContext(framework);
+			}
+		} catch (error) {
+			errors.push(`SSR rendering failed: ${error instanceof Error ? error.message : String(error)}`);
+
+			if (this.config.errorHandling === 'fallback') {
+				// Try fallback rendering with Preact
+				try {
+					const componentResult = request.component();
+					const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
+					const html = preactRenderToString(resolvedComponent);
+
+					warnings.push('Fell back to Preact rendering due to framework-specific error');
+
+					return {
+						html,
+						framework: 'preact',
+						success: true,
+						errors,
+						warnings,
+					};
+				} catch (fallbackError) {
+					errors.push(
+						`Fallback rendering also failed: ${
+							fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
+						}`
+					);
+				}
+			}
+
+			return {
+				html: '',
+				framework: framework || 'unknown',
+				success: false,
+				errors,
+				warnings,
+			};
+		}
+	}
+
+	/**
+	 * Initializes framework-specific SSR contexts
+	 */
+	private initializeFrameworkContexts(): void {
+		// Preact context
+		this.contexts.set('preact', {
+			framework: 'preact',
+			imports: new Map(),
+			renderFunction: async (component: unknown) => {
+				return preactRenderToString(component as JSX.Element);
+			},
+			cleanup: () => {
+				// Clear Preact-specific globals if any
+				this.clearFrameworkGlobals('preact');
+			},
+			isActive: false,
+		});
+
+		// Solid context
+		this.contexts.set('solid', {
+			framework: 'solid',
+			imports: new Map(),
+			renderFunction: async (component: unknown) => {
+				try {
+					// Import Solid SSR modules in isolation
+					const solidWeb = (await this.importFrameworkModule('solid-js/web', 'solid')) as any;
+					if (solidWeb && solidWeb.renderToString) {
+						return solidWeb.renderToString(() => component);
+					}
+					throw new Error('Solid renderToString not available');
+				} catch (error) {
+					throw new Error(`Solid SSR failed: ${error instanceof Error ? error.message : String(error)}`);
+				}
+			},
+			cleanup: () => {
+				// Clear Solid-specific globals
+				this.clearFrameworkGlobals('solid');
+			},
+			isActive: false,
+		});
+
+		// Vue context
+		this.contexts.set('vue', {
+			framework: 'vue',
+			imports: new Map(),
+			renderFunction: async (component: unknown) => {
+				try {
+					// Import Vue SSR modules in isolation
+					const vueServerRenderer = (await this.importFrameworkModule('vue/server-renderer', 'vue')) as any;
+					if (vueServerRenderer && vueServerRenderer.renderToString) {
+						return await vueServerRenderer.renderToString(component);
+					}
+					throw new Error('Vue renderToString not available');
+				} catch (error) {
+					throw new Error(`Vue SSR failed: ${error instanceof Error ? error.message : String(error)}`);
+				}
+			},
+			cleanup: () => {
+				// Clear Vue-specific globals
+				this.clearFrameworkGlobals('vue');
+			},
+			isActive: false,
+		});
+
+		// Svelte context
+		this.contexts.set('svelte', {
+			framework: 'svelte',
+			imports: new Map(),
+			renderFunction: async (component: unknown) => {
+				try {
+					// Svelte components have a render method
+					if (component && typeof component === 'object' && 'render' in component) {
+						const renderResult = (component as any).render();
+						return renderResult.html || '';
+					}
+					throw new Error('Svelte component does not have render method');
+				} catch (error) {
+					throw new Error(`Svelte SSR failed: ${error instanceof Error ? error.message : String(error)}`);
+				}
+			},
+			cleanup: () => {
+				// Clear Svelte-specific globals
+				this.clearFrameworkGlobals('svelte');
+			},
+			isActive: false,
+		});
+
+		// Unknown/fallback context
+		this.contexts.set('unknown', {
+			framework: 'unknown',
+			imports: new Map(),
+			renderFunction: async (component: unknown) => {
+				// Fallback to Preact rendering
+				return preactRenderToString(component as JSX.Element);
+			},
+			cleanup: () => {
+				// No specific cleanup needed
+			},
+			isActive: false,
+		});
+	}
+
+	/**
+	 * Gets or creates a framework context
+	 */
+	private async getFrameworkContext(framework: string): Promise<FrameworkSSRContext | null> {
+		const context = this.contexts.get(framework);
+		if (context) {
+			return context;
+		}
+
+		// If framework not found, use unknown/fallback context
+		return this.contexts.get('unknown') || null;
+	}
+
+	/**
+	 * Switches to a specific framework context with isolation
+	 */
+	private async switchToContext(framework: string): Promise<void> {
+		// Cleanup previous context if active
+		if (this.activeContext && this.activeContext !== framework) {
+			await this.cleanupContext(this.activeContext);
+		}
+
+		const context = this.contexts.get(framework);
+		if (!context) {
+			throw new Error(`Framework context not found: ${framework}`);
+		}
+
+		// Activate the context
+		context.isActive = true;
+		this.activeContext = framework;
+
+		// Set up framework-specific environment
+		await this.setupFrameworkEnvironment(framework);
+
+		if (this.config.debugLogging) {
+			console.log(`[SSR Isolation] Switched to ${framework} context`);
+		}
+	}
+
+	/**
+	 * Cleans up a framework context
+	 */
+	private async cleanupContext(framework: string): Promise<void> {
+		const context = this.contexts.get(framework);
+		if (!context) {
+			return;
+		}
+
+		// Run framework-specific cleanup
+		context.cleanup();
+		context.isActive = false;
+
+		// Clear framework-specific imports
+		context.imports.clear();
+
+		if (this.activeContext === framework) {
+			this.activeContext = null;
+		}
+
+		if (this.config.debugLogging) {
+			console.log(`[SSR Isolation] Cleaned up ${framework} context`);
+		}
+	}
+
+	/**
+	 * Sets up framework-specific environment
+	 */
+	private async setupFrameworkEnvironment(framework: string): Promise<void> {
+		// Framework-specific setup logic
+		switch (framework) {
+			case 'solid':
+				// Ensure Solid-specific globals are available
+				await this.ensureSolidEnvironment();
+				break;
+			case 'vue':
+				// Ensure Vue-specific globals are available
+				await this.ensureVueEnvironment();
+				break;
+			case 'svelte':
+				// Ensure Svelte-specific globals are available
+				await this.ensureSvelteEnvironment();
+				break;
+			case 'preact':
+			default:
+				// Preact is the default, no special setup needed
+				break;
+		}
+	}
+
+	/**
+	 * Imports a framework module with isolation
+	 */
+	private async importFrameworkModule(modulePath: string, framework: string): Promise<unknown> {
+		const context = this.contexts.get(framework);
+		if (!context) {
+			throw new Error(`No context for framework: ${framework}`);
+		}
+
+		// Check if module is already imported in this context
+		if (context.imports.has(modulePath)) {
+			return context.imports.get(modulePath);
+		}
+
+		// Validate import is allowed for this framework
+		if (this.config.enableStrictIsolation && !this.isImportAllowed(modulePath, framework)) {
+			throw new Error(`Import not allowed in ${framework} context: ${modulePath}`);
+		}
+
+		try {
+			// Import the module
+			const module = await import(modulePath);
+
+			// Store in context-specific imports
+			context.imports.set(modulePath, module);
+
+			if (this.config.debugLogging) {
+				console.log(`[SSR Isolation] Imported ${modulePath} in ${framework} context`);
+			}
+
+			return module;
+		} catch (error) {
+			throw new Error(
+				`Failed to import ${modulePath} in ${framework} context: ${
+					error instanceof Error ? error.message : String(error)
+				}`
+			);
+		}
+	}
+
+	/**
+	 * Checks if an import is allowed for a specific framework
+	 */
+	private isImportAllowed(modulePath: string, framework: string): boolean {
+		// Always allow framework-specific modules
+		const frameworkConfig = this.detector.getFrameworkConfigs().get(framework);
+		if (frameworkConfig) {
+			const allowedModules = [...frameworkConfig.ssrModules, ...frameworkConfig.hydrationModules];
+			if (allowedModules.some(allowed => modulePath.startsWith(allowed))) {
+				return true;
+			}
+		}
+
+		// Check globally allowed cross-framework imports
+		return this.config.allowedCrossFrameworkImports.some(allowed => modulePath.startsWith(allowed));
+	}
+
+	/**
+	 * Clears framework-specific globals
+	 */
+	private clearFrameworkGlobals(framework: string): void {
+		// Clear framework-specific globals to prevent contamination
+		switch (framework) {
+			case 'solid':
+				// Clear Solid-specific globals if they exist
+				if (typeof globalThis !== 'undefined') {
+					delete (globalThis as any)._$HY;
+					delete (globalThis as any).Solid;
+				}
+				break;
+			case 'vue':
+				// Clear Vue-specific globals if they exist
+				if (typeof globalThis !== 'undefined') {
+					delete (globalThis as any).__VUE__;
+					delete (globalThis as any).Vue;
+				}
+				break;
+			case 'svelte':
+				// Clear Svelte-specific globals if they exist
+				if (typeof globalThis !== 'undefined') {
+					delete (globalThis as any).__SVELTE__;
+				}
+				break;
+		}
+	}
+
+	/**
+	 * Ensures Solid environment is properly set up
+	 */
+	private async ensureSolidEnvironment(): Promise<void> {
+		try {
+			// Import Solid modules needed for SSR
+			await this.importFrameworkModule('solid-js/web', 'solid');
+		} catch (error) {
+			if (this.config.debugLogging) {
+				console.warn('[SSR Isolation] Failed to set up Solid environment:', error);
+			}
+		}
+	}
+
+	/**
+	 * Ensures Vue environment is properly set up
+	 */
+	private async ensureVueEnvironment(): Promise<void> {
+		try {
+			// Import Vue modules needed for SSR
+			await this.importFrameworkModule('vue/server-renderer', 'vue');
+		} catch (error) {
+			if (this.config.debugLogging) {
+				console.warn('[SSR Isolation] Failed to set up Vue environment:', error);
+			}
+		}
+	}
+
+	/**
+	 * Ensures Svelte environment is properly set up
+	 */
+	private async ensureSvelteEnvironment(): Promise<void> {
+		try {
+			// Svelte components are typically pre-compiled, no special setup needed
+			if (this.config.debugLogging) {
+				console.log('[SSR Isolation] Svelte environment ready');
+			}
+		} catch (error) {
+			if (this.config.debugLogging) {
+				console.warn('[SSR Isolation] Failed to set up Svelte environment:', error);
+			}
+		}
+	}
+
+	/**
+	 * Gets component content for framework detection
+	 */
+	private async getComponentContent(componentPath: string): Promise<string> {
+		try {
+			// Try to read the component file
+			let resolvedPath = componentPath;
+
+			// Handle different path formats
+			if (componentPath.startsWith('/')) {
+				resolvedPath = componentPath.substring(1);
+			}
+
+			// Try multiple path variations
+			const pathVariations = [
+				resolvedPath,
+				`src/islands/${resolvedPath.split('/').pop()}`,
+				`islands/${resolvedPath.split('/').pop()}`,
+				`examples/${resolvedPath.split('/').pop()}`,
+			];
+
+			for (const pathVariation of pathVariations) {
+				try {
+					return await Deno.readTextFile(pathVariation);
+				} catch {
+					// Continue to next path variation
+					continue;
+				}
+			}
+
+			throw new Error(`Component file not found: ${componentPath}`);
+		} catch (error) {
+			throw new Error(`Failed to read component content: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}
+
+	/**
+	 * Gets current active context
+	 */
+	getActiveContext(): string | null {
+		return this.activeContext;
+	}
+
+	/**
+	 * Gets all framework contexts
+	 */
+	getContexts(): Map<string, FrameworkSSRContext> {
+		return new Map(this.contexts);
+	}
+
+	/**
+	 * Updates configuration
+	 */
+	updateConfig(config: Partial<SSRIsolationConfig>): void {
+		this.config = { ...this.config, ...config };
+	}
+
+	/**
+	 * Resets all contexts
+	 */
+	async resetAllContexts(): Promise<void> {
+		for (const [framework] of this.contexts) {
+			await this.cleanupContext(framework);
+		}
+		this.activeContext = null;
+	}
+
+	/**
+	 * Creates fallback rendering when framework modules are unavailable
+	 */
+	async renderWithFallback(
+		component: () => JSX.Element | Promise<JSX.Element>,
+		preferredFramework: string
+	): Promise<IsolatedRenderResult> {
+		const errors: string[] = [];
+		const warnings: string[] = [];
+
+		// Try preferred framework first
+		try {
+			const request: IsolatedRenderRequest = {
+				componentPath: 'fallback-component',
+				component,
+				framework: preferredFramework,
+			};
+
+			const result = await this.renderWithIsolation(request);
+			if (result.success) {
+				return result;
+			}
+
+			errors.push(...result.errors);
+			warnings.push(...result.warnings);
+		} catch (error) {
+			errors.push(
+				`Preferred framework (${preferredFramework}) failed: ${error instanceof Error ? error.message : String(error)}`
+			);
+		}
+
+		// Try fallback frameworks in order of preference
+		const fallbackOrder = ['preact', 'unknown'];
+
+		for (const fallbackFramework of fallbackOrder) {
+			if (fallbackFramework === preferredFramework) {
+				continue; // Already tried
+			}
+
+			try {
+				const request: IsolatedRenderRequest = {
+					componentPath: 'fallback-component',
+					component,
+					framework: fallbackFramework,
+				};
+
+				const result = await this.renderWithIsolation(request);
+				if (result.success) {
+					warnings.push(`Fell back to ${fallbackFramework} rendering from ${preferredFramework}`);
+					return {
+						...result,
+						warnings: [...warnings, ...result.warnings],
+					};
+				}
+
+				errors.push(...result.errors);
+			} catch (error) {
+				errors.push(
+					`Fallback framework (${fallbackFramework}) failed: ${error instanceof Error ? error.message : String(error)}`
+				);
+			}
+		}
+
+		// All frameworks failed, return error result
+		return {
+			html: '',
+			framework: preferredFramework,
+			success: false,
+			errors,
+			warnings,
+		};
+	}
+
+	/**
+	 * Validates that a framework context is properly set up
+	 */
+	async validateFrameworkContext(framework: string): Promise<boolean> {
+		const context = this.contexts.get(framework);
+		if (!context) {
+			return false;
+		}
+
+		try {
+			// Try to set up the framework environment
+			await this.setupFrameworkEnvironment(framework);
+			return true;
+		} catch (error) {
+			if (this.config.debugLogging) {
+				console.warn(`[SSR Isolation] Framework context validation failed for ${framework}:`, error);
+			}
+			return false;
+		}
+	}
+
+	/**
+	 * Gets framework-specific error recovery strategies
+	 */
+	getErrorRecoveryStrategies(framework: string): string[] {
+		const strategies: Record<string, string[]> = {
+			solid: [
+				'Ensure solid-js and solid-js/web are installed',
+				'Check that Solid components use proper JSX import source: /** @jsxImportSource solid-js */',
+				'Verify Solid components export default function',
+			],
+			vue: [
+				'Ensure vue and vue/server-renderer are installed',
+				'Check that Vue components have proper <template>, <script>, and <style> sections',
+				'Verify Vue components are properly compiled for SSR',
+			],
+			svelte: [
+				'Ensure svelte is installed and components are compiled',
+				'Check that Svelte components export default class or function',
+				'Verify Svelte components have proper script and style sections',
+			],
+			preact: [
+				'Ensure preact and preact-render-to-string are installed',
+				'Check that Preact components use proper JSX import source: /** @jsxImportSource preact */',
+				'Verify Preact components export default function',
+			],
+		};
+
+		return (
+			strategies[framework] || [
+				'Check that the framework is properly installed',
+				'Verify component syntax is correct for the detected framework',
+				'Consider adding explicit framework detection hints',
+			]
+		);
+	}
+}
