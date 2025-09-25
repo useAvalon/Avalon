@@ -10,6 +10,8 @@ import type { RenderOptions } from '../../schemas/core.ts';
 import type { MiddlewareContext } from '../../schemas/middleware.ts';
 import type { EnhancedLayoutResolver } from '../../core/layout/enhanced-layout-resolver.ts';
 import type { LayoutContext } from '../../types/layout.ts';
+import { type FileSystemRouter, createFileSystemRouteHandlers } from '../../core/routing/file-system-router.ts';
+import type { RouteHandler } from '../../schemas/routing.ts';
 
 export function createApiRoutes(apiRoutes: any[]) {
 	return [
@@ -83,4 +85,50 @@ export function createAppRoutes(
 			}
 		},
 	}));
+}
+
+/**
+ * Creates file-system based routes using the FileSystemRouter
+ * @param fileSystemRouter - FileSystemRouter instance
+ * @param layoutResolver - Layout resolver for layout-aware rendering
+ * @param mergedDefaultOptions - Default render options
+ * @param islandManifest - Island manifest for production builds
+ * @param isDev - Development mode flag
+ * @param renderOptions - Component render options
+ * @returns Promise<RouteHandler[]> Array of file-system route handlers
+ */
+export async function createFileSystemRoutes(
+	fileSystemRouter: FileSystemRouter,
+	layoutResolver?: EnhancedLayoutResolver,
+	mergedDefaultOptions: Partial<RenderOptions> = {},
+	islandManifest: IslandManifest | null = null,
+	isDev: boolean = false,
+	renderOptions: ComponentRenderOptions = {}
+): Promise<RouteHandler[]> {
+	try {
+		// Use the utility function from FileSystemRouter to create handlers
+		const handlers = await createFileSystemRouteHandlers(
+			fileSystemRouter,
+			layoutResolver,
+			mergedDefaultOptions,
+			islandManifest,
+			isDev
+		);
+
+		if (isDev && handlers.length > 0) {
+			console.log(`📁 Discovered ${handlers.length} file-system routes`);
+		}
+
+		return handlers;
+	} catch (error) {
+		console.error('Failed to create file-system routes:', error);
+
+		// In development, we want to see the error
+		if (isDev) {
+			throw error;
+		}
+
+		// In production, return empty array to allow fallback to manual routes
+		return [];
+	}
 }

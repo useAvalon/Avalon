@@ -5,12 +5,14 @@
 import { createFrameworkRoutes } from './framework-routes.ts';
 import { createViteRoutes } from './vite-routes.ts';
 import { createStaticRoutes } from './static-routes.ts';
-import { createApiRoutes, createAppRoutes } from './app-routes.ts';
+import { createApiRoutes, createAppRoutes, createFileSystemRoutes } from './app-routes.ts';
+import { createHydrationRoutes } from './hydration-routes.ts';
 import type { Routes } from '@/schemas/index.ts';
 import type { IslandManifest } from '../../build/island-manifest.ts';
 import type { RenderOptions } from '@/schemas/core.ts';
 import type { ComponentRenderOptions } from '../ssr.ts';
 import type { EnhancedLayoutResolver } from '../../core/layout/enhanced-layout-resolver.ts';
+import type { FileSystemRouter } from '../../core/routing/file-system-router.ts';
 
 export interface RouteConfig {
 	isDev: boolean;
@@ -21,9 +23,10 @@ export interface RouteConfig {
 	islandManifest: IslandManifest | null;
 	renderOptions?: ComponentRenderOptions;
 	layoutResolver?: EnhancedLayoutResolver;
+	fileSystemRouter?: FileSystemRouter;
 }
 
-export function createAllRoutes(config: RouteConfig) {
+export async function createAllRoutes(config: RouteConfig) {
 	const {
 		isDev,
 		viteServerUrl,
@@ -33,7 +36,28 @@ export function createAllRoutes(config: RouteConfig) {
 		islandManifest,
 		renderOptions = {},
 		layoutResolver,
+		fileSystemRouter,
 	} = config;
+
+	// Create file-system routes if enabled
+	let fileSystemRouteHandlers: any[] = [];
+	if (fileSystemRouter) {
+		try {
+			fileSystemRouteHandlers = await createFileSystemRoutes(
+				fileSystemRouter,
+				layoutResolver,
+				mergedDefaultOptions,
+				islandManifest,
+				isDev,
+				renderOptions
+			);
+		} catch (error) {
+			console.error('Failed to create file-system routes:', error);
+			if (isDev) {
+				console.warn('Falling back to manual routes only');
+			}
+		}
+	}
 
 	return [
 		// API routes (must be first to catch /api/* before other patterns)
@@ -42,10 +66,16 @@ export function createAllRoutes(config: RouteConfig) {
 		// Framework routes (Avalon scripts and assets)
 		...createFrameworkRoutes(isDev),
 
+		// Hydration routes (framework-specific module serving)
+		...createHydrationRoutes(isDev),
+
 		// Vite development routes (only in development)
 		...createViteRoutes(isDev, viteServerUrl),
 
-		// User application routes
+		// File-system routes (before manual routes for precedence)
+		...fileSystemRouteHandlers,
+
+		// User application routes (manual routes)
 		...createAppRoutes(routes, mergedDefaultOptions, islandManifest, isDev, renderOptions, layoutResolver),
 
 		// Static asset routes (must be last as they include fallback)
@@ -57,3 +87,4 @@ export * from './framework-routes.ts';
 export * from './vite-routes.ts';
 export * from './static-routes.ts';
 export * from './app-routes.ts';
+export * from './hydration-routes.ts';
