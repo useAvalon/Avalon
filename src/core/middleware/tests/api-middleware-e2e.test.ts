@@ -3,7 +3,7 @@
  * Tests the complete flow from middleware context to API handler
  */
 
-import { assertEquals } from 'jsr:@std/assert';
+import { assertEquals } from '@std/assert';
 import { handleApiRequest } from '../../../functions/api.ts';
 import { MiddlewareContextManager } from '../middleware-context.ts';
 import type { ApiRoute } from '../../../schemas/api.ts';

@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from 'jsr:@std/assert';
+import { assertEquals, assertExists } from '@std/assert';
 import { join, resolve } from 'node:path';
 import { ensureDir } from '@std/fs';
 import { existsSync } from '@std/fs';
@@ -9,7 +9,7 @@ const sampleMiddleware = `export default async function middleware(context, next
 
 async function setupTestDir(): Promise<MiddlewareDiscovery> {
 	if (existsSync(testDir)) {
-		await Deno.remove(testDir, { recursive: true, force: true });
+		await Deno.remove(testDir, { recursive: true });
 	}
 	await ensureDir(testDir);
 	return new MiddlewareDiscovery({
@@ -21,7 +21,7 @@ async function setupTestDir(): Promise<MiddlewareDiscovery> {
 
 async function cleanupTestDir() {
 	if (existsSync(testDir)) {
-		await Deno.remove(testDir, { recursive: true, force: true });
+		await Deno.remove(testDir, { recursive: true });
 	}
 }
 
@@ -41,7 +41,7 @@ Deno.test('Middleware Discovery - Global middleware discovery', async () => {
 Deno.test('Middleware Discovery - Page middleware discovery', async () => {
 	const discovery = await setupTestDir();
 	try {
-		await ensureDir(join(testDir, 'pages'), { recursive: true });
+		await ensureDir(join(testDir, 'pages'));
 		await Deno.writeTextFile(join(testDir, 'pages', '_middleware.ts'), sampleMiddleware);
 		const routes = await discovery.discoverMiddleware();
 		assertEquals(routes.length, 1);
@@ -55,7 +55,7 @@ Deno.test('Middleware Discovery - Page middleware discovery', async () => {
 Deno.test('Middleware Discovery - API middleware discovery', async () => {
 	const discovery = await setupTestDir();
 	try {
-		await ensureDir(join(testDir, 'api'), { recursive: true });
+		await ensureDir(join(testDir, 'api'));
 		await Deno.writeTextFile(join(testDir, 'api', '_middleware.ts'), sampleMiddleware);
 		const routes = await discovery.discoverMiddleware();
 		assertEquals(routes.length, 1);
@@ -69,8 +69,8 @@ Deno.test('Middleware Discovery - API middleware discovery', async () => {
 Deno.test('Middleware Chain Building - Hierarchical resolution', async () => {
 	const discovery = await setupTestDir();
 	try {
-		await ensureDir(join(testDir, 'pages', 'admin'), { recursive: true });
-		await ensureDir(join(testDir, 'api', 'auth'), { recursive: true });
+		await ensureDir(join(testDir, 'pages', 'admin'));
+		await ensureDir(join(testDir, 'api', 'auth'));
 
 		await Deno.writeTextFile(join(testDir, '_middleware.ts'), sampleMiddleware);
 		await Deno.writeTextFile(join(testDir, 'pages', '_middleware.ts'), sampleMiddleware);
@@ -127,9 +127,9 @@ Deno.test('Middleware Discovery - Error handling', async () => {
 	const errorTestDir = resolve('./test-middleware-error-temp');
 
 	if (existsSync(errorTestDir)) {
-		await Deno.remove(errorTestDir, { recursive: true, force: true });
+		await Deno.remove(errorTestDir, { recursive: true });
 	}
-	await ensureDir(errorTestDir, { recursive: true });
+	await ensureDir(errorTestDir);
 
 	const errorDiscovery = new MiddlewareDiscovery({
 		baseDirectory: errorTestDir,
@@ -150,7 +150,7 @@ Deno.test('Middleware Discovery - Error handling', async () => {
 		assertEquals(chain.length, 0); // Handler loading fails
 	} finally {
 		if (existsSync(errorTestDir)) {
-			await Deno.remove(errorTestDir, { recursive: true, force: true });
+			await Deno.remove(errorTestDir, { recursive: true });
 		}
 	}
 });
@@ -159,8 +159,8 @@ Deno.test('Middleware Discovery - Nested middleware structure', async () => {
 	const discovery = await setupTestDir();
 	try {
 		// Create complex nested structure
-		await ensureDir(join(testDir, 'pages', 'admin', 'users'), { recursive: true });
-		await ensureDir(join(testDir, 'api', 'v1', 'auth'), { recursive: true });
+		await ensureDir(join(testDir, 'pages', 'admin', 'users'));
+		await ensureDir(join(testDir, 'api', 'v1', 'auth'));
 
 		// Create middleware at different levels
 		await Deno.writeTextFile(join(testDir, '_middleware.ts'), sampleMiddleware);
@@ -188,8 +188,8 @@ Deno.test('Middleware Discovery - Nested middleware structure', async () => {
 Deno.test('Middleware Discovery - Route separation (pages vs API)', async () => {
 	const discovery = await setupTestDir();
 	try {
-		await ensureDir(join(testDir, 'pages'), { recursive: true });
-		await ensureDir(join(testDir, 'api'), { recursive: true });
+		await ensureDir(join(testDir, 'pages'));
+		await ensureDir(join(testDir, 'api'));
 
 		await Deno.writeTextFile(join(testDir, '_middleware.ts'), sampleMiddleware);
 		await Deno.writeTextFile(join(testDir, 'pages', '_middleware.ts'), sampleMiddleware);

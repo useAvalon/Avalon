@@ -1,4 +1,4 @@
-import { assertEquals, assertExists, assertRejects, assertInstanceOf } from 'jsr:@std/assert';
+import { assertEquals, assertExists, assertRejects, assertInstanceOf } from '@std/assert';
 import {
 	DefaultMiddlewareErrorHandler,
 	MiddlewareError,

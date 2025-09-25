@@ -3,7 +3,7 @@
  *  3.1, 3.3, 3.4, 5.2
  */
 
-import { assertEquals, assertExists } from 'jsr:@std/assert';
+import { assertEquals, assertExists } from '@std/assert';
 import { handleApiRequest } from '../../../functions/api.ts';
 import type { ApiRoute, ApiContext } from '../../../schemas/api.ts';
 import type { MiddlewareContext } from '../../../schemas/middleware.ts';

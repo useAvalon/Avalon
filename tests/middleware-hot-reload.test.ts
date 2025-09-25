@@ -1,5 +1,5 @@
-import { assertEquals, assertExists, assert } from 'jsr:@std/assert';
-import { join } from 'node:path';
+import { assertEquals, assertExists, assert } from '@std/assert';
+import { join } from '@std/path';
 import { existsSync } from '@std/fs';
 import { ensureDir } from '@std/fs';
 import { MiddlewareDiscovery } from '../src/core/middleware/middleware-discovery.ts';
@@ -16,16 +16,16 @@ const testDir = join(Deno.cwd(), 'tests', 'fixtures', 'hot-reload-simple-test');
 async function setupTestDirectory(): Promise<void> {
 	// Clean up any existing test directory
 	if (existsSync(testDir)) {
-		await Deno.remove(testDir, { recursive: true, force: true });
+		await Deno.remove(testDir, { recursive: true });
 	}
 
 	// Create test directory structure
-	await ensureDir(testDir, { recursive: true });
+	await ensureDir(testDir);
 }
 
 async function cleanupTestDirectory(): Promise<void> {
 	if (existsSync(testDir)) {
-		await Deno.remove(testDir, { recursive: true, force: true });
+		await Deno.remove(testDir, { recursive: true });
 	}
 }
 

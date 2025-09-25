@@ -2,7 +2,7 @@
  * Integration tests for complete middleware chains with page routes
  */
 
-import { assertEquals, assertExists } from 'jsr:@std/assert';
+import { assertEquals, assertExists } from '@std/assert';
 import { MiddlewareExecutor } from '../middleware-executor.ts';
 import { MiddlewareContextManager } from '../middleware-context.ts';
 import type { MiddlewareHandler } from '../../../schemas/middleware.ts';

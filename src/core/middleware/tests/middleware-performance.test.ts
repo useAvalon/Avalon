@@ -3,7 +3,7 @@
  *  1.1, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3
  */
 
-import { assertEquals, assertExists } from 'jsr:@std/assert';
+import { assertEquals, assertExists } from '@std/assert';
 import { MiddlewareExecutor } from '../middleware-executor.ts';
 import { MiddlewareContextManager } from '../middleware-context.ts';
 import type { MiddlewareHandler } from '../../../schemas/middleware.ts';

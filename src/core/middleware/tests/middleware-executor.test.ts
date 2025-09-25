@@ -1,4 +1,4 @@
-import { assertEquals, assertExists, assertRejects } from 'jsr:@std/assert';
+import { assertEquals, assertExists, assertRejects } from '@std/assert';
 import { describe, it, beforeEach } from 'https://deno.land/std@0.208.0/testing/bdd.ts';
 import { MiddlewareExecutor } from '../middleware-executor.ts';
 import {

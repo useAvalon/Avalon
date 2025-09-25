@@ -1,4 +1,4 @@
-import { assertEquals, assertExists, assert } from 'jsr:@std/assert';
+import { assertEquals, assertExists, assert } from '@std/assert';
 import { describe, it, beforeEach } from 'https://deno.land/std@0.208.0/testing/bdd.ts';
 import { MiddlewareContextManager } from '../middleware-context.ts';
 import { MiddlewareContext } from '../../../schemas/middleware.ts';
