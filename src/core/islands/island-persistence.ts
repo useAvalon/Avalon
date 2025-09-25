@@ -82,7 +82,7 @@ export class IslandPersistence implements IIslandPersistence {
 			}
 
 			console.log(`Island state loaded for ${id}`);
-			return parsed.state;
+			return parsed.state as Record<string, unknown>;
 		} catch (error) {
 			console.error(`Failed to load island state for ${id}:`, error);
 			// Clear corrupted state

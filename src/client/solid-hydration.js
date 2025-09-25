@@ -85,6 +85,7 @@ class SolidIslandHydrator {
 			const props = propsAttr ? JSON.parse(propsAttr) : {};
 
 			// Import the island component
+			console.log(`🔄 Importing Solid module: ${src}`);
 			const module = await import(src);
 			const SolidComponent = module.default || module;
 

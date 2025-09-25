@@ -28,14 +28,20 @@ export async function generateIslandManifest(): Promise<IslandManifest> {
 
 	try {
 		for await (const dirEntry of Deno.readDir(islandsDir)) {
-			if (dirEntry.isFile && (dirEntry.name.endsWith('.tsx') || dirEntry.name.endsWith('.ts'))) {
-				const name = dirEntry.name.replace(/\.(tsx?|jsx?)$/, '');
+			if (
+				dirEntry.isFile &&
+				(dirEntry.name.endsWith('.tsx') ||
+					dirEntry.name.endsWith('.ts') ||
+					dirEntry.name.endsWith('.vue') ||
+					dirEntry.name.endsWith('.svelte'))
+			) {
+				const name = dirEntry.name.replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
 				const src = `/islands/${dirEntry.name}`;
 				const fullPath = join(islandsDir, dirEntry.name);
 
 				// Analyze the island file to determine framework and dependencies
 				const content = await Deno.readTextFile(fullPath);
-				const framework = detectFramework(content);
+				const framework = detectFramework(content, dirEntry.name);
 				const deps = extractDependencies(content);
 
 				// Generate hash from content for cache busting
@@ -64,8 +70,22 @@ export async function generateIslandManifest(): Promise<IslandManifest> {
 /**
  * Detect framework based on imports in the island file
  */
-function detectFramework(content: string): IslandEntry['framework'] {
-	if (content.includes('from "preact"') || content.includes("from 'preact'")) {
+function detectFramework(content: string, filename: string): IslandEntry['framework'] {
+	// Check file extension first
+	if (filename.endsWith('.vue')) {
+		return 'vue';
+	}
+	if (filename.endsWith('.svelte')) {
+		return 'vanilla'; // Svelte is handled as vanilla for now
+	}
+
+	// Check imports for framework detection
+	if (
+		content.includes('from "preact"') ||
+		content.includes("from 'preact'") ||
+		content.includes('preact/hooks') ||
+		content.includes('preact-render-to-string')
+	) {
 		return 'preact';
 	}
 	if (content.includes('from "solid-js"') || content.includes("from 'solid-js'")) {
@@ -74,6 +94,12 @@ function detectFramework(content: string): IslandEntry['framework'] {
 	if (content.includes('from "vue"') || content.includes("from 'vue'")) {
 		return 'vue';
 	}
+
+	// Default to preact for .tsx files if no specific framework detected
+	if (filename.endsWith('.tsx')) {
+		return 'preact';
+	}
+
 	return 'vanilla';
 }
 
@@ -128,22 +154,22 @@ export async function loadIslandManifest(): Promise<IslandManifest | null> {
 export function getIslandBundlePath(src: string, manifest?: IslandManifest | null): string {
 	const isDev = Deno.env.get('DENO_ENV') !== 'production';
 
-	if (isDev) {
-		// In development, serve islands from Avalon server with simple compilation
-		// This provides a batteries-included experience without requiring Vite
-		return src;
-	}
-
+	// If manifest is provided, use it (production mode)
 	if (manifest) {
-		// In production, use manifest to get bundled path
-		const name = src.replace(/^\/islands\//, '').replace(/\.(tsx?|jsx?)$/, '');
+		const name = src.replace(/^\/islands\//, '').replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
 		const island = manifest.islands[name];
 		if (island) {
 			return island.bundle;
 		}
 	}
 
-	// Fallback
-	const name = src.replace(/^\/islands\//, '').replace(/\.(tsx?|jsx?)$/, '');
+	if (isDev) {
+		// In development, convert /islands/* to /src/islands/* for proper file serving
+		// This ensures client-side imports work correctly with the actual file structure
+		return src.startsWith('/islands/') ? src.replace('/islands/', '/src/islands/') : src;
+	}
+
+	// Fallback for production without manifest
+	const name = src.replace(/^\/islands\//, '').replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
 	return `/dist/islands/${name}.js`;
 }

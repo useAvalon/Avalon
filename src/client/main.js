@@ -1,7 +1,6 @@
 // Main client entry point for Vite
-// Simplified hydration system - just like traditional SSR + hydration
+// Streamlined island hydration system
 
-// Initialize hydration on DOM ready
 if (document.readyState === 'loading') {
 	document.addEventListener('DOMContentLoaded', initializeHydration);
 } else {
@@ -9,85 +8,59 @@ if (document.readyState === 'loading') {
 }
 
 function initializeHydration() {
-	// Find all elements with data-hydrate attribute
 	const hydrateElements = document.querySelectorAll('[data-hydrate]');
 
+	if (hydrateElements.length === 0) {
+		return;
+	}
+
 	hydrateElements.forEach(element => {
-		// Check render strategy first
-		const renderStrategy = element.getAttribute('data-render-strategy');
+		try {
+			const renderStrategy = element.getAttribute('data-render-strategy');
 
-		if (renderStrategy === 'ssr-only') {
-			const reason = element.getAttribute('data-ssr-reason') || 'SSR-only component';
-			console.log(`⚡ Skipping hydration for SSR-only component: ${reason}`);
-			return; // Skip hydration for SSR-only components
-		}
+			if (renderStrategy === 'ssr-only') {
+				return; // Skip hydration for SSR-only components
+			}
 
-		const condition = element.getAttribute('data-island') || element.getAttribute('data-condition') || 'on:client';
+			const condition = element.getAttribute('data-island') || element.getAttribute('data-condition') || 'on:client';
+			const parsedConfig = parseHydrationDirective(condition);
 
-		// Parse hydration options from the condition
-		const parsedConfig = parseHydrationDirective(condition);
+			if (parsedConfig.directive === 'on:load') {
+				return; // Skip hydration for on:load
+			}
 
-		// Log parsed configuration for debugging
-		if (parsedConfig.options && Object.keys(parsedConfig.options).length > 0) {
-			console.log(`🔧 Parsed hydration config for ${parsedConfig.directive}:`, parsedConfig.options);
-		}
-
-		if (parsedConfig.directive === 'on:load') {
-			console.warn(
-				`⚠️ on:load directive is not implemented and has been ignored. Use on:client for immediate hydration instead.`
-			);
-			return; // Skip hydration for on:load
-		}
-
-		if (parsedConfig.directive === 'on:visible') {
-			setupVisibilityTrigger(element, parsedConfig.options);
-		} else if (parsedConfig.directive === 'on:interaction') {
-			setupInteractionTrigger(element, parsedConfig.options);
-		} else if (parsedConfig.directive === 'on:idle') {
-			setupIdleTrigger(element, parsedConfig.options);
-		} else if (parsedConfig.directive === 'on:client') {
-			hydrateElement(element);
-		} else if (parsedConfig.directive.startsWith('media:')) {
-			setupMediaTrigger(element, parsedConfig.directive.slice(6));
-		} else {
-			// Default: hydrate immediately with on:client behavior
-			hydrateElement(element);
+			// Route to appropriate hydration strategy
+			if (parsedConfig.directive === 'on:visible') {
+				setupVisibilityTrigger(element, parsedConfig.options);
+			} else if (parsedConfig.directive === 'on:interaction' || parsedConfig.directive === 'on:interactive') {
+				setupInteractionTrigger(element, parsedConfig.options);
+			} else if (parsedConfig.directive === 'on:idle') {
+				setupIdleTrigger(element, parsedConfig.options);
+			} else if (parsedConfig.directive.startsWith('media:')) {
+				const mediaQuery = parsedConfig.directive.slice(6);
+				setupMediaTrigger(element, mediaQuery);
+			} else {
+				// Default to immediate hydration
+				hydrateElement(element);
+			}
+		} catch (error) {
+			console.error('Error processing island:', error);
 		}
 	});
 }
 
-/**
- * Parses hydration directive and options from condition string
- *
- * Supported syntax:
- * - on:client
- * - on:visible (uses defaults: rootMargin: '50px', threshold: 0)
- * - on:visible={{rootMargin: "100px"}}
- * - on:visible={{rootMargin: "50px", threshold: 0.5}}
- * - on:idle (uses defaults: timeout: 5000)
- * - on:idle={{timeout: 10000}}
- * - on:interaction
- * - media:query
- *
- * @param {string} condition - The directive condition string
- * @returns {Object} Parsed configuration with directive and options
- */
 function parseHydrationDirective(condition) {
 	if (!condition || typeof condition !== 'string') {
-		console.warn(`⚠️ Invalid hydration condition: "${condition}", defaulting to on:client`);
 		return { directive: 'on:client', options: {} };
 	}
 
 	// Extract directive name (everything before the first '=' or the whole string)
 	const directiveMatch = condition.match(/^([^=\s]+)/);
 	if (!directiveMatch) {
-		console.warn(`⚠️ Could not parse directive from: "${condition}", defaulting to on:client`);
 		return { directive: 'on:client', options: {} };
 	}
 
 	const directive = directiveMatch[1];
-
-	// Parse options if present
 	let options = {};
 
 	try {
@@ -97,26 +70,17 @@ function parseHydrationDirective(condition) {
 			const optionsString = optionsMatch[1];
 			options = parseDirectiveOptions(optionsString, directive);
 		}
-	} catch (error) {
-		console.warn(`⚠️ Failed to parse options from "${condition}":`, error);
+	} catch (_error) {
 		options = {};
 	}
 
 	// Apply defaults and validation based on directive type
 	options = applyDirectiveDefaults(directive, options);
 
-	console.log(`🔍 Parsed directive: "${directive}" with options:`, options);
-
 	return { directive, options };
 }
 
-/**
- * Parses options string into an object
- * @param {string} optionsString - The options string to parse
- * @param {string} directive - The directive name for context in error messages
- * @returns {Object} Parsed options object
- */
-function parseDirectiveOptions(optionsString, directive) {
+function parseDirectiveOptions(optionsString, _directive) {
 	if (!optionsString || !optionsString.trim()) {
 		return {};
 	}
@@ -127,21 +91,12 @@ function parseDirectiveOptions(optionsString, directive) {
 			.replace(/(\w+):/g, '"$1":') // Add quotes around property names
 			.replace(/'/g, '"'); // Convert single quotes to double quotes
 
-		const parsedOptions = JSON.parse(`{${normalizedOptions}}`);
-		console.log(`🔧 Successfully parsed options for ${directive}:`, parsedOptions);
-		return parsedOptions;
-	} catch (error) {
-		console.warn(`⚠️ Failed to parse options string "${optionsString}" for ${directive}:`, error);
+		return JSON.parse(`{${normalizedOptions}}`);
+	} catch (_error) {
 		return {};
 	}
 }
 
-/**
- * Applies default values and validates options based on directive type
- * @param {string} directive - The directive name
- * @param {Object} options - The parsed options
- * @returns {Object} Options with defaults applied and validation performed
- */
 function applyDirectiveDefaults(directive, options) {
 	switch (directive) {
 		case 'on:visible':
@@ -149,17 +104,13 @@ function applyDirectiveDefaults(directive, options) {
 		case 'on:idle':
 			return applyIdleDefaults(options);
 		case 'on:interaction':
+		case 'on:interactive':
 			return applyInteractionDefaults(options);
 		default:
 			return options;
 	}
 }
 
-/**
- * Applies defaults and validation for on:visible directive
- * @param {Object} options - The parsed options
- * @returns {Object} Validated options with defaults
- */
 function applyVisibilityDefaults(options) {
 	const defaults = {
 		rootMargin: '50px',
@@ -168,30 +119,17 @@ function applyVisibilityDefaults(options) {
 
 	const result = { ...defaults };
 
-	if (options.rootMargin !== undefined) {
-		if (validateRootMargin(options.rootMargin)) {
-			result.rootMargin = options.rootMargin;
-		} else {
-			console.warn(`⚠️ Invalid rootMargin value "${options.rootMargin}", using default "${defaults.rootMargin}"`);
-		}
+	if (options.rootMargin !== undefined && validateRootMargin(options.rootMargin)) {
+		result.rootMargin = options.rootMargin;
 	}
 
-	if (options.threshold !== undefined) {
-		if (validateThreshold(options.threshold)) {
-			result.threshold = options.threshold;
-		} else {
-			console.warn(`⚠️ Invalid threshold value "${options.threshold}", using default ${defaults.threshold}`);
-		}
+	if (options.threshold !== undefined && validateThreshold(options.threshold)) {
+		result.threshold = options.threshold;
 	}
 
 	return result;
 }
 
-/**
- * Applies defaults and validation for on:idle directive
- * @param {Object} options - The parsed options
- * @returns {Object} Validated options with defaults
- */
 function applyIdleDefaults(options) {
 	const defaults = {
 		timeout: 5000, // 5 seconds
@@ -199,22 +137,13 @@ function applyIdleDefaults(options) {
 
 	const result = { ...defaults };
 
-	if (options.timeout !== undefined) {
-		if (validateTimeout(options.timeout)) {
-			result.timeout = options.timeout;
-		} else {
-			console.warn(`⚠️ Invalid timeout value "${options.timeout}", using default ${defaults.timeout}ms`);
-		}
+	if (options.timeout !== undefined && validateTimeout(options.timeout)) {
+		result.timeout = options.timeout;
 	}
 
 	return result;
 }
 
-/**
- * Applies defaults and validation for on:interaction directive
- * @param {Object} options - The parsed options
- * @returns {Object} Validated options with defaults
- */
 function applyInteractionDefaults(options) {
 	const defaults = {
 		events: ['click', 'touchstart', 'mouseover', 'focus'],
@@ -222,40 +151,21 @@ function applyInteractionDefaults(options) {
 
 	const result = { ...defaults };
 
-	if (options.events !== undefined) {
-		if (validateInteractionEvents(options.events)) {
-			result.events = Array.isArray(options.events) ? options.events : [options.events];
-		} else {
-			console.warn(`⚠️ Invalid events value "${options.events}", using default events`);
-		}
+	if (options.events !== undefined && validateInteractionEvents(options.events)) {
+		result.events = Array.isArray(options.events) ? options.events : [options.events];
 	}
 
 	return result;
 }
 
-/**
- * Validates threshold value for Intersection Observer
- * @param {*} threshold - The threshold value to validate
- * @returns {boolean} True if valid, false otherwise
- */
 function validateThreshold(threshold) {
 	return typeof threshold === 'number' && threshold >= 0 && threshold <= 1;
 }
 
-/**
- * Validates timeout value for idle hydration
- * @param {*} timeout - The timeout value to validate
- * @returns {boolean} True if valid, false otherwise
- */
 function validateTimeout(timeout) {
 	return typeof timeout === 'number' && timeout > 0 && timeout <= 60000; // Max 60 seconds
 }
 
-/**
- * Validates interaction events array
- * @param {*} events - The events to validate
- * @returns {boolean} True if valid, false otherwise
- */
 function validateInteractionEvents(events) {
 	if (typeof events === 'string') {
 		return true; // Single event name
@@ -268,104 +178,86 @@ function validateInteractionEvents(events) {
 	return false;
 }
 
-/**
- * Validates rootMargin value according to CSS margin syntax
- *
- * Valid formats:
- * - "10px" (single value)
- * - "10px 20px" (vertical horizontal)
- * - "10px 20px 30px" (top horizontal bottom)
- * - "10px 20px 30px 40px" (top right bottom left)
- * - Can use px, %, or just numbers (treated as px)
- * - Supports negative values
- *
- * @param {string} rootMargin - The rootMargin value to validate
- * @returns {boolean} True if valid, false otherwise
- */
 function validateRootMargin(rootMargin) {
 	if (typeof rootMargin !== 'string') {
 		return false;
 	}
 
-	// Valid rootMargin formats:
-	// - "10px" (single value)
-	// - "10px 20px" (vertical horizontal)
-	// - "10px 20px 30px" (top horizontal bottom)
-	// - "10px 20px 30px 40px" (top right bottom left)
-	// - Can use px, %, or just numbers (treated as px)
 	const rootMarginRegex = /^(-?\d+(?:\.\d+)?(?:px|%)?(?:\s+-?\d+(?:\.\d+)?(?:px|%)?){0,3})$/;
 	return rootMarginRegex.test(rootMargin.trim());
 }
 
 function setupVisibilityTrigger(element, options = {}) {
-	// Use provided options or defaults
 	const visibilityOptions = {
 		rootMargin: '50px',
 		threshold: 0,
 		...options,
 	};
 
-	console.log(`👁️ Setting up visibility trigger with options:`, visibilityOptions);
-
-	const observer = new IntersectionObserver(
-		entries => {
-			const entry = entries[0];
-			if (entry.isIntersecting) {
-				console.log(`👁️ Element became visible, hydrating...`);
-				hydrateElement(element);
-				observer.disconnect();
+	try {
+		const observer = new IntersectionObserver(
+			entries => {
+				const entry = entries[0];
+				if (entry.isIntersecting) {
+					hydrateElement(element);
+					observer.disconnect();
+				}
+			},
+			{
+				threshold: visibilityOptions.threshold,
+				rootMargin: visibilityOptions.rootMargin,
 			}
-		},
-		{
-			threshold: visibilityOptions.threshold,
-			rootMargin: visibilityOptions.rootMargin,
-		}
-	);
-	observer.observe(element);
+		);
+
+		observer.observe(element);
+	} catch (error) {
+		console.error('Failed to setup visibility trigger:', error);
+		hydrateElement(element);
+	}
 }
 
 function setupInteractionTrigger(element, options = {}) {
-	// Use provided options or defaults
 	const interactionOptions = {
 		events: ['click', 'touchstart', 'mouseover', 'focus'],
 		...options,
 	};
 
-	console.log(`🖱️ Setting up interaction trigger with events:`, interactionOptions.events);
+	let interactionDetected = false;
+	const handleInteraction = _event => {
+		if (interactionDetected) return; // Prevent multiple triggers
+		interactionDetected = true;
 
-	const handleInteraction = () => {
-		console.log(`🖱️ Interaction detected, hydrating...`);
 		hydrateElement(element);
+
+		// Clean up event listeners
 		interactionOptions.events.forEach(eventType => {
 			element.removeEventListener(eventType, handleInteraction);
 		});
 	};
 
-	interactionOptions.events.forEach(eventType => {
-		element.addEventListener(eventType, handleInteraction, { once: true });
-	});
+	try {
+		interactionOptions.events.forEach(eventType => {
+			element.addEventListener(eventType, handleInteraction, { once: true });
+		});
+	} catch (error) {
+		console.error('Failed to setup interaction trigger:', error);
+		hydrateElement(element);
+	}
 }
 
-// Queue for managing multiple components using on:idle
 const idleQueue = [];
 let isProcessingIdleQueue = false;
 let idleTimeoutId = null;
-const DEFAULT_IDLE_TIMEOUT = 5000; // 5 seconds fallback timeout
+const DEFAULT_IDLE_TIMEOUT = 5000;
 
 function setupIdleTrigger(element, options = {}) {
-	// Use provided options or defaults
 	const idleOptions = {
 		timeout: DEFAULT_IDLE_TIMEOUT,
 		...options,
 	};
 
-	console.log(`⏳ Setting up idle trigger with timeout: ${idleOptions.timeout}ms`);
-
-	// Add element and its options to the idle queue
 	idleQueue.push({ element, options: idleOptions });
-	console.log(`📋 Added component to idle queue. Queue length: ${idleQueue.length}`);
 
-	// Start processing the queue if not already started
 	if (!isProcessingIdleQueue) {
 		processIdleQueue();
 	}
@@ -377,21 +269,14 @@ function processIdleQueue() {
 	}
 
 	isProcessingIdleQueue = true;
-	console.log(`⏳ Starting to process idle queue with ${idleQueue.length} components`);
-
-	// Calculate the maximum timeout from all queued components
 	const maxTimeout = Math.max(...idleQueue.map(item => item.options.timeout), DEFAULT_IDLE_TIMEOUT);
-	console.log(`⏳ Using maximum timeout of ${maxTimeout}ms for idle processing`);
 
-	// Clear any existing timeout
 	if (idleTimeoutId) {
 		clearTimeout(idleTimeoutId);
 		idleTimeoutId = null;
 	}
 
 	if (globalThis.requestIdleCallback) {
-		console.log('🔄 Using requestIdleCallback for idle hydration');
-		// Use requestIdleCallback with proper options
 		globalThis.requestIdleCallback(
 			deadline => {
 				hydrateIdleComponents(deadline);
@@ -399,17 +284,10 @@ function processIdleQueue() {
 			{ timeout: maxTimeout }
 		);
 	} else {
-		console.log('⚠️ requestIdleCallback not supported, falling back to load event');
-		// Fallback to document load event when requestIdleCallback is not supported
 		if (document.readyState === 'complete') {
-			// Document already loaded, process immediately
-			console.log('📄 Document already loaded, processing immediately');
 			hydrateIdleComponents();
 		} else {
-			// Wait for document load
-			console.log('📄 Waiting for document load event');
 			const handleLoad = () => {
-				console.log('📄 Document loaded, processing idle components');
 				hydrateIdleComponents();
 				globalThis.removeEventListener('load', handleLoad);
 			};
@@ -417,29 +295,22 @@ function processIdleQueue() {
 		}
 	}
 
-	// Set timeout as final fallback in case browser never becomes idle
 	idleTimeoutId = setTimeout(() => {
-		console.warn(`⚠️ Idle timeout reached (${maxTimeout}ms), hydrating remaining on:idle components`);
 		hydrateIdleComponents();
 	}, maxTimeout);
 }
 
 function hydrateIdleComponents(deadline) {
-	// Clear the timeout since we're now processing
 	if (idleTimeoutId) {
 		clearTimeout(idleTimeoutId);
 		idleTimeoutId = null;
 	}
 
-	// Process components from the queue
 	while (idleQueue.length > 0) {
-		// If we have a deadline and time is running out, schedule next batch
 		if (deadline && deadline.timeRemaining() <= 1) {
-			// Calculate timeout for next batch
 			const remainingTimeouts = idleQueue.map(item => item.options.timeout);
 			const nextTimeout = Math.max(...remainingTimeouts, DEFAULT_IDLE_TIMEOUT);
 
-			// Schedule next batch
 			globalThis.requestIdleCallback(
 				nextDeadline => {
 					hydrateIdleComponents(nextDeadline);
@@ -451,34 +322,36 @@ function hydrateIdleComponents(deadline) {
 
 		const queueItem = idleQueue.shift();
 		try {
-			console.log(`⏳ Hydrating idle component with timeout ${queueItem.options.timeout}ms`);
 			hydrateElement(queueItem.element);
 		} catch (error) {
 			console.error('Error hydrating idle component:', error);
 		}
 	}
 
-	// Reset processing flag when queue is empty
 	isProcessingIdleQueue = false;
-	console.log(`✅ Finished processing idle queue`);
 }
 
 function setupMediaTrigger(element, mediaQuery) {
-	const mediaQueryList = globalThis.matchMedia(mediaQuery);
+	try {
+		const mediaQueryList = globalThis.matchMedia(mediaQuery);
 
-	if (mediaQueryList.matches) {
-		hydrateElement(element);
-		return;
-	}
-
-	const handleMediaChange = event => {
-		if (event.matches) {
+		if (mediaQueryList.matches) {
 			hydrateElement(element);
-			mediaQueryList.removeEventListener('change', handleMediaChange);
+			return;
 		}
-	};
 
-	mediaQueryList.addEventListener('change', handleMediaChange);
+		const handleMediaChange = event => {
+			if (event.matches) {
+				hydrateElement(element);
+				mediaQueryList.removeEventListener('change', handleMediaChange);
+			}
+		};
+
+		mediaQueryList.addEventListener('change', handleMediaChange);
+	} catch (error) {
+		console.error('Failed to setup media trigger:', error);
+		hydrateElement(element);
+	}
 }
 
 async function hydrateElement(element) {
@@ -493,35 +366,31 @@ async function hydrateElement(element) {
 	}
 
 	try {
-		// Parse props
 		const props = propsAttr ? JSON.parse(propsAttr) : {};
 
-		// Check if component is marked for SSR-only rendering
 		if (renderStrategy === 'ssr-only') {
-			console.log(`📄 Component ${src} is configured for SSR-only rendering, skipping hydration`);
 			return;
 		}
 
-		// Attempt to detect if component needs hydration by analyzing its content
 		const shouldHydrate = await determineHydrationStrategy(src, framework, element);
 
 		if (!shouldHydrate.shouldHydrate) {
-			console.log(`📄 ${shouldHydrate.reason}, skipping hydration for: ${src}`);
 			if (shouldHydrate.warnings) {
-				shouldHydrate.warnings.forEach(warning => console.warn(`⚠️ ${warning}`));
+				shouldHydrate.warnings.forEach(warning => console.warn(warning));
 			}
 			return;
 		}
 
-		// Universal hydration approach - all components should have self-contained hydrate functions
 		const componentModule = await import(src);
 
 		if (componentModule.hydrate && typeof componentModule.hydrate === 'function') {
-			console.log(`🔄 Hydrating ${framework || 'component'}: ${src} (${shouldHydrate.reason})`);
-			componentModule.hydrate(element, props);
-			console.log(`✅ Successfully hydrated: ${src}`);
+			try {
+				componentModule.hydrate(element, props);
+			} catch (hydrateError) {
+				console.error('Hydration function failed:', hydrateError);
+				throw hydrateError;
+			}
 		} else {
-			// Handle components without hydrate functions more gracefully
 			await handleComponentWithoutHydrate(src, framework, element, componentModule, shouldHydrate);
 		}
 	} catch (error) {
@@ -529,9 +398,6 @@ async function hydrateElement(element) {
 	}
 }
 
-/**
- * Determines if a component should be hydrated based on various factors
- */
 async function determineHydrationStrategy(src, framework, element) {
 	// Check for explicit SSR-only markers
 	if (element.hasAttribute('data-ssr-only') || element.classList.contains('ssr-only')) {
@@ -541,10 +407,7 @@ async function determineHydrationStrategy(src, framework, element) {
 		};
 	}
 
-	// For client-side detection, we'll make a best-effort attempt
-	// In a full implementation, this would integrate with the server-side component detection
 	try {
-		// Try to load the component and check if it has a hydrate function
 		const componentModule = await import(src);
 
 		if (componentModule.hydrate && typeof componentModule.hydrate === 'function') {
@@ -554,8 +417,7 @@ async function determineHydrationStrategy(src, framework, element) {
 			};
 		}
 
-		// Check for framework-specific patterns that indicate interactivity
-		const hasInteractivePatterns = await checkForInteractivePatterns(src, framework);
+		const hasInteractivePatterns = checkForInteractivePatterns(src, framework);
 
 		if (!hasInteractivePatterns) {
 			return {
@@ -571,7 +433,6 @@ async function determineHydrationStrategy(src, framework, element) {
 			warnings: ['Component appears interactive but lacks proper hydrate function'],
 		};
 	} catch (error) {
-		// If we can't load the component, default to attempting hydration
 		return {
 			shouldHydrate: true,
 			reason: 'Unable to analyze component, defaulting to hydration attempt',
@@ -580,70 +441,39 @@ async function determineHydrationStrategy(src, framework, element) {
 	}
 }
 
-/**
- * Checks for interactive patterns in component source (simplified client-side version)
- */
-async function checkForInteractivePatterns(src, framework) {
+function checkForInteractivePatterns(src, framework) {
 	try {
-		// This is a simplified check - in practice, the server would do the heavy lifting
-		// and pass the result via data attributes
-
-		// For now, we'll use some heuristics based on framework
 		switch (framework) {
 			case 'svelte':
-				// Svelte components with event handlers or reactive statements are likely interactive
 				return src.includes('on:') || src.includes('$:');
-
 			case 'vue':
-				// Vue components with event handlers or reactive data are likely interactive
 				return src.includes('@') || src.includes('v-on') || src.includes('reactive');
-
 			case 'solid':
-				// Solid components with signals or event handlers are likely interactive
 				return src.includes('createSignal') || src.includes('onClick');
-
 			default:
-				// For unknown frameworks, assume interactive if it's not explicitly marked as static
 				return true;
 		}
-	} catch (error) {
-		// If analysis fails, assume interactive for safety
+	} catch (_error) {
 		return true;
 	}
 }
 
-/**
- * Handles components that don't have hydrate functions more gracefully
- */
-async function handleComponentWithoutHydrate(src, framework, element, componentModule, hydrationDecision) {
-	// Log the situation clearly for debugging
-	console.log(`📋 Component analysis for ${src}:`);
-	console.log(`  Framework: ${framework || 'unknown'}`);
-	console.log(`  Has hydrate function: false`);
-	console.log(`  Decision: ${hydrationDecision.reason}`);
-
+async function handleComponentWithoutHydrate(src, framework, element, _componentModule, hydrationDecision) {
 	if (hydrationDecision.warnings) {
 		hydrationDecision.warnings.forEach(warning => {
-			console.warn(`  ⚠️ ${warning}`);
+			console.warn(warning);
 		});
 	}
 
 	// Special handling for Solid components that still use the old system
 	if (framework === 'solid' || element.hasAttribute('data-solid-hydrate')) {
-		console.log(`🔄 Attempting Solid.js legacy hydration for: ${src}`);
 		try {
-			const _solidHydration = await import('./solid-hydration.js');
-			// Solid hydration handles its own component import
-			console.log(`✅ Solid.js legacy hydration completed for: ${src}`);
+			await import('./solid-hydration.js');
 		} catch (error) {
-			console.warn(`⚠️ Solid.js legacy hydration failed for ${src}:`, error.message);
+			console.warn(`Solid.js legacy hydration failed for ${src}:`, error);
 		}
 	} else {
-		// For other frameworks, provide informative feedback instead of errors
-		console.warn(`⚠️ Component ${src} has no hydrate function.`);
-		console.warn(`   This component will remain as static SSR content.`);
-		console.warn(`   If interactivity is needed, add a hydrate function to the component.`);
-		console.warn(`   If this is intentional (static content), consider marking it with data-ssr-only.`);
+		console.warn(`Component ${src} has no hydrate function and will remain as static SSR content.`);
 	}
 }
 

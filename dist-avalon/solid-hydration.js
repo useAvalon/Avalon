@@ -1,4 +1,4 @@
-class r {
+class o {
   constructor() {
     this.hydratedIslands = /* @__PURE__ */ new Set(), this.pendingHydrations = /* @__PURE__ */ new Map();
   }
@@ -43,11 +43,13 @@ class r {
     if (!this.hydratedIslands.has(e))
       try {
         console.log(`🏝️ Hydrating Solid island: ${s}`), this.hydratedIslands.add(e);
-        const t = e.getAttribute("data-solid-props"), i = t ? JSON.parse(t) : {}, n = await import(s), a = n.default || n;
-        if (!a || typeof a != "function")
+        const t = e.getAttribute("data-solid-props"), i = t ? JSON.parse(t) : {};
+        console.log(`🔄 Importing Solid module: ${s}`);
+        const n = await import(s), d = n.default || n;
+        if (!d || typeof d != "function")
           throw new Error(`Invalid Solid component in ${s}`);
-        const { hydrate: d } = await import("./web.CrCRaKXC.js");
-        d(() => a(i), e), console.log(`✅ Solid island hydrated successfully: ${s}`);
+        const { hydrate: a } = await import("./web.CrCRaKXC.js");
+        a(() => d(i), e), console.log(`✅ Solid island hydrated successfully: ${s}`);
       } catch (t) {
         console.error(`❌ Failed to hydrate Solid island ${s}:`, t), this.hydratedIslands.delete(e);
       }
@@ -82,8 +84,8 @@ class r {
     t.addEventListener("change", i);
   }
 }
-const o = new r();
-o.init();
+const r = new o();
+r.init();
 export {
-  o as default
+  r as default
 };

@@ -5,6 +5,7 @@ import { getIslandBundlePath } from '../build/island-manifest.ts';
 import type { ViteDevServer } from 'vite';
 import type { Component } from 'svelte';
 import { analyzeComponentContent, type AnalyzerOptions } from '../core/components/component-analyzer.ts';
+import { FrameworkModuleResolver } from '../core/modules/framework-module-resolver.ts';
 
 // Global CSS collector for SSR
 declare global {
@@ -146,51 +147,90 @@ export async function renderIsland({
 	props = {},
 	children,
 	ssr = condition !== 'on:client',
+	framework,
 	ssrOnly = false,
 	renderOptions = {},
 }: IslandProps): Promise<JSX.Element> {
-	console.log(`🏝️ renderIsland called for: ${src}, ssr: ${ssr}, condition: ${condition}, ssrOnly: ${ssrOnly}`);
+	const startTime = performance.now();
+	const logPrefix = `🏝️ [${src}]`;
+
+	console.log(`${logPrefix} renderIsland called with:`, {
+		src,
+		ssr,
+		condition,
+		ssrOnly,
+		hasChildren: !!children,
+		propsKeys: Object.keys(props),
+		renderOptions: Object.keys(renderOptions),
+	});
 
 	// Perform intelligent component analysis if not explicitly SSR-only
 	let shouldSkipHydration = ssrOnly;
 	let analysisReason = '';
+	let analysisTime = 0;
 
 	if (!ssrOnly && renderOptions.detectScripts !== false) {
+		const analysisStart = performance.now();
 		try {
+			console.log(`${logPrefix} 🔍 Starting component analysis...`);
 			// Try to analyze the component for intelligent rendering strategy
 			const analysisResult = await analyzeComponentFile(src, renderOptions);
 			shouldSkipHydration = !analysisResult.decision.shouldHydrate;
 			analysisReason = analysisResult.decision.reason;
+			analysisTime = performance.now() - analysisStart;
 
-			console.log(
-				`🔍 Component analysis for ${src}: ${shouldSkipHydration ? 'SSR-ONLY' : 'HYDRATE'} (${analysisReason})`
-			);
+			console.log(`${logPrefix} 🔍 Component analysis completed in ${analysisTime.toFixed(2)}ms:`, {
+				decision: shouldSkipHydration ? 'SSR-ONLY' : 'HYDRATE',
+				reason: analysisReason,
+				hasWarnings: !!analysisResult.decision.warnings?.length,
+			});
 
 			if (analysisResult.decision.warnings && analysisResult.decision.warnings.length > 0) {
-				analysisResult.decision.warnings.forEach(warning => console.warn(`⚠️ ${src}: ${warning}`));
+				analysisResult.decision.warnings.forEach(warning =>
+					console.warn(`${logPrefix} ⚠️ Analysis warning: ${warning}`)
+				);
 			}
 		} catch (error) {
-			console.warn(`⚠️ Component analysis failed for ${src}:`, error);
+			analysisTime = performance.now() - analysisStart;
+			console.warn(`${logPrefix} ⚠️ Component analysis failed after ${analysisTime.toFixed(2)}ms:`, error);
 			// Continue with original logic on analysis failure
 		}
+	} else {
+		console.log(
+			`${logPrefix} ⏭️ Skipping component analysis (ssrOnly: ${ssrOnly}, detectScripts: ${renderOptions.detectScripts})`
+		);
 	}
 
 	// If component is determined to be SSR-only, handle accordingly
 	if (shouldSkipHydration) {
-		console.log(`📄 Using SSR-only rendering for ${src}: ${analysisReason}`);
+		const ssrOnlyStart = performance.now();
+		console.log(`${logPrefix} 📄 Using SSR-only rendering (reason: ${analysisReason})`);
 
 		// For SSR-only components, we still want to render them server-side if possible
 		// but without hydration attributes
 		if (ssr && !children) {
-			// Try to render server-side content for SSR-only components
+			console.log(`${logPrefix} 🔄 Attempting SSR-only component rendering...`);
 			try {
-				return await renderComponentSSROnly({ src, condition, props, renderOptions });
+				const result = await renderComponentSSROnly({ src, condition, props, renderOptions });
+				const ssrOnlyTime = performance.now() - ssrOnlyStart;
+				const totalTime = performance.now() - startTime;
+				console.log(
+					`${logPrefix} ✅ SSR-only rendering completed in ${ssrOnlyTime.toFixed(2)}ms (total: ${totalTime.toFixed(
+						2
+					)}ms)`
+				);
+				return result;
 			} catch (error) {
-				console.warn(`SSR failed for SSR-only component ${src}:`, error);
+				const ssrOnlyTime = performance.now() - ssrOnlyStart;
+				const totalTime = performance.now() - startTime;
+				console.warn(`${logPrefix} ❌ SSR failed for SSR-only component after ${ssrOnlyTime.toFixed(2)}ms:`, error);
+				console.log(`${logPrefix} 🔄 Falling back to basic Island without hydration`);
 				// Fall back to basic Island without hydration
 				return Island({ src, condition, props, children: undefined, ssr: false, ssrOnly: true, renderOptions });
 			}
 		} else {
+			const totalTime = performance.now() - startTime;
+			console.log(`${logPrefix} 📄 Using basic Island with SSR-only flag (completed in ${totalTime.toFixed(2)}ms)`);
 			// Use basic Island with SSR-only flag
 			return Island({ src, condition, props, children, ssr, ssrOnly: true, renderOptions });
 		}
@@ -198,48 +238,85 @@ export async function renderIsland({
 
 	// If SSR is disabled or we already have children, use basic Island
 	if (!ssr || children) {
-		console.log(`📄 Using basic Island (SSR disabled or children provided)`);
+		const totalTime = performance.now() - startTime;
+		console.log(
+			`${logPrefix} 📄 Using basic Island (SSR disabled: ${!ssr}, has children: ${!!children}) - completed in ${totalTime.toFixed(
+				2
+			)}ms`
+		);
 		return Island({ src, condition, props, children, ssr, renderOptions });
 	}
 
-	// Auto-detect framework and attempt SSR with hydration
+	// Determine framework (explicit or auto-detect)
+	const frameworkDetectionStart = performance.now();
+	let detectedFramework = 'unknown';
+
 	try {
-		// Vue detection
-		if (src.endsWith('.vue')) {
-			console.log(`🔍 Detected Vue component: ${src}`);
-			return await renderVueComponent({ src, condition, props, ssr, renderOptions });
-		}
-
-		// Svelte detection
-		if (src.endsWith('.svelte')) {
-			console.log(`🔍 Detected Svelte component: ${src}`);
-			return await renderSvelteComponent({ src, condition, props, ssr, renderOptions });
-		}
-
-		// TypeScript/JavaScript files
-		if (src.endsWith('.tsx') || src.endsWith('.jsx') || src.endsWith('.ts') || src.endsWith('.js')) {
-			const framework = await detectFramework(src);
-			console.log(`🔍 Detected framework: ${framework} for ${src}`);
-
-			switch (framework) {
-				case 'solid':
-					return await renderSolidComponent({ src, condition, props, ssr, renderOptions });
-				case 'vue':
-					return await renderVueComponent({ src, condition, props, ssr, renderOptions });
-				case 'preact':
-				case 'react':
-				default:
-					return await renderPreactComponent({ src, condition, props, ssr, renderOptions });
+		// Use explicit framework if provided
+		if (framework) {
+			detectedFramework = framework;
+			const frameworkDetectionTime = performance.now() - frameworkDetectionStart;
+			console.log(`${logPrefix} 🎯 Using explicit framework: ${framework} (${frameworkDetectionTime.toFixed(2)}ms)`);
+		} else {
+			// Auto-detect framework based on file extension and content
+			// Vue detection
+			if (src.endsWith('.vue')) {
+				detectedFramework = 'vue';
+				const frameworkDetectionTime = performance.now() - frameworkDetectionStart;
+				console.log(`${logPrefix} 🔍 Detected Vue component (${frameworkDetectionTime.toFixed(2)}ms)`);
+			}
+			// Svelte detection
+			else if (src.endsWith('.svelte')) {
+				detectedFramework = 'svelte';
+				const frameworkDetectionTime = performance.now() - frameworkDetectionStart;
+				console.log(`${logPrefix} 🔍 Detected Svelte component (${frameworkDetectionTime.toFixed(2)}ms)`);
+			}
+			// TypeScript/JavaScript files - need content analysis
+			else if (src.endsWith('.tsx') || src.endsWith('.jsx') || src.endsWith('.ts') || src.endsWith('.js')) {
+				detectedFramework = await detectFramework(src);
+				const frameworkDetectionTime = performance.now() - frameworkDetectionStart;
+				console.log(
+					`${logPrefix} 🔍 Detected framework: ${detectedFramework} (${frameworkDetectionTime.toFixed(2)}ms)`
+				);
 			}
 		}
 
-		// Unknown file type, use basic Island
-		console.log(`❓ Unknown file type for ${src}, using basic Island`);
-		return Island({ src, condition, props, children: undefined, ssr: false, renderOptions });
+		// Render based on determined framework
+		let result: JSX.Element;
+		switch (detectedFramework) {
+			case 'vue':
+				result = await renderVueComponent({ src, condition, props, ssr, renderOptions });
+				break;
+			case 'svelte':
+				result = await renderSvelteComponent({ src, condition, props, ssr, renderOptions });
+				break;
+			case 'solid':
+				result = await renderSolidComponent({ src, condition, props, ssr, renderOptions });
+				break;
+			case 'preact':
+			case 'react':
+			default:
+				result = await renderPreactComponent({ src, condition, props, ssr, renderOptions });
+				break;
+		}
+
+		const totalTime = performance.now() - startTime;
+		console.log(`${logPrefix} ✅ ${detectedFramework} rendering completed in ${totalTime.toFixed(2)}ms`);
+		return result;
 	} catch (error) {
-		console.error(`❌ SSR failed for ${src}:`, error);
-		console.log(`🔄 Falling back to client-only rendering`);
-		return Island({ src, condition: 'on:client', props, ssr: false, renderOptions });
+		const totalTime = performance.now() - startTime;
+		console.error(`${logPrefix} ❌ Framework rendering failed after ${totalTime.toFixed(2)}ms:`, error);
+
+		// Fallback to basic Island
+		return Island({
+			src,
+			condition,
+			props,
+			children: undefined,
+			ssr: false,
+			framework: detectedFramework as any,
+			renderOptions,
+		});
 	}
 }
 
@@ -247,12 +324,27 @@ export async function renderIsland({
  * Analyze component file for rendering strategy
  */
 async function analyzeComponentFile(src: string, options: AnalyzerOptions = {}) {
-	// Try multiple path variations to find the component
+	// Resolve the path first, then try variations
+	const resolvedSrc = resolveIslandPath(src);
+
+	// Create comprehensive path variations including framework-specific naming
+	const baseName =
+		src
+			.split('/')
+			.pop()
+			?.replace(/\.(tsx|jsx)$/, '') || '';
 	const pathVariations = [
+		resolvedSrc.startsWith('/') ? resolvedSrc.substring(1) : resolvedSrc,
 		src.startsWith('/') ? src.substring(1) : src,
-		`examples/${src.split('/').pop()}`,
-		`src/islands/${src.split('/').pop()}`,
-		`islands/${src.split('/').pop()}`,
+		`examples/${baseName}.tsx`,
+		`examples/${baseName}.solid.tsx`,
+		`examples/${baseName}.preact.tsx`,
+		`src/islands/${baseName}.tsx`,
+		`src/islands/${baseName}.solid.tsx`,
+		`src/islands/${baseName}.preact.tsx`,
+		`islands/${baseName}.tsx`,
+		`islands/${baseName}.solid.tsx`,
+		`islands/${baseName}.preact.tsx`,
 	];
 
 	for (const pathVariation of pathVariations) {
@@ -320,57 +412,138 @@ async function renderComponentSSROnly({
 }
 
 /**
+ * Resolve Island component path for Vite SSR loading
+ * Converts /islands/* paths to /src/islands/* for proper resolution
+ * Also handles framework-specific naming conventions
+ */
+function resolveIslandPath(src: string): string {
+	let resolvedPath = src;
+
+	// If path starts with /islands/, convert to /src/islands/
+	if (src.startsWith('/islands/')) {
+		resolvedPath = src.replace('/islands/', '/src/islands/');
+	}
+
+	// If path already starts with /src/islands/, use as-is
+	if (src.startsWith('/src/islands/')) {
+		resolvedPath = src;
+	}
+
+	// Handle framework-specific naming conventions
+	// If the path doesn't have a framework-specific extension, try to find the actual file
+	if (resolvedPath.endsWith('.tsx') && !resolvedPath.includes('.solid.') && !resolvedPath.includes('.preact.')) {
+		// Try to find the actual file with framework-specific naming
+		const basePath = resolvedPath.replace('.tsx', '');
+		const possiblePaths = [
+			`${basePath}.solid.tsx`,
+			`${basePath}.preact.tsx`,
+			resolvedPath, // Original path as fallback
+		];
+
+		// Check which file actually exists (synchronously for performance)
+		for (const possiblePath of possiblePaths) {
+			try {
+				// Try multiple base directories
+				const pathVariations = [
+					possiblePath.startsWith('/') ? possiblePath.substring(1) : possiblePath,
+					possiblePath.startsWith('/') ? `Avalon${possiblePath}` : `Avalon/${possiblePath}`,
+				];
+
+				for (const pathVariation of pathVariations) {
+					try {
+						Deno.statSync(pathVariation);
+						return possiblePath;
+					} catch {
+						continue;
+					}
+				}
+			} catch {
+				// File doesn't exist, continue to next possibility
+				continue;
+			}
+		}
+	}
+
+	return resolvedPath;
+}
+
+/**
  * Detect the framework used by a component file
  */
 async function detectFramework(src: string): Promise<'solid' | 'vue' | 'preact' | 'react' | 'unknown'> {
+	const logPrefix = `🔍 [${src}]`;
+	const detectionStart = performance.now();
+
+	console.log(`${logPrefix} Starting framework detection...`);
+
 	// Quick filename-based detection
 	if (src.includes('.solid.') || src.includes('Solid') || src.toLowerCase().includes('solid')) {
+		const detectionTime = performance.now() - detectionStart;
+		console.log(`${logPrefix} Framework detected via filename: solid (${detectionTime.toFixed(2)}ms)`);
 		return 'solid';
 	}
 
 	if (src.includes('.vue.') || src.includes('Vue')) {
+		const detectionTime = performance.now() - detectionStart;
+		console.log(`${logPrefix} Framework detected via filename: vue (${detectionTime.toFixed(2)}ms)`);
 		return 'vue';
 	}
 
 	// Try to read file content for more accurate detection
 	try {
 		let fileContent: string;
+		let contentSource = '';
 
 		try {
-			// Try to read the file directly
-			fileContent = await Deno.readTextFile(src.replace(/^\//, ''));
-		} catch {
+			// Try to read the file directly using resolved path
+			const resolvedPath = resolveIslandPath(src);
+			const filePath = resolvedPath.replace(/^\//, '');
+			console.log(`${logPrefix} Attempting direct file read: ${src} -> ${filePath}`);
+			fileContent = await Deno.readTextFile(filePath);
+			contentSource = 'direct file read';
+		} catch (fileError) {
+			console.log(`${logPrefix} Direct file read failed, trying Vite SSR:`, fileError);
 			// If direct read fails, try through Vite in development
 			const viteServer = globalThis.__viteDevServer;
 			if (viteServer) {
-				const module = await viteServer.ssrLoadModule(src);
+				const resolvedPath = resolveIslandPath(src);
+				console.log(`${logPrefix} Using Vite SSR module loading: ${src} -> ${resolvedPath}`);
+				const module = await viteServer.ssrLoadModule(resolvedPath);
 				fileContent = module.toString();
+				contentSource = 'Vite SSR module';
 			} else {
+				console.log(`${logPrefix} No Vite server available, cannot detect framework`);
 				return 'unknown';
 			}
 		}
 
+		console.log(`${logPrefix} File content loaded via ${contentSource} (${fileContent.length} chars)`);
+
 		// Check imports and pragmas
-		if (fileContent.includes('solid-js') || fileContent.includes('@jsxImportSource solid-js')) {
-			return 'solid';
-		}
+		const checks = [
+			{ pattern: /solid-js|@jsxImportSource solid-js/, framework: 'solid' as const },
+			{ pattern: /vue|Vue/, framework: 'vue' as const },
+			{ pattern: /react/, framework: 'react' as const },
+			{ pattern: /preact/, framework: 'preact' as const },
+		];
 
-		if (fileContent.includes('vue') || fileContent.includes('Vue')) {
-			return 'vue';
-		}
-
-		if (fileContent.includes('react')) {
-			return 'react';
-		}
-
-		if (fileContent.includes('preact')) {
-			return 'preact';
+		for (const check of checks) {
+			if (check.pattern.test(fileContent)) {
+				const detectionTime = performance.now() - detectionStart;
+				console.log(
+					`${logPrefix} Framework detected via content analysis: ${check.framework} (${detectionTime.toFixed(2)}ms)`
+				);
+				return check.framework;
+			}
 		}
 
 		// Default to preact for JSX files
+		const detectionTime = performance.now() - detectionStart;
+		console.log(`${logPrefix} No specific framework detected, defaulting to preact (${detectionTime.toFixed(2)}ms)`);
 		return 'preact';
 	} catch (error) {
-		console.warn(`Could not detect framework for ${src}:`, error);
+		const detectionTime = performance.now() - detectionStart;
+		console.warn(`${logPrefix} Framework detection failed after ${detectionTime.toFixed(2)}ms:`, error);
 		return 'unknown';
 	}
 }
@@ -393,51 +566,171 @@ async function renderVueComponent({
 	renderOptions?: AnalyzerOptions;
 	ssrOnly?: boolean;
 }): Promise<JSX.Element> {
-	console.log(`🔄 Attempting Vue SSR for: ${src}`);
+	const logPrefix = `🔄 [Vue:${src}]`;
+	const renderStart = performance.now();
+
+	console.log(`${logPrefix} Starting Vue SSR rendering...`, {
+		ssrOnly,
+		propsKeys: Object.keys(props),
+		isDev: Deno.env.get('DENO_ENV') !== 'production',
+	});
 
 	try {
 		const isDev = Deno.env.get('DENO_ENV') !== 'production';
+		let moduleLoadTime = 0;
+		let moduleSource = '';
 
 		if (isDev) {
 			// In development, use Vite's ssrLoadModule
 			const viteServer = globalThis.__viteDevServer;
 			if (viteServer) {
-				console.log(`📡 Using Vite SSR for Vue: ${src}`);
-				const module = await viteServer.ssrLoadModule(src);
+				const moduleStart = performance.now();
+				const resolvedPath = resolveIslandPath(src);
+				console.log(`${logPrefix} 📡 Loading via Vite SSR: ${src} -> ${resolvedPath}`);
+				const module = await viteServer.ssrLoadModule(resolvedPath);
+				moduleLoadTime = performance.now() - moduleStart;
+				moduleSource = 'Vite SSR';
+
 				const VueComponent = module.default || module;
-				return await renderVueToString(VueComponent, props, src, condition, ssrOnly, renderOptions);
+				console.log(`${logPrefix} ✅ Module loaded via ${moduleSource} in ${moduleLoadTime.toFixed(2)}ms`, {
+					hasDefault: !!module.default,
+					moduleKeys: Object.keys(module),
+					componentType: typeof VueComponent,
+				});
+
+				const result = await renderVueToString(VueComponent, props, src, condition, ssrOnly, renderOptions);
+				const totalTime = performance.now() - renderStart;
+				console.log(
+					`${logPrefix} ✅ Vue SSR completed in ${totalTime.toFixed(2)}ms (module: ${moduleLoadTime.toFixed(2)}ms)`
+				);
+				return result;
+			} else {
+				console.log(`${logPrefix} ❌ No Vite server available in development mode`);
+				throw new Error('No Vite server available for Vue SSR in development');
 			}
 		} else {
 			// In production, load from pre-built SSR bundle
 			const ssrPath = src.replace('/islands/', '/dist/ssr/islands/').replace('.vue', '.js');
-			console.log(`📦 Loading Vue SSR bundle: ${ssrPath}`);
+			const moduleStart = performance.now();
+			console.log(`${logPrefix} 📦 Loading production SSR bundle: ${ssrPath}`);
 			const module = await import(ssrPath);
+			moduleLoadTime = performance.now() - moduleStart;
+			moduleSource = 'production bundle';
+
 			const VueComponent = module.default || module;
-			return await renderVueToString(VueComponent, props, src, condition, ssrOnly, renderOptions);
+			console.log(`${logPrefix} ✅ Module loaded via ${moduleSource} in ${moduleLoadTime.toFixed(2)}ms`);
+
+			const result = await renderVueToString(VueComponent, props, src, condition, ssrOnly, renderOptions);
+			const totalTime = performance.now() - renderStart;
+			console.log(
+				`${logPrefix} ✅ Vue SSR completed in ${totalTime.toFixed(2)}ms (module: ${moduleLoadTime.toFixed(2)}ms)`
+			);
+			return result;
 		}
 	} catch (error) {
-		console.error(`❌ Vue SSR failed for ${src}:`, error);
+		const failTime = performance.now() - renderStart;
+		console.error(`${logPrefix} ❌ Vue SSR failed after ${failTime.toFixed(2)}ms:`, error);
 	}
 
 	// For SSR-only components, try template-based fallback
 	if (ssrOnly) {
-		console.log(`🔄 Trying template-based fallback for SSR-only Vue component: ${src}`);
+		const fallbackStart = performance.now();
+		console.log(`${logPrefix} 🔄 Trying template-based fallback for SSR-only component...`);
 		try {
 			const templateFallback = await renderVueTemplateFallback(src, props, condition, renderOptions);
+			const fallbackTime = performance.now() - fallbackStart;
+
 			if (templateFallback) {
-				console.log(`✅ Vue template fallback succeeded, returning result`);
+				const totalTime = performance.now() - renderStart;
+				console.log(
+					`${logPrefix} ✅ Vue template fallback succeeded in ${fallbackTime.toFixed(2)}ms (total: ${totalTime.toFixed(
+						2
+					)}ms)`
+				);
 				return templateFallback;
 			} else {
-				console.log(`⚠️ Vue template fallback returned null`);
+				console.log(`${logPrefix} ⚠️ Vue template fallback returned null after ${fallbackTime.toFixed(2)}ms`);
 			}
 		} catch (fallbackError) {
-			console.error(`❌ Vue template fallback failed:`, fallbackError);
+			const fallbackTime = performance.now() - fallbackStart;
+			console.error(`${logPrefix} ❌ Vue template fallback failed after ${fallbackTime.toFixed(2)}ms:`, fallbackError);
 		}
 	}
 
-	// Fallback to client-only (or SSR-only if specified)
-	console.log(`🔄 Vue SSR failed, falling back to ${ssrOnly ? 'SSR-only' : 'client-only'} for ${src}`);
-	return Island({ src, condition: ssrOnly ? condition : 'on:client', props, ssr: false, ssrOnly, renderOptions });
+	// Extract CSS even when SSR fails
+	let fallbackCSS = '';
+	try {
+		// Try different path variations to find the Vue file
+		const pathVariations = [
+			src.startsWith('/') ? `Avalon/src${src}` : `Avalon/${src}`,
+			src.startsWith('/') ? `./Avalon/src${src}` : `./Avalon/${src}`,
+			src.startsWith('/') ? `src${src}` : src,
+			src.replace('/islands/', '/src/islands/'),
+		];
+
+		let vueContent = '';
+		for (const path of pathVariations) {
+			try {
+				vueContent = await Deno.readTextFile(path);
+				console.log(`📁 Vue file found at: ${path}`);
+				break;
+			} catch {
+				continue;
+			}
+		}
+
+		if (!vueContent) {
+			throw new Error(`Vue file not found in any of the attempted paths: ${pathVariations.join(', ')}`);
+		}
+
+		// Extract style blocks using regex
+		const styleRegex = /<style([^>]*)>([\s\S]*?)<\/style>/gi;
+		let match;
+
+		while ((match = styleRegex.exec(vueContent)) !== null) {
+			const attributes = match[1];
+			const content = match[2].trim();
+			const isScoped = attributes.includes('scoped');
+
+			if (isScoped) {
+				// Generate a consistent scope ID for the component
+				const scopeId = `data-v-${src.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
+
+				// Apply scoping to CSS selectors
+				const scopedCSS = content.replace(/([^{}]+){/g, (match, selector) => {
+					const trimmedSelector = selector.trim();
+					// Skip @media, @keyframes, etc.
+					if (trimmedSelector.startsWith('@')) {
+						return match;
+					}
+					// Add scope attribute to each selector
+					return `${trimmedSelector}[${scopeId}] {`;
+				});
+
+				fallbackCSS += scopedCSS;
+				console.log(`📝 Vue scoped CSS extracted in fallback for ${src}`);
+			} else {
+				// Non-scoped styles
+				fallbackCSS += content;
+				console.log(`📝 Vue global CSS extracted in fallback for ${src}`);
+			}
+		}
+	} catch (error) {
+		console.warn(`⚠️ Failed to extract CSS in Vue fallback for ${src}:`, error);
+	}
+
+	// Fallback to client-only (or SSR-only if specified) with CSS
+	const totalTime = performance.now() - renderStart;
+	const fallbackMode = ssrOnly ? 'SSR-only' : 'client-only';
+	console.log(`${logPrefix} 🔄 Falling back to ${fallbackMode} Island after ${totalTime.toFixed(2)}ms`);
+
+	// Include CSS in the fallback if found
+	const children = fallbackCSS ? `<style data-vue-ssr-id="fallback">${fallbackCSS}</style>` : undefined;
+
+	// Use ssr: true when we have CSS children to include
+	const shouldUseSSR = !!children;
+
+	return Island({ src, condition, props, ssr: shouldUseSSR, ssrOnly, renderOptions, children });
 }
 
 /**
@@ -464,11 +757,12 @@ async function renderSolidComponent({
 		const isDev = Deno.env.get('DENO_ENV') !== 'production';
 
 		if (isDev) {
-			// In development, use Vite's ssrLoadModule
+			// In development, use Vite's ssrLoadModule if available
 			const viteServer = globalThis.__viteDevServer;
 			if (viteServer) {
-				console.log(`📡 Loading Solid component: ${src}`);
-				const module = await viteServer.ssrLoadModule(src);
+				const resolvedPath = resolveIslandPath(src);
+				console.log(`📡 Loading Solid component: ${src} -> ${resolvedPath}`);
+				const module = await viteServer.ssrLoadModule(resolvedPath);
 				const SolidComponent = module.default || module;
 
 				if (!SolidComponent || typeof SolidComponent !== 'function') {
@@ -476,6 +770,36 @@ async function renderSolidComponent({
 				}
 
 				return await renderSolidToString(SolidComponent, props, src, condition);
+			} else {
+				// Fallback: try direct import when no Vite server is available
+				console.log(`⚠️ No Vite server available, attempting direct import for ${src}`);
+				const resolvedPath = resolveIslandPath(src);
+				// Convert to relative path for import, accounting for Avalon directory structure
+				let filePath = resolvedPath.startsWith('/') ? `.${resolvedPath}` : `./${resolvedPath}`;
+
+				// If the path doesn't exist, try with Avalon prefix
+				try {
+					await Deno.stat(filePath.substring(2)); // Remove './' to check if file exists
+				} catch {
+					// File doesn't exist at the standard path, try with Avalon prefix
+					if (resolvedPath.startsWith('/src/')) {
+						filePath = `./Avalon${resolvedPath}`;
+					}
+				}
+
+				try {
+					const module = await import(filePath);
+					const SolidComponent = module.default || module;
+
+					if (!SolidComponent || typeof SolidComponent !== 'function') {
+						throw new Error(`Invalid Solid component in ${src}`);
+					}
+
+					return await renderSolidToString(SolidComponent, props, src, condition);
+				} catch (importError) {
+					console.error(`❌ Direct import failed for ${src}:`, importError);
+					throw importError;
+				}
 			}
 		} else {
 			// In production, load from pre-built SSR bundle
@@ -491,7 +815,7 @@ async function renderSolidComponent({
 
 	// Fallback to client-only (or SSR-only if specified)
 	console.log(`🔄 Solid SSR failed, falling back to ${ssrOnly ? 'SSR-only' : 'client-only'} for ${src}`);
-	return Island({ src, condition: ssrOnly ? condition : 'on:client', props, ssr: false, ssrOnly, renderOptions });
+	return Island({ src, condition, props, ssr: false, ssrOnly, renderOptions });
 }
 
 /**
@@ -521,8 +845,9 @@ async function renderSvelteComponent({
 			// In development, use Vite's ssrLoadModule
 			const viteServer = globalThis.__viteDevServer;
 			if (viteServer) {
-				console.log(`📡 Loading Svelte component: ${src}`);
-				const module = await viteServer.ssrLoadModule(src);
+				const resolvedPath = resolveIslandPath(src);
+				console.log(`📡 Loading Svelte component: ${src} -> ${resolvedPath}`);
+				const module = await viteServer.ssrLoadModule(resolvedPath);
 				const SvelteComponent = module.default || module;
 
 				if (!SvelteComponent || typeof SvelteComponent.render !== 'function') {
@@ -580,7 +905,7 @@ async function renderSvelteComponent({
 	console.log(`🔄 Svelte SSR failed, falling back to ${ssrOnly ? 'SSR-only' : 'client-only'} for ${src}`);
 	return Island({
 		src,
-		condition: ssrOnly ? condition : 'on:client',
+		condition,
 		props,
 		ssr: false,
 		framework: 'svelte',
@@ -607,40 +932,83 @@ async function renderPreactComponent({
 	renderOptions?: AnalyzerOptions;
 	ssrOnly?: boolean;
 }): Promise<JSX.Element> {
-	console.log(`🔄 Attempting Preact SSR for: ${src}`);
+	const logPrefix = `🔄 [Preact:${src}]`;
+	const renderStart = performance.now();
+
+	console.log(`${logPrefix} Starting Preact SSR rendering...`, {
+		ssrOnly,
+		propsKeys: Object.keys(props),
+		isDev: Deno.env.get('DENO_ENV') !== 'production',
+	});
 
 	try {
 		const isDev = Deno.env.get('DENO_ENV') !== 'production';
+		let moduleLoadTime = 0;
+		let moduleSource = '';
 
 		if (isDev) {
 			// In development, use Vite's ssrLoadModule
 			const viteServer = globalThis.__viteDevServer;
 			if (viteServer) {
-				console.log(`📡 Loading Preact component: ${src}`);
-				const module = await viteServer.ssrLoadModule(src);
+				const moduleStart = performance.now();
+				const resolvedPath = resolveIslandPath(src);
+				console.log(`${logPrefix} 📡 Loading via Vite SSR: ${src} -> ${resolvedPath}`);
+				const module = await viteServer.ssrLoadModule(resolvedPath);
+				moduleLoadTime = performance.now() - moduleStart;
+				moduleSource = 'Vite SSR';
+
 				const PreactComponent = module.default || module;
 
+				console.log(`${logPrefix} ✅ Module loaded via ${moduleSource} in ${moduleLoadTime.toFixed(2)}ms`, {
+					hasDefault: !!module.default,
+					moduleKeys: Object.keys(module),
+					componentType: typeof PreactComponent,
+					isFunction: typeof PreactComponent === 'function',
+				});
+
 				if (!PreactComponent || typeof PreactComponent !== 'function') {
-					throw new Error(`Invalid Preact component in ${src}`);
+					throw new Error(`Invalid Preact component in ${src}: expected function, got ${typeof PreactComponent}`);
 				}
 
-				return renderPreactToString(PreactComponent, props, src, condition, ssrOnly, renderOptions);
+				const result = renderPreactToString(PreactComponent, props, src, condition, ssrOnly, renderOptions);
+				const totalTime = performance.now() - renderStart;
+				console.log(
+					`${logPrefix} ✅ Preact SSR completed in ${totalTime.toFixed(2)}ms (module: ${moduleLoadTime.toFixed(2)}ms)`
+				);
+				return result;
+			} else {
+				console.log(`${logPrefix} ❌ No Vite server available in development mode`);
+				throw new Error('No Vite server available for Preact SSR in development');
 			}
 		} else {
 			// In production, load from pre-built SSR bundle
 			const ssrPath = src.replace('/islands/', '/dist/ssr/islands/').replace(/\.(tsx|jsx)$/, '.js');
-			console.log(`📦 Loading Preact SSR bundle: ${ssrPath}`);
+			const moduleStart = performance.now();
+			console.log(`${logPrefix} 📦 Loading production SSR bundle: ${ssrPath}`);
 			const module = await import(ssrPath);
+			moduleLoadTime = performance.now() - moduleStart;
+			moduleSource = 'production bundle';
+
 			const PreactComponent = module.default || module;
-			return renderPreactToString(PreactComponent, props, src, condition, ssrOnly, renderOptions);
+			console.log(`${logPrefix} ✅ Module loaded via ${moduleSource} in ${moduleLoadTime.toFixed(2)}ms`);
+
+			const result = renderPreactToString(PreactComponent, props, src, condition, ssrOnly, renderOptions);
+			const totalTime = performance.now() - renderStart;
+			console.log(
+				`${logPrefix} ✅ Preact SSR completed in ${totalTime.toFixed(2)}ms (module: ${moduleLoadTime.toFixed(2)}ms)`
+			);
+			return result;
 		}
 	} catch (error) {
-		console.error(`❌ Preact SSR failed for ${src}:`, error);
+		const failTime = performance.now() - renderStart;
+		console.error(`${logPrefix} ❌ Preact SSR failed after ${failTime.toFixed(2)}ms:`, error);
 	}
 
 	// Fallback to client-only (or SSR-only if specified)
-	console.log(`🔄 Preact SSR failed, falling back to ${ssrOnly ? 'SSR-only' : 'client-only'} for ${src}`);
-	return Island({ src, condition: ssrOnly ? condition : 'on:client', props, ssr: false, ssrOnly, renderOptions });
+	const totalTime = performance.now() - renderStart;
+	const fallbackMode = ssrOnly ? 'SSR-only' : 'client-only';
+	console.log(`${logPrefix} 🔄 Falling back to ${fallbackMode} Island after ${totalTime.toFixed(2)}ms`);
+	return Island({ src, condition, props, ssr: false, ssrOnly, renderOptions });
 }
 
 /**
@@ -654,11 +1022,27 @@ function renderPreactToString(
 	ssrOnly: boolean = false,
 	renderOptions: AnalyzerOptions = {}
 ): JSX.Element {
+	const logPrefix = `🔄 [PreactRender:${src}]`;
+	const renderStart = performance.now();
+
+	console.log(`${logPrefix} Starting Preact renderToString...`, {
+		componentType: typeof component,
+		propsKeys: Object.keys(props),
+		ssrOnly,
+	});
+
 	try {
 		// Render component directly, then add hydration attributes
+		const renderStringStart = performance.now();
 		const ssrHtml = renderToString(h(component, props));
+		const renderStringTime = performance.now() - renderStringStart;
 
-		return Island({
+		console.log(`${logPrefix} ✅ Preact renderToString completed in ${renderStringTime.toFixed(2)}ms`, {
+			htmlLength: ssrHtml.length,
+			htmlPreview: ssrHtml.substring(0, 100) + (ssrHtml.length > 100 ? '...' : ''),
+		});
+
+		const result = Island({
 			src,
 			condition,
 			props,
@@ -668,8 +1052,15 @@ function renderPreactToString(
 			ssrOnly,
 			renderOptions,
 		});
+
+		const totalTime = performance.now() - renderStart;
+		console.log(`${logPrefix} ✅ Island creation completed in ${totalTime.toFixed(2)}ms`);
+		return result;
 	} catch (error) {
-		console.error(`❌ Preact renderToString failed for ${src}:`, error);
+		const failTime = performance.now() - renderStart;
+		console.error(`${logPrefix} ❌ Preact renderToString failed after ${failTime.toFixed(2)}ms:`, error);
+
+		console.log(`${logPrefix} 🔄 Creating fallback Island without SSR`);
 		return Island({
 			src,
 			condition: ssrOnly ? condition : 'on:client',
@@ -706,19 +1097,102 @@ async function renderVueToString(
 
 		// Create a new Vue app instance for each server-side render
 		const app = createSSRApp(VueComponent, props);
+
+		// Render the Vue component
 		const ssrHtml = await vueRenderToString(app);
 
 		console.log(`✅ Vue component rendered successfully with vue/server-renderer for ${src}`);
 
-		// Generate deterministic container ID (SSR-safe)
-		const containerId = `vue-component--${src.replace(/[^a-zA-Z0-9]/g, '-')}`;
+		// Extract CSS directly from Vue component file
+		let componentCSS = '';
+		try {
+			// Try different path variations to find the Vue file
+			const pathVariations = [
+				src.startsWith('/') ? `Avalon/src${src}` : `Avalon/${src}`,
+				src.startsWith('/') ? `./Avalon/src${src}` : `./Avalon/${src}`,
+				src.startsWith('/') ? `src${src}` : src,
+				src.replace('/islands/', '/src/islands/'),
+			];
+
+			let vueContent = '';
+			for (const path of pathVariations) {
+				try {
+					vueContent = await Deno.readTextFile(path);
+					console.log(`📁 Vue file found at: ${path}`);
+					break;
+				} catch {
+					continue;
+				}
+			}
+
+			if (!vueContent) {
+				throw new Error(`Vue file not found in any of the attempted paths: ${pathVariations.join(', ')}`);
+			}
+
+			// Extract style blocks using regex
+			const styleRegex = /<style([^>]*)>([\s\S]*?)<\/style>/gi;
+			let match;
+
+			while ((match = styleRegex.exec(vueContent)) !== null) {
+				const attributes = match[1];
+				const content = match[2].trim();
+				const isScoped = attributes.includes('scoped');
+
+				if (isScoped) {
+					// Generate a consistent scope ID for the component
+					const scopeId = `data-v-${src.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
+
+					// Apply scoping to CSS selectors
+					const scopedCSS = content.replace(/([^{}]+){/g, (match, selector) => {
+						const trimmedSelector = selector.trim();
+						// Skip @media, @keyframes, etc.
+						if (trimmedSelector.startsWith('@')) {
+							return match;
+						}
+						// Add scope attribute to each selector
+						return `${trimmedSelector}[${scopeId}] {`;
+					});
+
+					componentCSS += scopedCSS;
+					console.log(`📝 Vue scoped CSS extracted and processed for ${src}`);
+				} else {
+					// Non-scoped styles
+					componentCSS += content;
+					console.log(`📝 Vue global CSS extracted for ${src}`);
+				}
+			}
+		} catch (error) {
+			console.warn(`⚠️ Failed to extract CSS from Vue file ${src}:`, error);
+		}
+
+		// Include CSS and apply scoping if found
+		let styledContent = ssrHtml;
+		if (componentCSS) {
+			// Generate a consistent scope ID for the component
+			const scopeId = `data-v-${src.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`;
+
+			// Add scope attributes to HTML elements
+			const scopedHtml = ssrHtml.replace(/<([a-zA-Z][^>]*?)>/g, (match, tagContent) => {
+				// Skip closing tags and self-closing tags
+				if (tagContent.startsWith('/') || tagContent.endsWith('/')) {
+					return match;
+				}
+				// Add scope attribute
+				return `<${tagContent} ${scopeId}>`;
+			});
+
+			styledContent = `<style data-vue-ssr-id="${scopeId}">${componentCSS}</style>${scopedHtml}`;
+			console.log(`📝 Vue component CSS extracted and scoped: ${componentCSS.length} chars`);
+		} else {
+			console.log(`⚠️ No CSS extracted for Vue component ${src}`);
+		}
 
 		// Use Island component with proper SSR-only handling
 		return Island({
 			src,
 			condition,
 			props,
-			children: ssrHtml,
+			children: styledContent,
 			ssr: true,
 			ssrOnly,
 			renderOptions,
@@ -784,10 +1258,13 @@ async function renderSolidToString(
 		// Generate deterministic container ID (SSR-safe)
 		const containerId = `solid-island-${src.replace(/[^a-zA-Z0-9]/g, '-')}`;
 
+		// Resolve the path for hydration - ensure it matches what Vite can serve
+		const hydrationPath = resolveIslandPath(src);
+
 		// Use semantic is-land element with dedicated Solid hydration attributes
 		return h('is-land', {
 			id: containerId,
-			'data-solid-hydrate': src,
+			'data-solid-hydrate': hydrationPath,
 			'data-solid-props': JSON.stringify(props),
 			'data-solid-condition': condition,
 			dangerouslySetInnerHTML: { __html: ssrHtml },
@@ -884,8 +1361,10 @@ async function renderSvelteTemplateFallback(
 	renderOptions: AnalyzerOptions
 ): Promise<JSX.Element | null> {
 	try {
-		// Try multiple path variations to find the component
+		// Resolve the path first, then try variations
+		const resolvedSrc = resolveIslandPath(src);
 		const pathVariations = [
+			resolvedSrc.startsWith('/') ? resolvedSrc.substring(1) : resolvedSrc,
 			src.startsWith('/') ? src.substring(1) : src,
 			`examples/${src.split('/').pop()}`,
 			`src/islands/${src.split('/').pop()}`,
@@ -1001,8 +1480,10 @@ async function renderVueTemplateFallback(
 	renderOptions: AnalyzerOptions
 ): Promise<JSX.Element | null> {
 	try {
-		// Try multiple path variations to find the component
+		// Resolve the path first, then try variations
+		const resolvedSrc = resolveIslandPath(src);
 		const pathVariations = [
+			resolvedSrc.startsWith('/') ? resolvedSrc.substring(1) : resolvedSrc,
 			src.startsWith('/') ? src.substring(1) : src,
 			`examples/${src.split('/').pop()}`,
 			`src/islands/${src.split('/').pop()}`,
