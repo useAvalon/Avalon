@@ -1,6 +1,7 @@
-import { assertEquals, assertExists, assert } from 'jsr:@std/assert';
-import { join, resolve } from 'node:path';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { assertEquals, assertExists, assert } from '@std/assert';
+import { join, resolve } from 'jsr:@std/path';
+import { existsSync } from 'jsr:@std/fs';
+import { ensureDir } from 'jsr:@std/fs';
 import { LayoutDiscovery } from '../src/core/layout/layout-discovery.ts';
 import type { LayoutDiscoveryOptions } from '../src/schemas/layout.ts';
 
@@ -8,9 +9,9 @@ const testDir = resolve('./test-layouts');
 
 async function setupTestDir(): Promise<void> {
 	if (existsSync(testDir)) {
-		rmSync(testDir, { recursive: true, force: true });
+		await Deno.remove(testDir, { recursive: true });
 	}
-	mkdirSync(testDir, { recursive: true });
+	await ensureDir(testDir);
 }
 
 async function cleanupTestDir(layoutDiscovery?: LayoutDiscovery): Promise<void> {
@@ -18,7 +19,7 @@ async function cleanupTestDir(layoutDiscovery?: LayoutDiscovery): Promise<void> 
 		layoutDiscovery.stopWatcher();
 	}
 	if (existsSync(testDir)) {
-		rmSync(testDir, { recursive: true, force: true });
+		await Deno.remove(testDir, { recursive: true });
 	}
 }
 
@@ -29,8 +30,8 @@ Deno.test('LayoutDiscovery - should discover root layout', async () => {
 	try {
 		// Create root layout
 		const pagesDir = join(testDir, 'pages');
-		mkdirSync(pagesDir, { recursive: true });
-		writeFileSync(
+		await ensureDir(pagesDir);
+		await Deno.writeTextFile(
 			join(pagesDir, '_layout.tsx'),
 			`export default function RootLayout({ children }) {
 				return <div className="root-layout">{children}</div>;
@@ -64,26 +65,26 @@ Deno.test('LayoutDiscovery - should discover nested layouts in correct priority 
 	try {
 		// Create layout hierarchy
 		const pagesDir = join(testDir, 'pages');
-		mkdirSync(pagesDir, { recursive: true });
+		await ensureDir(pagesDir);
 
 		// Root layout
-		writeFileSync(
+		await Deno.writeTextFile(
 			join(pagesDir, '_layout.tsx'),
 			`export default function RootLayout({ children }) { return <div>{children}</div>; }`
 		);
 
 		// Blog layout
 		const blogDir = join(pagesDir, 'blog');
-		mkdirSync(blogDir, { recursive: true });
-		writeFileSync(
+		await ensureDir(blogDir);
+		await Deno.writeTextFile(
 			join(blogDir, '_layout.tsx'),
 			`export default function BlogLayout({ children }) { return <div>{children}</div>; }`
 		);
 
 		// Admin layout
 		const adminDir = join(pagesDir, 'admin');
-		mkdirSync(adminDir, { recursive: true });
-		writeFileSync(
+		await ensureDir(adminDir);
+		await Deno.writeTextFile(
 			join(adminDir, '_layout.tsx'),
 			`export default function AdminLayout({ children }) { return <div>{children}</div>; }`
 		);
@@ -139,8 +140,8 @@ Deno.test('LayoutDiscovery - should cache discovered layouts', async () => {
 	try {
 		// Create root layout
 		const pagesDir = join(testDir, 'pages');
-		mkdirSync(pagesDir, { recursive: true });
-		writeFileSync(
+		await ensureDir(pagesDir);
+		await Deno.writeTextFile(
 			join(pagesDir, '_layout.tsx'),
 			`export default function RootLayout({ children }) { return <div>{children}</div>; }`
 		);

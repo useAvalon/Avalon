@@ -177,7 +177,7 @@ export class LayoutBundleOptimizer {
 	 */
 	private async extractDependencies(filePath: string): Promise<string[]> {
 		try {
-			const content = await Deno.readTextFile(filePath, 'utf-8');
+			const content = await Deno.readTextFile(filePath);
 			const dependencies: string[] = [];
 
 			// Extract import statements
@@ -297,7 +297,7 @@ export class LayoutBundleOptimizer {
 
 		try {
 			// Get main file size
-			const mainContent = await Deno.readTextFile(filePath, 'utf-8');
+			const mainContent = await Deno.readTextFile(filePath);
 			totalSize += new TextEncoder().encode(mainContent).length;
 
 			// Add dependency sizes (with deduplication)
@@ -306,7 +306,7 @@ export class LayoutBundleOptimizer {
 			for (const dep of dependencies) {
 				if (!processedDeps.has(dep) && existsSync(dep)) {
 					try {
-						const depContent = await Deno.readTextFile(dep, 'utf-8');
+						const depContent = await Deno.readTextFile(dep);
 						totalSize += new TextEncoder().encode(depContent).length;
 						processedDeps.add(dep);
 					} catch {
@@ -472,6 +472,19 @@ export class LayoutBundleOptimizer {
 	 * Analyze bundles and generate optimization report
 	 */
 	private async analyzeBundles(bundles: LayoutBundle[]): Promise<BundleAnalysis> {
+		// Handle empty bundles array
+		if (bundles.length === 0) {
+			return {
+				totalSize: 0,
+				bundleCount: 0,
+				averageBundleSize: 0,
+				largestBundle: { id: '', size: 0 },
+				smallestBundle: { id: '', size: 0 },
+				duplicatedCode: [],
+				optimizationOpportunities: ['No bundles found - layouts may not be properly configured'],
+			};
+		}
+
 		const totalSize = bundles.reduce((sum, bundle) => sum + bundle.size, 0);
 		const bundleCount = bundles.length;
 		const averageBundleSize = totalSize / bundleCount;
@@ -486,7 +499,7 @@ export class LayoutBundleOptimizer {
 		// Generate optimization opportunities
 		const optimizationOpportunities: string[] = [];
 
-		if (largestBundle.size > this.config.splitThreshold * 2) {
+		if (largestBundle && largestBundle.size > this.config.splitThreshold * 2) {
 			optimizationOpportunities.push(`Consider splitting large bundle: ${largestBundle.id}`);
 		}
 
@@ -542,7 +555,7 @@ export class LayoutBundleOptimizer {
 	 */
 	private async ensureOutputDirectory(): Promise<void> {
 		try {
-			await ensureDir(this.config.outputDir, { recursive: true });
+			await ensureDir(this.config.outputDir);
 		} catch (error) {
 			if (this.config.developmentMode) {
 				console.warn(`[LayoutBundleOptimizer] Failed to create output directory ${this.config.outputDir}:`, error);

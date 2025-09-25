@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from 'jsr:@std/assert';
+import { assertEquals, assertExists } from '@std/assert';
 import { LayoutBundleOptimizer, defaultBundleOptimizationConfig } from '../layout-bundle-optimizer.ts';
 import type { LayoutHandler } from '../../../types/layout.ts';
 

@@ -57,6 +57,12 @@ export class LayoutDiscovery {
 		this.developmentMode = options.developmentMode || false;
 		this.layoutMatcher = new LayoutMatcher({ developmentMode: this.developmentMode });
 
+		if (this.developmentMode) {
+			console.log(
+				`[LayoutDiscovery] Constructor: baseDirectory=${this.baseDirectory}, filePattern=${this.filePattern}`
+			);
+		}
+
 		if (options.enableWatching) {
 			this.enableWatchMode();
 		}
@@ -225,6 +231,12 @@ export class LayoutDiscovery {
 			const fsPath = this.routePathToFsPath(routePath);
 			const layoutFilePath = join(fsPath, this.filePattern);
 
+			if (this.developmentMode) {
+				console.log(
+					`[Layout] Scanning for layouts: route=${routePath}, fsPath=${fsPath}, layoutFile=${layoutFilePath}`
+				);
+			}
+
 			// Check if we already have this scan in progress
 			const cacheKey = `scan-${routePath}`;
 			if (this.scanPromises.has(cacheKey)) {
@@ -349,12 +361,12 @@ export class LayoutDiscovery {
 				// Check if file still exists and hasn't been modified
 				try {
 					const currentStats = await Deno.stat(filePath);
-					if (currentStats.mtime.getTime() === cachedStats.mtime) {
+					if (currentStats.mtime && currentStats.mtime.getTime() === cachedStats.mtime) {
 						return true; // File exists and hasn't changed
 					}
 					// Update cache with new stats
 					this.fileStatsCache.set(filePath, {
-						mtime: currentStats.mtime.getTime(),
+						mtime: currentStats.mtime?.getTime() || 0,
 						size: currentStats.size,
 					});
 					return true;
@@ -369,7 +381,7 @@ export class LayoutDiscovery {
 			try {
 				const stats = await Deno.stat(filePath);
 				this.fileStatsCache.set(filePath, {
-					mtime: stats.mtime.getTime(),
+					mtime: stats.mtime?.getTime() || 0,
 					size: stats.size,
 				});
 				return true;
@@ -386,13 +398,13 @@ export class LayoutDiscovery {
 	 * Requirements: 1.1, 1.2
 	 */
 	private routePathToFsPath(routePath: string): string {
-		// Handle root path
+		// Handle root path - look in layouts directory, not pages
 		if (routePath === '' || routePath === '/') {
-			return join(this.baseDirectory, 'pages');
+			return this.baseDirectory;
 		}
 
-		// Convert route path to pages directory path
-		return join(this.baseDirectory, 'pages', routePath);
+		// Convert route path to layouts directory path
+		return join(this.baseDirectory, routePath);
 	}
 
 	/**

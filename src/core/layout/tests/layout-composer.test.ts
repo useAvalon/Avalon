@@ -80,11 +80,11 @@ export async function layoutLoader(ctx) {
 async function setupTestFixtures(): Promise<LayoutComposer> {
 	// Create test directory structure
 	if (existsSync(TEST_FIXTURES_DIR)) {
-		Deno.removeSync(TEST_FIXTURES_DIR, { recursive: true, force: true });
+		await Deno.remove(TEST_FIXTURES_DIR, { recursive: true });
 	}
-	Deno.mkdirSync(TEST_FIXTURES_DIR, { recursive: true });
-	Deno.mkdirSync(TEST_PAGES_DIR, { recursive: true });
-	Deno.mkdirSync(TEST_LAYOUTS_DIR, { recursive: true });
+	await Deno.mkdir(TEST_FIXTURES_DIR, { recursive: true });
+	await Deno.mkdir(TEST_PAGES_DIR, { recursive: true });
+	await Deno.mkdir(TEST_LAYOUTS_DIR, { recursive: true });
 
 	// Create test layout files
 	await createTestLayouts();
@@ -104,7 +104,7 @@ async function setupTestFixtures(): Promise<LayoutComposer> {
 function cleanupTestFixtures() {
 	// Clean up test fixtures
 	if (existsSync(TEST_FIXTURES_DIR)) {
-		Deno.removeSync(TEST_FIXTURES_DIR, { recursive: true, force: true });
+		await Deno.remove(TEST_FIXTURES_DIR, { recursive: true });
 	}
 }
 

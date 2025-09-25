@@ -1,15 +1,8 @@
-import { assertEquals, assertExists, assert } from 'jsr:@std/assert';
+import { assertEquals, assertExists, assert } from '@std/assert';
 import { LayoutCacheManager, defaultCacheConfig, type CacheConfig } from '../layout-cache-manager.ts';
 import { LayoutDebugUtils, defaultDebugConfig, type DebugConfig } from '../layout-debug-utils.ts';
-import {
-	LayoutPerformanceMonitor,
-	defaultPerformanceThresholds,
-} from '../layout-performance-monitor.ts';
-import {
-	LayoutConfigValidator,
-	LayoutErrorReporter,
-	defaultValidationOptions,
-} from '../layout-config-validator.ts';
+import { LayoutPerformanceMonitor, defaultPerformanceThresholds } from '../layout-performance-monitor.ts';
+import { LayoutConfigValidator, LayoutErrorReporter, defaultValidationOptions } from '../layout-config-validator.ts';
 import { LayoutHandler, ResolvedLayout, LayoutData } from '../../../types/layout.ts';
 
 // Mock data

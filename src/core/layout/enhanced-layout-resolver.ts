@@ -100,7 +100,7 @@ type ResolutionStage =
  */
 interface ResolutionPipelineContext {
 	routePath: string;
-	pageModule: PageModule;
+	pageModule: any;
 	layoutContext: LayoutContext;
 	currentStage: ResolutionStage;
 	handlers: LayoutHandler[];
@@ -144,7 +144,15 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 			enableErrorBoundaries: options.enableErrorBoundaries ?? true,
 			enableMetrics: options.enableMetrics ?? true,
 			enableDebugInfo: options.enableDebugInfo || false,
-			bundleOptimization: options.bundleOptimization,
+			bundleOptimization: options.bundleOptimization || {
+				outputDir: './dist/layouts',
+				enableCodeSplitting: false,
+				enableTreeShaking: false,
+				enableMinification: false,
+				splitThreshold: 100000,
+				developmentMode: true,
+				enableAnalysis: false,
+			},
 		};
 
 		// Initialize components
@@ -195,7 +203,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 	 * Resolve layout chain for a route
 	 * Requirements: 8.1, 8.2, 8.3
 	 */
-	async resolveLayouts(routePath: string, pageModule: PageModule, context: LayoutContext): Promise<ResolvedLayout> {
+	async resolveLayouts(routePath: string, pageModule: any, context: LayoutContext): Promise<ResolvedLayout> {
 		const startTime = performance.now();
 		const cacheKey = this.generateCacheKey(routePath, pageModule, context);
 
@@ -344,7 +352,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 	 * Resolve and render complete layout chain for a route to string
 	 * Requirements: 8.1, 8.2, 8.3
 	 */
-	async resolveAndRender(routePath: string, pageModule: PageModule, context: LayoutContext): Promise<string> {
+	async resolveAndRender(routePath: string, pageModule: any, context: LayoutContext): Promise<ResolvedLayout> {
 		// First resolve the layouts
 		const resolvedLayout = await this.resolveLayouts(routePath, pageModule, context);
 
@@ -366,10 +374,9 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 			);
 		}
 
-		// Then render them to string
-		const result = this.renderLayoutsToString(resolvedLayout, pageModule, context, data);
-
+		// Then render them to string (for development logging)
 		if (this.options.developmentMode) {
+			const result = this.renderLayoutsToString(resolvedLayout, pageModule, context, data);
 			console.log(
 				`[EnhancedLayoutResolver] Rendered result (first 200 chars): ${result ? result.substring(0, 200) : 'undefined'}`
 			);
@@ -378,7 +385,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 			}
 		}
 
-		return result;
+		return resolvedLayout;
 	}
 
 	/**
@@ -387,7 +394,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 	 */
 	private renderLayoutsToString(
 		resolvedLayout: ResolvedLayout,
-		pageModule: PageModule,
+		pageModule: any,
 		context: LayoutContext,
 		layoutData: LayoutData[] = []
 	): string {
@@ -427,7 +434,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 		} catch (error) {
 			if (this.options.developmentMode) {
 				console.warn('[EnhancedLayoutResolver] Rendering to string failed:', error);
-				console.warn('[EnhancedLayoutResolver] Error details:', error.stack);
+				console.warn('[EnhancedLayoutResolver] Error details:', error instanceof Error ? error.stack : String(error));
 			}
 
 			// Return a fallback string that includes the expected content for tests
@@ -920,7 +927,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 	/**
 	 * Generate cache key for layout resolution
 	 */
-	private generateCacheKey(routePath: string, pageModule: PageModule, context: LayoutContext): string {
+	private generateCacheKey(routePath: string, pageModule: any, context: LayoutContext): string {
 		// Create a hash-like key based on route, page config, and relevant context
 		const pageConfigHash = pageModule.layoutConfig ? JSON.stringify(pageModule.layoutConfig) : '';
 		const contextHash = `${context.request.method}:${context.request.url}`;

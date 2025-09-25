@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from 'jsr:@std/assert';
+import { assertEquals, assertExists } from '@std/assert';
 import { LayoutCacheManager, defaultCacheConfig } from '../layout-cache-manager.ts';
 import type { ResolvedLayout, LayoutHandler, LayoutData } from '../../../types/layout.ts';
 

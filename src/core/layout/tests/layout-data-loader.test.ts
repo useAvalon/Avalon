@@ -1,4 +1,4 @@
-import { assertEquals, assertRejects, assertThrows, assert } from 'jsr:@std/assert';
+import { assertEquals, assertRejects, assertThrows, assert } from '@std/assert';
 import { describe, it, beforeEach, afterEach } from 'https://deno.land/std@0.208.0/testing/bdd.ts';
 import { FakeTime } from 'https://deno.land/std@0.208.0/testing/time.ts';
 import {
