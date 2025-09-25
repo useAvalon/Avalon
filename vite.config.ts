@@ -158,6 +158,7 @@ async function loadFrameworkPlugins(frameworks: { vue: boolean; solid: boolean; 
 				template: {
 					compilerOptions: {
 						isCustomElement: (tag: string) => tag === 'is-land',
+						style: 'scoped',
 					},
 				},
 			}),
@@ -172,7 +173,7 @@ async function loadFrameworkPlugins(frameworks: { vue: boolean; solid: boolean; 
 		const solidPlugin = await loadFrameworkPlugin({
 			name: 'solid',
 			packageName: 'vite-plugin-solid',
-			config: () => ({ ssr: true }),
+			config: () => ({ ssr: true, hot: true }),
 			successMessage: 'Solid plugin loaded for Solid.js support with SSR',
 			errorMessage: 'Solid.js files detected but vite-plugin-solid not available',
 			installHint: 'Install with: deno add npm:vite-plugin-solid',
@@ -212,9 +213,17 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		publicDir: 'public',
 
 		optimizeDeps: {
-			// Force Vite to pre-bundle framework dependencies since our hydration
-			// script is injected by the server, not discovered from HTML
-			include: ['vue', 'svelte'],
+			include: [
+				'vue',
+				'svelte',
+				'svelte/internal',
+				'svelte/store',
+				'svelte/animate',
+				'svelte/easing',
+				'svelte/motion',
+				'svelte/transition',
+			],
+			force: true,
 		},
 
 		plugins: [deno(), createJsxImportSourcePlugin(), ...frameworkPlugins],
@@ -253,7 +262,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 		ssr: {
 			target: 'webworker',
-			noExternal: ['vue', '@vue/server-renderer', 'svelte'],
+			noExternal: ['vue', '@vue/server-renderer', '@vue/shared', 'svelte', 'svelte/internal', 'svelte/store'],
 		},
 
 		resolve: {

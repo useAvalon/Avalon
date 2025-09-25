@@ -12,6 +12,7 @@
 		"test:types": "deno test src/types/tests/ --no-check --allow-env --allow-read --allow-write",
 		"test:client": "deno test src/client/tests/ --no-check --allow-env --allow-read --allow-write",
 		"test:core": "deno test src/core/tests/ --no-check --allow-env --allow-read --allow-write",
+		"test:render": "deno test src/render/tests/ --no-check --allow-env --allow-read --allow-write",
 
 		"test-schema": "cd src && deno run --allow-all test_schema.ts",
 		"test-minification": "deno run --allow-all tests/minification-test.ts",
@@ -42,6 +43,8 @@
 		"@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.5",
 		"@std/fs": "jsr:@std/fs@^1.0.8",
 		"@std/path": "jsr:@std/path@^1.0.8",
+		"@std/assert": "jsr:@std/assert",
+		"@std/testing": "jsr:@std/testing",
 		"@sveltejs/vite-plugin-svelte": "npm:@sveltejs/vite-plugin-svelte@^6.2.0",
 		"@vitejs/plugin-vue": "npm:@vitejs/plugin-vue@^6.0.1",
 		"svelte": "npm:svelte@^5.15.0",

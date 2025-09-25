@@ -1,0 +1,81 @@
+<template>
+	<div class="vue-counter">
+		<h4>💚 Vue Counter</h4>
+		<div class="count-display">{{ count }}</div>
+		<div class="button-group">
+			<button @click="decrement">−</button>
+			<button @click="increment">+</button>
+		</div>
+		<p class="framework-label">Powered by Vue Composition API</p>
+	</div>
+</template>
+
+<script lang="ts" setup>
+import { ref } from 'vue';
+
+const count = ref(0);
+
+const increment = () => count.value++;
+const decrement = () => count.value--;
+</script>
+
+<script lang="ts">
+// Export hydrate function for client-side hydration
+import { createApp } from 'vue';
+import Component from './VueCounter.vue'; // Self-reference
+
+export function hydrate(element, props) {
+	const app = createApp(Component, props);
+	app.mount(element);
+}
+</script>
+
+<style scoped>
+.vue-counter {
+	text-align: center;
+	padding: 20px;
+	background: linear-gradient(135deg, #4fc08d, #42b883);
+	color: white;
+	border-radius: 10px;
+}
+
+.vue-counter h4 {
+	margin-bottom: 15px;
+}
+
+.count-display {
+	font-size: 2rem;
+	font-weight: bold;
+	margin-bottom: 15px;
+	background: rgba(255, 255, 255, 0.2);
+	padding: 10px;
+	border-radius: 8px;
+}
+
+.button-group {
+	display: flex;
+	gap: 10px;
+	justify-content: center;
+}
+
+.button-group button {
+	padding: 8px 16px;
+	background: rgba(255, 255, 255, 0.2);
+	border: none;
+	border-radius: 6px;
+	color: white;
+	cursor: pointer;
+	font-size: 1.2rem;
+	transition: background 0.2s;
+}
+
+.button-group button:hover {
+	background: rgba(255, 255, 255, 0.3);
+}
+
+.framework-label {
+	margin-top: 10px;
+	font-size: 0.9rem;
+	opacity: 0.8;
+}
+</style>
