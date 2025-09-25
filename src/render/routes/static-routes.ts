@@ -10,21 +10,21 @@ import type { LayoutContext } from '../../types/layout.ts';
 
 export function createStaticRoutes(isDev: boolean) {
 	return [
-		// Serve islands - needed for dynamic imports in both dev and production
-		{
-			pattern: new URLPattern({ pathname: '/islands/*' }),
-			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
-				// In development, this is handled by Vite proxy above
-				// In production, serve directly from user's islands directory
-				if (!isDev) {
-					const url = new URL(req.url);
-					const path = url.pathname.replace(/^\/islands\//, '');
-					console.log(`🏝️ Serving island: ${path}`);
-					return await serveStaticFile(path, join(Deno.cwd(), 'islands'));
-				}
-				return new Response('Island not found', { status: 404 });
-			},
-		},
+		// Serve islands - only in production (development uses Vite proxy)
+		...(isDev
+			? []
+			: [
+					{
+						pattern: new URLPattern({ pathname: '/islands/*' }),
+						handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
+							const url = new URL(req.url);
+							const path = url.pathname.replace(/^\/islands\//, '');
+							console.log(`🏝️ Serving island: ${path}`);
+							// In production, islands are served from the built dist directory
+							return await serveStaticFile(`islands/${path}`, join(Deno.cwd(), 'dist'));
+						},
+					},
+			  ]),
 
 		// Serve built island bundles (production)
 		{
