@@ -2,8 +2,9 @@ import { defineConfig } from 'vite';
 import { resolve } from '@std/path';
 import deno from '@deno/vite-plugin';
 import type { UserConfig } from 'vite';
+import { createMDXPlugin } from './src/build/mdx-plugin.ts';
 
-const SUPPORTED_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.vue', '.svelte'] as const;
+const SUPPORTED_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.vue', '.svelte', '.mdx', '.md'] as const;
 const COMPONENT_DIRECTORIES = ['islands', 'components'] as const;
 const FRAMEWORK_DETECTION_DIRS = ['islands', 'components', 'src'] as const;
 const SVELTE_DETECTION_DIRS = ['islands', 'components', 'src', 'examples'] as const;
@@ -15,7 +16,7 @@ function isSupportedFile(filename: string): boolean {
 }
 
 function getFileNameWithoutExtension(filename: string): string {
-	return filename.replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
+	return filename.replace(/\.(tsx?|jsx?|vue|svelte|mdx?|md)$/, '');
 }
 
 async function scanDirectoryForEntries(dirPath: string, prefix: string): Promise<Record<string, string>> {
@@ -205,6 +206,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 	const islandEntries = await discoverIslandEntries();
 	const frameworks = await detectFrameworks(islandEntries);
 	const frameworkPlugins = await loadFrameworkPlugins(frameworks);
+	const mdxPlugins = await createMDXPlugin({ development: command === 'serve' });
 
 	const isDev = command === 'serve';
 
@@ -223,10 +225,16 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				'svelte/motion',
 				'svelte/transition',
 			],
+			exclude: ['@mdx-js/react', '@mdx-js/rollup', '@mdx-js/mdx'],
 			force: true,
 		},
 
-		plugins: [deno(), createJsxImportSourcePlugin(), ...frameworkPlugins],
+		plugins: [
+			...mdxPlugins.map(plugin => ({ ...plugin, enforce: 'pre' })),
+			deno(),
+			createJsxImportSourcePlugin(),
+			...frameworkPlugins,
+		],
 
 		esbuild: {
 			jsx: 'automatic',

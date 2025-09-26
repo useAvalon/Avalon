@@ -47,7 +47,9 @@
 		"@std/testing": "jsr:@std/testing",
 		"@sveltejs/vite-plugin-svelte": "npm:@sveltejs/vite-plugin-svelte@^6.2.0",
 		"@vitejs/plugin-vue": "npm:@vitejs/plugin-vue@^6.0.1",
+
 		"svelte": "npm:svelte@^5.15.0",
+
 		"vite-plugin-solid": "npm:vite-plugin-solid@^2.11.8",
 		"preact": "npm:preact@10.26.9",
 		"preact/hooks": "npm:preact@10.26.9/hooks",
@@ -59,13 +61,18 @@
 		"vue/server-renderer": "npm:vue@3.5.21/server-renderer",
 		"vite": "npm:vite@7.1.5",
 		"typescript": "npm:typescript@5.3.3",
-		"zod": "npm:zod@3.25.28"
+		"zod": "npm:zod@3.25.28",
+
+		"@mdx-js/rollup": "npm:@mdx-js/rollup@^3.0.0",
+		"@mdx-js/react": "npm:@mdx-js/react@^3.0.0",
+		"@types/mdx": "npm:@types/mdx@^2.0.0",
+		"remark-gfm": "npm:remark-gfm@^4.0.0"
 	},
 	"compilerOptions": {
 		"jsx": "precompile",
 		"jsxImportSource": "preact",
 		"lib": ["dom", "dom.iterable", "esnext", "deno.ns"],
-		"types": ["vite/client"]
+		"types": ["vite/client", "./src/types/mdx.d.ts"]
 	},
 
 	"publish": {

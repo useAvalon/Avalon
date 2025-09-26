@@ -14,7 +14,7 @@ const server = await createServer({
 			pagesDirectory: 'src/pages',
 			apiDirectory: 'src/api',
 			layoutsDirectory: 'src/layouts',
-			extensions: ['.tsx', '.ts', '.jsx', '.js', '.vue', '.svelte'],
+			extensions: ['.tsx', '.ts', '.jsx', '.js', '.vue', '.svelte', '.md', '.mdx'],
 			enableWatching: true,
 			developmentMode: true,
 		},
