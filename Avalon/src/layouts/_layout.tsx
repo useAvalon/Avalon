@@ -10,6 +10,7 @@ export default function RootLayout({ children, frontmatter, title = 'Avalon Demo
 				<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 				<title>{pageTitle}</title>
 				{frontmatter?.description && <meta name="description" content={frontmatter.description} />}
+				<link rel="stylesheet" href="/syntax-highlighting.css" />
 				<style>{`
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { 

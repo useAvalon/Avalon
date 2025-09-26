@@ -66,7 +66,10 @@
 		"@mdx-js/rollup": "npm:@mdx-js/rollup@^3.0.0",
 		"@mdx-js/react": "npm:@mdx-js/react@^3.0.0",
 		"@types/mdx": "npm:@types/mdx@^2.0.0",
-		"remark-gfm": "npm:remark-gfm@^4.0.0"
+		"remark-gfm": "npm:remark-gfm@^4.0.0",
+		"remark-frontmatter": "npm:remark-frontmatter@^5.0.0",
+		"remark-mdx-frontmatter": "npm:remark-mdx-frontmatter@^5.0.0",
+		"rehype-prism-plus": "npm:rehype-prism-plus@^2.0.0"
 	},
 	"compilerOptions": {
 		"jsx": "precompile",

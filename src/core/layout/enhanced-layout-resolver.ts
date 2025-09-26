@@ -417,6 +417,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 					return LayoutComponent({
 						...props,
 						data: layoutDataForThisLayout,
+						frontmatter: pageModule.frontmatter,
 						children: previousComponent(props),
 					});
 				};

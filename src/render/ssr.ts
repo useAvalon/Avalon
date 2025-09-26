@@ -659,6 +659,18 @@ export async function renderToHtmlWithLayouts(
 			}
 		}
 
+		// Check if the layout already rendered a complete HTML document
+		const isCompleteHtmlDocument =
+			wrappedContent.trim().startsWith('<!DOCTYPE html>') || wrappedContent.trim().startsWith('<html');
+
+		if (isCompleteHtmlDocument) {
+			// Layout rendered a complete HTML document, return it directly
+			// Just enhance it with rendering strategy analysis
+			const enhancedContent = await enhanceContentWithRenderingStrategy(wrappedContent, renderOptions);
+			return enhancedContent;
+		}
+
+		// Layout rendered partial content, wrap it with HTML structure
 		// Enhance content with intelligent rendering strategy analysis
 		const enhancedContent = await enhanceContentWithRenderingStrategy(wrappedContent, renderOptions);
 

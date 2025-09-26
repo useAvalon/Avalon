@@ -1,6 +1,6 @@
 # Simple MDX Test
 
-This is a simple MDX file without frontmatter to test basic MDX processing.
+This is a simple MDX file to test basic MDX processing with syntax highlighting.
 
 ## Features Working
 
@@ -8,12 +8,53 @@ This is a simple MDX file without frontmatter to test basic MDX processing.
 - _Italic text_ formatting
 - `Inline code` formatting
 
-## Code Block
+## JavaScript Code Block
 
 ```javascript
-function simpleTest() {
-	console.log('Testing MDX without frontmatter');
+function greet(name) {
+	const message = `Hello, ${name}!`;
+	console.log(message);
+	return message;
+}
+
+greet('World');
+```
+
+## TypeScript Code Block
+
+```typescript
+interface User {
+	id: number;
+	name: string;
+	email?: string;
+}
+
+function createUser(name: string, email?: string): User {
+	return {
+		id: Math.random(),
+		name,
+		email,
+	};
 }
 ```
 
-This should work with Vite's MDX plugin once the server is restarted.
+## CSS Code Block
+
+```css
+.button {
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+	border: none;
+	border-radius: 0.5rem;
+	color: white;
+	cursor: pointer;
+	font-size: 1rem;
+	padding: 0.75rem 1.5rem;
+	transition: transform 0.2s ease;
+}
+
+.button:hover {
+	transform: translateY(-2px);
+}
+```
+
+This should work with Vite's MDX plugin and show syntax highlighting.

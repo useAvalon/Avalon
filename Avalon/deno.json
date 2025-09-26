@@ -38,6 +38,11 @@
 		"mdast-util-frontmatter": "npm:mdast-util-frontmatter@^2.0.0",
 		"mdast-util-gfm": "npm:mdast-util-gfm@^3.0.0",
 		"remark-mdx-frontmatter": "npm:remark-mdx-frontmatter@^5.0.0",
+		"@mapbox/rehype-prism": "npm:@mapbox/rehype-prism@^0.8.0",
+		"yaml": "npm:yaml@^2.6.1",
+		"toml": "npm:toml@^3.0.0",
+		"estree-util-value-to-estree": "npm:estree-util-value-to-estree@^3.0.0",
+		"unist-util-mdx-define": "npm:unist-util-mdx-define@^1.0.0",
 
 		"vite-plugin-solid": "npm:vite-plugin-solid@^2.11.8",
 		"preact": "npm:preact@10.26.9",

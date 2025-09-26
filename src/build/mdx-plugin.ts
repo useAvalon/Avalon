@@ -17,16 +17,19 @@ export async function createMDXPlugin(options: MDXPluginOptions = {}): Promise<P
 		// Load the core MDX plugin
 		const { default: mdx } = await import('@mdx-js/rollup');
 
-		// Load remark plugins for frontmatter processing
+		// Load remark plugins for frontmatter processing and GFM support
 		const { default: remarkFrontmatter } = await import('remark-frontmatter');
 		const { default: remarkMdxFrontmatter } = await import('remark-mdx-frontmatter');
 		const { default: remarkGfm } = await import('remark-gfm');
 
-		// Configure MDX plugin with frontmatter processing
+		// Load rehype plugins for syntax highlighting
+		const rehypePrism = await import('@mapbox/rehype-prism');
+
+		// Configure MDX plugin with frontmatter processing, GFM support, and syntax highlighting
 		const mdxPlugin = mdx({
 			// Plugin chains - frontmatter must come first, then export as named exports
 			remarkPlugins: [remarkFrontmatter, remarkMdxFrontmatter, remarkGfm, ...remarkPlugins],
-			rehypePlugins: [...rehypePlugins],
+			rehypePlugins: [rehypePrism.default, ...rehypePlugins],
 
 			// JSX configuration for Preact
 			jsxImportSource: jsxImportSource,
@@ -38,7 +41,7 @@ export async function createMDXPlugin(options: MDXPluginOptions = {}): Promise<P
 			format: 'esm',
 		});
 
-		console.log('✅ MDX plugin configured with frontmatter processing and GFM support');
+		console.log('✅ MDX plugin configured with frontmatter processing, GFM support, and syntax highlighting');
 
 		return [mdxPlugin];
 	} catch (error) {
