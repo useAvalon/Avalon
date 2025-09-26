@@ -21,6 +21,7 @@ import { renderToHtml, renderToHtmlWithLayouts, type ComponentRenderOptions } fr
 import { PageLoader } from '../page-loader.ts';
 import { MetadataResolver } from '../metadata-resolver.ts';
 import { FileSystemRouterError } from '../file-system-router.types.ts';
+// Removed MarkdownRouter - MDX files are handled by Vite plugins
 
 /**
  * Builds route handlers from discovered routes
@@ -39,7 +40,7 @@ export class RouteHandlerBuilder {
 		isDev: boolean = false
 	): Promise<RouteHandler> {
 		try {
-			// Load the page module
+			// Load the page module for non-markdown files
 			const pageModule = await this.pageLoader.loadPageModule(route.filePath);
 
 			// Extract layout configuration
@@ -73,7 +74,12 @@ export class RouteHandlerBuilder {
 					}
 
 					// Resolve metadata for this route
-					const metadata = await this.resolveMetadata(url.pathname, pageModule.generateMetadata, params);
+					const metadata = await this.resolveMetadata(
+						url.pathname,
+						pageModule.generateMetadata,
+						params,
+						route.filePath
+					);
 
 					// Create route configuration for rendering
 					const routeConfig = {
@@ -89,6 +95,7 @@ export class RouteHandlerBuilder {
 						layoutConfig,
 						metadata,
 						data,
+						frontmatter: pageModule.frontmatter,
 					};
 
 					// Prepare render options
@@ -284,9 +291,12 @@ export class RouteHandlerBuilder {
 	private async resolveMetadata(
 		routePath: string,
 		generateMetadata?: (params: RouteParams) => Promise<any>,
-		params: RouteParams = {}
+		params: RouteParams = {},
+		filePath?: string
 	): Promise<ResolvedMetadata> {
 		try {
+			// All files (including MDX) use standard metadata resolution
+
 			return await this.metadataResolver.resolveRouteMetadata(routePath, generateMetadata, params);
 		} catch (error) {
 			console.warn(`Failed to resolve metadata for ${routePath}:`, error);

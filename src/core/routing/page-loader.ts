@@ -12,6 +12,12 @@ import {
 } from '../../schemas/routing.ts';
 import { LayoutConfig, LayoutConfigSchema } from '../../schemas/layout.ts';
 import { RoutingErrorHandler, RoutingErrorCode, ErrorSeverity, createRoutingErrorHandler } from './error-handler.ts';
+import type { ViteDevServer } from 'vite';
+
+// Global Vite dev server declaration
+declare global {
+	var __viteDevServer: ViteDevServer | undefined;
+}
 
 /**
  * Error thrown when a page module fails to load or validate
@@ -44,26 +50,12 @@ export class PageValidationError extends Error {
 }
 
 /**
- * Special file types supported by the file system router
- */
-export type SpecialFileType = '404' | 'error';
-
-/**
- * Special file information
- */
-export interface SpecialFile {
-	type: SpecialFileType;
-	filePath: string;
-	module?: RoutePageModule;
-}
-
-/**
  * Options for PageLoader configuration
  */
 export interface PageLoaderOptions {
 	/** Base directory for pages (default: 'src/pages') */
 	baseDirectory?: string;
-	/** Supported file extensions (default: ['.tsx', '.ts', '.jsx', '.js']) */
+	/** Supported file extensions (default: ['.tsx', '.ts', '.jsx', '.js', '.mdx', '.md']) */
 	extensions?: string[];
 	/** Enable development mode features */
 	developmentMode?: boolean;
@@ -81,12 +73,11 @@ export class PageLoader {
 	private readonly developmentMode: boolean;
 	private readonly strictValidation: boolean;
 	private readonly moduleCache = new Map<string, RoutePageModule>();
-	private readonly specialFilesCache = new Map<SpecialFileType, SpecialFile | null>();
 	private readonly errorHandler: RoutingErrorHandler;
 
 	constructor(options: PageLoaderOptions = {}) {
 		this.baseDirectory = options.baseDirectory ?? 'src/pages';
-		this.extensions = options.extensions ?? ['.tsx', '.ts', '.jsx', '.js'];
+		this.extensions = options.extensions ?? ['.tsx', '.ts', '.jsx', '.js', '.mdx', '.md'];
 		this.developmentMode = options.developmentMode ?? false;
 		this.strictValidation = options.strictValidation ?? true;
 		this.errorHandler = createRoutingErrorHandler({
@@ -133,15 +124,58 @@ export class PageLoader {
 				);
 			}
 
-			// Dynamic import with proper URL handling for cross-platform compatibility
-			const absolutePath = filePath.startsWith('/') ? filePath : join(Deno.cwd(), filePath);
-			const moduleUrl = new URL(`file://${absolutePath}`).href;
-
 			if (this.developmentMode) {
 				console.log(`📦 Loading page module: ${filePath}`);
 			}
 
-			const rawModule = await import(moduleUrl);
+			let rawModule: any;
+
+			// Check if this is an MDX file and we're in development mode
+			const isMDXFile = filePath.endsWith('.mdx') || filePath.endsWith('.md');
+			const isDev = Deno.env.get('DENO_ENV') !== 'production';
+
+			if (isMDXFile && isDev) {
+				// In development, use Vite's ssrLoadModule for MDX files
+				const viteServer = (globalThis as any).__viteDevServer;
+				if (viteServer) {
+					// Convert file path to Vite-compatible path
+					const vitePath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+					rawModule = await viteServer.ssrLoadModule(vitePath);
+				} else {
+					// Fallback to direct import if Vite server not available
+					const absolutePath = filePath.startsWith('/') ? filePath : join(Deno.cwd(), filePath);
+					const moduleUrl = new URL(`file://${absolutePath}`).href;
+					rawModule = await import(moduleUrl);
+				}
+			} else {
+				// Dynamic import with proper URL handling for cross-platform compatibility
+				const absolutePath = filePath.startsWith('/') ? filePath : join(Deno.cwd(), filePath);
+				const moduleUrl = new URL(`file://${absolutePath}`).href;
+				rawModule = await import(moduleUrl);
+			}
+
+			// Extract frontmatter from MDX modules and add it to the module
+			if (isMDXFile && rawModule && typeof rawModule === 'object') {
+				const moduleObj = rawModule as Record<string, unknown>;
+
+				// Extract frontmatter fields that might be exported by remark-mdx-frontmatter
+				const frontmatter: Record<string, unknown> = {};
+				const frontmatterFields = ['title', 'description', 'layout', 'author', 'date', 'tags'];
+
+				for (const field of frontmatterFields) {
+					if (field in moduleObj && moduleObj[field] !== undefined) {
+						frontmatter[field] = moduleObj[field];
+					}
+				}
+
+				// Add frontmatter to the module if any was found
+				if (Object.keys(frontmatter).length > 0) {
+					(moduleObj as any).frontmatter = frontmatter;
+					if (this.developmentMode) {
+						console.log(`📄 Extracted frontmatter from ${filePath}:`, frontmatter);
+					}
+				}
+			}
 
 			// Validate the loaded module
 			const validatedModule = this.validatePageModule(rawModule, filePath);
@@ -309,6 +343,10 @@ export class PageLoader {
 			result.loader = moduleObj.loader as PageLoaderFunction;
 		}
 
+		if (moduleObj.frontmatter !== undefined) {
+			result.frontmatter = moduleObj.frontmatter as Record<string, any>;
+		}
+
 		return result;
 	}
 
@@ -368,43 +406,10 @@ export class PageLoader {
 	}
 
 	/**
-	 * Check if a file path represents a valid special file
-	 * @param filePath - File path to check
-	 * @returns True if the file is a valid special file
-	 */
-	isValidSpecialFile(filePath: string): boolean {
-		// Check file extension first
-		const ext = extname(filePath);
-		if (!this.extensions.includes(ext)) {
-			return false;
-		}
-
-		// Check if it's a recognized special file
-		const specialFileType = this.getSpecialFileType(filePath);
-		if (!specialFileType) {
-			return false;
-		}
-
-		// Skip test files
-		const fileName = filePath.split('/').pop() || '';
-		if (fileName.includes('.test.') || fileName.includes('.spec.')) {
-			return false;
-		}
-
-		// Check if file exists
-		if (!existsSync(filePath)) {
-			return false;
-		}
-
-		return true;
-	}
-
-	/**
 	 * Clear the module cache (useful for development/testing)
 	 */
 	clearCache(): void {
 		this.moduleCache.clear();
-		this.specialFilesCache.clear();
 	}
 
 	/**
@@ -432,229 +437,6 @@ export class PageLoader {
 			}
 			// Don't throw - preloading is optional
 		}
-	}
-
-	/**
-	 * Discover and load special files (_404.tsx, _error.tsx, etc.)
-	 * @param routePath - The route path to search for special files (searches up the hierarchy)
-	 * @returns Promise resolving to a map of special file types to their information
-	 */
-	async discoverSpecialFiles(routePath: string = '/'): Promise<Map<SpecialFileType, SpecialFile>> {
-		const specialFiles = new Map<SpecialFileType, SpecialFile>();
-		const specialFileTypes: SpecialFileType[] = ['404', 'error'];
-
-		// Build search paths from most specific to least specific
-		const searchPaths = this.buildHierarchicalPaths(routePath);
-
-		for (const fileType of specialFileTypes) {
-			const specialFile = await this.findSpecialFile(fileType, searchPaths);
-			if (specialFile) {
-				specialFiles.set(fileType, specialFile);
-			}
-		}
-
-		return specialFiles;
-	}
-
-	/**
-	 * Load a specific special file (404 or error page)
-	 * @param fileType - Type of special file to load
-	 * @param routePath - Route path to search from (searches up the hierarchy)
-	 * @returns Promise resolving to the special file information or null if not found
-	 */
-	async loadSpecialFile(fileType: SpecialFileType, routePath: string = '/'): Promise<SpecialFile | null> {
-		// Check cache first (skip in development mode for hot reload)
-		const cacheKey = `${fileType}:${routePath}`;
-		if (!this.developmentMode && this.specialFilesCache.has(fileType)) {
-			const cached = this.specialFilesCache.get(fileType);
-			return cached || null;
-		}
-
-		try {
-			const searchPaths = this.buildHierarchicalPaths(routePath);
-			const specialFile = await this.findSpecialFile(fileType, searchPaths);
-
-			// Cache the result (including null results to avoid repeated searches)
-			if (!this.developmentMode) {
-				this.specialFilesCache.set(fileType, specialFile);
-			}
-
-			return specialFile;
-		} catch (error) {
-			if (this.developmentMode) {
-				console.warn(`Failed to load special file ${fileType} for route ${routePath}:`, error);
-			}
-			return null;
-		}
-	}
-
-	/**
-	 * Get a fallback component for special files when custom ones are not available
-	 * @param fileType - Type of special file
-	 * @returns Default component for the special file type
-	 */
-	getFallbackSpecialFile(fileType: SpecialFileType): SpecialFile {
-		switch (fileType) {
-			case '404':
-				return {
-					type: '404',
-					filePath: 'internal:default-404',
-					module: {
-						default: this.createDefault404Component(),
-					},
-				};
-			case 'error':
-				return {
-					type: 'error',
-					filePath: 'internal:default-error',
-					module: {
-						default: this.createDefaultErrorComponent(),
-					},
-				};
-			default:
-				throw new Error(`Unknown special file type: ${fileType}`);
-		}
-	}
-
-	/**
-	 * Check if a file path represents a special file
-	 * @param filePath - File path to check
-	 * @returns Special file type if it's a special file, null otherwise
-	 */
-	getSpecialFileType(filePath: string): SpecialFileType | null {
-		const fileName = filePath.split('/').pop() || '';
-		const baseName = fileName.replace(/\.(tsx?|jsx?)$/, '');
-
-		switch (baseName) {
-			case '_404':
-				return '404';
-			case '_error':
-				return 'error';
-			default:
-				return null;
-		}
-	}
-
-	/**
-	 * Validate that a special file module has the correct exports
-	 * @param module - Module to validate
-	 * @param fileType - Type of special file
-	 * @param filePath - File path for error reporting
-	 * @returns Validated module
-	 * @throws PageValidationError if validation fails
-	 */
-	validateSpecialFileModule(module: unknown, fileType: SpecialFileType, filePath: string): RoutePageModule {
-		// First validate as a regular page module
-		const validatedModule = this.validatePageModule(module, filePath);
-
-		// Additional validation for special files
-		const errors: string[] = [];
-
-		switch (fileType) {
-			case '404':
-				// 404 pages should be simple components, no special requirements
-				break;
-			case 'error':
-				// Error boundary components should handle error props
-				// We can't validate the component signature at runtime, but we can warn
-				if (this.developmentMode) {
-					console.info(`Error boundary component at ${filePath} should accept error and reset props`);
-				}
-				break;
-		}
-
-		if (errors.length > 0) {
-			throw new PageValidationError(`Special file validation failed for ${fileType} at ${filePath}`, filePath, errors);
-		}
-
-		return validatedModule;
-	}
-
-	// Private helper methods for special file handling
-
-	/**
-	 * Build hierarchical search paths for special files
-	 * @param routePath - Starting route path
-	 * @returns Array of paths to search, from most specific to least specific
-	 */
-	private buildHierarchicalPaths(routePath: string): string[] {
-		const paths: string[] = [];
-		const segments = routePath.split('/').filter(s => s.length > 0);
-
-		// Add paths from most specific to least specific
-		for (let i = segments.length; i >= 0; i--) {
-			const pathSegments = segments.slice(0, i);
-			const searchPath = pathSegments.length > 0 ? pathSegments.join('/') : '';
-			paths.push(searchPath);
-		}
-
-		return paths;
-	}
-
-	/**
-	 * Find a special file in the given search paths
-	 * @param fileType - Type of special file to find
-	 * @param searchPaths - Paths to search in order of preference
-	 * @returns Special file information or null if not found
-	 */
-	private async findSpecialFile(fileType: SpecialFileType, searchPaths: string[]): Promise<SpecialFile | null> {
-		const fileName = `_${fileType}`;
-
-		for (const searchPath of searchPaths) {
-			for (const ext of this.extensions) {
-				const filePath = join(this.baseDirectory, searchPath, `${fileName}${ext}`);
-
-				if (existsSync(filePath)) {
-					try {
-						const module = await this.loadPageModule(filePath);
-						const validatedModule = this.validateSpecialFileModule(module, fileType, filePath);
-
-						return {
-							type: fileType,
-							filePath,
-							module: validatedModule,
-						};
-					} catch (error) {
-						if (this.developmentMode) {
-							console.warn(`Failed to load special file ${filePath}:`, error);
-						}
-						// Continue searching in case there are other files
-						continue;
-					}
-				}
-			}
-		}
-
-		return null;
-	}
-
-	/**
-	 * Create a default 404 component
-	 * @returns Default 404 component
-	 */
-	private createDefault404Component(): PageComponent {
-		// Return a simple component that renders basic 404 content
-		// This avoids JSX parsing issues in the PageLoader
-		return (() => {
-			// This is a placeholder component that will be handled by the basic HTML fallback
-			// in the FileSystemRouter when rendering fails
-			throw new Error('404 - Page Not Found');
-		}) as PageComponent;
-	}
-
-	/**
-	 * Create a default error boundary component
-	 * @returns Default error boundary component
-	 */
-	private createDefaultErrorComponent(): PageComponent {
-		// Return a simple component that renders basic error content
-		// This avoids JSX parsing issues in the PageLoader
-		return ((props: PageProps) => {
-			// This is a placeholder component that will be handled by the basic HTML fallback
-			// in the FileSystemRouter when rendering fails
-			const error = (props.data as any)?.error || new Error('An unexpected error occurred');
-			throw error;
-		}) as PageComponent;
 	}
 
 	/**

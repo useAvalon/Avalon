@@ -38,6 +38,8 @@ export const RoutePageModuleSchema = z.object({
 	generateMetadata: z.any().optional(), // (params: RouteParams) => Promise<Metadata>
 	/** Optional data loader function */
 	loader: z.any().optional(), // (context: LoaderContext) => Promise<any>
+	/** Optional frontmatter data from MDX files */
+	frontmatter: z.record(z.any()).optional(), // Frontmatter metadata from MDX files
 });
 
 /**

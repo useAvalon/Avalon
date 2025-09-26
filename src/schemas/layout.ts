@@ -44,6 +44,7 @@ export const LayoutHandlerSchema = z.object({
 export const LayoutPropsSchema = z.object({
 	children: z.any(), // ComponentChildren - can't validate JSX with Zod
 	data: LayoutDataSchema,
+	frontmatter: z.record(z.any()).optional(), // Frontmatter from MDX files
 	route: z.object({
 		path: z.string(),
 		params: z.record(z.string()),

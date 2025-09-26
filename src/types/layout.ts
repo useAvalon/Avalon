@@ -506,6 +506,11 @@ export interface PageModule {
 	layoutConfig?: LayoutConfig;
 
 	/**
+	 * Optional frontmatter data from MDX files
+	 */
+	frontmatter?: Record<string, any>;
+
+	/**
 	 * Optional page-specific data loader
 	 */
 	loader?: (ctx: any) => Promise<any>;

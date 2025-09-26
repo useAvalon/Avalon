@@ -1,0 +1,102 @@
+---
+title: 'Component Embedding Test'
+description: 'Testing island component imports in MDX'
+layout: 'default'
+---
+
+# Component Embedding Test
+
+This MDX file tests importing and embedding island components from different frameworks.
+
+## Preact Counter Component
+
+Testing Preact component import and rendering:
+
+import PreactCounter from '../islands/PreactCounter.tsx';
+
+<PreactCounter />
+
+## Vue Counter Component
+
+Testing Vue component import and rendering:
+
+import VueCounter from '../islands/VueCounter.vue';
+
+<VueCounter />
+
+## Svelte Counter Component
+
+Testing Svelte component import and rendering:
+
+import SvelteCounter from '../islands/SvelteCounter.svelte';
+
+<SvelteCounter />
+
+## Multi-Framework Test
+
+All three frameworks working together:
+
+<div
+	style={{
+		display: 'grid',
+		gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+		gap: '20px',
+		marginTop: '20px',
+	}}>
+	<PreactCounter />
+	<VueCounter />
+	<SvelteCounter />
+</div>
+
+## Component Props Test
+
+Testing components with props (if supported):
+
+<div style={{ padding: '20px', backgroundColor: '#f5f5f5', borderRadius: '8px', marginTop: '20px' }}>
+	<h3>Components with Custom Styling</h3>
+	<div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+		<PreactCounter />
+		<VueCounter />
+		<SvelteCounter />
+	</div>
+</div>
+
+## Markdown Content Mixed with Components
+
+You can mix **markdown formatting** with components seamlessly:
+
+- **Bold text** works
+- _Italic text_ works
+- `Inline code` works
+- [Links](https://example.com) work
+
+<PreactCounter />
+
+### Code Blocks Still Work
+
+```javascript
+function testFunction() {
+	console.log('Code blocks work alongside components');
+	return 'success';
+}
+```
+
+<VueCounter />
+
+### Lists and Components
+
+1. First item
+2. Second item with component below:
+
+<SvelteCounter />
+
+3. Third item after component
+
+## Nested JSX Elements
+
+<div style={{ border: '2px solid #ddd', padding: '20px', borderRadius: '10px' }}>
+	<h4>Nested Container</h4>
+	<p>This container holds a component:</p>
+	<PreactCounter />
+	<p>And some more markdown content after the component.</p>
+</div>

@@ -1,0 +1,44 @@
+import { extname } from '@std/path';
+import { h } from 'preact';
+import { marked } from 'marked';
+
+/**
+ * Server-side MDX processor for handling MDX files in the routing system
+ */
+export class MDXProcessor {
+	/**
+	 * Process an MDX file and return a valid page module
+	 */
+	async processMDXFile(filePath: string): Promise<any> {
+		try {
+			// Read the MDX file content
+			const content = await Deno.readTextFile(filePath);
+
+			// Process markdown content using marked library
+			const component = () => {
+				const htmlContent = marked(content);
+				return h('div', {
+					dangerouslySetInnerHTML: { __html: htmlContent },
+				});
+			};
+
+			// Return a module-like object that matches RoutePageModule interface
+			return {
+				default: component,
+				// Add any other required exports
+			};
+		} catch (error) {
+			throw new Error(
+				`Failed to process MDX file ${filePath}: ${error instanceof Error ? error.message : String(error)}`
+			);
+		}
+	}
+
+	/**
+	 * Check if a file is an MDX file
+	 */
+	static isMDXFile(filePath: string): boolean {
+		const ext = extname(filePath);
+		return ext === '.mdx' || ext === '.md';
+	}
+}

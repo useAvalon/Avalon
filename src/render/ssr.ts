@@ -10,6 +10,7 @@ import { IsolatedSSRRenderer, type IsolatedRenderRequest, type SSRIsolationConfi
 export interface RouteConfig {
 	component: () => JSX.Element | Promise<JSX.Element>;
 	options?: Partial<RenderOptions>;
+	frontmatter?: Record<string, any>;
 }
 
 export interface RenderStrategy {
@@ -564,6 +565,7 @@ export async function renderToHtmlWithLayouts(
 			default: routeConfig.component,
 			layoutConfig: (routeConfig as any).layoutConfig,
 			loader: (routeConfig as any).loader,
+			frontmatter: routeConfig.frontmatter,
 		};
 
 		// Resolve layouts using the enhanced layout resolver
@@ -624,6 +626,7 @@ export async function renderToHtmlWithLayouts(
 			const layoutProps = {
 				children: wrappedContent,
 				data: layoutData,
+				frontmatter: pageModule.frontmatter || {},
 				route: {
 					path: routePath,
 					params: layoutContext.params,

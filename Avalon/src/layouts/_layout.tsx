@@ -1,12 +1,15 @@
 import type { LayoutProps } from '@avalon/avalon';
 
-export default function RootLayout({ children, title = 'Avalon Demo' }: LayoutProps) {
+export default function RootLayout({ children, frontmatter, title = 'Avalon Demo' }: LayoutProps) {
+	// Use title from frontmatter if available, otherwise use the provided title
+	const pageTitle = frontmatter?.title || title;
 	return (
 		<html lang="en">
 			<head>
 				<meta charset="UTF-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-				<title>{title}</title>
+				<title>{pageTitle}</title>
+				{frontmatter?.description && <meta name="description" content={frontmatter.description} />}
 				<style>{`
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { 

@@ -39,6 +39,19 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 	const islandEntries = discoverIslandEntries();
 	const plugins = [];
 
+	// MDX plugin - must come first to process .mdx files
+	try {
+		const { createMDXPlugin } = await import('../src/build/mdx-plugin.ts');
+		const mdxPlugins = await createMDXPlugin({
+			development: command === 'serve',
+			jsxImportSource: 'preact',
+		});
+		console.log(`📦 Loaded ${mdxPlugins.length} MDX plugins`);
+		plugins.push(...mdxPlugins);
+	} catch (error) {
+		console.error('❌ Could not load MDX plugin:', error);
+	}
+
 	// Deno plugin
 	try {
 		const { default: deno } = await import('@deno/vite-plugin');
