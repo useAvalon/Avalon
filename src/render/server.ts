@@ -126,7 +126,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 				discovery: {
 					pagesDirectory: 'src/pages',
 					apiDirectory: 'src/api',
-					extensions: ['.tsx', '.ts', '.jsx', '.js'],
+					extensions: ['.tsx', '.ts', '.jsx', '.js', '.md', '.mdx'],
 					excludeDirectories: ['node_modules', '.git', 'dist', 'build'],
 					enableWatching: isDev,
 					developmentMode: isDev,

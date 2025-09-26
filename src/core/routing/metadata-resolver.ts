@@ -7,6 +7,7 @@ import type {
 	RouteParams,
 	MetadataGenerator,
 } from '../../schemas/routing.ts';
+// Removed MarkdownRouter - MDX files are handled by Vite plugins
 
 /**
  * MetadataResolver handles hierarchical metadata resolution and merging
@@ -154,6 +155,8 @@ export class MetadataResolver {
 
 		return resolved;
 	}
+
+	// Removed resolveMarkdownMetadata - MDX files use standard metadata resolution
 
 	/**
 	 * Clears the metadata cache

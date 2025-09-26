@@ -59,7 +59,7 @@ export class FileSystemRouter {
 		const defaultDiscovery: RouteDiscoveryOptions = {
 			pagesDirectory: 'src/pages',
 			apiDirectory: 'src/api',
-			extensions: ['.tsx', '.ts', '.jsx', '.js'],
+			extensions: ['.tsx', '.ts', '.jsx', '.js', '.mdx', '.md'],
 			excludeDirectories: ['node_modules', '.git'],
 			enableWatching: false,
 			developmentMode: false,

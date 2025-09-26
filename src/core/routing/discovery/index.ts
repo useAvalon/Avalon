@@ -35,7 +35,7 @@ export class RouteDiscovery {
 		const defaultOptions = {
 			pagesDirectory: 'src/pages',
 			apiDirectory: 'src/api',
-			extensions: ['.tsx', '.ts', '.jsx', '.js'],
+			extensions: ['.tsx', '.ts', '.jsx', '.js', '.md', '.mdx'],
 			excludeDirectories: ['node_modules', '.git'],
 			enableWatching: false,
 			developmentMode: false,

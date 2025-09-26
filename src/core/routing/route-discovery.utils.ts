@@ -9,8 +9,8 @@ import type { RouteType, PageFile } from '../../schemas/routing.ts';
  * Converts a file path to a route path
  */
 export function filePathToRoutePath(filePath: string): string {
-	// Remove file extension
-	let routePath = filePath.replace(/\.(tsx?|jsx?)$/, '');
+	// Remove file extension (including markdown extensions)
+	let routePath = filePath.replace(/\.(tsx?|jsx?|mdx?)$/, '');
 
 	// Handle index files
 	if (basename(routePath) === 'index') {
