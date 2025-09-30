@@ -19,6 +19,34 @@ export interface RenderStrategy {
 	warnings?: string[];
 }
 
+/**
+ * Automatically injects the client-side hydration script if not already present
+ */
+function injectClientScript(html: string): string {
+	// Check if the client script is already included
+	if (html.includes('/src/client/main.js') || html.includes('main.js')) {
+		return html;
+	}
+
+	// Check if there are any islands that need hydration
+	const hasIslands = html.includes('data-hydrate') || html.includes('data-solid-hydrate');
+
+	if (!hasIslands) {
+		// No islands found, no need to inject client script
+		return html;
+	}
+
+	// Inject the client script before the closing </body> tag
+	const clientScript = '<script type="module" src="/src/client/main.js"></script>';
+
+	if (html.includes('</body>')) {
+		return html.replace('</body>', `${clientScript}\n</body>`);
+	}
+
+	// Fallback: append to the end if no </body> tag found
+	return html + clientScript;
+}
+
 export interface ComponentRenderOptions {
 	forceSSROnly?: boolean;
 	detectScripts?: boolean;
@@ -193,7 +221,7 @@ async function validateComponentImports(
 ): Promise<void> {
 	try {
 		// Try to read and analyze the component file
-		let componentContent: string;
+		let componentContent: string | undefined;
 		let resolvedPath = componentPath;
 
 		// Handle different path formats
@@ -221,7 +249,7 @@ async function validateComponentImports(
 			}
 		}
 
-		if (!foundPath) {
+		if (!foundPath || !componentContent) {
 			// Component file not found, skip validation
 			return;
 		}
@@ -667,7 +695,8 @@ export async function renderToHtmlWithLayouts(
 			// Layout rendered a complete HTML document, return it directly
 			// Just enhance it with rendering strategy analysis
 			const enhancedContent = await enhanceContentWithRenderingStrategy(wrappedContent, renderOptions);
-			return enhancedContent;
+			// Automatically inject client script if not already present
+			return injectClientScript(enhancedContent);
 		}
 
 		// Layout rendered partial content, wrap it with HTML structure
@@ -683,13 +712,16 @@ export async function renderToHtmlWithLayouts(
 		// Generate head with framework-specific optimizations
 		const head = await generateHead(options, frameworks, viteHmrPort);
 
-		return `<!DOCTYPE html>
+		const finalHtml = `<!DOCTYPE html>
 <html lang="en">
 ${head}
 <body>
 ${enhancedContent}
 </body>
 </html>`;
+
+		// Automatically inject client script if not already present
+		return injectClientScript(finalHtml);
 	} catch (error) {
 		console.error('Error rendering component with layouts:', error);
 

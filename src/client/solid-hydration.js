@@ -87,21 +87,48 @@ class SolidIslandHydrator {
 			// Import the island component
 			console.log(`🔄 Importing Solid module: ${src}`);
 			const module = await import(src);
+			console.log(`🔍 Module imported:`, {
+				hasDefault: !!module.default,
+				moduleKeys: Object.keys(module),
+				defaultType: typeof module.default,
+			});
+
 			const SolidComponent = module.default || module;
 
 			if (!SolidComponent || typeof SolidComponent !== 'function') {
-				throw new Error(`Invalid Solid component in ${src}`);
+				throw new Error(`Invalid Solid component in ${src}. Got: ${typeof SolidComponent}`);
 			}
 
-			// Import SolidJS hydrate function - resolved during build
-			const { hydrate } = await import('solid-js/web');
+			// Import SolidJS render function - use render instead of hydrate to avoid SSR mismatch issues
+			console.log(`🔄 Importing solid-js/web...`);
+			const solidWeb = await import('solid-js/web');
+			console.log(`🔍 solid-js/web imported:`, {
+				hasRender: !!solidWeb.render,
+				hasHydrate: !!solidWeb.hydrate,
+				keys: Object.keys(solidWeb),
+			});
 
-			// Hydrate the component directly into the container
-			hydrate(() => SolidComponent(props), container);
+			const { render } = solidWeb;
+
+			if (!render || typeof render !== 'function') {
+				throw new Error(`render function not found in solid-js/web`);
+			}
+
+			// Clear the container and render the component fresh
+			console.log(`🔄 Clearing container and rendering component...`);
+			container.innerHTML = '';
+
+			// Test the component call first
+			console.log(`🔄 Testing component call...`);
+			const componentResult = SolidComponent(props);
+			console.log(`🔍 Component result:`, { type: typeof componentResult, result: componentResult });
+
+			render(() => SolidComponent(props), container);
 
 			console.log(`✅ Solid island hydrated successfully: ${src}`);
 		} catch (error) {
 			console.error(`❌ Failed to hydrate Solid island ${src}:`, error);
+			console.error(`❌ Error stack:`, error.stack);
 			this.hydratedIslands.delete(container); // Allow retry
 		}
 	}

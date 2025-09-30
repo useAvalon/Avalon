@@ -9,6 +9,14 @@ if (document.readyState === 'loading') {
 
 function initializeHydration() {
 	const hydrateElements = document.querySelectorAll('[data-hydrate]');
+	const solidElements = document.querySelectorAll('[data-solid-hydrate]');
+
+	// Initialize Solid hydration system if there are Solid islands
+	if (solidElements.length > 0) {
+		import('./solid-hydration.js').catch(error => {
+			console.error('Failed to load Solid hydration system:', error);
+		});
+	}
 
 	if (hydrateElements.length === 0) {
 		return;

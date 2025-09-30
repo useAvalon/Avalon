@@ -1,8 +1,8 @@
 import type { LayoutProps } from '@avalon/avalon';
 
-export default function RootLayout({ children, frontmatter, title = 'Avalon Demo' }: LayoutProps) {
-	// Use title from frontmatter if available, otherwise use the provided title
-	const pageTitle = frontmatter?.title || title;
+export default function RootLayout({ children, frontmatter }: LayoutProps) {
+	// Use title from frontmatter if available, otherwise use default
+	const pageTitle = frontmatter?.title || 'Avalon Demo';
 	return (
 		<html lang="en">
 			<head>
