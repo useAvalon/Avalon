@@ -16,6 +16,10 @@ build/
 !src/build/
 .cache/
 
+# Vite cache
+.vite/
+*/.vite/
+
 # OS files
 .DS_Store
 Thumbs.db

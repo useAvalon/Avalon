@@ -7,6 +7,7 @@ import { createFileSystemRoutes } from '../app-routes.ts';
 import { createAllRoutes } from '../index.ts';
 import { FileSystemRouter } from '../../../core/routing/file-system-router.ts';
 import { EnhancedLayoutResolver, EnhancedLayoutResolverUtils } from '../../../core/layout/enhanced-layout-resolver.ts';
+import { DEFAULT_SERVER_PORT } from '../../constants.ts';
 
 Deno.test('File-system routing integration', async t => {
 	await t.step('createFileSystemRoutes should return empty array when no pages exist', async () => {
@@ -69,7 +70,7 @@ Deno.test('File-system routing integration', async t => {
 
 		const allRoutes = await createAllRoutes({
 			isDev: false, // Use production mode to avoid file watchers
-			viteServerUrl: 'http://localhost:8002',
+			viteServerUrl: `http://localhost:${DEFAULT_SERVER_PORT}`,
 			apiRoutes: [],
 			routes: {},
 			mergedDefaultOptions: {},
@@ -89,7 +90,7 @@ Deno.test('File-system routing integration', async t => {
 
 		const allRoutes = await createAllRoutes({
 			isDev: false, // Use production mode to avoid file watchers
-			viteServerUrl: 'http://localhost:8002',
+			viteServerUrl: `http://localhost:${DEFAULT_SERVER_PORT}`,
 			apiRoutes: [],
 			routes: {},
 			mergedDefaultOptions: {},

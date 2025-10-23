@@ -12,6 +12,14 @@ export function createViteRoutes(isDev: boolean, viteServerUrl: string) {
 	}
 
 	return [
+		// Vite dependency optimization files - CRITICAL for framework hydration
+		{
+			pattern: new URLPattern({ pathname: '/.vite/deps/*' }),
+			handler: (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
+				console.log(`🔧 Proxying Vite dependency: ${req.url}`);
+				return proxyToVite(req, viteServerUrl);
+			},
+		},
 		// Vite internal routes
 		{
 			pattern: new URLPattern({ pathname: '/@vite/*' }),

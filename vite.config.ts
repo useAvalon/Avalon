@@ -213,10 +213,23 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 	return {
 		root: '.',
 		publicDir: 'public',
+		// Ensure proper base URL for dependency resolution
+		base: '/',
 
 		optimizeDeps: {
 			include: [
+				// Preact dependencies
+				'preact',
+				'preact/hooks',
+				'preact/jsx-runtime',
+				'preact/jsx-dev-runtime',
+				// Vue dependencies
 				'vue',
+				// Solid.js dependencies
+				'solid-js',
+				'solid-js/web',
+				'solid-js/store',
+				// Svelte dependencies
 				'svelte',
 				'svelte/internal',
 				'svelte/store',
@@ -226,7 +239,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				'svelte/transition',
 			],
 			exclude: ['@mdx-js/react', '@mdx-js/rollup', '@mdx-js/mdx'],
-			force: true,
+			// Force re-optimization in development for consistency
+			force: isDev,
 		},
 
 		plugins: [
@@ -262,10 +276,15 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		},
 
 		server: {
-			port: 8002,
+			port: 8012, // Use dedicated Vite dev server port
 			strictPort: true,
-			hmr: { port: 8003 },
-			cors: true,
+			hmr: { port: 8013 }, // Use dedicated HMR port
+			cors: {
+				origin: true,
+				credentials: true,
+				methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+				allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+			},
 		},
 
 		ssr: {
