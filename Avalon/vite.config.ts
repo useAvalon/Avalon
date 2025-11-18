@@ -87,9 +87,12 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				compilerOptions: {
 					customElement: false,
 					runes: true,
+					hydratable: true,
 					css: 'injected',
-					hmr: true,
+					hmr: false, // Disable HMR to avoid hydration issues
+					dev: false, // Disable dev mode for SSR compatibility
 				},
+				hot: false, // Disable hot reloading
 			})
 		);
 	} catch (error) {
@@ -189,7 +192,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 		ssr: {
 			target: 'webworker',
-			noExternal: ['vue', '@vue/server-renderer', '@vue/shared', 'svelte', 'svelte/internal', 'svelte/store'],
+			noExternal: ['vue', '@vue/server-renderer', '@vue/shared', 'svelte', 'svelte/internal', 'svelte/store', 'svelte/server'],
 		},
 
 		resolve: {

@@ -189,7 +189,9 @@ async function loadFrameworkPlugins(frameworks: { vue: boolean; solid: boolean; 
 			config: () => ({
 				compilerOptions: {
 					customElement: false,
-					hmr: true,
+					runes: true,
+					css: 'injected',
+					hmr: process.env.NODE_ENV !== 'production',
 				},
 			}),
 			successMessage: 'Svelte plugin loaded for .svelte file support with SSR',
@@ -289,7 +291,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 		ssr: {
 			target: 'webworker',
-			noExternal: ['vue', '@vue/server-renderer', '@vue/shared', 'svelte', 'svelte/internal', 'svelte/store'],
+			noExternal: ['vue', '@vue/server-renderer', '@vue/shared', 'svelte', 'svelte/internal', 'svelte/store', 'svelte/server'],
 		},
 
 		resolve: {

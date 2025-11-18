@@ -1,3 +1,16 @@
+<script module lang="ts">
+  // Export hydrate function for client-side hydration
+  // This will be called by main.js when the component needs to hydrate
+  export async function hydrate(element: HTMLElement, props: Record<string, unknown> = {}) {
+    // Import the hydration utility and the component
+    const { hydrateSvelteComponent } = await import('../../../src/client/svelte-hydration.js');
+    const SvelteCounterModule = await import('./SvelteCounter.svelte');
+    const SvelteCounterComponent = SvelteCounterModule.default;
+    
+    return await hydrateSvelteComponent(element, SvelteCounterComponent, props);
+  }
+</script>
+
 <script lang="ts">
   let count = $state(0);
   
@@ -14,8 +27,8 @@
   <h4>🔥 Svelte Counter</h4>
   <div class="count-display">{count}</div>
   <div class="button-group">
-    <button onclick={decrement}>−</button>
-    <button onclick={increment}>+</button>
+    <button on:click={decrement}>−</button>
+    <button on:click={increment}>+</button>
   </div>
   <p class="framework-label">Powered by Svelte reactivity</p>
 </div>
@@ -70,16 +83,5 @@
   }
 </style>
 
-<script module lang="ts">
-  // Export hydrate function for client-side hydration
-  import { hydrate as svelteHydrate } from 'svelte';
-  import Component from './SvelteCounter.svelte'; // Self-reference
-  
-  export function hydrate(element: HTMLElement, props: Record<string, any>) {
-    // Use Svelte hydrate function for existing SSR content
-    return svelteHydrate(Component, {
-      target: element,
-      props,
-    });
-  }
-</script>
+
+

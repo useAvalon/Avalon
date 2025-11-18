@@ -8,7 +8,7 @@
 export interface ComponentAnalysis {
 	hasScript: boolean;
 	hasHydrateFunction: boolean;
-	framework: 'vue' | 'svelte' | 'solid' | 'unknown';
+	framework: 'vue' | 'svelte' | 'solid' | 'preact' | 'react' | 'unknown';
 	recommendedStrategy: 'hydrate' | 'ssr-only';
 }
 
@@ -20,7 +20,7 @@ export interface DetectionResult {
 
 export interface ComponentMetadata {
 	path: string;
-	framework: 'vue' | 'svelte' | 'solid';
+	framework: 'vue' | 'svelte' | 'solid' | 'preact' | 'react';
 	hasScript: boolean;
 	hasHydrateFunction: boolean;
 	renderStrategy: 'hydrate' | 'ssr-only';
@@ -47,6 +47,18 @@ const FRAMEWORK_PATTERNS = {
 		hydratePatterns: ['hydrate', 'render', 'createSignal', 'createEffect'],
 		imports: ['solid-js', 'solid-js/web'],
 	},
+	preact: {
+		fileExtensions: ['.tsx', '.jsx', '.preact.tsx', '.preact.jsx'],
+		scriptTags: [], // Preact uses JSX, no separate script tags
+		hydratePatterns: ['hydrate', 'render'],
+		imports: ['preact', 'preact/hooks'],
+	},
+	react: {
+		fileExtensions: ['.tsx', '.jsx', '.react.tsx', '.react.jsx'],
+		scriptTags: [], // React uses JSX, no separate script tags
+		hydratePatterns: ['hydrate', 'render'],
+		imports: ['react', 'react-dom'],
+	},
 } as const;
 
 /**
@@ -57,15 +69,39 @@ export function detectFramework(filePath: string, content: string): ComponentAna
 	if (filePath.includes('.solid.')) {
 		return 'solid';
 	}
-
-	// Check file extension first
-	for (const [framework, patterns] of Object.entries(FRAMEWORK_PATTERNS)) {
-		if (patterns.fileExtensions.some(ext => filePath.endsWith(ext))) {
-			return framework as ComponentAnalysis['framework'];
-		}
+	if (filePath.includes('.preact.')) {
+		return 'preact';
+	}
+	if (filePath.includes('.react.')) {
+		return 'react';
 	}
 
-	// Check content patterns if extension is ambiguous
+	// Check file extension first - this is the most reliable method
+	if (filePath.endsWith('.vue')) {
+		return 'vue';
+	}
+	if (filePath.endsWith('.svelte')) {
+		return 'svelte';
+	}
+
+	// For .tsx/.jsx files, check content patterns to distinguish frameworks
+	if (filePath.endsWith('.tsx') || filePath.endsWith('.jsx')) {
+		// Check imports for framework-specific patterns
+		if (content.includes('solid-js') || content.includes('from "solid-js"') || content.includes("from 'solid-js'")) {
+			return 'solid';
+		}
+		if (content.includes('preact') || content.includes('from "preact"') || content.includes("from 'preact'")) {
+			return 'preact';
+		}
+		if (content.includes('react') && !content.includes('preact')) {
+			return 'react';
+		}
+		
+		// Default to preact for .tsx/.jsx files if no specific framework detected
+		return 'preact';
+	}
+
+	// Check content patterns for other cases
 	for (const [framework, patterns] of Object.entries(FRAMEWORK_PATTERNS)) {
 		if (patterns.imports.some(importPattern => content.includes(importPattern))) {
 			return framework as ComponentAnalysis['framework'];
@@ -84,10 +120,25 @@ export function hasScriptSection(content: string, framework: ComponentAnalysis['
 			return FRAMEWORK_PATTERNS.vue.scriptTags.some(tag => content.includes(tag));
 
 		case 'svelte':
-			return FRAMEWORK_PATTERNS.svelte.scriptTags.some(tag => content.includes(tag));
+			// Svelte components have script sections if they contain <script> tags
+			// Also check for module context scripts
+			return (
+				content.includes('<script>') ||
+				content.includes('<script ') ||
+				content.includes('<script\n') ||
+				content.includes('<script\t')
+			);
 
 		case 'solid':
 			// Solid components are JSX files, so they inherently have script content
+			// Check if it's not just a pure template
+			return (
+				content.includes('function') || content.includes('=>') || content.includes('const') || content.includes('let')
+			);
+
+		case 'preact':
+		case 'react':
+			// Preact/React components are JSX files, so they inherently have script content
 			// Check if it's not just a pure template
 			return (
 				content.includes('function') || content.includes('=>') || content.includes('const') || content.includes('let')
@@ -130,7 +181,7 @@ export function hasHydrateFunction(content: string, framework: ComponentAnalysis
 			return content.includes('createApp') && content.includes('mount');
 
 		case 'svelte':
-			// Look for Svelte-specific hydration patterns - be more restrictive
+			// Look for Svelte-specific hydration patterns - be more restrictive for explicit hydrate detection
 			// Only consider it hydration-ready if it has explicit hydrate function
 			// or uses Svelte's hydrate import
 			return (
@@ -144,6 +195,20 @@ export function hasHydrateFunction(content: string, framework: ComponentAnalysis
 			return (
 				(content.includes('hydrate') && content.includes('solid-js')) ||
 				(content.includes('render') && content.includes('solid-js/web'))
+			);
+
+		case 'preact':
+			// Look for Preact-specific hydration patterns
+			return (
+				(content.includes('hydrate') && content.includes('preact')) ||
+				(content.includes('render') && content.includes('preact'))
+			);
+
+		case 'react':
+			// Look for React-specific hydration patterns
+			return (
+				(content.includes('hydrate') && content.includes('react')) ||
+				(content.includes('render') && content.includes('react-dom'))
 			);
 
 		default:
@@ -185,6 +250,34 @@ export function extractSolidScript(content: string): string {
 }
 
 /**
+ * Extracts script content from Preact components (JSX)
+ */
+export function extractPreactScript(content: string): string {
+	// For Preact JSX, similar to Solid - entire file is script content
+	const lines = content.split('\n');
+	const scriptLines = lines.filter(line => {
+		const trimmed = line.trim();
+		// Skip JSX return statements and pure HTML-like content
+		return !trimmed.startsWith('<') && !trimmed.startsWith('</') && !trimmed.match(/^\s*return\s*\(/);
+	});
+	return scriptLines.join('\n');
+}
+
+/**
+ * Extracts script content from React components (JSX)
+ */
+export function extractReactScript(content: string): string {
+	// For React JSX, similar to Solid - entire file is script content
+	const lines = content.split('\n');
+	const scriptLines = lines.filter(line => {
+		const trimmed = line.trim();
+		// Skip JSX return statements and pure HTML-like content
+		return !trimmed.startsWith('<') && !trimmed.startsWith('</') && !trimmed.match(/^\s*return\s*\(/);
+	});
+	return scriptLines.join('\n');
+}
+
+/**
  * Analyzes a component and returns detailed analysis
  */
 export function analyzeComponent(filePath: string, content: string): ComponentAnalysis {
@@ -192,19 +285,38 @@ export function analyzeComponent(filePath: string, content: string): ComponentAn
 	const hasScript = hasScriptSection(content, framework);
 	const hasHydrate = hasScript ? hasHydrateFunction(content, framework) : false;
 
-	// Determine recommended strategy
+	// Determine recommended strategy with framework-specific logic
 	let recommendedStrategy: ComponentAnalysis['recommendedStrategy'];
 
 	if (!hasScript) {
 		// No script = pure template component = SSR-only
 		recommendedStrategy = 'ssr-only';
-	} else if (hasHydrate) {
-		// Has script AND explicit hydrate function = hydrate
-		recommendedStrategy = 'hydrate';
 	} else {
-		// Has script but no explicit hydrate function = SSR-only
-		// Only hydrate components that explicitly define hydration functions
-		recommendedStrategy = 'ssr-only';
+		// Framework-specific hydration strategy decisions
+		switch (framework) {
+			case 'svelte':
+				// Svelte components with script sections are typically interactive
+				// Use more intelligent detection based on content patterns
+				recommendedStrategy = analyzeSvelteHydrationStrategy(content, hasHydrate);
+				break;
+			
+			case 'solid':
+			case 'preact':
+			case 'react':
+				// JSX frameworks typically need hydration if they have script content
+				recommendedStrategy = 'hydrate';
+				break;
+			
+			case 'vue':
+				// Vue components need explicit hydration indicators
+				recommendedStrategy = hasHydrate ? 'hydrate' : 'ssr-only';
+				break;
+			
+			default:
+				// Conservative approach for unknown frameworks
+				recommendedStrategy = hasHydrate ? 'hydrate' : 'ssr-only';
+				break;
+		}
 	}
 
 	return {
@@ -213,6 +325,64 @@ export function analyzeComponent(filePath: string, content: string): ComponentAn
 		framework,
 		recommendedStrategy,
 	};
+}
+
+/**
+ * Analyzes Svelte component to determine if it needs hydration
+ */
+function analyzeSvelteHydrationStrategy(content: string, hasExplicitHydrate: boolean): ComponentAnalysis['recommendedStrategy'] {
+	// If there's an explicit hydrate function, definitely hydrate
+	if (hasExplicitHydrate) {
+		return 'hydrate';
+	}
+
+	// Check for interactive patterns that indicate need for hydration
+	const interactivePatterns = [
+		'on:', // Event handlers (Svelte 4 style)
+		'onclick', // Event handlers (HTML style)
+		'onchange',
+		'oninput',
+		'onsubmit',
+		'onkeydown',
+		'onkeyup',
+		'onmousedown',
+		'onmouseup',
+		'bind:', // Two-way bindings
+		'$:', // Reactive statements
+		'$state', // Svelte 5 runes
+		'$derived',
+		'$effect',
+		'$props',
+		'onMount', // Lifecycle functions
+		'onDestroy',
+		'beforeUpdate',
+		'afterUpdate',
+		'tick',
+		'writable', // Stores
+		'readable',
+		'derived',
+		'get(',
+		'set(',
+		'update(',
+		'subscribe(',
+	];
+
+	const hasInteractiveFeatures = interactivePatterns.some(pattern => content.includes(pattern));
+
+	// Check for static-only patterns
+	const staticPatterns = [
+		'export let', // Only props, no interactivity
+	];
+
+	const isLikelyStatic = staticPatterns.some(pattern => content.includes(pattern)) && !hasInteractiveFeatures;
+
+	if (isLikelyStatic) {
+		return 'ssr-only';
+	}
+
+	// Default to hydration for Svelte components with script sections
+	// This is safer and aligns with Svelte's typical usage patterns
+	return 'hydrate';
 }
 
 /**
@@ -255,6 +425,23 @@ export function shouldHydrateComponent(
 			return {
 				shouldHydrate: true,
 				reason: 'SolidJS component detected - uses solid-hydration.js system',
+			};
+		}
+
+		// Preact/React components typically need hydration if they have interactive features
+		if (analysis.framework === 'preact' || analysis.framework === 'react') {
+			return {
+				shouldHydrate: true,
+				reason: `${analysis.framework} component with script content - likely needs hydration`,
+			};
+		}
+
+		// Svelte components with script sections should be hydrated by default
+		// unless they explicitly opt out
+		if (analysis.framework === 'svelte') {
+			return {
+				shouldHydrate: true,
+				reason: 'Svelte component with script section - uses Svelte hydration system',
 			};
 		}
 
@@ -304,7 +491,7 @@ export function createComponentMetadata(
 
 	return {
 		path: filePath,
-		framework: analysis.framework === 'unknown' ? 'vue' : analysis.framework, // Default fallback
+		framework: analysis.framework === 'unknown' ? 'vue' : analysis.framework, // Default fallback to vue for backward compatibility
 		hasScript: analysis.hasScript,
 		hasHydrateFunction: analysis.hasHydrateFunction,
 		renderStrategy: analysis.recommendedStrategy,

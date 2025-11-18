@@ -1,0 +1,15 @@
+# Framework Renderers Directory
+
+This directory contains framework-specific renderer modules for the Island system.
+
+Each renderer module is responsible for:
+- Rendering components for a specific framework (Preact, Vue, Solid, or Svelte)
+- Converting components to HTML strings for SSR
+- Managing framework-specific rendering logic and optimizations
+
+## Structure
+
+- `preact-renderer.ts` - Preact component rendering
+- `vue-renderer.ts` - Vue component rendering
+- `solid-renderer.ts` - Solid component rendering
+- `svelte-renderer.ts` - Svelte component rendering

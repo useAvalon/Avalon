@@ -54,7 +54,7 @@ Create `deno.json`:
 		"preact": "npm:preact@10.26.9",
 		"preact/hooks": "npm:preact@10.26.9/hooks",
 		"vue": "npm:vue@3.5.21",
-		"svelte": "npm:svelte@^5.38.10"
+		"svelte": "npm:svelte@^5.41.0"
 	},
 	"compilerOptions": {
 		"jsx": "react-jsx",

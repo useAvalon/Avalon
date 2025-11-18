@@ -1,7 +1,7 @@
 import type { JSX } from 'preact';
 import { render as preactRenderToString } from 'preact-render-to-string';
 import type { RenderOptions } from '../schemas/core.ts';
-import { getSvelteSSRCSS } from '../islands/island.tsx';
+import { getSvelteSSRCSS, getSvelteSSRCSSForHead, getSvelteSSRCSSStats } from '../islands/island.tsx';
 import { analyzeComponentContent, type AnalyzerOptions } from '../core/components/component-analyzer.ts';
 import type { EnhancedLayoutResolver } from '../core/layout/enhanced-layout-resolver.ts';
 import type { LayoutContext, PageModule } from '../types/layout.ts';
@@ -398,8 +398,23 @@ function generateMetaTags(options: Partial<RenderOptions>): string {
 
 function generateStyleTags(options: Partial<RenderOptions>): string {
 	const styleTags = options.styles?.map(href => `<link rel="stylesheet" href="${href}">`).join('\n    ') || '';
-	const svelteSSRCSS = getSvelteSSRCSS(true);
+	
+	// Use enhanced CSS collection system with proper document head injection
+	const svelteSSRCSS = getSvelteSSRCSSForHead(true);
 	const svelteStyleTags = svelteSSRCSS ? `\n    ${svelteSSRCSS}` : '';
+	
+	// Log CSS injection for debugging
+	if (svelteSSRCSS) {
+		const stats = getSvelteSSRCSSStats();
+		console.log(`📝 Injecting Svelte SSR CSS into document head:`, {
+			components: stats.totalComponents,
+			globalComponents: stats.globalComponents,
+			scopedComponents: stats.scopedComponents,
+			totalSize: stats.totalCSSSize,
+			averageSize: stats.averageCSSSize,
+		});
+	}
+	
 	return styleTags + svelteStyleTags;
 }
 

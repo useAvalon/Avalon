@@ -419,6 +419,27 @@ async function determineHydrationStrategy(src, framework, element) {
 	try {
 		const componentModule = await importWithFallback(src, framework);
 
+		// Framework-specific hydration detection
+		if (framework === 'svelte') {
+			// Svelte 5 components don't export hydrate functions - they export the component
+			// and we use Svelte's mount/hydrate functions. Always hydrate Svelte components
+			// unless explicitly marked as SSR-only
+			const Component = componentModule.default || componentModule.Component || componentModule;
+			if (Component) {
+				return {
+					shouldHydrate: true,
+					reason: 'Svelte 5 component detected - using Svelte runtime hydration',
+				};
+			} else {
+				return {
+					shouldHydrate: false,
+					reason: 'No valid Svelte component found in module',
+					warnings: [`Svelte component ${src} has no valid component export`],
+				};
+			}
+		}
+
+		// For other frameworks, check for hydrate function
 		if (componentModule.hydrate && typeof componentModule.hydrate === 'function') {
 			return {
 				shouldHydrate: true,
@@ -454,7 +475,14 @@ function checkForInteractivePatterns(src, framework) {
 	try {
 		switch (framework) {
 			case 'svelte':
-				return src.includes('on:') || src.includes('$:');
+				// Check for Svelte interactive patterns
+				return src.includes('on:') ||
+					src.includes('onclick') ||
+					src.includes('$:') ||
+					src.includes('$state') ||
+					src.includes('$derived') ||
+					src.includes('bind:') ||
+					src.includes('use:');
 			case 'vue':
 				return src.includes('@') || src.includes('v-on') || src.includes('reactive');
 			case 'solid':
@@ -467,11 +495,37 @@ function checkForInteractivePatterns(src, framework) {
 	}
 }
 
-async function handleComponentWithoutHydrate(src, framework, element, _componentModule, hydrationDecision) {
+async function handleComponentWithoutHydrate(src, framework, element, componentModule, hydrationDecision) {
 	if (hydrationDecision.warnings) {
 		hydrationDecision.warnings.forEach(warning => {
 			console.warn(warning);
 		});
+	}
+
+	// Special handling for Svelte components
+	if (framework === 'svelte') {
+		try {
+			// For Svelte components, we need to handle them differently
+			// Since we can't easily import the Svelte runtime in main.js,
+			// we'll mark them for hydration and let the component handle it
+			console.log(`🔄 [Svelte] Component detected: ${src}`);
+			
+			// Check if component has a hydrate function
+			if (componentModule.hydrate && typeof componentModule.hydrate === 'function') {
+				console.log(`🔄 [Svelte] Using component's hydrate function`);
+				await componentModule.hydrate(element, props);
+				console.log(`✅ [Svelte] Hydration successful via component hydrate function`);
+			} else {
+				// Component doesn't have hydrate function - this is expected for Svelte 5
+				// The component will be interactive via the SSR content
+				console.log(`ℹ️ [Svelte] Component has no hydrate function - keeping as SSR-only`);
+				element.setAttribute('data-render-strategy', 'ssr-only');
+			}
+		} catch (error) {
+			console.warn(`Svelte hydration failed for ${src}:`, error);
+			handleHydrationError(element, src, framework, error);
+		}
+		return;
 	}
 
 	// Special handling for Solid components that still use the old system
@@ -493,32 +547,33 @@ async function handleComponentWithoutHydrate(src, framework, element, _component
 async function importWithFallback(src, framework, retryCount = 0) {
 	const maxRetries = 3;
 	const baseDelay = 100; // Base delay in ms
-	
+
+	// Resolve the import path outside the try block so it's available in catch
+	const resolvedSrc = resolveImportPath(src);
+
 	try {
-		// Ensure the import path uses the correct base URL
-		const resolvedSrc = resolveImportPath(src);
 		console.log(`🔄 Importing module: ${resolvedSrc} (${framework}) (attempt ${retryCount + 1})`);
-		
+
 		return await import(resolvedSrc);
 	} catch (error) {
 		const errorDetails = getImportErrorDetails(error, src, framework, resolvedSrc);
 		console.warn(`⚠️ Import failed for ${src} (${framework}) (attempt ${retryCount + 1}):`, errorDetails);
-		
+
 		if (retryCount < maxRetries) {
 			// Exponential backoff with jitter
 			const delay = baseDelay * Math.pow(2, retryCount) + Math.random() * 100;
 			console.log(`🔄 Retrying import in ${delay}ms...`);
-			
+
 			await new Promise(resolve => setTimeout(resolve, delay));
 			return importWithFallback(src, framework, retryCount + 1);
 		}
-		
+
 		// Try alternative import strategies
 		if (retryCount === maxRetries) {
 			console.log(`🔄 Trying alternative import strategies for ${src} (${framework})...`);
 			return tryAlternativeImport(src, framework);
 		}
-		
+
 		throw new Error(`Failed to import ${src} (${framework}) after ${maxRetries + 1} attempts: ${errorDetails.message}`);
 	}
 }
@@ -531,18 +586,18 @@ function resolveImportPath(src) {
 	if (src.startsWith('http://') || src.startsWith('https://')) {
 		return src;
 	}
-	
+
 	// For relative paths, ensure they work with the proxy setup
 	if (src.startsWith('./') || src.startsWith('../')) {
 		return src;
 	}
-	
+
 	// For absolute paths starting with /, ensure they go through the main server
 	// which will proxy to Vite if needed
 	if (src.startsWith('/')) {
 		return src;
 	}
-	
+
 	// For bare module names or other paths, prefix with /
 	return `/${src}`;
 }
@@ -559,7 +614,7 @@ function getImportErrorDetails(error, originalSrc, framework, resolvedSrc) {
 		errorType: 'unknown',
 		suggestions: []
 	};
-	
+
 	// Analyze error type and provide specific suggestions
 	if (error.message.includes('404') || error.message.includes('Not Found')) {
 		details.errorType = 'not_found';
@@ -597,7 +652,7 @@ function getImportErrorDetails(error, originalSrc, framework, resolvedSrc) {
 			`Verify Vite dependency optimization includes ${framework} modules`
 		];
 	}
-	
+
 	return details;
 }
 
@@ -614,9 +669,9 @@ async function tryAlternativeImport(src, framework) {
 		framework === 'svelte' && !src.endsWith('.svelte') ? `${src}.svelte` : null,
 		framework === 'vue' && !src.endsWith('.vue') ? `${src}.vue` : null,
 	].filter(Boolean);
-	
+
 	const errors = [];
-	
+
 	for (const altSrc of alternatives) {
 		try {
 			console.log(`🔄 Trying alternative import: ${altSrc} (${framework})`);
@@ -627,14 +682,29 @@ async function tryAlternativeImport(src, framework) {
 			errors.push({ src: altSrc, error: errorDetails });
 		}
 	}
-	
+
 	// Create comprehensive error message with all attempts
 	const errorMessage = `All import strategies failed for ${src} (${framework}):\n` +
 		errors.map(e => `  - ${e.src}: ${e.error.message}`).join('\n') +
 		`\n\nSuggestions:\n` +
 		[...new Set(errors.flatMap(e => e.error.suggestions))].map(s => `  - ${s}`).join('\n');
-	
+
 	throw new Error(errorMessage);
+}
+
+
+
+/**
+ * Detect if an element has existing SSR content vs being an empty container
+ */
+function detectSSRContent(element) {
+	// Check if element has any meaningful content
+	const hasTextContent = element.textContent && element.textContent.trim().length > 0;
+	const hasChildElements = element.children && element.children.length > 0;
+	const hasAttributes = element.hasAttribute('data-ssr-content') || element.hasAttribute('data-svelte-rendered');
+
+	// Consider it SSR content if it has text, child elements, or explicit markers
+	return hasTextContent || hasChildElements || hasAttributes;
 }
 
 /**
@@ -642,13 +712,13 @@ async function tryAlternativeImport(src, framework) {
  */
 function handleHydrationError(element, src, framework, error) {
 	const errorId = `hydration-error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-	
+
 	// Log comprehensive error information
 	console.group(`❌ Hydration Error [${errorId}]`);
 	console.error(`Component: ${src} (${framework})`);
 	console.error(`Element:`, element);
 	console.error(`Error:`, error);
-	
+
 	// Log element context for debugging
 	const elementInfo = {
 		tagName: element.tagName,
@@ -658,10 +728,11 @@ function handleHydrationError(element, src, framework, error) {
 			acc[attr.name] = attr.value;
 			return acc;
 		}, {}),
-		innerHTML: element.innerHTML.substring(0, 200) + (element.innerHTML.length > 200 ? '...' : '')
+		innerHTML: element.innerHTML.substring(0, 200) + (element.innerHTML.length > 200 ? '...' : ''),
+		hasSSRContent: detectSSRContent(element)
 	};
 	console.error(`Element Info:`, elementInfo);
-	
+
 	// Log current environment info
 	const envInfo = {
 		isDev: isDevelopment(),
@@ -670,53 +741,28 @@ function handleHydrationError(element, src, framework, error) {
 		timestamp: new Date().toISOString()
 	};
 	console.error(`Environment:`, envInfo);
+
+	// Framework-specific error analysis
+	if (framework === 'svelte') {
+		analyzeSvelteHydrationError(error, elementInfo, envInfo);
+	}
+
 	console.groupEnd();
-	
-	// Add error class for styling
-	element.classList.add('hydration-failed', `hydration-failed-${framework}`);
-	element.setAttribute('data-hydration-error-id', errorId);
-	
+
+	// Preserve SSR content and mark as static
+	preserveSSRContentOnError(element, src, framework, errorId);
+
 	// Add error indicator for debugging in development
 	if (isDevelopment()) {
-		const errorIndicator = document.createElement('div');
-		errorIndicator.className = 'hydration-error-indicator';
-		errorIndicator.style.cssText = `
-			position: absolute;
-			top: 0;
-			right: 0;
-			background: #ff4444;
-			color: white;
-			padding: 2px 6px;
-			font-size: 10px;
-			border-radius: 0 0 0 4px;
-			z-index: 9999;
-			pointer-events: auto;
-			cursor: pointer;
-			font-family: monospace;
-		`;
-		errorIndicator.textContent = `❌ ${framework}`;
-		errorIndicator.title = `Hydration failed for ${src}\nClick for details\nError ID: ${errorId}`;
-		
-		// Add click handler to show detailed error info
-		errorIndicator.addEventListener('click', () => {
-			showHydrationErrorDetails(errorId, src, framework, error, elementInfo, envInfo);
-		});
-		
-		// Position relative if not already positioned
-		const computedStyle = window.getComputedStyle(element);
-		if (computedStyle.position === 'static') {
-			element.style.position = 'relative';
-		}
-		
-		element.appendChild(errorIndicator);
+		addErrorIndicator(element, src, framework, errorId, error, elementInfo, envInfo);
 	}
-	
+
 	// Dispatch custom event for error tracking
 	element.dispatchEvent(new CustomEvent('hydration-error', {
-		detail: { 
+		detail: {
 			errorId,
-			src, 
-			framework, 
+			src,
+			framework,
 			error: error.message,
 			stack: error.stack,
 			elementInfo,
@@ -724,10 +770,114 @@ function handleHydrationError(element, src, framework, error) {
 		},
 		bubbles: true
 	}));
-	
-	// Try graceful degradation - keep the SSR content but mark it as static
+}
+
+/**
+ * Analyze Svelte-specific hydration errors and provide helpful debugging info
+ */
+function analyzeSvelteHydrationError(error, elementInfo, envInfo) {
+	console.group('🔍 Svelte Error Analysis');
+
+	const errorMessage = error.message.toLowerCase();
+
+	if (errorMessage.includes('hydration')) {
+		console.warn('💡 Svelte Hydration Mismatch Detected:');
+		console.warn('  - Server-rendered HTML doesn\'t match client component structure');
+		console.warn('  - Check for conditional rendering differences between server and client');
+		console.warn('  - Verify props are identical between SSR and hydration');
+
+		if (elementInfo.hasSSRContent) {
+			console.warn('  - Element has SSR content - hydration was attempted');
+			console.warn('  - Consider checking component logic for client-only code');
+		} else {
+			console.warn('  - Element appears empty - mount should have been used instead');
+		}
+	} else if (errorMessage.includes('mount')) {
+		console.warn('💡 Svelte Mount Error Detected:');
+		console.warn('  - Component failed to mount to target element');
+		console.warn('  - Check component syntax and dependencies');
+		console.warn('  - Verify target element is valid and accessible');
+	} else if (errorMessage.includes('component')) {
+		console.warn('💡 Svelte Component Error Detected:');
+		console.warn('  - Component definition or import issue');
+		console.warn('  - Check component export structure');
+		console.warn('  - Verify Svelte version compatibility (expecting Svelte 5)');
+	} else if (errorMessage.includes('props')) {
+		console.warn('💡 Svelte Props Error Detected:');
+		console.warn('  - Invalid or incompatible props passed to component');
+		console.warn('  - Check prop types and serialization');
+		console.warn('  - Verify props are JSON-serializable');
+	}
+
+	console.groupEnd();
+}
+
+/**
+ * Preserve SSR content and mark component as static when hydration fails
+ */
+function preserveSSRContentOnError(element, src, framework, errorId) {
+	// Add error classes for styling
+	element.classList.add('hydration-failed', `hydration-failed-${framework}`);
+	element.setAttribute('data-hydration-error-id', errorId);
 	element.setAttribute('data-hydration-status', 'failed');
 	element.setAttribute('data-render-strategy', 'ssr-only');
+
+	// For Svelte components, ensure any existing content is preserved
+	if (framework === 'svelte') {
+		// Mark as static to prevent further hydration attempts
+		element.setAttribute('data-svelte-static', 'true');
+
+		// If there's no content, add a fallback message in development
+		if (!detectSSRContent(element) && isDevelopment()) {
+			element.innerHTML = `
+				<div style="padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; color: #856404;">
+					<strong>⚠️ Svelte Component Failed to Load</strong><br>
+					<small>Component: ${src}</small><br>
+					<small>The component will remain static. Check console for details.</small>
+				</div>
+			`;
+		}
+	}
+}
+
+/**
+ * Add visual error indicator in development mode
+ */
+function addErrorIndicator(element, src, framework, errorId, error, elementInfo, envInfo) {
+	const errorIndicator = document.createElement('div');
+	errorIndicator.className = 'hydration-error-indicator';
+	errorIndicator.style.cssText = `
+		position: absolute;
+		top: 0;
+		right: 0;
+		background: ${framework === 'svelte' ? '#ff3e00' : '#ff4444'};
+		color: white;
+		padding: 2px 6px;
+		font-size: 10px;
+		border-radius: 0 0 0 4px;
+		z-index: 9999;
+		pointer-events: auto;
+		cursor: pointer;
+		font-family: monospace;
+		box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+	`;
+
+	const frameworkEmoji = framework === 'svelte' ? '🔥' : '❌';
+	errorIndicator.textContent = `${frameworkEmoji} ${framework}`;
+	errorIndicator.title = `Hydration failed for ${src}\nFramework: ${framework}\nClick for details\nError ID: ${errorId}`;
+
+	// Add click handler to show detailed error info
+	errorIndicator.addEventListener('click', () => {
+		showHydrationErrorDetails(errorId, src, framework, error, elementInfo, envInfo);
+	});
+
+	// Position relative if not already positioned
+	const computedStyle = window.getComputedStyle(element);
+	if (computedStyle.position === 'static') {
+		element.style.position = 'relative';
+	}
+
+	element.appendChild(errorIndicator);
 }
 
 /**
@@ -749,7 +899,7 @@ function showHydrationErrorDetails(errorId, src, framework, error, elementInfo, 
 		font-family: monospace;
 		font-size: 12px;
 	`;
-	
+
 	const content = document.createElement('div');
 	content.style.cssText = `
 		background: #1a1a1a;
@@ -761,7 +911,7 @@ function showHydrationErrorDetails(errorId, src, framework, error, elementInfo, 
 		overflow: auto;
 		border: 2px solid #ff4444;
 	`;
-	
+
 	content.innerHTML = `
 		<h3 style="color: #ff4444; margin-top: 0;">🚨 Hydration Error Details</h3>
 		<p><strong>Error ID:</strong> ${errorId}</p>
@@ -790,17 +940,17 @@ function showHydrationErrorDetails(errorId, src, framework, error, elementInfo, 
 			">Close</button>
 		</div>
 	`;
-	
+
 	modal.appendChild(content);
 	document.body.appendChild(modal);
-	
+
 	// Close modal handlers
 	const closeModal = () => document.body.removeChild(modal);
 	modal.addEventListener('click', (e) => {
 		if (e.target === modal) closeModal();
 	});
 	content.querySelector('#close-error-modal').addEventListener('click', closeModal);
-	
+
 	// Close on Escape key
 	const handleKeydown = (e) => {
 		if (e.key === 'Escape') {
@@ -815,10 +965,10 @@ function showHydrationErrorDetails(errorId, src, framework, error, elementInfo, 
  * Check if we're in development mode
  */
 function isDevelopment() {
-	return import.meta.env?.DEV || 
-		   import.meta.env?.MODE === 'development' || 
-		   location.hostname === 'localhost' ||
-		   location.hostname === '127.0.0.1';
+	return import.meta.env?.DEV ||
+		import.meta.env?.MODE === 'development' ||
+		location.hostname === 'localhost' ||
+		location.hostname === '127.0.0.1';
 }
 
 // HMR support for development

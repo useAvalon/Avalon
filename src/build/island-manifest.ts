@@ -13,8 +13,8 @@ export interface IslandEntry {
 	bundle: string;
 	/** Bundle hash for cache busting */
 	hash: string;
-	/** Framework type (preact, solid, vue, vanilla) */
-	framework: 'preact' | 'solid' | 'vue' | 'vanilla';
+	/** Framework type (preact, solid, vue, svelte, vanilla) */
+	framework: 'preact' | 'solid' | 'vue' | 'svelte' | 'vanilla';
 	/** Import dependencies */
 	deps: string[];
 }
@@ -76,7 +76,7 @@ function detectFramework(content: string, filename: string): IslandEntry['framew
 		return 'vue';
 	}
 	if (filename.endsWith('.svelte')) {
-		return 'vanilla'; // Svelte is handled as vanilla for now
+		return 'svelte';
 	}
 
 	// Check imports for framework detection
