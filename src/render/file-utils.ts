@@ -3,8 +3,12 @@
  */
 
 import { join } from '@std/path';
+import { typeByExtension } from '@std/media-types';
 import { BINARY_EXTENSIONS, FONT_EXTENSIONS, STATIC_FILE_EXTENSIONS, DANGEROUS_PATH_PATTERNS } from './constants.ts';
-import { getMimeType } from './mime-types.ts';
+
+function getMimeType(extension: string): string {
+	return typeByExtension(extension) || 'application/octet-stream';
+}
 
 // Security helpers
 export function isSecurePath(path: string): boolean {

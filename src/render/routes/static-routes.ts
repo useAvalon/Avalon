@@ -9,113 +9,57 @@ import type { MiddlewareContext } from '../../schemas/middleware.ts';
 import type { LayoutContext } from '../../types/layout.ts';
 
 export function createStaticRoutes(isDev: boolean) {
-	return [
-		// Serve islands - only in production (development uses Vite proxy)
-		...(isDev
-			? []
-			: [
-					{
-						pattern: new URLPattern({ pathname: '/islands/*' }),
-						handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
-							const url = new URL(req.url);
-							const path = url.pathname.replace(/^\/islands\//, '');
-							console.log(`🏝️ Serving island: ${path}`);
-							// In production, islands are served from the built dist directory
-							return await serveStaticFile(`islands/${path}`, join(Deno.cwd(), 'dist'));
-						},
-					},
-			  ]),
+	// In development, Vite handles all static files from public/
+	// In production, we serve them directly
+	if (isDev) {
+		return [];
+	}
 
-		// Serve built island bundles (production)
+	return [
+		// Serve islands (production only)
+		{
+			pattern: new URLPattern({ pathname: '/islands/*' }),
+			handler: async (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
+				const url = new URL(req.url);
+				const path = url.pathname.replace(/^\/islands\//, '');
+				return await serveStaticFile(`islands/${path}`, join(Deno.cwd(), 'dist'));
+			},
+		},
+
+		// Serve built island bundles
 		{
 			pattern: new URLPattern({ pathname: '/dist/islands/*' }),
-			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
+			handler: async (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/dist\//, '');
 				return await serveStaticFile(path, join(Deno.cwd(), 'dist'));
 			},
 		},
 
-		// Serve Vite-generated chunks (production)
+		// Serve Vite-generated chunks
 		{
 			pattern: new URLPattern({ pathname: '/chunks/*' }),
-			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
-				if (!isDev) {
-					const url = new URL(req.url);
-					const path = url.pathname.replace(/^\/chunks\//, '');
-					console.log(`📦 Serving chunk: ${path}`);
-					return await serveStaticFile(path, join(Deno.cwd(), 'dist/chunks'));
-				}
-				return new Response('Chunk not found in development', { status: 404 });
+			handler: async (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
+				const url = new URL(req.url);
+				const path = url.pathname.replace(/^\/chunks\//, '');
+				return await serveStaticFile(path, join(Deno.cwd(), 'dist/chunks'));
 			},
 		},
 
 		// Serve any other dist assets (for Vite-generated files)
 		{
 			pattern: new URLPattern({ pathname: '/dist/*' }),
-			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
+			handler: async (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/dist\//, '');
 				return await serveStaticFile(path, join(Deno.cwd(), 'dist'));
 			},
 		},
 
-		// CSS files
-		{
-			pattern: new URLPattern({ pathname: '/css/*' }),
-			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
-				const url = new URL(req.url);
-				const path = url.pathname.replace(/^\/css\//, 'css/');
-				return await serveStaticFile(path, STATIC_FILES_DIR);
-			},
-		},
-
-		// JavaScript files
-		{
-			pattern: new URLPattern({ pathname: '/js/*' }),
-			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
-				const url = new URL(req.url);
-				const path = url.pathname.replace(/^\/js\//, 'js/');
-				return await serveStaticFile(path, STATIC_FILES_DIR);
-			},
-		},
-
-		// Image files
-		{
-			pattern: new URLPattern({ pathname: '/images/*' }),
-			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
-				const url = new URL(req.url);
-				const path = url.pathname.replace(/^\/images\//, 'images/');
-				return await serveStaticFile(path, STATIC_FILES_DIR);
-			},
-		},
-
-		// Font files
-		{
-			pattern: new URLPattern({ pathname: '/fonts/*' }),
-			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
-				const url = new URL(req.url);
-				const path = url.pathname.replace(/^\/fonts\//, 'fonts/');
-				console.log(`Font request: ${url.pathname} -> serving from: ${path}`);
-				return await serveStaticFile(path, STATIC_FILES_DIR, url.pathname);
-			},
-		},
-
-		// Assets folder (for videos, other media, etc.)
-		{
-			pattern: new URLPattern({ pathname: '/assets/*' }),
-			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
-				const url = new URL(req.url);
-				const path = url.pathname.replace(/^\/assets\//, 'assets/');
-				console.log(`Assets request: ${url.pathname} -> serving from: ${path}`);
-				return await serveStaticFile(path, STATIC_FILES_DIR);
-			},
-		},
-
-		// General static files (for files directly in public/) - MUST be last as fallback
+		// Static files from public/ directory - MUST be last as fallback
 		{
 			pattern: new URLPattern({ pathname: '/*' }),
-			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
+			handler: async (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.substring(1); // Remove leading slash
 
@@ -136,7 +80,6 @@ export function createStaticRoutes(isDev: boolean) {
 
 				// Only serve files with common static file extensions
 				if (hasStaticExtension(path)) {
-					console.log(`Static file request: ${url.pathname} -> serving from: ${path}`);
 					return await serveStaticFile(path, STATIC_FILES_DIR);
 				}
 

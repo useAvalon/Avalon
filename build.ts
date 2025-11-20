@@ -6,11 +6,12 @@
 
 import { generateIslandManifest } from './src/build/island-manifest.ts';
 import { resolve } from '@std/path';
+import { BuildLogger } from './src/utils/build-logger.ts';
 
 interface BuildStep {
 	name: string;
-	icon: string;
-	execute: () => Promise<void>;
+	id: string;
+	execute: (logger: BuildLogger) => Promise<void>;
 }
 
 async function discoverVueIslands(): Promise<Record<string, string>> {
@@ -32,11 +33,11 @@ async function discoverVueIslands(): Promise<Record<string, string>> {
 	return vueIslands;
 }
 
-async function runCommand(args: string[], description: string): Promise<void> {
+async function runCommand(args: string[], description: string, silent = false): Promise<void> {
 	const process = new Deno.Command('deno', {
 		args,
-		stdout: 'inherit',
-		stderr: 'inherit',
+		stdout: silent ? 'piped' : 'inherit',
+		stderr: silent ? 'piped' : 'inherit',
 	});
 
 	const { success } = await process.output();
@@ -45,12 +46,11 @@ async function runCommand(args: string[], description: string): Promise<void> {
 	}
 }
 
-async function buildSSRBundles(): Promise<void> {
+async function buildSSRBundles(logger: BuildLogger): Promise<void> {
 	const vueIslands = await discoverVueIslands();
 	const islandCount = Object.keys(vueIslands).length;
 
 	if (islandCount === 0) {
-		console.log('No Vue islands found, skipping SSR build');
 		return;
 	}
 
@@ -67,64 +67,73 @@ async function buildSSRBundles(): Promise<void> {
 				'dist/ssr',
 				...Object.values(vueIslands),
 			],
-			'SSR build'
+			'SSR build',
+			true
 		);
-		console.log(`✅ Built SSR bundles for ${islandCount} Vue islands`);
 	} catch {
-		console.warn('⚠️ SSR build failed, Vue islands will use client-only rendering');
+		logger.errorTask('ssr');
+		throw new Error('SSR build failed');
 	}
 }
 
-async function generateManifest(): Promise<void> {
+async function generateManifest(logger: BuildLogger): Promise<void> {
 	const manifest = await generateIslandManifest();
+	const islandCount = Object.keys(manifest.islands).length;
+	
 	await Deno.mkdir('dist', { recursive: true });
 	await Deno.writeTextFile('dist/island-manifest.json', JSON.stringify(manifest, null, 2));
-	console.log(`✅ Generated manifest for ${Object.keys(manifest.islands).length} islands`);
+	
+	logger.updateProgress('manifest', islandCount, islandCount);
 }
 
-async function runViteBuild(): Promise<void> {
-	await runCommand(['run', '--allow-all', '--unstable-detect-cjs', 'npm:vite', 'build'], 'Vite build');
+async function runViteBuild(_logger: BuildLogger): Promise<void> {
+	await runCommand(['run', '--allow-all', '--unstable-detect-cjs', 'npm:vite', 'build'], 'Vite build', true);
 }
 
-async function build(): Promise<void> {
-	console.log('🏗️  Building with Avalon + Vite...');
+async function buildWithLogger(): Promise<void> {
+	const logger = new BuildLogger();
 
 	const buildSteps: BuildStep[] = [
 		{
+			id: 'manifest',
 			name: 'Generating island manifest',
-			icon: '📋',
 			execute: generateManifest,
 		},
 		{
+			id: 'vite',
 			name: 'Running Vite build',
-			icon: '⚡',
 			execute: runViteBuild,
 		},
 		{
+			id: 'ssr',
 			name: 'Building SSR bundles',
-			icon: '🔄',
 			execute: buildSSRBundles,
 		},
 	];
 
+	// Add all tasks
+	for (const step of buildSteps) {
+		logger.addTask(step.id, step.name);
+	}
+
+	logger.startSpinner();
+
 	try {
 		for (const step of buildSteps) {
-			console.log(`${step.icon} ${step.name}...`);
-			await step.execute();
+			logger.startTask(step.id);
+			await step.execute(logger);
+			logger.completeTask(step.id);
 		}
 
-		console.log('✅ Build completed successfully!');
-		console.log('📦 Built files are in the dist/ directory');
-		console.log('🚀 Run `deno task preview` to test the production build');
-	} catch (error) {
-		console.error('❌ Build failed:', error);
+		logger.finish(true);
+	} catch (_error) {
+		logger.finish(false);
 		Deno.exit(1);
 	}
 }
 
-// Export the build function for programmatic use
-export { build };
+export { buildWithLogger as build };
 
 if (import.meta.main) {
-	await build();
+	await buildWithLogger();
 }

@@ -176,6 +176,7 @@ export class RouteDiscovery {
 	 * Log detailed API route information for debugging
 	 */
 	private logApiRouteDetails(routes: FileSystemApiRoute[]): void {
+		if (this.options.quietMode) return;
 		console.log('🔌 Discovered API Routes:');
 
 		if (routes.length === 0) {

@@ -235,7 +235,6 @@ export async function renderIsland({
         return result;
       } catch (error) {
         const ssrOnlyTime = performance.now() - ssrOnlyStart;
-        const totalTime = performance.now() - startTime;
         console.warn(
           `${logPrefix} ❌ SSR failed for SSR-only component after ${
             ssrOnlyTime.toFixed(2)
@@ -408,43 +407,10 @@ export async function renderIsland({
       props,
       children: undefined,
       ssr: false,
-      framework: detectedFramework as any,
+      framework: detectedFramework as "solid" | "vue" | "preact" | "react" | "svelte",
       renderOptions,
     });
   }
 }
 
-// ============================================================================
-// Re-exports for backward compatibility
-// ============================================================================
 
-// CSS utilities - only export functions that are actually used externally
-export {
-  addSvelteSSRCSS,
-  getSvelteSSRCSS,
-  getSvelteSSRCSSForHead,
-  getSvelteSSRCSSStats,
-  getSvelteComponentCSS,
-  clearSvelteComponentCSS,
-  generateComponentScopeId,
-} from "./css-utils.ts";
-
-// Framework renderers - only export main component renderers
-// Note: *ToString functions are internal and not exported
-export { renderPreactComponent } from "./renderers/preact-renderer.ts";
-export { renderVueComponent } from "./renderers/vue-renderer.ts";
-export { renderSolidComponent } from "./renderers/solid-renderer.ts";
-export { renderSvelteComponent } from "./renderers/svelte-renderer.ts";
-
-// Framework detection utilities
-export {
-  detectFramework,
-  detectFrameworkFromSrc,
-  resolveIslandPath,
-} from "./framework-detection.ts";
-
-// Component analysis utilities
-export {
-  analyzeComponentFile,
-  renderComponentSSROnly,
-} from "./component-analysis.ts";

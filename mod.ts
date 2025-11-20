@@ -7,6 +7,16 @@ export { createServer, createServerSafe } from './src/render/server.ts';
 // Universal Island component (single function auto-detects framework)
 export { default as Island, renderIsland, type IslandProps } from './src/islands/island.tsx';
 
+// Island utilities
+export { addSvelteSSRCSS, getSvelteSSRCSS, getSvelteSSRCSSForHead, getSvelteSSRCSSStats, getSvelteComponentCSS, clearSvelteComponentCSS, generateComponentScopeId } from './src/islands/css-utils.ts';
+export { detectFramework, detectFrameworkFromSrc, resolveIslandPath } from './src/islands/framework-detection.ts';
+export { analyzeComponentFile, renderComponentSSROnly } from './src/islands/component-analysis.ts';
+export { renderPreactComponent } from './src/islands/renderers/preact-renderer.ts';
+export { renderVueComponent } from './src/islands/renderers/vue-renderer.ts';
+export { renderSolidComponent } from './src/islands/renderers/solid-renderer.ts';
+export { renderSvelteComponent } from './src/islands/renderers/svelte-renderer.ts';
+export type { Framework, RenderParams, SvelteSSRCSSEntry } from './src/islands/types.ts';
+
 // Build utilities
 export { generateIslandManifest, loadIslandManifest, getIslandBundlePath } from './src/build/island-manifest.ts';
 export type { IslandManifest, IslandEntry } from './src/build/island-manifest.ts';

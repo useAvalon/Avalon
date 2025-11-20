@@ -99,14 +99,16 @@ export async function renderComponentSSROnly({
   try {
     // Import framework renderers and Island dynamically to avoid circular dependencies
     const { detectFramework } = await import("./framework-detection.ts");
-    const islandModule = await import("./island.tsx");
-    const Island = islandModule.default;
+    const { default: Island } = await import("./island.tsx");
+    const { renderVueComponent } = await import("./renderers/vue-renderer.ts");
+    const { renderSvelteComponent } = await import("./renderers/svelte-renderer.ts");
+    const { renderSolidComponent } = await import("./renderers/solid-renderer.ts");
+    const { renderPreactComponent } = await import("./renderers/preact-renderer.ts");
 
     // Use the existing SSR rendering functions but with ssrOnly flag
     // This ensures proper handling of props, styles, and framework-specific features
 
     if (src.endsWith(".vue")) {
-      const { renderVueComponent } = islandModule;
       return await renderVueComponent({
         src,
         condition,
@@ -118,7 +120,6 @@ export async function renderComponentSSROnly({
     }
 
     if (src.endsWith(".svelte")) {
-      const { renderSvelteComponent } = islandModule;
       return await renderSvelteComponent({
         src,
         condition,
@@ -137,7 +138,6 @@ export async function renderComponentSSROnly({
 
       switch (framework) {
         case "solid": {
-          const { renderSolidComponent } = islandModule;
           return await renderSolidComponent({
             src,
             condition,
@@ -148,7 +148,6 @@ export async function renderComponentSSROnly({
           });
         }
         case "vue": {
-          const { renderVueComponent } = islandModule;
           return await renderVueComponent({
             src,
             condition,
@@ -161,7 +160,6 @@ export async function renderComponentSSROnly({
         case "preact":
         case "react":
         default: {
-          const { renderPreactComponent } = islandModule;
           return await renderPreactComponent({
             src,
             condition,

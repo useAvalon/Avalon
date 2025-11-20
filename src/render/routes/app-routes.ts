@@ -94,7 +94,6 @@ export function createAppRoutes(
  * @param mergedDefaultOptions - Default render options
  * @param islandManifest - Island manifest for production builds
  * @param isDev - Development mode flag
- * @param renderOptions - Component render options
  * @returns Promise<RouteHandler[]> Array of file-system route handlers
  */
 export async function createFileSystemRoutes(
@@ -103,7 +102,7 @@ export async function createFileSystemRoutes(
 	mergedDefaultOptions: Partial<RenderOptions> = {},
 	islandManifest: IslandManifest | null = null,
 	isDev: boolean = false,
-	renderOptions: ComponentRenderOptions = {}
+	quietMode: boolean = false
 ): Promise<RouteHandler[]> {
 	try {
 		// Use the utility function from FileSystemRouter to create handlers
@@ -115,7 +114,7 @@ export async function createFileSystemRoutes(
 			isDev
 		);
 
-		if (isDev && handlers.length > 0) {
+		if (isDev && handlers.length > 0 && !quietMode) {
 			console.log(`📁 Discovered ${handlers.length} file-system routes`);
 		}
 

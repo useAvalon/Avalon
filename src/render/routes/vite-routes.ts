@@ -15,7 +15,7 @@ export function createViteRoutes(isDev: boolean, viteServerUrl: string) {
 		// Vite dependency optimization files - CRITICAL for framework hydration
 		{
 			pattern: new URLPattern({ pathname: '/.vite/deps/*' }),
-			handler: (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
 				console.log(`🔧 Proxying Vite dependency: ${req.url}`);
 				return proxyToVite(req, viteServerUrl);
 			},
@@ -23,33 +23,33 @@ export function createViteRoutes(isDev: boolean, viteServerUrl: string) {
 		// Vite internal routes
 		{
 			pattern: new URLPattern({ pathname: '/@vite/*' }),
-			handler: (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) =>
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
 				proxyToVite(req, viteServerUrl),
 		},
 		{
 			pattern: new URLPattern({ pathname: '/@fs/*' }),
-			handler: (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) =>
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
 				proxyToVite(req, viteServerUrl),
 		},
 		{
 			pattern: new URLPattern({ pathname: '/@id/*' }),
-			handler: (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) =>
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
 				proxyToVite(req, viteServerUrl),
 		},
 		{
 			pattern: new URLPattern({ pathname: '/node_modules/*' }),
-			handler: (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) =>
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
 				proxyToVite(req, viteServerUrl),
 		},
 		{
 			pattern: new URLPattern({ pathname: '/@solid-refresh' }),
-			handler: (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) =>
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
 				proxyToVite(req, viteServerUrl),
 		},
 		// Islands - needed for dynamic imports
 		{
 			pattern: new URLPattern({ pathname: '/islands/*' }),
-			handler: (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
 				console.log(`🏝️ Proxying island request: ${req.url}`);
 				return proxyToVite(req, viteServerUrl);
 			},
@@ -57,10 +57,108 @@ export function createViteRoutes(isDev: boolean, viteServerUrl: string) {
 		// Source files - needed for island dependencies (DEVELOPMENT ONLY)
 		{
 			pattern: new URLPattern({ pathname: '/src/*' }),
-			handler: (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
 				console.log(`📦 Proxying src request: ${req.url}`);
 				return proxyToVite(req, viteServerUrl);
 			},
+		},
+		// Static assets from public/ - let Vite handle them in development
+		{
+			pattern: new URLPattern({ pathname: '/fonts/*' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/images/*' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/css/*' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/js/*' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/assets/*' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		// Catch-all for other static files from public/ (like .css, .json, etc.)
+		// This should be last to allow other routes to match first
+		{
+			pattern: new URLPattern({ pathname: '/*.css' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/*.json' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/*.txt' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/*.xml' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/*.ico' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/*.svg' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/*.png' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/*.jpg' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/*.jpeg' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/*.webp' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/*.woff' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/*.woff2' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/*.ttf' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
+		},
+		{
+			pattern: new URLPattern({ pathname: '/*.otf' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
+				proxyToVite(req, viteServerUrl),
 		},
 	];
 }

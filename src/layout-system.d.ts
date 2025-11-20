@@ -15,7 +15,7 @@ export interface LayoutContext {
 	params: Record<string, string>;
 	query: URLSearchParams;
 	state: Map<string, unknown>;
-	middlewareContext?: any;
+	middlewareContext?: Record<string, unknown>;
 }
 
 export interface LayoutData {
@@ -152,7 +152,7 @@ export type StreamingReadyCheck = () => Promise<boolean>;
 export interface ResolvedLayout {
 	handlers: LayoutHandler[];
 	dataLoaders: LayoutLoader[];
-	errorBoundaries: any[];
+	errorBoundaries: ComponentType<LayoutErrorBoundaryProps>[];
 	streamingComponents: StreamingComponent[];
 	metadata: {
 		totalLayouts: number;
@@ -173,7 +173,7 @@ export interface EnhancedLayoutContext extends LayoutContext {
 	parentData: LayoutData[];
 	islandStates: Map<string, IslandState>;
 	streamingEnabled: boolean;
-	errorBoundaries: any[];
+	errorBoundaries: ComponentType<LayoutErrorBoundaryProps>[];
 }
 
 // === Interface Definitions ===
@@ -194,7 +194,7 @@ export interface ILayoutMatcher {
 }
 
 export interface ILayoutComposer {
-	resolveLayouts(routePath: string, pageModule: any): Promise<LayoutHandler[]>;
+	resolveLayouts(routePath: string, pageModule: PageModule): Promise<LayoutHandler[]>;
 	applyConfiguration(layouts: LayoutHandler[], config: LayoutConfig): Promise<LayoutHandler[]>;
 	validateLayoutConfig(config: LayoutConfig): { valid: boolean; errors: string[] };
 	clearCache(): void;
@@ -227,7 +227,7 @@ export interface ILayoutStreaming {
 }
 
 export interface IEnhancedLayoutResolver {
-	resolveAndRender(routePath: string, pageModule: any, context: LayoutContext): Promise<ResolvedLayout>;
+	resolveAndRender(routePath: string, pageModule: PageModule, context: LayoutContext): Promise<ResolvedLayout>;
 	getCachedResolution(routePath: string): ResolvedLayout | null;
 	clearCache(): void;
 	setCaching(enabled: boolean): void;
@@ -272,9 +272,9 @@ export interface LayoutModule {
 }
 
 export interface PageModule {
-	default: ComponentType<any>;
+	default: ComponentType<Record<string, unknown>>;
 	layoutConfig?: LayoutConfig;
-	loader?: (ctx: any) => Promise<any>;
+	loader?: (ctx: LayoutContext) => Promise<LayoutData>;
 }
 
 export interface LayoutResolutionContext {
@@ -328,7 +328,7 @@ export interface LayoutEventData {
 	layoutPath?: string;
 	error?: Error;
 	metrics?: LayoutPerformanceMetrics;
-	data?: any;
+	data?: unknown;
 }
 
 export type LayoutEventHandler = (event: LayoutEventData) => void;
@@ -336,7 +336,7 @@ export type LayoutEventHandler = (event: LayoutEventData) => void;
 export interface ILayoutEventEmitter {
 	on(event: LayoutEventType, handler: LayoutEventHandler): void;
 	off(event: LayoutEventType, handler: LayoutEventHandler): void;
-	emit(event: LayoutEventType, data?: any): void;
+	emit(event: LayoutEventType, data?: unknown): void;
 	removeAllListeners(): void;
 }
 
@@ -347,6 +347,13 @@ export interface LayoutUtilitiesConfig {
 	debug?: DebugConfig;
 	performance?: PerformanceConfig;
 	validation?: ValidationConfig;
+}
+
+export interface LayoutUtilitiesSuite {
+	cache: CacheConfig;
+	debug: DebugConfig;
+	performance: PerformanceConfig;
+	validation: ValidationConfig;
 }
 
 export interface CacheConfig {
@@ -382,7 +389,7 @@ export interface PerformanceThresholds {
 
 export interface ValidationRule {
 	name: string;
-	validate: (config: any) => ValidationResult;
+	validate: (config: LayoutConfig) => ValidationResult;
 }
 
 export interface ValidationResult {
@@ -424,7 +431,7 @@ export declare class LayoutMatcher implements ILayoutMatcher {
 
 export declare class LayoutComposer implements ILayoutComposer {
 	constructor();
-	resolveLayouts(routePath: string, pageModule: any): Promise<LayoutHandler[]>;
+	resolveLayouts(routePath: string, pageModule: PageModule): Promise<LayoutHandler[]>;
 	applyConfiguration(layouts: LayoutHandler[], config: LayoutConfig): Promise<LayoutHandler[]>;
 	validateLayoutConfig(config: LayoutConfig): { valid: boolean; errors: string[] };
 	clearCache(): void;
@@ -460,8 +467,8 @@ export declare class LayoutStreaming implements ILayoutStreaming {
 }
 
 export declare class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
-	constructor(options?: any);
-	resolveAndRender(routePath: string, pageModule: any, context: LayoutContext): Promise<ResolvedLayout>;
+	constructor(options?: LayoutDiscoveryOptions);
+	resolveAndRender(routePath: string, pageModule: PageModule, context: LayoutContext): Promise<ResolvedLayout>;
 	getCachedResolution(routePath: string): ResolvedLayout | null;
 	clearCache(): void;
 	setCaching(enabled: boolean): void;
@@ -493,23 +500,23 @@ export declare function StreamingLayout(props: StreamingLayoutProps): ComponentC
 
 // === Factory Functions ===
 
-export declare function createEnhancedLayoutResolver(options?: any): EnhancedLayoutResolver;
-export declare function createLayoutDataLoader(options?: any): any;
-export declare function createLayoutUtilities(config?: LayoutUtilitiesConfig): any;
-export declare function createPersistentIslandContext(persistentId: string, persistence?: any): PersistentIslandContext;
+export declare function createEnhancedLayoutResolver(options?: LayoutDiscoveryOptions): EnhancedLayoutResolver;
+export declare function createLayoutDataLoader(options?: LayoutDiscoveryOptions): LayoutLoader;
+export declare function createLayoutUtilities(config?: LayoutUtilitiesConfig): LayoutUtilitiesSuite;
+export declare function createPersistentIslandContext(persistentId: string, persistence?: IslandPersistence): PersistentIslandContext;
 
 // === Hook Declarations ===
 
 export declare function usePersistentIslandContext(): PersistentIslandContext;
-export declare function useStreamingState(): any;
+export declare function useStreamingState(): { isReady: boolean; error?: Error };
 
 // === Utility Functions ===
 
 export declare function validateLayoutConfiguration(config: LayoutConfig): ValidationResult;
-export declare function getLayoutSystemHealthReport(): any;
-export declare function withLayoutUtilities(component: ComponentType): ComponentType;
-export declare function withStreaming(component: ComponentType): ComponentType;
-export declare function withIslandErrorBoundary(component: ComponentType): ComponentType;
+export declare function getLayoutSystemHealthReport(): { healthy: boolean; metrics: LayoutPerformanceMetrics; errors: LayoutErrorInfo[] };
+export declare function withLayoutUtilities<P = Record<string, unknown>>(component: ComponentType<P>): ComponentType<P>;
+export declare function withStreaming<P = Record<string, unknown>>(component: ComponentType<P>): ComponentType<P>;
+export declare function withIslandErrorBoundary<P = Record<string, unknown>>(component: ComponentType<P>): ComponentType<P>;
 
 // === Constants ===
 
@@ -566,7 +573,7 @@ export declare const LAYOUT_SYSTEM_DEFAULTS: {
 
 export declare const defaultLayoutSystem: EnhancedLayoutResolver;
 export declare const defaultPersistence: IslandPersistence;
-export declare const defaultUtilities: any;
+export declare const defaultUtilities: LayoutUtilitiesSuite;
 
 // === Convenience Aliases ===
 

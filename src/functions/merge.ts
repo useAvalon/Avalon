@@ -66,22 +66,6 @@ export function mergeOptions(
 		meta: [...(baseOptions.meta || []), ...(defaultOptions.meta || []), ...(routeOptions.meta || [])],
 	};
 
-	// Merge import maps
-	if (baseOptions.importMap || defaultOptions.importMap || routeOptions.importMap) {
-		merged.importMap = {
-			imports: {
-				...(baseOptions.importMap?.imports || {}),
-				...(defaultOptions.importMap?.imports || {}),
-				...(routeOptions.importMap?.imports || {}),
-			},
-			scopes: {
-				...(baseOptions.importMap?.scopes || {}),
-				...(defaultOptions.importMap?.scopes || {}),
-				...(routeOptions.importMap?.scopes || {}),
-			},
-		};
-	}
-
 	return merged as RenderOptions;
 }
 
@@ -110,20 +94,6 @@ export function mergePartialOptions(
 
 	if (base.scripts || override.scripts) {
 		result.scripts = deduplicateScripts([...(base.scripts || []), ...(override.scripts || [])]);
-	}
-
-	// Handle import map merging
-	if (base.importMap || override.importMap) {
-		result.importMap = {
-			imports: {
-				...(base.importMap?.imports || {}),
-				...(override.importMap?.imports || {}),
-			},
-			scopes: {
-				...(base.importMap?.scopes || {}),
-				...(override.importMap?.scopes || {}),
-			},
-		};
 	}
 
 	return result;

@@ -1,17 +1,15 @@
-import { ComponentType } from 'preact';
+import type { ComponentType } from 'preact';
 import { join, extname } from '@std/path';
 import { existsSync } from '@std/fs';
 import {
-	RoutePageModule,
+	type RoutePageModule,
 	RoutePageModuleSchema,
 	isRoutePageModule,
-	PageComponent,
-	MetadataGenerator,
-	PageLoader as PageLoaderFunction,
-	PageProps,
+	type MetadataGenerator,
+	type PageLoader as PageLoaderFunction,
 } from '../../schemas/routing.ts';
-import { LayoutConfig, LayoutConfigSchema } from '../../schemas/layout.ts';
-import { RoutingErrorHandler, RoutingErrorCode, ErrorSeverity, createRoutingErrorHandler } from './error-handler.ts';
+import { type LayoutConfig, LayoutConfigSchema } from '../../schemas/layout.ts';
+import { type RoutingErrorHandler, createRoutingErrorHandler } from './error-handler.ts';
 import type { ViteDevServer } from 'vite';
 
 // Global Vite dev server declaration
@@ -61,6 +59,8 @@ export interface PageLoaderOptions {
 	developmentMode?: boolean;
 	/** Enable strict validation of page modules */
 	strictValidation?: boolean;
+	/** Quiet mode - suppress verbose logging */
+	quietMode?: boolean;
 }
 
 /**
@@ -72,6 +72,7 @@ export class PageLoader {
 	private readonly extensions: string[];
 	private readonly developmentMode: boolean;
 	private readonly strictValidation: boolean;
+	private readonly quietMode: boolean;
 	private readonly moduleCache = new Map<string, RoutePageModule>();
 	private readonly errorHandler: RoutingErrorHandler;
 
@@ -80,6 +81,7 @@ export class PageLoader {
 		this.extensions = options.extensions ?? ['.tsx', '.ts', '.jsx', '.js', '.mdx', '.md'];
 		this.developmentMode = options.developmentMode ?? false;
 		this.strictValidation = options.strictValidation ?? true;
+		this.quietMode = options.quietMode ?? false;
 		this.errorHandler = createRoutingErrorHandler({
 			developmentMode: this.developmentMode,
 			enableDebugLogging: this.developmentMode,
@@ -124,11 +126,11 @@ export class PageLoader {
 				);
 			}
 
-			if (this.developmentMode) {
+			if (this.developmentMode && !this.quietMode) {
 				console.log(`📦 Loading page module: ${filePath}`);
 			}
 
-			let rawModule: any;
+			let rawModule: Record<string, unknown>;
 
 			// Check if this is an MDX file and we're in development mode
 			const isMDXFile = filePath.endsWith('.mdx') || filePath.endsWith('.md');
@@ -136,7 +138,7 @@ export class PageLoader {
 
 			if (isMDXFile && isDev) {
 				// In development, use Vite's ssrLoadModule for MDX files
-				const viteServer = (globalThis as any).__viteDevServer;
+				const viteServer = (globalThis as typeof globalThis & { __viteDevServer?: ViteDevServer }).__viteDevServer;
 				if (viteServer) {
 					// Convert file path to Vite-compatible path
 					const vitePath = filePath.startsWith('/') ? filePath : `/${filePath}`;
@@ -170,7 +172,7 @@ export class PageLoader {
 
 				// Add frontmatter to the module if any was found
 				if (Object.keys(frontmatter).length > 0) {
-					(moduleObj as any).frontmatter = frontmatter;
+					moduleObj.frontmatter = frontmatter;
 					if (this.developmentMode) {
 						console.log(`📄 Extracted frontmatter from ${filePath}:`, frontmatter);
 					}
@@ -185,7 +187,7 @@ export class PageLoader {
 				this.moduleCache.set(filePath, validatedModule);
 			}
 
-			if (this.developmentMode) {
+			if (this.developmentMode && !this.quietMode) {
 				console.log(`✅ Successfully loaded page module: ${filePath}`);
 			}
 
@@ -328,7 +330,7 @@ export class PageLoader {
 
 		// Return the validated module, only including defined properties
 		const result: RoutePageModule = {
-			default: moduleObj.default as ComponentType<any>,
+			default: moduleObj.default as ComponentType<Record<string, unknown>>,
 		};
 
 		if (moduleObj.layoutConfig !== undefined) {
@@ -344,7 +346,7 @@ export class PageLoader {
 		}
 
 		if (moduleObj.frontmatter !== undefined) {
-			result.frontmatter = moduleObj.frontmatter as Record<string, any>;
+			result.frontmatter = moduleObj.frontmatter as Record<string, unknown>;
 		}
 
 		return result;
@@ -456,6 +458,7 @@ export class PageLoader {
 			extensions: this.extensions,
 			developmentMode: this.developmentMode,
 			strictValidation: this.strictValidation,
+			quietMode: this.quietMode,
 		};
 	}
 }

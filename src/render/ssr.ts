@@ -1,7 +1,7 @@
 import type { JSX } from 'preact';
 import { render as preactRenderToString } from 'preact-render-to-string';
 import type { RenderOptions } from '../schemas/core.ts';
-import { getSvelteSSRCSS, getSvelteSSRCSSForHead, getSvelteSSRCSSStats } from '../islands/island.tsx';
+import { getSvelteSSRCSS, getSvelteSSRCSSForHead, getSvelteSSRCSSStats } from '../islands/css-utils.ts';
 import { analyzeComponentContent, type AnalyzerOptions } from '../core/components/component-analyzer.ts';
 import type { EnhancedLayoutResolver } from '../core/layout/enhanced-layout-resolver.ts';
 import type { LayoutContext, PageModule } from '../types/layout.ts';

@@ -7,17 +7,7 @@ import type { MiddlewareContext } from '../../schemas/middleware.ts';
 import type { LayoutContext } from '../../types/layout.ts';
 import type { IslandManifest } from '../../build/island-manifest.ts';
 import type { RenderOptions } from '../../schemas/core.ts';
-import type {
-	FileSystemRoute,
-	RouteHandler,
-	FileSystemRouterConfig,
-	ResolvedMetadata,
-	RouteParams,
-	RouteCacheEntry,
-	RouteDiscoveryOptions,
-	FileSystemApiRoute,
-	FileSystemApiModule,
-} from '../../schemas/routing.ts';
+import type { RouteHandler } from '../../schemas/routing.ts';
 
 /**
  * Error thrown when file-system routing operations fail

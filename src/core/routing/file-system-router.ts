@@ -11,6 +11,7 @@ import type { RouteHandler } from '../../schemas/routing.ts';
 import type { EnhancedLayoutResolver } from '../layout/enhanced-layout-resolver.ts';
 import type { RenderOptions } from '../../schemas/core.ts';
 import type { IslandManifest } from '../../build/island-manifest.ts';
+import type { FileSystemRouter } from "./router/index.ts";
 
 /**
  * Utility function to create file-system route handlers

@@ -158,6 +158,8 @@ export const RouteDiscoveryOptionsSchema = z.object({
 	enableWatching: z.boolean().default(false),
 	/** Development mode features */
 	developmentMode: z.boolean().default(false),
+	/** Quiet mode - suppress verbose logging */
+	quietMode: z.boolean().default(false),
 });
 
 /**

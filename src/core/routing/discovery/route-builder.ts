@@ -39,7 +39,7 @@ export class RouteBuilder {
 		const errors: string[] = [];
 		const routesByType: Record<string, number> = {};
 
-		if (this.options.developmentMode) {
+		if (this.options.developmentMode && !this.options.quietMode) {
 			console.log(`🔧 Creating routes from ${pageFiles.length} files...`);
 		}
 
@@ -75,7 +75,7 @@ export class RouteBuilder {
 				const validationResult = FileSystemRouteSchema.safeParse(route);
 				if (validationResult.success) {
 					routes.push(route);
-					if (this.options.developmentMode) {
+					if (this.options.developmentMode && !this.options.quietMode) {
 						const dynamicInfo = dynamicSegments.length > 0 ? ` [${dynamicSegments.join(', ')}]` : '';
 						console.log(`  ✓ Created ${routeType} route: ${pattern.pathname} → ${pageFile.relativePath}${dynamicInfo}`);
 					}
@@ -118,7 +118,7 @@ export class RouteBuilder {
 		const routes: FileSystemApiRoute[] = [];
 		const errors: string[] = [];
 
-		if (this.options.developmentMode) {
+		if (this.options.developmentMode && !this.options.quietMode) {
 			console.log(`🔧 Creating API routes from ${apiFiles.length} files...`);
 		}
 
@@ -133,7 +133,7 @@ export class RouteBuilder {
 
 			// Skip middleware files - they're handled separately
 			if (apiFile.relativePath.includes('_middleware')) {
-				if (this.options.developmentMode) {
+				if (this.options.developmentMode && !this.options.quietMode) {
 					console.log(`  Skipping middleware file: ${apiFile.relativePath}`);
 				}
 				continue;
@@ -159,7 +159,7 @@ export class RouteBuilder {
 				const validationResult = FileSystemApiRouteSchema.safeParse(route);
 				if (validationResult.success) {
 					routes.push(route);
-					if (this.options.developmentMode) {
+					if (this.options.developmentMode && !this.options.quietMode) {
 						console.log(`  ✓ Created API route: [${methods.join(',')}] ${pattern.pathname} → ${apiFile.relativePath}`);
 					}
 				} else {
@@ -183,7 +183,7 @@ export class RouteBuilder {
 
 		const createTime = performance.now() - startTime;
 
-		if (this.options.developmentMode) {
+		if (this.options.developmentMode && !this.options.quietMode) {
 			console.log(`🔧 Created ${routes.length} API routes in ${createTime.toFixed(2)}ms`);
 			if (errors.length > 0) {
 				console.warn(`⚠️  ${errors.length} API route creation errors occurred`);

@@ -30,7 +30,7 @@ export class FileSystemScanner {
 		const cacheKey = `pages:${pagesDir}`;
 		const cached = this.scanCache.get(cacheKey);
 		if (cached && Date.now() - cached.timestamp < this.SCAN_CACHE_TTL) {
-			if (this.options.developmentMode) {
+			if (this.options.developmentMode && !this.options.quietMode) {
 				console.log(`📋 Using cached pages directory scan (${cached.files.length} files)`);
 			}
 			return cached.files;
@@ -134,7 +134,7 @@ export class FileSystemScanner {
 			timestamp: Date.now(),
 		});
 
-		if (this.options.developmentMode) {
+		if (this.options.developmentMode && !this.options.quietMode) {
 			console.log(`🔍 Scanned pages directory in ${scanTime.toFixed(2)}ms, found ${pageFiles.length} files`);
 		}
 
@@ -152,7 +152,7 @@ export class FileSystemScanner {
 		const cacheKey = `api:${apiDir}`;
 		const cached = this.scanCache.get(cacheKey);
 		if (cached && Date.now() - cached.timestamp < this.SCAN_CACHE_TTL) {
-			if (this.options.developmentMode) {
+			if (this.options.developmentMode && !this.options.quietMode) {
 				console.log(`📋 Using cached API directory scan (${cached.files.length} files)`);
 			}
 			return cached.files;
@@ -256,7 +256,7 @@ export class FileSystemScanner {
 			timestamp: Date.now(),
 		});
 
-		if (this.options.developmentMode) {
+		if (this.options.developmentMode && !this.options.quietMode) {
 			console.log(`🔍 Scanned API directory in ${scanTime.toFixed(2)}ms, found ${apiFiles.length} files`);
 		}
 
@@ -268,7 +268,7 @@ export class FileSystemScanner {
 	 */
 	clearScanCache(): void {
 		this.scanCache.clear();
-		if (this.options.developmentMode) {
+		if (this.options.developmentMode && !this.options.quietMode) {
 			console.log('🧹 Cleared route discovery scan cache');
 		}
 	}
@@ -288,7 +288,7 @@ export class FileSystemScanner {
 			this.scanCache.delete(key);
 		}
 
-		if (this.options.developmentMode && keysToDelete.length > 0) {
+		if (this.options.developmentMode && !this.options.quietMode && keysToDelete.length > 0) {
 			console.log(`🔄 Invalidated ${keysToDelete.length} scan cache entries for ${directory}`);
 		}
 	}

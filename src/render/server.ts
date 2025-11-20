@@ -31,6 +31,9 @@ import type { LayoutContext } from '../types/layout.ts';
 import { FileSystemRouter } from '../core/routing/file-system-router.ts';
 import type { FileSystemRouterConfig } from '../schemas/routing.ts';
 
+// Import dev logger
+import { DevLogger } from '../utils/dev-logger.ts';
+
 /**
  * Creates a server with validated configuration
  * @param config - Server configuration object
@@ -55,16 +58,33 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 	// Get API routes (development vs production)
 	const isDev = Deno.env.get('DENO_ENV') !== 'production';
 
+	// Initialize dev logger
+	const devLogger = isDev ? new DevLogger() : null;
+	
+	if (devLogger) {
+		devLogger.addTask('vite', 'Starting Vite dev server');
+		devLogger.addTask('api', 'Discovering API routes');
+		devLogger.addTask('middleware', 'Loading middleware');
+		devLogger.addTask('layouts', 'Initializing layout system');
+		devLogger.addTask('routes', 'Setting up file-system routing');
+		devLogger.startSpinner();
+	}
+
 	// Load island manifest for production
 	const islandManifest: _IslandManifest | null = isDev ? null : await loadIslandManifest();
 
 	// Setup Vite dev server
+	if (devLogger) devLogger.startTask('vite');
 	const { viteDevServer, viteServerUrl } = await setupViteServer(isDev);
+	if (devLogger) await devLogger.completeTask('vite');
 
 	// Setup API routes
+	if (devLogger) devLogger.startTask('api');
 	const apiRoutes = await setupApiRoutes(isDev);
+	if (devLogger) await devLogger.completeTask('api');
 
 	// Initialize middleware system
+	if (devLogger) devLogger.startTask('middleware');
 	const middlewareDiscovery = new MiddlewareDiscovery({
 		baseDirectory: 'src',
 		filePattern: '_middleware.ts',
@@ -75,11 +95,13 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 
 	const middlewareExecutor = new MiddlewareExecutor({
 		developmentMode: isDev,
-		enableLogging: isDev,
+		enableLogging: false, // Disable logging to keep output clean
 		maxExecutionTime: 30000,
 	});
+	if (devLogger) await devLogger.completeTask('middleware');
 
 	// Initialize layout system - derive base directory from pages directory
+	if (devLogger) devLogger.startTask('layouts');
 	const pagesDirectory = fileSystemRouting?.discovery?.pagesDirectory || 'src/pages';
 	const layoutBaseDirectory = pagesDirectory.replace('/pages', '');
 
@@ -98,7 +120,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			console.log(`✅ Layouts directory exists: ${stat.isDirectory ? 'directory' : 'file'}`);
 		} catch (error) {
 			console.log(`❌ Layouts directory does not exist: ${finalLayoutsDir}`);
-			console.log(`Error: ${error.message}`);
+			console.log(`Error: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 
@@ -130,15 +152,12 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 					excludeDirectories: ['node_modules', '.git', 'dist', 'build'],
 					enableWatching: isDev,
 					developmentMode: isDev,
+					quietMode: isDev && !!devLogger, // Enable quiet mode when using dev logger
 					...fileSystemRouting?.discovery,
 				},
 			};
 
 			fileSystemRouter = new FileSystemRouter(fileSystemConfig);
-
-			if (isDev) {
-				console.log('📁 File-system routing enabled');
-			}
 		} catch (error) {
 			console.error('Failed to initialize file-system routing:', error);
 			if (fileSystemRouting?.fallbackToManual !== false) {
@@ -148,6 +167,9 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			}
 		}
 	}
+	
+	if (devLogger) await devLogger.completeTask('layouts');
+	if (devLogger) await devLogger.completeTask('routes');
 
 	// Create all server routes using the modular route system
 	const serverRoutes = await createAllRoutes({
@@ -160,6 +182,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		renderOptions,
 		layoutResolver, // Pass layout resolver to route creation
 		fileSystemRouter, // Pass file-system router if enabled
+		quietMode: isDev && !!devLogger, // Enable quiet mode when using dev logger
 	});
 
 	async function requestHandler(req: Request): Promise<Response> {
@@ -169,7 +192,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		const isSystemRequest =
 			url.pathname.startsWith('/.well-known') || url.pathname.startsWith('/.') || url.pathname.includes('/favicon.ico');
 
-		if (!isSystemRequest) {
+		if (!isSystemRequest && !devLogger) {
 			console.log(`🔍 Request: ${req.method} ${url.pathname}`);
 		}
 
@@ -178,7 +201,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			const middlewareChain = await middlewareDiscovery.buildMiddlewareChain(url);
 
 			if (middlewareChain.length > 0) {
-				if (!isSystemRequest && isDev) {
+				if (!isSystemRequest && isDev && !devLogger) {
 					console.log(`🔗 Executing ${middlewareChain.length} middleware`);
 				}
 
@@ -218,7 +241,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		// Try to match each route pattern
 		for (const route of serverRoutes) {
 			if (route.pattern.test(url)) {
-				if (!isSystemRequest) {
+				if (!isSystemRequest && !devLogger) {
 					console.log(`✅ Route matched: ${route.pattern.pathname}`);
 				}
 
@@ -231,7 +254,6 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 					} else {
 						// Create basic layout context for requests without middleware
 						layoutContext = {
-							url,
 							params: {},
 							query: url.searchParams,
 							state: new Map(),
@@ -257,10 +279,18 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		{
 			port,
 			onListen: ({ port: serverPort }) => {
-				console.log(`🚀 Server running on http://localhost:${serverPort}`);
-				if (isDev && viteDevServer) {
-					console.log(`⚡ Vite dev server: http://localhost:8010`);
-					console.log(`🔥 HMR WebSocket: ws://localhost:8011`);
+				if (devLogger) {
+					devLogger.finish(
+						`http://localhost:${serverPort}`,
+						viteDevServer ? 'http://localhost:8010' : undefined,
+						viteDevServer ? 'ws://localhost:8011' : undefined
+					);
+				} else {
+					console.log(`🚀 Server running on http://localhost:${serverPort}`);
+					if (isDev && viteDevServer) {
+						console.log(`⚡ Vite dev server: http://localhost:8010`);
+						console.log(`🔥 HMR WebSocket: ws://localhost:8011`);
+					}
 				}
 			},
 		},
@@ -270,59 +300,21 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 	// Add cleanup on process exit with duplicate prevention
 	let isShuttingDown = false;
 
-	const cleanup = async () => {
+	const cleanup = () => {
 		// Prevent multiple executions
 		if (isShuttingDown) {
 			return;
 		}
 		isShuttingDown = true;
 
-		console.log('\n🛑 Shutting down server gracefully...');
-
-		try {
-			// Stop Vite dev server
-			if (viteDevServer) {
-				console.log('🔄 Stopping Vite dev server...');
-				await viteDevServer.close();
-			}
-
-			// Shutdown main server
-			console.log('🌐 Shutting down main server...');
-			try {
-				await server.shutdown();
-			} catch (shutdownError) {
-				console.log('⚠️ Server shutdown error (continuing):', shutdownError);
-			}
-
-			console.log('✅ Server shutdown complete');
-			Deno.exit(0);
-		} catch (error) {
-			console.error('❌ Error during shutdown:', error);
-			Deno.exit(1);
-		}
+		// Just exit immediately - no need for graceful shutdown messages
+		Deno.exit(0);
 	};
 
-	// Force exit after timeout if graceful shutdown fails
-	const forceExit = () => {
+	// Single signal handler
+	const handleSignal = () => {
 		if (isShuttingDown) return;
-		console.log('⚠️ Force exit after timeout');
-		Deno.exit(1);
-	};
-
-	// Single signal handler with timeout
-	const handleSignal = async () => {
-		if (isShuttingDown) return;
-
-		// Set a timeout to force exit if graceful shutdown takes too long
-		const timeout = setTimeout(forceExit, 3000); // 3 seconds
-
-		try {
-			await cleanup();
-			clearTimeout(timeout);
-		} catch (error) {
-			clearTimeout(timeout);
-			throw error;
-		}
+		cleanup(); // Don't await - let it run with its own timeout
 	};
 
 	// Register signal handlers only once
@@ -330,11 +322,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 	Deno.addSignalListener('SIGTERM', handleSignal);
 	Deno.addSignalListener('SIGQUIT', handleSignal);
 
-	// Manual exit handler for development
-	if (isDev) {
-		console.log('\n💡 Tip: Press Ctrl+C to stop the server gracefully');
-		console.log('   Server will shut down in 3 seconds or force exit');
-	}
+	// Manual exit handler for development (tip is shown in dev logger)
 
 	return server;
 }

@@ -3,17 +3,11 @@
  */
 
 import { basename, dirname, relative } from '@std/path';
-import type { FileSystemRoute, FileSystemApiRoute, RouteParams } from '../../schemas/routing.ts';
+import type { FileSystemRoute, FileSystemApiRoute } from '../../schemas/routing.ts';
 import type {
 	RoutingError,
-	RoutingErrorCode,
 	ErrorSeverity,
 	RouteDebugInfo,
-	ErrorHandlerConfig,
-	RouteConflictContext,
-	ApiRouteConflictContext,
-	MissingRouteParamContext,
-	FileStructureContext,
 } from './error-handler.types.ts';
 import { RoutingErrorCode as ErrorCodes, ErrorSeverity as Severity } from './error-handler.types.ts';
 
@@ -523,7 +517,7 @@ ${originalError.stack ? `Stack trace:\n${originalError.stack}` : ''}`
 		return message;
 	}
 
-	private generateRouteConflictSuggestions(conflictingRoutes: FileSystemRoute[], pattern: string): string[] {
+	private generateRouteConflictSuggestions(conflictingRoutes: FileSystemRoute[], _pattern: string): string[] {
 		const suggestions: string[] = [];
 
 		// Check if routes are in different directories
@@ -554,7 +548,7 @@ ${originalError.stack ? `Stack trace:\n${originalError.stack}` : ''}`
 	}
 
 	private generateApiRouteConflictSuggestions(
-		conflictingRoutes: FileSystemApiRoute[],
+		_conflictingRoutes: FileSystemApiRoute[],
 		conflictingMethods: string[]
 	): string[] {
 		const suggestions: string[] = [];
@@ -596,7 +590,7 @@ ${originalError.stack ? `Stack trace:\n${originalError.stack}` : ''}`
 		return suggestions;
 	}
 
-	private generateMissingParamSuggestions(routePath: string, paramName: string, availableParams: string[]): string[] {
+	private generateMissingParamSuggestions(_routePath: string, paramName: string, availableParams: string[]): string[] {
 		const suggestions: string[] = [];
 
 		suggestions.push(`Ensure the URL contains the required parameter: ${paramName}`);
@@ -612,7 +606,7 @@ ${originalError.stack ? `Stack trace:\n${originalError.stack}` : ''}`
 		return suggestions;
 	}
 
-	private generateSyntaxErrorSuggestions(filePath: string, fileType: string, originalError: Error): string[] {
+	private generateSyntaxErrorSuggestions(_filePath: string, fileType: string, originalError: Error): string[] {
 		const suggestions: string[] = [];
 		const errorMessage = originalError.message.toLowerCase();
 

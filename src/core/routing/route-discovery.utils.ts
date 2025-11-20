@@ -2,8 +2,8 @@
  * Utility functions for route discovery
  */
 
-import { relative, extname, basename, dirname } from '@std/path';
-import type { RouteType, PageFile } from '../../schemas/routing.ts';
+import { extname, basename, dirname } from '@std/path';
+import type { RouteType } from '../../schemas/routing.ts';
 
 /**
  * Converts a file path to a route path

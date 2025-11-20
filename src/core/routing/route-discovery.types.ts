@@ -2,14 +2,7 @@
  * Type definitions for the RouteDiscovery module
  */
 
-import type {
-	FileSystemRoute,
-	RouteType,
-	PageFile,
-	RouteDiscoveryOptions,
-	FileSystemApiRoute,
-	FileSystemApiModule,
-} from '../../schemas/routing.ts';
+import type { PageFile } from '../../schemas/routing.ts';
 
 /**
  * File system watcher event types

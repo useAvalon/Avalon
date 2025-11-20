@@ -21,5 +21,5 @@ const server = await createServer({
 	},
 });
 
-console.log('🚀 Avalon demo server starting on http://localhost:8002');
 // Server is already listening - no need to call listen()
+// The dev logger will show the server ready message

@@ -7,23 +7,26 @@ import { createViteRoutes } from './vite-routes.ts';
 import { createStaticRoutes } from './static-routes.ts';
 import { createApiRoutes, createAppRoutes, createFileSystemRoutes } from './app-routes.ts';
 import { createHydrationRoutes } from './hydration-routes.ts';
-import type { Routes } from '@/schemas/index.ts';
+import type { Routes } from '../../schemas/index.ts';
 import type { IslandManifest } from '../../build/island-manifest.ts';
-import type { RenderOptions } from '@/schemas/core.ts';
+import type { RenderOptions } from '../../schemas/core.ts';
 import type { ComponentRenderOptions } from '../ssr.ts';
 import type { EnhancedLayoutResolver } from '../../core/layout/enhanced-layout-resolver.ts';
 import type { FileSystemRouter } from '../../core/routing/file-system-router.ts';
+import type { ApiRoute } from '../../schemas/api.ts';
+import type { RouteHandler } from '../../schemas/routing.ts';
 
 export interface RouteConfig {
 	isDev: boolean;
 	viteServerUrl: string;
-	apiRoutes: any[];
+	apiRoutes: ApiRoute[];
 	routes: Routes;
 	mergedDefaultOptions: Partial<RenderOptions>;
 	islandManifest: IslandManifest | null;
 	renderOptions?: ComponentRenderOptions;
 	layoutResolver?: EnhancedLayoutResolver;
 	fileSystemRouter?: FileSystemRouter;
+	quietMode?: boolean;
 }
 
 export async function createAllRoutes(config: RouteConfig) {
@@ -37,10 +40,11 @@ export async function createAllRoutes(config: RouteConfig) {
 		renderOptions = {},
 		layoutResolver,
 		fileSystemRouter,
+		quietMode = false,
 	} = config;
 
 	// Create file-system routes if enabled
-	let fileSystemRouteHandlers: any[] = [];
+	let fileSystemRouteHandlers: RouteHandler[] = [];
 	if (fileSystemRouter) {
 		try {
 			fileSystemRouteHandlers = await createFileSystemRoutes(
@@ -49,7 +53,7 @@ export async function createAllRoutes(config: RouteConfig) {
 				mergedDefaultOptions,
 				islandManifest,
 				isDev,
-				renderOptions
+				quietMode
 			);
 		} catch (error) {
 			console.error('Failed to create file-system routes:', error);

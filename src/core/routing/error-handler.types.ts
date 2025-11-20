@@ -2,7 +2,7 @@
  * Type definitions for the error handler module
  */
 
-import type { FileSystemRoute, FileSystemApiRoute, RouteParams } from '../../schemas/routing.ts';
+import type { FileSystemRoute, FileSystemApiRoute } from '../../schemas/routing.ts';
 
 /**
  * Error codes for different types of routing errors
