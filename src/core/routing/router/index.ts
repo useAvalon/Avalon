@@ -3,30 +3,25 @@
  */
 
 import { resolve } from '@std/path';
-import { RouteDiscovery, type FileChangeEvent } from '../discovery/index.ts';
+import { RouteDiscovery } from '../discovery/index.ts';
 import { PageLoader } from '../page-loader.ts';
 import { MetadataResolver } from '../metadata-resolver.ts';
 import { RouteHandlerBuilder } from './route-handler-builder.ts';
 import { SpecialFileHandler } from './special-file-handler.ts';
-import { RoutingErrorHandler, createRoutingErrorHandler } from '../error-handler.ts';
-import { RoutingErrorCode, ErrorSeverity } from '../error-handler.types.ts';
-import { CacheManager, RouteCache, MetadataCache, CachePerformanceMonitor, type CacheStats } from '../cache-manager.ts';
-import { FileSystemRouterError, type RouteHandlerCacheEntry } from '../file-system-router.types.ts';
+import type { RoutingErrorHandler } from '../error-handler.ts';
+import { createRoutingErrorHandler } from '../error-handler.ts';
+import { CacheManager, RouteCache, MetadataCache, CachePerformanceMonitor } from '../cache-manager.ts';
+import { FileSystemRouterError } from '../file-system-router.types.ts';
 import type {
 	FileSystemRoute,
 	RouteHandler,
 	FileSystemRouterConfig,
 	ResolvedMetadata,
 	RouteParams,
-	LoaderContext,
-	RouteCacheEntry,
 	RouteDiscoveryOptions,
 	FileSystemApiRoute,
-	FileSystemApiModule,
 } from '../../../schemas/routing.ts';
 import type { EnhancedLayoutResolver } from '../../layout/enhanced-layout-resolver.ts';
-import type { MiddlewareContext } from '../../../schemas/middleware.ts';
-import type { LayoutContext } from '../../../types/layout.ts';
 import type { IslandManifest } from '../../../build/island-manifest.ts';
 import type { RenderOptions } from '../../../schemas/core.ts';
 
@@ -63,6 +58,7 @@ export class FileSystemRouter {
 			excludeDirectories: ['node_modules', '.git'],
 			enableWatching: false,
 			developmentMode: false,
+			quietMode: false,
 		};
 
 		this.config = {
@@ -378,7 +374,7 @@ export class FileSystemRouter {
 	 */
 	async resolveMetadata(
 		routePath: string,
-		generateMetadata?: (params: RouteParams) => Promise<any>,
+		generateMetadata?: (params: RouteParams) => Promise<ResolvedMetadata>,
 		params: RouteParams = {}
 	): Promise<ResolvedMetadata> {
 		return await this.performanceMonitor.timeOperation('resolveMetadata', async () => {

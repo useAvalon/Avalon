@@ -18,8 +18,8 @@ import type { LayoutContext } from '../../../types/layout.ts';
 import type { IslandManifest } from '../../../build/island-manifest.ts';
 import type { RenderOptions } from '../../../schemas/core.ts';
 import { renderToHtml, renderToHtmlWithLayouts, type ComponentRenderOptions } from '../../../render/ssr.ts';
-import { PageLoader } from '../page-loader.ts';
-import { MetadataResolver } from '../metadata-resolver.ts';
+import type { PageLoader } from '../page-loader.ts';
+import type { MetadataResolver } from '../metadata-resolver.ts';
 import { FileSystemRouterError } from '../file-system-router.types.ts';
 // Removed MarkdownRouter - MDX files are handled by Vite plugins
 
@@ -106,9 +106,6 @@ export class RouteHandlerBuilder {
 					};
 
 					const contextualRenderOptions: ComponentRenderOptions = {};
-					if (middlewareContext) {
-						(contextualRenderOptions as any).middlewareContext = middlewareContext;
-					}
 
 					// Render the page
 					let htmlContent: string;
@@ -290,9 +287,9 @@ export class RouteHandlerBuilder {
 	 */
 	private async resolveMetadata(
 		routePath: string,
-		generateMetadata?: (params: RouteParams) => Promise<any>,
+		generateMetadata?: (params: RouteParams) => Promise<ResolvedMetadata>,
 		params: RouteParams = {},
-		filePath?: string
+		_filePath?: string
 	): Promise<ResolvedMetadata> {
 		try {
 			// All files (including MDX) use standard metadata resolution

@@ -8,10 +8,7 @@
 
 import type { JSX } from 'preact';
 import { render as preactRenderToString } from 'preact-render-to-string';
-import {
-	EnhancedFrameworkDetector,
-	type FrameworkDetectionResult,
-} from '../core/components/enhanced-framework-detector.ts';
+import { EnhancedFrameworkDetector } from '../core/components/enhanced-framework-detector.ts';
 
 export interface FrameworkSSRContext {
 	framework: string;
@@ -93,7 +90,7 @@ export class IsolatedSSRRenderer {
 			}
 
 			// Get or create framework context
-			const context = await this.getFrameworkContext(framework);
+			const context = this.getFrameworkContext(framework);
 			if (!context) {
 				throw new Error(`No SSR context available for framework: ${framework}`);
 			}
@@ -118,7 +115,7 @@ export class IsolatedSSRRenderer {
 				};
 			} finally {
 				// Always cleanup context after rendering
-				await this.cleanupContext(framework);
+				this.cleanupContext(framework);
 			}
 		} catch (error) {
 			errors.push(`SSR rendering failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -183,9 +180,9 @@ export class IsolatedSSRRenderer {
 			renderFunction: async (component: unknown) => {
 				try {
 					// Import Solid SSR modules in isolation
-					const solidWeb = (await this.importFrameworkModule('solid-js/web', 'solid')) as any;
-					if (solidWeb && solidWeb.renderToString) {
-						return solidWeb.renderToString(() => component);
+					const solidWeb = (await this.importFrameworkModule('solid-js/web', 'solid')) as Record<string, unknown>;
+					if (solidWeb && typeof solidWeb.renderToString === 'function') {
+						return (solidWeb.renderToString as (fn: () => unknown) => string)(() => component);
 					}
 					throw new Error('Solid renderToString not available');
 				} catch (error) {
@@ -206,9 +203,9 @@ export class IsolatedSSRRenderer {
 			renderFunction: async (component: unknown) => {
 				try {
 					// Import Vue SSR modules in isolation
-					const vueServerRenderer = (await this.importFrameworkModule('vue/server-renderer', 'vue')) as any;
-					if (vueServerRenderer && vueServerRenderer.renderToString) {
-						return await vueServerRenderer.renderToString(component);
+					const vueServerRenderer = (await this.importFrameworkModule('vue/server-renderer', 'vue')) as Record<string, unknown>;
+					if (vueServerRenderer && typeof vueServerRenderer.renderToString === 'function') {
+						return await (vueServerRenderer.renderToString as (component: unknown) => Promise<string>)(component);
 					}
 					throw new Error('Vue renderToString not available');
 				} catch (error) {
@@ -230,7 +227,7 @@ export class IsolatedSSRRenderer {
 				try {
 					// Svelte components have a render method
 					if (component && typeof component === 'object' && 'render' in component) {
-						const renderResult = (component as any).render();
+						const renderResult = (component as { render: () => { html?: string } }).render();
 						return renderResult.html || '';
 					}
 					throw new Error('Svelte component does not have render method');
@@ -263,7 +260,7 @@ export class IsolatedSSRRenderer {
 	/**
 	 * Gets or creates a framework context
 	 */
-	private async getFrameworkContext(framework: string): Promise<FrameworkSSRContext | null> {
+	private getFrameworkContext(framework: string): FrameworkSSRContext | null {
 		const context = this.contexts.get(framework);
 		if (context) {
 			return context;
@@ -279,7 +276,7 @@ export class IsolatedSSRRenderer {
 	private async switchToContext(framework: string): Promise<void> {
 		// Cleanup previous context if active
 		if (this.activeContext && this.activeContext !== framework) {
-			await this.cleanupContext(this.activeContext);
+			this.cleanupContext(this.activeContext);
 		}
 
 		const context = this.contexts.get(framework);
@@ -302,7 +299,7 @@ export class IsolatedSSRRenderer {
 	/**
 	 * Cleans up a framework context
 	 */
-	private async cleanupContext(framework: string): Promise<void> {
+	private cleanupContext(framework: string): void {
 		const context = this.contexts.get(framework);
 		if (!context) {
 			return;
@@ -340,7 +337,7 @@ export class IsolatedSSRRenderer {
 				break;
 			case 'svelte':
 				// Ensure Svelte-specific globals are available
-				await this.ensureSvelteEnvironment();
+				this.ensureSvelteEnvironment();
 				break;
 			case 'preact':
 			default:
@@ -411,25 +408,26 @@ export class IsolatedSSRRenderer {
 	 */
 	private clearFrameworkGlobals(framework: string): void {
 		// Clear framework-specific globals to prevent contamination
+		const globals = globalThis as Record<string, unknown>;
 		switch (framework) {
 			case 'solid':
 				// Clear Solid-specific globals if they exist
 				if (typeof globalThis !== 'undefined') {
-					delete (globalThis as any)._$HY;
-					delete (globalThis as any).Solid;
+					delete globals._$HY;
+					delete globals.Solid;
 				}
 				break;
 			case 'vue':
 				// Clear Vue-specific globals if they exist
 				if (typeof globalThis !== 'undefined') {
-					delete (globalThis as any).__VUE__;
-					delete (globalThis as any).Vue;
+					delete globals.__VUE__;
+					delete globals.Vue;
 				}
 				break;
 			case 'svelte':
 				// Clear Svelte-specific globals if they exist
 				if (typeof globalThis !== 'undefined') {
-					delete (globalThis as any).__SVELTE__;
+					delete globals.__SVELTE__;
 				}
 				break;
 		}
@@ -466,7 +464,7 @@ export class IsolatedSSRRenderer {
 	/**
 	 * Ensures Svelte environment is properly set up
 	 */
-	private async ensureSvelteEnvironment(): Promise<void> {
+	private ensureSvelteEnvironment(): void {
 		try {
 			// Svelte components are typically pre-compiled, no special setup needed
 			if (this.config.debugLogging) {
@@ -539,9 +537,9 @@ export class IsolatedSSRRenderer {
 	/**
 	 * Resets all contexts
 	 */
-	async resetAllContexts(): Promise<void> {
+	resetAllContexts(): void {
 		for (const [framework] of this.contexts) {
-			await this.cleanupContext(framework);
+			this.cleanupContext(framework);
 		}
 		this.activeContext = null;
 	}

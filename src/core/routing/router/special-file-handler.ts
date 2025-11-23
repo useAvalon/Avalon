@@ -9,8 +9,8 @@ import type { LayoutContext } from '../../../types/layout.ts';
 import type { IslandManifest } from '../../../build/island-manifest.ts';
 import type { RenderOptions } from '../../../schemas/core.ts';
 import { renderToHtml, renderToHtmlWithLayouts, type ComponentRenderOptions } from '../../../render/ssr.ts';
-import { PageLoader } from '../page-loader.ts';
-import { MetadataResolver } from '../metadata-resolver.ts';
+import type { PageLoader } from '../page-loader.ts';
+import type { MetadataResolver } from '../metadata-resolver.ts';
 import type { SpecialFileType } from '../file-system-router.types.ts';
 
 /**
@@ -99,9 +99,6 @@ export class SpecialFileHandler {
 					};
 
 					const contextualRenderOptions: ComponentRenderOptions = {};
-					if (middlewareContext) {
-						(contextualRenderOptions as any).middlewareContext = middlewareContext;
-					}
 
 					// Render the page
 					let htmlContent: string;
@@ -171,18 +168,18 @@ export class SpecialFileHandler {
 	/**
 	 * Create a basic special file handler as a last resort fallback
 	 */
-	private createBasicSpecialFileHandler(fileType: SpecialFileType, isDev: boolean): RouteHandler {
-		const handler = async (
-			request: Request,
-			_context?: any,
-			_layoutContext?: any,
+	private createBasicSpecialFileHandler(fileType: SpecialFileType, _isDev: boolean): RouteHandler {
+		const handler = (
+			_request: Request,
+			_context?: MiddlewareContext,
+			_layoutContext?: LayoutContext,
 			error?: Error
 		): Promise<Response> => {
 			const basicHtml = this.createBasicErrorHtml(fileType, error);
-			return new Response(basicHtml, {
+			return Promise.resolve(new Response(basicHtml, {
 				status: fileType === '404' ? 404 : 500,
 				headers: { 'Content-Type': 'text/html; charset=utf-8' },
-			});
+			}));
 		};
 
 		return {
@@ -282,7 +279,7 @@ export class SpecialFileHandler {
 	 */
 	private async resolveMetadata(
 		routePath: string,
-		generateMetadata?: (params: RouteParams) => Promise<any>,
+		generateMetadata?: (params: RouteParams) => Promise<ResolvedMetadata>,
 		params: RouteParams = {}
 	): Promise<ResolvedMetadata> {
 		try {

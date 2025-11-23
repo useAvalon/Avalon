@@ -216,7 +216,7 @@ export class MetadataResolver {
 				};
 			} else {
 				// For all other properties, source takes precedence
-				(result as any)[key] = value;
+				(result as Record<string, unknown>)[key] = value;
 			}
 		}
 

@@ -1,7 +1,7 @@
 import type { JSX } from 'preact';
 import { render as preactRenderToString } from 'preact-render-to-string';
 import type { RenderOptions } from '../schemas/core.ts';
-import { getSvelteSSRCSS, getSvelteSSRCSSForHead, getSvelteSSRCSSStats } from '../islands/css-utils.ts';
+import { getSvelteSSRCSSForHead, getSvelteSSRCSSStats } from '../islands/css-utils.ts';
 import { analyzeComponentContent, type AnalyzerOptions } from '../core/components/component-analyzer.ts';
 import type { EnhancedLayoutResolver } from '../core/layout/enhanced-layout-resolver.ts';
 import type { LayoutContext, PageModule } from '../types/layout.ts';
@@ -10,7 +10,7 @@ import { IsolatedSSRRenderer, type IsolatedRenderRequest, type SSRIsolationConfi
 export interface RouteConfig {
 	component: () => JSX.Element | Promise<JSX.Element>;
 	options?: Partial<RenderOptions>;
-	frontmatter?: Record<string, any>;
+	frontmatter?: Record<string, unknown>;
 }
 
 export interface RenderStrategy {
@@ -141,14 +141,7 @@ function validateFrameworkImports(componentPath: string, content: string, detect
 	return warnings;
 }
 
-/**
- * Filters and sanitizes component content to prevent cross-framework contamination
- */
-function sanitizeComponentForFramework(content: string, framework: string): string {
-	// For now, return content as-is since the isolation happens at the import level
-	// In the future, we could implement content transformation here
-	return content;
-}
+
 
 /**
  * Analyzes components in rendered content and adds rendering strategy attributes
@@ -254,20 +247,20 @@ async function validateComponentImports(
 			return;
 		}
 
-		// Use the enhanced framework detector to identify the framework
-		const renderer = getIsolatedRenderer();
-		const detector = (renderer as any).detector; // Access the detector from the renderer
+		// Detect framework from content patterns
+		const frameworks = detectFrameworks(componentContent);
+		let detectedFramework = 'preact'; // default
+		
+		if (frameworks.solid) detectedFramework = 'solid';
+		else if (frameworks.vue) detectedFramework = 'vue';
+		else if (frameworks.svelte) detectedFramework = 'svelte';
 
-		if (detector) {
-			const detection = detector.detectFramework(foundPath, componentContent);
+		// Validate imports for this framework
+		const importWarnings = validateFrameworkImports(foundPath, componentContent, detectedFramework);
 
-			// Validate imports for this framework
-			const importWarnings = validateFrameworkImports(foundPath, componentContent, detection.framework);
-
-			// Log import validation warnings
-			if (importWarnings.length > 0 && !renderOptions.suppressWarnings) {
-				importWarnings.forEach(warning => console.warn(`[Import Validation] ${warning}`));
-			}
+		// Log import validation warnings
+		if (importWarnings.length > 0 && !renderOptions.suppressWarnings) {
+			importWarnings.forEach(warning => console.warn(`[Import Validation] ${warning}`));
 		}
 	} catch (error) {
 		// Validation failed, but don't break the rendering process
@@ -604,10 +597,11 @@ export async function renderToHtmlWithLayouts(
 ): Promise<string> {
 	try {
 		// Create page module from route config
+		const routeConfigExtended = routeConfig as RouteConfig & Partial<PageModule>;
 		const pageModule: PageModule = {
 			default: routeConfig.component,
-			layoutConfig: (routeConfig as any).layoutConfig,
-			loader: (routeConfig as any).loader,
+			layoutConfig: routeConfigExtended.layoutConfig,
+			loader: routeConfigExtended.loader,
 			frontmatter: routeConfig.frontmatter,
 		};
 

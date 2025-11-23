@@ -252,7 +252,7 @@ export function calculateApiRoutePriority(filePath: string): number {
 /**
  * Validates dynamic segment syntax in route paths
  */
-export function validateDynamicSegments(filePath: string, routePath: string): string[] {
+export function validateDynamicSegments(_filePath: string, routePath: string): string[] {
 	const errors: string[] = [];
 
 	// Check for malformed dynamic segments

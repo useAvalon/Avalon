@@ -33,8 +33,8 @@ export class HydrationRouteHandler {
 	 */
 	async handleHydrationRequest(
 		req: Request,
-		middlewareContext?: MiddlewareContext,
-		layoutContext?: LayoutContext
+		_middlewareContext?: MiddlewareContext,
+		_layoutContext?: LayoutContext
 	): Promise<Response> {
 		try {
 			const url = new URL(req.url);
@@ -170,7 +170,7 @@ export function createHydrationRoutes(isDev: boolean) {
 		{
 			pattern: new URLPattern({ pathname: '/islands/*' }),
 			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
-				return handler.handleHydrationRequest(req, middlewareContext, layoutContext);
+				return await handler.handleHydrationRequest(req, middlewareContext, layoutContext);
 			},
 		},
 	];

@@ -102,7 +102,7 @@ class DependencyTracker {
  * Intelligent cache manager for file-system routing
  */
 export class CacheManager {
-	private cache = new Map<string, CacheEntry<any>>();
+	private cache = new Map<string, CacheEntry<unknown>>();
 	private dependencyTracker = new DependencyTracker();
 	private config: CacheConfig;
 	private stats = {
@@ -148,7 +148,7 @@ export class CacheManager {
 		entry.lastAccessed = Date.now();
 		this.stats.hits++;
 
-		return entry.data;
+		return entry.data as T;
 	}
 
 	/**
@@ -301,7 +301,7 @@ export class CacheManager {
 	/**
 	 * Estimate the memory size of data
 	 */
-	private estimateSize(data: any): number {
+	private estimateSize(data: unknown): number {
 		try {
 			// Simple estimation based on JSON serialization
 			const jsonString = JSON.stringify(data);
@@ -474,8 +474,8 @@ export class CachePerformanceMonitor {
 	/**
 	 * Get performance metrics
 	 */
-	getMetrics(): Record<string, any> {
-		const result: Record<string, any> = {};
+	getMetrics(): Record<string, PerformanceMetrics> {
+		const result: Record<string, PerformanceMetrics> = {};
 
 		for (const [operation, metrics] of this.metrics) {
 			result[operation] = { ...metrics };

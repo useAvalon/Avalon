@@ -1,6 +1,7 @@
 import { extname } from '@std/path';
 import { h } from 'preact';
 import { marked } from 'marked';
+import type { RoutePageModule } from '../../schemas/routing.ts';
 
 /**
  * Server-side MDX processor for handling MDX files in the routing system
@@ -9,7 +10,7 @@ export class MDXProcessor {
 	/**
 	 * Process an MDX file and return a valid page module
 	 */
-	async processMDXFile(filePath: string): Promise<any> {
+	async processMDXFile(filePath: string): Promise<RoutePageModule> {
 		try {
 			// Read the MDX file content
 			const content = await Deno.readTextFile(filePath);

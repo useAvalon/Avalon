@@ -11,7 +11,7 @@ import {
 	ResolvedMetadataSchema,
 } from '../routing.ts';
 
-import { validate, safeValidate, ValidationResult } from '../index.ts';
+import { validate, safeValidate } from '../index.ts';
 
 // Routing-specific validators
 export const routingValidators = {

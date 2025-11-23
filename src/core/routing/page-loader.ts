@@ -461,6 +461,121 @@ export class PageLoader {
 			quietMode: this.quietMode,
 		};
 	}
+
+	/**
+	 * Load a special file (_404.tsx or _error.tsx)
+	 * @param fileType - Type of special file to load
+	 * @param routePath - Route path context for the special file
+	 * @returns Promise resolving to the loaded special file module and path, or null if not found
+	 */
+	async loadSpecialFile(
+		fileType: 'error' | '404',
+		_routePath: string
+	): Promise<{ module: RoutePageModule; filePath: string } | null> {
+		const fileName = fileType === '404' ? '_404' : '_error';
+		
+		// Try to find the special file in the pages directory
+		for (const ext of this.extensions) {
+			const filePath = join(this.baseDirectory, `${fileName}${ext}`);
+			
+			if (existsSync(filePath)) {
+				try {
+					const module = await this.loadPageModule(filePath);
+					return { module, filePath };
+				} catch (error) {
+					if (this.developmentMode) {
+						console.warn(`Failed to load special file ${filePath}:`, error);
+					}
+				}
+			}
+		}
+		
+		return null;
+	}
+
+	/**
+	 * Get a fallback special file when no custom file is found
+	 * @param fileType - Type of special file
+	 * @returns Fallback module and path
+	 */
+	getFallbackSpecialFile(fileType: 'error' | '404'): { module: RoutePageModule; filePath: string } {
+		// Create a basic fallback component
+		const fallbackComponent = (_props: Record<string, unknown>) => {
+			const heading = fileType === '404' ? 'Page Not Found' : 'Something went wrong';
+			const message =
+				fileType === '404'
+					? "The page you're looking for doesn't exist or has been moved."
+					: 'An error occurred while processing your request.';
+
+			return {
+				type: 'div',
+				props: {
+					style: {
+						fontFamily: 'system-ui, -apple-system, sans-serif',
+						display: 'flex',
+						flexDirection: 'column',
+						alignItems: 'center',
+						justifyContent: 'center',
+						minHeight: '100vh',
+						margin: 0,
+						padding: '2rem',
+						textAlign: 'center',
+						background: '#f9f9f9',
+					},
+					children: [
+						{
+							type: 'div',
+							props: {
+								style: {
+									maxWidth: '600px',
+									background: 'white',
+									padding: '2rem',
+									borderRadius: '8px',
+									boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+								},
+								children: [
+									{
+										type: 'h1',
+										props: {
+											style: {
+												fontSize: '3rem',
+												margin: 0,
+												color: fileType === '404' ? '#666' : '#d32f2f',
+											},
+											children: fileType === '404' ? '404' : '⚠️',
+										},
+									},
+									{
+										type: 'h2',
+										props: {
+											style: { fontSize: '1.5rem', margin: '1rem 0', color: '#888' },
+											children: heading,
+										},
+									},
+									{
+										type: 'p',
+										props: {
+											style: { color: '#666', lineHeight: 1.5 },
+											children: message,
+										},
+									},
+								],
+							},
+						},
+					],
+				},
+			};
+		};
+
+		const module: RoutePageModule = {
+			default: fallbackComponent as ComponentType<Record<string, unknown>>,
+		};
+
+		return {
+			module,
+			filePath: `internal:fallback-${fileType}`,
+		};
+	}
 }
 
 /**

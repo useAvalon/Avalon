@@ -48,6 +48,7 @@
 		"@std/testing": "jsr:@std/testing",
 		"@sveltejs/vite-plugin-svelte": "npm:@sveltejs/vite-plugin-svelte@^6.2.1",
 		"@vitejs/plugin-vue": "npm:@vitejs/plugin-vue@^6.0.1",
+		"marked": "npm:marked@^17.0.1",
 
 		"svelte": "npm:svelte@^5.41.0",
 

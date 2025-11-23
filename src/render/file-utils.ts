@@ -21,11 +21,11 @@ export function hasStaticExtension(path: string): boolean {
 
 // File type detection
 export function isBinaryFile(extension: string): boolean {
-	return BINARY_EXTENSIONS.includes(extension.toLowerCase() as any);
+	return (BINARY_EXTENSIONS as readonly string[]).includes(extension.toLowerCase());
 }
 
 export function isFontFile(extension: string): boolean {
-	return FONT_EXTENSIONS.includes(extension.toLowerCase() as any);
+	return (FONT_EXTENSIONS as readonly string[]).includes(extension.toLowerCase());
 }
 
 // Header generation

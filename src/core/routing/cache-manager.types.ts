@@ -1,16 +1,4 @@
 /**
- * Type definitions for the cache manager module
- */
-
-import type {
-	FileSystemRoute,
-	FileSystemApiRoute,
-	ResolvedMetadata,
-	RouteParams,
-	PageFile,
-} from '../../schemas/routing.ts';
-
-/**
  * Cache entry with metadata for intelligent invalidation
  */
 export interface CacheEntry<T> {
@@ -84,6 +72,6 @@ export interface PerformanceSummary {
  */
 export interface CacheWarmupEntry {
 	key: string;
-	data: any;
+	data: unknown;
 	dependencies?: string[];
 }

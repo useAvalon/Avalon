@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ComponentType } from 'preact';
+import type { ComponentType } from 'preact';
 
 /**
  * Route Type Schema - Defines the different types of routes supported
@@ -539,8 +539,8 @@ export function isValidRoutePattern(pattern: string): boolean {
  * Validate component accepts correct props for a route
  */
 export function validatePageComponent<TRoute extends string>(
-	component: ComponentType<any>,
-	expectedParams: (keyof RouteParameters<TRoute>)[]
+	component: unknown,
+	_expectedParams: (keyof RouteParameters<TRoute>)[]
 ): component is TypedPageComponent<TRoute> {
 	// In TypeScript, we can't really validate function signatures at runtime
 	// This is more of a development-time helper
@@ -586,7 +586,7 @@ export type TypedPageComponent<T extends string> = (props: {
 	params: RouteParameters<T>;
 	query: URLSearchParams;
 	data?: unknown;
-}) => any;
+}) => unknown;
 
 /**
  * Page component with custom data type
@@ -595,7 +595,7 @@ export type TypedPageComponentWithData<T extends string, TData> = (props: {
 	params: RouteParameters<T>;
 	query: URLSearchParams;
 	data?: TData;
-}) => any;
+}) => unknown;
 
 /**
  * Typed metadata generator
