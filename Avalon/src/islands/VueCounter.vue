@@ -19,16 +19,6 @@ const increment = () => count.value++;
 const decrement = () => count.value--;
 </script>
 
-<script lang="ts">
-// Export hydrate function for client-side hydration
-import { createApp } from 'vue';
-import Component from './VueCounter.vue'; // Self-reference
-
-export function hydrate(element, props) {
-	const app = createApp(Component, props);
-	app.mount(element);
-}
-</script>
 
 <style scoped>
 .vue-counter {

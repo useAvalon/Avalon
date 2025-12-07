@@ -26,6 +26,7 @@ export * from './api.ts';
 export * from './middleware.ts';
 export * from './layout.ts';
 export * from './routing.ts';
+export * from './integration-config.ts';
 
 // === Explicit Type Definitions ===
 

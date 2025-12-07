@@ -87,12 +87,12 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				compilerOptions: {
 					customElement: false,
 					runes: true,
-					hydratable: true,
-					css: 'injected',
-					hmr: false, // Disable HMR to avoid hydration issues
-					dev: false, // Disable dev mode for SSR compatibility
+					hmr: false,
+					dev: false,
+					css: 'injected', // Inject CSS into component so we can extract it
 				},
-				hot: false, // Disable hot reloading
+				hot: false,
+				emitCss: false, // Don't emit separate CSS files
 			})
 		);
 	} catch (error) {
@@ -203,6 +203,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				'$islands/': resolve('src/islands/'),
 				'$pages/': resolve('src/pages/'),
 				'$api/': resolve('src/api/'),
+				// Resolve integration files from parent directory
+				'/src/integrations/': resolve('../src/integrations/'),
 			},
 		},
 

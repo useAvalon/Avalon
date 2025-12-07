@@ -46,21 +46,34 @@
 		"@std/path": "jsr:@std/path@^1.0.8",
 		"@std/assert": "jsr:@std/assert",
 		"@std/testing": "jsr:@std/testing",
-		"@sveltejs/vite-plugin-svelte": "npm:@sveltejs/vite-plugin-svelte@^6.2.1",
-		"@vitejs/plugin-vue": "npm:@vitejs/plugin-vue@^6.0.1",
 		"marked": "npm:marked@^17.0.1",
 
-		"svelte": "npm:svelte@^5.41.0",
+		"@avalon/integration-preact": "./src/integrations/preact/mod.ts",
+		"@avalon/integration-preact/server": "./src/integrations/preact/server/renderer.ts",
+		"@avalon/integration-preact/client": "./src/integrations/preact/client/index.ts",
+		"@avalon/integration-preact/types": "./src/integrations/preact/types.ts",
 
-		"vite-plugin-solid": "npm:vite-plugin-solid@^2.11.8",
+		"@avalon/integration-vue": "./src/integrations/vue/mod.ts",
+		"@avalon/integration-vue/server": "./src/integrations/vue/server/renderer.ts",
+		"@avalon/integration-vue/client": "./src/integrations/vue/client/index.ts",
+		"@avalon/integration-vue/types": "./src/integrations/vue/types.ts",
+
+		"@avalon/integration-solid": "./src/integrations/solid/mod.ts",
+		"@avalon/integration-solid/server": "./src/integrations/solid/server/renderer.ts",
+		"@avalon/integration-solid/client": "./src/integrations/solid/client/index.ts",
+		"@avalon/integration-solid/types": "./src/integrations/solid/types.ts",
+
+		"@avalon/integration-svelte": "./src/integrations/svelte/mod.ts",
+		"@avalon/integration-svelte/server": "./src/integrations/svelte/server/renderer.ts",
+		"@avalon/integration-svelte/client": "./src/integrations/svelte/client/index.ts",
+		"@avalon/integration-svelte/types": "./src/integrations/svelte/types.ts",
+
+		"@avalon/shared": "./src/integrations/shared/types.ts",
+
 		"preact": "npm:preact@10.26.9",
 		"preact/hooks": "npm:preact@10.26.9/hooks",
 		"preact-render-to-string": "npm:preact-render-to-string@6.5.13",
-		"solid-js": "npm:solid-js@1.9.8",
-		"solid-js/web": "npm:solid-js@1.9.8/web",
-		"solid-js/jsx-runtime": "npm:solid-js@1.9.8/jsx-runtime",
-		"vue": "npm:vue@3.5.21",
-		"vue/server-renderer": "npm:vue@3.5.21/server-renderer",
+
 		"vite": "npm:vite@7.1.5",
 		"typescript": "npm:typescript@5.3.3",
 		"zod": "npm:zod@3.25.28",

@@ -4,27 +4,13 @@ import type { UserConfig } from 'vite';
 
 /**
  * Vite config for building Avalon's own client scripts
- * This pre-bundles scripts with dependencies resolved
+ * This pre-bundles the main client hydration script
  */
-export default defineConfig(async (): Promise<UserConfig> => {
-	// Load plugins for building client scripts
-	const plugins = [];
-
-	// Load Solid plugin for solid-hydration.js
-	try {
-		// deno-lint-ignore no-external-import
-		const { default: solid } = await import('vite-plugin-solid');
-		plugins.push(solid({ ssr: false })); // Client-only build
-		console.log('✅ Solid plugin loaded for Avalon build');
-	} catch (error: unknown) {
-		const errorMessage = error instanceof Error ? error.message : String(error);
-		console.warn('⚠️ Could not load vite-plugin-solid for Avalon build:', errorMessage);
-	}
-
+export default defineConfig((): UserConfig => {
 	return {
 		root: '.',
 
-		plugins,
+		plugins: [],
 
 		// Build Avalon's client scripts
 		build: {
@@ -32,8 +18,7 @@ export default defineConfig(async (): Promise<UserConfig> => {
 			emptyOutDir: true,
 			lib: {
 				entry: {
-					'solid-hydration': resolve('./src/client/solid-hydration.js'),
-					// Note: Svelte hydration is now handled by self-contained component functions
+					'main': resolve('./src/client/main.js'),
 				},
 				formats: ['es'],
 			},

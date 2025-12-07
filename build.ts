@@ -5,8 +5,8 @@
  */
 
 import { generateIslandManifest } from './src/build/island-manifest.ts';
-import { resolve } from '@std/path';
 import { BuildLogger } from './src/utils/build-logger.ts';
+import { detectUsedIntegrations, getRequiredIntegrations } from './src/build/integration-detection-plugin.ts';
 
 interface BuildStep {
 	name: string;
@@ -14,24 +14,7 @@ interface BuildStep {
 	execute: (logger: BuildLogger) => Promise<void>;
 }
 
-async function discoverVueIslands(): Promise<Record<string, string>> {
-	const vueIslands: Record<string, string> = {};
-	const cwd = Deno.cwd();
 
-	try {
-		const islandsPath = resolve(cwd, 'islands');
-		for await (const dirEntry of Deno.readDir(islandsPath)) {
-			if (dirEntry.isFile && dirEntry.name.endsWith('.vue')) {
-				const name = dirEntry.name.replace(/\.vue$/, '');
-				vueIslands[`islands/${name}`] = resolve(islandsPath, dirEntry.name);
-			}
-		}
-	} catch {
-		// Islands directory doesn't exist, that's fine
-	}
-
-	return vueIslands;
-}
 
 async function runCommand(args: string[], description: string, silent = false): Promise<void> {
 	const process = new Deno.Command('deno', {
@@ -47,14 +30,19 @@ async function runCommand(args: string[], description: string, silent = false): 
 }
 
 async function buildSSRBundles(logger: BuildLogger): Promise<void> {
-	const vueIslands = await discoverVueIslands();
-	const islandCount = Object.keys(vueIslands).length;
-
-	if (islandCount === 0) {
+	// Detect which integrations are used
+	const usedIntegrations = await detectUsedIntegrations();
+	const requiredIntegrations = getRequiredIntegrations(usedIntegrations);
+	
+	if (requiredIntegrations.length === 0) {
+		console.log('ℹ️ No integrations detected, skipping SSR build');
 		return;
 	}
 
+	console.log(`📦 Building SSR bundles for: ${requiredIntegrations.join(', ')}`);
+
 	try {
+		// Use the SSR-specific Vite config
 		await runCommand(
 			[
 				'run',
@@ -62,10 +50,8 @@ async function buildSSRBundles(logger: BuildLogger): Promise<void> {
 				'--unstable-detect-cjs',
 				'npm:vite',
 				'build',
-				'--ssr',
-				'--outDir',
-				'dist/ssr',
-				...Object.values(vueIslands),
+				'--config',
+				'vite.ssr.config.ts',
 			],
 			'SSR build',
 			true
@@ -90,10 +76,27 @@ async function runViteBuild(_logger: BuildLogger): Promise<void> {
 	await runCommand(['run', '--allow-all', '--unstable-detect-cjs', 'npm:vite', 'build'], 'Vite build', true);
 }
 
+async function buildIntegrations(_logger: BuildLogger): Promise<void> {
+	// Detect and log which integrations will be bundled
+	const usedIntegrations = await detectUsedIntegrations();
+	const requiredIntegrations = getRequiredIntegrations(usedIntegrations);
+	
+	if (requiredIntegrations.length > 0) {
+		console.log(`🔧 Detected integrations: ${requiredIntegrations.join(', ')}`);
+	} else {
+		console.log('ℹ️ No framework integrations detected');
+	}
+}
+
 async function buildWithLogger(): Promise<void> {
 	const logger = new BuildLogger();
 
 	const buildSteps: BuildStep[] = [
+		{
+			id: 'integrations',
+			name: 'Detecting integrations',
+			execute: buildIntegrations,
+		},
 		{
 			id: 'manifest',
 			name: 'Generating island manifest',

@@ -28,27 +28,6 @@ export function createFrameworkRoutes(isDev: boolean) {
 			},
 		},
 
-		// SolidJS hydration script (always available) - pre-bundled from Avalon
-		{
-			pattern: new URLPattern({ pathname: '/src/client/solid-hydration.js' }),
-			handler: async (_req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
-				try {
-					// Always serve pre-bundled script with dependencies resolved
-					const bundledScriptPath = new URL('../../../dist-avalon/solid-hydration.js', import.meta.url);
-					const bundledScript = await Deno.readTextFile(bundledScriptPath);
-					return new Response(bundledScript, {
-						headers: {
-							'Content-Type': 'application/javascript; charset=utf-8',
-							'Cache-Control': isDev ? 'no-cache' : 'public, max-age=86400',
-						},
-					});
-				} catch (error) {
-					console.error('Failed to serve Avalon solid-hydration script:', error);
-					return new Response('Solid hydration script not found', { status: 404 });
-				}
-			},
-		},
-
 		// Serve Avalon's pre-built chunks (always available - for hydration scripts dependencies)
 		{
 			pattern: new URLPattern({ pathname: '/src/client/*.js' }),
@@ -58,8 +37,8 @@ export function createFrameworkRoutes(isDev: boolean) {
 					const filename = url.pathname.split('/').pop();
 					if (!filename) throw new Error('Invalid filename');
 
-					// Skip main.js, solid-hydration.js, vue-hydration.js (handled by specific routes above)
-					if (['main.js', 'solid-hydration.js', 'vue-hydration.js'].includes(filename)) {
+					// Skip main.js (handled by specific route above)
+					if (filename === 'main.js') {
 						return new Response('Handled by specific route', { status: 404 });
 					}
 

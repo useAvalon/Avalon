@@ -97,88 +97,17 @@ export async function renderComponentSSROnly({
   console.log(`🔄 Attempting SSR-only rendering for: ${src}`);
 
   try {
-    // Import framework renderers and Island dynamically to avoid circular dependencies
-    const { detectFramework } = await import("./framework-detection.ts");
+    // Import Island component dynamically to avoid circular dependencies
     const { default: Island } = await import("./island.tsx");
-    const { renderVueComponent } = await import("./renderers/vue-renderer.ts");
-    const { renderSvelteComponent } = await import("./renderers/svelte-renderer.ts");
-    const { renderSolidComponent } = await import("./renderers/solid-renderer.ts");
-    const { renderPreactComponent } = await import("./renderers/preact-renderer.ts");
 
-    // Use the existing SSR rendering functions but with ssrOnly flag
-    // This ensures proper handling of props, styles, and framework-specific features
-
-    if (src.endsWith(".vue")) {
-      return await renderVueComponent({
-        src,
-        condition,
-        props,
-        ssr: true,
-        renderOptions,
-        ssrOnly: true,
-      });
-    }
-
-    if (src.endsWith(".svelte")) {
-      return await renderSvelteComponent({
-        src,
-        condition,
-        props,
-        ssr: true,
-        renderOptions,
-        ssrOnly: true,
-      });
-    }
-
-    if (
-      src.endsWith(".tsx") || src.endsWith(".jsx") || src.endsWith(".ts") ||
-      src.endsWith(".js")
-    ) {
-      const framework = await detectFramework(src);
-
-      switch (framework) {
-        case "solid": {
-          return await renderSolidComponent({
-            src,
-            condition,
-            props,
-            ssr: true,
-            renderOptions,
-            ssrOnly: true,
-          });
-        }
-        case "vue": {
-          return await renderVueComponent({
-            src,
-            condition,
-            props,
-            ssr: true,
-            renderOptions,
-            ssrOnly: true,
-          });
-        }
-        case "preact":
-        case "react":
-        default: {
-          return await renderPreactComponent({
-            src,
-            condition,
-            props,
-            ssr: true,
-            renderOptions,
-            ssrOnly: true,
-          });
-        }
-      }
-    }
-
-    // Unknown file type, return empty SSR-only Island
+    // Use the Island component with ssrOnly flag
+    // The Island component will use the integration system for rendering
     return Island({
       src,
       condition,
       props,
       children: undefined,
-      ssr: false,
+      ssr: true,
       ssrOnly: true,
       renderOptions,
     });

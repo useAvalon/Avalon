@@ -1,7 +1,8 @@
 import type { JSX } from 'preact';
 import { render as preactRenderToString } from 'preact-render-to-string';
 import type { RenderOptions } from '../schemas/core.ts';
-import { getSvelteSSRCSSForHead, getSvelteSSRCSSStats } from '../islands/css-utils.ts';
+import { getUniversalCSSForHead } from '../islands/universal-css-collector.ts';
+import { getUniversalHeadForInjection } from '../islands/universal-head-collector.ts';
 import { analyzeComponentContent, type AnalyzerOptions } from '../core/components/component-analyzer.ts';
 import type { EnhancedLayoutResolver } from '../core/layout/enhanced-layout-resolver.ts';
 import type { LayoutContext, PageModule } from '../types/layout.ts';
@@ -20,31 +21,47 @@ export interface RenderStrategy {
 }
 
 /**
- * Automatically injects the client-side hydration script if not already present
+ * Automatically injects the client-side hydration script and CSS if not already present
  */
 function injectClientScript(html: string): string {
-	// Check if the client script is already included
-	if (html.includes('/src/client/main.js') || html.includes('main.js')) {
+	let modifiedHtml = html;
+	
+	// Check if there are any islands that need hydration
+	const hasIslands = html.includes('data-framework=') || html.includes('data-src=');
+
+	if (!hasIslands) {
+		// No islands found, no need to inject anything
 		return html;
 	}
 
-	// Check if there are any islands that need hydration
-	const hasIslands = html.includes('data-hydrate') || html.includes('data-solid-hydrate');
+	// Inject universal CSS into the head if not already present
+	if (!html.includes('data-universal-ssr="true"')) {
+		const universalCSS = getUniversalCSSForHead(true); // Clear after collecting
+		if (universalCSS && html.includes('</head>')) {
+			modifiedHtml = modifiedHtml.replace('</head>', `${universalCSS}\n</head>`);
+		}
+	}
 
-	if (!hasIslands) {
-		// No islands found, no need to inject client script
-		return html;
+	// Inject universal head content (hydration scripts, etc.) into the head
+	const universalHead = getUniversalHeadForInjection(true); // Clear after collecting
+	if (universalHead && html.includes('</head>')) {
+		modifiedHtml = modifiedHtml.replace('</head>', `    ${universalHead}\n</head>`);
+	}
+
+	// Check if the client script is already included
+	if (html.includes('/src/client/main.js') || html.includes('main.js')) {
+		return modifiedHtml;
 	}
 
 	// Inject the client script before the closing </body> tag
 	const clientScript = '<script type="module" src="/src/client/main.js"></script>';
 
-	if (html.includes('</body>')) {
-		return html.replace('</body>', `${clientScript}\n</body>`);
+	if (modifiedHtml.includes('</body>')) {
+		return modifiedHtml.replace('</body>', `${clientScript}\n</body>`);
 	}
 
 	// Fallback: append to the end if no </body> tag found
-	return html + clientScript;
+	return modifiedHtml + clientScript;
 }
 
 export interface ComponentRenderOptions {
@@ -392,23 +409,10 @@ function generateMetaTags(options: Partial<RenderOptions>): string {
 function generateStyleTags(options: Partial<RenderOptions>): string {
 	const styleTags = options.styles?.map(href => `<link rel="stylesheet" href="${href}">`).join('\n    ') || '';
 	
-	// Use enhanced CSS collection system with proper document head injection
-	const svelteSSRCSS = getSvelteSSRCSSForHead(true);
-	const svelteStyleTags = svelteSSRCSS ? `\n    ${svelteSSRCSS}` : '';
+	// Note: CSS from all frameworks (including Svelte) is now handled by the universal CSS collector
+	// which is injected in generateHead() via getUniversalCSSForHead()
 	
-	// Log CSS injection for debugging
-	if (svelteSSRCSS) {
-		const stats = getSvelteSSRCSSStats();
-		console.log(`📝 Injecting Svelte SSR CSS into document head:`, {
-			components: stats.totalComponents,
-			globalComponents: stats.globalComponents,
-			scopedComponents: stats.scopedComponents,
-			totalSize: stats.totalCSSSize,
-			averageSize: stats.averageCSSSize,
-		});
-	}
-	
-	return styleTags + svelteStyleTags;
+	return styleTags;
 }
 
 function generateScriptTags(options: Partial<RenderOptions>): string {
@@ -427,45 +431,11 @@ function generateScriptTags(options: Partial<RenderOptions>): string {
 	);
 }
 
-async function generateSolidHydrationScript(hasSolidComponents: boolean): Promise<string> {
-	// Always check for Solid components in the project, not just the current page
-	if (!hasSolidComponents) {
-		// Check if any Solid components exist in the project
-		try {
-			// Look for Solid components in the islands directory
-			for await (const dirEntry of Deno.readDir('src/islands')) {
-				if (dirEntry.isFile && dirEntry.name.endsWith('.tsx')) {
-					const content = await Deno.readTextFile(`src/islands/${dirEntry.name}`);
-					if (content.includes('solid-js') || content.includes('createSignal')) {
-						hasSolidComponents = true;
-						break;
-					}
-				}
-			}
-		} catch {
-			// Directory doesn't exist or can't be read, continue without Solid
-		}
-	}
-
-	if (!hasSolidComponents) return '';
-
-	try {
-		const solidWeb = await import('solid-js/web');
-		return solidWeb.generateHydrationScript ? `\n    ${solidWeb.generateHydrationScript()}` : '';
-	} catch {
-		console.warn('Solid.js not available, skipping hydration script');
-		return '';
-	}
-}
-
-function generateClientScripts(isDev: boolean, frameworks: FrameworkDetection): string {
+function generateClientScripts(isDev: boolean, _frameworks: FrameworkDetection): string {
 	const baseScript = isDev ? '/src/client/main.js' : '/dist/client.js';
-	const solidScript = frameworks.solid ? (isDev ? '/src/client/solid-hydration.js' : '/dist/solid-hydration.js') : '';
 
 	return `
-    <script type="module" src="${baseScript}"></script>
-    ${solidScript ? `<script type="module" src="${solidScript}"></script>` : ''}
-    ${frameworks.svelte ? '<!-- Svelte components now use self-contained hydration -->' : ''}`;
+    <script type="module" src="${baseScript}"></script>`;
 }
 
 function generateHMRScript(isDev: boolean, viteHmrPort?: number): string {
@@ -479,19 +449,50 @@ function generateHMRScript(isDev: boolean, viteHmrPort?: number): string {
 		: '';
 }
 
-async function generateHead(
+function generateHead(
 	options: Partial<RenderOptions>,
 	frameworks: FrameworkDetection,
 	viteHmrPort?: number
-): Promise<string> {
+): string {
 	const isDev = Deno.env.get('DENO_ENV') !== 'production';
 
 	const metaTags = generateMetaTags(options);
 	const styleTags = generateStyleTags(options);
 	const scriptTags = generateScriptTags(options);
-	const solidHydrationScript = await generateSolidHydrationScript(frameworks.solid);
 	const clientScripts = generateClientScripts(isDev, frameworks);
 	const hmrScript = generateHMRScript(isDev, viteHmrPort);
+	
+	// Collect CSS from all framework integrations
+	console.log(`🎨 [SSR] Collecting universal CSS for head injection...`);
+	const universalCSS = getUniversalCSSForHead(true); // Clear after collecting
+	if (universalCSS) {
+		console.log(`✅ [SSR] Universal CSS collected (${universalCSS.length} chars)`);
+	} else {
+		console.log(`⚠️ [SSR] No universal CSS collected`);
+	}
+	
+	// Collect head content (hydration scripts, etc.) from all framework integrations
+	console.log(`📄 [SSR] Collecting universal head content for injection...`);
+	const universalHead = getUniversalHeadForInjection(true); // Clear after collecting
+	if (universalHead) {
+		console.log(`✅ [SSR] Universal head content collected (${universalHead.length} chars)`);
+	} else {
+		console.log(`⚠️ [SSR] No universal head content collected`);
+	}
+	
+	// Generate importmap for browser to resolve integration packages
+	const importMap = `
+    <script type="importmap">
+    {
+      "imports": {
+        "@avalon/integration-preact/client": "/src/integrations/preact/client/index.ts",
+        "@avalon/integration-vue/client": "/src/integrations/vue/client/index.ts",
+        "@avalon/integration-solid/client": "/src/integrations/solid/client/index.ts",
+        "@avalon/integration-svelte/client": "/src/integrations/svelte/client/index.ts",
+        "@avalon/shared": "/src/integrations/shared/types.ts"
+      }
+    }
+    </script>`;
 
 	return `
     <head>
@@ -499,8 +500,10 @@ async function generateHead(
       <meta name="viewport" content="width=device-width, initial-scale=1">
       ${metaTags}
       <title>${options.title || 'Avalon App'}</title>
-      ${solidHydrationScript}
+      ${importMap}
       ${styleTags}
+      ${universalCSS}
+      ${universalHead}
       ${scriptTags}${clientScripts}${hmrScript}
     </head>`.trim();
 }
@@ -567,7 +570,7 @@ export async function renderToHtml(
 		const options = { ...defaultOptions, ...routeConfig.options };
 
 		// Generate head with framework-specific optimizations
-		const head = await generateHead(options, frameworks, viteHmrPort);
+		const head = generateHead(options, frameworks, viteHmrPort);
 
 		return `<!DOCTYPE html>
 <html lang="en">
@@ -719,7 +722,7 @@ export async function renderToHtmlWithLayouts(
 		const options = { ...defaultOptions, ...routeConfig.options };
 
 		// Generate head with framework-specific optimizations
-		const head = await generateHead(options, frameworks, viteHmrPort);
+		const head = generateHead(options, frameworks, viteHmrPort);
 
 		const finalHtml = `<!DOCTYPE html>
 <html lang="en">

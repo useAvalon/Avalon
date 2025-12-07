@@ -1,6 +1,5 @@
 /** @jsxImportSource preact */
 import { useState } from 'preact/hooks';
-import { hydrate as preactHydrate } from 'preact';
 
 export default function PreactCounter() {
 	const [count, setCount] = useState(0);
@@ -59,7 +58,4 @@ export default function PreactCounter() {
 	);
 }
 
-// Export hydrate function for client-side hydration
-export function hydrate(element: HTMLElement, props: Record<string, any>) {
-	preactHydrate(<PreactCounter {...props} />, element);
-}
+

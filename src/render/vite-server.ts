@@ -17,6 +17,10 @@ export async function setupViteServer(isDev: boolean): Promise<ViteServerSetup> 
 
 	try {
 		const { createServer } = await import('vite');
+		const { resolve, dirname } = await import('@std/path');
+		const cwd = globalThis.Deno?.cwd() || process.cwd();
+		// Allow both current directory and parent directory (for integration files)
+		const parentDir = dirname(cwd);
 		const viteDevServer = await createServer({
 			configFile: 'vite.config.ts',
 			server: {
@@ -33,6 +37,10 @@ export async function setupViteServer(isDev: boolean): Promise<ViteServerSetup> 
 				// Add proper headers for development
 				headers: {
 					'Cache-Control': 'no-cache',
+				},
+				// Allow access to parent directory (where integration files are located)
+				fs: {
+					allow: [cwd, parentDir],
 				},
 			},
 			// Ensure proper base URL for dependency resolution
@@ -55,7 +63,7 @@ export async function setupViteServer(isDev: boolean): Promise<ViteServerSetup> 
 				// Force re-optimization in development for consistency
 				force: true,
 			},
-			root: globalThis.Deno?.cwd() || process.cwd(),
+			root: cwd,
 		});
 
 		await viteDevServer.listen();

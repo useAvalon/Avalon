@@ -1,19 +1,23 @@
 import type { JSX } from "preact";
 import { h } from "preact";
-import { getIslandBundlePath } from "../build/island-manifest.ts";
 import type { ViteDevServer } from "vite";
 import type { AnalyzerOptions } from "../core/components/component-analyzer.ts";
-import { detectFramework, detectFrameworkFromSrc } from "./framework-detection.ts";
+import { detectFramework } from "./framework-detection.ts";
 import { analyzeComponentFile, renderComponentSSROnly } from "./component-analysis.ts";
-import { renderPreactComponent } from "./renderers/preact-renderer.ts";
-import { renderVueComponent } from "./renderers/vue-renderer.ts";
-import { renderSolidComponent } from "./renderers/solid-renderer.ts";
-import { renderSvelteComponent } from "./renderers/svelte-renderer.ts";
+import { loadIntegration, detectFrameworkFromPath } from "./integration-loader.ts";
+import type { Integration } from "@avalon/shared";
+import { addUniversalCSS } from "./universal-css-collector.ts";
+import { addUniversalHead } from "./universal-head-collector.ts";
 
 // Enhanced global CSS collector for SSR with scoping support
 declare global {
   var __viteDevServer: ViteDevServer | undefined;
 }
+
+// Dev-only logging helper
+const isDev = () => Deno.env.get("DENO_ENV") !== "production";
+const devWarn = (...args: unknown[]) => isDev() && console.warn(...args);
+const devError = (...args: unknown[]) => isDev() && console.error(...args);
 
 export interface IslandProps {
   /** Path to the island component (e.g., "/islands/Counter.tsx") */
@@ -37,6 +41,8 @@ export interface IslandProps {
   ssrOnly?: boolean;
   /** Component render options for intelligent detection */
   renderOptions?: AnalyzerOptions;
+  /** Hydration data from integration renderer */
+  hydrationData?: Record<string, unknown>;
 }
 
 /**
@@ -54,6 +60,7 @@ export default function Island({
   framework,
   ssrOnly = false,
   renderOptions = {},
+  hydrationData = {},
 }: IslandProps): JSX.Element {
   // Generate deterministic ID for the island (SSR-safe)
   // Use src path to ensure server and client generate the same ID
@@ -63,10 +70,7 @@ export default function Island({
   const shouldSkipHydration = ssrOnly || renderOptions.forceSSROnly;
 
   // Auto-detect framework if not provided
-  const detectedFramework = framework || detectFrameworkFromSrc(src);
-
-  // Only get bundle path if we need hydration
-  const bundlePath = shouldSkipHydration ? "" : getIslandBundlePath(src);
+  const detectedFramework = framework || detectFrameworkFromPath(src);
 
   // If we have SSR content (children), render it directly in the is-land element
   if (ssr && children) {
@@ -81,10 +85,12 @@ export default function Island({
         "data-render-strategy": "ssr-only",
       }
       : {
-        "data-island": condition,
-        "data-hydrate": bundlePath,
+        "data-condition": condition,
+        "data-src": src,
         "data-props": JSON.stringify(props),
         "data-render-strategy": "hydrate",
+        // Include renderId if present (for Solid.js hydration) - use data-solid-render-id 
+        ...(hydrationData.renderId ? { "data-solid-render-id": hydrationData.renderId as string } : {}),
       };
 
     const allAttributes = { ...baseAttributes, ...hydrationAttributes };
@@ -112,11 +118,13 @@ export default function Island({
 
   return h("is-land", {
     id: islandId,
-    "data-island": condition,
-    "data-hydrate": bundlePath,
+    "data-condition": condition,
+    "data-src": src,
     "data-props": JSON.stringify(props),
     "data-render-strategy": "hydrate",
     "data-framework": detectedFramework,
+    // Include renderId if present (for Solid.js hydration) - use data-solid-render-id 
+    ...(hydrationData.renderId ? { "data-solid-render-id": hydrationData.renderId as string } : {}),
   });
 }
 
@@ -140,111 +148,41 @@ export async function renderIsland({
   ssrOnly = false,
   renderOptions = {},
 }: IslandProps): Promise<JSX.Element> {
-  const startTime = performance.now();
   const logPrefix = `🏝️ [${src}]`;
-
-  console.log(`${logPrefix} renderIsland called with:`, {
-    src,
-    ssr,
-    condition,
-    ssrOnly,
-    hasChildren: !!children,
-    propsKeys: Object.keys(props),
-    renderOptions: Object.keys(renderOptions),
-  });
 
   // Perform intelligent component analysis if not explicitly SSR-only
   let shouldSkipHydration = ssrOnly;
-  let analysisReason = "";
-  let analysisTime = 0;
 
   if (!ssrOnly && renderOptions.detectScripts !== false) {
-    const analysisStart = performance.now();
     try {
-      console.log(`${logPrefix} 🔍 Starting component analysis...`);
-      // Try to analyze the component for intelligent rendering strategy
       const analysisResult = await analyzeComponentFile(src, renderOptions);
       shouldSkipHydration = !analysisResult.decision.shouldHydrate;
-      analysisReason = analysisResult.decision.reason;
-      analysisTime = performance.now() - analysisStart;
-
-      console.log(
-        `${logPrefix} 🔍 Component analysis completed in ${
-          analysisTime.toFixed(2)
-        }ms:`,
-        {
-          decision: shouldSkipHydration ? "SSR-ONLY" : "HYDRATE",
-          reason: analysisReason,
-          hasWarnings: !!analysisResult.decision.warnings?.length,
-        },
-      );
 
       if (
         analysisResult.decision.warnings &&
         analysisResult.decision.warnings.length > 0
       ) {
         analysisResult.decision.warnings.forEach((warning) =>
-          console.warn(`${logPrefix} ⚠️ Analysis warning: ${warning}`)
+          devWarn(`${logPrefix} Analysis warning: ${warning}`)
         );
       }
     } catch (error) {
-      analysisTime = performance.now() - analysisStart;
-      console.warn(
-        `${logPrefix} ⚠️ Component analysis failed after ${
-          analysisTime.toFixed(2)
-        }ms:`,
-        error,
-      );
-      // Continue with original logic on analysis failure
+      devWarn(`${logPrefix} Component analysis failed:`, error);
     }
-  } else {
-    console.log(
-      `${logPrefix} ⏭️ Skipping component analysis (ssrOnly: ${ssrOnly}, detectScripts: ${renderOptions.detectScripts})`,
-    );
   }
 
   // If component is determined to be SSR-only, handle accordingly
   if (shouldSkipHydration) {
-    const ssrOnlyStart = performance.now();
-    console.log(
-      `${logPrefix} 📄 Using SSR-only rendering (reason: ${analysisReason})`,
-    );
-
-    // For SSR-only components, we still want to render them server-side if possible
-    // but without hydration attributes
     if (ssr && !children) {
-      console.log(`${logPrefix} 🔄 Attempting SSR-only component rendering...`);
       try {
-        const result = await renderComponentSSROnly({
+        return await renderComponentSSROnly({
           src,
           condition,
           props,
           renderOptions,
         });
-        const ssrOnlyTime = performance.now() - ssrOnlyStart;
-        const totalTime = performance.now() - startTime;
-        console.log(
-          `${logPrefix} ✅ SSR-only rendering completed in ${
-            ssrOnlyTime.toFixed(2)
-          }ms (total: ${
-            totalTime.toFixed(
-              2,
-            )
-          }ms)`,
-        );
-        return result;
       } catch (error) {
-        const ssrOnlyTime = performance.now() - ssrOnlyStart;
-        console.warn(
-          `${logPrefix} ❌ SSR failed for SSR-only component after ${
-            ssrOnlyTime.toFixed(2)
-          }ms:`,
-          error,
-        );
-        console.log(
-          `${logPrefix} 🔄 Falling back to basic Island without hydration`,
-        );
-        // Fall back to basic Island without hydration
+        devError(`${logPrefix} SSR failed for SSR-only component:`, error);
         return Island({
           src,
           condition,
@@ -256,13 +194,6 @@ export async function renderIsland({
         });
       }
     } else {
-      const totalTime = performance.now() - startTime;
-      console.log(
-        `${logPrefix} 📄 Using basic Island with SSR-only flag (completed in ${
-          totalTime.toFixed(2)
-        }ms)`,
-      );
-      // Use basic Island with SSR-only flag
       return Island({
         src,
         condition,
@@ -277,128 +208,105 @@ export async function renderIsland({
 
   // If SSR is disabled or we already have children, use basic Island
   if (!ssr || children) {
-    const totalTime = performance.now() - startTime;
-    console.log(
-      `${logPrefix} 📄 Using basic Island (SSR disabled: ${!ssr}, has children: ${!!children}) - completed in ${
-        totalTime.toFixed(
-          2,
-        )
-      }ms`,
-    );
     return Island({ src, condition, props, children, ssr, renderOptions });
   }
 
   // Determine framework (explicit or auto-detect)
-  const frameworkDetectionStart = performance.now();
   let detectedFramework = "unknown";
+  let integration: Integration | null = null;
 
   try {
     // Use explicit framework if provided
     if (framework) {
       detectedFramework = framework;
-      const frameworkDetectionTime = performance.now() -
-        frameworkDetectionStart;
-      console.log(
-        `${logPrefix} 🎯 Using explicit framework: ${framework} (${
-          frameworkDetectionTime.toFixed(2)
-        }ms)`,
-      );
     } else {
       // Auto-detect framework based on file extension and content
-      // Vue detection
       if (src.endsWith(".vue")) {
         detectedFramework = "vue";
-        const frameworkDetectionTime = performance.now() -
-          frameworkDetectionStart;
-        console.log(
-          `${logPrefix} 🔍 Detected Vue component (${
-            frameworkDetectionTime.toFixed(2)
-          }ms)`,
-        );
-      } // Svelte detection
-      else if (src.endsWith(".svelte")) {
+      } else if (src.endsWith(".svelte")) {
         detectedFramework = "svelte";
-        const frameworkDetectionTime = performance.now() -
-          frameworkDetectionStart;
-        console.log(
-          `${logPrefix} 🔍 Detected Svelte component (${
-            frameworkDetectionTime.toFixed(2)
-          }ms)`,
-        );
-      } // TypeScript/JavaScript files - need content analysis
-      else if (
+      } else if (
         src.endsWith(".tsx") || src.endsWith(".jsx") || src.endsWith(".ts") ||
         src.endsWith(".js")
       ) {
         detectedFramework = await detectFramework(src);
-        const frameworkDetectionTime = performance.now() -
-          frameworkDetectionStart;
-        console.log(
-          `${logPrefix} 🔍 Detected framework: ${detectedFramework} (${
-            frameworkDetectionTime.toFixed(2)
-          }ms)`,
-        );
       }
     }
 
-    // Render based on determined framework
-    let result: JSX.Element;
-    switch (detectedFramework) {
-      case "vue":
-        result = await renderVueComponent({
-          src,
-          condition,
-          props,
-          ssr,
-          renderOptions,
-        });
-        break;
-      case "svelte":
-        result = await renderSvelteComponent({
-          src,
-          condition,
-          props,
-          ssr,
-          renderOptions,
-        });
-        break;
-      case "solid":
-        result = await renderSolidComponent({
-          src,
-          condition,
-          props,
-          ssr,
-          renderOptions,
-        });
-        break;
-      case "preact":
-      case "react":
-      default:
-        result = await renderPreactComponent({
-          src,
-          condition,
-          props,
-          ssr,
-          renderOptions,
-        });
-        break;
+    // Load the appropriate integration
+    try {
+      integration = await loadIntegration(detectedFramework);
+    } catch (error) {
+      devError(`${logPrefix} Failed to load ${detectedFramework} integration:`, error);
+      throw new Error(
+        `Failed to load integration for framework '${detectedFramework}'. ` +
+        `Make sure @avalon/integration-${detectedFramework} is installed.\n` +
+        `Install it with: deno add @avalon/integration-${detectedFramework}`,
+        { cause: error }
+      );
     }
 
-    const totalTime = performance.now() - startTime;
-    console.log(
-      `${logPrefix} ✅ ${detectedFramework} rendering completed in ${
-        totalTime.toFixed(2)
-      }ms`,
-    );
+    // Render using the integration
+    const viteServer = globalThis.__viteDevServer;
+    const isDevMode = isDev();
+
+    const renderResult = await integration.render({
+      component: null, // Integration will load the component
+      props,
+      src,
+      condition,
+      ssrOnly,
+      viteServer,
+      isDev: isDevMode,
+    });
+
+    // Collect CSS from the integration for later injection
+    if (renderResult.css) {
+      const scopeId = (renderResult as { scopeId?: string }).scopeId;
+      addUniversalCSS(renderResult.css, src, detectedFramework, scopeId);
+    }
+
+    // Create Island with rendered content and hydration data
+    const result = Island({
+      src,
+      condition,
+      props,
+      children: renderResult.html,
+      ssr: true,
+      framework: detectedFramework as "solid" | "vue" | "preact" | "react" | "svelte",
+      ssrOnly,
+      renderOptions,
+      hydrationData: renderResult.hydrationData,
+    });
+
+    // Collect head content (hydration scripts, etc.) from the integration
+    if (renderResult.head) {
+      const headContent = renderResult.head.trim();
+      let contentType: 'script' | 'meta' | 'link' | 'other' = 'other';
+      
+      if (headContent.startsWith('<script')) {
+        contentType = 'script';
+      } else if (headContent.startsWith('<style')) {
+        // Don't add style tags to head collector - they should go through CSS collector
+        devWarn(`${logPrefix} Skipping <style> tag in head content`);
+      } else if (headContent.startsWith('<meta')) {
+        contentType = 'meta';
+      } else if (headContent.startsWith('<link')) {
+        contentType = 'link';
+      } else if (headContent.includes('window._$HY') || headContent.includes('_$HY=')) {
+        // Solid hydration script (raw JavaScript)
+        contentType = 'script';
+      }
+      
+      // Only add non-style content to head collector
+      if (!headContent.startsWith('<style')) {
+        addUniversalHead(renderResult.head, src, detectedFramework, contentType);
+      }
+    }
+
     return result;
   } catch (error) {
-    const totalTime = performance.now() - startTime;
-    console.error(
-      `${logPrefix} ❌ Framework rendering failed after ${
-        totalTime.toFixed(2)
-      }ms:`,
-      error,
-    );
+    devError(`${logPrefix} Framework rendering failed:`, error);
 
     // Fallback to basic Island
     return Island({

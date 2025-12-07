@@ -46,7 +46,7 @@ export default async function IslandsPage() {
 					}}>
 					<h3 style={{ color: '#28a745', marginBottom: '15px' }}>⚡ Interactive Island</h3>
 					{await renderIsland({
-						src: '/islands/PreactCounter.tsx',
+						src: '/src/islands/PreactCounter.tsx',
 						condition: 'on:interaction',
 						framework: 'preact',
 					})}
@@ -79,12 +79,12 @@ export default async function IslandsPage() {
 					<h3 style={{ color: '#17a2b8', marginBottom: '15px' }}>🌊 Multiple Islands</h3>
 					<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '15px' }}>
 						{await renderIsland({
-							src: '/islands/VueCounter.vue',
+							src: '/src/islands/VueCounter.vue',
 							condition: 'on:interaction',
 							framework: 'vue',
 						})}
 						{await renderIsland({
-							src: '/islands/SvelteCounter.svelte',
+							src: '/src/islands/SvelteCounter.svelte',
 							condition: 'on:interaction',
 							framework: 'svelte',
 						})}

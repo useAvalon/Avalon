@@ -3,6 +3,9 @@ import { resolve } from '@std/path';
 import deno from '@deno/vite-plugin';
 import type { UserConfig } from 'vite';
 import { createMDXPlugin } from './src/build/mdx-plugin.ts';
+import { integrationDetectionPlugin, detectUsedIntegrations, getRequiredIntegrations } from './src/build/integration-detection-plugin.ts';
+import { integrationResolverPlugin, createIntegrationAliases } from './src/build/integration-resolver-plugin.ts';
+import { integrationBundlerPlugin, getIntegrationOptimizeDeps } from './src/build/integration-bundler-plugin.ts';
 
 const SUPPORTED_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.vue', '.svelte', '.mdx', '.md'] as const;
 const COMPONENT_DIRECTORIES = ['islands', 'components'] as const;
@@ -211,6 +214,12 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 	const mdxPlugins = await createMDXPlugin({ development: command === 'serve' });
 
 	const isDev = command === 'serve';
+	
+	// Detect which integrations are used for tree-shaking
+	const usedIntegrations = await detectUsedIntegrations();
+	const requiredIntegrations = getRequiredIntegrations(usedIntegrations);
+	
+	console.log(`🔧 Configuring build for integrations: ${requiredIntegrations.join(', ') || 'none'}`);
 
 	return {
 		root: '.',
@@ -220,25 +229,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 		optimizeDeps: {
 			include: [
-				// Preact dependencies
-				'preact',
-				'preact/hooks',
-				'preact/jsx-runtime',
-				'preact/jsx-dev-runtime',
-				// Vue dependencies
-				'vue',
-				// Solid.js dependencies
-				'solid-js',
-				'solid-js/web',
-				'solid-js/store',
-				// Svelte dependencies
-				'svelte',
-				'svelte/internal',
-				'svelte/store',
-				'svelte/animate',
-				'svelte/easing',
-				'svelte/motion',
-				'svelte/transition',
+				// Only include dependencies for used integrations
+				...getIntegrationOptimizeDeps(requiredIntegrations),
 			],
 			exclude: ['@mdx-js/react', '@mdx-js/rollup', '@mdx-js/mdx'],
 			// Force re-optimization in development for consistency
@@ -246,9 +238,17 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		},
 
 		plugins: [
+			// Integration plugins (must come first)
+			integrationDetectionPlugin(),
+			integrationResolverPlugin(),
+			integrationBundlerPlugin({ integrations: requiredIntegrations, ssr: false }),
+			// MDX plugins
 			...mdxPlugins.map(plugin => ({ ...plugin, enforce: 'pre' })),
+			// Deno plugin
 			deno(),
+			// JSX import source plugin
 			createJsxImportSourcePlugin(),
+			// Framework-specific plugins
 			...frameworkPlugins,
 		],
 
@@ -298,6 +298,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			alias: {
 				'@/': resolve('src/'),
 				'~/': resolve('./'),
+				// Integration package aliases
+				...createIntegrationAliases(),
 			},
 		},
 

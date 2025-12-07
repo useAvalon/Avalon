@@ -24,7 +24,7 @@ export default async function FrameworksPage() {
 						⚛️ Preact Counter
 					</h3>
 					{await renderIsland({
-						src: '/islands/PreactCounter.tsx',
+						src: '/src/islands/PreactCounter.tsx',
 						condition: 'on:interaction',
 						framework: 'preact',
 					})}
@@ -43,7 +43,7 @@ export default async function FrameworksPage() {
 						💚 Vue Counter
 					</h3>
 					{await renderIsland({
-						src: '/islands/VueCounter.vue',
+						src: '/src/islands/VueCounter.vue',
 						condition: 'on:interaction',
 						framework: 'vue',
 					})}
@@ -62,7 +62,7 @@ export default async function FrameworksPage() {
 						🔥 Svelte Counter
 					</h3>
 					{await renderIsland({
-						src: '/islands/SvelteCounter.svelte',
+						src: '/src/islands/SvelteCounter.svelte',
 						condition: 'on:interaction',
 						framework: 'svelte',
 					})}
@@ -81,7 +81,7 @@ export default async function FrameworksPage() {
 						💎 Solid Counter
 					</h3>
 					{await renderIsland({
-						src: '/islands/SolidCounter.tsx',
+						src: '/src/islands/SolidCounter.solid.tsx',
 						condition: 'on:interaction',
 						framework: 'solid',
 					})}

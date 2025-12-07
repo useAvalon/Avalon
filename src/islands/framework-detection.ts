@@ -1,5 +1,7 @@
 import type { Framework } from "./types.ts";
 import type { ViteDevServer } from "vite";
+import { registry } from "../core/integrations/registry.ts";
+import type { Integration, IntegrationConfig } from "../integrations/shared/types.ts";
 
 // Global Vite server reference
 declare global {
@@ -7,9 +9,35 @@ declare global {
 }
 
 /**
+ * Get all integration configs for detection
+ * Returns configs from registered integrations
+ */
+export function getIntegrationConfigs(): IntegrationConfig[] {
+  const integrations = registry.getAll();
+  return integrations.map(integration => integration.config());
+}
+
+/**
+ * Get integration config by framework name
+ */
+export function getIntegrationConfig(framework: string): IntegrationConfig | undefined {
+  const integration = registry.get(framework);
+  return integration?.config();
+}
+
+/**
+ * Check if a framework integration is available
+ */
+export function hasFrameworkIntegration(framework: string): boolean {
+  return registry.has(framework);
+}
+
+/**
  * Resolve Island component path for Vite SSR loading
  * Converts /islands/* paths to /src/islands/* for proper resolution
  * Also handles framework-specific naming conventions
+ * 
+ * Updated to work with integration-based loading system
  */
 export function resolveIslandPath(src: string): string {
   let resolvedPath = src;
@@ -30,13 +58,26 @@ export function resolveIslandPath(src: string): string {
     resolvedPath.endsWith(".tsx") && !resolvedPath.includes(".solid.") &&
     !resolvedPath.includes(".preact.")
   ) {
-    // Try to find the actual file with framework-specific naming
+    // Get all registered integrations to check for possible file extensions
+    const integrations = registry.getAll();
+    const possiblePaths: string[] = [];
+    
+    // Build list of possible paths based on integration file extensions
     const basePath = resolvedPath.replace(".tsx", "");
-    const possiblePaths = [
-      `${basePath}.solid.tsx`,
-      `${basePath}.preact.tsx`,
-      resolvedPath, // Original path as fallback
-    ];
+    for (const integration of integrations) {
+      const config = integration.config();
+      for (const ext of config.fileExtensions) {
+        // Handle special naming conventions (e.g., .solid.tsx)
+        if (ext === ".tsx" || ext === ".jsx") {
+          possiblePaths.push(`${basePath}.${config.name}${ext}`);
+        } else {
+          possiblePaths.push(`${basePath}${ext}`);
+        }
+      }
+    }
+    
+    // Add original path as fallback
+    possiblePaths.push(resolvedPath);
 
     // Check which file actually exists (synchronously for performance)
     for (const possiblePath of possiblePaths) {
@@ -64,21 +105,51 @@ export function resolveIslandPath(src: string): string {
 /**
  * Quick framework detection based on file extension and naming conventions
  * Used for setting framework attributes without async file reading
+ * 
+ * Updated to query integration configs for detection patterns
  */
 export function detectFrameworkFromSrc(
   src: string,
 ): "solid" | "vue" | "svelte" | "preact" | "react" {
-  // Check file extension and naming patterns
-  if (src.endsWith(".vue")) {
+  // Normalize path separators
+  const normalizedSrc = src.replace(/\\/g, "/");
+  
+  // Get all registered integrations
+  const integrations = registry.getAll();
+  
+  // First pass: Check for framework-specific naming conventions (e.g., .solid.tsx)
+  // This takes priority over generic extensions
+  for (const integration of integrations) {
+    const config = integration.config();
+    
+    if (normalizedSrc.includes(`.${config.name}.`)) {
+      return config.name as "solid" | "vue" | "svelte" | "preact" | "react";
+    }
+  }
+  
+  // Second pass: Check file extensions for unique extensions (e.g., .vue, .svelte)
+  for (const integration of integrations) {
+    const config = integration.config();
+    
+    // Check if file extension matches
+    for (const ext of config.fileExtensions) {
+      if (normalizedSrc.endsWith(ext)) {
+        return config.name as "solid" | "vue" | "svelte" | "preact" | "react";
+      }
+    }
+  }
+  
+  // Fallback: Check for common patterns if no integrations are loaded yet
+  if (normalizedSrc.endsWith(".vue")) {
     return "vue";
   }
-  if (src.endsWith(".svelte")) {
+  if (normalizedSrc.endsWith(".svelte")) {
     return "svelte";
   }
-  if (src.includes(".solid.") || src.toLowerCase().includes("solid")) {
+  if (normalizedSrc.includes(".solid.") || normalizedSrc.toLowerCase().includes("solid")) {
     return "solid";
   }
-  if (src.includes("react") || src.toLowerCase().includes("react")) {
+  if (normalizedSrc.includes("react") || normalizedSrc.toLowerCase().includes("react")) {
     return "react";
   }
 
@@ -88,6 +159,7 @@ export function detectFrameworkFromSrc(
 
 /**
  * Detect the framework used by a component file
+ * Updated to query integration configs for detection patterns
  */
 export async function detectFramework(
   src: string,
@@ -97,38 +169,36 @@ export async function detectFramework(
 
   console.log(`${logPrefix} Starting framework detection...`);
 
-  // Quick filename-based detection
-  if (
-    src.includes(".solid.") || src.includes("Solid") ||
-    src.toLowerCase().includes("solid")
-  ) {
-    const detectionTime = performance.now() - detectionStart;
-    console.log(
-      `${logPrefix} Framework detected via filename: solid (${
-        detectionTime.toFixed(2)
-      }ms)`,
-    );
-    return "solid";
-  }
+  // Get all registered integrations
+  const integrations = registry.getAll();
 
-  if (src.includes(".vue.") || src.includes("Vue")) {
-    const detectionTime = performance.now() - detectionStart;
-    console.log(
-      `${logPrefix} Framework detected via filename: vue (${
-        detectionTime.toFixed(2)
-      }ms)`,
-    );
-    return "vue";
-  }
-
-  if (src.includes(".svelte") || src.includes("Svelte")) {
-    const detectionTime = performance.now() - detectionStart;
-    console.log(
-      `${logPrefix} Framework detected via filename: svelte (${
-        detectionTime.toFixed(2)
-      }ms)`,
-    );
-    return "svelte";
+  // Quick filename-based detection using integration configs
+  for (const integration of integrations) {
+    const config = integration.config();
+    
+    // Check file extensions
+    for (const ext of config.fileExtensions) {
+      if (src.endsWith(ext)) {
+        const detectionTime = performance.now() - detectionStart;
+        console.log(
+          `${logPrefix} Framework detected via file extension (${ext}): ${config.name} (${
+            detectionTime.toFixed(2)
+          }ms)`,
+        );
+        return config.name as Framework;
+      }
+    }
+    
+    // Check for framework-specific naming conventions
+    if (src.includes(`.${config.name}.`)) {
+      const detectionTime = performance.now() - detectionStart;
+      console.log(
+        `${logPrefix} Framework detected via naming convention: ${config.name} (${
+          detectionTime.toFixed(2)
+        }ms)`,
+      );
+      return config.name as Framework;
+    }
   }
 
   // Try to read file content for more accurate detection
@@ -172,27 +242,61 @@ export async function detectFramework(
       `${logPrefix} File content loaded via ${contentSource} (${fileContent.length} chars)`,
     );
 
-    // Check imports and pragmas
-    const checks = [
-      {
-        pattern: /solid-js|@jsxImportSource solid-js/,
-        framework: "solid" as const,
-      },
-      { pattern: /vue|Vue/, framework: "vue" as const },
-      { pattern: /svelte/, framework: "svelte" as const },
-      { pattern: /react/, framework: "react" as const },
-      { pattern: /preact/, framework: "preact" as const },
-    ];
+    // Check imports and content patterns using integration configs
+    for (const integration of integrations) {
+      const config = integration.config();
+      
+      // Check import patterns
+      for (const pattern of config.detectionPatterns.imports) {
+        if (pattern.test(fileContent)) {
+          const detectionTime = performance.now() - detectionStart;
+          console.log(
+            `${logPrefix} Framework detected via import pattern: ${config.name} (${
+              detectionTime.toFixed(2)
+            }ms)`,
+          );
+          return config.name as Framework;
+        }
+      }
+      
+      // Check content patterns
+      for (const pattern of config.detectionPatterns.content) {
+        if (pattern.test(fileContent)) {
+          const detectionTime = performance.now() - detectionStart;
+          console.log(
+            `${logPrefix} Framework detected via content pattern: ${config.name} (${
+              detectionTime.toFixed(2)
+            }ms)`,
+          );
+          return config.name as Framework;
+        }
+      }
+    }
 
-    for (const check of checks) {
-      if (check.pattern.test(fileContent)) {
-        const detectionTime = performance.now() - detectionStart;
-        console.log(
-          `${logPrefix} Framework detected via content analysis: ${check.framework} (${
-            detectionTime.toFixed(2)
-          }ms)`,
-        );
-        return check.framework;
+    // Fallback: If no integrations are loaded, use hardcoded patterns for backward compatibility
+    if (integrations.length === 0) {
+      console.log(`${logPrefix} No integrations loaded, using fallback detection`);
+      const checks = [
+        {
+          pattern: /solid-js|@jsxImportSource solid-js/,
+          framework: "solid" as const,
+        },
+        { pattern: /vue|Vue/, framework: "vue" as const },
+        { pattern: /svelte/, framework: "svelte" as const },
+        { pattern: /react/, framework: "react" as const },
+        { pattern: /preact/, framework: "preact" as const },
+      ];
+
+      for (const check of checks) {
+        if (check.pattern.test(fileContent)) {
+          const detectionTime = performance.now() - detectionStart;
+          console.log(
+            `${logPrefix} Framework detected via fallback content analysis: ${check.framework} (${
+              detectionTime.toFixed(2)
+            }ms)`,
+          );
+          return check.framework;
+        }
       }
     }
 

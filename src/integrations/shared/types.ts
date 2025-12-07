@@ -1,0 +1,128 @@
+/**
+ * Core types for the Avalon framework integration system.
+ * These types define the contract that all framework integrations must implement.
+ */
+
+import type { ViteDevServer } from "vite";
+
+/**
+ * Hydration condition types that determine when an island should become interactive
+ */
+export type HydrationCondition =
+  | "on:client" // Hydrate immediately on page load
+  | "on:visible" // Hydrate when island enters viewport
+  | "on:interaction" // Hydrate on first user interaction
+  | "on:idle" // Hydrate when browser is idle
+  | `media:${string}`; // Hydrate when media query matches
+
+/**
+ * Parameters passed to the integration's render function
+ */
+export interface RenderParams {
+  /** The component to render (may be null if integration loads it) */
+  component: unknown;
+  /** Props to pass to the component */
+  props: Record<string, unknown>;
+  /** Source path to the component file */
+  src: string;
+  /** Hydration condition for the island */
+  condition?: HydrationCondition;
+  /** If true, component will not hydrate on client */
+  ssrOnly?: boolean;
+  /** Vite dev server instance (available in development) */
+  viteServer?: ViteDevServer;
+  /** Whether running in development mode */
+  isDev?: boolean;
+}
+
+/**
+ * Result returned from the integration's render function
+ */
+export interface RenderResult {
+  /** Rendered HTML string */
+  html: string;
+  /** CSS to inject (for frameworks with scoped styles) */
+  css?: string;
+  /** Additional head content (scripts, meta tags, etc.) */
+  head?: string;
+  /** Data to serialize for client-side hydration */
+  hydrationData?: Record<string, unknown>;
+}
+
+/**
+ * Configuration for a framework integration
+ */
+export interface IntegrationConfig {
+  /** Unique name of the integration (e.g., "preact", "vue") */
+  name: string;
+  /** File extensions this integration handles */
+  fileExtensions: string[];
+  /** JSX import sources for this framework */
+  jsxImportSources?: string[];
+  /** Patterns to detect if a file uses this framework */
+  detectionPatterns: {
+    /** Regex patterns to match import statements */
+    imports: RegExp[];
+    /** Regex patterns to match code content */
+    content: RegExp[];
+  };
+}
+
+/**
+ * Main integration interface that all framework integrations must implement
+ */
+export interface Integration {
+  /** Unique name of the integration */
+  name: string;
+  /** Version of the integration package */
+  version: string;
+
+  /**
+   * Render a component to HTML on the server
+   * @param params - Rendering parameters
+   * @returns Promise resolving to render result
+   */
+  render(params: RenderParams): Promise<RenderResult>;
+
+  /**
+   * Get the hydration script for client-side initialization
+   * @returns JavaScript code as a string
+   */
+  getHydrationScript(): string;
+
+  /**
+   * Get the integration configuration
+   * @returns Integration configuration object
+   */
+  config(): IntegrationConfig;
+
+  /**
+   * Optional: Provide Vite plugins for build-time processing
+   * @returns Vite plugin or array of plugins
+   */
+  vitePlugin?(): any | any[];
+}
+
+/**
+ * Context available during component loading
+ */
+export interface LoadContext {
+  /** Whether running in development mode */
+  isDev: boolean;
+  /** Vite dev server instance (available in development) */
+  viteServer?: ViteDevServer;
+  /** Path to build output directory (production) */
+  buildOutput?: string;
+}
+
+/**
+ * Options for component loading
+ */
+export interface ComponentLoadOptions {
+  /** Source path to the component */
+  src: string;
+  /** Load context */
+  context: LoadContext;
+  /** Whether to load for SSR or client */
+  target?: "ssr" | "client";
+}

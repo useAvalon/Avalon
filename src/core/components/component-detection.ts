@@ -117,7 +117,8 @@ export function detectFramework(filePath: string, content: string): ComponentAna
 export function hasScriptSection(content: string, framework: ComponentAnalysis['framework']): boolean {
 	switch (framework) {
 		case 'vue':
-			return FRAMEWORK_PATTERNS.vue.scriptTags.some(tag => content.includes(tag));
+			// Check for any <script> tag (more flexible than exact string matching)
+			return /<script[^>]*>/i.test(content);
 
 		case 'svelte':
 			// Svelte components have script sections if they contain <script> tags
@@ -420,11 +421,11 @@ export function shouldHydrateComponent(
 
 	// Has script section - check framework-specific hydration requirements
 	if (analysis.hasScript) {
-		// SolidJS components don't need explicit hydrate functions - they use solid-hydration.js
+		// SolidJS components use the integration system for hydration
 		if (analysis.framework === 'solid') {
 			return {
 				shouldHydrate: true,
-				reason: 'SolidJS component detected - uses solid-hydration.js system',
+				reason: 'SolidJS component detected - uses integration system',
 			};
 		}
 
@@ -442,6 +443,15 @@ export function shouldHydrateComponent(
 			return {
 				shouldHydrate: true,
 				reason: 'Svelte component with script section - uses Svelte hydration system',
+			};
+		}
+
+		// Vue components with script sections should be hydrated by default
+		// Vue SFCs use the integration system for hydration
+		if (analysis.framework === 'vue') {
+			return {
+				shouldHydrate: true,
+				reason: 'Vue component with script section - uses Vue integration system',
 			};
 		}
 
