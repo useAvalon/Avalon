@@ -1,7 +1,3 @@
-/**
- * Dev Server Logger - Cool ASCII loader for Avalon dev server
- */
-
 const AVALON_ASCII = `
  █████╗ ██╗   ██╗ █████╗ ██╗      ██████╗ ███╗   ██╗
 ██╔══██╗██║   ██║██╔══██╗██║     ██╔═══██╗████╗  ██║
@@ -39,35 +35,33 @@ export class DevLogger {
   private originalConsoleWarn: typeof console.warn;
   private originalConsoleError: typeof console.error;
   private suppressedLogs: string[] = [];
+  private headerLines = 0;
 
   constructor() {
-    // Capture original console methods
     this.originalConsoleLog = console.log;
     this.originalConsoleWarn = console.warn;
     this.originalConsoleError = console.error;
     
-    // Suppress console output during startup
     this.suppressConsole();
     
     // Clear screen once at start
     const encoder = new TextEncoder();
     Deno.stdout.writeSync(encoder.encode('\x1b[2J\x1b[H'));
     
-    // Print header once
-    let header = COLORS.cyan + AVALON_ASCII + COLORS.reset + '\n';
-    header += COLORS.gray + '  Development Server' + COLORS.reset + '\n\n';
+    const header = COLORS.cyan + AVALON_ASCII + COLORS.reset + '\n' +
+                   COLORS.gray + '  Development Server' + COLORS.reset + '\n\n';
+    this.headerLines = AVALON_ASCII.split('\n').length + 2;
+    
     Deno.stdout.writeSync(encoder.encode(header));
   }
 
   private suppressConsole() {
-    // Redirect console.log to capture but not display
     console.log = (...args: unknown[]) => {
       this.suppressedLogs.push(args.map(a => String(a)).join(' '));
     };
     console.warn = (...args: unknown[]) => {
       this.suppressedLogs.push('[WARN] ' + args.map(a => String(a)).join(' '));
     };
-    // Keep errors visible
     console.error = this.originalConsoleError;
   }
 
@@ -93,47 +87,37 @@ export class DevLogger {
     }
   }
 
-  async completeTask(id: string) {
+  completeTask(id: string) {
     const task = this.tasks.get(id);
     if (task) {
-      // Ensure minimum display time of 300ms for spinner visibility
-      const elapsed = Date.now() - (task.startTime || 0);
-      const minDisplayTime = 300;
-      if (elapsed < minDisplayTime) {
-        await new Promise(resolve => setTimeout(resolve, minDisplayTime - elapsed));
-      }
-      
       task.status = 'done';
       this.render();
     }
   }
 
-  private getStatusIcon(status: DevTask['status']): string {
-    switch (status) {
-      case 'pending':
-        return COLORS.gray + '○' + COLORS.reset;
-      case 'running':
-        return COLORS.cyan + SPINNER_FRAMES[this.currentFrame] + COLORS.reset;
-      case 'done':
-        return COLORS.green + '✓' + COLORS.reset;
-    }
-  }
 
   private render() {
-    // Calculate line number where tasks start (after header)
-    const headerLines = AVALON_ASCII.split('\n').length + 2; // ASCII + "Development Server" + blank line
-    
-    // Move to task list start and update tasks
-    let output = `\x1b[${headerLines + 1};0H`; // Move to first task line
-    
-    // Add tasks
-    for (const [_id, task] of this.tasks) {
-      const icon = this.getStatusIcon(task.status);
-      const line = `${icon} ${task.name}`;
-      output += line + '\x1b[K\n'; // Clear to end of line and move to next
+    let currentTask: DevTask | null = null;
+    for (const task of this.tasks.values()) {
+      if (task.status === 'running') {
+        currentTask = task;
+        break;
+      }
     }
     
-    // Write directly to stdout
+    // Use carriage return to overwrite the same line
+    let output = '\r'; // Return to start of line
+    
+    if (currentTask) {
+      const spinner = COLORS.cyan + SPINNER_FRAMES[this.currentFrame] + COLORS.reset;
+      output += `${spinner} ${currentTask.name}`;
+    } else {
+      output += `${COLORS.gray}Initializing...${COLORS.reset}`;
+    }
+    
+    // Clear to end of line
+    output += '\x1b[K';
+    
     const encoder = new TextEncoder();
     Deno.stdout.writeSync(encoder.encode(output));
   }
@@ -153,11 +137,15 @@ export class DevLogger {
 
   finish(serverUrl: string, viteUrl?: string, hmrUrl?: string) {
     this.stopSpinner();
-    this.render();
+    
+    // Clear the status line
+    const encoder = new TextEncoder();
+    let output = `\x1b[${this.headerLines + 1};0H`;
+    output += '\x1b[J'; // Clear from cursor down
+    Deno.stdout.writeSync(encoder.encode(output));
     
     const elapsed = ((Date.now() - this.startTime) / 1000).toFixed(1);
     
-    // Use original console for final output
     this.originalConsoleLog('');
     this.originalConsoleLog(COLORS.green + COLORS.bold + '✨ Server ready!' + COLORS.reset);
     this.originalConsoleLog('');
@@ -177,7 +165,5 @@ export class DevLogger {
     this.originalConsoleLog(COLORS.gray + '  Press Ctrl+C to stop' + COLORS.reset);
     this.originalConsoleLog('');
     
-    // Keep console suppressed to maintain clean output during runtime
-    // Console will be restored on shutdown
   }
 }
