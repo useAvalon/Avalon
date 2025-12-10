@@ -371,7 +371,7 @@ describe('Layout Error Boundary Manager', () => {
 
 	it('should set and use global error handler', () => {
 		let handlerCalled = false;
-		let handledError: Error | null = null;
+		let handledError: Error | unknown = null;
 
 		manager.setGlobalErrorHandler((error, errorInfo) => {
 			handlerCalled = true;
@@ -393,7 +393,7 @@ describe('Layout Error Boundary Manager', () => {
 		manager.handleError(boundaryId, error, errorInfo);
 
 		assertEquals(handlerCalled, true);
-		assertEquals(handledError?.message, 'Test error');
+		assertEquals((handledError as Error)?.message, 'Test error');
 	});
 });
 

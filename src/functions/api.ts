@@ -15,7 +15,7 @@ import { methodNotAllowed } from '../core/api/api.ts';
  *
  * For serverless/edge deployments, use `registerApiRoutes()` instead.
  */
-export async function discoverApiRoutes(): Promise<ApiRoute[]> {
+export async function discoverApiRoutes() {
 	const apiDir = join(Deno.cwd(), 'src', 'api');
 	const routes: ApiRoute[] = [];
 
@@ -46,7 +46,7 @@ export async function discoverApiRoutes(): Promise<ApiRoute[]> {
 /**
  * Register API routes explicitly (alternative to discovery for static analysis)
  */
-export function registerApiRoutes(routeConfigs: Array<{ path: string; config: ApiRouteConfig }>): ApiRoute[] {
+export function registerApiRoutes(routeConfigs: Array<{ path: string; config: ApiRouteConfig }>) {
 	const routes: ApiRoute[] = [];
 
 	for (const { path, config } of routeConfigs) {
@@ -72,7 +72,7 @@ export function registerApiRoutes(routeConfigs: Array<{ path: string; config: Ap
  * @param outputPath Path to write the generated routes file (default: './src/routes.ts')
  * @returns The generated TypeScript code as a string
  */
-export async function generateStaticRoutes(outputPath = './src/routes.ts'): Promise<string> {
+export async function generateStaticRoutes(outputPath = './src/routes.ts') {
 	const apiDir = join(Deno.cwd(), 'src', 'api');
 	const routes: string[] = [];
 
@@ -108,7 +108,7 @@ export async function generateStaticRoutes(outputPath = './src/routes.ts'): Prom
 	return code;
 }
 
-function generateRouteFile(routes: string[]): string {
+function generateRouteFile(routes: string[]) {
 	const imports = routes.filter(line => line.startsWith('import'));
 	const routeEntries = routes.filter(line => line.startsWith('  {'));
 
@@ -127,7 +127,7 @@ ${routeEntries.join('\n')}
 /**
  * Create an API route from a file path
  */
-async function createApiRoute(filePath: string, apiDir: string): Promise<ApiRoute | null> {
+async function createApiRoute(filePath: string, apiDir: string) {
 	try {
 		// Get relative path from api directory
 		const relativePath = relative(apiDir, filePath);
@@ -163,7 +163,7 @@ async function createApiRoute(filePath: string, apiDir: string): Promise<ApiRout
  * - users/[id]/posts.ts -> /users/:id/posts
  * - [...slug].ts -> /*slug
  */
-function filePathToUrlPath(filePath: string): string {
+function filePathToUrlPath(filePath: string) {
 	// Remove file extension
 	let urlPath = filePath.replace(/\.(ts|tsx|js)$/, '');
 
@@ -196,7 +196,7 @@ function filePathToUrlPath(filePath: string): string {
 /**
  * Create URLPattern and extract parameter names
  */
-function createUrlPattern(urlPath: string): { pattern: URLPattern; paramNames: string[] } {
+function createUrlPattern(urlPath: string) {
 	const paramNames: string[] = [];
 
 	// Extract parameter names from the path
@@ -234,7 +234,7 @@ function createUrlPattern(urlPath: string): { pattern: URLPattern; paramNames: s
 /**
  * Extract parameters from matched URL
  */
-function extractParams(pattern: URLPattern, url: URL, paramNames: string[]): Record<string, string> {
+function extractParams(pattern: URLPattern, url: URL, paramNames: string[]) {
 	const params: Record<string, string> = {};
 
 	const result = pattern.exec(url);
@@ -349,7 +349,7 @@ export async function handleApiRequest(
  * Parse query parameters from URL
  * Handles multiple values for the same parameter
  */
-function parseQueryParameters(url: URL): Record<string, string | string[]> {
+function parseQueryParameters(url: URL) {
 	const query: Record<string, string | string[]> = {};
 
 	for (const [key, value] of url.searchParams.entries()) {

@@ -82,7 +82,7 @@ export class HydrationRouteHandler {
 	/**
 	 * Load module content from file system
 	 */
-	private async loadModuleContent(originalPath: string, resolvedPath: string): Promise<string | null> {
+	private async loadModuleContent(originalPath: string, resolvedPath: string) {
 		// Try multiple possible locations for the module
 		const possiblePaths = [
 			resolvedPath,
@@ -113,7 +113,7 @@ export class HydrationRouteHandler {
 	/**
 	 * Detect framework from file path patterns
 	 */
-	private detectFrameworkFromPath(pathname: string): string | null {
+	private detectFrameworkFromPath(pathname: string) {
 		// Check for framework-specific patterns in the path
 		if (pathname.includes('/solid/') || pathname.includes('solid-')) {
 			return 'solid';
@@ -139,7 +139,7 @@ export class HydrationRouteHandler {
 	/**
 	 * Check if a request is for hydration modules
 	 */
-	static isHydrationRequest(pathname: string): boolean {
+	static isHydrationRequest(pathname: string) {
 		// Check for common hydration patterns
 		return (
 			pathname.includes('/islands/') ||

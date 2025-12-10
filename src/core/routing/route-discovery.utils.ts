@@ -8,7 +8,7 @@ import type { RouteType } from '../../schemas/routing.ts';
 /**
  * Converts a file path to a route path
  */
-export function filePathToRoutePath(filePath: string): string {
+export function filePathToRoutePath(filePath: string) {
 	// Remove file extension (including markdown extensions)
 	let routePath = filePath.replace(/\.(tsx?|jsx?|mdx?)$/, '');
 
@@ -42,7 +42,7 @@ export function filePathToRoutePath(filePath: string): string {
 /**
  * Converts a file path to an API route path with /api prefix
  */
-export function filePathToApiRoutePath(filePath: string): string {
+export function filePathToApiRoutePath(filePath: string) {
 	const routePath = filePathToRoutePath(filePath);
 	return `/api${routePath === '/' ? '' : routePath}`;
 }
@@ -50,7 +50,7 @@ export function filePathToApiRoutePath(filePath: string): string {
 /**
  * Converts dynamic segments in route path to URLPattern format
  */
-export function convertDynamicSegments(routePath: string): string {
+export function convertDynamicSegments(routePath: string) {
 	// Convert [param] to :param
 	routePath = routePath.replace(/\[([^\]]+)\]/g, (_match, param) => {
 		if (param.startsWith('...')) {
@@ -68,7 +68,7 @@ export function convertDynamicSegments(routePath: string): string {
 /**
  * Converts dynamic segments in API route path to URLPattern format with named catch-all groups
  */
-export function convertApiDynamicSegments(routePath: string): string {
+export function convertApiDynamicSegments(routePath: string) {
 	// Convert [param] to :param
 	routePath = routePath.replace(/\[([^\]]+)\]/g, (_match, param) => {
 		if (param.startsWith('...')) {
@@ -87,7 +87,7 @@ export function convertApiDynamicSegments(routePath: string): string {
 /**
  * Determines the type of route based on the file path
  */
-export function determineRouteType(filePath: string): RouteType {
+export function determineRouteType(filePath: string) {
 	const routePath = filePathToRoutePath(filePath);
 
 	// Check for route groups
@@ -117,7 +117,7 @@ export function determineRouteType(filePath: string): RouteType {
 /**
  * Extracts dynamic segments from a file path
  */
-export function extractDynamicSegments(filePath: string): string[] {
+export function extractDynamicSegments(filePath: string) {
 	const segments: string[] = [];
 	const routePath = filePathToRoutePath(filePath);
 
@@ -142,7 +142,7 @@ export function extractDynamicSegments(filePath: string): string[] {
 /**
  * Checks if a file is in a private folder (starts with _)
  */
-export function isPrivateFile(relativePath: string): boolean {
+export function isPrivateFile(relativePath: string) {
 	const pathParts = relativePath.split('/');
 	return pathParts.some(part => part.startsWith('_'));
 }
@@ -150,7 +150,7 @@ export function isPrivateFile(relativePath: string): boolean {
 /**
  * Extracts route group from file path (parentheses notation)
  */
-export function extractRouteGroup(relativePath: string): string | undefined {
+export function extractRouteGroup(relativePath: string) {
 	const match = relativePath.match(/\(([^)]+)\)/);
 	return match ? match[1] : undefined;
 }
@@ -159,7 +159,7 @@ export function extractRouteGroup(relativePath: string): string | undefined {
  * Calculates route priority based on type and specificity
  * Lower numbers = higher priority
  */
-export function calculateRoutePriority(routeType: RouteType, filePath: string): number {
+export function calculateRoutePriority(routeType: RouteType, filePath: string) {
 	let basePriority = 0;
 
 	// Base priority by route type (lower = higher priority)
@@ -216,7 +216,7 @@ export function calculateRoutePriority(routeType: RouteType, filePath: string): 
 /**
  * Calculates API route priority based on specificity
  */
-export function calculateApiRoutePriority(filePath: string): number {
+export function calculateApiRoutePriority(filePath: string) {
 	// API routes use similar logic but with different base priorities
 	const routePath = filePathToApiRoutePath(filePath);
 	const segments = routePath.split('/').filter(s => s.length > 0);
@@ -252,7 +252,7 @@ export function calculateApiRoutePriority(filePath: string): number {
 /**
  * Validates dynamic segment syntax in route paths
  */
-export function validateDynamicSegments(_filePath: string, routePath: string): string[] {
+export function validateDynamicSegments(_filePath: string, routePath: string) {
 	const errors: string[] = [];
 
 	// Check for malformed dynamic segments

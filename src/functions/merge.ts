@@ -3,7 +3,7 @@ import { type RenderOptions, devValidators, type ScriptConfig } from '../schemas
 /**
  * Deduplicates an array of scripts, handling both string URLs and complex script objects
  */
-function deduplicateScripts(scripts: ScriptConfig[]): ScriptConfig[] {
+function deduplicateScripts(scripts: ScriptConfig[]) {
 	const seen = new Set<string>();
 	const result: ScriptConfig[] = [];
 
@@ -75,7 +75,7 @@ export function mergeOptions(
 export function mergePartialOptions(
 	base: Partial<RenderOptions>,
 	override: Partial<RenderOptions>
-): Partial<RenderOptions> {
+) {
 	const result: Partial<RenderOptions> = {
 		...base,
 		...override,

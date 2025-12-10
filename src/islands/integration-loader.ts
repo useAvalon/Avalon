@@ -11,7 +11,7 @@ const frameworkCache = new Map<string, Integration>();
  * Load an integration by framework name
  * Uses cache to avoid repeated dynamic imports
  */
-export async function loadIntegration(framework: string): Promise<Integration> {
+export async function loadIntegration(framework: string) {
   // Check cache first
   if (frameworkCache.has(framework)) {
     return frameworkCache.get(framework)!;
@@ -38,7 +38,7 @@ export async function loadIntegration(framework: string): Promise<Integration> {
 /**
  * Detect framework from file path and load the appropriate integration
  */
-export async function detectAndLoadIntegration(src: string): Promise<Integration> {
+export async function detectAndLoadIntegration(src: string) {
   const framework = detectFrameworkFromPath(src);
   return await loadIntegration(framework);
 }
@@ -46,7 +46,7 @@ export async function detectAndLoadIntegration(src: string): Promise<Integration
 /**
  * Detect framework from file path based on extension and naming conventions
  */
-export function detectFrameworkFromPath(src: string): string {
+export function detectFrameworkFromPath(src: string) {
   // Normalize path separators
   const normalizedSrc = src.replace(/\\/g, "/");
   
@@ -80,7 +80,7 @@ export function detectFrameworkFromPath(src: string): string {
 export function detectFrameworkFromContent(
   src: string,
   content: string
-): string {
+) {
   // First try path-based detection
   const pathFramework = detectFrameworkFromPath(src);
   
@@ -134,7 +134,7 @@ export function detectFrameworkFromContent(
 /**
  * Get integration for a specific framework, with error handling
  */
-export async function getIntegration(framework: string): Promise<Integration | null> {
+export async function getIntegration(framework: string) {
   try {
     return await loadIntegration(framework);
   } catch (error) {
@@ -146,7 +146,7 @@ export async function getIntegration(framework: string): Promise<Integration | n
 /**
  * Check if an integration is available for a framework
  */
-export async function hasIntegration(framework: string): Promise<boolean> {
+export async function hasIntegration(framework: string) {
   try {
     await loadIntegration(framework);
     return true;
@@ -158,14 +158,14 @@ export async function hasIntegration(framework: string): Promise<boolean> {
 /**
  * Get all loaded integrations from cache
  */
-export function getLoadedIntegrations(): Integration[] {
+export function getLoadedIntegrations() {
   return Array.from(frameworkCache.values());
 }
 
 /**
  * Get all loaded framework names from cache
  */
-export function getLoadedFrameworks(): string[] {
+export function getLoadedFrameworks() {
   return Array.from(frameworkCache.keys());
 }
 
@@ -173,14 +173,14 @@ export function getLoadedFrameworks(): string[] {
  * Clear the integration cache
  * Useful for testing or hot module replacement
  */
-export function clearIntegrationCache(): void {
+export function clearIntegrationCache() {
   frameworkCache.clear();
 }
 
 /**
  * Check if an integration is loaded in cache
  */
-export function isIntegrationLoaded(framework: string): boolean {
+export function isIntegrationLoaded(framework: string) {
   return frameworkCache.has(framework);
 }
 
@@ -188,7 +188,7 @@ export function isIntegrationLoaded(framework: string): boolean {
  * Preload integrations for multiple frameworks
  * Useful for warming up the cache during build or startup
  */
-export async function preloadIntegrations(frameworks: string[]): Promise<void> {
+export async function preloadIntegrations(frameworks: string[]) {
   const results = await Promise.allSettled(
     frameworks.map(framework => loadIntegration(framework))
   );

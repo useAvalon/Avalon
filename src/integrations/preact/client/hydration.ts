@@ -51,14 +51,14 @@ export function getHydrationScript(): string {
 /**
  * Check if a container is ready for hydration
  */
-export function isHydrationReady(container: HTMLElement): boolean {
+export function isHydrationReady(container: HTMLElement) {
   return container.hasChildNodes();
 }
 
 /**
  * Clean up hydration artifacts
  */
-export function cleanupHydration(container: HTMLElement): void {
+export function cleanupHydration(container: HTMLElement) {
   // Remove hydration-specific attributes
   container.removeAttribute('data-framework');
   container.removeAttribute('data-src');

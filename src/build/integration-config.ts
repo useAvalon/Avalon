@@ -84,14 +84,14 @@ export const INTEGRATION_BUILD_CONFIGS: Record<string, IntegrationBuildConfig> =
 /**
  * Get build configuration for a specific integration
  */
-export function getIntegrationBuildConfig(framework: string): IntegrationBuildConfig | undefined {
+export function getIntegrationBuildConfig(framework: string) {
 	return INTEGRATION_BUILD_CONFIGS[framework];
 }
 
 /**
  * Get all optimize deps for given integrations
  */
-export function getOptimizeDepsForIntegrations(integrations: string[]): string[] {
+export function getOptimizeDepsForIntegrations(integrations: string[]) {
 	const deps = new Set<string>();
 	
 	for (const integration of integrations) {
@@ -107,7 +107,7 @@ export function getOptimizeDepsForIntegrations(integrations: string[]): string[]
 /**
  * Get SSR noExternal packages for given integrations
  */
-export function getSSRNoExternalForIntegrations(integrations: string[]): string[] {
+export function getSSRNoExternalForIntegrations(integrations: string[]) {
 	const packages = new Set<string>();
 	
 	for (const integration of integrations) {
@@ -123,7 +123,7 @@ export function getSSRNoExternalForIntegrations(integrations: string[]): string[
 /**
  * Check if an integration requires a Vite plugin
  */
-export function integrationRequiresPlugin(framework: string): boolean {
+export function integrationRequiresPlugin(framework: string) {
 	const config = INTEGRATION_BUILD_CONFIGS[framework];
 	return config?.requiresPlugin ?? false;
 }
@@ -131,7 +131,7 @@ export function integrationRequiresPlugin(framework: string): boolean {
 /**
  * Get plugin package name for an integration
  */
-export function getIntegrationPluginPackage(framework: string): string | undefined {
+export function getIntegrationPluginPackage(framework: string) {
 	const config = INTEGRATION_BUILD_CONFIGS[framework];
 	return config?.pluginPackage;
 }

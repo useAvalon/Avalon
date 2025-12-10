@@ -1,8 +1,9 @@
 import type { Plugin } from 'vite';
+import type { Pluggable } from 'unified';
 
 export interface MDXPluginOptions {
-	remarkPlugins?: any[];
-	rehypePlugins?: any[];
+	remarkPlugins?: Pluggable[];
+	rehypePlugins?: Pluggable[];
 	development?: boolean;
 	jsxImportSource?: string;
 }
@@ -22,14 +23,14 @@ export async function createMDXPlugin(options: MDXPluginOptions = {}): Promise<P
 		const { default: remarkMdxFrontmatter } = await import('remark-mdx-frontmatter');
 		const { default: remarkGfm } = await import('remark-gfm');
 
-		// Load rehype plugins for syntax highlighting
-		const rehypePrism = await import('@mapbox/rehype-prism');
+		// Load rehype plugin for syntax highlighting
+		const { default: rehypeHighlight } = await import('rehype-highlight');
 
 		// Configure MDX plugin with frontmatter processing, GFM support, and syntax highlighting
 		const mdxPlugin = mdx({
 			// Plugin chains - frontmatter must come first, then export as named exports
 			remarkPlugins: [remarkFrontmatter, remarkMdxFrontmatter, remarkGfm, ...remarkPlugins],
-			rehypePlugins: [rehypePrism.default, ...rehypePlugins],
+			rehypePlugins: [rehypeHighlight, ...rehypePlugins],
 
 			// JSX configuration for Preact
 			jsxImportSource: jsxImportSource,
@@ -38,7 +39,7 @@ export async function createMDXPlugin(options: MDXPluginOptions = {}): Promise<P
 			development,
 
 			// Ensure proper module format
-			format: 'esm',
+			format: 'mdx',
 		});
 
 		console.log('✅ MDX plugin configured with frontmatter processing, GFM support, and syntax highlighting');

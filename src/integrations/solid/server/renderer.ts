@@ -187,6 +187,6 @@ export async function renderWithErrorBoundary(
  * @param src - Component source path
  * @returns Container ID string
  */
-function generateContainerId(src: string): string {
+function generateContainerId(src: string) {
   return `solid-island-${src.replace(/[^a-zA-Z0-9]/g, "-")}`;
 }

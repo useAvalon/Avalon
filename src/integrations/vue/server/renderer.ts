@@ -132,7 +132,7 @@ export async function render(params: RenderParams): Promise<RenderResult> {
 /**
  * Resolve island path from /islands/ to /src/islands/
  */
-function resolveIslandPath(src: string): string {
+function resolveIslandPath(src: string) {
   // If path starts with /islands/, convert to /src/islands/
   if (src.startsWith("/islands/")) {
     return src.replace("/islands/", "/src/islands/");
@@ -147,7 +147,7 @@ function resolveIslandPath(src: string): string {
   return src;
 }
 
-async function loadComponent(src: string): Promise<unknown> {
+async function loadComponent(src: string) {
   const isDev = Deno.env.get("DENO_ENV") !== "production";
   
   // deno-lint-ignore no-explicit-any
@@ -175,7 +175,7 @@ async function loadComponent(src: string): Promise<unknown> {
  * @param component - Vue component
  * @returns Component metadata object
  */
-export function getComponentMetadata(component: unknown): Record<string, unknown> {
+export function getComponentMetadata(component: unknown) {
   if (typeof component === "object" && component !== null) {
     return {
       name: (component as { name?: string }).name || "Anonymous",

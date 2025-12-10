@@ -36,7 +36,7 @@ class DependencyTracker {
 	/**
 	 * Add a dependency between a cache key and file path
 	 */
-	addDependency(cacheKey: string, filePath: string): void {
+	addDependency(cacheKey: string, filePath: string) {
 		// Normalize file path
 		const normalizedPath = resolve(filePath);
 
@@ -56,7 +56,7 @@ class DependencyTracker {
 	/**
 	 * Get all cache keys that depend on a file
 	 */
-	getDependentKeys(filePath: string): string[] {
+	getDependentKeys(filePath: string) {
 		const normalizedPath = resolve(filePath);
 		return Array.from(this.fileDependencies.get(normalizedPath) || []);
 	}
@@ -64,14 +64,14 @@ class DependencyTracker {
 	/**
 	 * Get all files that a cache key depends on
 	 */
-	getKeyDependencies(cacheKey: string): string[] {
+	getKeyDependencies(cacheKey: string) {
 		return Array.from(this.keyDependencies.get(cacheKey) || []);
 	}
 
 	/**
 	 * Remove all dependencies for a cache key
 	 */
-	removeDependencies(cacheKey: string): void {
+	removeDependencies(cacheKey: string) {
 		const files = this.getKeyDependencies(cacheKey);
 
 		// Remove from file -> keys mapping
@@ -92,7 +92,7 @@ class DependencyTracker {
 	/**
 	 * Clear all dependencies
 	 */
-	clear(): void {
+	clear() {
 		this.fileDependencies.clear();
 		this.keyDependencies.clear();
 	}
@@ -154,7 +154,7 @@ export class CacheManager {
 	/**
 	 * Set an item in cache with dependencies
 	 */
-	set<T>(key: string, data: T, options: CacheSetOptions = {}): void {
+	set<T>(key: string, data: T, options: CacheSetOptions = {}) {
 		const ttl = options.ttl || this.config.defaultTTL;
 		const dependencies = options.dependencies || [];
 		const size = this.estimateSize(data);
@@ -185,7 +185,7 @@ export class CacheManager {
 	/**
 	 * Delete an item from cache
 	 */
-	delete(key: string): boolean {
+	delete(key: string) {
 		const entry = this.cache.get(key);
 		if (!entry) {
 			return false;
@@ -201,7 +201,7 @@ export class CacheManager {
 	/**
 	 * Invalidate cache entries based on file changes
 	 */
-	invalidateByFile(filePath: string): string[] {
+	invalidateByFile(filePath: string) {
 		const dependentKeys = this.dependencyTracker.getDependentKeys(filePath);
 
 		for (const key of dependentKeys) {
@@ -214,7 +214,7 @@ export class CacheManager {
 	/**
 	 * Clear all cache entries
 	 */
-	clear(): void {
+	clear() {
 		this.cache.clear();
 		this.dependencyTracker.clear();
 		this.stats = {
@@ -249,7 +249,7 @@ export class CacheManager {
 	/**
 	 * Ensure cache capacity by evicting entries if necessary
 	 */
-	private ensureCapacity(newEntrySize: number): void {
+	private ensureCapacity(newEntrySize: number) {
 		// Check memory usage
 		const currentMemoryUsage = this.getCurrentMemoryUsage();
 		const wouldExceedMemory = currentMemoryUsage + newEntrySize > this.config.maxMemoryUsage;
@@ -265,7 +265,7 @@ export class CacheManager {
 	/**
 	 * Evict cache entries using LRU or other strategies
 	 */
-	private evictEntries(requiredSpace: number): void {
+	private evictEntries(requiredSpace: number) {
 		const entries = Array.from(this.cache.entries());
 
 		if (this.config.enableLRU) {
@@ -294,14 +294,14 @@ export class CacheManager {
 	/**
 	 * Get current memory usage
 	 */
-	private getCurrentMemoryUsage(): number {
+	private getCurrentMemoryUsage() {
 		return Array.from(this.cache.values()).reduce((sum, entry) => sum + entry.size, 0);
 	}
 
 	/**
 	 * Estimate the memory size of data
 	 */
-	private estimateSize(data: unknown): number {
+	private estimateSize(data: unknown) {
 		try {
 			// Simple estimation based on JSON serialization
 			const jsonString = JSON.stringify(data);
@@ -315,7 +315,7 @@ export class CacheManager {
 	/**
 	 * Cleanup expired entries
 	 */
-	cleanup(): number {
+	cleanup() {
 		const now = Date.now();
 		let cleanedCount = 0;
 
@@ -332,14 +332,14 @@ export class CacheManager {
 	/**
 	 * Get cache keys matching a pattern
 	 */
-	getKeysMatching(pattern: RegExp): string[] {
+	getKeysMatching(pattern: RegExp) {
 		return Array.from(this.cache.keys()).filter(key => pattern.test(key));
 	}
 
 	/**
 	 * Warm up cache with commonly accessed data
 	 */
-	warmup(entries: CacheWarmupEntry[]): void {
+	warmup(entries: CacheWarmupEntry[]) {
 		for (const entry of entries) {
 			this.set(entry.key, entry.data, { dependencies: entry.dependencies });
 		}
@@ -361,7 +361,7 @@ export class RouteCache extends CacheManager {
 	/**
 	 * Cache discovered routes with file dependencies
 	 */
-	setRoutes(key: string, routes: FileSystemRoute[], pageFiles: PageFile[]): void {
+	setRoutes(key: string, routes: FileSystemRoute[], pageFiles: PageFile[]) {
 		const dependencies = pageFiles.map(f => f.filePath);
 		this.set(key, routes, { dependencies });
 	}
@@ -369,7 +369,7 @@ export class RouteCache extends CacheManager {
 	/**
 	 * Cache discovered API routes with file dependencies
 	 */
-	setApiRoutes(key: string, routes: FileSystemApiRoute[], apiFiles: PageFile[]): void {
+	setApiRoutes(key: string, routes: FileSystemApiRoute[], apiFiles: PageFile[]) {
 		const dependencies = apiFiles.map(f => f.filePath);
 		this.set(key, routes, { dependencies });
 	}
@@ -404,7 +404,7 @@ export class MetadataCache extends CacheManager {
 	/**
 	 * Cache resolved metadata with file dependencies
 	 */
-	setMetadata(routePath: string, params: RouteParams, metadata: ResolvedMetadata, dependencies: string[]): void {
+	setMetadata(routePath: string, params: RouteParams, metadata: ResolvedMetadata, dependencies: string[]) {
 		const key = this.createMetadataKey(routePath, params);
 		this.set(key, metadata, { dependencies });
 	}
@@ -420,7 +420,7 @@ export class MetadataCache extends CacheManager {
 	/**
 	 * Create a cache key for metadata
 	 */
-	private createMetadataKey(routePath: string, params: RouteParams): string {
+	private createMetadataKey(routePath: string, params: RouteParams) {
 		const paramString = Object.keys(params).length > 0 ? JSON.stringify(params) : '';
 		return `metadata:${routePath}:${paramString}`;
 	}
@@ -451,7 +451,7 @@ export class CachePerformanceMonitor {
 	/**
 	 * Record a performance metric
 	 */
-	private recordMetric(operation: string, time: number): void {
+	private recordMetric(operation: string, time: number) {
 		const existing = this.metrics.get(operation);
 
 		if (existing) {
@@ -487,7 +487,7 @@ export class CachePerformanceMonitor {
 	/**
 	 * Clear all metrics
 	 */
-	clearMetrics(): void {
+	clearMetrics() {
 		this.metrics.clear();
 	}
 

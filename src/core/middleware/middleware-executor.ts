@@ -113,7 +113,7 @@ export class MiddlewareExecutor {
 		middlewareChain: MiddlewareHandler[],
 		context: MiddlewareContext,
 		onProgress: (executed: number) => void
-	): Promise<{ response?: Response; earlyTermination: boolean }> {
+	) {
 		if (middlewareChain.length === 0) {
 			return { earlyTermination: false };
 		}
@@ -175,7 +175,7 @@ export class MiddlewareExecutor {
 		middleware: MiddlewareHandler,
 		context: MiddlewareContext,
 		next: () => Promise<MiddlewareResponse>
-	): Promise<MiddlewareResponse> {
+	) {
 		// Ensure middleware is a function
 		if (typeof middleware !== 'function') {
 			throw new MiddlewareError('Middleware must be a function', MiddlewareErrorType.VALIDATION_ERROR);
@@ -227,7 +227,7 @@ export class MiddlewareExecutor {
 	/**
 	 * Update configuration
 	 */
-	updateConfig(config: Partial<MiddlewareConfig>): void {
+	updateConfig(config: Partial<MiddlewareConfig>) {
 		this.config = { ...this.config, ...config };
 		if (config.errorHandler) {
 			this.errorHandler = config.errorHandler;
@@ -237,7 +237,7 @@ export class MiddlewareExecutor {
 	/**
 	 * Get current configuration
 	 */
-	getConfig(): MiddlewareConfig {
+	getConfig() {
 		return { ...this.config };
 	}
 }

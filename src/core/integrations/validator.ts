@@ -19,7 +19,7 @@ export function validateIntegration(integration: unknown): ValidationResult {
   // Check if integration is an object
   if (!integration || typeof integration !== "object") {
     errors.push("Integration must be an object");
-    return { valid: false, errors, warnings };
+    return { valid: false, errors, warnings } satisfies ValidationResult;
   }
 
   const int = integration as Partial<Integration>;
@@ -69,7 +69,7 @@ export function validateIntegration(integration: unknown): ValidationResult {
     valid: errors.length === 0,
     errors,
     warnings,
-  };
+  } satisfies ValidationResult;
 }
 
 /**
@@ -81,7 +81,7 @@ export function validateIntegrationConfig(config: unknown): ValidationResult {
 
   if (!config || typeof config !== "object") {
     errors.push("Integration config must be an object");
-    return { valid: false, errors, warnings };
+    return { valid: false, errors, warnings } satisfies ValidationResult;
   }
 
   const cfg = config as Partial<IntegrationConfig>;
@@ -150,7 +150,7 @@ export function validateIntegrationConfig(config: unknown): ValidationResult {
     valid: errors.length === 0,
     errors,
     warnings,
-  };
+  } satisfies ValidationResult;
 }
 
 /**
@@ -158,7 +158,7 @@ export function validateIntegrationConfig(config: unknown): ValidationResult {
  */
 export function validateIntegrations(
   integrations: unknown[]
-): { valid: boolean; results: Map<string, ValidationResult> } {
+) {
   const results = new Map<string, ValidationResult>();
   let allValid = true;
 
@@ -181,7 +181,7 @@ export function validateIntegrations(
     }
   });
 
-  return { valid: allValid, results };
+  return { valid: allValid, results } satisfies { valid: boolean; results: Map<string, ValidationResult> };
 }
 
 /**
@@ -203,7 +203,7 @@ export function assertValidIntegration(integration: unknown): asserts integratio
 /**
  * Format validation result as a human-readable string
  */
-export function formatValidationResult(result: ValidationResult): string {
+export function formatValidationResult(result: ValidationResult) {
   const lines: string[] = [];
   
   if (result.valid) {

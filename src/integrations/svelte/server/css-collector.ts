@@ -32,7 +32,7 @@ export interface CssCollectionResult {
  */
 export function extractCss(renderResult: {
   css?: { code: string; map?: string };
-}): CssCollectionResult | null {
+}) {
   if (!renderResult.css) {
     return null;
   }
@@ -49,7 +49,7 @@ export function extractCss(renderResult: {
  * @param cssResults - Array of CSS collection results
  * @returns Combined CSS code
  */
-export function combineCss(cssResults: (CssCollectionResult | null)[]): string {
+export function combineCss(cssResults: (CssCollectionResult | null)[]) {
   return cssResults
     .filter((result): result is CssCollectionResult => result !== null)
     .map((result) => result.code)
@@ -62,7 +62,7 @@ export function combineCss(cssResults: (CssCollectionResult | null)[]): string {
  * @param src - Component source path
  * @returns Scoped CSS identifier
  */
-export function generateScopeId(src: string): string {
+export function generateScopeId(src: string) {
   // Create a simple hash from the source path
   const hash = src
     .replace(/[^a-zA-Z0-9]/g, "")
@@ -79,7 +79,7 @@ export function generateScopeId(src: string): string {
  * @param scopeId - Scope identifier
  * @returns Scoped CSS
  */
-export function scopeCss(css: string, scopeId: string): string {
+export function scopeCss(css: string, scopeId: string) {
   if (!css) return "";
   
   // Add scope attribute to all selectors
@@ -100,7 +100,7 @@ export function scopeCss(css: string, scopeId: string): string {
  * @param css - CSS code to minify
  * @returns Minified CSS
  */
-export function minifyCss(css: string): string {
+export function minifyCss(css: string) {
   return css
     // Remove comments
     .replace(/\/\*[\s\S]*?\*\//g, "")
@@ -126,7 +126,7 @@ export function processCssForProduction(
     minify?: boolean;
     scopeId?: string;
   } = {}
-): string {
+) {
   let processed = css;
   
   // Apply scoping if requested

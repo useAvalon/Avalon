@@ -12,7 +12,7 @@ import type { SolidComponent } from "../types.ts";
  * @param src - Component source path
  * @returns Loaded Solid component
  */
-export async function loadComponent(src: string): Promise<SolidComponent> {
+export async function loadComponent(src: string) {
   const isDev = Deno.env.get("DENO_ENV") !== "production";
   
   if (isDev) {
@@ -28,7 +28,7 @@ export async function loadComponent(src: string): Promise<SolidComponent> {
  * @param src - Component source path
  * @returns Loaded component
  */
-async function loadComponentDev(src: string): Promise<SolidComponent> {
+async function loadComponentDev(src: string) {
   const viteServer = (globalThis as { __viteDevServer?: { ssrLoadModule: (path: string) => Promise<Record<string, unknown>> } }).__viteDevServer;
   
   if (viteServer) {
@@ -49,7 +49,7 @@ async function loadComponentDev(src: string): Promise<SolidComponent> {
  * @param src - Component source path
  * @returns Loaded component
  */
-async function loadComponentProd(src: string): Promise<SolidComponent> {
+async function loadComponentProd(src: string) {
   const ssrPath = src
     .replace("/islands/", "/dist/ssr/islands/")
     .replace(/\.(tsx|jsx|ts|js)$/, ".js");
@@ -65,7 +65,7 @@ async function loadComponentProd(src: string): Promise<SolidComponent> {
  * @param src - Component source path
  * @returns Loaded component
  */
-async function loadComponentDirect(src: string): Promise<SolidComponent> {
+async function loadComponentDirect(src: string) {
   const resolvedPath = resolveIslandPath(src);
   const filePath = resolvedPath.startsWith("/") ? `.${resolvedPath}` : `./${resolvedPath}`;
   
@@ -89,7 +89,7 @@ async function loadComponentDirect(src: string): Promise<SolidComponent> {
  * @param src - Component source path (for error messages)
  * @returns Extracted component
  */
-function extractComponent(module: Record<string, unknown>, src: string): SolidComponent {
+function extractComponent(module: Record<string, unknown>, src: string) {
   const component = module.default || module;
   
   if (!component || typeof component !== "function") {
@@ -108,7 +108,7 @@ function extractComponent(module: Record<string, unknown>, src: string): SolidCo
  * @param src - Original source path
  * @returns Resolved absolute path
  */
-export function resolveIslandPath(src: string): string {
+export function resolveIslandPath(src: string) {
   // If path starts with /islands/, convert to /src/islands/
   if (src.startsWith("/islands/")) {
     return src.replace("/islands/", "/src/islands/");
@@ -139,7 +139,7 @@ export function resolveIslandPath(src: string): string {
  * @param value - Value to check
  * @returns True if value is a Solid component
  */
-export function isSolidComponent(value: unknown): value is SolidComponent {
+export function isSolidComponent(value: unknown) {
   return typeof value === "function";
 }
 
@@ -150,7 +150,7 @@ export function isSolidComponent(value: unknown): value is SolidComponent {
  * @param props - Raw props object
  * @returns Normalized props
  */
-export function normalizeProps(props: unknown): Record<string, unknown> {
+export function normalizeProps(props: unknown) {
   if (!props || typeof props !== "object") {
     return {};
   }

@@ -121,7 +121,7 @@ export class MiddlewareDiscovery {
 	 * Recursively scans directory for middleware files
 	 * Requirements: 1.1, 2.2, 3.2
 	 */
-	private async scanDirectory(dirPath: string, relativePath: string, routes: MiddlewareRoute[]): Promise<void> {
+	private async scanDirectory(dirPath: string, relativePath: string, routes: MiddlewareRoute[]) {
 		try {
 			if (!existsSync(dirPath)) {
 				return;
@@ -158,7 +158,7 @@ export class MiddlewareDiscovery {
 	 * Creates a middleware route configuration from a file path
 	 * Requirements: 1.1, 2.2, 3.2
 	 */
-	private createMiddlewareRoute(filePath: string, relativePath: string): MiddlewareRoute | null {
+	private createMiddlewareRoute(filePath: string, relativePath: string) {
 		try {
 			const pathParts = relativePath.split('/').filter(Boolean);
 
@@ -210,7 +210,7 @@ export class MiddlewareDiscovery {
 	 * Loads middleware handler from file
 	 * Requirements: 5.3
 	 */
-	private async loadMiddleware(filePath: string): Promise<MiddlewareHandler | null> {
+	private async loadMiddleware(filePath: string) {
 		try {
 			// Check cache first
 			if (this.middlewareCache.has(filePath)) {
@@ -242,7 +242,7 @@ export class MiddlewareDiscovery {
 	 * Enables watch mode for hot reloading in development
 	 * Requirements: 5.4
 	 */
-	private enableWatchMode(): void {
+	private enableWatchMode() {
 		this.watchMode = true;
 		this.startFileWatcher();
 	}
@@ -251,7 +251,7 @@ export class MiddlewareDiscovery {
 	 * Starts file watcher for middleware files
 	 * Requirements: 5.4
 	 */
-	private startFileWatcher(): void {
+	private startFileWatcher() {
 		if (!this.developmentMode) {
 			return;
 		}
@@ -293,7 +293,7 @@ export class MiddlewareDiscovery {
 	 * Processes file watch events
 	 * Requirements: 5.4
 	 */
-	private async processFileWatchEvents(): Promise<void> {
+	private async processFileWatchEvents() {
 		if (!this.fileWatcher || !this.watcherAbortController) {
 			return;
 		}
@@ -324,7 +324,7 @@ export class MiddlewareDiscovery {
 	 * Handles individual file watch events
 	 * Requirements: 5.4
 	 */
-	private async handleFileWatchEvent(kind: string, path: string): Promise<void> {
+	private async handleFileWatchEvent(kind: string, path: string) {
 		// Only process middleware files
 		if (!path.endsWith(this.filePattern)) {
 			return;
@@ -380,7 +380,7 @@ export class MiddlewareDiscovery {
 	 * Reloads middleware when files change
 	 * Requirements: 5.4
 	 */
-	private async reloadMiddleware(filePath: string, eventType: 'add' | 'change' | 'unlink'): Promise<void> {
+	private async reloadMiddleware(filePath: string, eventType: 'add' | 'change' | 'unlink') {
 		try {
 			// Clear cache for the specific middleware file
 			this.clearMiddlewareCache(filePath);
@@ -419,7 +419,7 @@ export class MiddlewareDiscovery {
 	 * Clears all caches (useful for hot reloading)
 	 * Requirements: 5.3
 	 */
-	clearCache(): void {
+	clearCache() {
 		this.middlewareCache.clear();
 		this.routeCache.clear();
 	}
@@ -428,7 +428,7 @@ export class MiddlewareDiscovery {
 	 * Clears cache for a specific middleware file
 	 * Requirements: 5.3
 	 */
-	clearMiddlewareCache(filePath: string): void {
+	clearMiddlewareCache(filePath: string) {
 		this.middlewareCache.delete(filePath);
 		// Also clear route cache since it might be affected
 		this.routeCache.clear();
@@ -437,14 +437,14 @@ export class MiddlewareDiscovery {
 	/**
 	 * Gets all cached middleware routes (for debugging)
 	 */
-	getCachedRoutes(): MiddlewareRoute[] {
+	getCachedRoutes() {
 		return Array.from(this.routeCache.values()).flat();
 	}
 
 	/**
 	 * Gets middleware cache statistics (for debugging)
 	 */
-	getCacheStats(): { middlewareCount: number; routeCacheCount: number } {
+	getCacheStats() {
 		return {
 			middlewareCount: this.middlewareCache.size,
 			routeCacheCount: this.routeCache.size,
@@ -455,7 +455,7 @@ export class MiddlewareDiscovery {
 	 * Sets a callback to be called when middleware files change
 	 * Requirements: 5.4
 	 */
-	setWatcherCallback(callback: MiddlewareWatcherCallback): void {
+	setWatcherCallback(callback: MiddlewareWatcherCallback) {
 		this.watcherCallback = callback;
 	}
 
@@ -463,7 +463,7 @@ export class MiddlewareDiscovery {
 	 * Removes the watcher callback
 	 * Requirements: 5.4
 	 */
-	removeWatcherCallback(): void {
+	removeWatcherCallback() {
 		this.watcherCallback = undefined;
 	}
 
@@ -471,7 +471,7 @@ export class MiddlewareDiscovery {
 	 * Stops the file watcher
 	 * Requirements: 5.4
 	 */
-	stopWatcher(): void {
+	stopWatcher() {
 		if (this.watcherAbortController) {
 			this.watcherAbortController.abort();
 			this.watcherAbortController = undefined;
@@ -487,7 +487,7 @@ export class MiddlewareDiscovery {
 	 * Restarts the file watcher
 	 * Requirements: 5.4
 	 */
-	async restartWatcher(): Promise<void> {
+	async restartWatcher() {
 		this.stopWatcher();
 		if (this.watchMode) {
 			await this.startFileWatcher();
@@ -498,7 +498,7 @@ export class MiddlewareDiscovery {
 	 * Gets the current watch mode status
 	 * Requirements: 5.4
 	 */
-	isWatchModeEnabled(): boolean {
+	isWatchModeEnabled() {
 		return this.watchMode;
 	}
 
@@ -506,7 +506,7 @@ export class MiddlewareDiscovery {
 	 * Gets the current file watcher status
 	 * Requirements: 5.4
 	 */
-	isWatcherActive(): boolean {
+	isWatcherActive() {
 		return (
 			this.fileWatcher !== undefined &&
 			this.watcherAbortController !== undefined &&

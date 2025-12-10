@@ -10,7 +10,7 @@ declare global {
   } | undefined;
 }
 
-function resolveIslandPath(src: string): string {
+function resolveIslandPath(src: string) {
   if (src.startsWith("/islands/")) {
     return src.replace("/islands/", "/src/islands/");
   }
@@ -20,7 +20,7 @@ function resolveIslandPath(src: string): string {
   return src;
 }
 
-async function loadComponent(src: string): Promise<unknown> {
+async function loadComponent(src: string) {
   const isDev = Deno.env.get("DENO_ENV") !== "production";
   
   if (isDev && globalThis.__viteDevServer) {
@@ -34,7 +34,7 @@ async function loadComponent(src: string): Promise<unknown> {
   return module.default || module;
 }
 
-async function extractCSS(src: string, scopeId: string): Promise<string | undefined> {
+async function extractCSS(src: string, scopeId: string) {
   try {
     const resolved = resolveIslandPath(src);
     const filePath = resolved.startsWith('/') ? resolved.slice(1) : resolved;

@@ -357,7 +357,7 @@ export class PageLoader {
 	 * @param module - Validated page module
 	 * @returns Layout configuration or null if not present
 	 */
-	extractLayoutConfig(module: RoutePageModule): LayoutConfig | null {
+	extractLayoutConfig(module: RoutePageModule) {
 		if (!module.layoutConfig) {
 			return null;
 		}
@@ -379,7 +379,7 @@ export class PageLoader {
 	 * @param filePath - File path to check
 	 * @returns True if the file is a valid page file
 	 */
-	isValidPageFile(filePath: string): boolean {
+	isValidPageFile(filePath: string) {
 		// Check file extension first
 		const ext = extname(filePath);
 		if (!this.extensions.includes(ext)) {
@@ -410,7 +410,7 @@ export class PageLoader {
 	/**
 	 * Clear the module cache (useful for development/testing)
 	 */
-	clearCache(): void {
+	clearCache() {
 		this.moduleCache.clear();
 	}
 
@@ -418,7 +418,7 @@ export class PageLoader {
 	 * Get cache statistics
 	 * @returns Object with cache information
 	 */
-	getCacheStats(): { size: number; keys: string[] } {
+	getCacheStats() {
 		return {
 			size: this.moduleCache.size,
 			keys: Array.from(this.moduleCache.keys()),
@@ -430,7 +430,7 @@ export class PageLoader {
 	 * @param filePath - Path to the page file to preload
 	 * @returns Promise that resolves when the module is loaded and cached
 	 */
-	async preloadPageModule(filePath: string): Promise<void> {
+	async preloadPageModule(filePath: string) {
 		try {
 			await this.loadPageModule(filePath);
 		} catch (error) {
@@ -606,7 +606,7 @@ export function isValidPageModule(obj: unknown): obj is RoutePageModule {
  * @param module - Page module
  * @returns Component name or 'Anonymous' if not available
  */
-export function getPageComponentName(module: RoutePageModule): string {
+export function getPageComponentName(module: RoutePageModule) {
 	const component = module.default;
 	return component.displayName || component.name || 'Anonymous';
 }

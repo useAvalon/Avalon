@@ -20,6 +20,3 @@ const server = await createServer({
 		},
 	},
 });
-
-// Server is already listening - no need to call listen()
-// The dev logger will show the server ready message

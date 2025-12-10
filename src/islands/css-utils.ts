@@ -59,7 +59,7 @@ export function addSvelteSSRCSS(
  * Get collected Svelte SSR CSS with enhanced processing and deduplication
  * Enhanced version with better CSS management and document head injection support
  */
-export function getSvelteSSRCSS(clear = false): string {
+export function getSvelteSSRCSS(clear = false) {
   if (!globalThis.__svelteSSRCSS || globalThis.__svelteSSRCSS.size === 0) {
     return "";
   }
@@ -111,7 +111,7 @@ export function getSvelteSSRCSS(clear = false): string {
  * Get CSS formatted for document head injection during SSR
  * Returns CSS wrapped in appropriate style tags with metadata
  */
-export function getSvelteSSRCSSForHead(clear = false): string {
+export function getSvelteSSRCSSForHead(clear = false) {
   const css = getSvelteSSRCSS(clear);
 
   if (!css.trim()) {
@@ -132,15 +132,7 @@ export function getSvelteSSRCSSForHead(clear = false): string {
 /**
  * Get CSS statistics for debugging and monitoring
  */
-export function getSvelteSSRCSSStats(): {
-  totalComponents: number;
-  globalComponents: number;
-  scopedComponents: number;
-  totalCSSSize: number;
-  averageCSSSize: number;
-  oldestTimestamp: number;
-  newestTimestamp: number;
-} {
+export function getSvelteSSRCSSStats() {
   if (!globalThis.__svelteSSRCSS || globalThis.__svelteSSRCSS.size === 0) {
     return {
       totalComponents: 0,
@@ -178,7 +170,7 @@ export function getSvelteSSRCSSStats(): {
 /**
  * Get CSS for specific component scope
  */
-export function getSvelteComponentCSS(scopeId: string): string | null {
+export function getSvelteComponentCSS(scopeId: string) {
   if (!globalThis.__svelteSSRCSS) {
     return null;
   }
@@ -190,7 +182,7 @@ export function getSvelteComponentCSS(scopeId: string): string | null {
 /**
  * Clear CSS for specific component scope
  */
-export function clearSvelteComponentCSS(scopeId: string): boolean {
+export function clearSvelteComponentCSS(scopeId: string) {
   if (!globalThis.__svelteSSRCSS) {
     return false;
   }
@@ -206,7 +198,7 @@ export function clearSvelteComponentCSS(scopeId: string): boolean {
  * Optimize collected Svelte SSR CSS by removing duplicates and minifying
  * Enhanced version with better deduplication and cross-component optimization
  */
-function optimizeSvelteSSRCSS(css: string): string {
+function optimizeSvelteSSRCSS(css: string) {
   try {
     // Use the enhanced CSS optimization functions
     const optimizedCSS = optimizeComponentCSS(css);
@@ -230,7 +222,7 @@ function optimizeSvelteSSRCSS(css: string): string {
 /**
  * Apply SSR-specific CSS optimizations across multiple components
  */
-function optimizeSSRCSSCollection(css: string): string {
+function optimizeSSRCSSCollection(css: string) {
   try {
     // Remove duplicate comments
     const withoutDuplicateComments = removeDuplicateComments(css);
@@ -255,7 +247,7 @@ function optimizeSSRCSSCollection(css: string): string {
 /**
  * Remove duplicate CSS comments while preserving important ones
  */
-function removeDuplicateComments(css: string): string {
+function removeDuplicateComments(css: string) {
   const seenComments = new Set<string>();
 
   return css.replace(/\/\*[^*]*\*+(?:[^/*][^*]*\*+)*\//g, (comment) => {
@@ -280,7 +272,7 @@ function removeDuplicateComments(css: string): string {
 /**
  * Optimize CSS patterns that appear across multiple components
  */
-function optimizeCrossComponentCSS(css: string): string {
+function optimizeCrossComponentCSS(css: string) {
   // This could be extended to merge similar rules across components
   // For now, just clean up whitespace and formatting
   return css
@@ -292,7 +284,7 @@ function optimizeCrossComponentCSS(css: string): string {
 /**
  * Format CSS for development with proper indentation and spacing
  */
-function formatDevelopmentCSS(css: string): string {
+function formatDevelopmentCSS(css: string) {
   return css
     .replace(/\{/g, " {\n  ")
     .replace(/;/g, ";\n  ")
@@ -306,7 +298,7 @@ function formatDevelopmentCSS(css: string): string {
  * Apply CSS scoping to selectors with advanced logic
  * Enhanced version with better selector parsing and scoping rules
  */
-export function applyCSSScoping(cssContent: string, scopeId: string): string {
+export function applyCSSScoping(cssContent: string, scopeId: string) {
   return cssContent.replace(/([^{}]+){/g, (match, selector) => {
     const trimmedSelector = selector.trim();
 
@@ -342,7 +334,7 @@ export function applyCSSScoping(cssContent: string, scopeId: string): string {
 /**
  * Apply scoping to a single CSS selector with comprehensive logic
  */
-export function applySelectorScoping(selector: string, scopeId: string): string {
+export function applySelectorScoping(selector: string, scopeId: string) {
   // Handle empty or invalid selectors
   if (!selector || selector.length === 0) {
     return selector;
@@ -371,7 +363,7 @@ export function applySelectorScoping(selector: string, scopeId: string): string 
 /**
  * Apply scoping to a single, simple CSS selector
  */
-function applySingleSelectorScoping(selector: string, scopeId: string): string {
+function applySingleSelectorScoping(selector: string, scopeId: string) {
   // Handle pseudo-elements (::before, ::after)
   const pseudoElementMatch = selector.match(/^([^:]+)(::.*)?$/);
   if (pseudoElementMatch) {
@@ -394,7 +386,7 @@ function applySingleSelectorScoping(selector: string, scopeId: string): string {
  * Optimize component CSS by removing duplicates and applying minification
  * Enhanced version with better deduplication and optimization strategies
  */
-export function optimizeComponentCSS(css: string): string {
+export function optimizeComponentCSS(css: string) {
   try {
     // Parse CSS into rules with better handling
     const rules = parseCSRules(css);
@@ -419,7 +411,7 @@ export function optimizeComponentCSS(css: string): string {
 /**
  * Parse CSS into individual rules with proper handling of nested structures
  */
-function parseCSRules(css: string): string[] {
+function parseCSRules(css: string) {
   const rules: string[] = [];
   let currentRule = "";
   let braceDepth = 0;
@@ -474,7 +466,7 @@ function parseCSRules(css: string): string[] {
 /**
  * Deduplicate CSS rules while preserving order and handling specificity
  */
-function deduplicateCSRules(rules: string[]): string[] {
+function deduplicateCSRules(rules: string[]) {
   const seenRules = new Map<string, { rule: string; index: number }>();
   const result: string[] = [];
 
@@ -506,7 +498,7 @@ function deduplicateCSRules(rules: string[]): string[] {
 /**
  * Extract a key for rule deduplication (selector + property combination)
  */
-function extractRuleKey(rule: string): string | null {
+function extractRuleKey(rule: string) {
   const match = rule.match(/^([^{]+)\{([^}]+)\}/);
   if (!match) return null;
 
@@ -521,7 +513,7 @@ function extractRuleKey(rule: string): string | null {
 /**
  * Check if a CSS rule is effectively empty
  */
-function isEmptyRule(rule: string): boolean {
+function isEmptyRule(rule: string) {
   const match = rule.match(/^[^{]+\{([^}]*)\}/);
   if (!match) return true;
 
@@ -532,7 +524,7 @@ function isEmptyRule(rule: string): boolean {
 /**
  * Minify CSS for production builds
  */
-export function minifyCSS(css: string): string {
+export function minifyCSS(css: string) {
   return css
     // Remove comments
     .replace(/\/\*[\s\S]*?\*\//g, "")
@@ -556,7 +548,7 @@ export function minifyCSS(css: string): string {
 export function generateComponentScopeId(
   src: string,
   framework: string = "component",
-): string {
+) {
   const cleanPath = src
     .replace(/^\/+/, "") // Remove leading slashes
     .replace(/\.(svelte|tsx|jsx|vue|ts|js)$/, "") // Remove file extensions
@@ -574,7 +566,7 @@ export function generateComponentScopeId(
 /**
  * Simple hash function for generating consistent short hashes
  */
-export function simpleHash(str: string): string {
+export function simpleHash(str: string) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);

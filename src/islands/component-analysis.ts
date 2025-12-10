@@ -93,7 +93,7 @@ export async function renderComponentSSROnly({
   condition: IslandProps["condition"];
   props: Record<string, unknown>;
   renderOptions: AnalyzerOptions;
-}): Promise<JSX.Element> {
+}) {
   console.log(`🔄 Attempting SSR-only rendering for: ${src}`);
 
   try {

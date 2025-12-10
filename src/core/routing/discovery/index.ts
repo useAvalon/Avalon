@@ -39,6 +39,7 @@ export class RouteDiscovery {
 			excludeDirectories: ['node_modules', '.git'],
 			enableWatching: false,
 			developmentMode: false,
+			quietMode: false,
 		};
 		this.options = { ...defaultOptions, ...options };
 

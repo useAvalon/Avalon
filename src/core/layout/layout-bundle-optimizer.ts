@@ -478,8 +478,8 @@ export class LayoutBundleOptimizer {
 				totalSize: 0,
 				bundleCount: 0,
 				averageBundleSize: 0,
-				largestBundle: { id: '', size: 0 },
-				smallestBundle: { id: '', size: 0 },
+				largestBundle: { path: '', size: 0 },
+				smallestBundle: { path: '', size: 0 },
 				duplicatedCode: [],
 				optimizationOpportunities: ['No bundles found - layouts may not be properly configured'],
 			};

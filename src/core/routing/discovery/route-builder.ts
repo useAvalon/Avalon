@@ -196,14 +196,14 @@ export class RouteBuilder {
 	/**
 	 * Extracts supported HTTP methods from an API module
 	 */
-	private async extractApiMethods(filePath: string): Promise<string[]> {
+	private async extractApiMethods(filePath: string): Promise<('GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS')[]> {
 		try {
 			const absolutePath = resolve(filePath);
 			const fileUrl = `file://${absolutePath}`;
 			const apiModule = (await import(fileUrl)) as FileSystemApiModule;
 
-			const supportedMethods: string[] = [];
-			const httpMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'];
+			const supportedMethods: ('GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS')[] = [];
+			const httpMethods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'] as const;
 
 			for (const method of httpMethods) {
 				if (typeof apiModule[method as keyof FileSystemApiModule] === 'function') {

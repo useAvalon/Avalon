@@ -218,7 +218,7 @@ describe('SSR Isolation Integration', () => {
 				// If we get here, the error was handled gracefully
 			} catch (error) {
 				// Error should be properly wrapped
-				assertStringIncludes(error.message, 'Failed to render component');
+				assertStringIncludes((error as Error).message, 'Failed to render component');
 			}
 		});
 

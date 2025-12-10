@@ -1,8 +1,6 @@
 import type { Framework } from "./types.ts";
 import type { ViteDevServer } from "vite";
 import { registry } from "../core/integrations/registry.ts";
-import type { IntegrationConfig } from "../integrations/shared/types.ts";
-
 // Global Vite server reference
 declare global {
   var __viteDevServer: ViteDevServer | undefined;
@@ -12,7 +10,7 @@ declare global {
  * Get all integration configs for detection
  * Returns configs from registered integrations
  */
-export function getIntegrationConfigs(): IntegrationConfig[] {
+export function getIntegrationConfigs() {
   const integrations = registry.getAll();
   return integrations.map(integration => integration.config());
 }
@@ -20,7 +18,7 @@ export function getIntegrationConfigs(): IntegrationConfig[] {
 /**
  * Get integration config by framework name
  */
-export function getIntegrationConfig(framework: string): IntegrationConfig | undefined {
+export function getIntegrationConfig(framework: string) {
   const integration = registry.get(framework);
   return integration?.config();
 }
@@ -28,7 +26,7 @@ export function getIntegrationConfig(framework: string): IntegrationConfig | und
 /**
  * Check if a framework integration is available
  */
-export function hasFrameworkIntegration(framework: string): boolean {
+export function hasFrameworkIntegration(framework: string) {
   return registry.has(framework);
 }
 

@@ -88,7 +88,7 @@ Deno.test('Module Resolution Integration - Error scenarios', async t => {
 			resolver.resolveModule('/test.tsx', 'react');
 		} catch (error) {
 			errorThrown = true;
-			assertStringIncludes(error.message, 'Unknown framework: react');
+			assertStringIncludes((error as Error).message, 'Unknown framework: react');
 		}
 
 		assertEquals(errorThrown, true);

@@ -35,7 +35,7 @@ export async function detectAndLoadIntegration(src: string): Promise<Integration
 /**
  * Detect framework from file path based on extension and naming conventions
  */
-export function detectFrameworkFromPath(src: string): string {
+export function detectFrameworkFromPath(src: string) {
   // Vue files
   if (src.endsWith(".vue")) {
     return "vue";
@@ -61,7 +61,7 @@ export function detectFrameworkFromPath(src: string): string {
 export function detectFrameworkFromContent(
   src: string,
   content?: string
-): string {
+) {
   // First try path-based detection
   const pathFramework = detectFrameworkFromPath(src);
   
@@ -87,7 +87,7 @@ export function detectFrameworkFromContent(
  * Preload integrations for the given frameworks
  * Useful for warming up the cache during build or startup
  */
-export async function preloadIntegrations(frameworks: string[]): Promise<void> {
+export async function preloadIntegrations(frameworks: string[]) {
   await Promise.all(
     frameworks.map(framework => loadIntegration(framework))
   );
@@ -96,7 +96,7 @@ export async function preloadIntegrations(frameworks: string[]): Promise<void> {
 /**
  * Get all currently loaded integrations
  */
-export function getLoadedIntegrations(): Integration[] {
+export function getLoadedIntegrations() {
   return Array.from(integrationCache.values());
 }
 
@@ -104,13 +104,13 @@ export function getLoadedIntegrations(): Integration[] {
  * Clear the integration cache
  * Useful for testing or hot module replacement
  */
-export function clearIntegrationCache(): void {
+export function clearIntegrationCache() {
   integrationCache.clear();
 }
 
 /**
  * Check if an integration is loaded in cache
  */
-export function isIntegrationLoaded(framework: string): boolean {
+export function isIntegrationLoaded(framework: string) {
   return integrationCache.has(framework);
 }

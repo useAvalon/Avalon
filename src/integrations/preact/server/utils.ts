@@ -9,7 +9,7 @@ declare global {
 /**
  * Resolve island path from /islands/ to /src/islands/
  */
-function resolveIslandPath(src: string): string {
+function resolveIslandPath(src: string) {
   // If path starts with /islands/, convert to /src/islands/
   if (src.startsWith("/islands/")) {
     return src.replace("/islands/", "/src/islands/");
@@ -28,7 +28,7 @@ function resolveIslandPath(src: string): string {
  * Load a Preact component from a file path
  * Handles both development (via Vite) and production (from build output)
  */
-export async function loadComponent(src: string): Promise<PreactComponent> {
+export async function loadComponent(src: string) {
   const isDev = Deno.env.get("DENO_ENV") !== "production";
   
   if (isDev && globalThis.__viteDevServer) {
@@ -48,7 +48,7 @@ export async function loadComponent(src: string): Promise<PreactComponent> {
  * Extract the component from a module
  * Handles default exports and named exports
  */
-function extractComponent(module: PreactComponentModule, src: string): PreactComponent {
+function extractComponent(module: PreactComponentModule, src: string) {
   if (module.default) {
     return module.default;
   }
@@ -68,7 +68,7 @@ function extractComponent(module: PreactComponentModule, src: string): PreactCom
 /**
  * Resolve the SSR path for a component in production
  */
-function resolveSsrPath(src: string): string {
+function resolveSsrPath(src: string) {
   return src
     .replace("/islands/", "/dist/ssr/islands/")
     .replace(/\.(tsx|jsx)$/, ".js");
@@ -77,14 +77,14 @@ function resolveSsrPath(src: string): string {
 /**
  * Check if a file is a Preact component based on its extension
  */
-export function isPreactComponent(path: string): boolean {
+export function isPreactComponent(path: string) {
   return /\.(tsx|jsx)$/.test(path);
 }
 
 /**
  * Normalize component props for rendering
  */
-export function normalizeProps(props: Record<string, unknown>): Record<string, unknown> {
+export function normalizeProps(props: Record<string, unknown>) {
   // Clone props to avoid mutations
   const normalized = { ...props };
   

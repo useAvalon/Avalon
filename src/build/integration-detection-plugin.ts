@@ -64,7 +64,7 @@ export function integrationDetectionPlugin(): Plugin {
 /**
  * Detect which framework integrations are actually used in the project
  */
-export async function detectUsedIntegrations(): Promise<IntegrationDetectionResult> {
+export async function detectUsedIntegrations() {
 	const result: IntegrationDetectionResult = {
 		preact: false,
 		vue: false,
@@ -110,7 +110,7 @@ export async function detectUsedIntegrations(): Promise<IntegrationDetectionResu
 /**
  * Get list of integration packages that should be included in the build
  */
-export function getRequiredIntegrations(detected: IntegrationDetectionResult): string[] {
+export function getRequiredIntegrations(detected: IntegrationDetectionResult) {
 	const integrations: string[] = [];
 	
 	if (detected.preact) integrations.push('preact');

@@ -290,7 +290,7 @@ export class RouteHandlerBuilder {
 		generateMetadata?: (params: RouteParams) => Promise<ResolvedMetadata>,
 		params: RouteParams = {},
 		_filePath?: string
-	): Promise<ResolvedMetadata> {
+	) {
 		try {
 			// All files (including MDX) use standard metadata resolution
 
@@ -308,7 +308,7 @@ export class RouteHandlerBuilder {
 	/**
 	 * Extracts route parameters from a URL pathname using the route pattern
 	 */
-	private extractRouteParams(route: FileSystemRoute, pathname: string): RouteParams {
+	private extractRouteParams(route: FileSystemRoute, pathname: string) {
 		const params: RouteParams = {};
 
 		try {
@@ -332,7 +332,7 @@ export class RouteHandlerBuilder {
 	/**
 	 * Extracts route parameters from a URL pathname using the API route pattern
 	 */
-	private extractApiRouteParams(apiRoute: FileSystemApiRoute, pathname: string): RouteParams {
+	private extractApiRouteParams(apiRoute: FileSystemApiRoute, pathname: string) {
 		const params: RouteParams = {};
 
 		try {

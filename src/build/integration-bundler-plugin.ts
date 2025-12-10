@@ -73,7 +73,7 @@ export function integrationBundlerPlugin(options: IntegrationBundlerOptions): Pl
  * Get external dependencies for integration bundling
  * These should not be bundled but loaded from node_modules
  */
-export function getIntegrationExternals(framework: string, ssr: boolean): string[] {
+export function getIntegrationExternals(framework: string, ssr: boolean) {
 	const externals: string[] = [];
 
 	// Framework-specific externals
@@ -113,13 +113,13 @@ export function getIntegrationExternals(framework: string, ssr: boolean): string
 /**
  * Configure optimization for integration dependencies
  */
-export function getIntegrationOptimizeDeps(integrations: string[]): string[] {
+export function getIntegrationOptimizeDeps(integrations: string[]) {
 	return getOptimizeDepsForIntegrations(integrations);
 }
 
 /**
  * Get SSR noExternal packages for integrations
  */
-export function getIntegrationSSRNoExternal(integrations: string[]): string[] {
+export function getIntegrationSSRNoExternal(integrations: string[]) {
 	return getSSRNoExternalForIntegrations(integrations);
 }

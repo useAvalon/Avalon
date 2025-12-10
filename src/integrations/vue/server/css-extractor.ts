@@ -20,7 +20,7 @@ import type { CSSExtractionOptions, StyleBlock } from "../types.ts";
 export async function extractCSS(
   src: string,
   options: CSSExtractionOptions = {},
-): Promise<string> {
+) {
   // Try different path variations to find the Vue file
   const pathVariations = [
     // Standard framework paths
@@ -83,7 +83,7 @@ export async function extractCSS(
  * @param scopeId - Scope identifier (e.g., "data-v-abc123")
  * @returns Scoped CSS string
  */
-export function applyScopedCSS(css: string, scopeId: string): string {
+export function applyScopedCSS(css: string, scopeId: string) {
   return css.replace(/([^{}]+){/g, (match, selector) => {
     const trimmedSelector = selector.trim();
     
@@ -111,7 +111,7 @@ export function applyScopedCSS(css: string, scopeId: string): string {
  * @param vueContent - Vue SFC file content
  * @returns Array of style blocks with metadata
  */
-function extractStyleBlocks(vueContent: string): StyleBlock[] {
+function extractStyleBlocks(vueContent: string) {
   const styleRegex = /<style([^>]*)>([\s\S]*?)<\/style>/gi;
   const blocks: StyleBlock[] = [];
   let match;
@@ -140,7 +140,7 @@ function extractStyleBlocks(vueContent: string): StyleBlock[] {
  * @param src - Component source path
  * @returns Scope ID string
  */
-export function generateScopeId(src: string): string {
+export function generateScopeId(src: string) {
   // Remove special characters and convert to lowercase for consistency
   const hash = src.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
   return `data-v-${hash}`;
@@ -156,7 +156,7 @@ export function generateScopeId(src: string): string {
  * @param scopeId - Scope identifier
  * @returns HTML with scope attributes
  */
-export function applyScopeToHTML(html: string, scopeId: string): string {
+export function applyScopeToHTML(html: string, scopeId: string) {
   return html.replace(/<([a-zA-Z][^>]*?)>/g, (match, tagContent) => {
     // Skip closing tags
     if (tagContent.startsWith("/")) {

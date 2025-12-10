@@ -28,7 +28,7 @@ export function hydrate(
   container: HTMLElement,
   Component: SvelteComponent,
   props: Record<string, unknown>
-): SvelteComponentInstance {
+) {
   // Detect if element has existing SSR content or is empty
   const hasSSRContent = detectSSRContent(container);
 
@@ -94,7 +94,7 @@ export function hydrate(
  * @param element - DOM element to check
  * @returns True if element has SSR content
  */
-function detectSSRContent(element: HTMLElement): boolean {
+function detectSSRContent(element: HTMLElement) {
   // Check if element has any meaningful content
   const hasTextContent = element.textContent && element.textContent.trim().length > 0;
   const hasChildElements = element.children && element.children.length > 0;
@@ -151,7 +151,7 @@ export function mount(
   container: HTMLElement,
   Component: SvelteComponent,
   props: Record<string, unknown>
-): SvelteComponentInstance {
+) {
   // deno-lint-ignore no-explicit-any
   const instance = svelteMount(Component as any, {
     target: container,

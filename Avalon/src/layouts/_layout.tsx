@@ -11,6 +11,10 @@ export default function RootLayout({ children, frontmatter }: LayoutProps) {
 				<title>{pageTitle}</title>
 				{frontmatter?.description && <meta name="description" content={frontmatter.description} />}
 				<link rel="stylesheet" href="/syntax-highlighting.css" />
+				<link
+					rel="stylesheet"
+					href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+				/>
 				<style>{`
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { 

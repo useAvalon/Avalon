@@ -11,7 +11,7 @@ export class IntegrationRegistry {
   /**
    * Register an integration instance
    */
-  register(integration: Integration): void {
+  register(integration: Integration) {
     if (!integration.name) {
       throw new Error("Integration must have a name");
     }
@@ -28,7 +28,7 @@ export class IntegrationRegistry {
   /**
    * Check if an integration is registered
    */
-  has(name: string): boolean {
+  has(name: string) {
     return this.integrations.has(name);
   }
 
@@ -65,7 +65,7 @@ export class IntegrationRegistry {
   /**
    * Internal method to load integration module
    */
-  private async loadIntegration(name: string): Promise<Integration> {
+  private async loadIntegration(name: string) {
     try {
       // Try to import the integration module
       const module = await import(`../../integrations/${name}/mod.ts`);
@@ -94,28 +94,28 @@ export class IntegrationRegistry {
   /**
    * Get all registered integrations
    */
-  getAll(): Integration[] {
+  getAll() {
     return Array.from(this.integrations.values());
   }
 
   /**
    * Get all registered integration names
    */
-  getAllNames(): string[] {
+  getAllNames() {
     return Array.from(this.integrations.keys());
   }
 
   /**
    * Unregister an integration
    */
-  unregister(name: string): boolean {
+  unregister(name: string) {
     return this.integrations.delete(name);
   }
 
   /**
    * Clear all registered integrations
    */
-  clear(): void {
+  clear() {
     this.integrations.clear();
     this.loadingPromises.clear();
   }
