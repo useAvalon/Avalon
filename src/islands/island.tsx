@@ -5,10 +5,10 @@ import type { AnalyzerOptions } from "../core/components/component-analyzer.ts";
 import { detectFramework } from "./framework-detection.ts";
 import { analyzeComponentFile, renderComponentSSROnly } from "./component-analysis.ts";
 import { loadIntegration, detectFrameworkFromPath } from "./integration-loader.ts";
-import type { Integration } from "@avalon/shared";
 import { addUniversalCSS } from "./universal-css-collector.ts";
 import { addUniversalHead } from "./universal-head-collector.ts";
 import { getIslandBundlePath } from "../build/island-manifest.ts";
+import type { Integration } from "../integrations/shared/types.ts";
 
 // Enhanced global CSS collector for SSR with scoping support
 declare global {
