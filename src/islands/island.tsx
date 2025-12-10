@@ -8,6 +8,7 @@ import { loadIntegration, detectFrameworkFromPath } from "./integration-loader.t
 import type { Integration } from "@avalon/shared";
 import { addUniversalCSS } from "./universal-css-collector.ts";
 import { addUniversalHead } from "./universal-head-collector.ts";
+import { getIslandBundlePath } from "../build/island-manifest.ts";
 
 // Enhanced global CSS collector for SSR with scoping support
 declare global {
@@ -86,7 +87,7 @@ export default function Island({
       }
       : {
         "data-condition": condition,
-        "data-src": src,
+        "data-src": getIslandBundlePath(src),
         "data-props": JSON.stringify(props),
         "data-render-strategy": "hydrate",
         // Include renderId if present (for Solid.js hydration) - use data-solid-render-id 
@@ -119,7 +120,7 @@ export default function Island({
   return h("is-land", {
     id: islandId,
     "data-condition": condition,
-    "data-src": src,
+    "data-src": getIslandBundlePath(src),
     "data-props": JSON.stringify(props),
     "data-render-strategy": "hydrate",
     "data-framework": detectedFramework,

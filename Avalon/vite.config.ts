@@ -203,8 +203,11 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				'$islands/': resolve('src/islands/'),
 				'$pages/': resolve('src/pages/'),
 				'$api/': resolve('src/api/'),
-				// Resolve integration files from parent directory
-				'/src/integrations/': resolve('../src/integrations/'),
+				// Resolve integration client files from parent directory
+				'/@avalon/preact/client': resolve('../src/integrations/preact/client/hydration.ts'),
+				'/@avalon/vue/client': resolve('../src/integrations/vue/client/hydration.ts'),
+				'/@avalon/svelte/client': resolve('../src/integrations/svelte/client/hydration.ts'),
+				'/@avalon/solid/client': resolve('../src/integrations/solid/client/hydration.ts'),
 			},
 		},
 

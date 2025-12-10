@@ -27,6 +27,13 @@ export function createViteRoutes(isDev: boolean, viteServerUrl: string) {
 				proxyToVite(req, viteServerUrl),
 		},
 		{
+			pattern: new URLPattern({ pathname: '/@avalon/*' }),
+			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
+				console.log(`🔧 Proxying Avalon integration: ${req.url}`);
+				return proxyToVite(req, viteServerUrl);
+			},
+		},
+		{
 			pattern: new URLPattern({ pathname: '/@fs/*' }),
 			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) =>
 				proxyToVite(req, viteServerUrl),

@@ -278,11 +278,28 @@ async function hydrateIsland(island, framework) {
 			throw new Error(`Component ${src} has no default export`);
 		}
 
-		// Use integration system for all frameworks
-		// Dynamically import the integration client code
-		// Use direct file paths that Vite can serve (no import maps needed)
+		// Use integration system - import from bundled integrations
+		// These are bundled at build time via Vite
 		try {
-			const integrationModule = await import(`/src/integrations/${framework}/client/index.ts`);
+			let integrationModule;
+			
+			// Import the appropriate integration based on framework
+			switch (framework) {
+				case 'preact':
+					integrationModule = await import('/@avalon/preact/client');
+					break;
+				case 'vue':
+					integrationModule = await import('/@avalon/vue/client');
+					break;
+				case 'svelte':
+					integrationModule = await import('/@avalon/svelte/client');
+					break;
+				case 'solid':
+					integrationModule = await import('/@avalon/solid/client');
+					break;
+				default:
+					throw new Error(`Unknown framework: ${framework}`);
+			}
 			
 			if (!integrationModule.hydrate || typeof integrationModule.hydrate !== 'function') {
 				throw new Error(`Integration ${framework} does not export a hydrate function`);
