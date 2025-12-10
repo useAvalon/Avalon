@@ -163,8 +163,8 @@ export class IsolatedSSRRenderer {
 		this.contexts.set('preact', {
 			framework: 'preact',
 			imports: new Map(),
-			renderFunction: async (component: unknown) => {
-				return preactRenderToString(component as JSX.Element);
+			renderFunction: (component: unknown) => {
+				return Promise.resolve(preactRenderToString(component as JSX.Element));
 			},
 			cleanup: () => {
 				// Clear Preact-specific globals if any
@@ -223,12 +223,12 @@ export class IsolatedSSRRenderer {
 		this.contexts.set('svelte', {
 			framework: 'svelte',
 			imports: new Map(),
-			renderFunction: async (component: unknown) => {
+			renderFunction: (component: unknown) => {
 				try {
 					// Svelte components have a render method
 					if (component && typeof component === 'object' && 'render' in component) {
 						const renderResult = (component as { render: () => { html?: string } }).render();
-						return renderResult.html || '';
+						return Promise.resolve(renderResult.html || '');
 					}
 					throw new Error('Svelte component does not have render method');
 				} catch (error) {
@@ -246,9 +246,9 @@ export class IsolatedSSRRenderer {
 		this.contexts.set('unknown', {
 			framework: 'unknown',
 			imports: new Map(),
-			renderFunction: async (component: unknown) => {
+			renderFunction: (component: unknown) => {
 				// Fallback to Preact rendering
-				return preactRenderToString(component as JSX.Element);
+				return Promise.resolve(preactRenderToString(component as JSX.Element));
 			},
 			cleanup: () => {
 				// No specific cleanup needed

@@ -1,5 +1,6 @@
 import { hydrate as preactHydrate } from "preact";
 import { h } from "preact";
+import type { ComponentType } from "preact";
 import type { PreactHydrationOptions } from "../types.ts";
 
 /**
@@ -8,7 +9,7 @@ import type { PreactHydrationOptions } from "../types.ts";
  */
 export function hydrate(
   container: HTMLElement,
-  Component: any,
+  Component: ComponentType<Record<string, unknown>>,
   props: Record<string, unknown>,
   _options?: PreactHydrationOptions
 ): void {

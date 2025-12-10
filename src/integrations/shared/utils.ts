@@ -4,7 +4,8 @@
  */
 
 import type { ComponentLoadOptions, LoadContext } from "./types.ts";
-import { join, resolve, dirname } from "node:path";
+import type { ViteDevServer } from "vite";
+import { join, resolve } from "node:path";
 
 /**
  * Load a component module in development or production
@@ -13,7 +14,7 @@ import { join, resolve, dirname } from "node:path";
  */
 export async function loadComponent(
   options: ComponentLoadOptions,
-): Promise<any> {
+): Promise<unknown> {
   const { src, context, target = "ssr" } = options;
 
   if (context.isDev && context.viteServer) {
@@ -29,7 +30,7 @@ export async function loadComponent(
  * @param viteServer - Vite dev server instance
  * @returns The loaded component module
  */
-async function loadComponentDev(src: string, viteServer: any): Promise<any> {
+async function loadComponentDev(src: string, viteServer: ViteDevServer): Promise<unknown> {
   try {
     const module = await viteServer.ssrLoadModule(src);
     return module.default || module;
@@ -52,7 +53,7 @@ async function loadComponentProd(
   src: string,
   buildOutput: string | undefined,
   target: "ssr" | "client",
-): Promise<any> {
+): Promise<unknown> {
   const outputPath = resolveProductionPath(src, buildOutput, target);
 
   try {
@@ -182,7 +183,7 @@ export function deserializeProps(propsString: string): Record<string, unknown> {
  * @returns Load context object
  */
 export function createLoadContext(
-  viteServer?: any,
+  viteServer?: ViteDevServer,
   buildOutput?: string,
 ): LoadContext {
   const isDev = Deno.env.get("DENO_ENV") !== "production";
@@ -213,8 +214,8 @@ export function escapeHtml(str: string): string {
  * @param module - Module to check
  * @returns True if module has a default export
  */
-export function hasDefaultExport(module: any): boolean {
-  return module && typeof module === "object" && "default" in module;
+export function hasDefaultExport(module: unknown): boolean {
+  return module !== null && typeof module === "object" && "default" in module;
 }
 
 /**
@@ -222,9 +223,9 @@ export function hasDefaultExport(module: any): boolean {
  * @param module - Module to extract component from
  * @returns The component
  */
-export function getComponentFromModule(module: any): any {
+export function getComponentFromModule(module: Record<string, unknown>): unknown {
   if (hasDefaultExport(module)) {
-    return module.default;
+    return (module as Record<string, unknown>).default;
   }
 
   // If no default export, return the module itself

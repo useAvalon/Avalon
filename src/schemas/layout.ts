@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ComponentType, ComponentChildren } from 'preact';
+import type { ComponentChildren } from 'preact';
 
 /**
  * Layout Context Schema - Contains request information and state for layout processing

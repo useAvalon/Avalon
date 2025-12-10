@@ -617,7 +617,6 @@ export async function renderToHtmlWithLayouts(
 		}
 
 		let pageContent: string;
-		let frameworks: FrameworkDetection;
 
 		// Use isolated rendering for page component if not explicitly disabled
 		if (renderOptions.forceSSROnly !== true) {
@@ -716,7 +715,7 @@ export async function renderToHtmlWithLayouts(
 		const enhancedContent = await enhanceContentWithRenderingStrategy(wrappedContent, renderOptions);
 
 		// Detect frameworks used in the rendered content
-		frameworks = detectFrameworks(enhancedContent);
+		const frameworks = detectFrameworks(enhancedContent);
 
 		// Merge route options with defaults
 		const options = { ...defaultOptions, ...routeConfig.options };

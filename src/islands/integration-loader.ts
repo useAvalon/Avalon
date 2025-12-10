@@ -77,10 +77,10 @@ export function detectFrameworkFromPath(src: string): string {
 /**
  * Detect framework from file content by analyzing imports and patterns
  */
-export async function detectFrameworkFromContent(
+export function detectFrameworkFromContent(
   src: string,
   content: string
-): Promise<string> {
+): string {
   // First try path-based detection
   const pathFramework = detectFrameworkFromPath(src);
   

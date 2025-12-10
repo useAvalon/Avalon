@@ -563,7 +563,7 @@ export type ExtractRouteParams<T extends string> = T extends `${string}[${infer 
 		: Param extends `${infer OptionalParam}?`
 		? { [K in OptionalParam]?: string } & ExtractRouteParams<Rest>
 		: { [K in Param]: string } & ExtractRouteParams<Rest>
-	: {};
+	: Record<PropertyKey, never>;
 
 /**
  * Extract optional route parameters from a route pattern
@@ -572,7 +572,7 @@ export type ExtractOptionalParams<T extends string> = T extends `${string}[[${in
 	? Param extends `...${infer RestParam}`
 		? { [K in RestParam]?: string[] } & ExtractOptionalParams<Rest>
 		: { [K in Param]?: string } & ExtractOptionalParams<Rest>
-	: {};
+	: Record<PropertyKey, never>;
 
 /**
  * Combine required and optional route parameters

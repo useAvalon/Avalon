@@ -1,4 +1,4 @@
-import { MiddlewareErrorHandler, MiddlewareContext, MiddlewareChain } from '../../schemas/middleware.ts';
+import type { MiddlewareErrorHandler, MiddlewareContext, MiddlewareChain } from '../../schemas/middleware.ts';
 
 /**
  * Middleware error types for categorization
@@ -240,7 +240,7 @@ export class DefaultMiddlewareErrorHandler implements MiddlewareErrorHandler {
 	 * Create generic error response for production mode
 	 * Requirements: 6.2
 	 */
-	private createProductionErrorResponse(error: MiddlewareError): Response {
+	private createProductionErrorResponse(_error: MiddlewareError): Response {
 		// For backward compatibility, return simple text response
 		return new Response('Internal Server Error', { status: 500 });
 	}

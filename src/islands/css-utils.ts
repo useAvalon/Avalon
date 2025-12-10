@@ -297,7 +297,7 @@ function formatDevelopmentCSS(css: string): string {
     .replace(/\{/g, " {\n  ")
     .replace(/;/g, ";\n  ")
     .replace(/\}/g, "\n}\n")
-    .replace(/\n  \n/g, "\n")
+    .replace(/\n {2}\n/g, "\n")
     .replace(/\n\n+/g, "\n\n")
     .trim();
 }

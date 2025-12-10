@@ -1,6 +1,5 @@
 import { join, resolve, relative } from 'node:path';
 import { existsSync } from '@std/fs';
-import { ensureDir } from '@std/fs';
 import type {
 	MiddlewareRoute,
 	MiddlewareHandler,
@@ -9,7 +8,7 @@ import type {
 	MiddlewareErrorHandler,
 	MiddlewareWatcherCallback,
 } from '../../schemas/middleware.ts';
-import { createDefaultErrorHandler, withErrorHandling } from './middleware-error-handler.ts';
+import { createDefaultErrorHandler } from './middleware-error-handler.ts';
 
 /**
  * Middleware discovery system that scans the file system for _middleware.ts files
@@ -161,7 +160,6 @@ export class MiddlewareDiscovery {
 	 */
 	private createMiddlewareRoute(filePath: string, relativePath: string): MiddlewareRoute | null {
 		try {
-			const relativeToBase = relative(this.baseDirectory, filePath);
 			const pathParts = relativePath.split('/').filter(Boolean);
 
 			// Determine middleware type and create URL pattern
@@ -253,7 +251,7 @@ export class MiddlewareDiscovery {
 	 * Starts file watcher for middleware files
 	 * Requirements: 5.4
 	 */
-	private async startFileWatcher(): Promise<void> {
+	private startFileWatcher(): void {
 		if (!this.developmentMode) {
 			return;
 		}

@@ -2,7 +2,7 @@ import type { PreactComponent, PreactComponentModule } from "../types.ts";
 
 // Extend globalThis to include Vite dev server
 declare global {
-  // deno-lint-ignore no-var
+  // deno-lint-ignore no-explicit-any
   var __viteDevServer: any;
 }
 
@@ -56,7 +56,7 @@ function extractComponent(module: PreactComponentModule, src: string): PreactCom
   // Look for a named export that might be the component
   const keys = Object.keys(module);
   if (keys.length === 1) {
-    return module[keys[0]];
+    return module[keys[0]] as PreactComponent;
   }
   
   throw new Error(

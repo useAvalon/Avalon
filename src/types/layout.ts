@@ -1,6 +1,6 @@
-import { ComponentType, ComponentChildren } from 'preact';
-import { Component } from 'preact';
-import {
+import type { ComponentType, ComponentChildren } from 'preact';
+import type { Component } from 'preact';
+import type {
 	LayoutContext,
 	LayoutData,
 	LayoutRoute,
@@ -226,7 +226,7 @@ export interface ILayoutComposer {
 	/**
 	 * Resolve layouts for a route with page-level configuration
 	 */
-	resolveLayouts(routePath: string, pageModule: any): Promise<LayoutHandler[]>;
+	resolveLayouts(routePath: string, pageModule: PageModule): Promise<LayoutHandler[]>;
 
 	/**
 	 * Apply layout configuration to a layout chain
@@ -343,7 +343,7 @@ export interface IEnhancedLayoutResolver {
 	/**
 	 * Resolve and render complete layout chain for a route
 	 */
-	resolveAndRender(routePath: string, pageModule: any, context: LayoutContext): Promise<ResolvedLayout>;
+	resolveAndRender(routePath: string, pageModule: PageModule, context: LayoutContext): Promise<ResolvedLayout>;
 
 	/**
 	 * Get cached layout resolution if available
@@ -498,7 +498,7 @@ export interface PageModule {
 	/**
 	 * Default export - the page component
 	 */
-	default: ComponentType<any>;
+	default: ComponentType<Record<string, unknown>>;
 
 	/**
 	 * Optional layout configuration for this page
@@ -508,12 +508,12 @@ export interface PageModule {
 	/**
 	 * Optional frontmatter data from MDX files
 	 */
-	frontmatter?: Record<string, any>;
+	frontmatter?: Record<string, unknown>;
 
 	/**
 	 * Optional page-specific data loader
 	 */
-	loader?: (ctx: any) => Promise<any>;
+	loader?: (ctx: LayoutContext) => Promise<Record<string, unknown>>;
 }
 
 /**
@@ -658,7 +658,7 @@ export interface LayoutEventData {
 	layoutPath?: string;
 	error?: Error;
 	metrics?: LayoutPerformanceMetrics;
-	data?: any;
+	data?: Record<string, unknown>;
 }
 
 /**
@@ -683,7 +683,7 @@ export interface ILayoutEventEmitter {
 	/**
 	 * Emit event
 	 */
-	emit(event: LayoutEventType, data?: any): void;
+	emit(event: LayoutEventType, data?: Record<string, unknown>): void;
 
 	/**
 	 * Remove all listeners

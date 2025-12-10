@@ -31,12 +31,10 @@ export async function extractCSS(
   ];
 
   let vueContent = "";
-  let foundPath = "";
   
   for (const path of pathVariations) {
     try {
       vueContent = await Deno.readTextFile(path);
-      foundPath = path;
       break;
     } catch {
       continue;

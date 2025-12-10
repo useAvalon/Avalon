@@ -1,7 +1,7 @@
 import type { Framework } from "./types.ts";
 import type { ViteDevServer } from "vite";
 import { registry } from "../core/integrations/registry.ts";
-import type { Integration, IntegrationConfig } from "../integrations/shared/types.ts";
+import type { IntegrationConfig } from "../integrations/shared/types.ts";
 
 // Global Vite server reference
 declare global {

@@ -6,16 +6,13 @@
  */
 
 import type { ComponentType } from 'preact';
-import type { JSX } from 'preact';
+import { h } from 'preact';
 import type {
-	RouteParams,
 	LoaderContext,
-	Metadata,
-	PageProps,
-	RoutePageModule,
-	FileSystemRoute,
-	ResolvedMetadata,
+	Metadata
 } from '../schemas/routing.ts';
+import type { LayoutConfig } from '../schemas/layout.ts';
+import process from "node:process";
 
 // === Route Parameter Type Extraction ===
 
@@ -35,7 +32,7 @@ export type ExtractRouteParams<T extends string> = T extends `${string}[${infer 
 		: Param extends `${infer OptionalParam}?`
 		? { [K in OptionalParam]?: string } & ExtractRouteParams<Rest>
 		: { [K in Param]: string } & ExtractRouteParams<Rest>
-	: {};
+	: Record<PropertyKey, never>;
 
 /**
  * Extract optional route parameters from a route pattern string
@@ -49,7 +46,7 @@ export type ExtractOptionalParams<T extends string> = T extends `${string}[[${in
 	? Param extends `...${infer RestParam}`
 		? { [K in RestParam]?: string[] } & ExtractOptionalParams<Rest>
 		: { [K in Param]?: string } & ExtractOptionalParams<Rest>
-	: {};
+	: Record<PropertyKey, never>;
 
 /**
  * Combine required and optional route parameters
@@ -165,7 +162,7 @@ export type TypedPageLoaderWithContext<TRoute extends string, TData = unknown, T
  */
 export type TypedRoutePageModule<TRoute extends string, TData = unknown> = {
 	default: TypedPageComponent<TRoute>;
-	layoutConfig?: any; // Layout configuration from layout system
+	layoutConfig?: LayoutConfig;
 	generateMetadata?: TypedMetadataGenerator<TRoute>;
 	loader?: TypedPageLoader<TRoute, TData>;
 };
@@ -459,7 +456,8 @@ export function createTypedPageComponent<TRoute extends string>(
 	component: TypedPageComponent<TRoute>,
 	expectedParams: (keyof RouteParameters<TRoute>)[]
 ): TypedPageComponent<TRoute> {
-	return props => {
+	// Return a wrapper component that validates props
+	const WrappedComponent: TypedPageComponent<TRoute> = (props) => {
 		// Validate props in development
 		if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
 			if (!isValidPageProps<TRoute>(props, expectedParams)) {
@@ -467,8 +465,11 @@ export function createTypedPageComponent<TRoute extends string>(
 			}
 		}
 
-		return component(props);
+		// Use h() to render the component (works for both function and class components)
+		return h(component, props);
 	};
+	
+	return WrappedComponent;
 }
 
 /**

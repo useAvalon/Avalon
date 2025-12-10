@@ -6,6 +6,7 @@
  */
 
 import { createApp } from "vue";
+import type { Component } from "vue";
 
 /**
  * Hydrate a Vue component on the client
@@ -24,7 +25,8 @@ export function hydrate(
 ): void {
   try {
     // Create Vue app with the component and props
-    const app = createApp(component as any, props);
+    // Type assertion needed because component is dynamically loaded
+    const app = createApp(component as Component, props);
     
     // Mount and hydrate
     app.mount(container, true);

@@ -12,12 +12,13 @@ import type { EnhancedLayoutResolver } from '../../core/layout/enhanced-layout-r
 import type { LayoutContext } from '../../types/layout.ts';
 import { type FileSystemRouter, createFileSystemRouteHandlers } from '../../core/routing/file-system-router.ts';
 import type { RouteHandler } from '../../schemas/routing.ts';
+import type { ApiRoute } from '../../schemas/api.ts';
 
-export function createApiRoutes(apiRoutes: any[]) {
+export function createApiRoutes(apiRoutes: ApiRoute[]) {
 	return [
 		{
 			pattern: new URLPattern({ pathname: '/api/*' }),
-			handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
+			handler: async (req: Request, middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
 				return await handleApiRequest(req, apiRoutes, middlewareContext);
 			},
 		},
@@ -34,7 +35,7 @@ export function createAppRoutes(
 ) {
 	return Object.entries(routes).map(([path, routeConfig]) => ({
 		pattern: new URLPattern({ pathname: path }),
-		handler: async (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
+		handler: async (_req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => {
 			try {
 				// Pass Vite HMR port and island manifest to SSR
 				const viteHmrPort = isDev ? 8003 : undefined;

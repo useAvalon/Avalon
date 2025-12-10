@@ -100,7 +100,7 @@ export interface Integration {
    * Optional: Provide Vite plugins for build-time processing
    * @returns Vite plugin or array of plugins
    */
-  vitePlugin?(): any | any[];
+  vitePlugin?(): unknown | unknown[];
 }
 
 /**

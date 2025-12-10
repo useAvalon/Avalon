@@ -36,7 +36,7 @@ export abstract class BaseIntegration implements Integration {
    * Optional Vite plugin configuration
    * Subclasses can override this to provide build-time processing
    */
-  vitePlugin?(): any | any[] {
+  vitePlugin?(): unknown | unknown[] {
     return undefined;
   }
 
@@ -104,7 +104,7 @@ export abstract class BaseIntegration implements Integration {
    * @param params - Render parameters
    * @returns Vite dev server or undefined
    */
-  protected getViteServer(params: RenderParams): any {
-    return params.viteServer ?? (globalThis as any).__viteDevServer;
+  protected getViteServer(params: RenderParams): unknown {
+    return params.viteServer ?? (globalThis as Record<string, unknown>).__viteDevServer;
   }
 }

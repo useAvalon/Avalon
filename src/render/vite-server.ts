@@ -4,6 +4,7 @@
 
 import type { ViteDevServer } from 'vite';
 import { VITE_DEV_PORT, VITE_HMR_PORT } from './constants.ts';
+import process from "node:process";
 
 export interface ViteServerSetup {
 	viteDevServer: ViteDevServer | null;
@@ -17,7 +18,7 @@ export async function setupViteServer(isDev: boolean): Promise<ViteServerSetup> 
 
 	try {
 		const { createServer } = await import('vite');
-		const { resolve, dirname } = await import('@std/path');
+		const { dirname } = await import('@std/path');
 		const cwd = globalThis.Deno?.cwd() || process.cwd();
 		// Allow both current directory and parent directory (for integration files)
 		const parentDir = dirname(cwd);
@@ -70,6 +71,7 @@ export async function setupViteServer(isDev: boolean): Promise<ViteServerSetup> 
 		const viteServerUrl = `http://localhost:${VITE_DEV_PORT}`;
 
 		// Make Vite server available globally for SSR
+		// deno-lint-ignore no-explicit-any
 		(globalThis as any).__viteDevServer = viteDevServer;
 
 		console.log(`✅ Vite dev server started on ${viteServerUrl}`);

@@ -1,4 +1,4 @@
-import { MiddlewareContext } from '../../schemas/middleware.ts';
+import type { MiddlewareContext } from '../../schemas/middleware.ts';
 import type { LayoutContext } from '../../types/layout.ts';
 
 /**

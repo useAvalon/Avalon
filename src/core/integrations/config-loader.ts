@@ -33,7 +33,7 @@ export async function loadConfig(startDir?: string): Promise<ConfigLoadResult> {
   const warnings: string[] = [];
   
   const searchDir = startDir || Deno.cwd();
-  const configPath = await findConfigFile(searchDir);
+  const configPath = findConfigFile(searchDir);
   
   if (!configPath) {
     // No config file found, use defaults
@@ -85,7 +85,7 @@ export async function loadConfig(startDir?: string): Promise<ConfigLoadResult> {
 /**
  * Find avalon.config.ts file by searching up the directory tree
  */
-async function findConfigFile(startDir: string): Promise<string | null> {
+function findConfigFile(startDir: string): string | null {
   const configNames = [
     "avalon.config.ts",
     "avalon.config.js",

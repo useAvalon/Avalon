@@ -1,4 +1,4 @@
-import {
+import type {
 	MiddlewareContext,
 	MiddlewareResponse,
 	MiddlewareHandler,
@@ -124,7 +124,7 @@ export class MiddlewareExecutor {
 		const buildChain = (index: number): (() => Promise<MiddlewareResponse>) => {
 			if (index >= middlewareChain.length) {
 				// End of chain - return continue: true
-				return async () => ({ continue: true });
+				return () => Promise.resolve({ continue: true });
 			}
 
 			const currentMiddleware = middlewareChain[index];

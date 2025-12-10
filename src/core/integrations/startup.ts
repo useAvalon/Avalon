@@ -5,8 +5,7 @@
 
 import { registry } from "./registry.ts";
 import { loadConfig, type ConfigLoadResult } from "./config-loader.ts";
-import { validateIntegration, formatValidationResult } from "./validator.ts";
-import type { Integration } from "../../integrations/shared/types.ts";
+import { validateIntegration } from "./validator.ts";
 import type { IntegrationConfigEntry } from "../../schemas/integration-config.ts";
 
 /**

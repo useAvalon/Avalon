@@ -2,7 +2,7 @@
 
 import { render as svelteRender } from "svelte/server";
 import type { RenderParams, RenderResult } from "@avalon/shared";
-import type { SvelteRenderResult, SvelteSsrRenderResult } from "../types.ts";
+import type { SvelteSsrRenderResult } from "../types.ts";
 
 declare global {
   var __viteDevServer: {
@@ -61,7 +61,9 @@ export async function render(params: RenderParams): Promise<RenderResult> {
       throw new Error("No component found");
     }
     
-    const result: SvelteSsrRenderResult = svelteRender(Component, { props: props || {}, context: new Map() });
+    // Type assertions needed because loadComponent returns unknown and props are dynamic
+    // deno-lint-ignore no-explicit-any
+    const result: SvelteSsrRenderResult = svelteRender(Component as any, { props: props || {}, context: new Map() });
     const ssrHtml = result.body;
     const ssrHead = result.head || "";
     

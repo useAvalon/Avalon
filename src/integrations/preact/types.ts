@@ -4,7 +4,7 @@ import type { RenderParams, RenderResult } from "../shared/types.ts";
 /**
  * Preact-specific component type
  */
-export type PreactComponent = ComponentType<any>;
+export type PreactComponent = ComponentType<Record<string, unknown>>;
 
 /**
  * Preact-specific render parameters
@@ -26,7 +26,7 @@ export interface PreactRenderResult extends RenderResult {
  */
 export interface PreactComponentModule {
   default?: PreactComponent;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
