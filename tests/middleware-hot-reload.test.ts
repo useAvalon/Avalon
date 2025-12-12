@@ -2,8 +2,8 @@ import { assertEquals, assertExists, assert } from '@std/assert';
 import { join } from '@std/path';
 import { existsSync } from '@std/fs';
 import { ensureDir } from '@std/fs';
-import { MiddlewareDiscovery } from '../src/core/middleware/middleware-discovery.ts';
-import type { MiddlewareWatcherCallback } from '../src/schemas/middleware.ts';
+import { MiddlewareDiscovery } from '../packages/avalon/src/core/middleware/middleware-discovery.ts';
+import type { MiddlewareWatcherCallback } from '../packages/avalon/src/schemas/middleware.ts';
 
 /**
  * Simplified tests for middleware hot reloading functionality

@@ -1,7 +1,7 @@
 import { assertEquals, assertExists } from '@std/assert';
 import { join, resolve } from '@std/path';
 import { ensureDir, existsSync } from '@std/fs';
-import { MiddlewareDiscovery } from '../src/core/middleware/middleware-discovery.ts';
+import { MiddlewareDiscovery } from '../packages/avalon/src/core/middleware/middleware-discovery.ts';
 
 const testDir = resolve('./test-middleware-temp');
 const sampleMiddleware = `export default async function middleware(context, next) { return await next(); }`;

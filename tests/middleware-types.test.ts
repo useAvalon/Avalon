@@ -9,8 +9,8 @@ import {
 	isMiddlewareResponse,
 	isMiddlewareRoute,
 	isMiddlewareChain,
-} from '../src/schemas/middleware.ts';
-import { safeValidators } from '../src/schemas/index.ts';
+} from '../packages/avalon/src/schemas/middleware.ts';
+import { safeValidators } from '../packages/avalon/src/schemas/index.ts';
 
 Deno.test('Middleware Types - MiddlewareContext interface', () => {
 	const mockContext: MiddlewareContext = {

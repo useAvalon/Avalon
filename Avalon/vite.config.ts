@@ -41,7 +41,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 	// MDX plugin - must come first to process .mdx files
 	try {
-		const { createMDXPlugin } = await import('../src/build/mdx-plugin.ts');
+		const { createMDXPlugin } = await import('../packages/avalon/src/build/mdx-plugin.ts');
 		const mdxPlugins = await createMDXPlugin({
 			development: command === 'serve',
 			jsxImportSource: 'preact',
@@ -203,11 +203,11 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				'$islands/': resolve('src/islands/'),
 				'$pages/': resolve('src/pages/'),
 				'$api/': resolve('src/api/'),
-				// Resolve integration client files from parent directory
-				'/@avalon/preact/client': resolve('../src/integrations/preact/client/hydration.ts'),
-				'/@avalon/vue/client': resolve('../src/integrations/vue/client/hydration.ts'),
-				'/@avalon/svelte/client': resolve('../src/integrations/svelte/client/hydration.ts'),
-				'/@avalon/solid/client': resolve('../src/integrations/solid/client/hydration.ts'),
+				// Resolve integration client files from new package location
+				'/@avalon/preact/client': resolve('../packages/integrations/preact/client/index.ts'),
+				'/@avalon/vue/client': resolve('../packages/integrations/vue/client/index.ts'),
+				'/@avalon/svelte/client': resolve('../packages/integrations/svelte/client/index.ts'),
+				'/@avalon/solid/client': resolve('../packages/integrations/solid/client/index.ts'),
 			},
 		},
 

@@ -3,7 +3,7 @@
  * Simulates CSRF protection and authentication-specific logic
  */
 
-import type { MiddlewareHandler } from '../../../../../../src/schemas/middleware.ts';
+import type { MiddlewareHandler } from '../../../../../../packages/avalon/src/schemas/middleware.ts';
 
 const authApiMiddleware: MiddlewareHandler = async (context: any, next: any) => {
 	// Mark that auth API middleware executed

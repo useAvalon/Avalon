@@ -3,9 +3,9 @@
  */
 
 import { assertEquals, assertExists } from '@std/assert';
-import { MiddlewareExecutor } from '../src/core/middleware/middleware-executor.ts';
-import { MiddlewareContextManager } from '../src/core/middleware/middleware-context.ts';
-import type { MiddlewareHandler } from '../src/schemas/middleware.ts';
+import { MiddlewareExecutor } from '../packages/avalon/src/core/middleware/middleware-executor.ts';
+import { MiddlewareContextManager } from '../packages/avalon/src/core/middleware/middleware-context.ts';
+import type { MiddlewareHandler } from '../packages/avalon/src/schemas/middleware.ts';
 
 // Import test fixtures
 const globalMiddleware = (await import('./fixtures/middleware-integration/src/_middleware.ts')).default;

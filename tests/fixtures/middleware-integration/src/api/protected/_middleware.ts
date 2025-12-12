@@ -3,7 +3,7 @@
  * Simulates additional security layers for protected endpoints
  */
 
-import type { MiddlewareHandler } from '../../../../../../src/schemas/middleware.ts';
+import type { MiddlewareHandler } from '../../../../../../packages/avalon/src/schemas/middleware.ts';
 
 const protectedApiMiddleware: MiddlewareHandler = async (context: any, next: any) => {
 	// Mark that protected API middleware executed

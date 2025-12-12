@@ -2,8 +2,8 @@ import { assertEquals, assertExists, assert } from '@std/assert';
 import { join, resolve } from 'jsr:@std/path';
 import { existsSync } from 'jsr:@std/fs';
 import { ensureDir } from 'jsr:@std/fs';
-import { LayoutDiscovery } from '../src/core/layout/layout-discovery.ts';
-import type { LayoutDiscoveryOptions } from '../src/schemas/layout.ts';
+import { LayoutDiscovery } from '../packages/avalon/src/core/layout/layout-discovery.ts';
+import type { LayoutDiscoveryOptions } from '../packages/avalon/src/schemas/layout.ts';
 
 const testDir = resolve('./test-layouts');
 

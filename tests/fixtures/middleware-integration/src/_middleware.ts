@@ -3,7 +3,7 @@
  * Simulates CORS, logging, and request ID generation
  */
 
-import type { MiddlewareHandler } from '../../../../src/schemas/middleware.ts';
+import type { MiddlewareHandler } from '../../../../packages/avalon/src/schemas/middleware.ts';
 
 const globalMiddleware: MiddlewareHandler = async (context: any, next: any) => {
 	// Add request ID for tracking

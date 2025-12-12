@@ -1,8 +1,8 @@
 import { assertEquals, assertExists } from '@std/assert';
 import { describe, it, beforeEach, afterEach } from 'https://deno.land/std@0.208.0/testing/bdd.ts';
-import { LayoutDiscovery } from '../src/core/layout/layout-discovery.ts';
-import { LayoutMatcher } from '../src/core/layout/layout-matcher.ts';
-import type { LayoutRule, LayoutContext } from '../src/schemas/layout.ts';
+import { LayoutDiscovery } from '../packages/avalon/src/core/layout/layout-discovery.ts';
+import { LayoutMatcher } from '../packages/avalon/src/core/layout/layout-matcher.ts';
+import type { LayoutRule, LayoutContext } from '../packages/avalon/src/schemas/layout.ts';
 import { join } from '@std/path';
 import { ensureDir, emptyDir } from 'https://deno.land/std@0.208.0/fs/mod.ts';
 

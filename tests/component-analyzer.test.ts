@@ -5,7 +5,7 @@ import {
 	shouldHydrate,
 	getComponentFramework,
 	generateAnalysisSummary,
-} from '../src/core/components/component-analyzer.ts';
+} from '../packages/avalon/src/core/components/component-analyzer.ts';
 
 Deno.test('Component Analyzer Integration', async t => {
 	await t.step('should analyze real component files', async () => {

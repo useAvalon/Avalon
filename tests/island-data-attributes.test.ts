@@ -1,7 +1,7 @@
 import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
-import Island from "../src/islands/island.tsx";
+import Island from "../packages/avalon/src/islands/island.tsx";
 
 Deno.test("Island component - data attributes", async (t) => {
   await t.step("should render with data-src attribute", () => {

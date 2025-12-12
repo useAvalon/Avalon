@@ -10,7 +10,7 @@ import {
 	safeValidators,
 	isValidMiddlewareConfig,
 	isValidMiddlewareDiscoveryOptions,
-} from '../src/schemas/index.ts';
+} from '../packages/avalon/src/schemas/index.ts';
 
 Deno.test('Middleware Integration - All types exported from main schemas', () => {
 	// Test that we can create instances of all middleware types

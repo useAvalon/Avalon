@@ -10,7 +10,7 @@ import {
 	extractSvelteScript,
 	extractSolidScript,
 	type ComponentAnalysis,
-} from '../src/core/components/component-detection.ts';
+} from '../packages/avalon/src/core/components/component-detection.ts';
 
 // Test data - sample component contents
 const sampleComponents = {

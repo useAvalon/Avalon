@@ -1,5 +1,5 @@
 import { assertEquals, assertExists, assertStringIncludes } from '@std/assert';
-import { renderIsland } from '../src/islands/island.tsx';
+import { renderIsland } from '../packages/avalon/src/islands/island.tsx';
 import { renderToString } from 'preact-render-to-string';
 
 Deno.test('SSR-Only Rendering', async t => {

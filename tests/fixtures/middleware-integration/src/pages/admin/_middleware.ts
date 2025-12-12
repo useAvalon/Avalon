@@ -3,7 +3,7 @@
  * Simulates authentication and authorization for admin routes
  */
 
-import type { MiddlewareHandler } from '../../../../../../src/schemas/middleware.ts';
+import type { MiddlewareHandler } from '../../../../../../packages/avalon/src/schemas/middleware.ts';
 
 const adminMiddleware: MiddlewareHandler = async (context: any, next: any) => {
 	// Mark that admin middleware executed

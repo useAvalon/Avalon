@@ -3,7 +3,7 @@
  * Simulates session handling and page-specific security
  */
 
-import type { MiddlewareHandler } from '../../../../../src/schemas/middleware.ts';
+import type { MiddlewareHandler } from '../../../../../packages/avalon/src/schemas/middleware.ts';
 
 const pageMiddleware: MiddlewareHandler = async (context: any, next: any) => {
 	// Mark that page middleware executed
