@@ -38,18 +38,21 @@ export async function analyzeComponentFile(
     src.startsWith("/") ? src.substring(1) : src,
     `examples/${baseName}.${originalExt}`,
     `examples/${baseName}.tsx`,
+    `examples/${baseName}.ts`,
     `examples/${baseName}.solid.tsx`,
     `examples/${baseName}.preact.tsx`,
     `examples/${baseName}.svelte`,
     `examples/${baseName}.vue`,
     `src/islands/${baseName}.${originalExt}`,
     `src/islands/${baseName}.tsx`,
+    `src/islands/${baseName}.ts`,
     `src/islands/${baseName}.solid.tsx`,
     `src/islands/${baseName}.preact.tsx`,
     `src/islands/${baseName}.svelte`,
     `src/islands/${baseName}.vue`,
     `islands/${baseName}.${originalExt}`,
     `islands/${baseName}.tsx`,
+    `islands/${baseName}.ts`,
     `islands/${baseName}.solid.tsx`,
     `islands/${baseName}.preact.tsx`,
     `islands/${baseName}.svelte`,
@@ -79,6 +82,7 @@ export async function analyzeComponentFile(
  * @param params.src - Component source path
  * @param params.condition - Island hydration condition
  * @param params.props - Props to pass to the component
+ * @param params.framework - Optional explicit framework (if not provided, will be detected)
  * @param params.renderOptions - Additional render options
  * @returns Island component with SSR-only rendering
  * @throws Error if SSR rendering fails
@@ -87,11 +91,13 @@ export async function renderComponentSSROnly({
   src,
   condition,
   props,
+  framework: explicitFramework,
   renderOptions,
 }: {
   src: string;
   condition: IslandProps["condition"];
   props: Record<string, unknown>;
+  framework?: string;
   renderOptions: AnalyzerOptions;
 }) {
   console.log(`🔄 Attempting SSR-only rendering for: ${src}`);
@@ -99,17 +105,66 @@ export async function renderComponentSSROnly({
   try {
     // Import Island component dynamically to avoid circular dependencies
     const { default: Island } = await import("./island.tsx");
+    
+    // Import integration loader to load the appropriate framework integration
+    const { loadIntegration } = await import("./integration-loader.ts");
+    const { detectFramework } = await import("./framework-detection.ts");
+    
+    // Use explicit framework if provided, otherwise detect it
+    let framework: string;
+    if (explicitFramework) {
+      framework = explicitFramework;
+      console.log(`🔄 Using explicit framework for ${src}: ${framework}`);
+    } else if (src.endsWith(".vue")) {
+      framework = "vue";
+    } else if (src.endsWith(".svelte")) {
+      framework = "svelte";
+    } else if (src.endsWith(".tsx") || src.endsWith(".jsx") || src.endsWith(".ts") || src.endsWith(".js")) {
+      framework = await detectFramework(src);
+    } else {
+      framework = "preact"; // Default fallback
+    }
+    
+    if (!explicitFramework) {
+      console.log(`🔄 Detected framework for ${src}: ${framework}`);
+    }
+    
+    // Load the appropriate integration
+    const integration = await loadIntegration(framework);
+    
+    // Get Vite server reference for dev mode
+    const viteServer = globalThis.__viteDevServer;
+    const isDev = typeof Deno !== "undefined" && Deno.env?.get("DENO_ENV") !== "production";
+    
+    // Render the component using the integration
+    const renderResult = await integration.render({
+      component: null, // Integration will load the component from src
+      props,
+      src,
+      condition,
+      ssrOnly: true,
+      viteServer,
+      isDev,
+    });
+    
+    console.log(`🔄 Integration rendered HTML for ${src}:`, {
+      hasHtml: !!renderResult.html,
+      htmlLength: renderResult.html?.length || 0,
+      htmlPreview: renderResult.html?.substring(0, 100),
+    });
 
-    // Use the Island component with ssrOnly flag
-    // The Island component will use the integration system for rendering
+    // Return Island component with the rendered HTML as children
+    // This ensures the HTML is properly wrapped in <is-land> with ssrOnly attributes
     return Island({
       src,
       condition,
       props,
-      children: undefined,
+      children: renderResult.html, // Pass rendered HTML as children
       ssr: true,
+      framework: framework as "solid" | "vue" | "preact" | "react" | "svelte" | "lit",
       ssrOnly: true,
       renderOptions,
+      hydrationData: undefined, // No hydration data for SSR-only components
     });
   } catch (error) {
     console.error(`❌ SSR-only rendering failed for ${src}:`, error);

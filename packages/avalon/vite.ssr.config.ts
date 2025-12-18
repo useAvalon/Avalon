@@ -62,7 +62,10 @@ export default defineConfig(async (): Promise<UserConfig> => {
 		try {
 			// deno-lint-ignore no-external-import
 			const { default: solid } = await import('vite-plugin-solid');
-			frameworkPlugins.push(solid({ ssr: true }));
+			frameworkPlugins.push(solid({ 
+				ssr: true,
+				dev: false, // Disable dev mode to avoid jsx-dev-runtime
+			}));
 		} catch {
 			console.warn('⚠️ Solid plugin not available for SSR build');
 		}
@@ -98,6 +101,12 @@ export default defineConfig(async (): Promise<UserConfig> => {
 			// Framework plugins
 			...frameworkPlugins,
 		],
+
+		esbuild: {
+			//jsx: 'automatic',
+			//jsxDev: false, // Disable dev JSX transform
+			target: 'es2022', // Support decorators and modern JavaScript features
+		},
 
 		build: {
 			outDir: 'dist/ssr',

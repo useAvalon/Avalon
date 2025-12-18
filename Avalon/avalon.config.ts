@@ -14,6 +14,8 @@ export default {
     { name: "vue", enabled: true },
     { name: "solid", enabled: true },
     { name: "svelte", enabled: true },
+    {name: "react", enabled: true },
+    {name: "lit", enabled: true }
   ],
 
   /**

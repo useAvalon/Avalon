@@ -258,6 +258,11 @@ function setupMediaQuery(island, framework, mediaQuery) {
  * @param {string} framework - The framework name
  */
 async function hydrateIsland(island, framework) {
+	// Check if already hydrated
+	if (island.hasAttribute('data-hydrated')) {
+		return;
+	}
+	
 	const src = island.getAttribute('data-src');
 	const propsAttr = island.getAttribute('data-props');
 
@@ -270,9 +275,34 @@ async function hydrateIsland(island, framework) {
 		// Parse props
 		const props = propsAttr ? JSON.parse(propsAttr) : {};
 
-		// Dynamically import the component first
+		// CRITICAL: For Lit components, load hydration support BEFORE importing the component
+		// This ensures our patch is applied before @customElement decorator runs
+		if (framework === 'lit') {
+			await import('/@avalon/lit/client');
+		}
+
+		// Dynamically import the component
 		const componentModule = await import(src);
-		const Component = componentModule.default || componentModule;
+		let Component = componentModule.default;
+		
+		// If no default export, try to find the component class in named exports
+		if (!Component) {
+			const exports = Object.keys(componentModule).filter(key => key !== 'default');
+			if (exports.length > 0) {
+				for (const exportName of exports) {
+					const exportValue = componentModule[exportName];
+					if (typeof exportValue === 'function' && exportValue.prototype) {
+						Component = exportValue;
+						break;
+					}
+				}
+			}
+			
+			// Final fallback: use the whole module (for backwards compatibility)
+			if (!Component) {
+				Component = componentModule;
+			}
+		}
 
 		if (!Component) {
 			throw new Error(`Component ${src} has no default export`);
@@ -288,6 +318,9 @@ async function hydrateIsland(island, framework) {
 				case 'preact':
 					integrationModule = await import('/@avalon/preact/client');
 					break;
+				case 'react':
+					integrationModule = await import('/@avalon/react/client');
+					break;
 				case 'vue':
 					integrationModule = await import('/@avalon/vue/client');
 					break;
@@ -296,6 +329,9 @@ async function hydrateIsland(island, framework) {
 					break;
 				case 'solid':
 					integrationModule = await import('/@avalon/solid/client');
+					break;
+				case 'lit':
+					integrationModule = await import('/@avalon/lit/client');
 					break;
 				default:
 					throw new Error(`Unknown framework: ${framework}`);

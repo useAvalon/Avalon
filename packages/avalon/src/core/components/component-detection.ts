@@ -8,7 +8,7 @@
 export interface ComponentAnalysis {
 	hasScript: boolean;
 	hasHydrateFunction: boolean;
-	framework: 'vue' | 'svelte' | 'solid' | 'preact' | 'react' | 'unknown';
+	framework: 'vue' | 'svelte' | 'solid' | 'preact' | 'react' | 'lit' | 'unknown';
 	recommendedStrategy: 'hydrate' | 'ssr-only';
 }
 
@@ -20,7 +20,7 @@ export interface DetectionResult {
 
 export interface ComponentMetadata {
 	path: string;
-	framework: 'vue' | 'svelte' | 'solid' | 'preact' | 'react';
+	framework: 'vue' | 'svelte' | 'solid' | 'preact' | 'react' | 'lit';
 	hasScript: boolean;
 	hasHydrateFunction: boolean;
 	renderStrategy: 'hydrate' | 'ssr-only';
@@ -59,6 +59,12 @@ const FRAMEWORK_PATTERNS = {
 		hydratePatterns: ['hydrate', 'render'],
 		imports: ['react', 'react-dom'],
 	},
+	lit: {
+		fileExtensions: ['.ts', '.js'],
+		scriptTags: [], // Lit uses TypeScript/JavaScript classes
+		hydratePatterns: ['LitElement', 'customElement', '@customElement'],
+		imports: ['lit', 'lit-element', 'lit/'],
+	},
 } as const;
 
 /**
@@ -82,6 +88,14 @@ export function detectFramework(filePath: string, content: string): ComponentAna
 	}
 	if (filePath.endsWith('.svelte')) {
 		return 'svelte';
+	}
+
+	// For .ts/.js files, check if it's a Lit component
+	if (filePath.endsWith('.ts') || filePath.endsWith('.js')) {
+		// Check for Lit-specific patterns
+		if (content.includes('lit') || content.includes('LitElement') || content.includes('@customElement')) {
+			return 'lit';
+		}
 	}
 
 	// For .tsx/.jsx files, check content patterns to distinguish frameworks
@@ -143,6 +157,13 @@ export function hasScriptSection(content: string, framework: ComponentAnalysis['
 			// Check if it's not just a pure template
 			return (
 				content.includes('function') || content.includes('=>') || content.includes('const') || content.includes('let')
+			);
+
+		case 'lit':
+			// Lit components are TypeScript/JavaScript classes
+			// They always have script content (class definitions)
+			return (
+				content.includes('class') || content.includes('LitElement') || content.includes('@customElement')
 			);
 
 		default:
@@ -452,6 +473,14 @@ export function shouldHydrateComponent(
 			return {
 				shouldHydrate: true,
 				reason: 'Vue component with script section - uses Vue integration system',
+			};
+		}
+
+		// Lit components are Web Components that need client-side registration
+		if (analysis.framework === 'lit') {
+			return {
+				shouldHydrate: true,
+				reason: 'Lit component detected - Web Components require client-side registration',
 			};
 		}
 

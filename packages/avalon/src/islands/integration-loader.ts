@@ -65,6 +65,27 @@ export function detectFrameworkFromPath(src: string) {
     return "solid";
   }
   
+  // React files (convention: .react.tsx or .react.jsx)
+  if (normalizedSrc.includes(".react.")) {
+    return "react";
+  }
+  
+  // Lit files (convention: .lit.ts or .lit.js, or files starting with "Lit")
+  if (normalizedSrc.includes(".lit.")) {
+    return "lit";
+  }
+  
+  // Lit files by naming convention (LitComponent.ts)
+  const fileName = normalizedSrc.split("/").pop() || "";
+  if (fileName.startsWith("Lit") && (normalizedSrc.endsWith(".ts") || normalizedSrc.endsWith(".js"))) {
+    return "lit";
+  }
+  
+  // Plain .ts/.js files in islands are likely Lit components (Lit doesn't use JSX)
+  if (normalizedSrc.includes("/islands/") && (normalizedSrc.endsWith(".ts") || normalizedSrc.endsWith(".js"))) {
+    return "lit";
+  }
+  
   // Default to Preact for .tsx and .jsx files
   if (normalizedSrc.endsWith(".tsx") || normalizedSrc.endsWith(".jsx")) {
     return "preact";
@@ -85,11 +106,36 @@ export function detectFrameworkFromContent(
   const pathFramework = detectFrameworkFromPath(src);
   
   // If we have a definitive answer from path (not default), use it
-  if (pathFramework === "vue" || pathFramework === "svelte") {
+  if (pathFramework === "vue" || pathFramework === "svelte" || pathFramework === "react" || pathFramework === "lit") {
     return pathFramework;
   }
   
-  // For .tsx/.jsx files, analyze content to distinguish between Preact and Solid
+  // For .tsx/.jsx files, analyze content to distinguish between frameworks
+  
+  // Check for React imports (must check before Preact since they share hooks)
+  if (
+    content.includes("from 'react'") ||
+    content.includes('from "react"') ||
+    content.includes("from 'react-dom'") ||
+    content.includes('from "react-dom"') ||
+    content.includes('"use client"') ||
+    content.includes("'use client'") ||
+    content.includes('"use server"') ||
+    content.includes("'use server'")
+  ) {
+    return "react";
+  }
+  
+  // Check for Lit imports
+  if (
+    content.includes("from 'lit'") ||
+    content.includes('from "lit"') ||
+    content.includes("@lit-labs/ssr") ||
+    content.includes("LitElement") ||
+    content.includes("@customElement")
+  ) {
+    return "lit";
+  }
   
   // Check for Solid imports
   if (
@@ -109,6 +155,17 @@ export function detectFrameworkFromContent(
     return "preact";
   }
   
+  // Check for Lit-specific patterns
+  if (
+    content.includes("extends LitElement") ||
+    content.includes("@property") ||
+    content.includes("@state") ||
+    content.includes("html`") ||
+    content.includes("css`")
+  ) {
+    return "lit";
+  }
+  
   // Check for Solid-specific patterns
   if (
     content.includes("createSignal") ||
@@ -118,7 +175,9 @@ export function detectFrameworkFromContent(
     return "solid";
   }
   
-  // Check for Preact-specific patterns
+  // Check for React/Preact-specific patterns (hooks)
+  // Note: React and Preact share the same hooks API, so we default to Preact
+  // unless React imports are explicitly detected above
   if (
     content.includes("useState") ||
     content.includes("useEffect") ||

@@ -252,7 +252,7 @@ export class FrameworkRegistry {
 	 * Checks if a framework is a default framework
 	 */
 	private isDefaultFramework(name: string): boolean {
-		return ['preact', 'solid', 'vue', 'svelte'].includes(name);
+		return ['preact', 'solid', 'vue', 'svelte', 'react', 'lit'].includes(name);
 	}
 
 	/**
@@ -365,6 +365,76 @@ export class FrameworkRegistry {
 					jsxPragmas: ['@jsxImportSource svelte'],
 				},
 			},
+			react: {
+				name: 'react',
+				fileExtensions: ['.jsx', '.tsx'],
+				jsxImportSources: ['react'],
+				ssrModules: ['react-dom/server'],
+				hydrationModules: ['react-dom/client'],
+				detectionPatterns: {
+					imports: [
+						/^react$/,
+						/^react\//,
+						/^react-dom$/,
+						/^react-dom\//,
+						/from\s+['"]react['"]/,
+						/from\s+['"]react\/[^'"]+['"]/,
+						/from\s+['"]react-dom['"]/,
+					],
+					content: [
+						/\buseState\b/,
+						/\buseEffect\b/,
+						/\buseContext\b/,
+						/\buseReducer\b/,
+						/\buseCallback\b/,
+						/\buseMemo\b/,
+						/\buseRef\b/,
+						/\buseTransition\b/,
+						/\buseDeferredValue\b/,
+						/\buseId\b/,
+						/\buseImperativeHandle\b/,
+						/\buseLayoutEffect\b/,
+						/["']use client["']/,
+						/["']use server["']/,
+						/from\s+['"]react['"]/,
+						/import\s+.*\s+from\s+['"]react['"]/,
+					],
+					jsxPragmas: ['@jsxImportSource react'],
+				},
+			},
+			lit: {
+				name: 'lit',
+				fileExtensions: ['.ts', '.js'],
+				jsxImportSources: ['lit'],
+				ssrModules: ['@lit-labs/ssr'],
+				hydrationModules: ['lit'],
+				detectionPatterns: {
+					imports: [
+						/^lit$/,
+						/^lit\//,
+						/^@lit\//,
+						/^@lit-labs\/ssr/,
+						/from\s+['"]lit['"]/,
+						/from\s+['"]lit\/[^'"]+['"]/,
+						/from\s+['"]@lit\/[^'"]+['"]/,
+					],
+					content: [
+						/\bLitElement\b/,
+						/\bcustomElement\b/,
+						/@customElement/,
+						/@property/,
+						/@state/,
+						/@query/,
+						/@queryAll/,
+						/\bhtml`/,
+						/\bcss`/,
+						/extends\s+LitElement/,
+						/from\s+['"]lit['"]/,
+						/import\s+.*\s+from\s+['"]lit['"]/,
+					],
+					jsxPragmas: ['@jsxImportSource lit'],
+				},
+			},
 		};
 	}
 
@@ -412,7 +482,7 @@ export class FrameworkRegistry {
 		customFrameworks: number;
 		supportedExtensions: string[];
 	} {
-		const defaultFrameworkNames = ['preact', 'solid', 'vue', 'svelte'];
+		const defaultFrameworkNames = ['preact', 'solid', 'vue', 'svelte', 'react', 'lit'];
 		const defaultCount = Array.from(this.frameworks.keys()).filter(name => defaultFrameworkNames.includes(name)).length;
 
 		const allExtensions = new Set<string>();
