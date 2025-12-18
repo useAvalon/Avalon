@@ -427,7 +427,7 @@ describe('FileSystemRouter', () => {
 
 	describe('factory functions', () => {
 		it('should create router with factory function', () => {
-			const factoryRouter = createFileSystemRouter({
+			const factoryRouter = new FileSystemRouter({
 				enabled: false,
 			});
 

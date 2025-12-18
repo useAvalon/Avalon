@@ -19,7 +19,7 @@ function discoverIslandEntries() {
 				fileName.endsWith('.svelte')
 			) {
 				// Handle framework-specific naming conventions
-				let name = fileName;
+				let name;
 				if (fileName.endsWith('.solid.tsx') || fileName.endsWith('.solid.jsx')) {
 					name = fileName.replace(/\.solid\.(tsx|jsx)$/, '');
 				} else if (fileName.endsWith('.preact.tsx') || fileName.endsWith('.preact.jsx')) {
