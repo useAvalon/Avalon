@@ -282,11 +282,11 @@ Deno.test('API Route Discovery - utility function', async () => {
 	await setupTestApiStructure();
 
 	try {
-		// Use RouteDiscovery class directly instead of discoverApiRoutes utility
 		const discovery = new RouteDiscovery({
 			apiDirectory: testApiDir,
 			developmentMode: true,
 		});
+
 		const apiFiles = await discovery.scanApiDirectory();
 		const apiRoutes = await discovery.createApiRoutes(apiFiles);
 
