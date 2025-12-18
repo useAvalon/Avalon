@@ -1,0 +1,10 @@
+{
+	"name": "@avalon/integration-shared",
+	"version": "0.1.0",
+	"exports": {
+		".": "./types.ts",
+		"./types": "./types.ts",
+		"./utils": "./utils.ts",
+		"./base": "./base-integration.ts"
+	}
+}

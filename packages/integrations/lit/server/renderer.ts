@@ -12,7 +12,6 @@ import { DOM_SHIM_INSTALLED, verifyDOMShim } from "./dom-shim.ts";
 import type { LitRenderParams, LitRenderResult } from "../types.ts";
 import { 
   loadComponent, 
-  getTagName, 
   serializeAttributes, 
   collectStyles,
   extractTagNameFromSource
@@ -25,7 +24,7 @@ if (!DOM_SHIM_INSTALLED || !verifyDOMShim()) {
 }
 
 /**
- * Render a Lit element using @lit-labs/ssr
+ * Render a Lit element using @lit-labs/ssr with declarative shadow DOM
  */
 async function renderLitElementWithSSR(
   ElementClass: typeof LitElement,
@@ -66,9 +65,9 @@ async function renderLitElementWithSSR(
 }
 
 /**
- * Fallback render without SSR
+ * Fallback render - empty custom element tag
  */
-function renderLitElementFallback(tagName: string, attributes: string): string {
+function renderFallback(tagName: string, attributes: string): string {
   const attrs = attributes ? ` ${attributes}` : "";
   return `<${tagName}${attrs}></${tagName}>`;
 }
@@ -79,37 +78,25 @@ function renderLitElementFallback(tagName: string, attributes: string): string {
 export async function render(params: LitRenderParams): Promise<LitRenderResult> {
   const { component, props = {}, src, ssrOnly = false, condition = "on:client", viteServer } = params;
   
-  let tagName: string;
-  let styles = "";
-  let ElementClass: typeof import("lit").LitElement | null = null;
+  // Extract tag name from source code (avoids decorator evaluation issues)
+  const tagName = await extractTagNameFromSource(src);
   
-  // Strategy 1: Use explicit tagName if provided
-  if (params.tagName) {
-    tagName = params.tagName;
-  } 
-  // Strategy 2: Extract from source (avoids decorator issues)
-  else {
-    const extractedTagName = await extractTagNameFromSource(src);
-    
-    if (extractedTagName) {
-      tagName = extractedTagName;
-      
-      // Try to load module for full SSR
-      try {
-        ElementClass = component || await loadComponent(src, viteServer);
-        styles = collectStyles(ElementClass);
-      } catch {
-        ElementClass = null;
-      }
-    } 
-    // Strategy 3: Load module (may fail with decorators)
-    else {
-      ElementClass = component || await loadComponent(src, viteServer);
-      tagName = getTagName(ElementClass);
-      styles = collectStyles(ElementClass);
-    }
+  if (!tagName) {
+    throw new Error(`Could not extract tag name from ${src}. Ensure @customElement decorator uses a string literal.`);
   }
   
+  // Try to load component for full SSR rendering
+  let ElementClass: typeof LitElement | null = null;
+  let styles = "";
+  
+  try {
+    ElementClass = component || await loadComponent(src, viteServer);
+    styles = collectStyles(ElementClass);
+  } catch {
+    ElementClass = null;
+  }
+  
+  // Render HTML
   const attributes = serializeAttributes(props);
   let html: string;
   
@@ -119,12 +106,13 @@ export async function render(params: LitRenderParams): Promise<LitRenderResult> 
       html = ssrResult.html;
       styles = ssrResult.styles;
     } catch {
-      html = renderLitElementFallback(tagName, attributes);
+      html = renderFallback(tagName, attributes);
     }
   } else {
-    html = renderLitElementFallback(tagName, attributes);
+    html = renderFallback(tagName, attributes);
   }
   
+  // Build hydration data (unless SSR-only)
   const hydrationData = ssrOnly ? undefined : {
     src,
     props,
@@ -143,7 +131,7 @@ export async function render(params: LitRenderParams): Promise<LitRenderResult> 
 }
 
 /**
- * Render with error boundary
+ * Render with error boundary - returns fallback on failure
  */
 export async function renderWithErrorBoundary(
   params: LitRenderParams,

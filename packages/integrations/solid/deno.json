@@ -1,21 +1,19 @@
 {
-  "name": "@avalon/integration-solid",
-  "version": "0.1.0",
-  "exports": {
-    ".": "./mod.ts",
-    "./server": "./server/renderer.ts",
-    "./client": "./client/index.ts",
-    "./types": "./types.ts"
-  },
-  "imports": {
-    "solid-js": "npm:solid-js@1.9.8",
-    "solid-js/web": "npm:solid-js@1.9.8/web",
-    "solid-js/h": "npm:solid-js@1.9.8/h",
-    "solid-js/jsx-runtime": "npm:solid-js@1.9.8/jsx-runtime",
-    "vite-plugin-solid": "npm:vite-plugin-solid@^2.11.8",
-    "@avalon/shared": "../shared/types.ts"
-  },
-  "compilerOptions": {
-    "lib": ["dom", "dom.iterable", "esnext", "deno.ns"]
-  }
+	"name": "@avalon/integration-solid",
+	"version": "0.1.0",
+	"exports": {
+		".": "./mod.ts",
+		"./server": "./server/renderer.ts",
+		"./client": "./client/index.ts",
+		"./types": "./types.ts"
+	},
+	"imports": {
+		"solid-js": "npm:solid-js@1.9.8",
+		"solid-js/web": "npm:solid-js@1.9.8/web",
+		"solid-js/h": "npm:solid-js@1.9.8/h",
+		"solid-js/jsx-runtime": "npm:solid-js@1.9.8/jsx-runtime"
+	},
+	"compilerOptions": {
+		"lib": ["dom", "dom.iterable", "esnext", "deno.ns"]
+	}
 }
