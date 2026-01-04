@@ -193,7 +193,7 @@ export class LayoutCacheManager {
 		const normalizedPath = this.normalizePath(filePath);
 
 		// Invalidate all entries that depend on this file
-		for (const [key, entry] of this.resolvedLayouts) {
+		for (const key of this.resolvedLayouts.keys()) {
 			if (this.isKeyAffectedByPath(key, normalizedPath)) {
 				this.resolvedLayouts.delete(key);
 				this.accessOrder.delete(key);
@@ -201,7 +201,7 @@ export class LayoutCacheManager {
 			}
 		}
 
-		for (const [key, entry] of this.layoutHandlers) {
+		for (const key of this.layoutHandlers.keys()) {
 			if (this.isKeyAffectedByPath(key, normalizedPath)) {
 				this.layoutHandlers.delete(key);
 				this.accessOrder.delete(key);
@@ -209,7 +209,7 @@ export class LayoutCacheManager {
 			}
 		}
 
-		for (const [key, entry] of this.layoutData) {
+		for (const key of this.layoutData.keys()) {
 			if (this.isKeyAffectedByPath(key, normalizedPath)) {
 				this.layoutData.delete(key);
 				this.accessOrder.delete(key);

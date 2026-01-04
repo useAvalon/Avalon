@@ -19,7 +19,7 @@ The primary trade-off is a potential for more HTTP requests on initial load for 
 ## Features
 
 - 🏝️ **Islands Architecture**: Ship only the JavaScript you need
-- ⚡ **Framework Agnostic**: Support for Vanilla JS, Preact, Solid, and Vue
+- ⚡ **Framework Agnostic**: Support for Vanilla JS, Preact, React, Solid, Vue, Svelte, and Lit
 - 🎯 **Selective Hydration**: Components hydrate only when needed
 - 📦 **Minimal Bundle Size**: Tree-shakeable exports for optimal performance
 - 🔧 **TypeScript First**: Full type safety and excellent DX

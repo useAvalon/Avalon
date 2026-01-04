@@ -1,5 +1,4 @@
 import { renderIsland } from '@avalon/avalon';
-import PreactCounter from '../islands/PreactCounter.tsx';
 
 export default async function FrameworksPage() {
 	return (
@@ -11,6 +10,26 @@ export default async function FrameworksPage() {
 			</p>
 
 			<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
+				{/* React Counter */}
+				<div
+					style={{
+						background: '#fff',
+						padding: '25px',
+						borderRadius: '12px',
+						boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+						border: '2px solid #61dafb',
+					}}>
+					<h3 style={{ color: '#61dafb', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+						⚛️ React Counter
+					</h3>
+					{await renderIsland({
+						src: '/src/islands/ReactCounter.tsx',
+						condition: 'on:interaction',
+						framework: 'react',
+						props: { initialCount: 0 },
+					})}
+				</div>
+
 				{/* Preact Counter */}
 				<div
 					style={{
@@ -27,6 +46,26 @@ export default async function FrameworksPage() {
 						src: '/src/islands/PreactCounter.tsx',
 						condition: 'on:interaction',
 						framework: 'preact',
+					})}
+				</div>
+
+				{/* Lit Counter */}
+				<div
+					style={{
+						background: '#fff',
+						padding: '25px',
+						borderRadius: '12px',
+						boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+						border: '2px solid #ff6b6b',
+					}}>
+					<h3 style={{ color: '#ff6b6b', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+						🔥 Lit Counter
+					</h3>
+					{await renderIsland({
+						src: '/src/islands/Counter.lit.ts',
+						condition: 'on:interaction',
+						framework: 'lit',
+						props: { initialCount: 0 },
 					})}
 				</div>
 

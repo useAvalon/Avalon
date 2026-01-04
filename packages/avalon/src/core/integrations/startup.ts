@@ -213,7 +213,7 @@ export function formatInitializationResult(result: InitializationResult): string
  * Get helpful error message for missing integration
  */
 export function getMissingIntegrationError(framework: string): string {
-  const knownIntegrations = ["preact", "vue", "solid", "svelte"];
+  const knownIntegrations = ["preact", "vue", "solid", "svelte", "react", "lit"];
   
   if (knownIntegrations.includes(framework)) {
     return `

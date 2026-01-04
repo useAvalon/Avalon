@@ -6,7 +6,7 @@
  * Configuration for a single integration
  */
 export interface IntegrationConfigEntry {
-  /** Name of the integration (e.g., "preact", "vue", "solid", "svelte") */
+  /** Name of the integration (e.g., "preact", "react", "vue", "solid", "svelte", "lit") */
   name: string;
   /** Whether this integration is enabled */
   enabled?: boolean;

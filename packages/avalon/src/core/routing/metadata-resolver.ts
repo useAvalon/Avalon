@@ -202,13 +202,27 @@ export class MetadataResolver {
 				const existingSchema = result.schema || [];
 				const allSchema = value.filter((v): v is Record<string, unknown> => typeof v === 'object' && v !== null);
 				result.schema = [...existingSchema, ...allSchema];
-			} else if (key === 'openGraph' && typeof value === 'object' && value !== null) {
+			} else if (
+				key === 'openGraph' &&
+				typeof value === 'object' &&
+				value !== null &&
+				!Array.isArray(value) &&
+				!(value instanceof Date) &&
+				!(value instanceof RegExp)
+			) {
 				// Deep merge OpenGraph objects
 				result.openGraph = {
 					...result.openGraph,
 					...value,
 				};
-			} else if (key === 'twitter' && typeof value === 'object' && value !== null) {
+			} else if (
+				key === 'twitter' &&
+				typeof value === 'object' &&
+				value !== null &&
+				!Array.isArray(value) &&
+				!(value instanceof Date) &&
+				!(value instanceof RegExp)
+			) {
 				// Deep merge Twitter Card objects
 				result.twitter = {
 					...result.twitter,

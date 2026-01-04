@@ -108,7 +108,7 @@ export function resolveIslandPath(src: string): string {
  */
 export function detectFrameworkFromSrc(
   src: string,
-): "solid" | "vue" | "svelte" | "preact" | "react" {
+): "solid" | "vue" | "svelte" | "preact" | "react" | "lit" {
   // Normalize path separators
   const normalizedSrc = src.replace(/\\/g, "/");
   
@@ -121,7 +121,7 @@ export function detectFrameworkFromSrc(
     const config = integration.config();
     
     if (normalizedSrc.includes(`.${config.name}.`)) {
-      return config.name as "solid" | "vue" | "svelte" | "preact" | "react";
+      return config.name as "solid" | "vue" | "svelte" | "preact" | "react" | "lit";
     }
   }
   
@@ -132,7 +132,7 @@ export function detectFrameworkFromSrc(
     // Check if file extension matches
     for (const ext of config.fileExtensions) {
       if (normalizedSrc.endsWith(ext)) {
-        return config.name as "solid" | "vue" | "svelte" | "preact" | "react";
+        return config.name as "solid" | "vue" | "svelte" | "preact" | "react" | "lit";
       }
     }
   }

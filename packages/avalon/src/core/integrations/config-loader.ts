@@ -205,9 +205,11 @@ export default {
    */
   integrations: [
     { name: "preact", enabled: true },
+    { name: "react", enabled: true },
     { name: "vue", enabled: true },
     { name: "solid", enabled: true },
     { name: "svelte", enabled: true },
+    { name: "lit", enabled: true },
   ],
 
   /**

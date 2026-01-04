@@ -7,7 +7,7 @@
  */
 
 export interface FrameworkDetectionResult {
-	framework: 'preact' | 'solid' | 'vue' | 'svelte' | 'unknown';
+	framework: 'preact' | 'solid' | 'vue' | 'svelte' | 'react' | 'lit' | 'unknown';
 	confidence: 'high' | 'medium' | 'low';
 	evidence: string[];
 	warnings: string[];
@@ -72,6 +72,26 @@ export class EnhancedFrameworkDetector {
 			evidence.push('Explicit Preact naming convention (.preact.tsx/.preact.jsx)');
 			return {
 				framework: 'preact',
+				confidence: 'high',
+				evidence,
+				warnings,
+			};
+		}
+
+		if (filePath.includes('.react.')) {
+			evidence.push('Explicit React naming convention (.react.tsx/.react.jsx)');
+			return {
+				framework: 'react',
+				confidence: 'high',
+				evidence,
+				warnings,
+			};
+		}
+
+		if (filePath.includes('.lit.')) {
+			evidence.push('Explicit Lit naming convention (.lit.ts/.lit.js)');
+			return {
+				framework: 'lit',
 				confidence: 'high',
 				evidence,
 				warnings,
@@ -232,6 +252,12 @@ export class EnhancedFrameworkDetector {
 		if (filePath.includes('.preact.')) {
 			return '.preact.tsx'; // Treat as special Preact extension
 		}
+		if (filePath.includes('.react.')) {
+			return '.react.tsx'; // Treat as special React extension
+		}
+		if (filePath.includes('.lit.')) {
+			return '.lit.ts'; // Treat as special Lit extension
+		}
 
 		const lastDot = filePath.lastIndexOf('.');
 		return lastDot !== -1 ? filePath.substring(lastDot) : '';
@@ -320,6 +346,76 @@ export class EnhancedFrameworkDetector {
 						/from\s+['"]svelte['"]/,
 					],
 					jsxPragmas: ['@jsxImportSource svelte'],
+				},
+			},
+			react: {
+				name: 'react',
+				fileExtensions: ['.jsx', '.tsx', '.react.jsx', '.react.tsx'],
+				jsxImportSources: ['react'],
+				ssrModules: ['react-dom/server'],
+				hydrationModules: ['react-dom/client'],
+				detectionPatterns: {
+					imports: [
+						/^react$/,
+						/^react\//,
+						/^react-dom$/,
+						/^react-dom\//,
+						/from\s+['"]react['"]/,
+						/from\s+['"]react\/[^'"]+['"]/,
+						/from\s+['"]react-dom['"]/,
+					],
+					content: [
+						/\buseState\b/,
+						/\buseEffect\b/,
+						/\buseContext\b/,
+						/\buseReducer\b/,
+						/\buseCallback\b/,
+						/\buseMemo\b/,
+						/\buseRef\b/,
+						/\buseTransition\b/,
+						/\buseDeferredValue\b/,
+						/\buseId\b/,
+						/\buseImperativeHandle\b/,
+						/\buseLayoutEffect\b/,
+						/["']use client["']/,
+						/["']use server["']/,
+						/from\s+['"]react['"]/,
+						/import\s+.*\s+from\s+['"]react['"]/,
+					],
+					jsxPragmas: ['@jsxImportSource react'],
+				},
+			},
+			lit: {
+				name: 'lit',
+				fileExtensions: ['.ts', '.js', '.lit.ts', '.lit.js'],
+				jsxImportSources: ['lit'],
+				ssrModules: ['@lit-labs/ssr'],
+				hydrationModules: ['lit'],
+				detectionPatterns: {
+					imports: [
+						/^lit$/,
+						/^lit\//,
+						/^@lit\//,
+						/^@lit-labs\/ssr/,
+						/from\s+['"]lit['"]/,
+						/from\s+['"]lit\/[^'"]+['"]/,
+						/from\s+['"]@lit\/[^'"]+['"]/,
+					],
+					content: [
+						/\bLitElement\b/,
+						/\bcustomElement\b/,
+						/@customElement/,
+						/@property/,
+						/@state/,
+						/@query/,
+						/@queryAll/,
+						/\bhtml`/,
+						/\bcss`/,
+						/extends\s+LitElement/,
+						/from\s+['"]lit['"]/,
+						/import\s+.*\s+from\s+['"]lit['"]/,
+					],
+					jsxPragmas: ['@jsxImportSource lit'],
 				},
 			},
 		};
