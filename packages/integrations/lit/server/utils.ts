@@ -2,7 +2,10 @@
  * Lit Server Utilities
  */
 
-import { LitElement } from "lit";
+// Import DOM shim FIRST before any Lit imports
+import "./dom-shim.ts";
+
+import type { LitElement } from "lit";
 import type { CSSResult } from "lit";
 import { join } from "node:path";
 

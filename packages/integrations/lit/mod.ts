@@ -5,6 +5,9 @@
  * Provides server-side rendering and client-side hydration for Lit web components
  */
 
+// Import DOM shim FIRST - must be before any Lit imports anywhere
+import "./server/dom-shim.ts";
+
 import type { Integration, IntegrationConfig } from "../shared/types.ts";
 import { render } from "./server/renderer.ts";
 import { getHydrationScript } from "./client/hydration.ts";

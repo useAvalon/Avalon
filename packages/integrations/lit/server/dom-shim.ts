@@ -2,47 +2,52 @@
  * Lit DOM Shim Installation
  * 
  * MUST be imported before any Lit modules to ensure DOM APIs are available.
- * Provides minimal DOM APIs (HTMLElement, customElements, etc.) for SSR.
+ * Uses linkedom for a complete DOM implementation in SSR environments.
  */
 
 import {
-  HTMLElement,
-  Element,
-  CustomEvent,
-  Event,
-  EventTarget,
+  HTMLElement as ShimHTMLElement,
+  Element as ShimElement,
+  CustomEvent as ShimCustomEvent,
+  Event as ShimEvent,
+  EventTarget as ShimEventTarget,
   CustomElementRegistry,
 } from "@lit-labs/ssr-dom-shim";
+
+import { parseHTML } from "linkedom";
+
+// Create a linkedom document for full DOM API support
+const { document: linkedomDocument, Node } = parseHTML("<!DOCTYPE html><html><head></head><body></body></html>");
 
 // Install shim classes as globals at module load time
 // @ts-ignore - adding to globalThis
 if (typeof globalThis.HTMLElement === "undefined") {
   // @ts-ignore
-  globalThis.HTMLElement = HTMLElement;
+  globalThis.HTMLElement = ShimHTMLElement;
 }
 
 // @ts-ignore
 if (typeof globalThis.Element === "undefined") {
   // @ts-ignore
-  globalThis.Element = Element;
+  globalThis.Element = ShimElement;
 }
 
 // @ts-ignore
 if (typeof globalThis.CustomEvent === "undefined") {
   // @ts-ignore
-  globalThis.CustomEvent = CustomEvent;
+  globalThis.CustomEvent = ShimCustomEvent;
 }
 
 // @ts-ignore
 if (typeof globalThis.Event === "undefined") {
   // @ts-ignore
-  globalThis.Event = Event;
+  globalThis.Event = ShimEvent;
 }
 
 // @ts-ignore
 if (typeof globalThis.EventTarget === "undefined") {
   // @ts-ignore
-  globalThis.EventTarget = EventTarget;
+  globalThis.EventTarget = ShimEventTarget;
 }
 
 // @ts-ignore
@@ -51,11 +56,28 @@ if (typeof globalThis.customElements === "undefined") {
   globalThis.customElements = new CustomElementRegistry();
 }
 
+// @ts-ignore
+if (typeof globalThis.Node === "undefined") {
+  // @ts-ignore
+  globalThis.Node = Node;
+}
+
+// Use linkedom's document which has full DOM API support including
+// createComment, createTreeWalker, etc.
+// @ts-ignore
+if (typeof globalThis.document === "undefined") {
+  // @ts-ignore
+  globalThis.document = linkedomDocument;
+}
+
 export function verifyDOMShim(): boolean {
   return (
-    typeof HTMLElement !== "undefined" &&
-    typeof customElements !== "undefined" &&
-    typeof Element !== "undefined"
+    typeof globalThis.HTMLElement !== "undefined" &&
+    typeof globalThis.customElements !== "undefined" &&
+    typeof globalThis.Element !== "undefined" &&
+    typeof globalThis.document !== "undefined" &&
+    typeof globalThis.document.createComment === "function" &&
+    typeof globalThis.document.createTreeWalker === "function"
   );
 }
 

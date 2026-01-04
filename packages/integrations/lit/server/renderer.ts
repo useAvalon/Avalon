@@ -17,6 +17,7 @@ import {
   extractTagNameFromSource
 } from "./utils.ts";
 import { render as litRender } from "@lit-labs/ssr";
+import { html, unsafeStatic } from "lit/static-html.js";
 import type { LitElement } from "lit";
 
 if (!DOM_SHIM_INSTALLED || !verifyDOMShim()) {
@@ -25,25 +26,24 @@ if (!DOM_SHIM_INSTALLED || !verifyDOMShim()) {
 
 /**
  * Render a Lit element using @lit-labs/ssr with declarative shadow DOM
+ * Uses the proper SSR approach: render the custom element tag, not the instance
  */
-async function renderLitElementWithSSR(
+function renderLitElementWithSSR(
   ElementClass: typeof LitElement,
   props: Record<string, unknown>,
   tagName: string
-): Promise<{ html: string; styles: string }> {
-  const instance = new ElementClass();
+): { html: string; styles: string } {
+  // Build attributes for the custom element
+  const attributes = serializeAttributes(props);
+  const attrsString = attributes ? ` ${attributes}` : "";
   
-  for (const [key, value] of Object.entries(props)) {
-    // deno-lint-ignore no-explicit-any
-    (instance as any)[key] = value;
-  }
+  // Create the element template using lit's static html
+  // This is the proper way to SSR Lit elements - render the tag, not the class instance
+  const tag = unsafeStatic(tagName);
+  const elementTemplate = html`<${tag}${unsafeStatic(attrsString)} defer-hydration></${tag}>`;
   
-  if (instance.connectedCallback) {
-    instance.connectedCallback();
-  }
-  
-  const renderResult = instance.render();
-  const ssrResult = litRender(renderResult);
+  // Use @lit-labs/ssr to render the element
+  const ssrResult = litRender(elementTemplate);
   
   let renderedHtml = "";
   for (const chunk of ssrResult) {
@@ -51,17 +51,8 @@ async function renderLitElementWithSSR(
   }
   
   const styles = collectStyles(ElementClass);
-  const attributes = serializeAttributes(props);
-  const attrsString = attributes ? ` ${attributes}` : "";
   
-  const shadowDomHtml = `<${tagName}${attrsString} defer-hydration>
-  <template shadowrootmode="open">
-    ${styles ? `<style>${styles}</style>` : ""}
-    ${renderedHtml}
-  </template>
-</${tagName}>`;
-  
-  return { html: shadowDomHtml, styles };
+  return { html: renderedHtml, styles };
 }
 
 /**
@@ -102,7 +93,7 @@ export async function render(params: LitRenderParams): Promise<LitRenderResult> 
   
   if (ElementClass) {
     try {
-      const ssrResult = await renderLitElementWithSSR(ElementClass, props, tagName);
+      const ssrResult = renderLitElementWithSSR(ElementClass, props, tagName);
       html = ssrResult.html;
       styles = ssrResult.styles;
     } catch {
