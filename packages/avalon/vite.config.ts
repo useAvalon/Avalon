@@ -6,9 +6,9 @@ import { createMDXPlugin } from './src/build/mdx-plugin.ts';
 import { integrationDetectionPlugin, detectUsedIntegrations, getRequiredIntegrations } from './src/build/integration-detection-plugin.ts';
 import { integrationResolverPlugin, createIntegrationAliases } from './src/build/integration-resolver-plugin.ts';
 import { integrationBundlerPlugin, getIntegrationOptimizeDeps } from './src/build/integration-bundler-plugin.ts';
+import { discoverAllIslands, getQualifiedIslandName } from './src/islands/discovery/index.ts';
 
 const SUPPORTED_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.vue', '.svelte', '.mdx', '.md'] as const;
-const COMPONENT_DIRECTORIES = ['islands', 'components'] as const;
 const FRAMEWORK_DETECTION_DIRS = ['islands', 'components', 'src'] as const;
 const SVELTE_DETECTION_DIRS = ['islands', 'components', 'src', 'examples'] as const;
 
@@ -18,35 +18,40 @@ function isSupportedFile(filename: string): boolean {
 	return SUPPORTED_EXTENSIONS.some(ext => filename.endsWith(ext));
 }
 
-function getFileNameWithoutExtension(filename: string): string {
-	return filename.replace(/\.(tsx?|jsx?|vue|svelte|mdx?|md)$/, '');
-}
-
-async function scanDirectoryForEntries(dirPath: string, prefix: string): Promise<Record<string, string>> {
-	const entries: Record<string, string> = {};
-
-	try {
-		for await (const dirEntry of Deno.readDir(dirPath)) {
-			if (dirEntry.isFile && isSupportedFile(dirEntry.name)) {
-				const name = getFileNameWithoutExtension(dirEntry.name);
-				entries[`${prefix}/${name}`] = resolve(dirPath, dirEntry.name);
-			}
-		}
-	} catch {
-		// Directory doesn't exist, that's fine
-	}
-
-	return entries;
-}
-
+/**
+ * Discover all island entries using the nested islands discovery service.
+ * Scans all islands directories (including nested ones like /src/modules/[module]/islands/)
+ * and generates build entries with qualified names for collision handling.
+ * 
+ * @returns Record of entry names to file paths for Vite build input
+ */
 async function discoverIslandEntries(): Promise<Record<string, string>> {
 	const cwd = Deno.cwd();
 	const allEntries: Record<string, string> = {};
 
-	for (const dir of COMPONENT_DIRECTORIES) {
-		const dirPath = resolve(cwd, dir);
-		const entries = await scanDirectoryForEntries(dirPath, dir);
-		Object.assign(allEntries, entries);
+	try {
+		// Use the discovery service to find all islands across all directories
+		const islands = await discoverAllIslands(cwd);
+
+		for (const island of islands) {
+			// Generate entry name based on qualified name
+			// For default /src/islands/: "islands/Counter"
+			// For nested /src/modules/auth/islands/: "islands/modules/auth/Counter"
+			const qualifiedName = getQualifiedIslandName(island);
+			const entryName = island.namespace === '' 
+				? `islands/${island.name}`
+				: `islands/${qualifiedName}`;
+			
+			allEntries[entryName] = island.filePath;
+		}
+
+		// Log discovered islands for debugging
+		const islandCount = Object.keys(allEntries).length;
+		if (islandCount > 0) {
+			console.log(`🏝️  Discovered ${islandCount} island(s) across all directories`);
+		}
+	} catch (error) {
+		console.warn('⚠️  Failed to discover islands:', error);
 	}
 
 	return allEntries;
@@ -99,6 +104,7 @@ async function hasSolidFiles(): Promise<boolean> {
 }
 
 async function detectFrameworks(islandEntries: Record<string, string>) {
+	// Check if any island entries have Vue or Svelte extensions
 	const hasVueInEntries = Object.values(islandEntries).some(path => path.endsWith('.vue'));
 	const hasSvelteInEntries = Object.values(islandEntries).some(path => path.endsWith('.svelte'));
 

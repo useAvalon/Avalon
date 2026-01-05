@@ -239,6 +239,138 @@ export default function MixedFrameworksPage() {
 }
 ```
 
+## Nested Islands and Modular Architecture
+
+Avalon supports organizing islands in nested directory structures, enabling modular architectures for larger applications.
+
+### Directory Structure
+
+Islands can be placed in any directory named `islands` within your `src/` folder:
+
+```
+src/
+├── islands/                    # Default islands directory
+│   ├── Counter.tsx
+│   └── SearchWidget.tsx
+├── modules/
+│   ├── auth/
+│   │   └── islands/           # Auth module islands
+│   │       ├── LoginForm.tsx
+│   │       └── UserProfile.tsx
+│   ├── dashboard/
+│   │   └── islands/           # Dashboard module islands
+│   │       ├── Chart.tsx
+│   │       └── DataTable.tsx
+│   └── blog/
+│       └── islands/           # Blog module islands
+│           └── CommentSection.tsx
+└── features/
+    └── checkout/
+        └── islands/           # Checkout feature islands
+            └── PaymentForm.tsx
+```
+
+### Island Resolution Order
+
+When you reference an island by name, Avalon resolves it using the following priority order:
+
+1. **Explicit path-based references** - Full path to the island
+2. **Qualified name matches** - Namespace/name format
+3. **Default `/src/islands/` directory** - Highest priority for simple names
+4. **Nested directories** - Alphabetically by namespace
+
+```tsx
+// Resolution examples:
+
+// 1. Explicit path (always unambiguous)
+import Counter from '../modules/auth/islands/Counter.tsx';
+
+// 2. Qualified name (namespace/name)
+<Island src="modules/auth/Counter" client:load />
+
+// 3. Simple name - resolves to default /src/islands/ first
+<Island src="Counter" client:load />  // Uses src/islands/Counter.tsx
+
+// 4. If not in default, searches nested directories alphabetically
+<Island src="LoginForm" client:load />  // Uses src/modules/auth/islands/LoginForm.tsx
+```
+
+### Namespace Conventions
+
+Namespaces are derived from the directory path between `src/` and `islands/`:
+
+| Island Location | Namespace | Qualified Name |
+|-----------------|-----------|----------------|
+| `src/islands/Counter.tsx` | (empty) | `Counter` |
+| `src/modules/auth/islands/LoginForm.tsx` | `modules/auth` | `modules/auth/LoginForm` |
+| `src/features/checkout/islands/PaymentForm.tsx` | `features/checkout` | `features/checkout/PaymentForm` |
+
+### Handling Name Collisions
+
+When multiple islands share the same name, use qualified names to disambiguate:
+
+```tsx
+// Two islands named "Counter" in different modules
+// src/islands/Counter.tsx
+// src/modules/dashboard/islands/Counter.tsx
+
+// Using qualified names to specify which one
+<Island src="Counter" client:load />                    // Default: src/islands/Counter.tsx
+<Island src="modules/dashboard/Counter" client:load /> // Nested: src/modules/dashboard/islands/Counter.tsx
+```
+
+### TypeScript Support
+
+Avalon can generate TypeScript declarations for all discovered islands:
+
+```typescript
+// Generate types during build
+import { generateIslandTypes } from 'avalon';
+
+await generateIslandTypes(projectRoot, {
+  outputDir: 'src/types',
+  moduleName: 'avalon-islands',
+});
+```
+
+This generates type definitions that provide:
+- Autocomplete for island names
+- Type checking for island references
+- Namespace information for disambiguation
+
+### Configuration
+
+You can customize island discovery with configuration options:
+
+```typescript
+// avalon.config.ts
+export default {
+  islands: {
+    // Additional directories to scan
+    include: ['src/shared/islands'],
+    
+    // Directories to exclude
+    exclude: ['node_modules', 'dist'],
+    
+    // Custom namespace mapping
+    namespaces: {
+      'modules/auth': 'auth',
+      'modules/dashboard': 'dash',
+    },
+    
+    // Fail build on naming collisions
+    strictCollisions: false,
+  },
+};
+```
+
+### Best Practices for Nested Islands
+
+1. **Use meaningful namespaces**: Organize islands by feature or domain
+2. **Prefer qualified names**: When referencing nested islands, use qualified names for clarity
+3. **Keep default directory for shared islands**: Use `src/islands/` for commonly used components
+4. **Document your structure**: Add a README to explain your island organization
+
 ## Island Communication
 
 Islands can communicate with each other using various patterns:
@@ -439,3 +571,4 @@ Check out these complete examples:
 - [Multi-Framework Demo](../../examples/islands/multi-framework/)
 - [Island Communication](../../examples/islands/communication/)
 - [Performance Comparison](../../examples/islands/performance/)
+- [Nested Islands Organization](../../examples/islands/nested-islands/)

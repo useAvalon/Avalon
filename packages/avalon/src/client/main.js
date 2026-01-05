@@ -527,4 +527,434 @@ function detectFrameworkFromPath(path) {
 // HMR support for development
 if (import.meta.hot) {
 	import.meta.hot.accept();
+	
+	// Enhanced HMR support for nested islands
+	setupNestedIslandHMR();
+}
+
+/**
+ * Setup HMR support for nested island directories.
+ * Handles hot module replacement for islands in any discovered directory,
+ * including nested paths like /src/modules/[module]/islands/.
+ */
+function setupNestedIslandHMR() {
+	if (!import.meta.hot) return;
+
+	// Track hydrated islands for state preservation
+	const hydratedIslands = new Map();
+
+	/**
+	 * Store island state before HMR update
+	 * @param {HTMLElement} island - The island element
+	 * @returns {object|null} The preserved state
+	 */
+	function preserveIslandState(island) {
+		const framework = island.getAttribute('data-framework');
+		const src = island.getAttribute('data-src');
+		
+		if (!src) return null;
+
+		const state = {
+			framework,
+			src,
+			props: island.getAttribute('data-props'),
+			scrollPosition: {
+				x: globalThis.scrollX,
+				y: globalThis.scrollY,
+			},
+			focusedElement: document.activeElement?.id || null,
+		};
+
+		// Framework-specific state preservation
+		try {
+			switch (framework) {
+				case 'preact':
+				case 'react':
+					// React/Preact state is managed internally, we preserve props
+					break;
+				case 'vue':
+					// Vue state can be accessed via __vue__ property
+					if (island.__vue__) {
+						state.vueData = JSON.parse(JSON.stringify(island.__vue__.$data || {}));
+					}
+					break;
+				case 'svelte':
+					// Svelte state is in component instance
+					if (island.__svelte__) {
+						state.svelteState = island.__svelte__;
+					}
+					break;
+				case 'solid':
+					// Solid uses signals, state is reactive
+					break;
+				case 'lit':
+					// Lit element properties
+					if (island.tagName && island.tagName.includes('-')) {
+						const litElement = island.querySelector('[data-lit-element]') || island;
+						if (litElement._$litElement$) {
+							state.litProperties = {};
+							// Preserve reactive properties
+						}
+					}
+					break;
+			}
+		} catch (error) {
+			console.warn('Failed to preserve island state:', error);
+		}
+
+		return state;
+	}
+
+	/**
+	 * Restore island state after HMR update
+	 * @param {HTMLElement} island - The island element
+	 * @param {object} state - The preserved state
+	 */
+	function restoreIslandState(island, state) {
+		if (!state) return;
+
+		try {
+			// Restore scroll position
+			if (state.scrollPosition) {
+				globalThis.scrollTo(state.scrollPosition.x, state.scrollPosition.y);
+			}
+
+			// Restore focus
+			if (state.focusedElement) {
+				const element = document.getElementById(state.focusedElement);
+				if (element) {
+					element.focus();
+				}
+			}
+
+			// Framework-specific state restoration
+			const framework = island.getAttribute('data-framework');
+			switch (framework) {
+				case 'vue':
+					if (state.vueData && island.__vue__) {
+						Object.assign(island.__vue__.$data, state.vueData);
+					}
+					break;
+				// Other frameworks handle state internally or through signals
+			}
+		} catch (error) {
+			console.warn('Failed to restore island state:', error);
+		}
+	}
+
+	/**
+	 * Handle HMR update for a specific island
+	 * @param {string} modulePath - The module path that was updated
+	 */
+	async function handleIslandHMR(modulePath) {
+		// Normalize the path for comparison
+		const normalizedPath = modulePath.replace(/\\/g, '/');
+		
+		// Find all islands that use this module
+		const islands = document.querySelectorAll(`[data-src*="${normalizedPath}"], [data-src$="${normalizedPath}"]`);
+		
+		if (islands.length === 0) {
+			// Also check for partial path matches (nested islands)
+			const allIslands = document.querySelectorAll('[data-src]');
+			for (const island of allIslands) {
+				const src = island.getAttribute('data-src');
+				if (src && (src.includes(normalizedPath) || normalizedPath.includes(src.replace(/^\//, '')))) {
+					await rehydrateIsland(island);
+				}
+			}
+			return;
+		}
+
+		for (const island of islands) {
+			await rehydrateIsland(island);
+		}
+	}
+
+	/**
+	 * Rehydrate a single island after HMR update
+	 * @param {HTMLElement} island - The island element to rehydrate
+	 */
+	async function rehydrateIsland(island) {
+		const framework = island.getAttribute('data-framework');
+		const src = island.getAttribute('data-src');
+
+		if (!src || !framework) return;
+
+		try {
+			// Preserve state before update
+			const state = preserveIslandState(island);
+			hydratedIslands.set(src, state);
+
+			// Mark as not hydrated to allow re-hydration
+			island.removeAttribute('data-hydrated');
+			island.removeAttribute('data-hydration-status');
+
+			// Clear any error indicators
+			const errorIndicator = island.querySelector('.hydration-error-indicator');
+			if (errorIndicator) {
+				errorIndicator.remove();
+			}
+
+			// Invalidate the module cache and re-import
+			const timestamp = Date.now();
+			const freshSrc = src.includes('?') 
+				? `${src}&t=${timestamp}` 
+				: `${src}?t=${timestamp}`;
+
+			// Re-hydrate the island
+			await hydrateIslandWithFreshModule(island, framework, freshSrc, src);
+
+			// Restore state after update
+			const preservedState = hydratedIslands.get(src);
+			if (preservedState) {
+				restoreIslandState(island, preservedState);
+				hydratedIslands.delete(src);
+			}
+
+			// Dispatch HMR success event
+			island.dispatchEvent(new CustomEvent('hmr-update', {
+				detail: {
+					framework,
+					src,
+					timestamp: Date.now(),
+					success: true,
+				},
+				bubbles: true,
+			}));
+
+			console.log(`🔄 HMR: Updated ${framework} island ${src}`);
+		} catch (error) {
+			console.error(`❌ HMR failed for ${framework} island ${src}:`, error);
+			
+			// Dispatch HMR error event
+			island.dispatchEvent(new CustomEvent('hmr-error', {
+				detail: {
+					framework,
+					src,
+					error: error.message,
+					timestamp: Date.now(),
+				},
+				bubbles: true,
+			}));
+
+			// Show error feedback in development
+			if (isDevelopment()) {
+				showHMRError(island, framework, src, error);
+			}
+		}
+	}
+
+	/**
+	 * Hydrate an island with a fresh module (cache-busted)
+	 * @param {HTMLElement} island - The island element
+	 * @param {string} framework - The framework name
+	 * @param {string} freshSrc - The cache-busted source path
+	 * @param {string} originalSrc - The original source path
+	 */
+	async function hydrateIslandWithFreshModule(island, framework, freshSrc, originalSrc) {
+		const propsAttr = island.getAttribute('data-props');
+		const props = propsAttr ? JSON.parse(propsAttr) : {};
+
+		// For Lit components, ensure hydration support is loaded
+		if (framework === 'lit') {
+			await import('/@avalon/lit/client');
+		}
+
+		// Import the fresh module
+		const componentModule = await import(freshSrc);
+		let Component = componentModule.default;
+
+		if (!Component) {
+			const exports = Object.keys(componentModule).filter(key => key !== 'default');
+			for (const exportName of exports) {
+				const exportValue = componentModule[exportName];
+				if (typeof exportValue === 'function' && exportValue.prototype) {
+					Component = exportValue;
+					break;
+				}
+			}
+		}
+
+		if (!Component) {
+			throw new Error(`Component ${originalSrc} has no default export`);
+		}
+
+		// Get the integration module
+		let integrationModule;
+		switch (framework) {
+			case 'preact':
+				integrationModule = await import('/@avalon/preact/client');
+				break;
+			case 'react':
+				integrationModule = await import('/@avalon/react/client');
+				break;
+			case 'vue':
+				integrationModule = await import('/@avalon/vue/client');
+				break;
+			case 'svelte':
+				integrationModule = await import('/@avalon/svelte/client');
+				break;
+			case 'solid':
+				integrationModule = await import('/@avalon/solid/client');
+				break;
+			case 'lit':
+				integrationModule = await import('/@avalon/lit/client');
+				break;
+			default:
+				throw new Error(`Unknown framework: ${framework}`);
+		}
+
+		if (!integrationModule.hydrate || typeof integrationModule.hydrate !== 'function') {
+			throw new Error(`Integration ${framework} does not export a hydrate function`);
+		}
+
+		// Hydrate using the integration
+		integrationModule.hydrate(island, Component, props);
+		island.setAttribute('data-hydrated', 'true');
+	}
+
+	/**
+	 * Show HMR error feedback on the island
+	 * @param {HTMLElement} island - The island element
+	 * @param {string} framework - The framework name
+	 * @param {string} src - The component source path
+	 * @param {Error} error - The error that occurred
+	 */
+	async function showHMRError(island, framework, src, error) {
+		// Try to use the full error overlay
+		try {
+			const { showHMRErrorOverlay } = await import('./hmr-error-overlay.js');
+			showHMRErrorOverlay({
+				framework,
+				src,
+				error,
+				filePath: src,
+			});
+		} catch {
+			// Fallback to inline error indicator
+			showInlineHMRError(island, framework, src, error);
+		}
+	}
+
+	/**
+	 * Show inline HMR error indicator (fallback)
+	 * @param {HTMLElement} island - The island element
+	 * @param {string} framework - The framework name
+	 * @param {string} src - The component source path
+	 * @param {Error} error - The error that occurred
+	 */
+	function showInlineHMRError(island, framework, src, error) {
+		// Remove existing error indicator
+		const existing = island.querySelector('.hmr-error-indicator');
+		if (existing) {
+			existing.remove();
+		}
+
+		const indicator = document.createElement('div');
+		indicator.className = 'hmr-error-indicator';
+		indicator.style.cssText = `
+			position: absolute;
+			top: 0;
+			left: 0;
+			right: 0;
+			background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
+			color: white;
+			padding: 8px 12px;
+			font-size: 12px;
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+			z-index: 10000;
+			box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		`;
+
+		const icon = document.createElement('span');
+		icon.textContent = '⚠️';
+		icon.style.fontSize = '14px';
+
+		const message = document.createElement('span');
+		message.style.flex = '1';
+		message.innerHTML = `<strong>HMR Failed:</strong> ${error.message.slice(0, 100)}${error.message.length > 100 ? '...' : ''}`;
+
+		const dismissBtn = document.createElement('button');
+		dismissBtn.textContent = '×';
+		dismissBtn.style.cssText = `
+			background: rgba(255,255,255,0.2);
+			border: none;
+			color: white;
+			width: 20px;
+			height: 20px;
+			border-radius: 50%;
+			cursor: pointer;
+			font-size: 14px;
+			line-height: 1;
+		`;
+		dismissBtn.onclick = () => indicator.remove();
+
+		indicator.appendChild(icon);
+		indicator.appendChild(message);
+		indicator.appendChild(dismissBtn);
+
+		// Ensure island is positioned
+		const computedStyle = globalThis.getComputedStyle(island);
+		if (computedStyle.position === 'static') {
+			island.style.position = 'relative';
+		}
+
+		island.insertBefore(indicator, island.firstChild);
+	}
+
+	// Listen for Vite HMR events
+	import.meta.hot.on('vite:beforeUpdate', (payload) => {
+		// Check if any of the updated modules are islands
+		for (const update of payload.updates || []) {
+			const path = update.path || update.acceptedPath;
+			if (path && (path.includes('/islands/') || path.includes('\\islands\\'))) {
+				handleIslandHMR(path);
+			}
+		}
+	});
+
+	// Also handle full page reloads for islands
+	import.meta.hot.on('vite:beforeFullReload', () => {
+		// Store all island states before reload
+		const islands = document.querySelectorAll('[data-hydrated="true"]');
+		const states = {};
+		
+		for (const island of islands) {
+			const src = island.getAttribute('data-src');
+			if (src) {
+				states[src] = preserveIslandState(island);
+			}
+		}
+
+		// Store in sessionStorage for restoration after reload
+		try {
+			sessionStorage.setItem('__avalon_hmr_states__', JSON.stringify(states));
+		} catch {
+			// sessionStorage might not be available
+		}
+	});
+
+	// Restore states after page load (for full reloads)
+	try {
+		const savedStates = sessionStorage.getItem('__avalon_hmr_states__');
+		if (savedStates) {
+			const states = JSON.parse(savedStates);
+			sessionStorage.removeItem('__avalon_hmr_states__');
+			
+			// Wait for hydration to complete, then restore states
+			setTimeout(() => {
+				for (const [src, state] of Object.entries(states)) {
+					const island = document.querySelector(`[data-src="${src}"]`);
+					if (island && state) {
+						restoreIslandState(island, state);
+					}
+				}
+			}, 100);
+		}
+	} catch {
+		// Ignore errors
+	}
 }

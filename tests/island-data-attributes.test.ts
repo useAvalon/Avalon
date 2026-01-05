@@ -13,7 +13,8 @@ Deno.test("Island component - data attributes", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-src="/islands/Counter.tsx"');
+    // Path is resolved to /src/islands/Counter.tsx by the nested islands support
+    assertStringIncludes(html, 'data-src="/src/islands/Counter.tsx"');
   });
 
   await t.step("should render with data-condition attribute", () => {
@@ -206,7 +207,8 @@ Deno.test("Island component - SSR with children", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-src="/islands/Counter.tsx"');
+    // Path is resolved to /src/islands/Counter.tsx by the nested islands support
+    assertStringIncludes(html, 'data-src="/src/islands/Counter.tsx"');
     assertStringIncludes(html, 'data-condition="on:client"');
     assertStringIncludes(html, 'data-framework="preact"');
     assertStringIncludes(html, "<div>SSR Content</div>");

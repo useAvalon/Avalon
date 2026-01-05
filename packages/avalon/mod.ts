@@ -13,6 +13,58 @@ export { detectFramework, detectFrameworkFromSrc, resolveIslandPath } from './sr
 export { analyzeComponentFile, renderComponentSSROnly } from './src/islands/component-analysis.ts';
 export type { Framework, RenderParams, SvelteSSRCSSEntry } from './src/islands/types.ts';
 
+// Island Discovery System
+export {
+  // Scanner functions
+  discoverIslandDirectories,
+  discoverIslandsInDirectory,
+  discoverAllIslands,
+  isIslandsDirectory,
+  getDefaultIslandsPath,
+  hasDefaultIslandsDirectory,
+  getQualifiedIslandName,
+  parseQualifiedIslandName,
+  // Registry
+  IslandRegistry,
+  createIslandRegistry,
+  // Resolver
+  IslandResolver,
+  createIslandResolver,
+  // Validator
+  IslandValidator,
+  createIslandValidator,
+  validateAllIslands,
+  formatValidationError,
+  formatValidationWarning,
+  formatCircularDependency,
+  formatValidationResult,
+  // Watcher
+  IslandWatcher,
+  createIslandWatcher,
+  // Type utilities
+  ISLAND_FILE_EXTENSIONS,
+  DEFAULT_DISCOVERY_CONFIG,
+  isSupportedIslandExtension,
+} from './src/islands/discovery/index.ts';
+
+// Island Discovery Types
+export type {
+  IslandDirectory,
+  DiscoveredIsland,
+  IslandCollision,
+  IslandChangeEvent,
+  IslandFileExtension,
+  IslandDiscoveryConfig,
+  ResolutionResult,
+  ImportPathOptions,
+  ValidationResult,
+  ValidationError,
+  ValidationWarning,
+  CircularDependency,
+  IslandChangeCallback,
+  IslandWatcherOptions,
+} from './src/islands/discovery/index.ts';
+
 // Integration system
 export { loadIntegration, detectAndLoadIntegration } from './src/islands/integration-loader.ts';
 export { registry as integrationRegistry } from './src/core/integrations/registry.ts';
@@ -20,7 +72,11 @@ export type { Integration, RenderParams as IntegrationRenderParams, RenderResult
 
 // Build utilities
 export { generateIslandManifest, loadIslandManifest, getIslandBundlePath } from './src/build/island-manifest.ts';
-export type { IslandManifest, IslandEntry } from './src/build/island-manifest.ts';
+export type { IslandManifest, IslandEntry, ExtendedIslandManifest, ExtendedIslandEntry } from './src/build/island-manifest.ts';
+
+// Island type generation
+export { generateIslandTypes, watchAndGenerateTypes } from './src/build/island-types-generator.ts';
+export type { IslandTypeGeneratorOptions, TypeGenerationResult } from './src/build/island-types-generator.ts';
 
 // Build command (batteries included)
 export { build } from '../../scripts/build.ts';

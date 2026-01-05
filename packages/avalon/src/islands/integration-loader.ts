@@ -7,6 +7,9 @@ import type { Integration } from "../../../integrations/shared/types.ts";
  */
 const frameworkCache = new Map<string, Integration>();
 
+// Pattern to match nested island paths like /modules/*/islands/ or /src/*/islands/
+const NESTED_ISLANDS_PATTERN = /\/(?:src\/)?(?:modules\/)?([^/]+\/)*islands\//;
+
 /**
  * Load an integration by framework name
  * Uses cache to avoid repeated dynamic imports
@@ -44,7 +47,15 @@ export async function detectAndLoadIntegration(src: string) {
 }
 
 /**
- * Detect framework from file path based on extension and naming conventions
+ * Detect framework from file path based on extension and naming conventions.
+ * 
+ * Updated to support nested island paths like:
+ * - /src/islands/Counter.tsx
+ * - /src/modules/auth/islands/Counter.tsx
+ * - /modules/dashboard/islands/Chart.vue
+ * 
+ * @param src - The source path to detect framework from
+ * @returns The detected framework name
  */
 export function detectFrameworkFromPath(src: string) {
   // Normalize path separators
@@ -81,8 +92,9 @@ export function detectFrameworkFromPath(src: string) {
     return "lit";
   }
   
+  // Check if path is in any islands directory (including nested)
   // Plain .ts/.js files in islands are likely Lit components (Lit doesn't use JSX)
-  if (normalizedSrc.includes("/islands/") && (normalizedSrc.endsWith(".ts") || normalizedSrc.endsWith(".js"))) {
+  if (isInIslandsDirectory(normalizedSrc) && (normalizedSrc.endsWith(".ts") || normalizedSrc.endsWith(".js"))) {
     return "lit";
   }
   
@@ -96,7 +108,88 @@ export function detectFrameworkFromPath(src: string) {
 }
 
 /**
- * Detect framework from file content by analyzing imports and patterns
+ * Check if a path is within any islands directory (including nested).
+ * 
+ * Matches patterns like:
+ * - /islands/
+ * - /src/islands/
+ * - /src/modules/auth/islands/
+ * - /modules/dashboard/islands/
+ * - /src/features/user/islands/
+ * 
+ * @param path - The path to check
+ * @returns True if the path is in an islands directory
+ */
+export function isInIslandsDirectory(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/");
+  
+  // Check for /islands/ anywhere in the path
+  return normalized.includes("/islands/");
+}
+
+/**
+ * Check if a path is a nested island path (not in default /src/islands/).
+ * 
+ * @param path - The path to check
+ * @returns True if the path is a nested island path
+ */
+export function isNestedIslandPath(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/");
+  
+  // Check if it contains /islands/ but not at the root level
+  if (!normalized.includes("/islands/")) {
+    return false;
+  }
+  
+  // Default path patterns
+  const defaultPatterns = [
+    /^\/islands\//,
+    /^\/src\/islands\//,
+    /^src\/islands\//,
+    /^islands\//,
+  ];
+  
+  for (const pattern of defaultPatterns) {
+    if (pattern.test(normalized)) {
+      return false;
+    }
+  }
+  
+  // If it contains /islands/ but doesn't match default patterns, it's nested
+  return true;
+}
+
+/**
+ * Extract the namespace from a nested island path.
+ * 
+ * Examples:
+ * - /src/modules/auth/islands/Counter.tsx -> "modules/auth"
+ * - /src/features/user/islands/Profile.tsx -> "features/user"
+ * - /src/islands/Button.tsx -> ""
+ * 
+ * @param path - The path to extract namespace from
+ * @returns The namespace or empty string for default islands
+ */
+export function extractNamespaceFromPath(path: string): string {
+  const normalized = path.replace(/\\/g, "/");
+  
+  // Match patterns like /src/modules/auth/islands/ or /modules/auth/islands/
+  const match = normalized.match(/(?:\/src)?\/(.+?)\/islands\//);
+  if (match) {
+    return match[1];
+  }
+  
+  return "";
+}
+
+/**
+ * Detect framework from file content by analyzing imports and patterns.
+ * 
+ * Updated to support nested island paths.
+ * 
+ * @param src - The source path
+ * @param content - The file content to analyze
+ * @returns The detected framework name
  */
 export function detectFrameworkFromContent(
   src: string,
