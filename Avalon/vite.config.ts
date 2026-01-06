@@ -98,14 +98,25 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				compilerOptions: {
 					customElement: false,
 					runes: true,
-					hmr: false,
+					// Svelte 5: Keep dev: false for SSR compatibility
+					// The dev mode SSR tracking causes "Cannot read properties of null" errors
+					// because the tracking context isn't initialized in our SSR setup
 					dev: false,
+					// Svelte 5: DISABLE compiler-level HMR
+					// The compiler's HMR code (hmr.js) fails during hydration because it tries to
+					// access component metadata that doesn't exist in our islands architecture.
+					// Error: "Cannot convert undefined or null to object at getOwnPropertyDescriptors"
+					// Instead, we rely on Vite's module-level HMR to trigger full component re-hydration.
+					// This works correctly with our HMR coordinator which handles island updates.
+					hmr: false,
 					css: 'injected', // Inject CSS into component so we can extract it
+					// Note: 'hydratable' option was removed in Svelte 5 - components are always hydratable
 				},
-				hot: false,
+				// Note: 'hot' option is deprecated in Svelte 5 - use compilerOptions.hmr instead
 				emitCss: false, // Don't emit separate CSS files
 			})
 		);
+		console.log('✅ Loaded Svelte plugin (dev: false, hmr: false - using Vite module HMR)');
 	} catch (error) {
 		console.warn('Could not load Svelte plugin:', error);
 	}
@@ -333,6 +344,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				'lit',
 				'@lit-labs/ssr',
 				'@lit/reactive-element',
+				'linkedom',
+				'htmlparser2',
 			],
 		},
 
@@ -344,6 +357,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				'$islands/': resolve('src/islands/'),
 				'$pages/': resolve('src/pages/'),
 				'$api/': resolve('src/api/'),
+				// Resolve Avalon client script from package location
+				'/src/client/main.js': resolve('../packages/avalon/src/client/main.js'),
 				// Resolve integration client files from new package location
 				'/@avalon/preact/client': resolve('../packages/integrations/preact/client/index.ts'),
 				'/@avalon/react/client': resolve('../packages/integrations/react/client/index.ts'),

@@ -15,13 +15,31 @@ const NESTED_ISLANDS_PATTERN = /\/(?:src\/)?(?:modules\/)?([^/]+\/)*islands\//;
  * Uses cache to avoid repeated dynamic imports
  */
 export async function loadIntegration(framework: string) {
-  // Check cache first
+  // Check local cache first
   if (frameworkCache.has(framework)) {
     return frameworkCache.get(framework)!;
   }
 
+  // Check if already loaded in registry (e.g., by preloader)
+  // This is important because integrations are pre-loaded before Vite SSR context
+  // to avoid dependency resolution issues
+  const registrySize = registry.size;
+  const hasInRegistry = registry.has(framework);
+  
+  // Debug logging
+  console.log(`🔍 [integration-loader] Loading ${framework}: registrySize=${registrySize}, hasInRegistry=${hasInRegistry}`);
+  
+  if (hasInRegistry) {
+    const integration = registry.get(framework)!;
+    frameworkCache.set(framework, integration);
+    console.log(`🔍 [integration-loader] Found ${framework} in registry`);
+    return integration;
+  }
+
+  console.log(`🔍 [integration-loader] ${framework} not in registry, trying to load...`);
+
   try {
-    // Load from registry
+    // Load from registry (this will try to dynamically import)
     const integration = await registry.load(framework);
     
     // Cache the loaded integration

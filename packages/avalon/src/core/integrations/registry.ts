@@ -1,4 +1,35 @@
 import type { Integration } from "../../../../integrations/shared/types.ts";
+import { dirname, join } from "@std/path";
+
+/**
+ * Find the root of the Avalon monorepo by looking for packages/integrations
+ */
+function findMonorepoRoot(): string {
+  let currentDir = globalThis.Deno?.cwd() || process.cwd();
+  
+  // Walk up the directory tree looking for packages/integrations
+  for (let i = 0; i < 10; i++) {
+    try {
+      const integrationsPath = join(currentDir, "packages", "integrations");
+      const stat = Deno.statSync(integrationsPath);
+      if (stat.isDirectory) {
+        return currentDir;
+      }
+    } catch {
+      // Directory doesn't exist, try parent
+    }
+    
+    const parent = dirname(currentDir);
+    if (parent === currentDir) {
+      // Reached root, stop
+      break;
+    }
+    currentDir = parent;
+  }
+  
+  // Fallback to cwd
+  return globalThis.Deno?.cwd() || process.cwd();
+}
 
 /**
  * IntegrationRegistry manages loaded framework integrations.
@@ -64,11 +95,20 @@ export class IntegrationRegistry {
 
   /**
    * Internal method to load integration module
+   * Note: In development mode, integrations should be pre-loaded via preloader.ts
+   * before Vite's SSR context starts. This method is a fallback for production
+   * or when integrations weren't pre-loaded.
    */
   private async loadIntegration(name: string): Promise<Integration> {
     try {
-      // Try to import the integration module
-      const module = await import(`../../../../integrations/${name}/mod.ts`);
+      // Use absolute file:// URL to bypass Vite's module resolution
+      // This ensures we use Deno's native import which handles npm: specifiers correctly
+      const monorepoRoot = findMonorepoRoot();
+      const integrationPath = join(monorepoRoot, "packages", "integrations", name, "mod.ts");
+      const fileUrl = `file://${integrationPath}`;
+      
+      // Dynamic import with file:// URL bypasses Vite's SSR module loader
+      const module = await import(fileUrl);
       
       // Look for the integration export (e.g., preactIntegration)
       const integrationKey = `${name}Integration`;
@@ -80,12 +120,26 @@ export class IntegrationRegistry {
         );
       }
 
-      return integration;
+      return integration as Integration;
     } catch (error) {
+      // Check if this is a Vite SSR context issue
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isViteIssue = errorMessage.includes('ERR_UNSUPPORTED_ESM_URL_SCHEME') ||
+                          errorMessage.includes('Only file and data URLs are supported');
+      
+      if (isViteIssue) {
+        throw new Error(
+          `Integration '${name}' could not be loaded within Vite's SSR context. ` +
+          `This usually means the integration wasn't pre-loaded at server startup. ` +
+          `Make sure preloadIntegrationsNative() is called before Vite server starts.`,
+          { cause: error }
+        );
+      }
+      
       throw new Error(
-        `Failed to load integration '${name}'. ` +
-        `Make sure @avalon/integration-${name} is installed and properly configured.\n` +
-        `Error: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to load integration for framework '${name}'. ` +
+        `Make sure @avalon/integration-${name} is installed.\n` +
+        `Install it with: deno add @avalon/integration-${name}`,
         { cause: error }
       );
     }
@@ -129,4 +183,14 @@ export class IntegrationRegistry {
 }
 
 // Global singleton registry instance
-export const registry = new IntegrationRegistry();
+// Use globalThis to ensure the registry is shared across all module contexts
+// This is important because Vite's ssrLoadModule creates new module contexts
+declare global {
+  var __avalonIntegrationRegistry: IntegrationRegistry | undefined;
+}
+
+if (!globalThis.__avalonIntegrationRegistry) {
+  globalThis.__avalonIntegrationRegistry = new IntegrationRegistry();
+}
+
+export const registry = globalThis.__avalonIntegrationRegistry;

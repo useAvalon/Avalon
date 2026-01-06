@@ -44,7 +44,13 @@
 		"jsx": "precompile",
 		"jsxImportSource": "preact",
 		"lib": ["dom", "dom.iterable", "esnext", "deno.ns"],
-		"types": ["vite/client", "./src/types/mdx.d.ts"]
+		"types": [
+			"vite/client",
+			"./src/types/mdx.d.ts",
+			"./src/client/types/vite-virtual-modules.d.ts",
+			"./src/client/types/framework-runtime.d.ts"
+		],
+		"checkJs": false
 	},
 
 	"publish": {

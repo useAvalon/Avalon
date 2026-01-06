@@ -200,8 +200,9 @@ async function loadFrameworkPlugins(frameworks: { vue: boolean; solid: boolean; 
 					customElement: false,
 					runes: true,
 					css: 'injected',
-					hmr: process.env.NODE_ENV !== 'production',
+					dev: false, // Explicitly disable dev mode to prevent SSR issues
 				},
+				hot: true, // Enable hot reload at plugin level
 			}),
 			successMessage: 'Svelte plugin loaded for .svelte file support with SSR',
 			errorMessage: 'Svelte files detected but @sveltejs/vite-plugin-svelte not available',

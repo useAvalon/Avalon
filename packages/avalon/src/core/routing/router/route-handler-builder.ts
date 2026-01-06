@@ -40,11 +40,10 @@ export class RouteHandlerBuilder {
 		isDev: boolean = false
 	): Promise<RouteHandler> {
 		try {
-			// Load the page module for non-markdown files
-			const pageModule = await this.pageLoader.loadPageModule(route.filePath);
-
-			// Extract layout configuration
-			const layoutConfig = this.pageLoader.extractLayoutConfig(pageModule);
+			// In production, load module once at handler creation time for performance
+			// In development, we'll load fresh on each request for HMR support
+			const cachedPageModule = isDev ? null : await this.pageLoader.loadPageModule(route.filePath);
+			const cachedLayoutConfig = cachedPageModule ? this.pageLoader.extractLayoutConfig(cachedPageModule) : null;
 
 			// Create the route handler function
 			const handler = async (
@@ -54,6 +53,16 @@ export class RouteHandlerBuilder {
 			): Promise<Response> => {
 				try {
 					const url = new URL(request.url);
+
+					// In development mode, load the page module fresh on each request
+					// This ensures HMR changes are reflected without server restart
+					const pageModule = isDev 
+						? await this.pageLoader.loadPageModule(route.filePath)
+						: cachedPageModule!;
+					
+					const layoutConfig = isDev 
+						? this.pageLoader.extractLayoutConfig(pageModule)
+						: cachedLayoutConfig;
 
 					// Extract route parameters
 					const params = this.extractRouteParams(route, url.pathname);

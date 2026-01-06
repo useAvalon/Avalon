@@ -16,6 +16,7 @@ import { DEFAULT_SERVER_PORT } from './constants.ts';
 import { setupViteServer } from './vite-server.ts';
 import { setupApiRoutes } from './api-setup.ts';
 import { createAllRoutes } from './routes/index.ts';
+import { withErrorHandler } from './server-error-handler.ts';
 
 // Import middleware system
 import { MiddlewareDiscovery } from '../core/middleware/middleware-discovery.ts';
@@ -196,7 +197,8 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 			console.log(`🔍 Request: ${req.method} ${url.pathname}`);
 		}
 
-		try {
+		// Wrap the handler with error catching in development
+		const wrappedHandler = withErrorHandler(async (req: Request) => {
 			// Build and execute middleware chain
 			const middlewareChain = await middlewareDiscovery.buildMiddlewareChain(url);
 
@@ -225,10 +227,9 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 				// No middleware, proceed with normal route matching
 				return await handleRouteMatching(req, url, isSystemRequest, undefined, layoutResolver);
 			}
-		} catch (error) {
-			console.error('❌ Error in request handler:', error);
-			return new Response('Internal Server Error', { status: 500 });
-		}
+		}, isDev);
+
+		return await wrappedHandler(req);
 	}
 
 	async function handleRouteMatching(

@@ -5,6 +5,12 @@
  * 
  * Migrated from src/client/svelte-hydration.js with enhanced SSR detection
  * and fallback handling.
+ * 
+ * Svelte 5 HMR Notes:
+ * - HMR is controlled via compilerOptions.hmr in the Vite plugin config
+ * - Local state is NOT preserved during HMR (by design in Svelte 5)
+ * - CSS-only changes DO preserve state
+ * - The hydrate() function reuses SSR HTML, mount() creates fresh DOM
  */
 
 /// <reference lib="dom" />
@@ -12,6 +18,35 @@
 
 import { mount as svelteMount, hydrate as svelteHydrate } from "svelte";
 import type { SvelteComponent, SvelteComponentInstance } from "../types.ts";
+
+/**
+ * Check if we're in development mode
+ * Works in both Deno and browser environments
+ */
+function isDev(): boolean {
+  // Check Deno environment
+  if (typeof Deno !== 'undefined') {
+    try {
+      return Deno.env.get("DENO_ENV") !== "production";
+    } catch {
+      return true; // Default to dev if we can't read env
+    }
+  }
+  // Check Vite's __DEV__ global (set in vite.config.ts)
+  if (typeof globalThis !== 'undefined' && '__DEV__' in globalThis) {
+    return !!(globalThis as Record<string, unknown>).__DEV__;
+  }
+  // Check browser/Node environment via globalThis
+  try {
+    const proc = (globalThis as Record<string, unknown>).process as { env?: { NODE_ENV?: string } } | undefined;
+    if (proc?.env?.NODE_ENV) {
+      return proc.env.NODE_ENV !== "production";
+    }
+  } catch {
+    // Ignore errors accessing process
+  }
+  return true; // Default to dev
+}
 
 /**
  * Hydrate a Svelte component
@@ -72,15 +107,13 @@ export function hydrate(
         });
         return app as SvelteComponentInstance;
       } catch (mountError) {
-        // Only log in dev
-        if (typeof Deno !== 'undefined' && Deno.env.get("DENO_ENV") !== "production") {
+        if (isDev()) {
           console.error(`Svelte mount fallback failed:`, mountError);
         }
         throw mountError;
       }
     } else {
-      // Only log in dev
-      if (typeof Deno !== 'undefined' && Deno.env.get("DENO_ENV") !== "production") {
+      if (isDev()) {
         console.error(`Svelte hydration failed:`, error);
       }
       throw error;

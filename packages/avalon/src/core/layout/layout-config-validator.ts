@@ -1,4 +1,4 @@
-import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts';
+import { z } from 'zod';
 import { LayoutConfig, LayoutHandler, LayoutContext } from '../../types/layout.ts';
 
 // Validation schemas

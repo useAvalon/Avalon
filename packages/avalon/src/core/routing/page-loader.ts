@@ -136,21 +136,35 @@ export class PageLoader {
 			const isMDXFile = filePath.endsWith('.mdx') || filePath.endsWith('.md');
 			const isDev = Deno.env.get('DENO_ENV') !== 'production';
 
-			if (isMDXFile && isDev) {
-				// In development, use Vite's ssrLoadModule for MDX files
+			if (isDev) {
+				// In development, use Vite's ssrLoadModule for ALL files to support HMR
 				const viteServer = (globalThis as typeof globalThis & { __viteDevServer?: ViteDevServer }).__viteDevServer;
 				if (viteServer) {
 					// Convert file path to Vite-compatible path
-					const vitePath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+					// The path should be relative to Vite's root (which is the project directory)
+					// Remove leading slash if present, as ssrLoadModule expects paths relative to root
+					let vitePath = filePath;
+					
+					// If path starts with /, it's already absolute-style for Vite
+					// If not, prepend / to make it root-relative
+					if (!vitePath.startsWith('/')) {
+						vitePath = `/${vitePath}`;
+					}
+					
+					if (this.developmentMode && !this.quietMode) {
+						console.log(`🔄 [HMR] Loading module via Vite: ${vitePath}`);
+					}
+					
 					rawModule = await viteServer.ssrLoadModule(vitePath);
 				} else {
 					// Fallback to direct import if Vite server not available
 					const absolutePath = filePath.startsWith('/') ? filePath : join(Deno.cwd(), filePath);
-					const moduleUrl = new URL(`file://${absolutePath}`).href;
+					// Add cache-busting timestamp to force re-import
+					const moduleUrl = new URL(`file://${absolutePath}`).href + `?t=${Date.now()}`;
 					rawModule = await import(moduleUrl);
 				}
 			} else {
-				// Dynamic import with proper URL handling for cross-platform compatibility
+				// Production: Dynamic import with proper URL handling for cross-platform compatibility
 				const absolutePath = filePath.startsWith('/') ? filePath : join(Deno.cwd(), filePath);
 				const moduleUrl = new URL(`file://${absolutePath}`).href;
 				rawModule = await import(moduleUrl);

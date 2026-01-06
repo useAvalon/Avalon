@@ -905,6 +905,190 @@ The hot reload system includes several performance optimizations:
 - **Slow Updates**: Check if large files or build outputs are being watched
 - **Connection Issues**: Hot reload automatically reconnects if WebSocket connection drops
 
+## 🔄 Hot Module Replacement (HMR)
+
+Avalon provides comprehensive Hot Module Replacement (HMR) support across all supported frameworks. HMR allows you to see code changes instantly in the browser without losing component state or requiring full page reloads.
+
+### Framework-Specific HMR Behavior
+
+Each framework has different HMR capabilities and state preservation behavior:
+
+| Framework | State Preservation | HMR Mechanism | Notes |
+|-----------|-------------------|---------------|-------|
+| **React** | ✅ Hooks state preserved | React Fast Refresh | Full state preservation via `@vitejs/plugin-react` |
+| **Preact** | ✅ Hooks state preserved | Preact HMR | Similar to React, via `@preact/preset-vite` |
+| **Vue** | ✅ Reactive state preserved | Vue HMR API | Uses `__VUE_HMR_RUNTIME__` for hot updates |
+| **Svelte 5** | ❌ Local state reset | Vite module HMR | By design; CSS-only changes preserve state |
+| **Solid** | ✅ Signal subscriptions preserved | Solid Refresh | Maintains reactive computations |
+| **Lit** | ✅ Properties preserved | Custom element re-registration | Updates all element instances |
+
+### React & Preact HMR
+
+React and Preact use Fast Refresh to preserve component state during HMR updates:
+
+- **Hooks state** (useState, useReducer) is preserved across updates
+- **Component tree structure** is maintained
+- **Refs** and **context** are preserved
+- **Error boundaries** catch and display HMR errors gracefully
+
+```typescript
+// React/Preact component - hooks state preserved during HMR
+const Counter = () => {
+  const [count, setCount] = useState(0); // State preserved on file save
+  return <button onClick={() => setCount(c => c + 1)}>Count: {count}</button>;
+};
+```
+
+### Vue HMR
+
+Vue uses its built-in HMR API to preserve reactive state:
+
+- **Reactive data** (ref, reactive) is preserved
+- **Computed properties** maintain their cached values
+- **Component methods** are updated in place
+- **Template changes** trigger re-render without state loss
+
+```vue
+<script setup>
+import { ref } from 'vue';
+const count = ref(0); // Reactive state preserved during HMR
+</script>
+
+<template>
+  <button @click="count++">Count: {{ count }}</button>
+</template>
+```
+
+### Svelte 5 HMR
+
+Svelte 5 in Avalon uses Vite's module-level HMR instead of compiler-level HMR:
+
+- **Local state is NOT preserved** during HMR (by design)
+- **CSS-only changes** preserve state 100%
+- **Store subscriptions** are maintained across updates
+- Components are remounted with fresh state on JS changes
+
+**Why?** Svelte 5's compiler-level HMR (`compilerOptions.hmr: true`) injects code that fails during hydration in the islands architecture. The error "Cannot convert undefined or null to object at getOwnPropertyDescriptors" occurs because the HMR code expects component metadata that doesn't exist in our setup.
+
+**Configuration** (in `vite.config.ts`):
+```typescript
+svelte({
+  compilerOptions: {
+    hmr: false, // Disable compiler HMR, use Vite module HMR instead
+    dev: false, // Required for SSR compatibility
+  },
+})
+```
+
+### Solid HMR
+
+Solid uses Solid Refresh to preserve reactive state:
+
+- **Signal subscriptions** are maintained across updates
+- **Reactive computations** (createMemo, createEffect) stay wired
+- **Store state** is preserved
+- Fine-grained reactivity system handles updates efficiently
+
+```typescript
+// Solid component - signals preserved during HMR
+const Counter = () => {
+  const [count, setCount] = createSignal(0); // Signal preserved on file save
+  return <button onClick={() => setCount(c => c + 1)}>Count: {count()}</button>;
+};
+```
+
+### Lit HMR
+
+Lit components are Web Components (custom elements), so HMR requires special handling:
+
+- **Custom element re-registration** with new definition
+- **All instances** in the DOM are updated
+- **Element properties** and **attributes** are preserved
+- **Shadow DOM** content is re-rendered
+
+```typescript
+// Lit component - properties preserved during HMR
+@customElement('my-counter')
+class MyCounter extends LitElement {
+  @property({ type: Number }) count = 0; // Property preserved on file save
+  
+  render() {
+    return html`<button @click=${() => this.count++}>Count: ${this.count}</button>`;
+  }
+}
+```
+
+### DOM State Preservation
+
+Regardless of framework, Avalon preserves DOM state during HMR updates:
+
+- **Scroll position** within islands
+- **Focus state** on interactive elements
+- **Form input values** (text, checkboxes, selects)
+
+### HMR Error Handling
+
+When HMR updates fail, Avalon displays a detailed error overlay:
+
+- **File path** with syntax highlighting
+- **Error message** and **stack trace**
+- **Line and column numbers** for syntax errors
+- **Framework-specific hints** for common errors
+- **Auto-dismiss** when the error is fixed
+
+### Known Limitations
+
+1. **Svelte 5 State Reset**: Local component state is reset on HMR updates (by design). Use Svelte stores for state that should persist.
+
+2. **Lit Custom Element Re-registration**: Custom elements cannot be truly undefined once defined. Avalon replaces all instances with new elements.
+
+3. **Complex State**: Deeply nested or circular state may not preserve correctly. Consider using external state management.
+
+4. **Server Restart Required**: Changes to `vite.config.ts` require a dev server restart to take effect.
+
+5. **SSR Mismatch**: If server and client render different content, hydration may fail. Ensure consistent rendering.
+
+### HMR Troubleshooting Guide
+
+#### Changes Not Reflecting
+
+1. **Check file is being watched**: Ensure the file is in `src/` directory
+2. **Check for syntax errors**: Look for error overlay or console errors
+3. **Restart dev server**: Some config changes require restart
+4. **Clear browser cache**: Hard refresh with Ctrl+Shift+R (Cmd+Shift+R on Mac)
+
+#### State Not Preserved
+
+1. **Check framework support**: Svelte 5 doesn't preserve local state by design
+2. **Use external state**: Move state to stores (Nanostore, Svelte stores, etc.)
+3. **Check for errors**: HMR errors may cause full remount
+
+#### Hydration Errors
+
+1. **Check SSR/client mismatch**: Ensure server and client render the same content
+2. **Check for browser-only code**: Use `typeof window !== 'undefined'` guards
+3. **Check for random values**: Avoid Math.random() or Date.now() in initial render
+
+#### Svelte 5 Specific Issues
+
+1. **"Cannot convert undefined or null to object"**: This is fixed by setting `compilerOptions.hmr: false`
+2. **State resetting unexpectedly**: This is expected behavior; use Svelte stores for persistent state
+3. **CSS not updating**: Ensure `emitCss: false` and `css: 'injected'` in Svelte config
+
+#### Performance Issues
+
+1. **Slow HMR updates**: Check for large files or complex dependency chains
+2. **Multiple reloads**: Check for circular dependencies
+3. **Memory leaks**: Ensure components clean up subscriptions and event listeners
+
+### Development Best Practices
+
+1. **Use external state management** for state that should persist across HMR updates
+2. **Keep components small** for faster HMR updates
+3. **Use CSS-only changes** when possible (preserves state in all frameworks)
+4. **Test HMR behavior** during development to catch issues early
+5. **Monitor console** for HMR-related warnings and errors
+
 ## Global State Management with Nanostore
 
 Nanostore provides a lightweight, framework-agnostic reactive state management system that works seamlessly with avalon Islands. It's particularly useful for sharing state between islands and managing global application state.

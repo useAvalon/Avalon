@@ -4,11 +4,14 @@
 
 import type { ViteDevServer } from 'vite';
 import { VITE_DEV_PORT, VITE_HMR_PORT } from './constants.ts';
+import { ServerHMRHandler } from './server-hmr-handler.ts';
+import { preloadIntegrationsNative } from '../core/integrations/preloader.ts';
 import process from "node:process";
 
 export interface ViteServerSetup {
 	viteDevServer: ViteDevServer | null;
 	viteServerUrl: string;
+	serverHMRHandler?: ServerHMRHandler;
 }
 
 export async function setupViteServer(isDev: boolean): Promise<ViteServerSetup> {
@@ -17,6 +20,10 @@ export async function setupViteServer(isDev: boolean): Promise<ViteServerSetup> 
 	}
 
 	try {
+		// Pre-load integrations BEFORE Vite server starts
+		// This ensures they're loaded with native Deno imports, not through Vite's SSR module system
+		await preloadIntegrationsNative();
+
 		const { createServer } = await import('vite');
 		const { dirname } = await import('@std/path');
 		const cwd = globalThis.Deno?.cwd() || process.cwd();
@@ -74,15 +81,32 @@ export async function setupViteServer(isDev: boolean): Promise<ViteServerSetup> 
 		// deno-lint-ignore no-explicit-any
 		(globalThis as any).__viteDevServer = viteDevServer;
 
-		console.log(`✅ Vite dev server started on ${viteServerUrl}`);
-		console.log(`🔥 HMR WebSocket: ws://localhost:${VITE_HMR_PORT}`);
+		// Initialize server-side HMR handler
+		const serverHMRHandler = new ServerHMRHandler({
+			debugLogging: Deno.env.get('DEBUG_HMR') === 'true',
+			errorHandling: {
+				keepAlive: true,
+				displayInBrowser: true,
+			},
+		});
+		serverHMRHandler.initialize(viteDevServer);
 
-		return { viteDevServer, viteServerUrl };
+		console.log(`✅ Vite dev server started on ${viteServerUrl}`);
+
+		return { viteDevServer, viteServerUrl, serverHMRHandler };
 	} catch (error) {
 		console.error('❌ Failed to start Vite dev server. This is required for development:', error);
 		console.log('💡 Make sure you have vite.config.ts and @deno/vite-plugin installed');
 		throw error;
 	}
+}
+
+export async function setupViteServerWithoutHMR(isDev: boolean): Promise<ViteServerSetup> {
+	const result = await setupViteServer(isDev);
+	return {
+		viteDevServer: result.viteDevServer,
+		viteServerUrl: result.viteServerUrl,
+	};
 }
 
 export async function proxyToVite(req: Request, viteUrl: string): Promise<Response> {

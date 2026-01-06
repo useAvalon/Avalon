@@ -81,7 +81,9 @@ export default defineConfig(async (): Promise<UserConfig> => {
 					customElement: false,
 					runes: true,
 					css: 'injected',
+					dev: false, // Explicitly disable dev mode for SSR
 				},
+				hot: false, // Disable hot reload for SSR build
 			}));
 		} catch {
 			console.warn('⚠️ Svelte plugin not available for SSR build');

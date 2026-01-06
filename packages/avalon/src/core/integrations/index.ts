@@ -6,6 +6,12 @@
 // Registry
 export { IntegrationRegistry, registry } from "./registry.ts";
 
+// Preloader (for loading integrations before Vite SSR context)
+export {
+  preloadIntegrationsNative,
+  preloadSpecificIntegrations,
+} from "./preloader.ts";
+
 // Loader
 export {
   loadIntegration,

@@ -79,7 +79,12 @@ export { generateIslandTypes, watchAndGenerateTypes } from './src/build/island-t
 export type { IslandTypeGeneratorOptions, TypeGenerationResult } from './src/build/island-types-generator.ts';
 
 // Build command (batteries included)
-export { build } from '../../scripts/build.ts';
+// Note: This is exported as a function that dynamically imports the build module
+// to avoid top-level await issues when SSR loading modules that import from @avalon/avalon
+export async function build(_options?: Record<string, unknown>) {
+	const { build: buildFn } = await import('../../scripts/build.ts');
+	return buildFn();
+}
 
 // API utilities
 export * from './src/core/api/api.ts';

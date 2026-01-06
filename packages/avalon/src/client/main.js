@@ -1,5 +1,9 @@
 // Main client entry point for Vite
 // Integration-based island hydration system
+//
+// NOTE: This file contains imports to Vite virtual modules (/@avalon/*/client)
+// that will show as errors in the IDE. These are resolved by Vite at runtime
+// and work correctly in the browser. The errors can be safely ignored.
 
 if (document.readyState === 'loading') {
 	document.addEventListener('DOMContentLoaded', initializeHydration);
@@ -23,7 +27,9 @@ function initializeHydration() {
 	}
 
 	// Process new integration-based islands
-	islands.forEach(island => {
+	islands.forEach(_island => {
+		// Use island instead of _island to avoid unused variable warning
+		const island = _island;
 		try {
 			const framework = island.getAttribute('data-framework');
 			const condition = island.getAttribute('data-condition') || 'on:client';
@@ -278,6 +284,7 @@ async function hydrateIsland(island, framework) {
 		// CRITICAL: For Lit components, load hydration support BEFORE importing the component
 		// This ensures our patch is applied before @customElement decorator runs
 		if (framework === 'lit') {
+			// @ts-ignore - Vite resolves this virtual module at runtime
 			await import('/@avalon/lit/client');
 		}
 
@@ -316,21 +323,27 @@ async function hydrateIsland(island, framework) {
 			// Import the appropriate integration based on framework
 			switch (framework) {
 				case 'preact':
+					// @ts-ignore - Vite resolves this at runtime
 					integrationModule = await import('/@avalon/preact/client');
 					break;
 				case 'react':
+					// @ts-ignore - Vite resolves this at runtime
 					integrationModule = await import('/@avalon/react/client');
 					break;
 				case 'vue':
+					// @ts-ignore - Vite resolves this at runtime
 					integrationModule = await import('/@avalon/vue/client');
 					break;
 				case 'svelte':
+					// @ts-ignore - Vite resolves this at runtime
 					integrationModule = await import('/@avalon/svelte/client');
 					break;
 				case 'solid':
+					// @ts-ignore - Vite resolves this at runtime
 					integrationModule = await import('/@avalon/solid/client');
 					break;
 				case 'lit':
+					// @ts-ignore - Vite resolves this at runtime
 					integrationModule = await import('/@avalon/lit/client');
 					break;
 				default:
@@ -526,9 +539,34 @@ function detectFrameworkFromPath(path) {
 
 // HMR support for development
 if (import.meta.hot) {
+	console.log('🔥 HMR detected, setting up...');
 	import.meta.hot.accept();
 	
-	// Enhanced HMR support for nested islands
+	// Initialize new HMR coordinator and register adapters
+	Promise.all([
+		import('./hmr-coordinator.ts'),
+		import('./adapters/index.ts')
+	]).then(([{ initializeHMR, getHMRCoordinator }, { reactAdapter, preactAdapter, vueAdapter, svelteAdapter, solidAdapter, litAdapter }]) => {
+		console.log('📦 HMR modules loaded');
+		
+		// Initialize HMR system
+		initializeHMR();
+		
+		// Register adapters
+		const coordinator = getHMRCoordinator();
+		coordinator.registerAdapter('react', reactAdapter);
+		coordinator.registerAdapter('preact', preactAdapter);
+		coordinator.registerAdapter('vue', vueAdapter);
+		coordinator.registerAdapter('svelte', svelteAdapter);
+		coordinator.registerAdapter('solid', solidAdapter);
+		coordinator.registerAdapter('lit', litAdapter);
+		
+		console.log('✅ HMR adapters registered');
+	}).catch(error => {
+		console.error('❌ Failed to initialize HMR coordinator:', error);
+	});
+	
+	// Enhanced HMR support for nested islands (legacy)
 	setupNestedIslandHMR();
 }
 
@@ -757,6 +795,7 @@ function setupNestedIslandHMR() {
 
 		// For Lit components, ensure hydration support is loaded
 		if (framework === 'lit') {
+			// @ts-ignore - Vite resolves this at runtime
 			await import('/@avalon/lit/client');
 		}
 
@@ -783,21 +822,27 @@ function setupNestedIslandHMR() {
 		let integrationModule;
 		switch (framework) {
 			case 'preact':
+				// @ts-ignore - Vite resolves this at runtime
 				integrationModule = await import('/@avalon/preact/client');
 				break;
 			case 'react':
+				// @ts-ignore - Vite resolves this at runtime
 				integrationModule = await import('/@avalon/react/client');
 				break;
 			case 'vue':
+				// @ts-ignore - Vite resolves this at runtime
 				integrationModule = await import('/@avalon/vue/client');
 				break;
 			case 'svelte':
+				// @ts-ignore - Vite resolves this at runtime
 				integrationModule = await import('/@avalon/svelte/client');
 				break;
 			case 'solid':
+				// @ts-ignore - Vite resolves this at runtime
 				integrationModule = await import('/@avalon/solid/client');
 				break;
 			case 'lit':
+				// @ts-ignore - Vite resolves this at runtime
 				integrationModule = await import('/@avalon/lit/client');
 				break;
 			default:
@@ -816,23 +861,23 @@ function setupNestedIslandHMR() {
 	/**
 	 * Show HMR error feedback on the island
 	 * @param {HTMLElement} island - The island element
-	 * @param {string} framework - The framework name
-	 * @param {string} src - The component source path
+	 * @param {string} _framework - The framework name (unused but kept for API consistency)
+	 * @param {string} _src - The component source path (unused but kept for API consistency)
 	 * @param {Error} error - The error that occurred
 	 */
-	async function showHMRError(island, framework, src, error) {
+	async function showHMRError(island, _framework, _src, error) {
 		// Try to use the full error overlay
 		try {
 			const { showHMRErrorOverlay } = await import('./hmr-error-overlay.js');
 			showHMRErrorOverlay({
-				framework,
-				src,
+				framework: _framework,
+				src: _src,
 				error,
-				filePath: src,
+				filePath: _src,
 			});
 		} catch {
 			// Fallback to inline error indicator
-			showInlineHMRError(island, framework, src, error);
+			showInlineHMRError(island, _framework, _src, error);
 		}
 	}
 
@@ -954,7 +999,7 @@ function setupNestedIslandHMR() {
 				}
 			}, 100);
 		}
-	} catch {
-		// Ignore errors
+	} catch (_error) {
+		// Ignore errors - state restoration is best-effort
 	}
 }
