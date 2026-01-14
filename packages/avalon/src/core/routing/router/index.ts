@@ -267,7 +267,8 @@ export class FileSystemRouter {
 		layoutResolver?: EnhancedLayoutResolver,
 		renderOptions: Partial<RenderOptions> = {},
 		islandManifest: IslandManifest | null = null,
-		isDev: boolean = false
+		isDev: boolean = false,
+		streamingEnabled: boolean = true
 	): Promise<RouteHandler> {
 		return await this.performanceMonitor.timeOperation('buildRouteHandler', async () => {
 			try {
@@ -300,7 +301,8 @@ export class FileSystemRouter {
 					layoutResolver,
 					renderOptions,
 					islandManifest,
-					isDev
+					isDev,
+					streamingEnabled
 				);
 
 				// Cache the handler with file dependencies

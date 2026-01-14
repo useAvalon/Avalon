@@ -22,7 +22,8 @@ export async function createFileSystemRouteHandlers(
 	layoutResolver?: EnhancedLayoutResolver,
 	mergedDefaultOptions: Partial<RenderOptions> = {},
 	islandManifest: IslandManifest | null = null,
-	isDev: boolean = false
+	isDev: boolean = false,
+	streamingEnabled: boolean = true
 ): Promise<RouteHandler[]> {
 	try {
 		// Discover all routes from the file system
@@ -38,7 +39,8 @@ export async function createFileSystemRouteHandlers(
 					layoutResolver,
 					mergedDefaultOptions,
 					islandManifest,
-					isDev
+					isDev,
+					streamingEnabled
 				);
 				handlers.push(handler);
 			} catch (error) {

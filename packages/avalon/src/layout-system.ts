@@ -56,6 +56,7 @@ export type { IslandState, PersistentIslandProps, PersistentIslandContext } from
 export { LayoutErrorBoundary } from './components/LayoutErrorBoundary.tsx';
 export { LayoutDataErrorBoundary } from './components/LayoutDataErrorBoundary.tsx';
 export { IslandErrorBoundary, withIslandErrorBoundary } from './components/IslandErrorBoundary.tsx';
+export { StreamingErrorBoundary, withStreamingErrorBoundary } from './components/StreamingErrorBoundary.tsx';
 export { LayoutErrorRecovery } from './core/layout/layout-error-recovery.ts';
 export {
 	LayoutErrorLogger,

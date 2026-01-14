@@ -17,7 +17,14 @@ import type { MiddlewareContext } from '../../../schemas/middleware.ts';
 import type { LayoutContext } from '../../../types/layout.ts';
 import type { IslandManifest } from '../../../build/island-manifest.ts';
 import type { RenderOptions } from '../../../schemas/core.ts';
-import { renderToHtml, renderToHtmlWithLayouts, type ComponentRenderOptions } from '../../../render/ssr.ts';
+import { 
+	renderToHtml, 
+	renderToHtmlWithLayouts, 
+	renderToHtmlStream,
+	renderToHtmlStreamWithLayouts,
+	type ComponentRenderOptions,
+	type StreamingRenderOptions
+} from '../../../render/ssr.ts';
 import type { PageLoader } from '../page-loader.ts';
 import type { MetadataResolver } from '../metadata-resolver.ts';
 import { FileSystemRouterError } from '../file-system-router.types.ts';
@@ -37,7 +44,8 @@ export class RouteHandlerBuilder {
 		layoutResolver?: EnhancedLayoutResolver,
 		renderOptions: Partial<RenderOptions> = {},
 		islandManifest: IslandManifest | null = null,
-		isDev: boolean = false
+		isDev: boolean = false,
+		streamingEnabled: boolean = true
 	): Promise<RouteHandler> {
 		try {
 			// In production, load module once at handler creation time for performance
@@ -117,45 +125,124 @@ export class RouteHandlerBuilder {
 					const contextualRenderOptions: ComponentRenderOptions = {};
 
 					// Render the page
-					let htmlContent: string;
-					if (layoutResolver && layoutContext) {
-						// Use layout-aware rendering
+					if (streamingEnabled) {
+						// Use streaming rendering
 						if (isDev) {
-							console.log(`🎨 Using layout-aware rendering for ${url.pathname}`);
+							console.log(`🌊 Using streaming rendering for ${url.pathname}`);
 						}
-						htmlContent = await renderToHtmlWithLayouts(
-							routeConfig,
-							layoutResolver,
-							layoutContext,
-							url.pathname,
-							extendedRenderOptions,
-							viteHmrPort,
-							contextualRenderOptions
-						);
-					} else {
-						// Fall back to standard rendering
-						if (isDev) {
-							console.log(
-								`⚠️ Falling back to standard rendering for ${
-									url.pathname
-								} (layoutResolver: ${!!layoutResolver}, layoutContext: ${!!layoutContext})`
+
+						let preStreamError: Error | null = null;
+						const streamingOptions: StreamingRenderOptions = {
+							...contextualRenderOptions,
+							onShellReady: () => {
+								if (isDev) {
+									console.log(`✅ Shell ready for ${url.pathname}`);
+								}
+							},
+							onShellError: (error) => {
+								console.error(`❌ Shell error for ${url.pathname}:`, error);
+								preStreamError = error;
+							},
+							onAllReady: () => {
+								if (isDev) {
+									console.log(`✅ All content ready for ${url.pathname}`);
+								}
+							},
+							onError: (error) => {
+								console.error(`❌ Streaming error for ${url.pathname}:`, error);
+							},
+						};
+
+						let stream: ReadableStream<Uint8Array>;
+						if (layoutResolver && layoutContext) {
+							// Use layout-aware streaming
+							if (isDev) {
+								console.log(`🎨 Using layout-aware streaming for ${url.pathname}`);
+							}
+							stream = await renderToHtmlStreamWithLayouts(
+								routeConfig,
+								layoutResolver,
+								layoutContext,
+								url.pathname,
+								extendedRenderOptions,
+								viteHmrPort,
+								streamingOptions
+							);
+						} else {
+							// Fall back to standard streaming
+							if (isDev) {
+								console.log(`⚠️ Falling back to standard streaming for ${url.pathname}`);
+							}
+							stream = await renderToHtmlStream(
+								routeConfig,
+								extendedRenderOptions,
+								viteHmrPort,
+								streamingOptions
 							);
 						}
-						htmlContent = await renderToHtml(routeConfig, extendedRenderOptions, viteHmrPort, contextualRenderOptions);
+
+						// Create response with streaming headers
+						const headers = new Headers({
+							'Content-Type': 'text/html; charset=utf-8',
+							'Transfer-Encoding': 'chunked',
+							'Cache-Control': isDev ? 'no-cache' : 'public, max-age=3600',
+						});
+
+						// Add metadata headers
+						if (metadata.canonical) {
+							headers.set('Link', `<${metadata.canonical}>; rel="canonical"`);
+						}
+
+						// If a pre-stream error occurred, return 500 status
+						const status = preStreamError ? 500 : 200;
+
+						return new Response(stream, { status, headers });
+					} else {
+						// Use synchronous rendering (backward compatibility)
+						if (isDev) {
+							console.log(`📄 Using synchronous rendering for ${url.pathname}`);
+						}
+
+						let htmlContent: string;
+						if (layoutResolver && layoutContext) {
+							// Use layout-aware rendering
+							if (isDev) {
+								console.log(`🎨 Using layout-aware rendering for ${url.pathname}`);
+							}
+							htmlContent = await renderToHtmlWithLayouts(
+								routeConfig,
+								layoutResolver,
+								layoutContext,
+								url.pathname,
+								extendedRenderOptions,
+								viteHmrPort,
+								contextualRenderOptions
+							);
+						} else {
+							// Fall back to standard rendering
+							if (isDev) {
+								console.log(
+									`⚠️ Falling back to standard rendering for ${
+										url.pathname
+									} (layoutResolver: ${!!layoutResolver}, layoutContext: ${!!layoutContext})`
+								);
+							}
+							htmlContent = await renderToHtml(routeConfig, extendedRenderOptions, viteHmrPort, contextualRenderOptions);
+						}
+
+						// Create response with metadata headers
+						const headers = new Headers({
+							'Content-Type': 'text/html; charset=utf-8',
+							'Cache-Control': isDev ? 'no-cache' : 'public, max-age=3600',
+						});
+
+						// Add metadata headers
+						if (metadata.canonical) {
+							headers.set('Link', `<${metadata.canonical}>; rel="canonical"`);
+						}
+
+						return new Response(htmlContent, { headers });
 					}
-
-					// Create response with metadata headers
-					const headers = new Headers({
-						'Content-Type': 'text/html; charset=utf-8',
-						'Cache-Control': isDev ? 'no-cache' : 'public, max-age=3600',
-					});
-
-					// Add metadata headers
-					if (metadata.canonical) {
-						headers.set('Link', `<${metadata.canonical}>; rel="canonical"`);
-					}
-
-					return new Response(htmlContent, { headers });
 				} catch (error) {
 					console.error(`Error handling route ${route.filePath}:`, error);
 					throw error; // Let the caller handle the error

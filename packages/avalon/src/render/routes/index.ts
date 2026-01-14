@@ -27,6 +27,7 @@ export interface RouteConfig {
 	layoutResolver?: EnhancedLayoutResolver;
 	fileSystemRouter?: FileSystemRouter;
 	quietMode?: boolean;
+	streamingEnabled?: boolean;
 }
 
 export async function createAllRoutes(config: RouteConfig) {
@@ -41,6 +42,7 @@ export async function createAllRoutes(config: RouteConfig) {
 		layoutResolver,
 		fileSystemRouter,
 		quietMode = false,
+		streamingEnabled = true,
 	} = config;
 
 	// Create file-system routes if enabled
@@ -53,7 +55,8 @@ export async function createAllRoutes(config: RouteConfig) {
 				mergedDefaultOptions,
 				islandManifest,
 				isDev,
-				quietMode
+				quietMode,
+				streamingEnabled
 			);
 		} catch (error) {
 			console.error('Failed to create file-system routes:', error);

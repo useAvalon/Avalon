@@ -12,6 +12,44 @@ export const ComponentRenderOptionsSchema = z
 	})
 	.optional();
 
+/**
+ * Streaming configuration schema
+ * 
+ * Controls HTML streaming behavior using Web Streams API (ReadableStream).
+ * 
+ * Note: While Preact 10.x includes native streaming APIs (renderToPipeableStream, 
+ * renderToReadableStream), Avalon uses a custom Web Streams approach for consistency 
+ * across all supported frameworks (React, Preact, Vue, Svelte, Solid, Lit).
+ * 
+ * @property {boolean} enabled - Enable/disable streaming (default: true)
+ * @property {number} onShellReadyTimeout - Timeout in ms for shell to be ready (default: 5000)
+ * @property {number} onAllReadyTimeout - Timeout in ms for all content to be ready (default: 30000)
+ * 
+ * @example
+ * ```typescript
+ * const config = {
+ *   streaming: {
+ *     enabled: true,
+ *     onShellReadyTimeout: 5000,
+ *     onAllReadyTimeout: 30000
+ *   }
+ * };
+ * ```
+ * 
+ * Requirements: 6.2, 10.1
+ */
+export const StreamingConfigSchema = z
+	.object({
+		/** Enable or disable HTML streaming (default: true) */
+		enabled: z.boolean().default(true),
+		/** Timeout in milliseconds for shell to be ready (default: 5000ms) */
+		onShellReadyTimeout: z.number().min(0).default(5000),
+		/** Timeout in milliseconds for all content to be ready (default: 30000ms) */
+		onAllReadyTimeout: z.number().min(0).default(30000),
+	})
+	.optional()
+	.default({ enabled: true, onShellReadyTimeout: 5000, onAllReadyTimeout: 30000 });
+
 // === Internal Schemas (Building Blocks) ===
 
 /**
@@ -89,6 +127,7 @@ export const ServerConfigSchema: z.ZodSchema = z.object({
 		.default(8001),
 	defaultOptions: RenderOptionsSchema.optional().default({}),
 	renderOptions: ComponentRenderOptionsSchema,
+	streaming: StreamingConfigSchema,
 	fileSystemRouting: FileSystemRouterConfigSchema.optional(),
 });
 
@@ -113,6 +152,11 @@ export type Routes = z.infer<typeof RoutesSchema>;
  * Server configuration type
  */
 export type ServerConfig = z.infer<typeof ServerConfigSchema>;
+
+/**
+ * Streaming configuration type
+ */
+export type StreamingConfig = z.infer<typeof StreamingConfigSchema>;
 
 // === Validation Functions (Used by Server) ===
 

@@ -51,6 +51,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		defaultOptions = {},
 		renderOptions = {},
 		fileSystemRouting,
+		streaming = { enabled: true, onShellReadyTimeout: 5000, onAllReadyTimeout: 30000 },
 	} = validatedConfig;
 
 	// Merge options with validation (no more importMap with Vite)
@@ -184,6 +185,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		layoutResolver, // Pass layout resolver to route creation
 		fileSystemRouter, // Pass file-system router if enabled
 		quietMode: isDev && !!devLogger, // Enable quiet mode when using dev logger
+		streamingEnabled: streaming?.enabled ?? true, // Pass streaming configuration
 	});
 
 	async function requestHandler(req: Request): Promise<Response> {

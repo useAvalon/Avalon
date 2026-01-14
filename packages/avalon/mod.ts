@@ -192,6 +192,7 @@ export { PersistentIsland } from './src/components/PersistentIsland.tsx';
 export { LayoutErrorBoundary } from './src/components/LayoutErrorBoundary.tsx';
 export { LayoutDataErrorBoundary } from './src/components/LayoutDataErrorBoundary.tsx';
 export { IslandErrorBoundary, withIslandErrorBoundary } from './src/components/IslandErrorBoundary.tsx';
+export { StreamingErrorBoundary, withStreamingErrorBoundary } from './src/components/StreamingErrorBoundary.tsx';
 export { LayoutErrorRecovery } from './src/core/layout/layout-error-recovery.ts';
 export {
 	LayoutErrorLogger,

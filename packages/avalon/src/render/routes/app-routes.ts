@@ -103,7 +103,8 @@ export async function createFileSystemRoutes(
 	mergedDefaultOptions: Partial<RenderOptions> = {},
 	islandManifest: IslandManifest | null = null,
 	isDev: boolean = false,
-	quietMode: boolean = false
+	quietMode: boolean = false,
+	streamingEnabled: boolean = true
 ): Promise<RouteHandler[]> {
 	try {
 		// Use the utility function from FileSystemRouter to create handlers
@@ -112,7 +113,8 @@ export async function createFileSystemRoutes(
 			layoutResolver,
 			mergedDefaultOptions,
 			islandManifest,
-			isDev
+			isDev,
+			streamingEnabled
 		);
 
 		if (isDev && handlers.length > 0 && !quietMode) {
