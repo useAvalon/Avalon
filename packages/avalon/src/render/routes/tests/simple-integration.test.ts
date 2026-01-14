@@ -2,7 +2,7 @@
  * Simple integration test for file-system routing
  */
 
-import { assertEquals } from 'https://deno.land/std@0.208.0/assert/mod.ts';
+import { assertEquals } from '@std/assert';
 import { createFileSystemRoutes } from '../app-routes.ts';
 import { FileSystemRouter } from '../../../core/routing/file-system-router.ts';
 

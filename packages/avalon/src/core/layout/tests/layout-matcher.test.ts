@@ -1,5 +1,5 @@
 import { assertEquals, assertThrows } from '@std/assert';
-import { describe, it, beforeEach } from 'https://deno.land/std@0.208.0/testing/bdd.ts';
+import { describe, it, beforeEach } from '@std/testing/bdd';
 import { LayoutMatcher, BuiltInLayoutRules } from '../layout-matcher.ts';
 import type { LayoutRule, RouteInfo } from '../../../schemas/layout.ts';
 

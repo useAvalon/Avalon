@@ -2,7 +2,7 @@
  * Tests for FrameworkModuleResolver
  */
 
-import { assertEquals, assertThrows } from 'https://deno.land/std@0.208.0/assert/mod.ts';
+import { assertEquals, assertThrows } from '@std/assert';
 import { FrameworkModuleResolver } from '../framework-module-resolver.ts';
 
 Deno.test('FrameworkModuleResolver - Basic functionality', async t => {

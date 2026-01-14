@@ -5,7 +5,7 @@
  * including edge cases, performance tests, and confidence scoring validation.
  */
 
-import { assertEquals, assertExists, assert } from 'https://deno.land/std@0.208.0/assert/mod.ts';
+import { assertEquals, assertExists, assert } from '@std/assert';
 import {
 	EnhancedFrameworkDetector,
 	type FrameworkDetectionResult,
