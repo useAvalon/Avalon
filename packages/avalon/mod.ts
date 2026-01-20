@@ -1,5 +1,9 @@
 // === Core Avalon + Vite Architecture ===
 
+// Vite Plugin - unified configuration API
+export { avalon, getResolvedConfig, getIslandsDir, getPagesDir, getApiDir } from './src/vite-plugin/plugin.ts';
+export type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig, MDXConfig, ResolvedMDXConfig } from './src/vite-plugin/types.ts';
+
 // Main exports
 export { renderToHtml } from './src/render/ssr.ts';
 export { createServer, createServerSafe } from './src/render/server.ts';
