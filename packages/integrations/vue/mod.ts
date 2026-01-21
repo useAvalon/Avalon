@@ -6,6 +6,7 @@
  * seamlessly with Avalon's islands architecture.
  */
 
+import type { Plugin } from "vite";
 import type { Integration, IntegrationConfig } from "../shared/types.ts";
 import { render } from "./server/renderer.ts";
 import { getHydrationScript } from "./client/hydration.ts";
@@ -43,6 +44,22 @@ export const vueIntegration: Integration = {
         ],
       },
     };
+  },
+
+  /**
+   * Provides the @vitejs/plugin-vue Vite plugin with is-land custom element configuration.
+   * This allows Vue components to work seamlessly with Avalon's islands architecture.
+   */
+  async vitePlugin(): Promise<Plugin | Plugin[]> {
+    const { default: vue } = await import("@vitejs/plugin-vue");
+    return vue({
+      template: {
+        compilerOptions: {
+          // Treat is-land as a custom element so Vue doesn't try to resolve it
+          isCustomElement: (tag: string) => tag === "is-land",
+        },
+      },
+    });
   },
 };
 

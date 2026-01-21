@@ -17,11 +17,87 @@ import { activateIntegrations, activateSingleIntegration } from "./integration-a
 import { discoverIntegrationsFromFiles } from "./auto-discover.ts";
 import { validateActiveIntegrations, formatValidationResults } from "./validation.ts";
 import { createMDXPlugin } from "../build/mdx-plugin.ts";
+import { registry } from "../core/integrations/registry.ts";
 
 // Declare global type for Avalon config
 declare global {
   var __avalonConfig: ResolvedAvalonConfig | undefined;
   var __viteDevServer: ViteDevServer | undefined;
+}
+
+/**
+ * Collects Vite plugins from all activated integrations.
+ * 
+ * This function iterates through the activated integrations and calls their
+ * vitePlugin() method if implemented. The returned plugins are collected and
+ * flattened into a single array.
+ * 
+ * Plugin ordering is handled to ensure correct application:
+ * - Lit plugins come first (DOM shim requirement)
+ * - Other framework plugins follow
+ * 
+ * @param activeIntegrations - Set of activated integration names
+ * @param verbose - Whether to log detailed information
+ * @returns Promise resolving to an array of Vite plugins from integrations
+ */
+export async function collectIntegrationPlugins(
+  activeIntegrations: Set<IntegrationName>,
+  verbose: boolean = false
+): Promise<Plugin[]> {
+  const plugins: Plugin[] = [];
+  const litPlugins: Plugin[] = []; // Lit plugins must come first (DOM shim requirement)
+
+  for (const name of activeIntegrations) {
+    const integration = registry.get(name);
+    
+    if (!integration) {
+      if (verbose) {
+        console.warn(`   ⚠️ Integration '${name}' not found in registry`);
+      }
+      continue;
+    }
+
+    // Check if integration implements vitePlugin()
+    if (typeof integration.vitePlugin !== "function") {
+      if (verbose) {
+        console.log(`   ℹ️ Integration '${name}' does not provide Vite plugins`);
+      }
+      continue;
+    }
+
+    try {
+      const integrationPlugins = await integration.vitePlugin();
+      
+      // Normalize to array
+      const pluginArray = Array.isArray(integrationPlugins)
+        ? integrationPlugins
+        : [integrationPlugins];
+
+      // Filter out any null/undefined plugins
+      const validPlugins = pluginArray.filter((p): p is Plugin => p != null);
+
+      if (validPlugins.length === 0) {
+        continue;
+      }
+
+      // Lit plugins need special ordering (DOM shim must be first)
+      if (name === "lit") {
+        litPlugins.push(...validPlugins);
+      } else {
+        plugins.push(...validPlugins);
+      }
+
+      if (verbose) {
+        console.log(`   📦 Collected ${validPlugins.length} Vite plugin(s) from ${name}`);
+      }
+    } catch (error) {
+      // Handle errors gracefully with warnings
+      console.warn(`   ⚠️ Could not load Vite plugins from ${name}:`, error);
+    }
+  }
+
+  // Return with Lit plugins first (DOM shim requirement), then other framework plugins
+  return [...litPlugins, ...plugins];
 }
 
 /**
@@ -66,9 +142,19 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
   // Track which integrations are activated
   const activeIntegrations = new Set<IntegrationName>();
 
-  // Pre-resolve config to get MDX settings
+  // Pre-resolve config to get MDX settings and integration list
   // We use isDev=true as a default; the actual value will be set in configResolved
   const preResolvedConfig = resolveConfig(config, true);
+
+  // Activate integrations early so we can collect their Vite plugins
+  // This needs to happen before we return the plugin array
+  if (preResolvedConfig.integrations.length > 0) {
+    if (preResolvedConfig.verbose) {
+      console.log("🏝️ Avalon activating integrations...");
+      console.log(`   Integrations: ${preResolvedConfig.integrations.join(", ")}`);
+    }
+    await activateIntegrations(preResolvedConfig, activeIntegrations);
+  }
 
   // Create MDX plugins with user settings
   let mdxPlugins: Plugin[] = [];
@@ -91,6 +177,22 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
   } catch (error) {
     console.warn("⚠️ Could not configure MDX plugin:", error);
     mdxPlugins = [];
+  }
+
+  // Collect Vite plugins from activated integrations
+  // This includes framework-specific plugins like @vitejs/plugin-react, @vitejs/plugin-vue, etc.
+  let integrationPlugins: Plugin[] = [];
+  if (activeIntegrations.size > 0) {
+    if (preResolvedConfig.verbose) {
+      console.log("🏝️ Collecting Vite plugins from integrations...");
+    }
+    integrationPlugins = await collectIntegrationPlugins(
+      activeIntegrations,
+      preResolvedConfig.verbose
+    );
+    if (preResolvedConfig.verbose && integrationPlugins.length > 0) {
+      console.log(`   Total integration plugins collected: ${integrationPlugins.length}`);
+    }
   }
 
   // The main Avalon plugin
@@ -135,24 +237,18 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
 
     /**
      * Called at the start of each build
-     * We use this to activate the specified integrations
+     * We use this to handle auto-discovery and validation
+     * Note: Explicit integrations are already activated in avalon() before this hook
      */
     async buildStart() {
       if (resolvedConfig.verbose) {
         console.log("🏝️ Avalon build starting...");
       }
 
-      // Activate explicitly specified integrations
-      if (resolvedConfig.integrations.length > 0) {
-        if (resolvedConfig.verbose) {
-          console.log(
-            `   Activating integrations: ${resolvedConfig.integrations.join(", ")}`
-          );
-        }
-        await activateIntegrations(resolvedConfig, activeIntegrations);
-      }
-
       // Auto-discover additional integrations if enabled
+      // Note: These are discovered at build time, so their Vite plugins won't be included
+      // in the initial plugin array. This is intentional - auto-discovered integrations
+      // are for SSR/hydration support, not build-time transformations.
       if (resolvedConfig.autoDiscoverIntegrations) {
         if (resolvedConfig.verbose) {
           console.log("   Auto-discovering integrations from islands directory...");
@@ -246,9 +342,25 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
     },
   };
 
-  // Return the MDX plugins first (they need to process .mdx files before other plugins),
-  // followed by the main Avalon plugin
-  return [...mdxPlugins, avalonPlugin];
+  // Return plugins in the correct order:
+  // 1. Lit plugins first (DOM shim must be loaded before any Lit code)
+  //    - Already handled by collectIntegrationPlugins() which puts Lit plugins first
+  // 2. MDX plugins (need to process .mdx files before other plugins)
+  // 3. Core Avalon plugin
+  // 4. Other framework plugins (React, Vue, Svelte, Preact, Solid)
+  //    - Already ordered by collectIntegrationPlugins() with Lit first
+  //
+  // The integrationPlugins array already has Lit plugins at the front,
+  // so we extract them and place them before MDX plugins
+  const litPlugins = integrationPlugins.filter(p => p.name?.includes("lit"));
+  const otherIntegrationPlugins = integrationPlugins.filter(p => !p.name?.includes("lit"));
+
+  return [
+    ...litPlugins,           // Lit SSR shim first (DOM shim requirement)
+    ...mdxPlugins,           // MDX plugins second
+    avalonPlugin,            // Core Avalon plugin third
+    ...otherIntegrationPlugins, // Other framework plugins last
+  ];
 }
 
 /**

@@ -6,8 +6,9 @@
  * including React Server Components (RSC) support.
  */
 
+import type { Plugin } from "vite";
 import type { Integration, IntegrationConfig } from "../shared/types.ts";
-import { render, renderWithErrorBoundary } from "./server/renderer.ts";
+import { render } from "./server/renderer.ts";
 import { getHydrationScript } from "./client/hydration.ts";
 
 /**
@@ -61,13 +62,72 @@ export const reactIntegration: Integration = {
   config(): IntegrationConfig {
     return config;
   },
+
+  /**
+   * Provides the @vitejs/plugin-react Vite plugin with wrapped transform for React-only files.
+   * Excludes .solid.tsx files and files without React imports to avoid conflicts with other frameworks.
+   */
+  async vitePlugin(): Promise<Plugin | Plugin[]> {
+    const { default: react } = await import("@vitejs/plugin-react");
+    const plugins = react();
+    const pluginArray = Array.isArray(plugins) ? plugins : [plugins];
+
+    // Find the main React babel plugin and wrap its transform
+    const mainPlugin = pluginArray.find((p) => p.name === "vite:react-babel");
+    if (mainPlugin?.transform) {
+      const originalTransform = mainPlugin.transform;
+      const wrappedPlugin: Plugin = {
+        ...mainPlugin,
+        name: "avalon:react-wrapper",
+        async transform(code: string, id: string, options?: { ssr?: boolean }) {
+          // Skip non-JSX/TSX files
+          if (!/\.(tsx|jsx)$/.test(id)) {
+            return null;
+          }
+          // Skip node_modules
+          if (id.includes("node_modules")) {
+            return null;
+          }
+          // Skip Solid files (they use .solid.tsx/.solid.jsx convention)
+          if (/\.solid\.(tsx|jsx)$/.test(id)) {
+            return null;
+          }
+
+          // Check if file imports from React
+          const hasReactImport =
+            /from\s+['"]react['"]/.test(code) ||
+            /from\s+['"]react\//.test(code);
+          // Check if file imports from Preact (to avoid conflicts)
+          const hasPreactImport = /from\s+['"]preact['"]/.test(code);
+
+          // Only process files that import React and don't import Preact
+          if (
+            hasReactImport &&
+            !hasPreactImport &&
+            typeof originalTransform === "function"
+          ) {
+            // deno-lint-ignore no-explicit-any
+            return await (originalTransform as any).call(this, code, id, options);
+          }
+
+          return null;
+        },
+      };
+
+      // Replace the original plugin with our wrapped version
+      return pluginArray.map((p) =>
+        p.name === "vite:react-babel" ? wrappedPlugin : p
+      );
+    }
+
+    return pluginArray;
+  },
 };
 
 // Re-export public API
 
 // Server-side exports
-export { render } from "./server/renderer.ts";
-export type { renderWithErrorBoundary } from "./server/renderer.ts";
+export { render, renderWithErrorBoundary } from "./server/renderer.ts";
 export { renderServerComponent } from "./server/rsc-renderer.ts";
 export { 
   loadComponent, 

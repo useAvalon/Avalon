@@ -5,6 +5,7 @@
  * Provides server-side rendering and client-side hydration for Preact components
  */
 
+import type { Plugin } from "vite";
 import type { Integration, IntegrationConfig } from "../shared/types.ts";
 import { render, renderWithErrorBoundary } from "./server/renderer.ts";
 import { getHydrationScript } from "./client/hydration.ts";
@@ -51,6 +52,22 @@ export const preactIntegration: Integration = {
   
   config(): IntegrationConfig {
     return config;
+  },
+
+  /**
+   * Provides the @preact/preset-vite Vite plugin with include/exclude patterns.
+   * Excludes .solid.tsx files to avoid conflicts with Solid integration.
+   */
+  async vitePlugin(): Promise<Plugin | Plugin[]> {
+    const { default: preact } = await import("@preact/preset-vite");
+    return preact({
+      // Exclude Solid files from Preact processing
+      include: [/\.(tsx|jsx)$/],
+      exclude: [
+        /node_modules/,
+        /\.solid\.(tsx|jsx)$/,
+      ],
+    });
   },
 };
 

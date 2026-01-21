@@ -5,6 +5,11 @@ import { avalon } from '../packages/avalon/src/vite-plugin/plugin.ts';
 
 export default defineConfig(async ({ command }): Promise<UserConfig> => {
 	// Create the Avalon plugin with unified configuration
+	// The avalon() function now returns all necessary plugins including:
+	// - Lit SSR shim plugin (first)
+	// - MDX plugins
+	// - Core Avalon plugin
+	// - Framework plugins (React, Vue, Svelte, Preact, Solid) from integrations
 	const avalonPlugins = await avalon({
 		// Directory configuration
 		islandsDir: 'src/islands',
@@ -12,6 +17,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		apiDir: 'src/api',
 
 		// Framework integrations to activate (for SSR and hydration)
+		// Each integration provides its own Vite plugin for compilation
 		integrations: ['react', 'preact', 'vue', 'svelte', 'solid', 'lit'],
 
 		// MDX configuration
@@ -33,118 +39,16 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		verbose: command === 'serve',
 	});
 
-	// Framework-specific Vite plugins for compilation
-	// These are required for transforming framework-specific syntax
-	const frameworkPlugins: Plugin[] = [];
-
-	// Lit SSR DOM shim - must come first to install globals before Lit loads
-	try {
-		const { litSSRShimPlugin } = await import('../packages/avalon/src/build/lit-ssr-shim-plugin.ts');
-		frameworkPlugins.push(litSSRShimPlugin());
-	} catch (error) {
-		console.warn('Could not load Lit SSR shim plugin:', error);
-	}
+	// Additional plugins that are not part of framework integrations
+	const additionalPlugins: Plugin[] = [];
 
 	// Deno plugin for Deno compatibility
 	try {
 		const { default: deno } = await import('@deno/vite-plugin');
 		const denoPlugins = deno();
-		frameworkPlugins.push(...(Array.isArray(denoPlugins) ? denoPlugins : [denoPlugins]));
+		additionalPlugins.push(...(Array.isArray(denoPlugins) ? denoPlugins : [denoPlugins]));
 	} catch (error) {
 		console.warn('Could not load @deno/vite-plugin:', error);
-	}
-
-	// Vue plugin for .vue file compilation
-	try {
-		const { default: vue } = await import('@vitejs/plugin-vue');
-		const vuePlugins = vue({
-			template: {
-				compilerOptions: {
-					isCustomElement: tag => tag === 'is-land',
-				},
-			},
-		});
-		frameworkPlugins.push(...(Array.isArray(vuePlugins) ? vuePlugins : [vuePlugins]));
-	} catch (error) {
-		console.warn('Could not load Vue plugin:', error);
-	}
-
-	// Svelte plugin for .svelte file compilation
-	try {
-		const { svelte } = await import('@sveltejs/vite-plugin-svelte');
-		const sveltePlugins = svelte({
-			compilerOptions: {
-				customElement: false,
-				runes: true,
-				dev: false,
-				hmr: false,
-				css: 'injected',
-			},
-			emitCss: false,
-		});
-		frameworkPlugins.push(...(Array.isArray(sveltePlugins) ? sveltePlugins : [sveltePlugins]));
-	} catch (error) {
-		console.warn('Could not load Svelte plugin:', error);
-	}
-
-	// React plugin for React components (files that import from 'react')
-	try {
-		const { default: react } = await import('@vitejs/plugin-react');
-		const reactPlugins = react();
-		const reactPluginArray = Array.isArray(reactPlugins) ? reactPlugins : [reactPlugins];
-		
-		// Wrap the main React plugin to only process files that import from 'react'
-		const mainReactPlugin = reactPluginArray.find(p => p.name === 'vite:react-babel');
-		if (mainReactPlugin?.transform) {
-			const originalTransform = mainReactPlugin.transform;
-			const wrappedReactPlugin: Plugin = {
-				...mainReactPlugin,
-				name: 'avalon:react-wrapper',
-				async transform(code: string, id: string, options?: { ssr?: boolean }) {
-					if (!/\.(tsx|jsx)$/.test(id) || id.includes('node_modules') || /\.solid\.(tsx|jsx)$/.test(id)) {
-						return null;
-					}
-					const hasReactImport = /from\s+['"]react['"]/.test(code) || /from\s+['"]react\//.test(code);
-					const hasPreactImport = /from\s+['"]preact['"]/.test(code);
-					if (hasReactImport && !hasPreactImport && typeof originalTransform === 'function') {
-						return await originalTransform.call(this, code, id, options);
-					}
-					return null;
-				},
-			};
-			for (const plugin of reactPluginArray) {
-				frameworkPlugins.push(plugin.name === 'vite:react-babel' ? wrappedReactPlugin : plugin);
-			}
-		} else {
-			frameworkPlugins.push(...reactPluginArray);
-		}
-	} catch (error) {
-		console.warn('Could not load React plugin:', error);
-	}
-
-	// Preact plugin for Preact components (default for .tsx/.jsx files)
-	try {
-		const { default: preact } = await import('@preact/preset-vite');
-		const preactPlugins = preact({
-			include: /\.(tsx|jsx)$/,
-			exclude: /\.solid\.(tsx|jsx)$/,
-		});
-		frameworkPlugins.push(...(Array.isArray(preactPlugins) ? preactPlugins : [preactPlugins]));
-	} catch (error) {
-		console.warn('Could not load Preact plugin:', error);
-	}
-
-	// Solid plugin for .solid.tsx/.solid.jsx files
-	try {
-		const { default: solid } = await import('vite-plugin-solid');
-		const solidPlugins = solid({
-			ssr: true,
-			hot: true,
-			include: [/\.solid\.(tsx|jsx)$/],
-		});
-		frameworkPlugins.push(...(Array.isArray(solidPlugins) ? solidPlugins : [solidPlugins]));
-	} catch (error) {
-		console.warn('Could not load Solid plugin:', error);
 	}
 
 	// Auto-discover island entry points for build
@@ -169,8 +73,10 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		root: '.',
 		publicDir: 'public',
 		
-		// Lit SSR shim must come first, then Avalon plugins (includes MDX), then framework plugins
-		plugins: [frameworkPlugins[0], ...avalonPlugins, ...frameworkPlugins.slice(1)],
+		// Avalon plugins include everything needed:
+		// Lit SSR shim → MDX → Core Avalon → Framework plugins
+		// Additional plugins (like Deno) come after
+		plugins: [...avalonPlugins, ...additionalPlugins],
 
 		optimizeDeps: {
 			include: [

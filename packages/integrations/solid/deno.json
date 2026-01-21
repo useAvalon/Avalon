@@ -11,7 +11,9 @@
 		"solid-js": "npm:solid-js@1.9.8",
 		"solid-js/web": "npm:solid-js@1.9.8/web",
 		"solid-js/h": "npm:solid-js@1.9.8/h",
-		"solid-js/jsx-runtime": "npm:solid-js@1.9.8/jsx-runtime"
+		"solid-js/jsx-runtime": "npm:solid-js@1.9.8/jsx-runtime",
+		"vite": "npm:vite@^6.3.5",
+		"vite-plugin-solid": "npm:vite-plugin-solid@^2.11.6"
 	},
 	"compilerOptions": {
 		"lib": ["dom", "dom.iterable", "esnext", "deno.ns"]

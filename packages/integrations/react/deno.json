@@ -11,7 +11,9 @@
 		"react": "npm:react@^18.3.0",
 		"react-dom": "npm:react-dom@^18.3.0",
 		"react-dom/server": "npm:react-dom@^18.3.0/server",
-		"react-dom/client": "npm:react-dom@^18.3.0/client"
+		"react-dom/client": "npm:react-dom@^18.3.0/client",
+		"vite": "npm:vite@^6.3.5",
+		"@vitejs/plugin-react": "npm:@vitejs/plugin-react@^4.5.2"
 	},
 	"compilerOptions": {
 		"lib": ["deno.window", "dom", "dom.iterable"]
