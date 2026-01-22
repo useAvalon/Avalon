@@ -107,25 +107,6 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 	const pagesDirectory = fileSystemRouting?.discovery?.pagesDirectory || 'src/pages';
 	const layoutBaseDirectory = pagesDirectory.replace('/pages', '');
 
-	if (isDev) {
-		console.log(`🎨 Layout resolver base directory: ${layoutBaseDirectory}`);
-		console.log(`📁 Pages directory: ${pagesDirectory}`);
-		console.log(`📋 Layouts directory: ${fileSystemRouting?.discovery?.layoutsDirectory || 'not configured'}`);
-
-		// Check what the final discovery directory will be
-		const finalLayoutsDir = fileSystemRouting?.discovery?.layoutsDirectory || `${layoutBaseDirectory}/layouts`;
-		console.log(`🔍 Final layouts discovery directory: ${finalLayoutsDir}`);
-
-		// Check if the directory exists
-		try {
-			const stat = await Deno.stat(finalLayoutsDir);
-			console.log(`✅ Layouts directory exists: ${stat.isDirectory ? 'directory' : 'file'}`);
-		} catch (error) {
-			console.log(`❌ Layouts directory does not exist: ${finalLayoutsDir}`);
-			console.log(`Error: ${error instanceof Error ? error.message : String(error)}`);
-		}
-	}
-
 	const layoutResolver = new EnhancedLayoutResolver({
 		...(isDev
 			? EnhancedLayoutResolverUtils.createDevelopmentConfig(layoutBaseDirectory)
@@ -135,7 +116,8 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		filePattern: '_layout.tsx',
 		excludeDirectories: ['node_modules', '.git', 'dist', 'build'],
 		enableWatching: isDev,
-		developmentMode: isDev,
+		developmentMode: false, // Disable verbose logging even in dev mode
+		enableDebugInfo: false, // Disable debug info collection for performance
 	});
 
 	// Initialize file-system routing if enabled

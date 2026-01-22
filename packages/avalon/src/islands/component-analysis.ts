@@ -100,8 +100,6 @@ export async function renderComponentSSROnly({
   framework?: string;
   renderOptions: AnalyzerOptions;
 }) {
-  console.log(`🔄 Attempting SSR-only rendering for: ${src}`);
-
   try {
     // Import Island component dynamically to avoid circular dependencies
     const { default: Island } = await import("./island.tsx");
@@ -114,7 +112,6 @@ export async function renderComponentSSROnly({
     let framework: string;
     if (explicitFramework) {
       framework = explicitFramework;
-      console.log(`🔄 Using explicit framework for ${src}: ${framework}`);
     } else if (src.endsWith(".vue")) {
       framework = "vue";
     } else if (src.endsWith(".svelte")) {
@@ -123,10 +120,6 @@ export async function renderComponentSSROnly({
       framework = await detectFramework(src);
     } else {
       framework = "preact"; // Default fallback
-    }
-    
-    if (!explicitFramework) {
-      console.log(`🔄 Detected framework for ${src}: ${framework}`);
     }
     
     // Load the appropriate integration
@@ -146,12 +139,6 @@ export async function renderComponentSSROnly({
       viteServer,
       isDev,
     });
-    
-    console.log(`🔄 Integration rendered HTML for ${src}:`, {
-      hasHtml: !!renderResult.html,
-      htmlLength: renderResult.html?.length || 0,
-      htmlPreview: renderResult.html?.substring(0, 100),
-    });
 
     // Return Island component with the rendered HTML as children
     // This ensures the HTML is properly wrapped in <is-land> with ssrOnly attributes
@@ -167,7 +154,10 @@ export async function renderComponentSSROnly({
       hydrationData: undefined, // No hydration data for SSR-only components
     });
   } catch (error) {
-    console.error(`❌ SSR-only rendering failed for ${src}:`, error);
+    // Only log errors in development
+    if (typeof Deno !== "undefined" && Deno.env?.get("DENO_ENV") !== "production") {
+      console.error(`SSR-only rendering failed for ${src}:`, error);
+    }
     throw error;
   }
 }

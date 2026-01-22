@@ -69,122 +69,45 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 export async function render(params: ReactRenderParams): Promise<ReactRenderResult> {
   const { component, props = {}, src, ssrOnly = false, condition = "on:client" } = params;
   
-  const logPrefix = `🔄 [React:${src}]`;
-  const renderStart = performance.now();
-
-  console.log(`${logPrefix} Starting React SSR rendering...`, {
-    ssrOnly,
-    propsKeys: Object.keys(props),
-    isDev: Deno.env.get("DENO_ENV") !== "production",
-  });
-  
   try {
-    const moduleStart = performance.now();
-    
-    // Load the component if not provided
     const Component = component || await loadComponent(src);
     
-    const moduleLoadTime = performance.now() - moduleStart;
-    console.log(
-      `${logPrefix} ✅ Module loaded in ${moduleLoadTime.toFixed(2)}ms`,
-      {
-        componentType: typeof Component,
-        isFunction: typeof Component === "function",
-      },
-    );
-    
     if (!Component || typeof Component !== "function") {
-      throw new Error(
-        `Invalid React component in ${src}: expected function, got ${typeof Component}`,
-      );
+      throw new Error(`Invalid React component in ${src}: expected function, got ${typeof Component}`);
     }
     
-    // Analyze component to determine if it's a Server Component or Client Component
     const metadata = analyzeComponent(src);
     const hasUseClient = hasUseClientDirective(src);
-    
-    // Determine if this is a Server Component:
-    // - Has "use server" directive, OR
-    // - Does NOT have "use client" directive (default to Server Component)
-    // - Unless explicitly marked as isServerComponent in params
-    const isServerComponent = params.isServerComponent ?? 
-      (metadata.isServerComponent || !hasUseClient);
-    
-    console.log(`${logPrefix} Component classification:`, {
-      isServerComponent,
-      hasUseClient,
-      hasUseServer: metadata.isServerComponent,
-      hasAsyncRender: metadata.hasAsyncRender,
-    });
-    
-    // Normalize and serialize props
+    const isServerComponent = params.isServerComponent ?? (metadata.isServerComponent || !hasUseClient);
     const normalizedProps = serializeProps(props);
     
     let html: string;
     let element: ReactElement | undefined;
     
-    // Render based on component type
-    const renderStringStart = performance.now();
-    
     if (isServerComponent) {
-      html = await renderServerComponent(
-        Component as ComponentType<Record<string, unknown>>,
-        normalizedProps
-      );
+      html = await renderServerComponent(Component as ComponentType<Record<string, unknown>>, normalizedProps);
     } else {
       element = createElement(Component as ComponentType<Record<string, unknown>>, normalizedProps);
       html = renderToString(element);
     }
     
-    const renderStringTime = performance.now() - renderStringStart;
-    
-    console.log(
-      `${logPrefix} ✅ React renderToString completed in ${renderStringTime.toFixed(2)}ms`,
-      {
-        htmlLength: html.length,
-        htmlPreview: html.substring(0, 100) + (html.length > 100 ? "..." : ""),
-      },
-    );
-    
-    // For Server Components, don't generate hydration data
-    // For Client Components, generate hydration data unless ssrOnly
     const shouldHydrate = !isServerComponent && !ssrOnly;
     
-    const hydrationData = shouldHydrate ? {
-      src,
-      props,
-      framework: "react" as const,
-      condition,
-      metadata: {
-        isServerComponent: false,
-      },
-    } : undefined;
-    
-    const result: ReactRenderResult = {
+    return {
       html,
       element,
       isServerComponent,
-      hydrationData,
+      hydrationData: shouldHydrate ? {
+        src,
+        props,
+        framework: "react" as const,
+        condition,
+        metadata: { isServerComponent: false },
+      } : undefined,
     };
-    
-    const totalTime = performance.now() - renderStart;
-    console.log(
-      `${logPrefix} ✅ React SSR completed in ${totalTime.toFixed(2)}ms (module: ${moduleLoadTime.toFixed(2)}ms)`,
-    );
-    
-    return result;
   } catch (error) {
-    const failTime = performance.now() - renderStart;
-    console.error(
-      `${logPrefix} ❌ React SSR failed after ${failTime.toFixed(2)}ms:`,
-      error,
-    );
-    
     const errorMessage = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Failed to render React component from ${src}: ${errorMessage}`,
-      { cause: error }
-    );
+    throw new Error(`Failed to render React component from ${src}: ${errorMessage}`, { cause: error });
   }
 }
 
@@ -211,11 +134,6 @@ function createErrorBoundaryWrapper(
 
 /**
  * Render a React component with error boundary
- * Provides graceful fallback if rendering fails
- * 
- * @param params - Render parameters
- * @param fallback - Fallback React element or HTML string on error
- * @returns Render result with HTML and hydration data
  */
 export async function renderWithErrorBoundary(
   params: ReactRenderParams,
@@ -223,35 +141,21 @@ export async function renderWithErrorBoundary(
 ): Promise<ReactRenderResult> {
   const { component, props = {}, src, ssrOnly = false, condition = "on:client" } = params;
   
-  const logPrefix = `🔄 [React:${src}:ErrorBoundary]`;
-  console.log(`${logPrefix} Rendering with error boundary...`);
-  
   try {
-    // Load the component if not provided
     const Component = component || await loadComponent(src);
     
     if (!Component || typeof Component !== "function") {
-      throw new Error(
-        `Invalid React component in ${src}: expected function, got ${typeof Component}`,
-      );
+      throw new Error(`Invalid React component in ${src}: expected function, got ${typeof Component}`);
     }
     
-    // Analyze component to determine if it's a Server Component or Client Component
     const metadata = analyzeComponent(src);
     const hasUseClient = hasUseClientDirective(src);
-    const isServerComponent = params.isServerComponent ?? 
-      (metadata.isServerComponent || !hasUseClient);
-    
-    // Normalize and serialize props
+    const isServerComponent = params.isServerComponent ?? (metadata.isServerComponent || !hasUseClient);
     const normalizedProps = serializeProps(props);
     
-    // Determine fallback element
     let fallbackElement: ReactElement | undefined;
     if (typeof fallback === "string") {
-      // Convert string to React element
-      fallbackElement = createElement("div", { 
-        dangerouslySetInnerHTML: { __html: fallback } 
-      });
+      fallbackElement = createElement("div", { dangerouslySetInnerHTML: { __html: fallback } });
     } else {
       fallbackElement = fallback;
     }
@@ -259,19 +163,11 @@ export async function renderWithErrorBoundary(
     let html: string;
     let element: ReactElement;
     
-    // Wrap component in Error Boundary
     if (isServerComponent) {
-      // For Server Components, we can't use Error Boundary wrapper
-      // Fall back to try-catch approach
       try {
-        html = await renderServerComponent(
-          Component as ComponentType<Record<string, unknown>>,
-          normalizedProps
-        );
+        html = await renderServerComponent(Component as ComponentType<Record<string, unknown>>, normalizedProps);
       } catch (error) {
-        console.error(`${logPrefix} Server Component rendering failed:`, error);
         const errorMessage = error instanceof Error ? error.message : String(error);
-        
         if (fallbackElement) {
           html = renderToString(fallbackElement);
         } else if (typeof fallback === "string") {
@@ -279,59 +175,38 @@ export async function renderWithErrorBoundary(
         } else {
           html = `<!-- React Server Component SSR failed: ${errorMessage} -->`;
         }
-        
-        return {
-          html,
-          isServerComponent: true,
-          hydrationData: undefined,
-        };
+        return { html, isServerComponent: true, hydrationData: undefined };
       }
-      
       element = createElement("div", { dangerouslySetInnerHTML: { __html: html } });
     } else {
-      // For Client Components, wrap in Error Boundary
-      element = createErrorBoundaryWrapper(
-        Component as ComponentType<Record<string, unknown>>,
-        normalizedProps,
-        fallbackElement
-      );
+      element = createErrorBoundaryWrapper(Component as ComponentType<Record<string, unknown>>, normalizedProps, fallbackElement);
       html = renderToString(element);
     }
     
-    console.log(`${logPrefix} ✅ Rendering with error boundary completed`);
-    
-    // Generate hydration data
     const shouldHydrate = !isServerComponent && !ssrOnly;
-    const hydrationData = shouldHydrate ? {
-      src,
-      props,
-      framework: "react" as const,
-      condition,
-      metadata: {
-        isServerComponent: false,
-        hasErrorBoundary: true,
-      },
-    } : undefined;
     
     return {
       html,
       element,
       isServerComponent,
-      hydrationData,
+      hydrationData: shouldHydrate ? {
+        src,
+        props,
+        framework: "react" as const,
+        condition,
+        metadata: { isServerComponent: false, hasErrorBoundary: true },
+      } : undefined,
     };
   } catch (error) {
-    console.error(`${logPrefix} ❌ Error boundary rendering failed:`, error);
     const errorMessage = error instanceof Error ? error.message : String(error);
-    
-    // Last resort fallback
     let fallbackHtml: string;
+    
     if (typeof fallback === "string") {
       fallbackHtml = fallback;
     } else if (fallback) {
       try {
         fallbackHtml = renderToString(fallback);
-      } catch (fallbackError) {
-        console.error(`${logPrefix} Failed to render fallback element:`, fallbackError);
+      } catch {
         fallbackHtml = `<!-- React SSR failed: ${errorMessage} -->`;
       }
     } else {
@@ -341,14 +216,7 @@ export async function renderWithErrorBoundary(
     return {
       html: fallbackHtml,
       isServerComponent: false,
-      hydrationData: {
-        src: params.src,
-        props: params.props || {},
-        framework: "react",
-        metadata: {
-          ssrFailed: true,
-        },
-      },
+      hydrationData: { src: params.src, props: params.props || {}, framework: "react", metadata: { ssrFailed: true } },
     };
   }
 }

@@ -32,14 +32,12 @@ async function loadComponentDev(src: string) {
   const viteServer = (globalThis as { __viteDevServer?: { ssrLoadModule: (path: string) => Promise<Record<string, unknown>> } }).__viteDevServer;
   
   if (viteServer) {
-    console.log(`📡 Loading Solid component via Vite: ${src}`);
     const resolvedPath = resolveIslandPath(src);
     const module = await viteServer.ssrLoadModule(resolvedPath);
     return extractComponent(module, src);
   }
   
   // Fallback: direct import when Vite server is not available
-  console.log(`⚠️ No Vite server available, attempting direct import: ${src}`);
   return await loadComponentDirect(src);
 }
 
@@ -54,7 +52,6 @@ async function loadComponentProd(src: string) {
     .replace("/islands/", "/dist/ssr/islands/")
     .replace(/\.(tsx|jsx|ts|js)$/, ".js");
   
-  console.log(`📦 Loading Solid SSR bundle: ${ssrPath}`);
   const module = await import(ssrPath);
   return extractComponent(module, src);
 }
@@ -73,7 +70,6 @@ async function loadComponentDirect(src: string) {
     const module = await import(filePath);
     return extractComponent(module, src);
   } catch (error) {
-    console.error(`❌ Direct import failed for ${src}:`, error);
     throw new Error(
       `Failed to load Solid component ${src}: ${error instanceof Error ? error.message : String(error)}`,
       { cause: error }

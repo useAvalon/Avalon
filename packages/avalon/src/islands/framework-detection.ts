@@ -350,11 +350,6 @@ export function detectFrameworkFromSrc(
 export async function detectFramework(
   src: string,
 ): Promise<Framework> {
-  const logPrefix = `🔍 [${src}]`;
-  const detectionStart = performance.now();
-
-  console.log(`${logPrefix} Starting framework detection...`);
-
   // Get all registered integrations
   const integrations = registry.getAll();
 
@@ -365,24 +360,12 @@ export async function detectFramework(
     // Check file extensions
     for (const ext of config.fileExtensions) {
       if (src.endsWith(ext)) {
-        const detectionTime = performance.now() - detectionStart;
-        console.log(
-          `${logPrefix} Framework detected via file extension (${ext}): ${config.name} (${
-            detectionTime.toFixed(2)
-          }ms)`,
-        );
         return config.name as Framework;
       }
     }
     
     // Check for framework-specific naming conventions
     if (src.includes(`.${config.name}.`)) {
-      const detectionTime = performance.now() - detectionStart;
-      console.log(
-        `${logPrefix} Framework detected via naming convention: ${config.name} (${
-          detectionTime.toFixed(2)
-        }ms)`,
-      );
       return config.name as Framework;
     }
   }
@@ -390,43 +373,23 @@ export async function detectFramework(
   // Try to read file content for more accurate detection
   try {
     let fileContent: string;
-    let contentSource = "";
 
     try {
       // Try to read the file directly using resolved path
       const resolvedPath = resolveIslandPath(src);
       const filePath = resolvedPath.replace(/^\//, "");
-      console.log(
-        `${logPrefix} Attempting direct file read: ${src} -> ${filePath}`,
-      );
       fileContent = await Deno.readTextFile(filePath);
-      contentSource = "direct file read";
-    } catch (fileError) {
-      console.log(
-        `${logPrefix} Direct file read failed, trying Vite SSR:`,
-        fileError,
-      );
+    } catch {
       // If direct read fails, try through Vite in development
       const viteServer = globalThis.__viteDevServer;
       if (viteServer) {
         const resolvedPath = resolveIslandPath(src);
-        console.log(
-          `${logPrefix} Using Vite SSR module loading: ${src} -> ${resolvedPath}`,
-        );
         const module = await viteServer.ssrLoadModule(resolvedPath);
         fileContent = module.toString();
-        contentSource = "Vite SSR module";
       } else {
-        console.log(
-          `${logPrefix} No Vite server available, cannot detect framework`,
-        );
         return "unknown";
       }
     }
-
-    console.log(
-      `${logPrefix} File content loaded via ${contentSource} (${fileContent.length} chars)`,
-    );
 
     // Check imports and content patterns using integration configs
     for (const integration of integrations) {
@@ -435,12 +398,6 @@ export async function detectFramework(
       // Check import patterns
       for (const pattern of config.detectionPatterns.imports) {
         if (pattern.test(fileContent)) {
-          const detectionTime = performance.now() - detectionStart;
-          console.log(
-            `${logPrefix} Framework detected via import pattern: ${config.name} (${
-              detectionTime.toFixed(2)
-            }ms)`,
-          );
           return config.name as Framework;
         }
       }
@@ -448,12 +405,6 @@ export async function detectFramework(
       // Check content patterns
       for (const pattern of config.detectionPatterns.content) {
         if (pattern.test(fileContent)) {
-          const detectionTime = performance.now() - detectionStart;
-          console.log(
-            `${logPrefix} Framework detected via content pattern: ${config.name} (${
-              detectionTime.toFixed(2)
-            }ms)`,
-          );
           return config.name as Framework;
         }
       }
@@ -461,7 +412,6 @@ export async function detectFramework(
 
     // Fallback: If no integrations are loaded, use hardcoded patterns for backward compatibility
     if (integrations.length === 0) {
-      console.log(`${logPrefix} No integrations loaded, using fallback detection`);
       const checks = [
         {
           pattern: /solid-js|@jsxImportSource solid-js/,
@@ -475,33 +425,14 @@ export async function detectFramework(
 
       for (const check of checks) {
         if (check.pattern.test(fileContent)) {
-          const detectionTime = performance.now() - detectionStart;
-          console.log(
-            `${logPrefix} Framework detected via fallback content analysis: ${check.framework} (${
-              detectionTime.toFixed(2)
-            }ms)`,
-          );
           return check.framework;
         }
       }
     }
 
     // Default to preact for JSX files
-    const detectionTime = performance.now() - detectionStart;
-    console.log(
-      `${logPrefix} No specific framework detected, defaulting to preact (${
-        detectionTime.toFixed(2)
-      }ms)`,
-    );
     return "preact";
-  } catch (error) {
-    const detectionTime = performance.now() - detectionStart;
-    console.warn(
-      `${logPrefix} Framework detection failed after ${
-        detectionTime.toFixed(2)
-      }ms:`,
-      error,
-    );
+  } catch {
     return "unknown";
   }
 }

@@ -21,38 +21,18 @@ export async function loadIntegration(framework: string) {
   }
 
   // Check if already loaded in registry (e.g., by preloader)
-  // This is important because integrations are pre-loaded before Vite SSR context
-  // to avoid dependency resolution issues
-  const registrySize = registry.size;
-  const hasInRegistry = registry.has(framework);
-  
-  // Debug logging
-  console.log(`🔍 [integration-loader] Loading ${framework}: registrySize=${registrySize}, hasInRegistry=${hasInRegistry}`);
-  
-  if (hasInRegistry) {
+  if (registry.has(framework)) {
     const integration = registry.get(framework)!;
     frameworkCache.set(framework, integration);
-    console.log(`🔍 [integration-loader] Found ${framework} in registry`);
     return integration;
   }
 
-  console.log(`🔍 [integration-loader] ${framework} not in registry, trying to load...`);
-
   try {
-    // Load from registry (this will try to dynamically import)
     const integration = await registry.load(framework);
-    
-    // Cache the loaded integration
     frameworkCache.set(framework, integration);
-    
     return integration;
   } catch (error) {
-    // Provide helpful error message
-    const helpfulError = new Error(
-      getMissingIntegrationError(framework),
-      { cause: error }
-    );
-    throw helpfulError;
+    throw new Error(getMissingIntegrationError(framework), { cause: error });
   }
 }
 

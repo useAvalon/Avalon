@@ -204,8 +204,8 @@ async function enhanceContentWithRenderingStrategy(
 				enhancedContent = enhancedContent.replace(fullMatch, enhancedTag);
 			}
 
-			// Log the decision for debugging
-			if (renderOptions.logDecisions !== false) {
+			// Log the decision for debugging (only when explicitly enabled)
+			if (renderOptions.logDecisions === true) {
 				console.log(`[SSR Strategy] ${componentPath} -> ${strategy.type.toUpperCase()}: ${strategy.reason}`);
 				if (strategy.warnings && strategy.warnings.length > 0 && !renderOptions.suppressWarnings) {
 					strategy.warnings.forEach(warning => console.warn(`[SSR Warning] ${componentPath}: ${warning}`));
@@ -463,22 +463,10 @@ function generateHead(
 	const hmrScript = generateHMRScript(isDev, viteHmrPort);
 	
 	// Collect CSS from all framework integrations
-	console.log(`🎨 [SSR] Collecting universal CSS for head injection...`);
 	const universalCSS = getUniversalCSSForHead(true); // Clear after collecting
-	if (universalCSS) {
-		console.log(`✅ [SSR] Universal CSS collected (${universalCSS.length} chars)`);
-	} else {
-		console.log(`⚠️ [SSR] No universal CSS collected`);
-	}
 	
 	// Collect head content (hydration scripts, etc.) from all framework integrations
-	console.log(`📄 [SSR] Collecting universal head content for injection...`);
 	const universalHead = getUniversalHeadForInjection(true); // Clear after collecting
-	if (universalHead) {
-		console.log(`✅ [SSR] Universal head content collected (${universalHead.length} chars)`);
-	} else {
-		console.log(`⚠️ [SSR] No universal head content collected`);
-	}
 	
 	// Generate importmap for browser to resolve integration packages
 	const importMap = `
