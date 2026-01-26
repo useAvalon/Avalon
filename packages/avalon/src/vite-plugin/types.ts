@@ -5,6 +5,8 @@
  * These types enable type-safe configuration of the plugin and its integrations.
  */
 
+import type { AvalonNitroConfig } from "../nitro/config.ts";
+
 /**
  * Supported integration names
  * These correspond to the @avalon/integration-* packages
@@ -79,6 +81,24 @@ export interface AvalonPluginConfig {
   mdx?: MDXConfig;
 
   /**
+   * Nitro server runtime configuration
+   * When provided, enables Nitro integration for universal deployment
+   * 
+   * @example
+   * ```ts
+   * nitro: {
+   *   preset: 'vercel',
+   *   streaming: true,
+   *   routeRules: {
+   *     '/api/**': { cors: true },
+   *     '/static/**': { cache: { maxAge: 86400 } },
+   *   },
+   * }
+   * ```
+   */
+  nitro?: AvalonNitroConfig;
+
+  /**
    * Enable verbose logging during development
    * @default false
    */
@@ -134,3 +154,15 @@ export interface ResolvedAvalonConfig {
   showWarnings: boolean;
   isDev: boolean;
 }
+
+/**
+ * Re-export Nitro configuration types for convenience
+ */
+export type { AvalonNitroConfig } from "../nitro/config.ts";
+export type {
+  CacheOptions,
+  RouteRule,
+  NitroConfigOutput,
+  AvalonRuntimeConfig,
+  StaticAssetsConfig,
+} from "../nitro/config.ts";

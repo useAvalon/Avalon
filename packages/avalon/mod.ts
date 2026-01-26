@@ -1,8 +1,24 @@
 // === Core Avalon + Vite Architecture ===
 
 // Vite Plugin - unified configuration API
-export { avalon, getResolvedConfig, getIslandsDir, getPagesDir, getApiDir } from './src/vite-plugin/plugin.ts';
-export type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig, MDXConfig, ResolvedMDXConfig } from './src/vite-plugin/types.ts';
+export { avalon, getResolvedConfig, getIslandsDir, getPagesDir, getApiDir, getNitroConfig, isNitroEnabled } from './src/vite-plugin/plugin.ts';
+export type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig, MDXConfig, ResolvedMDXConfig, AvalonNitroConfig, CacheOptions, RouteRule, NitroConfigOutput, AvalonRuntimeConfig } from './src/vite-plugin/types.ts';
+
+// Nitro Integration - virtual modules and coordination
+export {
+  createNitroIntegration,
+  createNitroCoordinationPlugin,
+  createVirtualModulesPlugin,
+  getViteDevServer,
+  getAvalonConfig,
+  isDevelopmentMode,
+  VIRTUAL_MODULE_IDS,
+  RESOLVED_VIRTUAL_IDS,
+} from './src/vite-plugin/nitro-integration.ts';
+export type {
+  NitroIntegrationResult,
+  NitroCoordinationPluginOptions,
+} from './src/vite-plugin/nitro-integration.ts';
 
 // Main exports
 export { renderToHtml } from './src/render/ssr.ts';

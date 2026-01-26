@@ -1,0 +1,427 @@
+/**
+ * Nitro Configuration Module for Avalon
+ *
+ * This module provides configuration interfaces and utilities for integrating
+ * Nitro as Avalon's server runtime. It handles preset configuration, route rules,
+ * and merging Avalon-specific options with Nitro defaults.
+ */
+
+import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
+
+/**
+ * Cache configuration options for route rules
+ */
+export interface CacheOptions {
+  /** Maximum age in seconds for cache validity */
+  maxAge?: number;
+  /** Maximum age in seconds for stale content */
+  staleMaxAge?: number;
+  /** Enable stale-while-revalidate behavior */
+  swr?: boolean;
+}
+
+/**
+ * Route rule configuration for caching, redirects, proxying, and headers
+ */
+export interface RouteRule {
+  /** Cache configuration or boolean to enable/disable */
+  cache?: CacheOptions | boolean;
+  /** Redirect destination URL */
+  redirect?: string;
+  /** Proxy destination URL */
+  proxy?: string;
+  /** Custom headers to set */
+  headers?: Record<string, string>;
+  /** Enable CORS for this route */
+  cors?: boolean;
+}
+
+/**
+ * Static asset serving configuration
+ */
+export interface StaticAssetsConfig {
+  /**
+   * Directory containing public static assets
+   * @default "public"
+   */
+  publicDir?: string;
+
+  /**
+   * Directory containing compiled build output
+   * @default "dist"
+   */
+  buildDir?: string;
+
+  /**
+   * Enable serving pre-compressed assets (gzip, brotli)
+   * @default true
+   */
+  compression?: boolean;
+
+  /**
+   * Default cache control header for immutable static assets
+   * @default "public, max-age=31536000, immutable"
+   */
+  cacheControl?: string;
+
+  /**
+   * Cache control header for mutable assets (HTML, etc.)
+   * @default "public, max-age=0, must-revalidate"
+   */
+  mutableCacheControl?: string;
+
+  /**
+   * Custom headers to add to all static asset responses
+   */
+  headers?: Record<string, string>;
+}
+
+/**
+ * Avalon-specific Nitro configuration options
+ */
+export interface AvalonNitroConfig {
+  /**
+   * Deployment preset (vercel, cloudflare, deno-deploy, node-server, netlify, etc.)
+   * @default "node-server"
+   */
+  preset?: string;
+
+  /**
+   * Directory containing server routes
+   * @default "server"
+   */
+  serverDir?: string;
+
+  /**
+   * Directory containing API routes (overrides Avalon config if set)
+   */
+  apiDir?: string;
+
+  /**
+   * Directory containing pages (overrides Avalon config if set)
+   */
+  pagesDir?: string;
+
+  /**
+   * Enable streaming SSR responses
+   * @default true
+   */
+  streaming?: boolean;
+
+  /**
+   * Route rules for caching, redirects, proxying, and headers
+   * Keys are route patterns (e.g., "/api/**", "/static/**")
+   */
+  routeRules?: Record<string, RouteRule>;
+
+  /**
+   * Runtime configuration accessible via useRuntimeConfig()
+   * Can be overridden by NITRO_ prefixed environment variables
+   */
+  runtimeConfig?: Record<string, unknown>;
+
+  /**
+   * Public runtime configuration (exposed to client)
+   */
+  publicRuntimeConfig?: Record<string, unknown>;
+
+  /**
+   * Static asset serving configuration
+   */
+  staticAssets?: StaticAssetsConfig;
+}
+
+/**
+ * Nitro configuration output structure
+ * This matches the expected NitroConfig interface from nitro/types
+ */
+export interface NitroConfigOutput {
+  /** Deployment preset */
+  preset: string;
+  /** Server directory */
+  serverDir: string;
+  /** Route rules */
+  routeRules: Record<string, RouteRule>;
+  /** Runtime configuration */
+  runtimeConfig: {
+    avalon: AvalonRuntimeConfig;
+    [key: string]: unknown;
+  };
+  /** Public runtime configuration */
+  publicRuntimeConfig?: Record<string, unknown>;
+  /** Renderer configuration */
+  renderer?: {
+    handler: string;
+  };
+  /** Public assets directory */
+  publicAssets?: Array<{
+    dir: string;
+    baseURL?: string;
+    maxAge?: number;
+  }>;
+  /** Server assets configuration */
+  serverAssets?: Array<{
+    baseName: string;
+    dir: string;
+  }>;
+  /** Static assets configuration */
+  staticAssets?: StaticAssetsConfig;
+}
+
+/**
+ * Avalon-specific runtime configuration stored in Nitro's runtimeConfig
+ */
+export interface AvalonRuntimeConfig {
+  /** Enable streaming SSR */
+  streaming: boolean;
+  /** Pages directory path */
+  pagesDir: string;
+  /** API directory path */
+  apiDir: string;
+  /** Islands directory path */
+  islandsDir: string;
+}
+
+/**
+ * Default static assets configuration
+ */
+export const DEFAULT_STATIC_ASSETS_CONFIG: Required<StaticAssetsConfig> = {
+  publicDir: "public",
+  buildDir: "dist",
+  compression: true,
+  cacheControl: "public, max-age=31536000, immutable",
+  mutableCacheControl: "public, max-age=0, must-revalidate",
+  headers: {},
+};
+
+/**
+ * Default Nitro configuration values
+ */
+export const DEFAULT_NITRO_CONFIG: Required<
+  Pick<AvalonNitroConfig, "preset" | "serverDir" | "streaming">
+> = {
+  preset: "node-server",
+  serverDir: "server",
+  streaming: true,
+};
+
+/**
+ * Creates a Nitro configuration from Avalon plugin config and Nitro-specific options
+ *
+ * This function merges Avalon's resolved configuration with Nitro-specific options
+ * to produce a complete Nitro configuration object. Avalon-specific settings are
+ * stored in `runtimeConfig.avalon` for access by handlers.
+ *
+ * @param avalonNitroConfig - Nitro-specific configuration options
+ * @param resolvedAvalonConfig - Resolved Avalon plugin configuration
+ * @returns Complete Nitro configuration object
+ *
+ * @example
+ * ```ts
+ * const nitroConfig = createNitroConfig(
+ *   { preset: 'vercel', streaming: true },
+ *   resolvedAvalonConfig
+ * );
+ * ```
+ */
+export function createNitroConfig(
+  avalonNitroConfig: AvalonNitroConfig,
+  resolvedAvalonConfig: ResolvedAvalonConfig
+): NitroConfigOutput {
+  // Determine final directory paths (Nitro config overrides Avalon config)
+  const pagesDir = avalonNitroConfig.pagesDir ?? resolvedAvalonConfig.pagesDir;
+  const apiDir = avalonNitroConfig.apiDir ?? resolvedAvalonConfig.apiDir;
+  const islandsDir = resolvedAvalonConfig.islandsDir;
+
+  // Build Avalon runtime config
+  const avalonRuntimeConfig: AvalonRuntimeConfig = {
+    streaming: avalonNitroConfig.streaming ?? DEFAULT_NITRO_CONFIG.streaming,
+    pagesDir,
+    apiDir,
+    islandsDir,
+  };
+
+  // Merge user runtime config with Avalon runtime config
+  const runtimeConfig: NitroConfigOutput["runtimeConfig"] = {
+    avalon: avalonRuntimeConfig,
+    ...avalonNitroConfig.runtimeConfig,
+  };
+
+  // Merge static assets config with defaults
+  const staticAssetsConfig: StaticAssetsConfig = {
+    ...DEFAULT_STATIC_ASSETS_CONFIG,
+    ...avalonNitroConfig.staticAssets,
+  };
+
+  // Create default route rules for static assets
+  const defaultStaticRouteRules = createDefaultStaticAssetRouteRules(staticAssetsConfig);
+
+  // Merge user route rules with default static asset rules
+  const routeRules = mergeRouteRules(
+    defaultStaticRouteRules,
+    avalonNitroConfig.routeRules ?? {}
+  );
+
+  // Configure public assets directories
+  const publicAssets: NitroConfigOutput["publicAssets"] = [
+    {
+      dir: staticAssetsConfig.publicDir ?? DEFAULT_STATIC_ASSETS_CONFIG.publicDir,
+      baseURL: "/",
+      maxAge: 0, // Let route rules handle caching
+    },
+  ];
+
+  return {
+    preset: avalonNitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset,
+    serverDir: avalonNitroConfig.serverDir ?? DEFAULT_NITRO_CONFIG.serverDir,
+    routeRules,
+    runtimeConfig,
+    publicRuntimeConfig: avalonNitroConfig.publicRuntimeConfig,
+    renderer: {
+      handler: "./server/renderer.ts",
+    },
+    publicAssets,
+    staticAssets: staticAssetsConfig,
+  };
+}
+
+/**
+ * Creates default route rules for static asset caching
+ *
+ * @param config - Static assets configuration
+ * @returns Route rules for static assets
+ */
+export function createDefaultStaticAssetRouteRules(
+  config: StaticAssetsConfig
+): Record<string, RouteRule> {
+  const cacheControl = config.cacheControl ?? DEFAULT_STATIC_ASSETS_CONFIG.cacheControl;
+  const mutableCacheControl = config.mutableCacheControl ?? DEFAULT_STATIC_ASSETS_CONFIG.mutableCacheControl;
+
+  return {
+    // Immutable assets with hashed filenames (long cache)
+    "/assets/**": {
+      headers: {
+        "Cache-Control": cacheControl,
+        ...config.headers,
+      },
+    },
+    "/islands/**": {
+      headers: {
+        "Cache-Control": cacheControl,
+        ...config.headers,
+      },
+    },
+    "/chunks/**": {
+      headers: {
+        "Cache-Control": cacheControl,
+        ...config.headers,
+      },
+    },
+    "/_nuxt/**": {
+      headers: {
+        "Cache-Control": cacheControl,
+        ...config.headers,
+      },
+    },
+    // Font files (long cache)
+    "/**/*.woff": {
+      headers: {
+        "Cache-Control": cacheControl,
+        ...config.headers,
+      },
+    },
+    "/**/*.woff2": {
+      headers: {
+        "Cache-Control": cacheControl,
+        ...config.headers,
+      },
+    },
+    // Mutable assets (short cache with revalidation)
+    "/**/*.html": {
+      headers: {
+        "Cache-Control": mutableCacheControl,
+        ...config.headers,
+      },
+    },
+    // Favicon (medium cache)
+    "/favicon.ico": {
+      headers: {
+        "Cache-Control": "public, max-age=86400",
+        ...config.headers,
+      },
+    },
+    // CSS files in public directory (may be mutable)
+    "/**/*.css": {
+      headers: {
+        "Cache-Control": mutableCacheControl,
+        ...config.headers,
+      },
+    },
+  };
+}
+
+/**
+ * Validates a Nitro preset name
+ *
+ * @param preset - The preset name to validate
+ * @returns True if the preset is a known valid preset
+ */
+export function isValidPreset(preset: string): boolean {
+  const validPresets = [
+    "node-server",
+    "vercel",
+    "vercel-edge",
+    "cloudflare",
+    "cloudflare-pages",
+    "cloudflare-module",
+    "deno-deploy",
+    "deno-server",
+    "netlify",
+    "netlify-edge",
+    "aws-lambda",
+    "azure-functions",
+    "firebase",
+    "render-com",
+    "stormkit",
+    "cleavr",
+    "layer0",
+    "lagon",
+    "service-worker",
+    "static",
+    "browser",
+  ];
+
+  return validPresets.includes(preset);
+}
+
+/**
+ * Merges route rules, with later rules taking precedence
+ *
+ * @param baseRules - Base route rules
+ * @param overrideRules - Override route rules
+ * @returns Merged route rules
+ */
+export function mergeRouteRules(
+  baseRules: Record<string, RouteRule>,
+  overrideRules: Record<string, RouteRule>
+): Record<string, RouteRule> {
+  const merged: Record<string, RouteRule> = { ...baseRules };
+
+  for (const [pattern, rule] of Object.entries(overrideRules)) {
+    if (merged[pattern]) {
+      // Deep merge the rule
+      merged[pattern] = {
+        ...merged[pattern],
+        ...rule,
+        headers: {
+          ...merged[pattern].headers,
+          ...rule.headers,
+        },
+      };
+    } else {
+      merged[pattern] = rule;
+    }
+  }
+
+  return merged;
+}

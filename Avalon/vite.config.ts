@@ -4,11 +4,14 @@ import type { UserConfig, Plugin } from 'vite';
 import { avalon } from '../packages/avalon/src/vite-plugin/plugin.ts';
 
 export default defineConfig(async ({ command }): Promise<UserConfig> => {
+	const isDev = command === 'serve';
+
 	// Create the Avalon plugin with unified configuration
 	// The avalon() function now returns all necessary plugins including:
 	// - Lit SSR shim plugin (first)
 	// - MDX plugins
 	// - Core Avalon plugin
+	// - Nitro integration plugins (when nitro config is provided)
 	// - Framework plugins (React, Vue, Svelte, Preact, Solid) from integrations
 	const avalonPlugins = await avalon({
 		// Directory configuration
@@ -26,6 +29,55 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			syntaxHighlighting: true,
 		},
 
+		// Nitro server runtime configuration
+		// Enables universal deployment through Nitro presets
+		nitro: {
+			// Deployment preset - can be changed for different platforms:
+			// 'node-server' (default), 'vercel', 'cloudflare', 'deno-deploy', 'netlify', etc.
+			preset: 'node-server',
+
+			// Enable streaming SSR for better TTFB
+			streaming: true,
+
+			// Route rules for caching, redirects, and headers
+			routeRules: {
+				// API routes with CORS enabled
+				'/api/**': {
+					cors: true,
+					headers: {
+						'Access-Control-Allow-Origin': '*',
+						'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+					},
+				},
+				// Static assets with long cache
+				'/assets/**': {
+					headers: {
+						'Cache-Control': 'public, max-age=31536000, immutable',
+					},
+				},
+				// Islands with long cache (hashed filenames)
+				'/islands/**': {
+					headers: {
+						'Cache-Control': 'public, max-age=31536000, immutable',
+					},
+				},
+			},
+
+			// Runtime configuration accessible via useRuntimeConfig()
+			runtimeConfig: {
+				// App-specific runtime config
+				appName: 'Avalon Demo',
+				appVersion: '1.0.0',
+			},
+
+			// Static asset serving configuration
+			staticAssets: {
+				publicDir: 'public',
+				buildDir: 'dist',
+				compression: true,
+			},
+		},
+
 		// Auto-discover integrations from component file extensions
 		autoDiscoverIntegrations: true,
 
@@ -36,7 +88,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		showWarnings: true,
 
 		// Enable verbose logging in development
-		verbose: command === 'serve',
+		verbose: isDev,
 	});
 
 	// Additional plugins that are not part of framework integrations
@@ -121,6 +173,13 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			hmr: { port: 8013 },
 			cors: false,
 			warmup: { clientFiles: Object.values(islandEntries) },
+			fs: {
+				// TODO: Remove this when Avalon is published to npm/jsr
+				// This is only needed during development because the framework packages
+				// are in a parent directory. Once published, users will import from
+				// the published package and won't need this workaround.
+				allow: ['..'],
+			},
 		},
 
 		ssr: {

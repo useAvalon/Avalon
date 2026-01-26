@@ -1,9 +1,10 @@
 {
 	"tasks": {
-		"dev": "deno run --allow-all --unstable-detect-cjs src/server.ts",
-		"build": "deno run --allow-all build.ts",
-		"preview": "DENO_ENV=production deno run --allow-all src/server.ts",
-		"start": "deno run --allow-net --allow-read --allow-env src/server.ts"
+		"dev": "deno run --allow-all --unstable-detect-cjs npm:vite@7.1.5 --config vite.config.ts",
+		"build": "deno run --allow-all --unstable-detect-cjs npm:vite@7.1.5 build --config vite.config.ts",
+		"preview": "deno run --allow-all --unstable-detect-cjs npm:vite@7.1.5 preview --config vite.config.ts",
+		"start": "deno run --allow-all --unstable-detect-cjs npm:vite@7.1.5 preview --config vite.config.ts",
+		"build:client": "deno run --allow-all build.ts"
 	},
 	"nodeModulesDir": "auto",
 	"imports": {
@@ -12,7 +13,11 @@
 		"$layouts/": "./src/layouts/",
 		"$islands/": "./src/islands/",
 		"$api/": "./src/api/",
+		"$server/": "./server/",
 		"@avalon/avalon": "../packages/avalon/mod.ts",
+		"@avalon/avalon/nitro/renderer": "../packages/avalon/src/nitro/renderer.ts",
+		"@avalon/avalon/nitro/types": "../packages/avalon/src/nitro/types.ts",
+		"@avalon/avalon/nitro/config": "../packages/avalon/src/nitro/config.ts",
 		"@deno/vite-plugin": "npm:@deno/vite-plugin@^1.0.5",
 		"@mdx-js/mdx": "npm:@mdx-js/mdx@^3.1.1",
 		"@preact/preset-vite": "npm:@preact/preset-vite@^2.10.2",

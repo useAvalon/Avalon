@@ -3,7 +3,7 @@
  *
  * This module provides the main `avalon()` function that creates a unified Vite plugin
  * for the Avalon framework. It handles configuration resolution, integration activation,
- * and wires up all the necessary Vite hooks.
+ * Nitro server integration, and wires up all the necessary Vite hooks.
  */
 
 import type { Plugin, ResolvedConfig, ViteDevServer } from "vite";
@@ -18,11 +18,14 @@ import { discoverIntegrationsFromFiles } from "./auto-discover.ts";
 import { validateActiveIntegrations, formatValidationResults } from "./validation.ts";
 import { createMDXPlugin } from "../build/mdx-plugin.ts";
 import { registry } from "../core/integrations/registry.ts";
+import { createNitroIntegration } from "./nitro-integration.ts";
+import type { AvalonNitroConfig, NitroConfigOutput } from "../nitro/config.ts";
 
 // Declare global type for Avalon config
 declare global {
   var __avalonConfig: ResolvedAvalonConfig | undefined;
   var __viteDevServer: ViteDevServer | undefined;
+  var __nitroConfig: NitroConfigOutput | undefined;
 }
 
 /**
@@ -123,6 +126,10 @@ export async function collectIntegrationPlugins(
  *         jsxImportSource: 'preact',
  *         syntaxHighlighting: true,
  *       },
+ *       nitro: {
+ *         preset: 'node-server',
+ *         streaming: true,
+ *       },
  *       autoDiscoverIntegrations: true,
  *       validateIntegrations: true,
  *       showWarnings: true,
@@ -193,6 +200,29 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
     if (preResolvedConfig.verbose && integrationPlugins.length > 0) {
       console.log(`   Total integration plugins collected: ${integrationPlugins.length}`);
     }
+  }
+
+  // Create Nitro integration plugins if Nitro config is provided
+  let nitroPlugins: Plugin[] = [];
+  let nitroOptions: NitroConfigOutput | undefined;
+  
+  if (config?.nitro) {
+    if (preResolvedConfig.verbose) {
+      console.log("🚀 Avalon Nitro integration enabled");
+      console.log(`   Preset: ${config.nitro.preset ?? "node-server"}`);
+      console.log(`   Streaming: ${config.nitro.streaming ?? true}`);
+    }
+    
+    const nitroIntegration = createNitroIntegration(
+      preResolvedConfig,
+      config.nitro
+    );
+    
+    nitroPlugins = nitroIntegration.plugins;
+    nitroOptions = nitroIntegration.nitroOptions;
+    
+    // Store Nitro config globally for access by other parts of the system
+    globalThis.__nitroConfig = nitroOptions;
   }
 
   // The main Avalon plugin
@@ -347,7 +377,8 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
   //    - Already handled by collectIntegrationPlugins() which puts Lit plugins first
   // 2. MDX plugins (need to process .mdx files before other plugins)
   // 3. Core Avalon plugin
-  // 4. Other framework plugins (React, Vue, Svelte, Preact, Solid)
+  // 4. Nitro integration plugins (coordinate with Nitro server)
+  // 5. Other framework plugins (React, Vue, Svelte, Preact, Solid)
   //    - Already ordered by collectIntegrationPlugins() with Lit first
   //
   // The integrationPlugins array already has Lit plugins at the front,
@@ -356,9 +387,10 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
   const otherIntegrationPlugins = integrationPlugins.filter(p => !p.name?.includes("lit"));
 
   return [
-    ...litPlugins,           // Lit SSR shim first (DOM shim requirement)
-    ...mdxPlugins,           // MDX plugins second
-    avalonPlugin,            // Core Avalon plugin third
+    ...litPlugins,              // Lit SSR shim first (DOM shim requirement)
+    ...mdxPlugins,              // MDX plugins second
+    avalonPlugin,               // Core Avalon plugin third
+    ...nitroPlugins,            // Nitro integration plugins fourth
     ...otherIntegrationPlugins, // Other framework plugins last
   ];
 }
@@ -404,6 +436,30 @@ export function getApiDir(): string {
 }
 
 /**
+ * Get the Nitro configuration
+ * This is useful for other parts of the system that need access to Nitro config
+ * 
+ * @returns The Nitro configuration, or undefined if Nitro is not enabled
+ */
+export function getNitroConfig(): NitroConfigOutput | undefined {
+  return globalThis.__nitroConfig;
+}
+
+/**
+ * Check if Nitro integration is enabled
+ * 
+ * @returns True if Nitro integration is enabled
+ */
+export function isNitroEnabled(): boolean {
+  return globalThis.__nitroConfig !== undefined;
+}
+
+/**
  * Re-export types for convenience
  */
 export type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig };
+
+/**
+ * Re-export Nitro types for convenience
+ */
+export type { AvalonNitroConfig, NitroConfigOutput };
