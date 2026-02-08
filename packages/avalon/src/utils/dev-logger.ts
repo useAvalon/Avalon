@@ -1,3 +1,136 @@
+/**
+ * Dev-Only Logging Utilities
+ * 
+ * These functions provide environment-aware logging that only outputs in development mode.
+ * In production (DENO_ENV=production), all logging is suppressed for better performance.
+ * 
+ * @module dev-logger
+ */
+
+// ============================================================================
+// Environment Detection
+// ============================================================================
+
+/**
+ * Check if we're in development mode
+ * Returns true if DENO_ENV is not set to "production"
+ */
+export function isDev(): boolean {
+  try {
+    return typeof Deno !== "undefined" && Deno.env?.get("DENO_ENV") !== "production";
+  } catch {
+    return true; // Default to dev mode if we can't check
+  }
+}
+
+/**
+ * Check if verbose logging is enabled
+ * Returns true only if AVALON_VERBOSE=1 is set
+ */
+export function isVerbose(): boolean {
+  try {
+    return typeof Deno !== "undefined" && Deno.env?.get("AVALON_VERBOSE") === "1";
+  } catch {
+    return false;
+  }
+}
+
+// ============================================================================
+// Dev-Only Logging Functions
+// ============================================================================
+
+/**
+ * Log a message only in development mode AND when AVALON_VERBOSE=1 is set.
+ * By default this is a no-op — set AVALON_VERBOSE=1 to enable diagnostic output.
+ * 
+ * @param args - Arguments to pass to console.log
+ */
+export function devLog(...args: unknown[]): void {
+  if (isDev() && isVerbose()) {
+    console.log(...args);
+  }
+}
+
+/**
+ * Log a warning only in development mode
+ * In production, this is a no-op for performance
+ * 
+ * @param args - Arguments to pass to console.warn
+ */
+export function devWarn(...args: unknown[]): void {
+  if (isDev()) {
+    console.warn(...args);
+  }
+}
+
+/**
+ * Log an error only in development mode
+ * In production, this is a no-op for performance
+ * 
+ * @param args - Arguments to pass to console.error
+ */
+export function devError(...args: unknown[]): void {
+  if (isDev()) {
+    console.error(...args);
+  }
+}
+
+// ============================================================================
+// Performance Tracking
+// ============================================================================
+
+/** Default threshold for slow render warnings (in milliseconds) */
+const DEFAULT_SLOW_RENDER_THRESHOLD = 100;
+
+/**
+ * Log render timing information for an island component
+ * Only logs in development mode
+ * Warns when render time exceeds the threshold
+ * 
+ * @param src - The island source path
+ * @param durationMs - The render duration in milliseconds
+ * @param threshold - Optional threshold for slow render warning (default: 100ms)
+ */
+export function logRenderTiming(
+  src: string, 
+  durationMs: number, 
+  threshold: number = DEFAULT_SLOW_RENDER_THRESHOLD
+): void {
+  if (!isDev()) return;
+  
+  if (durationMs > threshold) {
+    console.warn(`⚠️ Slow island render: ${src} took ${durationMs.toFixed(2)}ms`);
+  } else if (isVerbose()) {
+    console.log(`🏝️ ${src} rendered in ${durationMs.toFixed(2)}ms`);
+  }
+}
+
+/**
+ * Log a cache hit event (dev mode only)
+ * 
+ * @param cacheType - The type of cache (e.g., 'analysis', 'path', 'framework')
+ * @param key - The cache key that was hit
+ */
+export function logCacheHit(cacheType: string, key: string): void {
+  if (!isDev() || !isVerbose()) return;
+  console.log(`📦 Cache HIT [${cacheType}]: ${key}`);
+}
+
+/**
+ * Log a cache miss event (dev mode only)
+ * 
+ * @param cacheType - The type of cache (e.g., 'analysis', 'path', 'framework')
+ * @param key - The cache key that was missed
+ */
+export function logCacheMiss(cacheType: string, key: string): void {
+  if (!isDev() || !isVerbose()) return;
+  console.log(`📭 Cache MISS [${cacheType}]: ${key}`);
+}
+
+// ============================================================================
+// DevLogger Class (for Development Server UI)
+// ============================================================================
+
 const AVALON_ASCII = `
  █████╗ ██╗   ██╗ █████╗ ██╗      ██████╗ ███╗   ██╗
 ██╔══██╗██║   ██║██╔══██╗██║     ██╔═══██╗████╗  ██║

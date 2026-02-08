@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { resolve } from '@std/path';
+import { resolve } from 'node:path';
 import deno from '@deno/vite-plugin';
 import type { UserConfig } from 'vite';
 import { createMDXPlugin } from './src/build/mdx-plugin.ts';
@@ -47,7 +47,7 @@ async function discoverIslandEntries(): Promise<Record<string, string>> {
 
 		// Log discovered islands for debugging
 		const islandCount = Object.keys(allEntries).length;
-		if (islandCount > 0) {
+		if (islandCount > 0 && process.env.AVALON_VERBOSE === '1') {
 			console.log(`🏝️  Discovered ${islandCount} island(s) across all directories`);
 		}
 	} catch (error) {

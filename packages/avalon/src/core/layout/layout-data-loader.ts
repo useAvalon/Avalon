@@ -1,4 +1,32 @@
-import type { LayoutContext, LayoutData, LayoutHandler, LayoutLoader, LayoutErrorInfo } from '../../schemas/layout.ts';
+// NOTE: Using inline types to avoid importing heavy schemas/layout.ts (which imports zod)
+// This significantly improves cold start time
+
+interface LayoutContext {
+	request: Request;
+	params: Record<string, string>;
+	query: URLSearchParams;
+	state: Map<string, unknown>;
+	middlewareContext?: unknown;
+}
+
+type LayoutData = Record<string, unknown>;
+
+interface LayoutHandler {
+	component: unknown;
+	loader?: LayoutLoader;
+	path: string;
+	priority: number;
+}
+
+type LayoutLoader = (ctx: LayoutContext) => Promise<LayoutData>;
+
+interface LayoutErrorInfo {
+	layoutPath: string;
+	errorType: 'component' | 'loader' | 'rendering' | 'island';
+	timestamp: number;
+	componentStack?: string;
+	errorBoundary?: string;
+}
 
 /**
  * Layout data loading error with context information
@@ -266,7 +294,7 @@ export class LayoutDataLoader {
 	 * Executes a layout loader with timeout protection
 	 * Requirements: 2.1, 2.5
 	 */
-	private async executeLoaderWithTimeout(loader: LayoutLoader, context: LayoutContext): Promise<LayoutData> {
+	private executeLoaderWithTimeout(loader: LayoutLoader, context: LayoutContext): Promise<LayoutData> {
 		return new Promise<LayoutData>((resolve, reject) => {
 			const timeoutId = setTimeout(() => {
 				reject(new Error(`Layout data loading timed out after ${this.options.timeout}ms`));

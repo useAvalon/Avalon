@@ -40,7 +40,10 @@ export async function loadComponent(src: string) {
   
   // Production: load from build output
   const ssrPath = resolveSsrPath(src);
-  const module = await import(ssrPath) as PreactComponentModule;
+  const module = await import(
+    /* @vite-ignore */
+    ssrPath
+  ) as PreactComponentModule;
   return extractComponent(module, src);
 }
 

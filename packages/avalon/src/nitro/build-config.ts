@@ -618,7 +618,7 @@ export function createSourceMapPlugin(config: SourceMapConfig): Plugin {
         (key) => key.endsWith(".map")
       ).length;
 
-      if (sourceMapCount > 0) {
+      if (sourceMapCount > 0 && globalThis.__avalonConfig?.verbose) {
         console.log(`📍 Generated ${sourceMapCount} source map(s)`);
       }
     },

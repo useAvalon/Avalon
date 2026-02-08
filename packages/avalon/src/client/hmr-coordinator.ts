@@ -214,7 +214,6 @@ export class HMRCoordinator {
       
       // Check if this is an island component
       if (this.isIslandModule(normalizedPath)) {
-        console.log('🏝️ Queuing island module for update:', normalizedPath);
         this.updateQueue.add(normalizedPath);
       } else {
         console.log('⏭️ Not an island module, skipping:', normalizedPath);

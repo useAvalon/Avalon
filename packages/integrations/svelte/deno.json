@@ -11,7 +11,7 @@
 		"svelte": "npm:svelte@^5.41.0",
 		"svelte/server": "npm:svelte@^5.41.0/server",
 		"svelte/compiler": "npm:svelte@^5.41.0/compiler",
-		"vite": "npm:vite@^6.3.5",
+		"vite": "npm:vite@8.0.0-beta.10",
 		"@sveltejs/vite-plugin-svelte": "npm:@sveltejs/vite-plugin-svelte@^5.0.3"
 	},
 	"compilerOptions": {

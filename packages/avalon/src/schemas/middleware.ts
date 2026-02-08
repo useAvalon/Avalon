@@ -1,6 +1,18 @@
 import { z } from 'zod';
 
 /**
+ * @deprecated This file contains legacy middleware types for backward compatibility.
+ * New code should use the Nitro-aligned middleware types from '../middleware/types.ts'.
+ * 
+ * Migration guide:
+ * - MiddlewareHandler: Use the new signature (event: H3Event) => void | Response | Promise<void | Response>
+ * - MiddlewareContext: Use event.context from H3Event instead
+ * - MiddlewareResponse: Return void to continue, return Response to terminate
+ * - MiddlewareRoute: Use the new MiddlewareRoute from '../middleware/types.ts'
+ */
+
+/**
+ * @deprecated Use event.context from H3Event instead.
  * Middleware context interface - provides request/response context and state passing
  * Requirements: 4.1, 4.2
  */
@@ -20,6 +32,7 @@ export interface MiddlewareContext {
 }
 
 /**
+ * @deprecated Use Nitro-style return format: return void to continue, return Response to terminate.
  * Middleware response interface - controls middleware chain execution
  * Requirements: 4.4, 4.5
  */
@@ -31,6 +44,7 @@ export interface MiddlewareResponse {
 }
 
 /**
+ * @deprecated Use MiddlewareHandler from '../middleware/types.ts' with Nitro-style signature.
  * Middleware handler function signature
  * Requirements: 7.1, 7.2 (supports both sync and async operations)
  */
@@ -40,6 +54,7 @@ export type MiddlewareHandler = (
 ) => Promise<MiddlewareResponse>;
 
 /**
+ * @deprecated Use MiddlewareRoute from '../middleware/types.ts'.
  * Middleware route configuration for discovery system
  */
 export interface MiddlewareRoute {
@@ -54,6 +69,7 @@ export interface MiddlewareRoute {
 }
 
 /**
+ * @deprecated Middleware chains are now handled internally by the executor.
  * Middleware chain data structure
  */
 export interface MiddlewareChain {
@@ -68,6 +84,7 @@ export interface MiddlewareChain {
 }
 
 /**
+ * @deprecated Use MiddlewareExecutorOptions from '../middleware/types.ts'.
  * Middleware configuration options
  */
 export interface MiddlewareConfig {
@@ -82,6 +99,7 @@ export interface MiddlewareConfig {
 }
 
 /**
+ * @deprecated Error handling is now delegated to Nitro's error handling.
  * Middleware error handler interface
  */
 export interface MiddlewareErrorHandler {
@@ -94,6 +112,7 @@ export interface MiddlewareErrorHandler {
 }
 
 /**
+ * @deprecated Use the return value from executeScopedMiddleware instead.
  * Middleware execution result
  */
 export interface MiddlewareExecutionResult {
@@ -115,6 +134,7 @@ export interface MiddlewareExecutionResult {
 }
 
 /**
+ * @deprecated Use MiddlewareDiscoveryOptions from '../middleware/types.ts'.
  * Middleware discovery options
  */
 export interface MiddlewareDiscoveryOptions {
@@ -129,8 +149,10 @@ export interface MiddlewareDiscoveryOptions {
 }
 
 // === Zod Schemas for Runtime Validation ===
+// @deprecated These schemas are for legacy middleware types. Use the new middleware system.
 
 /**
+ * @deprecated Use the new middleware types from '../middleware/types.ts'.
  * Schema for middleware context validation
  */
 export const MiddlewareContextSchema = z.object({
@@ -143,6 +165,7 @@ export const MiddlewareContextSchema = z.object({
 });
 
 /**
+ * @deprecated Use Nitro-style return format instead.
  * Schema for middleware response validation
  */
 export const MiddlewareResponseSchema = z.object({
@@ -151,6 +174,7 @@ export const MiddlewareResponseSchema = z.object({
 });
 
 /**
+ * @deprecated Use MiddlewareRoute from '../middleware/types.ts'.
  * Schema for middleware route validation
  */
 export const MiddlewareRouteSchema = z.object({
@@ -161,6 +185,7 @@ export const MiddlewareRouteSchema = z.object({
 });
 
 /**
+ * @deprecated Middleware chains are now handled internally.
  * Schema for middleware chain validation
  */
 export const MiddlewareChainSchema = z.object({
@@ -171,6 +196,7 @@ export const MiddlewareChainSchema = z.object({
 });
 
 /**
+ * @deprecated Use MiddlewareExecutorOptions from '../middleware/types.ts'.
  * Schema for middleware configuration validation
  */
 export const MiddlewareConfigSchema = z.object({
@@ -181,6 +207,7 @@ export const MiddlewareConfigSchema = z.object({
 });
 
 /**
+ * @deprecated Use MiddlewareDiscoveryOptions from '../middleware/types.ts'.
  * Schema for middleware discovery options validation
  */
 export const MiddlewareDiscoveryOptionsSchema = z.object({
@@ -191,38 +218,41 @@ export const MiddlewareDiscoveryOptionsSchema = z.object({
 });
 
 // === Type Guards ===
+// @deprecated These type guards are for legacy middleware types.
 
 /**
- * Type guard for middleware context
+ * @deprecated Type guard for middleware context
  */
 export function isMiddlewareContext(data: unknown): data is MiddlewareContext {
 	return MiddlewareContextSchema.safeParse(data).success;
 }
 
 /**
- * Type guard for middleware response
+ * @deprecated Type guard for middleware response
  */
 export function isMiddlewareResponse(data: unknown): data is MiddlewareResponse {
 	return MiddlewareResponseSchema.safeParse(data).success;
 }
 
 /**
- * Type guard for middleware route
+ * @deprecated Type guard for middleware route
  */
 export function isMiddlewareRoute(data: unknown): data is MiddlewareRoute {
 	return MiddlewareRouteSchema.safeParse(data).success;
 }
 
 /**
- * Type guard for middleware chain
+ * @deprecated Type guard for middleware chain
  */
 export function isMiddlewareChain(data: unknown): data is MiddlewareChain {
 	return MiddlewareChainSchema.safeParse(data).success;
 }
 
 // === Utility Types ===
+// @deprecated These utility types are for legacy middleware.
 
 /**
+ * @deprecated Use MiddlewareFileExport from '../middleware/types.ts'.
  * Extract middleware handler from middleware file export
  */
 export type MiddlewareFileExport = {
@@ -230,7 +260,7 @@ export type MiddlewareFileExport = {
 };
 
 /**
- * Middleware execution context with additional metadata
+ * @deprecated Middleware execution context with additional metadata
  */
 export type MiddlewareExecutionContext = MiddlewareContext & {
 	/** Current middleware index in chain */
@@ -242,11 +272,11 @@ export type MiddlewareExecutionContext = MiddlewareContext & {
 };
 
 /**
- * Middleware chain builder function type
+ * @deprecated Middleware chain builder function type
  */
 export type MiddlewareChainBuilder = (url: URL) => Promise<MiddlewareHandler[]>;
 
 /**
- * Middleware file watcher callback type
+ * @deprecated Middleware file watcher callback type
  */
 export type MiddlewareWatcherCallback = (filePath: string, event: 'add' | 'change' | 'unlink') => void;

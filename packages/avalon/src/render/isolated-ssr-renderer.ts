@@ -367,7 +367,7 @@ export class IsolatedSSRRenderer {
 
 		try {
 			// Import the module
-			const module = await import(modulePath);
+			const module = await import(/* @vite-ignore */ modulePath);
 
 			// Store in context-specific imports
 			context.imports.set(modulePath, module);

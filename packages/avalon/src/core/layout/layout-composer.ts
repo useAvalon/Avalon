@@ -1,22 +1,60 @@
-import { join, resolve, relative } from 'node:path';
-import { existsSync } from '@std/fs';
-import type {
-	LayoutHandler,
-	LayoutConfig,
-	LayoutContext,
-	LayoutProps,
-	LayoutDiscoveryOptions,
-} from '../../schemas/layout.ts';
-import type { ComponentType } from 'preact';
+import { resolve, relative } from 'node:path';
+import process from 'node:process';
+// NOTE: Using Deno.statSync instead of @std/fs for faster cold start
 import { LayoutDiscovery } from './layout-discovery.ts';
+
+// deno-lint-ignore no-explicit-any
+type ComponentType<P = any> = ((props: P) => any) | (new (props: P) => any);
+
+// NOTE: Using inline types to avoid importing heavy schemas/layout.ts (which imports zod)
+interface LayoutHandler {
+	component: ComponentType<LayoutProps>;
+	loader?: (ctx: LayoutContext) => Promise<unknown>;
+	path: string;
+	priority: number;
+}
+
+interface LayoutConfig {
+	skipLayouts?: string[];
+	replaceLayout?: boolean;
+	onlyLayouts?: string[];
+	customLayout?: string;
+}
+
+interface LayoutContext {
+	request: Request;
+	params: Record<string, string>;
+	query: URLSearchParams;
+	state: Map<string, unknown>;
+	middlewareContext?: unknown;
+}
+
+interface LayoutDiscoveryOptions {
+	baseDirectory: string;
+	filePattern?: string;
+	excludeDirectories?: string[];
+	enableWatching?: boolean;
+	developmentMode?: boolean;
+}
+
+interface LayoutProps {
+	children: unknown;
+	data: Record<string, unknown>;
+	frontmatter?: Record<string, unknown>;
+	route: {
+		path: string;
+		params: Record<string, string>;
+		query: URLSearchParams;
+	};
+}
 
 /**
  * Page module interface with optional layout configuration
  */
 interface PageModule {
-	default: ComponentType<any>;
+	default: ComponentType<unknown>;
 	layoutConfig?: LayoutConfig;
-	loader?: (ctx: any) => Promise<any>;
+	loader?: (ctx: unknown) => Promise<unknown>;
 }
 
 /**
@@ -24,7 +62,7 @@ interface PageModule {
  */
 interface LayoutFileExport {
 	default: ComponentType<LayoutProps>;
-	layoutLoader?: (ctx: LayoutContext) => Promise<any>;
+	layoutLoader?: (ctx: LayoutContext) => Promise<unknown>;
 }
 
 /**
@@ -112,7 +150,7 @@ export class LayoutComposer {
 	 * Handles replaceLayout configuration by returning only custom layout or empty array
 	 * Requirements: 5.1
 	 */
-	private async handleReplaceLayout(routePath: string, config: LayoutConfig): Promise<LayoutHandler[]> {
+	private async handleReplaceLayout(_routePath: string, config: LayoutConfig): Promise<LayoutHandler[]> {
 		// If customLayout is specified with replaceLayout, use only the custom layout
 		if (config.customLayout) {
 			const customHandler = await this.loadCustomLayout(config.customLayout);
@@ -267,12 +305,26 @@ export class LayoutComposer {
 					resolve(this.layoutDiscovery.getOptions().baseDirectory, layoutPath),
 				];
 
-				// Find the first existing path
-				resolvedPath = possiblePaths.find(path => existsSync(path)) || layoutPath;
+				// Find the first existing path using Deno.statSync
+				resolvedPath = possiblePaths.find(path => {
+					try {
+						Deno.statSync(path);
+						return true;
+					} catch {
+						return false;
+					}
+				}) || layoutPath;
 			}
 
-			// Check if file exists
-			if (!existsSync(resolvedPath)) {
+			// Check if file exists using Deno.statSync
+			let fileExists = false;
+			try {
+				Deno.statSync(resolvedPath);
+				fileExists = true;
+			} catch {
+				// File doesn't exist
+			}
+			if (!fileExists) {
 				if (this.developmentMode) {
 					console.warn(`[LayoutComposer] Custom layout file not found: ${resolvedPath}`);
 				}
@@ -280,7 +332,7 @@ export class LayoutComposer {
 			}
 
 			// Dynamic import the layout file
-			const layoutModule = (await import(resolvedPath)) as LayoutFileExport;
+			const layoutModule = (await import(/* @vite-ignore */ resolvedPath)) as LayoutFileExport;
 
 			if (!layoutModule.default || typeof layoutModule.default !== 'function') {
 				if (this.developmentMode) {

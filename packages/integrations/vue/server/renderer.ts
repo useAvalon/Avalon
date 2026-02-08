@@ -106,7 +106,10 @@ async function loadComponent(src: string) {
     .replace("/islands/", "/dist/ssr/islands/")
     .replace(".vue", ".js");
   
-  const module = await import(ssrPath);
+  const module = await import(
+    /* @vite-ignore */
+    ssrPath
+  );
   return module.default || module;
 }
 

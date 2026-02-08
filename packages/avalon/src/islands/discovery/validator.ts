@@ -5,7 +5,7 @@
  * Provides validation for exports, naming conventions, and circular dependencies.
  */
 
-import { resolve, relative, basename, extname } from "@std/path";
+import { resolve, relative, basename, extname } from "node:path";
 import type {
   IslandDirectory,
   DiscoveredIsland,

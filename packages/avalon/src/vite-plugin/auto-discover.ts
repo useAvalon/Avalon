@@ -2,11 +2,12 @@
  * Auto-Discovery for Avalon Vite Plugin
  *
  * This module handles automatic discovery of framework integrations
- * based on component file extensions in the islands directory.
+ * based on component file extensions, naming conventions, and file content
+ * in the islands directory.
  */
 
 import type { IntegrationName } from "./types.ts";
-import { resolve } from "@std/path";
+import { resolve } from "node:path";
 
 /**
  * File extension to integration name mapping
@@ -34,9 +35,28 @@ const FRAMEWORK_NAMING_PATTERNS: Array<{
 ];
 
 /**
+ * Content-based detection patterns for JSX/TSX files
+ * These patterns detect framework usage from file content
+ */
+const CONTENT_DETECTION_PATTERNS: Array<{
+  pattern: RegExp;
+  integration: IntegrationName;
+}> = [
+  // React detection: imports from 'react' or @jsxImportSource react
+  { pattern: /from\s+['"]react['"]/, integration: "react" },
+  { pattern: /@jsxImportSource\s+react/, integration: "react" },
+  // Solid detection: imports from 'solid-js' or @jsxImportSource solid-js
+  { pattern: /from\s+['"]solid-js['"]/, integration: "solid" },
+  { pattern: /@jsxImportSource\s+solid-js/, integration: "solid" },
+  // Preact detection: imports from 'preact' or @jsxImportSource preact
+  { pattern: /from\s+['"]preact['"]/, integration: "preact" },
+  { pattern: /@jsxImportSource\s+preact/, integration: "preact" },
+];
+
+/**
  * Default integration for generic JSX/TSX files
- * When a .tsx or .jsx file doesn't have a framework-specific naming convention,
- * we default to preact as per Avalon's conventions
+ * When a .tsx or .jsx file doesn't have a framework-specific naming convention
+ * or detectable imports, we default to preact as per Avalon's conventions
  */
 const DEFAULT_JSX_INTEGRATION: IntegrationName = "preact";
 
@@ -116,7 +136,7 @@ async function scanDirectoryForIntegrations(
         await scanDirectoryForIntegrations(fullPath, discovered);
       } else if (entry.isFile) {
         // Check if this is a supported component file
-        const integration = detectIntegrationFromFileName(entry.name);
+        const integration = await detectIntegrationFromFile(fullPath, entry.name);
         if (integration) {
           discovered.add(integration);
         }
@@ -128,6 +148,75 @@ async function scanDirectoryForIntegrations(
       console.warn(`Warning: Could not scan directory ${dirPath}:`, error);
     }
   }
+}
+
+/**
+ * Detect the integration from a file by checking name patterns and content
+ *
+ * @param filePath - Full path to the file
+ * @param fileName - The file name
+ * @returns The integration name or null if not a supported component file
+ */
+async function detectIntegrationFromFile(
+  filePath: string,
+  fileName: string
+): Promise<IntegrationName | null> {
+  const normalizedName = fileName.toLowerCase();
+
+  // First, check for framework-specific naming patterns (highest priority)
+  for (const { pattern, integration } of FRAMEWORK_NAMING_PATTERNS) {
+    if (pattern.test(normalizedName)) {
+      return integration;
+    }
+  }
+
+  // Second, check for unique file extensions (.vue, .svelte)
+  for (const [ext, integration] of Object.entries(EXTENSION_TO_INTEGRATION)) {
+    if (normalizedName.endsWith(ext)) {
+      return integration;
+    }
+  }
+
+  // Third, for JSX/TSX files, read content to detect framework
+  if (normalizedName.endsWith(".tsx") || normalizedName.endsWith(".jsx")) {
+    try {
+      // Read first 500 bytes - enough to detect imports and pragmas
+      const file = await Deno.open(filePath, { read: true });
+      const buffer = new Uint8Array(500);
+      await file.read(buffer);
+      file.close();
+      
+      const content = new TextDecoder().decode(buffer);
+      
+      // Check content patterns for framework detection
+      for (const { pattern, integration } of CONTENT_DETECTION_PATTERNS) {
+        if (pattern.test(content)) {
+          return integration;
+        }
+      }
+      
+      // Default to preact for generic JSX/TSX
+      return DEFAULT_JSX_INTEGRATION;
+    } catch {
+      // If we can't read the file, fall back to default
+      return DEFAULT_JSX_INTEGRATION;
+    }
+  }
+
+  // Fourth, check for Lit components (.ts/.js files with PascalCase names)
+  if (
+    (normalizedName.endsWith(".ts") || normalizedName.endsWith(".js")) &&
+    !normalizedName.endsWith(".d.ts")
+  ) {
+    // Check if the original filename (not lowercased) starts with uppercase
+    // This indicates a component file (PascalCase convention)
+    if (/^[A-Z]/.test(fileName)) {
+      return "lit";
+    }
+  }
+
+  // Not a supported component file
+  return null;
 }
 
 /**

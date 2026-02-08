@@ -95,6 +95,79 @@ function createLitSSRShimPlugin(): Plugin {
 }
 
 /**
+ * Creates a Vite plugin that fixes decorator order issues in Vite 8 / esbuild output.
+ * 
+ * The issue is that esbuild in Vite 8 sometimes outputs "export @decorator class" 
+ * instead of the valid "@decorator export class" syntax.
+ * 
+ * This plugin uses multiple strategies:
+ * 1. Pre-transform: Rewrite decorators BEFORE esbuild processes them
+ * 2. Post-transform: Fix any remaining issues after esbuild
+ */
+function createLitDecoratorFixPlugin(): Plugin {
+  return {
+    name: "avalon:lit-decorator-fix",
+    // Enforce "pre" to run BEFORE esbuild transformation
+    enforce: "pre",
+
+    // Pre-transform: Convert TypeScript decorators to a format esbuild handles correctly
+    // This runs BEFORE esbuild, so we can rewrite the source to avoid the issue
+    transform(code: string, id: string, _options?: { ssr?: boolean }) {
+      // Only process Lit files
+      const isLitFile = /\.lit\.(ts|js)$/.test(id);
+      if (!isLitFile || id.includes("node_modules")) {
+        return null;
+      }
+
+      // Check if this file uses @customElement decorator
+      if (!code.includes("@customElement")) {
+        return null;
+      }
+
+      // Strategy: Convert "@customElement(...) export class" to use a different pattern
+      // that esbuild handles correctly. We'll use a manual customElements.define() call.
+      
+      // Extract the tag name from @customElement("tag-name")
+      const customElementMatch = code.match(/@customElement\s*\(\s*["'`]([^"'`]+)["'`]\s*\)/);
+      if (!customElementMatch) {
+        return null;
+      }
+      
+      const tagName = customElementMatch[1];
+      
+      // Remove the @customElement decorator and add manual registration at the end
+      let modifiedCode = code.replace(
+        /@customElement\s*\(\s*["'`][^"'`]+["'`]\s*\)\s*\n?\s*(export\s+class\s+(\w+))/g,
+        '$1'
+      );
+      
+      // Extract the class name
+      const classNameMatch = code.match(/@customElement\s*\(\s*["'`][^"'`]+["'`]\s*\)\s*\n?\s*export\s+class\s+(\w+)/);
+      if (classNameMatch) {
+        const className = classNameMatch[1];
+        
+        // Add manual customElements.define() at the end of the file
+        // This avoids the decorator syntax issue entirely
+        modifiedCode += `\n\n// Auto-generated: Register custom element (decorator removed for Vite 8 compatibility)\nif (typeof customElements !== 'undefined' && !customElements.get("${tagName}")) {\n  customElements.define("${tagName}", ${className});\n}\n`;
+        
+        // Also add a static property for SSR to find the tag name
+        modifiedCode = modifiedCode.replace(
+          new RegExp(`(export\\s+class\\s+${className}\\s+extends\\s+\\w+\\s*\\{)`),
+          `$1\n  static elementName = "${tagName}";`
+        );
+        
+        return {
+          code: modifiedCode,
+          map: null,
+        };
+      }
+
+      return null;
+    },
+  };
+}
+
+/**
  * Lit integration object
  * Implements the Integration interface
  */
@@ -120,9 +193,10 @@ export const litIntegration: Integration = {
   /**
    * Provides the Lit SSR shim plugin for DOM shim support.
    * This plugin MUST be placed first in the plugin array (handled by Avalon's plugin ordering).
+   * Also includes a decorator fix plugin for Vite 8 compatibility.
    */
   async vitePlugin(): Promise<Plugin | Plugin[]> {
-    return createLitSSRShimPlugin();
+    return [createLitSSRShimPlugin(), createLitDecoratorFixPlugin()];
   },
 };
 

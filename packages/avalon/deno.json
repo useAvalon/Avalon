@@ -30,7 +30,7 @@
 		"preact/hooks": "npm:preact@10.26.9/hooks",
 		"preact-render-to-string": "npm:preact-render-to-string@6.5.13",
 		
-		"vite": "npm:vite@7.1.5",
+		"vite": "npm:vite@8.0.0-beta.10",
 		"typescript": "npm:typescript@5.3.3",
 		"zod": "npm:zod@3.25.28",
 

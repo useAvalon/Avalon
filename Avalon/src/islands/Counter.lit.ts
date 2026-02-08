@@ -1,8 +1,9 @@
 import { LitElement, html, css } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
 
-@customElement("web-counter")
 export class WebCounter extends LitElement {
+  // Static element name for SSR tag name extraction
+  static elementName = "web-counter";
+
   static styles = css`
     :host {
       display: block;
@@ -64,10 +65,13 @@ export class WebCounter extends LitElement {
     }
   `;
 
-  @property({ type: Number, attribute: 'initial-count' })
-  initialCount = 0;
+  // Define properties without decorators
+  static properties = {
+    initialCount: { type: Number, attribute: 'initial-count' },
+    count: { type: Number, state: true },
+  };
 
-  @state()
+  initialCount = 0;
   private count = 0;
 
   connectedCallback() {
@@ -101,6 +105,11 @@ export class WebCounter extends LitElement {
       </div>
     `;
   }
+}
+
+// Register custom element without decorator
+if (typeof customElements !== 'undefined' && !customElements.get("web-counter")) {
+  customElements.define("web-counter", WebCounter);
 }
 
 declare global {

@@ -54,6 +54,10 @@ export async function setupViteServer(isDev: boolean): Promise<ViteServerSetup> 
 			// Ensure proper base URL for dependency resolution
 			base: '/',
 			// Optimize dependency pre-bundling for better performance
+			// Note: We intentionally do NOT use force: true here because it causes
+			// Vite to re-bundle ALL dependencies on every restart, adding ~5-7 seconds
+			// to cold start time. By omitting force, Vite reuses cached pre-bundled
+			// dependencies from .vite/deps, significantly improving startup performance.
 			optimizeDeps: {
 				include: [
 					'preact',
@@ -68,8 +72,6 @@ export async function setupViteServer(isDev: boolean): Promise<ViteServerSetup> 
 					'svelte/internal',
 					'svelte/store',
 				],
-				// Force re-optimization in development for consistency
-				force: true,
 			},
 			root: cwd,
 		});
@@ -90,8 +92,6 @@ export async function setupViteServer(isDev: boolean): Promise<ViteServerSetup> 
 			},
 		});
 		serverHMRHandler.initialize(viteDevServer);
-
-		console.log(`✅ Vite dev server started on ${viteServerUrl}`);
 
 		return { viteDevServer, viteServerUrl, serverHMRHandler };
 	} catch (error) {

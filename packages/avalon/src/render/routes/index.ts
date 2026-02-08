@@ -1,20 +1,21 @@
 /**
  * Central route configuration and assembly
+ * 
+ * NOTE: File-system routing is now handled by Nitro's native routing system.
+ * The fileSystemRouter option is deprecated and will be ignored.
  */
 
 import { createFrameworkRoutes } from './framework-routes.ts';
 import { createViteRoutes } from './vite-routes.ts';
 import { createStaticRoutes } from './static-routes.ts';
-import { createApiRoutes, createAppRoutes, createFileSystemRoutes } from './app-routes.ts';
+import { createApiRoutes, createAppRoutes } from './app-routes.ts';
 import { createHydrationRoutes } from './hydration-routes.ts';
 import type { Routes } from '../../schemas/index.ts';
 import type { IslandManifest } from '../../build/island-manifest.ts';
 import type { RenderOptions } from '../../schemas/core.ts';
 import type { ComponentRenderOptions } from '../ssr.ts';
 import type { EnhancedLayoutResolver } from '../../core/layout/enhanced-layout-resolver.ts';
-import type { FileSystemRouter } from '../../core/routing/file-system-router.ts';
 import type { ApiRoute } from '../../schemas/api.ts';
-import type { RouteHandler } from '../../schemas/routing.ts';
 
 export interface RouteConfig {
 	isDev: boolean;
@@ -25,7 +26,8 @@ export interface RouteConfig {
 	islandManifest: IslandManifest | null;
 	renderOptions?: ComponentRenderOptions;
 	layoutResolver?: EnhancedLayoutResolver;
-	fileSystemRouter?: FileSystemRouter;
+	/** @deprecated File-system routing is now handled by Nitro. This option is ignored. */
+	fileSystemRouter?: unknown;
 	quietMode?: boolean;
 	streamingEnabled?: boolean;
 }
@@ -42,28 +44,11 @@ export async function createAllRoutes(config: RouteConfig) {
 		layoutResolver,
 		fileSystemRouter,
 		quietMode = false,
-		streamingEnabled = true,
 	} = config;
 
-	// Create file-system routes if enabled
-	let fileSystemRouteHandlers: RouteHandler[] = [];
-	if (fileSystemRouter) {
-		try {
-			fileSystemRouteHandlers = await createFileSystemRoutes(
-				fileSystemRouter,
-				layoutResolver,
-				mergedDefaultOptions,
-				islandManifest,
-				isDev,
-				quietMode,
-				streamingEnabled
-			);
-		} catch (error) {
-			console.error('Failed to create file-system routes:', error);
-			if (isDev) {
-				console.warn('Falling back to manual routes only');
-			}
-		}
+	// Log deprecation warning if fileSystemRouter is provided
+	if (fileSystemRouter && isDev && !quietMode) {
+		console.warn('[routes] fileSystemRouter option is deprecated. File-system routing is now handled by Nitro.');
 	}
 
 	return [
@@ -78,9 +63,6 @@ export async function createAllRoutes(config: RouteConfig) {
 
 		// Vite development routes (only in development)
 		...createViteRoutes(isDev, viteServerUrl),
-
-		// File-system routes (before manual routes for precedence)
-		...fileSystemRouteHandlers,
 
 		// User application routes (manual routes)
 		...createAppRoutes(routes, mergedDefaultOptions, islandManifest, isDev, renderOptions, layoutResolver),

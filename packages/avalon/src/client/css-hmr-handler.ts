@@ -41,8 +41,6 @@ export class CSSHMRHandler {
   handleCSSUpdate(update: Update): void {
     const updateInfo = this.classifyCSSUpdate(update);
     
-    console.log(`🎨 CSS HMR: Updating ${updateInfo.type} CSS - ${updateInfo.path}`);
-
     switch (updateInfo.type) {
       case 'global':
         this.handleGlobalCSSUpdate(updateInfo);

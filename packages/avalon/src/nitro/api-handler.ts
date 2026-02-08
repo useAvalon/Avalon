@@ -5,7 +5,16 @@
  * It creates Nitro event handlers from Avalon API route configurations,
  * supporting method-specific handlers, parameter extraction, and response handling.
  *
- * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6
+ * SIMPLIFIED: This module now delegates route matching and parameter extraction
+ * to Nitro's built-in h3 utilities. Custom route pattern matching has been removed
+ * in favor of Nitro's native file-system routing.
+ *
+ * Middleware Integration:
+ * - Global middleware runs first (handled by Nitro's middleware/ directory)
+ * - Route-scoped middleware runs after global middleware, before API handler execution
+ * - If global middleware terminates, route-scoped middleware does not run
+ *
+ * Requirements: 3.1, 3.2, 3.4, 3.5, 3.6
  */
 
 import type {
@@ -15,7 +24,6 @@ import type {
 } from "./types.ts";
 import {
   createMethodNotAllowedError,
-  createInternalError,
   isHttpError,
 } from "./types.ts";
 import type {
@@ -24,6 +32,12 @@ import type {
   ApiMethod,
   ApiHandler,
 } from "../schemas/api.ts";
+import type { MiddlewareRoute } from "../middleware/types.ts";
+import {
+  discoverScopedMiddleware,
+  executeScopedMiddleware,
+  clearMiddlewareCache,
+} from "../middleware/index.ts";
 
 /**
  * Supported HTTP methods for API routes
@@ -46,6 +60,10 @@ export interface CreateApiHandlerOptions {
   isDev?: boolean;
   /** Custom error handler */
   onError?: (error: Error, context: NitroApiContext) => Response | Promise<Response>;
+  /** Base directory for middleware discovery (e.g., 'src') */
+  baseDir?: string;
+  /** Pre-discovered middleware routes (for performance) */
+  middlewareRoutes?: MiddlewareRoute[];
 }
 
 /**
@@ -66,7 +84,6 @@ export function getRequestURL(event: H3Event): URL {
 export function getRequestHeaders(event: H3Event): Headers {
   const headers = new Headers();
   // In a real Nitro environment, headers would come from event.node.req.headers
-  // This is a placeholder implementation
   const nodeReq = event.node.req as { headers?: Record<string, string | string[] | undefined> };
   if (nodeReq && nodeReq.headers) {
     for (const [key, value] of Object.entries(nodeReq.headers)) {
@@ -104,17 +121,40 @@ export function toRequest(event: H3Event): Request {
 
 /**
  * Extracts route parameters from an H3 event
- * Supports dynamic segments [param] and catch-all segments [...slug]
- * Requirements: 3.3
+ * 
+ * SIMPLIFIED: This function now delegates to Nitro's h3 router.
+ * Parameters are stored in event.context.params by Nitro's file-system router.
+ * 
+ * For dynamic segments like [id] or catch-all [...slug], Nitro automatically
+ * extracts and provides the values via event.context.params.
+ * 
+ * Requirements: 1.3, 3.3
  *
  * @param event - The H3 event
  * @returns Record of parameter names to values
  */
 export function getRouterParams(event: H3Event): Record<string, string> {
-  // In a real Nitro environment, this would use h3's getRouterParams
-  // Parameters are typically stored in event.context.params by the router
+  // Nitro's h3 router stores extracted parameters in event.context.params
+  // This is populated automatically by Nitro's file-system routing
   const params = event.context.params as Record<string, string> | undefined;
   return params ?? {};
+}
+
+/**
+ * Gets a single router parameter from an H3 event
+ * 
+ * This is a convenience wrapper that mirrors h3's getRouterParam function.
+ * In production, handlers should use h3's getRouterParam directly.
+ * 
+ * Requirements: 1.3, 3.3
+ *
+ * @param event - The H3 event
+ * @param name - The parameter name
+ * @returns The parameter value or undefined
+ */
+export function getRouterParam(event: H3Event, name: string): string | undefined {
+  const params = getRouterParams(event);
+  return params[name];
 }
 
 /**
@@ -277,13 +317,24 @@ export function getAllowedMethods(config: ApiRouteConfig): ApiMethod[] {
 
 /**
  * Creates a Nitro event handler from an Avalon API route configuration
- * Requirements: 3.1, 3.2, 3.4, 3.5, 3.6
- *
+ * 
+ * SIMPLIFIED: This function now relies on Nitro's built-in file-system routing
+ * for route matching and parameter extraction. Custom route pattern matching
+ * has been removed.
+ * 
  * This function:
- * 1. Creates an API context from the H3 event
- * 2. Routes to the appropriate method handler
- * 3. Handles response serialization
- * 4. Handles errors appropriately
+ * 1. Executes route-scoped middleware for API routes
+ * 2. Creates an API context from the H3 event (with params from Nitro's router)
+ * 3. Routes to the appropriate method handler
+ * 4. Handles response serialization
+ * 5. Handles errors appropriately
+ *
+ * Middleware execution order:
+ * 1. Global middleware (from middleware/ directory) - handled by Nitro
+ * 2. Route-scoped middleware (from src/api/_middleware.ts files) - handled here
+ * 3. API handler execution
+ *
+ * Requirements: 3.1, 3.2, 3.4, 3.5, 3.6
  *
  * @param config - The API route configuration (single handler or method-specific handlers)
  * @param options - Handler options
@@ -293,13 +344,47 @@ export function createApiHandler(
   config: ApiRouteConfig,
   options: CreateApiHandlerOptions = {}
 ): (event: H3Event) => Promise<Response> {
-  const { isDev = false, onError } = options;
+  const { isDev = false, onError, baseDir = 'src', middlewareRoutes: preloadedRoutes } = options;
+
+  // Middleware routes cache - discovered once at startup or use preloaded routes
+  let scopedMiddlewareRoutes: MiddlewareRoute[] | null = preloadedRoutes || null;
+
+  /**
+   * Gets scoped middleware routes, discovering them on first call
+   * Routes are cached for performance in production
+   */
+  async function getScopedMiddleware(): Promise<MiddlewareRoute[]> {
+    if (!scopedMiddlewareRoutes) {
+      scopedMiddlewareRoutes = await discoverScopedMiddleware({
+        baseDir,
+        devMode: isDev,
+      });
+    }
+    return scopedMiddlewareRoutes;
+  }
 
   return async function apiHandler(event: H3Event): Promise<Response> {
     const method = event.method.toUpperCase() as ApiMethod;
 
     try {
+      // Execute route-scoped middleware before API handler
+      // Global middleware has already run (handled by Nitro's middleware/ directory)
+      // Requirements: 3.2
+      const middlewareRoutes = await getScopedMiddleware();
+      const middlewareResponse = await executeScopedMiddleware(event, middlewareRoutes, {
+        devMode: isDev,
+      });
+
+      // If middleware returned a response, use it and skip API handler
+      if (middlewareResponse) {
+        if (isDev) {
+          console.log(`[api] Middleware terminated request for ${event.path}`);
+        }
+        return middlewareResponse;
+      }
+
       // Create API context compatible with existing handlers
+      // Parameters are extracted by Nitro's router and available in event.context.params
       const context = createApiContext(event);
 
       // Handle single handler function (handles all methods)
@@ -350,92 +435,25 @@ export function isValidApiMethod(method: string): method is ApiMethod {
 }
 
 /**
- * Extracts dynamic parameters from a file path pattern
- * Supports [param] for single segments and [...slug] for catch-all
- * Requirements: 3.3
- *
- * @param pattern - The route pattern (e.g., "/users/[id]" or "/docs/[...slug]")
- * @returns Array of parameter names
+ * Re-export middleware cache clearing for hot reload support
+ * 
+ * Call this function when middleware files change during development
+ * to ensure the latest version is loaded on the next request.
+ * 
+ * @example
+ * ```ts
+ * // In your HMR handler
+ * if (file.endsWith('_middleware.ts')) {
+ *   clearApiMiddlewareCache();
+ * }
+ * ```
  */
-export function extractParamNames(pattern: string): string[] {
-  const params: string[] = [];
-  
-  // Match [param] or [...param] patterns
-  const paramRegex = /\[(?:\.\.\.)?([^\]]+)\]/g;
-  let match;
+export { clearMiddlewareCache as clearApiMiddlewareCache };
 
-  while ((match = paramRegex.exec(pattern)) !== null) {
-    params.push(match[1]);
-  }
-
-  return params;
-}
-
-/**
- * Converts a file path pattern to a route pattern
- * Requirements: 3.3
- *
- * Converts:
- * - [param] to :param (single segment)
- * - [...slug] to ** (catch-all)
- *
- * @param filePath - The file path pattern
- * @returns The route pattern for matching
- */
-export function filePathToRoutePattern(filePath: string): string {
-  return filePath
-    // Convert catch-all [...param] to **
-    .replace(/\[\.\.\.([^\]]+)\]/g, "**")
-    // Convert dynamic [param] to :param
-    .replace(/\[([^\]]+)\]/g, ":$1");
-}
-
-/**
- * Matches a URL path against a route pattern and extracts parameters
- * Requirements: 3.3
- *
- * @param urlPath - The URL path to match
- * @param pattern - The route pattern
- * @param paramNames - The parameter names in order
- * @returns Extracted parameters or null if no match
- */
-export function matchRoutePattern(
-  urlPath: string,
-  pattern: string,
-  paramNames: string[]
-): Record<string, string> | null {
-  // Normalize paths
-  const normalizedUrl = urlPath.replace(/\/$/, "") || "/";
-  const normalizedPattern = pattern.replace(/\/$/, "") || "/";
-
-  // Convert pattern to regex
-  let regexPattern = normalizedPattern
-    // Escape special regex characters except our placeholders
-    .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
-    // Convert ** (catch-all) to capture group
-    .replace(/\\\*\\\*/g, "(.+)")
-    // Convert :param to capture group
-    .replace(/:([^/]+)/g, "([^/]+)");
-
-  // Ensure exact match
-  regexPattern = `^${regexPattern}$`;
-
-  const regex = new RegExp(regexPattern);
-  const match = normalizedUrl.match(regex);
-
-  if (!match) {
-    return null;
-  }
-
-  // Extract parameters
-  const params: Record<string, string> = {};
-  for (let i = 0; i < paramNames.length; i++) {
-    if (match[i + 1] !== undefined) {
-      params[paramNames[i]] = match[i + 1];
-    }
-  }
-
-  return params;
-}
-
-// Types are exported inline with the interface definition
+// ============================================================================
+// REMOVED FUNCTIONS (now handled by Nitro's built-in routing):
+// ============================================================================
+// - extractParamNames: Nitro extracts params from [param] and [...slug] syntax
+// - filePathToRoutePattern: Nitro handles file-to-route conversion
+// - matchRoutePattern: Nitro's h3 router handles route matching
+// ============================================================================

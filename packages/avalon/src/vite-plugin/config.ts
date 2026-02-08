@@ -38,6 +38,7 @@ export const DEFAULT_CONFIG: Omit<ResolvedAvalonConfig, "isDev"> = {
   autoDiscoverIntegrations: true,
   validateIntegrations: true,
   showWarnings: true,
+  lazyIntegrations: true,
 };
 
 /**
@@ -82,6 +83,7 @@ export function resolveConfig(
     validateIntegrations:
       config.validateIntegrations ?? DEFAULT_CONFIG.validateIntegrations,
     showWarnings: config.showWarnings ?? DEFAULT_CONFIG.showWarnings,
+    lazyIntegrations: config.lazyIntegrations ?? DEFAULT_CONFIG.lazyIntegrations,
     isDev,
   };
 }

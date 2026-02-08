@@ -1,6 +1,50 @@
 import { renderIsland } from '@avalon/avalon';
 
 export default async function FrameworksPage() {
+	// Render all islands in parallel for better performance
+	// This reduces the total render time from ~6x single island time to ~1x
+	const [
+		reactCounter,
+		preactCounter,
+		litCounter,
+		vueCounter,
+		svelteCounter,
+		solidCounter,
+	] = await Promise.all([
+		renderIsland({
+			src: '/src/islands/ReactCounter.tsx',
+			condition: 'on:interaction',
+			framework: 'react',
+			props: { initialCount: 0 },
+		}),
+		renderIsland({
+			src: '/src/islands/PreactCounter.tsx',
+			condition: 'on:interaction',
+			framework: 'preact',
+		}),
+		renderIsland({
+			src: '/src/islands/Counter.lit.ts',
+			condition: 'on:interaction',
+			framework: 'lit',
+			props: { initialCount: 0 },
+		}),
+		renderIsland({
+			src: '/src/islands/VueCounter.vue',
+			condition: 'on:interaction',
+			framework: 'vue',
+		}),
+		renderIsland({
+			src: '/src/islands/SvelteCounter.svelte',
+			condition: 'on:interaction',
+			framework: 'svelte',
+		}),
+		renderIsland({
+			src: '/src/islands/SolidCounter.solid.tsx',
+			condition: 'on:interaction',
+			framework: 'solid',
+		}),
+	]);
+
 	return (
 		<div>
 			<h1 style={{ color: '#2c3e50', marginBottom: '20px' }}>🎨 Multi-Framework Components</h1>
@@ -22,12 +66,7 @@ export default async function FrameworksPage() {
 					<h3 style={{ color: '#61dafb', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
 						⚛️ React Counter
 					</h3>
-					{await renderIsland({
-						src: '/src/islands/ReactCounter.tsx',
-						condition: 'on:interaction',
-						framework: 'react',
-						props: { initialCount: 0 },
-					})}
+					{reactCounter}
 				</div>
 
 				{/* Preact Counter */}
@@ -42,11 +81,7 @@ export default async function FrameworksPage() {
 					<h3 style={{ color: '#673ab7', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
 						⚛️ Preact Counter
 					</h3>
-					{await renderIsland({
-						src: '/src/islands/PreactCounter.tsx',
-						condition: 'on:interaction',
-						framework: 'preact',
-					})}
+					{preactCounter}
 				</div>
 
 				{/* Lit Counter */}
@@ -61,12 +96,7 @@ export default async function FrameworksPage() {
 					<h3 style={{ color: '#ff6b6b', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
 						🔥 Lit Counter
 					</h3>
-					{await renderIsland({
-						src: '/src/islands/Counter.lit.ts',
-						condition: 'on:interaction',
-						framework: 'lit',
-						props: { initialCount: 0 },
-					})}
+					{litCounter}
 				</div>
 
 				{/* Vue Counter */}
@@ -81,11 +111,7 @@ export default async function FrameworksPage() {
 					<h3 style={{ color: '#4fc08d', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
 						💚 Vue Counter
 					</h3>
-					{await renderIsland({
-						src: '/src/islands/VueCounter.vue',
-						condition: 'on:interaction',
-						framework: 'vue',
-					})}
+					{vueCounter}
 				</div>
 
 				{/* Svelte Counter */}
@@ -100,11 +126,7 @@ export default async function FrameworksPage() {
 					<h3 style={{ color: '#ff3e00', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
 						🔥 Svelte Counter
 					</h3>
-					{await renderIsland({
-						src: '/src/islands/SvelteCounter.svelte',
-						condition: 'on:interaction',
-						framework: 'svelte',
-					})}
+					{svelteCounter}
 				</div>
 
 				{/* Solid Counter */}
@@ -119,11 +141,7 @@ export default async function FrameworksPage() {
 					<h3 style={{ color: '#2c4f7c', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
 						💎 Solid Counter
 					</h3>
-					{await renderIsland({
-						src: '/src/islands/SolidCounter.solid.tsx',
-						condition: 'on:interaction',
-						framework: 'solid',
-					})}
+					{solidCounter}
 				</div>
 			</div>
 

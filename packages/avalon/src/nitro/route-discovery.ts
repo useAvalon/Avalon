@@ -1,17 +1,22 @@
 /**
  * Route Discovery Module for Nitro
  *
- * This module discovers page and API routes from the file system and converts
- * them to Nitro-compatible route patterns. It handles dynamic segments,
- * catch-all routes, and method-specific API handlers.
+ * This module provides minimal route discovery for Avalon's SSR pages.
+ * 
+ * IMPORTANT: This module is simplified to complement Nitro's native routing:
+ * - API routes: Handled by Nitro's auto-discovery from `api/` directory
+ * - Page routes: Discovered here for SSR rendering (pages are components, not h3 handlers)
+ * - Middleware: Handled by Nitro's auto-discovery from `middleware/` directory
+ *
+ * The page discovery is needed because Avalon pages are React/Vue/Svelte components
+ * that require SSR rendering, which is different from Nitro's h3 route handlers.
  *
  * @module nitro/route-discovery
  */
 
-import { basename, dirname, extname, join, relative } from "@std/path";
-import { walk } from "@std/fs";
+import { basename, dirname, extname, relative } from "node:path";
+import { walk } from "../utils/std-fs-shim.ts";
 import type { DiscoveredRoute } from "./types.ts";
-import type { ApiMethod } from "../schemas/api.ts";
 
 /**
  * Supported page file extensions
@@ -28,31 +33,11 @@ export const PAGE_EXTENSIONS = [
 ];
 
 /**
- * Supported API file extensions
+ * Options for page route discovery
  */
-export const API_EXTENSIONS = [".ts", ".js"];
-
-/**
- * Valid HTTP methods for API routes
- */
-export const VALID_HTTP_METHODS: ApiMethod[] = [
-  "GET",
-  "POST",
-  "PUT",
-  "DELETE",
-  "PATCH",
-  "HEAD",
-  "OPTIONS",
-];
-
-/**
- * Options for route discovery
- */
-export interface RouteDiscoveryOptions {
+export interface PageDiscoveryOptions {
   /** Pages directory path (absolute or relative to project root) */
   pagesDir: string;
-  /** API directory path (absolute or relative to project root) */
-  apiDir: string;
   /** Enable development mode logging */
   developmentMode?: boolean;
   /** Directories to exclude from scanning */
@@ -70,56 +55,26 @@ export interface FilePathPatternResult {
 }
 
 /**
- * Result of API file path to pattern conversion
- */
-export interface ApiFilePathPatternResult extends FilePathPatternResult {
-  /** HTTP method extracted from filename (e.g., GET from users.get.ts) */
-  method?: ApiMethod;
-}
-
-/**
- * Discovers all routes from pages and API directories
+ * Discovers page routes from the pages directory for SSR rendering
  *
- * @param options - Route discovery options
- * @returns Array of discovered routes
+ * NOTE: This is specifically for page components that need SSR rendering.
+ * API routes should be placed in the `api/` directory and are auto-discovered
+ * by Nitro's native file-system routing.
+ *
+ * @param pagesDir - Path to the pages directory
+ * @param options - Discovery options
+ * @returns Array of discovered page routes
  *
  * @example
  * ```ts
- * const routes = await discoverRoutes({
- *   pagesDir: 'src/pages',
- *   apiDir: 'src/api',
+ * const routes = await discoverPageRoutes('src/pages', {
+ *   developmentMode: true,
  * });
  * ```
  */
-export async function discoverRoutes(
-  options: RouteDiscoveryOptions,
-): Promise<DiscoveredRoute[]> {
-  const routes: DiscoveredRoute[] = [];
-
-  // Discover page routes
-  const pageRoutes = await discoverPageRoutes(options.pagesDir, options);
-  routes.push(...pageRoutes);
-
-  // Discover API routes
-  const apiRoutes = await discoverApiRoutes(options.apiDir, options);
-  routes.push(...apiRoutes);
-
-  return routes;
-}
-
-/**
- * Discovers page routes from the pages directory
- *
- * @param pagesDir - Path to the pages directory
- * @param options - Route discovery options
- * @returns Array of discovered page routes
- */
 export async function discoverPageRoutes(
   pagesDir: string,
-  options?: Pick<
-    RouteDiscoveryOptions,
-    "developmentMode" | "excludeDirectories"
-  >,
+  options?: Pick<PageDiscoveryOptions, "developmentMode" | "excludeDirectories">
 ): Promise<DiscoveredRoute[]> {
   const routes: DiscoveredRoute[] = [];
   const excludeDirs = options?.excludeDirectories ?? ["node_modules", ".git"];
@@ -130,7 +85,7 @@ export async function discoverPageRoutes(
     if (!stat.isDirectory) {
       if (options?.developmentMode) {
         console.warn(
-          `[route-discovery] Pages path is not a directory: ${pagesDir}`,
+          `[route-discovery] Pages path is not a directory: ${pagesDir}`
         );
       }
       return [];
@@ -139,7 +94,7 @@ export async function discoverPageRoutes(
     if (error instanceof Deno.errors.NotFound) {
       if (options?.developmentMode) {
         console.warn(
-          `[route-discovery] Pages directory not found: ${pagesDir}`,
+          `[route-discovery] Pages directory not found: ${pagesDir}`
         );
       }
       return [];
@@ -179,89 +134,6 @@ export async function discoverPageRoutes(
       filePath: entry.path,
       pattern,
       params,
-    });
-  }
-
-  // Sort routes by specificity (more specific routes first)
-  return sortRoutesBySpecificity(routes);
-}
-
-/**
- * Discovers API routes from the API directory
- *
- * @param apiDir - Path to the API directory
- * @param options - Route discovery options
- * @returns Array of discovered API routes
- */
-export async function discoverApiRoutes(
-  apiDir: string,
-  options?: Pick<
-    RouteDiscoveryOptions,
-    "developmentMode" | "excludeDirectories"
-  >,
-): Promise<DiscoveredRoute[]> {
-  const routes: DiscoveredRoute[] = [];
-  const excludeDirs = options?.excludeDirectories ?? ["node_modules", ".git"];
-
-  try {
-    // Check if directory exists
-    const stat = await Deno.stat(apiDir);
-    if (!stat.isDirectory) {
-      if (options?.developmentMode) {
-        console.warn(
-          `[route-discovery] API path is not a directory: ${apiDir}`,
-        );
-      }
-      return [];
-    }
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      if (options?.developmentMode) {
-        console.warn(`[route-discovery] API directory not found: ${apiDir}`);
-      }
-      return [];
-    }
-    throw error;
-  }
-
-  // Walk through the API directory
-  const extensions = API_EXTENSIONS.map((e) => e.slice(1)); // Remove leading dot
-
-  for await (
-    const entry of walk(apiDir, {
-      includeDirs: false,
-      followSymlinks: false,
-      exts: extensions,
-    })
-  ) {
-    if (!entry.isFile) continue;
-
-    const relativePath = relative(apiDir, entry.path);
-
-    // Skip files in excluded directories
-    if (excludeDirs.some((dir) => relativePath.includes(dir))) {
-      continue;
-    }
-
-    // Skip private files (in folders starting with _)
-    if (isPrivateFile(relativePath)) {
-      continue;
-    }
-
-    // Skip middleware files
-    if (isMiddlewareFile(relativePath)) {
-      continue;
-    }
-
-    // Convert file path to API route pattern
-    const { pattern, params, method } = filePathToApiPattern(relativePath);
-
-    routes.push({
-      type: "api",
-      filePath: entry.path,
-      pattern: `/api${pattern}`,
-      params,
-      method,
     });
   }
 
@@ -344,89 +216,6 @@ export function filePathToPattern(filePath: string): FilePathPatternResult {
 }
 
 /**
- * Converts an API file path to a route pattern with optional method extraction
- *
- * Handles:
- * - Method suffix (users.get.ts -> GET method)
- * - Index files (index.ts -> /)
- * - Dynamic segments ([param] -> :param)
- * - Catch-all segments ([...slug] -> **)
- *
- * @param filePath - Relative file path from API directory
- * @returns Pattern, extracted parameter names, and optional HTTP method
- *
- * @example
- * ```ts
- * filePathToApiPattern('users/[id].get.ts')
- * // { pattern: '/users/:id', params: ['id'], method: 'GET' }
- *
- * filePathToApiPattern('users/index.ts')
- * // { pattern: '/users', params: [], method: undefined }
- * ```
- */
-export function filePathToApiPattern(
-  filePath: string,
-): ApiFilePathPatternResult {
-  const params: string[] = [];
-
-  // Extract method from filename (e.g., users.get.ts -> GET)
-  const methodMatch = filePath.match(
-    /\.(get|post|put|delete|patch|head|options)\.(ts|js)$/i,
-  );
-  const method = methodMatch
-    ? (methodMatch[1].toUpperCase() as ApiMethod)
-    : undefined;
-
-  let pattern = filePath
-    // Normalize path separators
-    .replace(/\\/g, "/")
-    // Remove method suffix and extension (method is optional)
-    .replace(/\.(get|post|put|delete|patch|head|options)\.(ts|js)$/i, "")
-    // Remove just extension if no method suffix
-    .replace(/\.(ts|js)$/i, "");
-
-  // Handle index files
-  if (basename(pattern) === "index") {
-    pattern = dirname(pattern);
-    if (pattern === ".") {
-      pattern = "";
-    }
-  }
-
-  // Convert dynamic segments [param] to :param
-  // Convert catch-all segments [...slug] to **
-  pattern = pattern.replace(/\[([^\]]+)\]/g, (_, param) => {
-    if (param.startsWith("...")) {
-      // Catch-all segment
-      const paramName = param.slice(3);
-      params.push(paramName);
-      return "**";
-    } else {
-      // Dynamic segment
-      params.push(param);
-      return `:${param}`;
-    }
-  });
-
-  // Ensure leading slash
-  if (!pattern.startsWith("/")) {
-    pattern = "/" + pattern;
-  }
-
-  // Handle root path
-  if (pattern === "/" || pattern === "") {
-    pattern = "/";
-  }
-
-  // Remove trailing slash (except for root)
-  if (pattern.length > 1 && pattern.endsWith("/")) {
-    pattern = pattern.slice(0, -1);
-  }
-
-  return { pattern, params, method };
-}
-
-/**
  * Checks if a file is in a private folder (starts with _)
  *
  * @param relativePath - Relative file path
@@ -435,17 +224,6 @@ export function filePathToApiPattern(
 export function isPrivateFile(relativePath: string): boolean {
   const pathParts = relativePath.split(/[/\\]/);
   return pathParts.some((part) => part.startsWith("_"));
-}
-
-/**
- * Checks if a file is a middleware file
- *
- * @param relativePath - Relative file path
- * @returns True if the file is a middleware file
- */
-export function isMiddlewareFile(relativePath: string): boolean {
-  const fileName = basename(relativePath);
-  return fileName === "_middleware.ts" || fileName === "_middleware.js";
 }
 
 /**
@@ -485,7 +263,7 @@ export function calculateRouteSpecificity(route: DiscoveredRoute): number {
  * @returns Sorted array of routes
  */
 export function sortRoutesBySpecificity(
-  routes: DiscoveredRoute[],
+  routes: DiscoveredRoute[]
 ): DiscoveredRoute[] {
   return [...routes].sort((a, b) => {
     const scoreA = calculateRouteSpecificity(a);
@@ -512,9 +290,7 @@ export function validateRoutePattern(pattern: string): string[] {
   const malformedSegments = pattern.match(/\[[^\]]*$/g);
   if (malformedSegments) {
     errors.push(
-      `Malformed dynamic segments: ${
-        malformedSegments.join(", ")
-      }. Dynamic segments must be properly closed with ]`,
+      `Malformed dynamic segments: ${malformedSegments.join(", ")}. Dynamic segments must be properly closed with ]`
     );
   }
 
@@ -522,7 +298,7 @@ export function validateRoutePattern(pattern: string): string[] {
   const emptySegments = pattern.match(/\[\]/g);
   if (emptySegments) {
     errors.push(
-      "Empty dynamic segments [] are not allowed. Use [param] for dynamic segments or [...rest] for catch-all",
+      "Empty dynamic segments [] are not allowed. Use [param] for dynamic segments or [...rest] for catch-all"
     );
   }
 
@@ -530,7 +306,7 @@ export function validateRoutePattern(pattern: string): string[] {
   const nestedSegments = pattern.match(/\[[^\]]*\[[^\]]*\]/g);
   if (nestedSegments) {
     errors.push(
-      `Nested dynamic segments are not supported: ${nestedSegments.join(", ")}`,
+      `Nested dynamic segments are not supported: ${nestedSegments.join(", ")}`
     );
   }
 
@@ -554,8 +330,6 @@ export function extractParamsFromPattern(pattern: string): string[] {
 
   // Match ** catch-all (represented as unnamed param)
   if (pattern.includes("**")) {
-    // The catch-all param name should have been stored during conversion
-    // For now, we use a placeholder
     params.push("slug");
   }
 
@@ -571,7 +345,7 @@ export function extractParamsFromPattern(pattern: string): string[] {
  */
 export function matchRoutePattern(
   pattern: string,
-  path: string,
+  path: string
 ): { matches: boolean; params: Record<string, string> } {
   const params: Record<string, string> = {};
 
@@ -621,4 +395,61 @@ export function matchRoutePattern(
   }
 
   return { matches: true, params };
+}
+
+// ============================================================================
+// DEPRECATED EXPORTS - Kept for backward compatibility
+// These will be removed in a future version. Use Nitro's native routing instead.
+// ============================================================================
+
+/**
+ * @deprecated API routes should be placed in the `api/` directory and are
+ * auto-discovered by Nitro. This function is kept for backward compatibility.
+ */
+export async function discoverApiRoutes(
+  _apiDir: string,
+  options?: { developmentMode?: boolean }
+): Promise<DiscoveredRoute[]> {
+  if (options?.developmentMode) {
+    console.warn(
+      "[route-discovery] discoverApiRoutes is deprecated. " +
+      "API routes are now auto-discovered by Nitro from the api/ directory."
+    );
+  }
+  return [];
+}
+
+/**
+ * @deprecated Use discoverPageRoutes instead. API routes are handled by Nitro.
+ */
+export async function discoverRoutes(options: {
+  pagesDir: string;
+  apiDir: string;
+  developmentMode?: boolean;
+  excludeDirectories?: string[];
+}): Promise<DiscoveredRoute[]> {
+  if (options.developmentMode) {
+    console.warn(
+      "[route-discovery] discoverRoutes is deprecated. " +
+      "Use discoverPageRoutes for pages. API routes are auto-discovered by Nitro."
+    );
+  }
+  return discoverPageRoutes(options.pagesDir, options);
+}
+
+/**
+ * @deprecated API file pattern conversion is no longer needed.
+ * Nitro handles API routing natively.
+ */
+export function filePathToApiPattern(filePath: string): FilePathPatternResult & { method?: string } {
+  // Just delegate to the page pattern converter for backward compatibility
+  return { ...filePathToPattern(filePath), method: undefined };
+}
+
+/**
+ * @deprecated Middleware files are now handled by Nitro's middleware/ directory.
+ */
+export function isMiddlewareFile(relativePath: string): boolean {
+  const fileName = basename(relativePath);
+  return fileName === "_middleware.ts" || fileName === "_middleware.js";
 }

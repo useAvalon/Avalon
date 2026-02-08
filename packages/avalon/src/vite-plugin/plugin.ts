@@ -4,6 +4,11 @@
  * This module provides the main `avalon()` function that creates a unified Vite plugin
  * for the Avalon framework. It handles configuration resolution, integration activation,
  * Nitro server integration, and wires up all the necessary Vite hooks.
+ * 
+ * PERFORMANCE OPTIMIZATION:
+ * Integration loading uses lazy discovery - only integrations that are actually used
+ * in the islands directory are loaded. This reduces cold start time when not all
+ * configured frameworks are used.
  */
 
 import type { Plugin, ResolvedConfig, ViteDevServer } from "vite";
@@ -17,6 +22,8 @@ import { activateIntegrations, activateSingleIntegration } from "./integration-a
 import { discoverIntegrationsFromFiles } from "./auto-discover.ts";
 import { validateActiveIntegrations, formatValidationResults } from "./validation.ts";
 import { createMDXPlugin } from "../build/mdx-plugin.ts";
+import { mdxIslandTransform } from "../build/mdx-island-transform.ts";
+import { pageIslandTransform } from "../build/page-island-transform.ts";
 import { registry } from "../core/integrations/registry.ts";
 import { createNitroIntegration } from "./nitro-integration.ts";
 import type { AvalonNitroConfig, NitroConfigOutput } from "../nitro/config.ts";
@@ -54,17 +61,12 @@ export async function collectIntegrationPlugins(
     const integration = registry.get(name);
     
     if (!integration) {
-      if (verbose) {
-        console.warn(`   ⚠️ Integration '${name}' not found in registry`);
-      }
+      console.warn(`⚠️ Integration '${name}' not found in registry`);
       continue;
     }
 
     // Check if integration implements vitePlugin()
     if (typeof integration.vitePlugin !== "function") {
-      if (verbose) {
-        console.log(`   ℹ️ Integration '${name}' does not provide Vite plugins`);
-      }
       continue;
     }
 
@@ -104,40 +106,48 @@ export async function collectIntegrationPlugins(
 }
 
 /**
+ * Discovers which integrations are actually needed by scanning the islands directory.
+ * This enables lazy loading - only load Vite plugins for frameworks that are actually used.
+ * 
+ * @param config - The resolved Avalon configuration
+ * @param projectRoot - The project root directory (defaults to cwd)
+ * @returns Set of integration names that are actually needed
+ */
+async function discoverNeededIntegrations(
+  config: ResolvedAvalonConfig,
+  projectRoot?: string
+): Promise<Set<IntegrationName>> {
+  const needed = new Set<IntegrationName>();
+  
+  try {
+    // Use the auto-discover module to scan the islands directory
+    const discovered = await discoverIntegrationsFromFiles(
+      config.islandsDir,
+      projectRoot
+    );
+    
+    // Only include integrations that are both discovered AND configured
+    for (const integration of discovered) {
+      if (config.integrations.includes(integration)) {
+        needed.add(integration);
+      }
+    }
+  } catch (error) {
+    // If discovery fails, fall back to all configured integrations
+    console.warn("⚠️ Could not discover integrations, using all configured:", error);
+    for (const integration of config.integrations) {
+      needed.add(integration as IntegrationName);
+    }
+  }
+  
+  return needed;
+}
+
+/**
  * Creates the Avalon Vite plugin array
  *
  * @param config - Avalon configuration options
  * @returns A promise that resolves to an array of Vite plugins that handle all Avalon functionality
- *
- * @example
- * ```ts
- * // vite.config.ts
- * import { defineConfig } from 'vite';
- * import { avalon } from '@avalon/avalon';
- *
- * export default defineConfig(async ({ command }) => ({
- *   plugins: [
- *     ...(await avalon({
- *       islandsDir: 'src/islands',
- *       pagesDir: 'src/pages',
- *       apiDir: 'src/api',
- *       integrations: ['react', 'svelte', 'lit', 'preact', 'vue', 'solid'],
- *       mdx: {
- *         jsxImportSource: 'preact',
- *         syntaxHighlighting: true,
- *       },
- *       nitro: {
- *         preset: 'node-server',
- *         streaming: true,
- *       },
- *       autoDiscoverIntegrations: true,
- *       validateIntegrations: true,
- *       showWarnings: true,
- *       verbose: command === 'serve',
- *     })),
- *   ],
- * }));
- * ```
  */
 export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
   // Resolved configuration with defaults applied
@@ -153,14 +163,50 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
   // We use isDev=true as a default; the actual value will be set in configResolved
   const preResolvedConfig = resolveConfig(config, true);
 
-  // Activate integrations early so we can collect their Vite plugins
-  // This needs to happen before we return the plugin array
-  if (preResolvedConfig.integrations.length > 0) {
-    if (preResolvedConfig.verbose) {
-      console.log("🏝️ Avalon activating integrations...");
-      console.log(`   Integrations: ${preResolvedConfig.integrations.join(", ")}`);
+  if (preResolvedConfig.verbose) {
+    console.log("🏝️ Avalon plugin initializing...");
+    console.log(`   Configured integrations: ${preResolvedConfig.integrations.join(", ") || "(none)"}`);
+  }
+
+  // Determine which integrations to actually load
+  let integrationsToLoad: IntegrationName[];
+  
+  if (preResolvedConfig.lazyIntegrations && preResolvedConfig.integrations.length > 0) {
+    // Lazy mode: only load integrations that are actually used
+    const needed = await discoverNeededIntegrations(preResolvedConfig);
+    
+    if (needed.size > 0) {
+      integrationsToLoad = Array.from(needed);
+      if (preResolvedConfig.verbose) {
+        console.log(`   Lazy mode: Loading ${integrationsToLoad.length} needed integration(s): ${integrationsToLoad.join(", ")}`);
+        const skipped = preResolvedConfig.integrations.filter(i => !needed.has(i as IntegrationName));
+        if (skipped.length > 0) {
+          console.log(`   Skipping ${skipped.length} unused integration(s): ${skipped.join(", ")}`);
+        }
+      }
+    } else {
+      // No integrations discovered, load all configured as fallback
+      integrationsToLoad = [...preResolvedConfig.integrations];
+      if (preResolvedConfig.verbose) {
+        console.log(`   No integrations discovered, loading all configured`);
+      }
     }
-    await activateIntegrations(preResolvedConfig, activeIntegrations);
+  } else {
+    // Eager mode: load all configured integrations
+    integrationsToLoad = [...preResolvedConfig.integrations];
+  }
+
+  // Activate integrations
+  if (integrationsToLoad.length > 0) {
+    const lazyConfig = {
+      ...preResolvedConfig,
+      integrations: integrationsToLoad,
+    };
+    
+    if (preResolvedConfig.verbose) {
+      console.log("🏝️ Activating integrations...");
+    }
+    await activateIntegrations(lazyConfig, activeIntegrations);
   }
 
   // Create MDX plugins with user settings
@@ -171,15 +217,20 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
       syntaxHighlighting: preResolvedConfig.mdx.syntaxHighlighting,
       remarkPlugins: preResolvedConfig.mdx.remarkPlugins as import("unified").Pluggable[],
       rehypePlugins: preResolvedConfig.mdx.rehypePlugins as import("unified").Pluggable[],
-      development: true, // Will be updated based on actual command in configResolved
+      development: true,
     });
+
+    // Add the MDX island transform plugin (runs after MDX compilation)
+    // This transforms island component imports in MDX into renderIsland() calls
+    mdxPlugins.push(mdxIslandTransform({
+      verbose: preResolvedConfig.verbose,
+    }));
 
     if (preResolvedConfig.verbose) {
       console.log("🏝️ Avalon MDX configuration:");
       console.log(`   JSX import source: ${preResolvedConfig.mdx.jsxImportSource}`);
       console.log(`   Syntax highlighting: ${preResolvedConfig.mdx.syntaxHighlighting}`);
-      console.log(`   Remark plugins: ${preResolvedConfig.mdx.remarkPlugins.length}`);
-      console.log(`   Rehype plugins: ${preResolvedConfig.mdx.rehypePlugins.length}`);
+      console.log(`   Island transform: enabled`);
     }
   } catch (error) {
     console.warn("⚠️ Could not configure MDX plugin:", error);
@@ -187,7 +238,6 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
   }
 
   // Collect Vite plugins from activated integrations
-  // This includes framework-specific plugins like @vitejs/plugin-react, @vitejs/plugin-vue, etc.
   let integrationPlugins: Plugin[] = [];
   if (activeIntegrations.size > 0) {
     if (preResolvedConfig.verbose) {
@@ -210,7 +260,6 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
     if (preResolvedConfig.verbose) {
       console.log("🚀 Avalon Nitro integration enabled");
       console.log(`   Preset: ${config.nitro.preset ?? "node-server"}`);
-      console.log(`   Streaming: ${config.nitro.streaming ?? true}`);
     }
     
     const nitroIntegration = createNitroIntegration(
@@ -228,26 +277,15 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
   // The main Avalon plugin
   const avalonPlugin: Plugin = {
     name: "avalon",
-
-    // Ensure we run before framework-specific plugins
     enforce: "pre",
 
-    /**
-     * Called when Vite's config is resolved
-     * We use this to resolve our own config with defaults
-     */
     configResolved(resolvedViteConfig: ResolvedConfig) {
       viteConfig = resolvedViteConfig;
       const isDev = resolvedViteConfig.command === "serve";
       resolvedConfig = resolveConfig(config, isDev);
 
-      // Store the resolved config globally so other parts of the system can access it
-      // This enables directory configuration to be used by island discovery,
-      // file-system router, and API route discovery
       globalThis.__avalonConfig = resolvedConfig;
 
-      // Check if configured directories exist and log warnings for missing ones
-      // This does NOT throw an error - it just warns and continues
       const directoryResults = checkDirectoriesExist(resolvedConfig, resolvedViteConfig.root);
       
       if (resolvedConfig.verbose) {
@@ -255,30 +293,18 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
         console.log(`   Islands directory: ${resolvedConfig.islandsDir}`);
         console.log(`   Pages directory: ${resolvedConfig.pagesDir}`);
         console.log(`   API directory: ${resolvedConfig.apiDir}`);
-        console.log(
-          `   Integrations: ${resolvedConfig.integrations.length > 0 ? resolvedConfig.integrations.join(", ") : "(auto-discover)"}`
-        );
         console.log(`   Development mode: ${isDev}`);
         
-        // Log directory check summary in verbose mode
         logDirectoryCheckSummary(directoryResults, resolvedConfig.verbose);
       }
     },
 
-    /**
-     * Called at the start of each build
-     * We use this to handle auto-discovery and validation
-     * Note: Explicit integrations are already activated in avalon() before this hook
-     */
     async buildStart() {
       if (resolvedConfig.verbose) {
         console.log("🏝️ Avalon build starting...");
       }
 
       // Auto-discover additional integrations if enabled
-      // Note: These are discovered at build time, so their Vite plugins won't be included
-      // in the initial plugin array. This is intentional - auto-discovered integrations
-      // are for SSR/hydration support, not build-time transformations.
       if (resolvedConfig.autoDiscoverIntegrations) {
         if (resolvedConfig.verbose) {
           console.log("   Auto-discovering integrations from islands directory...");
@@ -291,7 +317,6 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
             projectRoot
           );
 
-          // Activate discovered integrations that aren't already active
           for (const name of discovered) {
             if (!activeIntegrations.has(name)) {
               try {
@@ -306,9 +331,6 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
               } catch (error) {
                 if (resolvedConfig.showWarnings) {
                   console.warn(`   ⚠️ Could not auto-load integration: ${name}`);
-                  if (resolvedConfig.verbose && error instanceof Error) {
-                    console.warn(`      ${error.message}`);
-                  }
                 }
               }
             }
@@ -330,10 +352,9 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
         if (!validationSummary.allValid) {
           const formattedResults = formatValidationResults(validationSummary);
           console.error(formattedResults);
-          // Don't throw - just warn about validation issues
           if (resolvedConfig.showWarnings) {
             console.warn(
-              "   ⚠️ Some integrations have validation issues. They may not work correctly."
+              "   ⚠️ Some integrations have validation issues."
             );
           }
         } else if (resolvedConfig.verbose) {
@@ -350,14 +371,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
       }
     },
 
-    /**
-     * Called when the dev server is being configured
-     * We use this to store the Vite dev server reference for SSR
-     * and set up HMR handling
-     */
     configureServer(server: ViteDevServer) {
-      // Store server reference globally for SSR module loading
-      // This is used by island.tsx and integration renderers to load components
       // deno-lint-ignore no-explicit-any
       (globalThis as any).__viteDevServer = server;
 
@@ -365,101 +379,52 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
         console.log("🏝️ Avalon dev server configured");
         console.log("   Vite dev server reference stored for SSR");
       }
-
-      // The existing HMR setup is handled by vite-server.ts when createServer is called
-      // We just need to ensure the server reference is available globally
-      // Additional HMR coordination is handled by the ServerHMRHandler class
     },
   };
 
-  // Return plugins in the correct order:
-  // 1. Lit plugins first (DOM shim must be loaded before any Lit code)
-  //    - Already handled by collectIntegrationPlugins() which puts Lit plugins first
-  // 2. MDX plugins (need to process .mdx files before other plugins)
-  // 3. Core Avalon plugin
-  // 4. Nitro integration plugins (coordinate with Nitro server)
-  // 5. Other framework plugins (React, Vue, Svelte, Preact, Solid)
-  //    - Already ordered by collectIntegrationPlugins() with Lit first
-  //
-  // The integrationPlugins array already has Lit plugins at the front,
-  // so we extract them and place them before MDX plugins
+  // Extract Lit plugins for proper ordering
   const litPlugins = integrationPlugins.filter(p => p.name?.includes("lit"));
   const otherIntegrationPlugins = integrationPlugins.filter(p => !p.name?.includes("lit"));
 
+  // Page island transform: auto-wraps island imports in TSX pages when using `island` prop
+  const pageTransformPlugin = pageIslandTransform({
+    pagesDir: preResolvedConfig.pagesDir,
+    verbose: preResolvedConfig.verbose,
+  });
+
   return [
-    ...litPlugins,              // Lit SSR shim first (DOM shim requirement)
-    ...mdxPlugins,              // MDX plugins second
-    avalonPlugin,               // Core Avalon plugin third
-    ...nitroPlugins,            // Nitro integration plugins fourth
-    ...otherIntegrationPlugins, // Other framework plugins last
+    pageTransformPlugin,
+    ...litPlugins,
+    ...mdxPlugins,
+    avalonPlugin,
+    ...nitroPlugins,
+    ...otherIntegrationPlugins,
   ];
 }
 
-/**
- * Get the resolved Avalon configuration
- * This is useful for other parts of the system that need access to the config
- * 
- * @returns The resolved Avalon configuration, or undefined if the plugin hasn't been initialized
- */
 export function getResolvedConfig(): ResolvedAvalonConfig | undefined {
   return globalThis.__avalonConfig;
 }
 
-/**
- * Get the islands directory from the resolved config
- * Falls back to the default if config is not available
- * 
- * @returns The islands directory path
- */
 export function getIslandsDir(): string {
   return globalThis.__avalonConfig?.islandsDir ?? "src/islands";
 }
 
-/**
- * Get the pages directory from the resolved config
- * Falls back to the default if config is not available
- * 
- * @returns The pages directory path
- */
 export function getPagesDir(): string {
   return globalThis.__avalonConfig?.pagesDir ?? "src/pages";
 }
 
-/**
- * Get the API directory from the resolved config
- * Falls back to the default if config is not available
- * 
- * @returns The API directory path
- */
 export function getApiDir(): string {
   return globalThis.__avalonConfig?.apiDir ?? "src/api";
 }
 
-/**
- * Get the Nitro configuration
- * This is useful for other parts of the system that need access to Nitro config
- * 
- * @returns The Nitro configuration, or undefined if Nitro is not enabled
- */
 export function getNitroConfig(): NitroConfigOutput | undefined {
   return globalThis.__nitroConfig;
 }
 
-/**
- * Check if Nitro integration is enabled
- * 
- * @returns True if Nitro integration is enabled
- */
 export function isNitroEnabled(): boolean {
   return globalThis.__nitroConfig !== undefined;
 }
 
-/**
- * Re-export types for convenience
- */
 export type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig };
-
-/**
- * Re-export Nitro types for convenience
- */
 export type { AvalonNitroConfig, NitroConfigOutput };

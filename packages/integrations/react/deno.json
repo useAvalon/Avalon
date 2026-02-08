@@ -12,7 +12,7 @@
 		"react-dom": "npm:react-dom@^18.3.0",
 		"react-dom/server": "npm:react-dom@^18.3.0/server",
 		"react-dom/client": "npm:react-dom@^18.3.0/client",
-		"vite": "npm:vite@^6.3.5",
+		"vite": "npm:vite@8.0.0-beta.10",
 		"@vitejs/plugin-react": "npm:@vitejs/plugin-react@^4.5.2"
 	},
 	"compilerOptions": {

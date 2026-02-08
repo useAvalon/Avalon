@@ -33,6 +33,8 @@ export interface H3Event {
 export interface AvalonRuntimeConfig {
   /** Enable streaming SSR responses */
   streaming: boolean;
+  /** Source directory path relative to project root */
+  srcDir: string;
   /** Pages directory path relative to project root */
   pagesDir: string;
   /** API directory path relative to project root */

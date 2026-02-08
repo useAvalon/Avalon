@@ -1,5 +1,5 @@
 import type { Integration } from "../../../../integrations/shared/types.ts";
-import { dirname, join } from "@std/path";
+import { dirname, join } from "node:path";
 
 /**
  * Find the root of the Avalon monorepo by looking for packages/integrations

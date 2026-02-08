@@ -9,16 +9,12 @@ import { addUniversalCSS } from "./universal-css-collector.ts";
 import { addUniversalHead } from "./universal-head-collector.ts";
 import { getIslandBundlePath } from "../build/island-manifest.ts";
 import type { Integration } from "../integrations/shared/types.ts";
+import { isDev, devLog, devWarn, devError, logRenderTiming } from "../utils/dev-logger.ts";
 
 // Enhanced global CSS collector for SSR with scoping support
 declare global {
   var __viteDevServer: ViteDevServer | undefined;
 }
-
-// Dev-only logging helper
-const isDev = () => Deno.env.get("DENO_ENV") !== "production";
-const devWarn = (...args: unknown[]) => isDev() && console.warn(...args);
-const devError = (...args: unknown[]) => isDev() && console.error(...args);
 
 export interface IslandProps {
   /** Path to the island component (e.g., "/islands/Counter.tsx") */
@@ -64,7 +60,7 @@ export default function Island({
   hydrationData = {},
 }: IslandProps): JSX.Element {
   // 🔍 DIAGNOSTIC: Log Island component inputs
-  console.log(`🔍 [Island Component] ${src}`, {
+  devLog(`🔍 [Island Component] ${src}`, {
     ssr,
     ssrOnly,
     hasChildren: !!children,
@@ -86,7 +82,7 @@ export default function Island({
   // Auto-detect framework if not provided
   const detectedFramework = framework || detectFrameworkFromPath(src);
 
-  console.log(`🔍 [Island Component] ${src} - Computed values:`, {
+  devLog(`🔍 [Island Component] ${src} - Computed values:`, {
     shouldSkipHydration,
     detectedFramework,
     willRenderSSR: ssr && children,
@@ -97,7 +93,7 @@ export default function Island({
   const hasValidChildren = children !== undefined && children !== null && children !== "";
   
   if (ssr && hasValidChildren) {
-    console.log(`🔍 [Island Component] ${src} - Rendering SSR content (ssr && children path)`);
+    devLog(`🔍 [Island Component] ${src} - Rendering SSR content (ssr && children path)`);
 
     const baseAttributes = {
       id: islandId,
@@ -124,7 +120,7 @@ export default function Island({
 
     // Debug logging for Lit components
     if (detectedFramework === "lit") {
-      console.log(`🔍 [Island Component] ${src} - Lit hydration data:`, {
+      devLog(`🔍 [Island Component] ${src} - Lit hydration data:`, {
         hasHydrationData: !!hydrationData,
         hydrationDataKeys: hydrationData ? Object.keys(hydrationData) : [],
         hasMetadata: !!(hydrationData.metadata),
@@ -139,19 +135,19 @@ export default function Island({
     // FIX: Handle string children with dangerouslySetInnerHTML
     // This is safe because the HTML comes from trusted server-side integration renderers
     if (typeof children === "string") {
-      console.log(`🔍 [Island Component] ${src} - Rendering string children with dangerouslySetInnerHTML`);
+      devLog(`🔍 [Island Component] ${src} - Rendering string children with dangerouslySetInnerHTML`);
       return h("is-land", {
         ...allAttributes,
         dangerouslySetInnerHTML: { __html: children },
       });
     } else {
-      console.log(`🔍 [Island Component] ${src} - Rendering JSX children directly`);
+      devLog(`🔍 [Island Component] ${src} - Rendering JSX children directly`);
       // For JSX children, include them directly
       return h("is-land", allAttributes, children);
     }
   }
 
-  console.log(`🔍 [Island Component] ${src} - Not rendering SSR content (ssr=${ssr}, hasValidChildren=${hasValidChildren})`);
+  devLog(`🔍 [Island Component] ${src} - Not rendering SSR content (ssr=${ssr}, hasValidChildren=${hasValidChildren})`);
 
   // FIX: Add fallback handling for edge cases
   // If SSR is enabled but we don't have children, this might be an error condition
@@ -161,7 +157,7 @@ export default function Island({
 
   // Client-only: render empty is-land that will be hydrated (unless SSR-only)
   if (shouldSkipHydration) {
-    console.log(`🔍 [Island Component] ${src} - Rendering empty SSR-only element`);
+    devLog(`🔍 [Island Component] ${src} - Rendering empty SSR-only element`);
     // For SSR-only components without children, render empty element
     // This is a fallback case - ideally SSR-only components should have rendered content
     return h("is-land", {
@@ -171,7 +167,7 @@ export default function Island({
     });
   }
 
-  console.log(`🔍 [Island Component] ${src} - Rendering client-only hydration element`);
+  devLog(`🔍 [Island Component] ${src} - Rendering client-only hydration element`);
   return h("is-land", {
     id: islandId,
     "data-condition": condition,
@@ -189,6 +185,168 @@ export default function Island({
 }
 
 /**
+ * Render an error placeholder when island SSR fails.
+ * This allows the page to continue rendering while marking the failed island
+ * for client-side fallback rendering.
+ * 
+ * @param src - The island source path
+ * @param error - The error that occurred during SSR
+ * @returns A placeholder JSX element with error metadata
+ * 
+ * @internal
+ */
+function renderErrorPlaceholder(
+  src: string,
+  error: unknown
+): JSX.Element {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const islandId = `island-${src.replace(/[^a-zA-Z0-9]/g, "-")}`;
+  
+  // Log error details in dev mode
+  devError(`🚨 Island SSR failed for ${src}:`, error);
+  if (error instanceof Error && error.stack) {
+    devError(`Stack trace:`, error.stack);
+  }
+  
+  // Return a placeholder element that:
+  // 1. Has data-ssr-error attribute for debugging
+  // 2. Uses client-only render strategy as fallback
+  // 3. Includes the component path in the ID for identification
+  return h("is-land", {
+    id: islandId,
+    "data-src": getIslandBundlePath(src),
+    "data-ssr-error": errorMessage,
+    "data-render-strategy": "client-only",
+  });
+}
+
+/**
+ * Render an island using the fast path when framework is explicitly provided.
+ * This skips all component analysis and framework detection for better performance.
+ * 
+ * @internal
+ */
+async function renderWithExplicitFramework({
+  src,
+  condition,
+  props,
+  children,
+  ssr,
+  framework,
+  ssrOnly,
+  renderOptions,
+}: {
+  src: string;
+  condition: IslandProps["condition"];
+  props: Record<string, unknown>;
+  children?: JSX.Element | JSX.Element[] | string;
+  ssr: boolean;
+  framework: NonNullable<IslandProps["framework"]>;
+  ssrOnly: boolean;
+  renderOptions: AnalyzerOptions;
+}): Promise<JSX.Element> {
+  const logPrefix = `🏝️ [${src}]`;
+
+  // If we already have children or SSR is disabled, return Island directly
+  if (!ssr || children) {
+    return Island({
+      src,
+      condition,
+      props,
+      children,
+      ssr,
+      framework,
+      ssrOnly,
+      renderOptions,
+    });
+  }
+
+  // Load integration directly using the explicit framework (no detection needed)
+  let integration: Integration;
+  try {
+    integration = await loadIntegration(framework);
+  } catch (error) {
+    devError(`${logPrefix} Failed to load ${framework} integration:`, error);
+    // Fallback to client-only rendering
+    return Island({
+      src,
+      condition,
+      props,
+      children: undefined,
+      ssr: false,
+      framework,
+      renderOptions,
+    });
+  }
+
+  // Render using the integration
+  const viteServer = globalThis.__viteDevServer;
+  const isDevMode = isDev();
+
+  try {
+    const renderResult = await integration.render({
+      component: null,
+      props,
+      src,
+      condition,
+      ssrOnly,
+      viteServer,
+      isDev: isDevMode,
+    });
+
+    // Collect CSS from the integration
+    if (renderResult.css) {
+      const scopeId = (renderResult as { scopeId?: string }).scopeId;
+      addUniversalCSS(renderResult.css, src, framework, scopeId);
+    }
+
+    // Collect head content
+    if (renderResult.head) {
+      const headContent = renderResult.head.trim();
+      let contentType: 'script' | 'meta' | 'link' | 'other' = 'other';
+      
+      if (headContent.startsWith('<script')) {
+        contentType = 'script';
+      } else if (headContent.startsWith('<meta')) {
+        contentType = 'meta';
+      } else if (headContent.startsWith('<link')) {
+        contentType = 'link';
+      } else if (headContent.includes('window._$HY') || headContent.includes('_$HY=')) {
+        contentType = 'script';
+      }
+      
+      if (!headContent.startsWith('<style')) {
+        addUniversalHead(renderResult.head, src, framework, contentType);
+      }
+    }
+
+    return Island({
+      src,
+      condition,
+      props,
+      children: renderResult.html,
+      ssr: true,
+      framework,
+      ssrOnly,
+      renderOptions,
+      hydrationData: ssrOnly ? undefined : renderResult.hydrationData,
+    });
+  } catch (error) {
+    devError(`${logPrefix} Fast path SSR failed:`, error);
+    // Fallback to client-only rendering
+    return Island({
+      src,
+      condition,
+      props,
+      children: undefined,
+      ssr: false,
+      framework,
+      renderOptions,
+    });
+  }
+}
+
+/**
  * Universal renderIsland function - auto-detects framework and handles SSR + hydration
  *
  * This is the main function you should use - it automatically:
@@ -197,6 +355,12 @@ export default function Island({
  * - Handles server-side rendering when possible
  * - Falls back to client-only rendering when needed
  * - Returns the appropriate Island component
+ * 
+ * Performance tip: Providing an explicit `framework` prop skips component analysis
+ * and framework detection, significantly improving render performance.
+ * 
+ * Error isolation: If SSR fails, returns an error placeholder instead of throwing,
+ * allowing the page to continue rendering other islands.
  */
 export async function renderIsland({
   src,
@@ -208,15 +372,39 @@ export async function renderIsland({
   ssrOnly = false,
   renderOptions = {},
 }: IslandProps): Promise<JSX.Element> {
+  const startTime = isDev() ? performance.now() : 0;
   const logPrefix = `🏝️ [${src}]`;
 
-  // FIX: If ssrOnly is true, we MUST enable SSR to render the component
-  // This fixes the issue where ssrOnly=true with condition="on:client" would result in ssr=false
-  if (ssrOnly && !ssr) {
-    ssr = true;
-  }
+  try {
+    // FIX: If ssrOnly is true, we MUST enable SSR to render the component
+    // This fixes the issue where ssrOnly=true with condition="on:client" would result in ssr=false
+    if (ssrOnly && !ssr) {
+      ssr = true;
+    }
 
-  console.log(`🔍 [renderIsland] ${src} - Starting render`, {
+    // ============================================================================
+    // FAST PATH: When framework is explicitly provided, skip all analysis/detection
+    // This is the optimized path that avoids expensive file I/O operations
+    // ============================================================================
+    if (framework) {
+      return await renderWithExplicitFramework({
+        src,
+        condition,
+        props,
+        children,
+        ssr,
+        framework,
+        ssrOnly,
+        renderOptions,
+      });
+    }
+
+    // ============================================================================
+    // SLOW PATH: Need to detect framework and analyze component
+    // This path performs file I/O for component analysis and framework detection
+    // ============================================================================
+
+  devLog(`🔍 [renderIsland] ${src} - Starting render (slow path)`, {
     ssr,
     ssrOnly,
     hasChildren: !!children,
@@ -284,42 +472,36 @@ export async function renderIsland({
 
   // If SSR is disabled or we already have children, use basic Island
   if (!ssr || children) {
-    console.log(`${logPrefix} Skipping SSR: ssr=${ssr}, hasChildren=${!!children}`);
+    devLog(`${logPrefix} Skipping SSR: ssr=${ssr}, hasChildren=${!!children}`);
     return Island({ src, condition, props, children, ssr, renderOptions });
   }
 
-  console.log(`${logPrefix} 🚀 Starting SSR rendering...`);
+  devLog(`${logPrefix} 🚀 Starting SSR rendering...`);
 
-  // Determine framework (explicit or auto-detect)
+  // Determine framework (auto-detect since not explicitly provided)
   let detectedFramework = "unknown";
   let integration: Integration | null = null;
 
   try {
-    // Use explicit framework if provided
-    if (framework) {
-      detectedFramework = framework;
-      console.log(`${logPrefix} Using explicit framework: ${framework}`);
-    } else {
-      // Auto-detect framework based on file extension and content
-      if (src.endsWith(".vue")) {
-        detectedFramework = "vue";
-      } else if (src.endsWith(".svelte")) {
-        detectedFramework = "svelte";
-      } else if (
-        src.endsWith(".tsx") || src.endsWith(".jsx") || src.endsWith(".ts") ||
-        src.endsWith(".js")
-      ) {
-        detectedFramework = await detectFramework(src);
-      }
+    // Auto-detect framework based on file extension and content
+    if (src.endsWith(".vue")) {
+      detectedFramework = "vue";
+    } else if (src.endsWith(".svelte")) {
+      detectedFramework = "svelte";
+    } else if (
+      src.endsWith(".tsx") || src.endsWith(".jsx") || src.endsWith(".ts") ||
+      src.endsWith(".js")
+    ) {
+      detectedFramework = await detectFramework(src);
     }
 
     // Load the appropriate integration
     try {
-      console.log(`${logPrefix} Loading integration for framework: ${detectedFramework}`);
+      devLog(`${logPrefix} Loading integration for framework: ${detectedFramework}`);
       integration = await loadIntegration(detectedFramework);
-      console.log(`${logPrefix} ✅ Integration loaded successfully`);
+      devLog(`${logPrefix} ✅ Integration loaded successfully`);
     } catch (error) {
-      console.error(`${logPrefix} ❌ Failed to load ${detectedFramework} integration:`, error);
+      devError(`${logPrefix} ❌ Failed to load ${detectedFramework} integration:`, error);
       devError(`${logPrefix} Failed to load ${detectedFramework} integration:`, error);
       throw new Error(
         `Failed to load integration for framework '${detectedFramework}'. ` +
@@ -333,7 +515,7 @@ export async function renderIsland({
     const viteServer = globalThis.__viteDevServer;
     const isDevMode = isDev();
 
-    console.log(`${logPrefix} Calling integration.render()...`);
+    devLog(`${logPrefix} Calling integration.render()...`);
     const renderResult = await integration.render({
       component: null, // Integration will load the component
       props,
@@ -344,7 +526,7 @@ export async function renderIsland({
       isDev: isDevMode,
     });
 
-    console.log(`🔍 [renderIsland] ${src} - Integration render result:`, {
+    devLog(`🔍 [renderIsland] ${src} - Integration render result:`, {
       hasHtml: !!renderResult.html,
       htmlLength: renderResult.html?.length || 0,
       htmlPreview: renderResult.html?.substring(0, 150) || 'N/A',
@@ -360,7 +542,7 @@ export async function renderIsland({
       addUniversalCSS(renderResult.css, src, detectedFramework, scopeId);
     }
 
-    console.log(`🔍 [renderIsland] ${src} - Calling Island() with:`, {
+    devLog(`🔍 [renderIsland] ${src} - Calling Island() with:`, {
       hasChildren: !!renderResult.html,
       childrenType: typeof renderResult.html,
       ssr: true,
@@ -412,8 +594,8 @@ export async function renderIsland({
   } catch (error) {
     // Always log Lit SSR errors for debugging
     if (detectedFramework === "lit") {
-      console.error(`${logPrefix} ❌ Lit SSR rendering failed:`, error);
-      console.error(`${logPrefix} Error stack:`, error instanceof Error ? error.stack : 'No stack');
+      devError(`${logPrefix} ❌ Lit SSR rendering failed:`, error);
+      devError(`${logPrefix} Error stack:`, error instanceof Error ? error.stack : 'No stack');
     } else {
       devError(`${logPrefix} Framework rendering failed:`, error);
     }
@@ -428,6 +610,17 @@ export async function renderIsland({
       framework: detectedFramework as "solid" | "vue" | "preact" | "react" | "svelte" | "lit",
       renderOptions,
     });
+  }
+  } catch (error) {
+    // Top-level error isolation: catch any unhandled errors and return placeholder
+    // This ensures one failing island doesn't break the entire page
+    return renderErrorPlaceholder(src, error);
+  } finally {
+    // Log render timing in dev mode
+    if (isDev()) {
+      const duration = performance.now() - startTime;
+      logRenderTiming(src, duration);
+    }
   }
 }
 

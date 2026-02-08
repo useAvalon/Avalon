@@ -18,22 +18,27 @@ import { setupApiRoutes } from './api-setup.ts';
 import { createAllRoutes } from './routes/index.ts';
 import { withErrorHandler } from './server-error-handler.ts';
 
-// Import middleware system
-import { MiddlewareDiscovery } from '../core/middleware/middleware-discovery.ts';
-import { MiddlewareExecutor } from '../core/middleware/middleware-executor.ts';
-import { MiddlewareContextManager } from '../core/middleware/middleware-context.ts';
-import type { MiddlewareContext } from '../schemas/middleware.ts';
+// Import new middleware system (Nitro-aligned)
+import { discoverScopedMiddleware, executeScopedMiddleware, clearMiddlewareCache } from '../middleware/index.ts';
+import type { MiddlewareRoute } from '../middleware/types.ts';
 
 // Import layout system
 import { EnhancedLayoutResolver, EnhancedLayoutResolverUtils } from '../core/layout/enhanced-layout-resolver.ts';
 import type { LayoutContext } from '../types/layout.ts';
 
-// Import file-system routing
-import { FileSystemRouter } from '../core/routing/file-system-router.ts';
-import type { FileSystemRouterConfig } from '../schemas/routing.ts';
-
 // Import dev logger
 import { DevLogger } from '../utils/dev-logger.ts';
+
+// Import integration preloading for island rendering optimization
+import { preloadIntegrations, type PreloadIntegrationsOptions } from '../islands/integration-loader.ts';
+
+// Import error handler for custom error pages
+import {
+	discoverErrorPages,
+	getErrorPageModule,
+	generateDefaultErrorPage,
+	type ErrorHandlerOptions,
+} from '../nitro/error-handler.ts';
 
 /**
  * Creates a server with validated configuration
@@ -65,6 +70,8 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 	
 	if (devLogger) {
 		devLogger.addTask('vite', 'Starting Vite dev server');
+		devLogger.addTask('prewarm', 'Pre-warming island components');
+		devLogger.addTask('integrations', 'Preloading framework integrations');
 		devLogger.addTask('api', 'Discovering API routes');
 		devLogger.addTask('middleware', 'Loading middleware');
 		devLogger.addTask('layouts', 'Initializing layout system');
@@ -80,27 +87,68 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 	const { viteDevServer, viteServerUrl } = await setupViteServer(isDev);
 	if (devLogger) await devLogger.completeTask('vite');
 
+	// Note: Component pre-warming is handled by Vite's built-in server.warmup feature
+	// configured in vite.config.ts. This is more efficient than custom pre-warming
+	// as Vite optimizes the warmup process internally.
+
+	// Preload framework integrations for faster island rendering
+	// Using lazy mode: integrations are loaded on-demand when first island uses them
+	// This reduces cold start time significantly for pages with few/no islands
+	// The integration cache ensures subsequent requests are fast
+	if (devLogger) devLogger.startTask('integrations');
+	
+	// In development, we use lazy loading to speed up cold starts
+	// Integrations will be loaded on-demand when islands are rendered
+	// The loadIntegration() function in integration-loader.ts handles caching
+	const preloadOptions: PreloadIntegrationsOptions = {
+		lazy: true,  // Enable on-demand loading
+		// No detectedFrameworks means we skip preloading entirely
+		// Integrations will be loaded when first island requests them
+	};
+	await preloadIntegrations(preloadOptions);
+	if (devLogger) await devLogger.completeTask('integrations');
+
 	// Setup API routes
 	if (devLogger) devLogger.startTask('api');
 	const apiRoutes = await setupApiRoutes(isDev);
 	if (devLogger) await devLogger.completeTask('api');
 
-	// Initialize middleware system
+	// Initialize middleware system (Nitro-aligned)
 	if (devLogger) devLogger.startTask('middleware');
-	const middlewareDiscovery = new MiddlewareDiscovery({
-		baseDirectory: 'src',
-		filePattern: '_middleware.ts',
-		excludeDirectories: ['node_modules', '.git', 'dist', 'build'],
-		enableWatching: isDev,
-		developmentMode: isDev,
-	});
-
-	const middlewareExecutor = new MiddlewareExecutor({
-		developmentMode: isDev,
-		enableLogging: false, // Disable logging to keep output clean
-		maxExecutionTime: 30000,
-	});
+	
+	// Discover scoped middleware at startup
+	let scopedMiddlewareRoutes: MiddlewareRoute[] | null = null;
+	
+	async function getScopedMiddleware(): Promise<MiddlewareRoute[]> {
+		if (!scopedMiddlewareRoutes) {
+			scopedMiddlewareRoutes = await discoverScopedMiddleware({
+				baseDir: 'src',
+				devMode: isDev,
+			});
+		}
+		return scopedMiddlewareRoutes;
+	}
+	
+	// Pre-discover middleware routes
+	await getScopedMiddleware();
 	if (devLogger) await devLogger.completeTask('middleware');
+
+	// Initialize error page discovery for custom 404/500 pages
+	const errorHandlerOptions: ErrorHandlerOptions = {
+		isDev,
+		pagesDir: pagesDirectory,
+		// Use Vite's ssrLoadModule to load error page components in development
+		loadPageModule: viteDevServer
+			? async (filePath: string) => {
+					// ssrLoadModule throws if the file doesn't exist
+					const module = await viteDevServer.ssrLoadModule(filePath);
+					return module;
+				}
+			: undefined,
+	};
+	
+	// Pre-discover error pages at startup
+	await discoverErrorPages(errorHandlerOptions);
 
 	// Initialize layout system - derive base directory from pages directory
 	if (devLogger) devLogger.startTask('layouts');
@@ -108,48 +156,27 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 	const layoutBaseDirectory = pagesDirectory.replace('/pages', '');
 
 	const layoutResolver = new EnhancedLayoutResolver({
-		...(isDev
-			? EnhancedLayoutResolverUtils.createDevelopmentConfig(layoutBaseDirectory)
-			: EnhancedLayoutResolverUtils.createProductionConfig(layoutBaseDirectory)),
-		// Override discovery options directly (not nested in discovery object)
-		baseDirectory: 'src/layouts', // Explicitly set to src/layouts for Avalon demo
+		// Don't use createDevelopmentConfig - it enables expensive features like bundleOptimization
+		// Instead, create a minimal config optimized for fast development
+		baseDirectory: 'src/layouts',
 		filePattern: '_layout.tsx',
 		excludeDirectories: ['node_modules', '.git', 'dist', 'build'],
 		enableWatching: isDev,
-		developmentMode: false, // Disable verbose logging even in dev mode
-		enableDebugInfo: false, // Disable debug info collection for performance
+		developmentMode: false, // Disable verbose logging for performance
+		enableCaching: true,
+		cacheTTL: 60 * 1000, // 1 minute cache
+		maxCacheSize: 100,
+		enableStreaming: true,
+		enableErrorBoundaries: true,
+		enableMetrics: false, // Disable metrics for performance
+		enableDebugInfo: false, // Disable debug info for performance
+		// CRITICAL: Do NOT include bundleOptimization - it runs on every request and is very slow
 	});
 
-	// Initialize file-system routing if enabled
-	let fileSystemRouter: FileSystemRouter | undefined;
-	if (fileSystemRouting?.enabled !== false) {
-		try {
-			const fileSystemConfig: Partial<FileSystemRouterConfig> = {
-				enabled: true,
-				fallbackToManual: true,
-				enableCaching: !isDev, // Disable caching in development for hot reload
-				...fileSystemRouting,
-				discovery: {
-					pagesDirectory: 'src/pages',
-					apiDirectory: 'src/api',
-					extensions: ['.tsx', '.ts', '.jsx', '.js', '.md', '.mdx'],
-					excludeDirectories: ['node_modules', '.git', 'dist', 'build'],
-					enableWatching: isDev,
-					developmentMode: isDev,
-					quietMode: isDev && !!devLogger, // Enable quiet mode when using dev logger
-					...fileSystemRouting?.discovery,
-				},
-			};
-
-			fileSystemRouter = new FileSystemRouter(fileSystemConfig);
-		} catch (error) {
-			console.error('Failed to initialize file-system routing:', error);
-			if (fileSystemRouting?.fallbackToManual !== false) {
-				console.warn('Falling back to manual routes only');
-			} else {
-				throw error;
-			}
-		}
+	// NOTE: File-system routing is now handled by Nitro's native routing system.
+	// The fileSystemRouting config option is kept for backward compatibility but is deprecated.
+	if (fileSystemRouting?.enabled !== false && isDev && !devLogger) {
+		console.warn('[server] fileSystemRouting config is deprecated. File-system routing is now handled by Nitro.');
 	}
 	
 	if (devLogger) await devLogger.completeTask('layouts');
@@ -165,7 +192,6 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		islandManifest,
 		renderOptions,
 		layoutResolver, // Pass layout resolver to route creation
-		fileSystemRouter, // Pass file-system router if enabled
 		quietMode: isDev && !!devLogger, // Enable quiet mode when using dev logger
 		streamingEnabled: streaming?.enabled ?? true, // Pass streaming configuration
 	});
@@ -177,36 +203,48 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		const isSystemRequest =
 			url.pathname.startsWith('/.well-known') || url.pathname.startsWith('/.') || url.pathname.includes('/favicon.ico');
 
-		if (!isSystemRequest && !devLogger) {
-			console.log(`🔍 Request: ${req.method} ${url.pathname}`);
-		}
-
 		// Wrap the handler with error catching in development
 		const wrappedHandler = withErrorHandler(async (req: Request) => {
-			// Build and execute middleware chain
-			const middlewareChain = await middlewareDiscovery.buildMiddlewareChain(url);
+			// Get scoped middleware routes
+			const middlewareRoutes = await getScopedMiddleware();
+			
+			if (middlewareRoutes.length > 0) {
+				// Create a minimal H3Event-compatible object for middleware execution
+				const h3Event = {
+					method: req.method,
+					path: url.pathname,
+					node: {
+						req: {
+							url: url.pathname + url.search,
+							headers: Object.fromEntries(req.headers.entries()),
+						},
+						res: {},
+					},
+					context: {} as Record<string, unknown>,
+				};
 
-			if (middlewareChain.length > 0) {
-				if (!isSystemRequest && isDev && !devLogger) {
-					console.log(`🔗 Executing ${middlewareChain.length} middleware`);
-				}
-
-				// Create middleware context
-				const middlewareContext = MiddlewareContextManager.createContext(req);
-
-				// Execute middleware chain
-				const middlewareResult = await middlewareExecutor.execute(middlewareChain, middlewareContext);
+				// Execute scoped middleware
+				const middlewareResponse = await executeScopedMiddleware(
+					h3Event as import('../middleware/types.ts').MiddlewareRoute extends { pattern: URLPattern } ? Parameters<typeof executeScopedMiddleware>[0] : never,
+					middlewareRoutes,
+					{ devMode: isDev }
+				);
 
 				// If middleware returned a response, use it (early termination)
-				if (middlewareResult.response) {
-					if (!isSystemRequest && isDev) {
-						console.log(`⚡ Middleware returned response (early termination)`);
-					}
-					return middlewareResult.response;
+				if (middlewareResponse) {
+					return middlewareResponse;
 				}
 
-				// Continue with route matching, passing middleware context and layout resolver to route handlers
-				return await handleRouteMatching(req, url, isSystemRequest, middlewareResult.context, layoutResolver);
+				// Continue with route matching, passing middleware context to route handlers
+				// Convert H3 event context to layout context format
+				const layoutContext: LayoutContext = {
+					params: {},
+					query: url.searchParams,
+					state: new Map(Object.entries(h3Event.context)),
+					request: req,
+				};
+				
+				return await handleRouteMatching(req, url, isSystemRequest, layoutContext, layoutResolver);
 			} else {
 				// No middleware, proceed with normal route matching
 				return await handleRouteMatching(req, url, isSystemRequest, undefined, layoutResolver);
@@ -220,22 +258,19 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		req: Request,
 		url: URL,
 		isSystemRequest: boolean,
-		middlewareContext?: MiddlewareContext,
+		passedLayoutContext?: LayoutContext,
 		layoutResolver?: EnhancedLayoutResolver
 	): Promise<Response> {
 		// Try to match each route pattern
 		for (const route of serverRoutes) {
 			if (route.pattern.test(url)) {
-				if (!isSystemRequest && !devLogger) {
-					console.log(`✅ Route matched: ${route.pattern.pathname}`);
-				}
 
-				// Create layout context for layout rendering
+				// Use passed layout context or create a basic one
 				let layoutContext: LayoutContext | undefined;
 				if (layoutResolver) {
-					if (middlewareContext) {
-						// Create layout context from middleware context if available
-						layoutContext = MiddlewareContextManager.createLayoutContext(middlewareContext);
+					if (passedLayoutContext) {
+						// Use the layout context passed from middleware
+						layoutContext = passedLayoutContext;
 					} else {
 						// Create basic layout context for requests without middleware
 						layoutContext = {
@@ -247,17 +282,67 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 					}
 				}
 
-				// Pass middleware context and layout context to route handler if available
-				const response = await route.handler(req, middlewareContext, layoutContext);
+				// Pass layout context to route handler
+				const response = await route.handler(req, undefined, layoutContext);
 				return response instanceof Response ? response : new Response(response);
 			}
 		}
 
 		if (!isSystemRequest) {
-			console.log(`❌ No route matched: ${url.pathname}`);
+			// No route matched — will serve 404
 		}
-		// Default handler for unmatched routes
-		return new Response('Not Found', { status: 404 });
+		
+		// Return custom 404 error page
+		const errorPages = await discoverErrorPages(errorHandlerOptions);
+		const errorPageModule = getErrorPageModule(404, errorPages);
+		
+		if (errorPageModule && errorPageModule.default && typeof errorPageModule.default === 'function') {
+			// Custom 404 page exists - try to render it using SSR
+			try {
+				// Import renderToHtml for SSR rendering
+				const { renderToHtml } = await import('./ssr.ts');
+				
+				// Get the error page component
+				const ErrorPageComponent = errorPageModule.default;
+				
+				// Create a route config for the error page
+				// The component needs to be a function that returns JSX
+				const errorRouteConfig = {
+					component: () => ErrorPageComponent({ 
+						statusCode: 404, 
+						message: `Page not found: ${url.pathname}`,
+						url: url.pathname,
+					}),
+					path: url.pathname,
+				};
+				
+				// Render the error page
+				const html = await renderToHtml(errorRouteConfig, {
+					url: url.pathname,
+					params: {},
+					query: Object.fromEntries(url.searchParams),
+				});
+				
+				return new Response(html, {
+					status: 404,
+					headers: { 'Content-Type': 'text/html; charset=utf-8' },
+				});
+			} catch (renderError) {
+				console.error('[Error Page Render Error]', renderError);
+				// Fall through to default error page
+			}
+		}
+		
+		// Fallback to default 404 page
+		const html = generateDefaultErrorPage(
+			404,
+			`Page not found: ${url.pathname}`,
+			isDev
+		);
+		return new Response(html, {
+			status: 404,
+			headers: { 'Content-Type': 'text/html; charset=utf-8' },
+		});
 	}
 
 	const server = Deno.serve(

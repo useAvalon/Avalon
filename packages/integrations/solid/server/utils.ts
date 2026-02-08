@@ -52,7 +52,10 @@ async function loadComponentProd(src: string) {
     .replace("/islands/", "/dist/ssr/islands/")
     .replace(/\.(tsx|jsx|ts|js)$/, ".js");
   
-  const module = await import(ssrPath);
+  const module = await import(
+    /* @vite-ignore */
+    ssrPath
+  );
   return extractComponent(module, src);
 }
 
@@ -67,7 +70,10 @@ async function loadComponentDirect(src: string) {
   const filePath = resolvedPath.startsWith("/") ? `.${resolvedPath}` : `./${resolvedPath}`;
   
   try {
-    const module = await import(filePath);
+    const module = await import(
+      /* @vite-ignore */
+      filePath
+    );
     return extractComponent(module, src);
   } catch (error) {
     throw new Error(

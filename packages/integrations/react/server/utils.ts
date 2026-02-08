@@ -45,7 +45,7 @@ export async function loadComponent(src: string): Promise<ComponentType<Record<s
     }
     
     // Import the component module
-    const module = await import(componentPath);
+    const module = await import(/* @vite-ignore */ componentPath);
     
     // Get the default export or named export
     const Component = module.default || module[Object.keys(module)[0]];

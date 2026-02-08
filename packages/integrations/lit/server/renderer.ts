@@ -7,7 +7,7 @@
 
 // Import DOM shim FIRST
 import "./dom-shim.ts";
-import { DOM_SHIM_INSTALLED, verifyDOMShim } from "./dom-shim.ts";
+import { DOM_SHIM_INSTALLED, verifyDOMShim, waitForDOMShim } from "./dom-shim.ts";
 
 import type { LitRenderParams, LitRenderResult } from "../types.ts";
 import { 
@@ -67,6 +67,9 @@ function renderFallback(tagName: string, attributes: string): string {
  * Render a Lit component on the server
  */
 export async function render(params: LitRenderParams): Promise<LitRenderResult> {
+  // Ensure linkedom DOM globals are ready before rendering
+  await waitForDOMShim();
+  
   const { component, props = {}, src, ssrOnly = false, condition = "on:client", viteServer } = params;
   
   // Extract tag name from source code (avoids decorator evaluation issues)
@@ -83,7 +86,8 @@ export async function render(params: LitRenderParams): Promise<LitRenderResult> 
   try {
     ElementClass = component || await loadComponent(src, viteServer);
     styles = collectStyles(ElementClass);
-  } catch {
+  } catch (loadError) {
+    // Component loading failed, will use fallback rendering
     ElementClass = null;
   }
   
@@ -96,7 +100,7 @@ export async function render(params: LitRenderParams): Promise<LitRenderResult> 
       const ssrResult = renderLitElementWithSSR(ElementClass, props, tagName);
       html = ssrResult.html;
       styles = ssrResult.styles;
-    } catch {
+    } catch (ssrError) {
       html = renderFallback(tagName, attributes);
     }
   } else {

@@ -16,7 +16,6 @@ export function createViteRoutes(isDev: boolean, viteServerUrl: string) {
 		{
 			pattern: new URLPattern({ pathname: '/.vite/deps/*' }),
 			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
-				console.log(`🔧 Proxying Vite dependency: ${req.url}`);
 				return proxyToVite(req, viteServerUrl);
 			},
 		},
@@ -29,7 +28,6 @@ export function createViteRoutes(isDev: boolean, viteServerUrl: string) {
 		{
 			pattern: new URLPattern({ pathname: '/@avalon/*' }),
 			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
-				console.log(`🔧 Proxying Avalon integration: ${req.url}`);
 				return proxyToVite(req, viteServerUrl);
 			},
 		},
@@ -57,7 +55,6 @@ export function createViteRoutes(isDev: boolean, viteServerUrl: string) {
 		{
 			pattern: new URLPattern({ pathname: '/islands/*' }),
 			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
-				console.log(`🏝️ Proxying island request: ${req.url}`);
 				return proxyToVite(req, viteServerUrl);
 			},
 		},
@@ -65,7 +62,6 @@ export function createViteRoutes(isDev: boolean, viteServerUrl: string) {
 		{
 			pattern: new URLPattern({ pathname: '/src/*' }),
 			handler: (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
-				console.log(`📦 Proxying src request: ${req.url}`);
 				return proxyToVite(req, viteServerUrl);
 			},
 		},

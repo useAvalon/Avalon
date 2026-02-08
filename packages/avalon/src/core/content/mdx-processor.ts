@@ -1,4 +1,4 @@
-import { extname } from '@std/path';
+import { extname } from 'node:path';
 import { h } from 'preact';
 import { marked } from 'marked';
 import type { RoutePageModule } from '../../schemas/routing.ts';

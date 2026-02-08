@@ -1,6 +1,7 @@
 import { registry } from "../core/integrations/registry.ts";
 import { getMissingIntegrationError } from "../core/integrations/startup.ts";
 import type { Integration } from "../../../integrations/shared/types.ts";
+import { devWarn } from "../utils/dev-logger.ts";
 
 /**
  * Cache for loaded integrations to avoid repeated lookups
@@ -13,20 +14,25 @@ const NESTED_ISLANDS_PATTERN = /\/(?:src\/)?(?:modules\/)?([^/]+\/)*islands\//;
 /**
  * Load an integration by framework name
  * Uses cache to avoid repeated dynamic imports
+ * 
+ * This function supports on-demand loading: if an integration hasn't been
+ * preloaded, it will be loaded and cached on first use. This enables
+ * lazy loading at server startup while ensuring fast subsequent renders.
  */
 export async function loadIntegration(framework: string) {
-  // Check local cache first
+  // Check local cache first (fastest path)
   if (frameworkCache.has(framework)) {
     return frameworkCache.get(framework)!;
   }
 
-  // Check if already loaded in registry (e.g., by preloader)
+  // Check if already loaded in registry (e.g., by native preloader)
   if (registry.has(framework)) {
     const integration = registry.get(framework)!;
     frameworkCache.set(framework, integration);
     return integration;
   }
 
+  // On-demand loading: load the integration now and cache it
   try {
     const integration = await registry.load(framework);
     frameworkCache.set(framework, integration);
@@ -335,21 +341,146 @@ export function isIntegrationLoaded(framework: string) {
 }
 
 /**
+ * Default frameworks to preload at server startup
+ * These are the most commonly used frameworks in island architecture
+ */
+export const DEFAULT_PRELOAD_FRAMEWORKS = ['preact', 'react', 'vue', 'svelte', 'solid', 'lit'] as const;
+
+/**
+ * Options for preloading integrations
+ */
+export interface PreloadIntegrationsOptions {
+  /**
+   * When true, only preload integrations that are actually used on the page.
+   * This is determined by analyzing page components for framework usage.
+   * When false (default), preload all specified frameworks.
+   */
+  lazy?: boolean;
+  
+  /**
+   * Array of framework names to preload.
+   * Defaults to DEFAULT_PRELOAD_FRAMEWORKS.
+   */
+  frameworks?: readonly string[];
+  
+  /**
+   * Array of detected frameworks from page analysis.
+   * Only used when lazy=true to filter which frameworks to preload.
+   */
+  detectedFrameworks?: string[];
+}
+
+/**
  * Preload integrations for multiple frameworks
  * Useful for warming up the cache during build or startup
+ * 
+ * Uses Promise.allSettled to load all integrations concurrently,
+ * ensuring that one failed integration doesn't block others.
+ * 
+ * @param options - Preload options or array of framework names (for backward compatibility)
+ * @returns Promise that resolves when all preloading attempts complete
  */
-export async function preloadIntegrations(frameworks: string[]) {
+export async function preloadIntegrations(
+  options?: PreloadIntegrationsOptions | readonly string[]
+): Promise<void> {
+  // Handle backward compatibility: if options is an array, treat it as frameworks list
+  let frameworks: readonly string[];
+  let lazy = false;
+  let detectedFrameworks: string[] | undefined;
+  
+  if (Array.isArray(options)) {
+    frameworks = options;
+  } else if (options) {
+    frameworks = options.frameworks ?? DEFAULT_PRELOAD_FRAMEWORKS;
+    lazy = options.lazy ?? false;
+    detectedFrameworks = options.detectedFrameworks;
+  } else {
+    frameworks = DEFAULT_PRELOAD_FRAMEWORKS;
+  }
+  
+  // When lazy mode is enabled, only preload detected frameworks
+  if (lazy && detectedFrameworks && detectedFrameworks.length > 0) {
+    // Filter to only frameworks that are both in the default list and detected
+    const frameworksToLoad = frameworks.filter(fw => 
+      detectedFrameworks!.includes(fw)
+    );
+    
+    if (frameworksToLoad.length === 0) {
+      return;
+    }
+    
+    frameworks = frameworksToLoad;
+  } else if (lazy && (!detectedFrameworks || detectedFrameworks.length === 0)) {
+    // Lazy mode but no detected frameworks - skip preloading entirely
+    return;
+  }
+  
   const results = await Promise.allSettled(
     frameworks.map(framework => loadIntegration(framework))
   );
   
-  // Log any failures
+  // Track success/failure counts for logging
+  let successCount = 0;
+  let failureCount = 0;
+  
+  // Log any failures (dev mode only)
   results.forEach((result, index) => {
     if (result.status === "rejected") {
-      console.warn(
-        `Failed to preload integration '${frameworks[index]}':`,
+      failureCount++;
+      devWarn(
+        `⚠️ Failed to preload integration '${frameworks[index]}':`,
         result.reason
       );
+    } else {
+      successCount++;
     }
   });
+}
+
+/**
+ * Detect frameworks used in a page by analyzing component imports.
+ * This is used for lazy integration loading to only preload what's needed.
+ * 
+ * @param pageContent - The content of the page file to analyze
+ * @returns Array of detected framework names
+ */
+export function detectFrameworksFromPageContent(pageContent: string): string[] {
+  const detectedFrameworks: Set<string> = new Set();
+  
+  // Check for island imports and their framework hints
+  // Look for patterns like: <Island src="/src/islands/Counter.tsx" framework="preact" />
+  const frameworkPropMatches = pageContent.matchAll(/framework\s*=\s*["'](\w+)["']/g);
+  for (const match of frameworkPropMatches) {
+    detectedFrameworks.add(match[1]);
+  }
+  
+  // Check for island source paths to detect framework from file extension
+  const srcMatches = pageContent.matchAll(/src\s*=\s*["']([^"']+)["']/g);
+  for (const match of srcMatches) {
+    const src = match[1];
+    const framework = detectFrameworkFromPath(src);
+    detectedFrameworks.add(framework);
+  }
+  
+  // Check for direct framework imports
+  if (pageContent.includes("from 'react'") || pageContent.includes('from "react"')) {
+    detectedFrameworks.add('react');
+  }
+  if (pageContent.includes("from 'preact'") || pageContent.includes('from "preact"')) {
+    detectedFrameworks.add('preact');
+  }
+  if (pageContent.includes("from 'vue'") || pageContent.includes('from "vue"')) {
+    detectedFrameworks.add('vue');
+  }
+  if (pageContent.includes("from 'svelte'") || pageContent.includes('from "svelte"')) {
+    detectedFrameworks.add('svelte');
+  }
+  if (pageContent.includes("from 'solid-js'") || pageContent.includes('from "solid-js"')) {
+    detectedFrameworks.add('solid');
+  }
+  if (pageContent.includes("from 'lit'") || pageContent.includes('from "lit"')) {
+    detectedFrameworks.add('lit');
+  }
+  
+  return Array.from(detectedFrameworks);
 }

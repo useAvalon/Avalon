@@ -53,8 +53,6 @@ export function addUniversalHead(
     framework,
     type,
   });
-  
-  console.log(`📄 [Head Collector] Added ${type} for ${framework}:${src} (${content.length} chars)`);
 }
 
 /**
@@ -115,11 +113,8 @@ export function getUniversalHeadForInjection(clear = false): string {
   
   const result = parts.join('\n    ');
   
-  console.log(`📄 [Head Collector] Generated head content (${result.length} chars, ${entries.length} entries)`);
-  
   if (clear) {
     collector.clear();
-    console.log(`📄 [Head Collector] Cleared collector`);
   }
   
   return result;
@@ -131,7 +126,6 @@ export function getUniversalHeadForInjection(clear = false): string {
 export function clearUniversalHead(): void {
   const collector = initHeadCollector();
   collector.clear();
-  console.log(`📄 [Head Collector] Cleared all head content`);
 }
 
 /**

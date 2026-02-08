@@ -12,7 +12,7 @@
 
 import { registry } from "./registry.ts";
 import type { Integration } from "../../../../integrations/shared/types.ts";
-import { dirname, join } from "@std/path";
+import { dirname, join } from "node:path";
 
 /**
  * List of known framework integrations to pre-load

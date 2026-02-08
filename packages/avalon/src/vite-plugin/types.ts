@@ -1,8 +1,17 @@
 /**
  * Vite Plugin Types for Avalon
  *
- * This module defines the configuration interfaces for the Avalon Vite plugin.
- * These types enable type-safe configuration of the plugin and its integrations.
+ * CONFIG PATH: Vite plugin runtime
+ * These types define the inline configuration passed to `avalon()` in
+ * `vite.config.ts`. The `resolveConfig()` function in `vite-plugin/config.ts`
+ * merges user options against `DEFAULT_CONFIG` to produce a `ResolvedAvalonConfig`.
+ *
+ * This path uses `IntegrationName[]` (simple string array) for integrations.
+ *
+ * There is a separate CLI config path (`schemas/integration-config.ts` →
+ * `config-loader.ts` → `startup.ts` → `cli.ts`) that reads `avalon.config.ts`
+ * from disk and uses `IntegrationConfigEntry[]` (objects with name/enabled/options).
+ * That path is NOT used during Vite plugin startup.
  */
 
 import type { AvalonNitroConfig } from "../nitro/config.ts";
@@ -127,6 +136,21 @@ export interface AvalonPluginConfig {
    * @default true
    */
   showWarnings?: boolean;
+
+  /**
+   * Enable lazy loading of integration Vite plugins
+   * When true (default), Avalon will only load Vite plugins for integrations
+   * that are actually used in your project, significantly improving cold start time.
+   * 
+   * The lazy loading works by:
+   * 1. Scanning the islands directory to discover which frameworks are used
+   * 2. Only loading Vite plugins for those frameworks at startup
+   * 3. Loading additional plugins on-demand if new frameworks are encountered
+   * 
+   * Set to false to load all configured integrations at startup (slower but predictable).
+   * @default true
+   */
+  lazyIntegrations?: boolean;
 }
 
 /**
@@ -152,6 +176,7 @@ export interface ResolvedAvalonConfig {
   autoDiscoverIntegrations: boolean;
   validateIntegrations: boolean;
   showWarnings: boolean;
+  lazyIntegrations: boolean;
   isDev: boolean;
 }
 

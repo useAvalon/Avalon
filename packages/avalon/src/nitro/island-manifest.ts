@@ -5,6 +5,30 @@
  * The manifest contains information about all discovered islands, their
  * compiled asset paths, and framework metadata for client-side hydration.
  *
+ * ## Build Output
+ *
+ * During production build, this module generates:
+ * - `island-manifest.json` in the build output directory
+ * - Contains metadata for all islands (src, framework, css, preload)
+ * - Includes build timestamp and content hashes for cache busting
+ * - Generates preload hints for critical assets
+ *
+ * ## Nitro Integration
+ *
+ * The manifest is used by Nitro's renderer to:
+ * - Resolve compiled island paths for hydration scripts
+ * - Inject CSS assets for islands used on a page
+ * - Generate preload tags for critical resources
+ *
+ * ## Asset Metadata
+ *
+ * Each island entry includes:
+ * - `src`: Compiled JavaScript path (e.g., `/islands/Counter.abc123.js`)
+ * - `framework`: Detected framework (react, preact, vue, svelte, solid, lit)
+ * - `css`: Associated CSS files
+ * - `contentHash`: Hash for cache busting
+ * - `preloadDeps`: Dependencies to preload
+ *
  * @module nitro/island-manifest
  */
 
@@ -29,6 +53,21 @@ export interface BuildIslandEntry extends IslandEntry {
 }
 
 /**
+ * Asset metadata for Nitro's asset manifest format
+ * This matches Nitro's expected asset metadata structure
+ */
+export interface AssetMetadata {
+  /** MIME type of the asset */
+  type: string;
+  /** ETag for cache validation */
+  etag: string;
+  /** Last modification time (ISO string) */
+  mtime: string;
+  /** File size in bytes */
+  size: number;
+}
+
+/**
  * Build-time island manifest with additional metadata
  */
 export interface BuildIslandManifest extends IslandManifest {
@@ -44,6 +83,8 @@ export interface BuildIslandManifest extends IslandManifest {
   preloadHints: PreloadHint[];
   /** Framework-specific bundles */
   frameworkBundles: Record<string, string>;
+  /** Asset metadata for cache headers (Nitro format) */
+  assetMetadata?: Record<string, AssetMetadata>;
 }
 
 /**
@@ -338,7 +379,49 @@ export function createIslandManifestPlugin(
     },
 
     // Write manifest after build
-    async writeBundle() {
+    async writeBundle(_options: unknown, bundle: Record<string, { type: string; source?: string | Uint8Array; code?: string }>) {
+      // Generate asset metadata for Nitro's format (type, etag, mtime, size)
+      const assetMetadata: Record<string, AssetMetadata> = {};
+      const buildTime = new Date().toISOString();
+      
+      for (const [fileName, chunk] of Object.entries(bundle)) {
+        // Get the content for size and etag calculation
+        let content: string | Uint8Array | undefined;
+        if (chunk.type === "asset" && chunk.source) {
+          content = chunk.source;
+        } else if (chunk.type === "chunk" && chunk.code) {
+          content = chunk.code;
+        }
+        
+        if (content) {
+          const size = typeof content === "string" 
+            ? new TextEncoder().encode(content).length 
+            : content.length;
+          const contentStr = typeof content === "string" 
+            ? content 
+            : new TextDecoder().decode(content);
+          const etag = await generateContentHash(contentStr);
+          
+          // Determine MIME type from extension
+          const ext = fileName.substring(fileName.lastIndexOf("."));
+          const mimeTypes: Record<string, string> = {
+            ".js": "application/javascript",
+            ".mjs": "application/javascript",
+            ".css": "text/css",
+            ".json": "application/json",
+            ".html": "text/html",
+            ".map": "application/json",
+          };
+          
+          assetMetadata[`/${fileName}`] = {
+            type: mimeTypes[ext] || "application/octet-stream",
+            etag: `"${etag}"`,
+            mtime: buildTime,
+            size,
+          };
+        }
+      }
+
       const manifest: BuildIslandManifest = {
         islands: Object.fromEntries(islands),
         clientEntry,
@@ -355,6 +438,7 @@ export function createIslandManifestPlugin(
             })
           : [],
         frameworkBundles: {},
+        assetMetadata,
       };
 
       // Write manifest file
@@ -365,6 +449,7 @@ export function createIslandManifestPlugin(
         console.log(`   Islands: ${islands.size}`);
         console.log(`   CSS assets: ${cssAssets.size}`);
         console.log(`   Client entry: ${clientEntry}`);
+        console.log(`   Asset metadata entries: ${Object.keys(assetMetadata).length}`);
       }
 
       // Emit the manifest as an asset

@@ -2,7 +2,7 @@
  * Server constants and configuration
  */
 
-import { join } from '@std/path';
+import { join } from 'node:path';
 
 // Server configuration
 export const STATIC_FILES_DIR = join(Deno.cwd(), 'public');

@@ -4,6 +4,10 @@ description: 'Testing island component imports in MDX'
 layout: 'default'
 ---
 
+import PreactCounter from '../islands/PreactCounter.tsx'
+import VueCounter from '../islands/VueCounter.vue'
+import SvelteCounter from '../islands/SvelteCounter.svelte'
+
 # Component Embedding Test
 
 This MDX file tests importing and embedding island components from different frameworks.
@@ -12,23 +16,17 @@ This MDX file tests importing and embedding island components from different fra
 
 Testing Preact component import and rendering:
 
-import PreactCounter from '../islands/PreactCounter.tsx';
-
 <PreactCounter />
 
 ## Vue Counter Component
 
 Testing Vue component import and rendering:
 
-import VueCounter from '../islands/VueCounter.vue';
-
 <VueCounter />
 
 ## Svelte Counter Component
 
 Testing Svelte component import and rendering:
-
-import SvelteCounter from '../islands/SvelteCounter.svelte';
 
 <SvelteCounter />
 

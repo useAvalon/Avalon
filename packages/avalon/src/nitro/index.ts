@@ -81,6 +81,7 @@ export {
 // Renderer exports
 export {
   createNitroRenderer,
+  createNitroCatchAllRenderer,
   createRenderContext,
   renderPage,
   renderPageStream,
@@ -98,6 +99,7 @@ export {
   type ResolvedPageRoute,
   type StreamingSSROptions,
   type IslandMarker,
+  type NitroCatchAllOptions,
 } from "./renderer.ts";
 
 // API Handler exports
@@ -111,54 +113,53 @@ export {
   getRequestHeaders,
   toRequest,
   getRouterParams,
+  getRouterParam,
   getQuery,
   isValidApiMethod,
-  extractParamNames,
-  filePathToRoutePattern,
-  matchRoutePattern as matchApiRoutePattern,
+  clearApiMiddlewareCache,
   type CreateApiHandlerOptions,
 } from "./api-handler.ts";
 
 // Middleware Adapter exports
 export {
-  createMiddlewareHandler,
-  createCombinedMiddlewareHandler,
   createMiddlewareContext,
   storeMiddlewareContext,
   getMiddlewareContext,
-  executeMiddlewareChain,
-  createMiddlewareErrorResponse,
-  withMiddleware,
-  isMiddlewareHandler,
-  validateMiddlewareChain,
+  getOrCreateMiddlewareContext,
+  setMiddlewareState,
+  getMiddlewareState,
+  setMiddlewareLocal,
+  getMiddlewareLocal,
+  hasAvalonContext,
+  ensureAvalonContext,
   getRequestURL as getMiddlewareRequestURL,
   getRequestHeaders as getMiddlewareRequestHeaders,
   toRequest as middlewareToRequest,
   getRouterParams as getMiddlewareRouterParams,
-  type CreateMiddlewareHandlerOptions,
-  type NitroMiddlewareResult,
+  type MiddlewareContextOptions,
 } from "./middleware-adapter.ts";
 
 // Route Discovery exports
+// NOTE: API routes are now auto-discovered by Nitro from the api/ directory.
+// Only page discovery is needed for SSR rendering of page components.
 export {
-  discoverRoutes,
+  // Primary exports
   discoverPageRoutes,
-  discoverApiRoutes,
   filePathToPattern,
-  filePathToApiPattern,
   isPrivateFile,
-  isMiddlewareFile,
   calculateRouteSpecificity,
   sortRoutesBySpecificity,
   validateRoutePattern,
   extractParamsFromPattern,
   matchRoutePattern,
   PAGE_EXTENSIONS,
-  API_EXTENSIONS,
-  VALID_HTTP_METHODS,
-  type RouteDiscoveryOptions,
+  type PageDiscoveryOptions,
   type FilePathPatternResult,
-  type ApiFilePathPatternResult,
+  // Deprecated exports (kept for backward compatibility)
+  discoverRoutes,
+  discoverApiRoutes,
+  filePathToApiPattern,
+  isMiddlewareFile,
 } from "./route-discovery.ts";
 
 // Build Configuration exports
@@ -199,6 +200,7 @@ export {
   type BuildIslandManifest,
   type PreloadHint,
   type IslandManifestOptions,
+  type AssetMetadata,
 } from "./island-manifest.ts";
 
 // Runtime Configuration exports
@@ -224,3 +226,43 @@ export {
   NITRO_PUBLIC_ENV_PREFIX,
   type RuntimeConfig,
 } from "./runtime-config.ts";
+
+// Caching Utilities exports
+// These utilities help configure Nitro's built-in caching system:
+// - defineCachedEventHandler: Cache HTTP responses
+// - defineCachedFunction: Cache function results
+export {
+  // Cache option types
+  type CachedEventHandlerOptions,
+  type CachedFunctionOptions,
+  // Default configurations
+  DEFAULT_API_CACHE_OPTIONS,
+  DEFAULT_COMPUTATION_CACHE_OPTIONS,
+  // Helper functions for creating cache options
+  createShortLivedCacheOptions,
+  createLongLivedCacheOptions,
+  createParamBasedCacheOptions,
+  createQueryBasedCacheOptions,
+  mergeCacheOptions,
+} from "./caching.ts";
+
+// Error Handler exports
+// Custom error page support for 404, 500, and generic error pages
+// Requirements: 10.1, 10.2, 10.3, 10.4, 10.5
+export {
+  // Error page discovery and rendering
+  discoverErrorPages,
+  getErrorPageModule,
+  renderErrorPage,
+  generateDefaultErrorPage,
+  createErrorPageProps,
+  clearErrorPageCache,
+  // Error handling functions
+  handleRenderError,
+  handleApiError,
+  handleNotFound,
+  handleInternalError,
+  // Types
+  type ErrorPageProps,
+  type ErrorHandlerOptions,
+} from "./error-handler.ts";

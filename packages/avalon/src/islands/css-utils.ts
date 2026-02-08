@@ -49,10 +49,6 @@ export function addSvelteSSRCSS(
 
   // Use scopeId as key to prevent duplicates from the same component
   globalThis.__svelteSSRCSS.set(scopeId, entry);
-
-  console.log(
-    `📝 Added Svelte CSS to global collection: ${scopeId} (${css.length} chars, global: ${isGlobal})`,
-  );
 }
 
 /**
@@ -98,12 +94,8 @@ export function getSvelteSSRCSS(clear = false) {
 
   if (clear) {
     globalThis.__svelteSSRCSS.clear();
-    console.log(`🧹 Cleared Svelte SSR CSS collection`);
   }
 
-  console.log(
-    `📦 Retrieved Svelte SSR CSS: ${entries.length} components (${globalEntries.length} global, ${componentEntries.length} scoped), ${optimizedCSS.length} chars`,
-  );
   return optimizedCSS;
 }
 
@@ -123,9 +115,6 @@ export function getSvelteSSRCSSForHead(clear = false) {
   const styleTag =
     `<style data-svelte-ssr="true" data-generated="${timestamp}">\n${css}\n</style>`;
 
-  console.log(
-    `📝 Generated Svelte SSR CSS for document head: ${styleTag.length} chars`,
-  );
   return styleTag;
 }
 
@@ -189,7 +178,7 @@ export function clearSvelteComponentCSS(scopeId: string) {
 
   const deleted = globalThis.__svelteSSRCSS.delete(scopeId);
   if (deleted) {
-    console.log(`🧹 Cleared CSS for component scope: ${scopeId}`);
+    // CSS cleared for component scope
   }
   return deleted;
 }
@@ -205,12 +194,6 @@ function optimizeSvelteSSRCSS(css: string) {
 
     // Additional optimizations specific to SSR CSS collection
     const finalCSS = optimizeSSRCSSCollection(optimizedCSS);
-
-    console.log(
-      `🔧 Optimized Svelte SSR CSS: ${css.length} → ${finalCSS.length} chars (${
-        Math.round((1 - finalCSS.length / css.length) * 100)
-      }% reduction)`,
-    );
 
     return finalCSS;
   } catch (error) {
