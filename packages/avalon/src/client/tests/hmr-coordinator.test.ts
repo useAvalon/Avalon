@@ -111,19 +111,6 @@ Deno.test('HMRCoordinator - update payload handling', async () => {
   const coordinator = new HMRCoordinator();
   
   // Test update payload structure without DOM
-  const payload = {
-    type: 'update' as const,
-    updates: [
-      {
-        type: 'js-update' as const,
-        path: '/src/islands/Counter.tsx',
-        acceptedPath: '/src/islands/Counter.tsx',
-        timestamp: Date.now(),
-      },
-    ],
-    timestamp: Date.now(),
-  };
-  
   // Verify coordinator can handle the payload structure
   // In a real browser environment with DOM, this would trigger updates
   assertExists(coordinator.handleUpdate, 'Should have handleUpdate method');

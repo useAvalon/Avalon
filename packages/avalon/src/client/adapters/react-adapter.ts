@@ -150,7 +150,7 @@ export class ReactHMRAdapter extends BaseFrameworkAdapter {
     }
     
     // Check for React element types
-    if (component == null || typeof component !== 'object') {
+    if (typeof component !== 'object') {
       return false;
     }
 

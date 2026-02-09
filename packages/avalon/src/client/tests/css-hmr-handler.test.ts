@@ -2,7 +2,7 @@
  * Tests for CSS HMR Handler
  */
 
-import { assertEquals, assertExists } from 'jsr:@std/assert';
+import { assertEquals } from 'jsr:@std/assert';
 import { CSSHMRHandler, getCSSHMRHandler } from '../css-hmr-handler.ts';
 import type { Update } from '../hmr-coordinator.ts';
 

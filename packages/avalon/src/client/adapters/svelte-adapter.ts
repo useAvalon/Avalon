@@ -261,7 +261,7 @@ export class SvelteHMRAdapter extends BaseFrameworkAdapter {
     }
     
     // Check if it's a Svelte component object (wrapped or exported)
-    if (component == null || typeof component !== 'object') {
+    if (typeof component !== 'object') {
       return false;
     }
 

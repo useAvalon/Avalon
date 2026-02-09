@@ -133,7 +133,7 @@ export class PreactHMRAdapter extends BaseFrameworkAdapter {
     }
     
     // Check for Preact VNode types
-    if (component == null || typeof component !== 'object') {
+    if (typeof component !== 'object') {
       return false;
     }
 

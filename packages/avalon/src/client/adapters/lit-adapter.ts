@@ -177,7 +177,7 @@ export class LitHMRAdapter extends BaseFrameworkAdapter {
     }
     
     // Check if it's a Lit component object (wrapped or exported)
-    if (component == null || typeof component !== 'object') {
+    if (typeof component !== 'object') {
       return false;
     }
 

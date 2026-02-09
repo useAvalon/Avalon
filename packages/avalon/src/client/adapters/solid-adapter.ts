@@ -175,7 +175,7 @@ export class SolidHMRAdapter extends BaseFrameworkAdapter {
     }
     
     // Check if it's a Solid component object (wrapped or exported)
-    if (component == null || typeof component !== 'object') {
+    if (typeof component !== 'object') {
       return false;
     }
 
@@ -316,7 +316,6 @@ export class SolidHMRAdapter extends BaseFrameworkAdapter {
       const renderId = island.dataset.solidRenderId || island.dataset.renderId;
       
       // Check if we have SSR content to hydrate
-      const hasSSRContent = island.children.length > 0;
 
       // Hydrate or render the component
       const dispose = hydrate(

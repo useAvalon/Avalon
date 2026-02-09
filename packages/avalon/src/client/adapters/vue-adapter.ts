@@ -176,7 +176,7 @@ export class VueHMRAdapter extends BaseFrameworkAdapter {
     }
     
     // Check if it's a component options object
-    if (component == null || typeof component !== 'object') {
+    if (typeof component !== 'object') {
       return false;
     }
 
