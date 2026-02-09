@@ -1,5 +1,5 @@
 import type { Integration } from "../../../../integrations/shared/types.ts";
-import { dirname, join } from "@std/path";
+import { dirname, join } from "node:path";
 
 /**
  * Find the root of the Avalon monorepo by looking for packages/integrations
@@ -138,8 +138,8 @@ export class IntegrationRegistry {
       
       throw new Error(
         `Failed to load integration for framework '${name}'. ` +
-        `Make sure @avalon/integration-${name} is installed.\n` +
-        `Install it with: deno add @avalon/integration-${name}`,
+        `Make sure @avalon/${name} is installed.\n` +
+        `Install it with: deno add @avalon/${name}`,
         { cause: error }
       );
     }

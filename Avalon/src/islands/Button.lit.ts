@@ -1,8 +1,9 @@
 import { LitElement, html, css } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
 
-@customElement("lit-button")
 export class LitButton extends LitElement {
+  // Static element name for SSR tag name extraction
+  static elementName = "lit-button";
+
   static styles = css`
     :host {
       display: inline-block;
@@ -73,16 +74,17 @@ export class LitButton extends LitElement {
     }
   `;
 
-  @property({ type: String, attribute: 'label' })
+  // Define properties without decorators
+  static properties = {
+    label: { type: String, attribute: 'label' },
+    variant: { type: String, attribute: 'variant' },
+    clickCount: { type: Number, state: true },
+    lastClickTime: { type: String, state: true },
+  };
+
   label = "Click Me";
-
-  @property({ type: String, attribute: 'variant' })
   variant = "primary";
-
-  @state()
   private clickCount = 0;
-
-  @state()
   private lastClickTime = "";
 
   private handleClick() {
@@ -124,6 +126,11 @@ export class LitButton extends LitElement {
       </div>
     `;
   }
+}
+
+// Register custom element without decorator
+if (typeof customElements !== 'undefined' && !customElements.get("lit-button")) {
+  customElements.define("lit-button", LitButton);
 }
 
 declare global {

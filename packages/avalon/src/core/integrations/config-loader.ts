@@ -1,6 +1,23 @@
 /**
- * Configuration loader for Avalon integrations
- * Handles loading and validating avalon.config.ts
+ * Configuration loader for Avalon integrations.
+ *
+ * CONFIG PATH: CLI tooling
+ * This loader reads `avalon.config.ts` from disk and is used exclusively by
+ * `core/integrations/startup.ts` → `cli.ts`. It is NOT wired into the Vite
+ * plugin startup path.
+ *
+ * The Vite plugin uses its own config path:
+ *   `vite-plugin/config.ts` → `resolveConfig(userConfig, isDev)`
+ * which takes inline options from `vite.config.ts` and resolves them against
+ * `DEFAULT_CONFIG`. That path uses `IntegrationName[]` (simple string array).
+ *
+ * This CLI path uses `IntegrationConfigEntry[]` (objects with name/enabled/options)
+ * because the file-based `avalon.config.ts` format supports per-integration
+ * options and enable/disable toggles.
+ *
+ * Shared boolean defaults (autoDiscoverIntegrations, validateIntegrations,
+ * showWarnings) are sourced from `DEFAULT_CONFIG` in `vite-plugin/config.ts`
+ * via `mergeConfig()` in `schemas/integration-config.ts`.
  */
 
 import { existsSync } from "node:fs";

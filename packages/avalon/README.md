@@ -191,10 +191,10 @@ export async function middleware(ctx: MiddlewareContext) {
 
 Avalon supports multiple UI frameworks through integration packages:
 
-- `@avalon/integration-preact` - Preact integration
-- `@avalon/integration-vue` - Vue integration
-- `@avalon/integration-solid` - Solid integration
-- `@avalon/integration-svelte` - Svelte integration
+- `@avalon/preact` - Preact integration
+- `@avalon/vue` - Vue integration
+- `@avalon/solid` - Solid integration
+- `@avalon/svelte` - Svelte integration
 
 Each integration is loaded automatically when you use components from that framework.
 

@@ -20,18 +20,18 @@ Detection happens in the `integration-detection-plugin.ts` which runs during the
 
 ### Module Resolution
 
-Integration packages use the `@avalon/integration-*` naming convention:
+Integration packages use the `@avalon/*` naming convention:
 
 ```typescript
-import { preactIntegration } from '@avalon/integration-preact';
-import { vueIntegration } from '@avalon/integration-vue/server';
+import { preactIntegration } from '@avalon/preact';
+import { vueIntegration } from '@avalon/vue/server';
 ```
 
 The `integration-resolver-plugin.ts` handles resolving these imports to the actual file paths:
 
-- `@avalon/integration-preact` → `src/integrations/preact/mod.ts`
-- `@avalon/integration-preact/server` → `src/integrations/preact/server/renderer.ts`
-- `@avalon/integration-preact/client` → `src/integrations/preact/client/index.ts`
+- `@avalon/preact` → `src/integrations/preact/mod.ts`
+- `@avalon/preact/server` → `src/integrations/preact/server/renderer.ts`
+- `@avalon/preact/client` → `src/integrations/preact/client/index.ts`
 
 ### Build Configurations
 

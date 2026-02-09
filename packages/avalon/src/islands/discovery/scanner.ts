@@ -5,7 +5,7 @@
  * Supports nested patterns like /src/modules/[module]/islands/.
  */
 
-import { resolve, relative, dirname, basename, extname } from "@std/path";
+import { resolve, relative, dirname, basename, extname } from "node:path";
 import type {
   IslandDirectory,
   IslandDiscoveryConfig,

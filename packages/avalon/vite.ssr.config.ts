@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { resolve } from '@std/path';
+import { resolve } from 'node:path';
 import deno from '@deno/vite-plugin';
 import type { UserConfig } from 'vite';
 import { detectUsedIntegrations, getRequiredIntegrations } from './src/build/integration-detection-plugin.ts';

@@ -2,7 +2,7 @@
  * Tests for server configuration with file-system routing
  */
 
-import { assertEquals, assertExists } from 'https://deno.land/std@0.208.0/assert/mod.ts';
+import { assertEquals, assertExists } from '@std/assert';
 import { validateServerConfig, safeValidateServerConfig } from '../server.ts';
 
 Deno.test('Server configuration with file-system routing', async t => {

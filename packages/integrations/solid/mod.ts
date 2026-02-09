@@ -1,10 +1,11 @@
 /**
- * @avalon/integration-solid
+ * @avalon/solid
  * 
  * Solid integration for Avalon framework
  * Provides server-side rendering and client-side hydration for Solid components
  */
 
+import type { Plugin } from "vite";
 import type { Integration, IntegrationConfig } from "../shared/types.ts";
 import { render, renderWithErrorBoundary } from "./server/renderer.ts";
 import { getHydrationScript } from "./client/hydration.ts";
@@ -53,6 +54,22 @@ export const solidIntegration: Integration = {
   
   config(): IntegrationConfig {
     return config;
+  },
+
+  /**
+   * Provides the vite-plugin-solid Vite plugin with SSR configuration.
+   * Includes only .solid.tsx/.solid.jsx files to avoid conflicts with React/Preact.
+   */
+  async vitePlugin(): Promise<Plugin | Plugin[]> {
+    const { default: solid } = await import("vite-plugin-solid");
+    return solid({
+      // Enable SSR mode
+      ssr: true,
+      // Only process files with .solid.tsx or .solid.jsx extension
+      include: [/\.solid\.(tsx|jsx)$/],
+      // Exclude node_modules
+      exclude: [/node_modules/],
+    });
   },
 };
 

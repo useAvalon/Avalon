@@ -1,5 +1,5 @@
-import { join, relative } from '@std/path';
-import { walk } from '@std/fs';
+import { join, relative } from 'node:path';
+import { walk } from '../utils/std-fs-shim.ts';
 import type { ApiRoute, ApiRouteConfig, ApiContext, ApiMethod } from '../schemas/api.ts';
 import type { MiddlewareContext } from '../schemas/middleware.ts';
 import { methodNotAllowed } from '../core/api/api.ts';
@@ -7,13 +7,21 @@ import { methodNotAllowed } from '../core/api/api.ts';
 /**
  * Discover all API routes in the src/api directory
  *
+ * @deprecated This function is deprecated. API routes should be placed in the
+ * `api/` directory at the project root and are auto-discovered by Nitro.
+ * 
+ * For Nitro-based routing:
+ * - Create files in `api/` directory (e.g., `api/hello.ts`)
+ * - Use `defineEventHandler` from h3 for handlers
+ * - Nitro will auto-discover and register routes
+ *
  * @warning This function uses dynamic imports and filesystem access.
  *
  * **Deployment Compatibility:**
  * - ✅ Works: Local development, traditional servers (VPS, Docker)
  * - ❌ Limited: Deno Deploy, Vercel, Netlify, Cloudflare Workers
  *
- * For serverless/edge deployments, use `registerApiRoutes()` instead.
+ * For serverless/edge deployments, use Nitro's native routing instead.
  */
 export async function discoverApiRoutes() {
 	const apiDir = join(Deno.cwd(), 'src', 'api');

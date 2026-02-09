@@ -89,7 +89,7 @@ Define your package metadata:
 
 ```json
 {
-  "name": "@avalon/integration-my-framework",
+  "name": "@avalon/my-framework",
   "version": "0.1.0",
   "description": "My Framework integration for Avalon",
   "exports": {
@@ -215,7 +215,7 @@ The `getHydrationScript()` method returns client-side hydration code:
 // client/hydration.ts
 export function getHydrationScript(): string {
   return `
-    import { hydrate } from '@avalon/integration-my-framework/client';
+    import { hydrate } from '@avalon/my-framework/client';
     
     // Find all islands for this framework
     const islands = document.querySelectorAll('[data-framework="my-framework"]');

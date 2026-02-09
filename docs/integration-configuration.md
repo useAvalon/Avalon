@@ -244,7 +244,7 @@ Or enable auto-discovery:
   };
 
 Make sure the integration package is installed:
-  deno add @avalon/integration-vue
+  deno add @avalon/vue
 ```
 
 ### Misconfigured Integration

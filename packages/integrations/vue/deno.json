@@ -1,5 +1,5 @@
 {
-	"name": "@avalon/integration-vue",
+	"name": "@avalon/vue",
 	"version": "0.1.0",
 	"exports": {
 		".": "./mod.ts",
@@ -9,7 +9,9 @@
 	},
 	"imports": {
 		"vue": "npm:vue@3.5.21",
-		"vue/server-renderer": "npm:vue@3.5.21/server-renderer"
+		"vue/server-renderer": "npm:vue@3.5.21/server-renderer",
+		"vite": "npm:vite@8.0.0-beta.10",
+		"@vitejs/plugin-vue": "npm:@vitejs/plugin-vue@^5.2.4"
 	},
 	"compilerOptions": {
 		"lib": ["dom", "dom.iterable", "esnext", "deno.ns"]

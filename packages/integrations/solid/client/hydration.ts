@@ -134,7 +134,7 @@ export function getHydrationScript(): string {
           }
           
           // Dynamic import of integration client code
-          const { hydrate } = await import('@avalon/integration-solid/client');
+          const { hydrate } = await import('@avalon/solid/client');
           
           // Dynamic import of component
           const module = await import(src);

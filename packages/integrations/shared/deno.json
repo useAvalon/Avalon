@@ -1,10 +1,13 @@
 {
-	"name": "@avalon/integration-shared",
+	"name": "@avalon/shared",
 	"version": "0.1.0",
 	"exports": {
 		".": "./types.ts",
 		"./types": "./types.ts",
 		"./utils": "./utils.ts",
 		"./base": "./base-integration.ts"
+	},
+	"imports": {
+		"vite": "npm:vite@8.0.0-beta.10"
 	}
 }

@@ -5,7 +5,7 @@
  * including validation, management, and configuration operations.
  */
 
-import { assertEquals, assertExists, assert } from 'https://deno.land/std@0.208.0/assert/mod.ts';
+import { assertEquals, assertExists, assert } from '@std/assert';
 import { FrameworkRegistry, createFrameworkConfig, defaultFrameworkRegistry } from '../framework-registry.ts';
 import type { FrameworkConfig } from '../enhanced-framework-detector.ts';
 

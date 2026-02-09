@@ -1,5 +1,5 @@
-import { join, extname, basename } from '@std/path';
-import { ensureDir, exists, walk } from '@std/fs';
+import { join, extname, basename } from 'node:path';
+import { ensureDir, exists, walk } from '../utils/std-fs-shim.ts';
 
 /**
  * Image compression configuration type

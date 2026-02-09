@@ -1,5 +1,9 @@
 /**
  * Routes for user application pages and API endpoints
+ * 
+ * NOTE: File-system routing is now handled by Nitro's native routing system.
+ * API routes should be placed in the `api/` directory and are auto-discovered.
+ * Page routes are discovered by Nitro's route-discovery module for SSR rendering.
  */
 
 import { renderToHtml, renderToHtmlWithLayouts, type ComponentRenderOptions } from '../ssr.ts';
@@ -10,8 +14,6 @@ import type { RenderOptions } from '../../schemas/core.ts';
 import type { MiddlewareContext } from '../../schemas/middleware.ts';
 import type { EnhancedLayoutResolver } from '../../core/layout/enhanced-layout-resolver.ts';
 import type { LayoutContext } from '../../types/layout.ts';
-import { type FileSystemRouter, createFileSystemRouteHandlers } from '../../core/routing/file-system-router.ts';
-import type { RouteHandler } from '../../schemas/routing.ts';
 import type { ApiRoute } from '../../schemas/api.ts';
 
 export function createApiRoutes(apiRoutes: ApiRoute[]) {
@@ -89,46 +91,22 @@ export function createAppRoutes(
 }
 
 /**
- * Creates file-system based routes using the FileSystemRouter
- * @param fileSystemRouter - FileSystemRouter instance
- * @param layoutResolver - Layout resolver for layout-aware rendering
- * @param mergedDefaultOptions - Default render options
- * @param islandManifest - Island manifest for production builds
- * @param isDev - Development mode flag
- * @returns Promise<RouteHandler[]> Array of file-system route handlers
+ * @deprecated File-system routing is now handled by Nitro's native routing system.
+ * This function is kept as a stub for backward compatibility but returns an empty array.
+ * API routes should be placed in the `api/` directory and are auto-discovered by Nitro.
+ * Page routes are discovered by Nitro's route-discovery module for SSR rendering.
  */
 export async function createFileSystemRoutes(
-	fileSystemRouter: FileSystemRouter,
-	layoutResolver?: EnhancedLayoutResolver,
-	mergedDefaultOptions: Partial<RenderOptions> = {},
-	islandManifest: IslandManifest | null = null,
+	_fileSystemRouter: unknown,
+	_layoutResolver?: EnhancedLayoutResolver,
+	_mergedDefaultOptions: Partial<RenderOptions> = {},
+	_islandManifest: IslandManifest | null = null,
 	isDev: boolean = false,
-	quietMode: boolean = false
-): Promise<RouteHandler[]> {
-	try {
-		// Use the utility function from FileSystemRouter to create handlers
-		const handlers = await createFileSystemRouteHandlers(
-			fileSystemRouter,
-			layoutResolver,
-			mergedDefaultOptions,
-			islandManifest,
-			isDev
-		);
-
-		if (isDev && handlers.length > 0 && !quietMode) {
-			console.log(`📁 Discovered ${handlers.length} file-system routes`);
-		}
-
-		return handlers;
-	} catch (error) {
-		console.error('Failed to create file-system routes:', error);
-
-		// In development, we want to see the error
-		if (isDev) {
-			throw error;
-		}
-
-		// In production, return empty array to allow fallback to manual routes
-		return [];
+	_quietMode: boolean = false,
+	_streamingEnabled: boolean = true
+): Promise<Array<{ pattern: URLPattern; handler: (req: Request, middlewareContext?: MiddlewareContext, layoutContext?: LayoutContext) => Promise<Response> }>> {
+	if (isDev) {
+		console.warn('[app-routes] createFileSystemRoutes is deprecated. File-system routing is now handled by Nitro.');
 	}
+	return [];
 }

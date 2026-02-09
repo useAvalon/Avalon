@@ -2,7 +2,7 @@
  * Tests for Vite server proxy functionality
  */
 
-import { assertEquals, assertStringIncludes } from 'https://deno.land/std@0.208.0/assert/mod.ts';
+import { assertEquals, assertStringIncludes } from '@std/assert';
 import { proxyToVite } from '../vite-server.ts';
 import { DEFAULT_SERVER_PORT, VITE_DEV_PORT } from '../constants.ts';
 

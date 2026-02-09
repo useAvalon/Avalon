@@ -1,6 +1,16 @@
 /**
- * Schema and types for Avalon integration configuration
+ * Schema and types for Avalon integration configuration.
+ *
+ * NOTE: This module is part of the CLI/schema config path, used by
+ * `config-loader.ts` → `core/integrations/startup.ts` → `cli.ts`.
+ * It is NOT used by the Vite plugin at runtime. The Vite plugin uses
+ * `vite-plugin/config.ts` → `resolveConfig()` directly.
+ *
+ * Defaults are imported from `vite-plugin/config.ts` (the single source
+ * of truth) to prevent drift between the two config paths.
  */
+
+import { DEFAULT_CONFIG } from "../vite-plugin/config.ts";
 
 /**
  * Configuration for a single integration
@@ -32,23 +42,14 @@ export interface AvalonConfig {
 }
 
 /**
- * Default configuration values
- */
-export const defaultConfig: Required<AvalonConfig> = {
-  integrations: [],
-  autoDiscoverIntegrations: true,
-  validateIntegrations: true,
-  showWarnings: true,
-};
-
-/**
- * Merge user config with defaults
+ * Merge user config with defaults derived from the canonical DEFAULT_CONFIG
+ * in `vite-plugin/config.ts`.
  */
 export function mergeConfig(userConfig: AvalonConfig): Required<AvalonConfig> {
   return {
-    integrations: userConfig.integrations ?? defaultConfig.integrations,
-    autoDiscoverIntegrations: userConfig.autoDiscoverIntegrations ?? defaultConfig.autoDiscoverIntegrations,
-    validateIntegrations: userConfig.validateIntegrations ?? defaultConfig.validateIntegrations,
-    showWarnings: userConfig.showWarnings ?? defaultConfig.showWarnings,
+    integrations: userConfig.integrations ?? [],
+    autoDiscoverIntegrations: userConfig.autoDiscoverIntegrations ?? DEFAULT_CONFIG.autoDiscoverIntegrations,
+    validateIntegrations: userConfig.validateIntegrations ?? DEFAULT_CONFIG.validateIntegrations,
+    showWarnings: userConfig.showWarnings ?? DEFAULT_CONFIG.showWarnings,
   };
 }

@@ -2,7 +2,7 @@
  * Tests for Vite route proxying functionality
  */
 
-import { assertEquals } from 'https://deno.land/std@0.208.0/assert/mod.ts';
+import { assertEquals } from '@std/assert';
 import { createViteRoutes } from '../vite-routes.ts';
 import { DEFAULT_SERVER_PORT, VITE_DEV_PORT } from '../../constants.ts';
 

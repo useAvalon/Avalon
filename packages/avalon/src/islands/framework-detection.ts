@@ -2,6 +2,7 @@ import type { Framework } from "./types.ts";
 import type { ViteDevServer } from "vite";
 import { registry } from "../core/integrations/registry.ts";
 import { IslandRegistry, createIslandRegistry } from "./discovery/index.ts";
+import { getCachedPath, setCachedPath } from "./render-cache.ts";
 
 // Global Vite server reference
 declare global {
@@ -37,18 +38,51 @@ export function hasFrameworkIntegration(framework: string) {
 }
 
 /**
+ * Check if we're in development mode
+ */
+function isDev(): boolean {
+  try {
+    return typeof Deno !== "undefined" && Deno.env?.get("DENO_ENV") !== "production";
+  } catch {
+    return true; // Default to dev mode if we can't check
+  }
+}
+
+/**
+ * Check if a file exists asynchronously
+ * @param path - The path to check
+ * @returns True if the file exists, false otherwise
+ */
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Resolve Island component path for Vite SSR loading
  * Converts /islands/* paths to /src/islands/* for proper resolution
  * Also handles framework-specific naming conventions
  * 
  * Updated to work with integration-based loading system and nested islands.
+ * Now uses async file operations and caching for better performance.
+ * 
  * Supports paths like:
  * - /islands/Counter.tsx -> /src/islands/Counter.tsx
  * - /src/islands/Counter.tsx -> /src/islands/Counter.tsx
  * - /src/modules/auth/islands/Counter.tsx -> /src/modules/auth/islands/Counter.tsx
  * - /modules/auth/islands/Counter.tsx -> /src/modules/auth/islands/Counter.tsx
  */
-export function resolveIslandPath(src: string): string {
+export async function resolveIslandPath(src: string): Promise<string> {
+  // Check cache first
+  const cachedPath = getCachedPath(src);
+  if (cachedPath !== null) {
+    return cachedPath;
+  }
+
   let resolvedPath = src;
 
   // Normalize path separators
@@ -77,6 +111,8 @@ export function resolveIslandPath(src: string): string {
   if (islandRegistry) {
     const resolvedFromRegistry = resolveIslandPathFromRegistry(resolvedPath, islandRegistry);
     if (resolvedFromRegistry) {
+      // Cache the resolved path
+      setCachedPath(src, resolvedFromRegistry);
       return resolvedFromRegistry;
     }
   }
@@ -108,26 +144,70 @@ export function resolveIslandPath(src: string): string {
     // Add original path as fallback
     possiblePaths.push(resolvedPath);
 
-    // Check which file actually exists (synchronously for performance)
+    // Check which file actually exists (asynchronously for better performance)
     for (const possiblePath of possiblePaths) {
-      try {
-        // Try the path as-is (relative to project root)
-        const pathVariation = possiblePath.startsWith("/")
-          ? possiblePath.substring(1)
-          : possiblePath;
-        try {
-          Deno.statSync(pathVariation);
-          return possiblePath;
-        } catch {
-          continue;
-        }
-      } catch {
-        // File doesn't exist, continue to next possibility
-        continue;
+      // Try the path as-is (relative to project root)
+      const pathVariation = possiblePath.startsWith("/")
+        ? possiblePath.substring(1)
+        : possiblePath;
+      
+      if (await fileExists(pathVariation)) {
+        // Cache the resolved path
+        setCachedPath(src, possiblePath);
+        return possiblePath;
       }
     }
   }
 
+  // Cache the resolved path (even if it's the same as input)
+  setCachedPath(src, resolvedPath);
+  return resolvedPath;
+}
+
+/**
+ * Synchronous version of resolveIslandPath for backward compatibility
+ * Uses cached results when available, falls back to basic resolution without file I/O
+ * 
+ * @deprecated Use resolveIslandPath (async) instead for better performance
+ */
+export function resolveIslandPathSync(src: string): string {
+  // Check cache first - if we have a cached result, use it
+  const cachedPath = getCachedPath(src);
+  if (cachedPath !== null) {
+    return cachedPath;
+  }
+
+  let resolvedPath = src;
+
+  // Normalize path separators
+  resolvedPath = resolvedPath.replace(/\\/g, "/");
+
+  // Handle nested island paths like /modules/*/islands/
+  // Convert to /src/modules/*/islands/ if not already prefixed with /src/
+  if (resolvedPath.includes("/islands/") && !resolvedPath.startsWith("/src/")) {
+    // Check if it's a nested path pattern (e.g., /modules/auth/islands/)
+    if (resolvedPath.match(/^\/(?:modules\/)?[^/]+\/islands\//)) {
+      resolvedPath = "/src" + resolvedPath;
+    }
+    // Handle simple /islands/ path
+    else if (resolvedPath.startsWith("/islands/")) {
+      resolvedPath = resolvedPath.replace("/islands/", "/src/islands/");
+    }
+  }
+
+  // Try to resolve using the island registry if available
+  const islandRegistry = globalThis.__islandRegistry;
+  if (islandRegistry) {
+    const resolvedFromRegistry = resolveIslandPathFromRegistry(resolvedPath, islandRegistry);
+    if (resolvedFromRegistry) {
+      // Cache the resolved path
+      setCachedPath(src, resolvedFromRegistry);
+      return resolvedFromRegistry;
+    }
+  }
+
+  // For sync version, skip file system checks and return the basic resolved path
+  // The async version should be used for full resolution with file existence checks
   return resolvedPath;
 }
 
@@ -350,11 +430,6 @@ export function detectFrameworkFromSrc(
 export async function detectFramework(
   src: string,
 ): Promise<Framework> {
-  const logPrefix = `🔍 [${src}]`;
-  const detectionStart = performance.now();
-
-  console.log(`${logPrefix} Starting framework detection...`);
-
   // Get all registered integrations
   const integrations = registry.getAll();
 
@@ -365,24 +440,12 @@ export async function detectFramework(
     // Check file extensions
     for (const ext of config.fileExtensions) {
       if (src.endsWith(ext)) {
-        const detectionTime = performance.now() - detectionStart;
-        console.log(
-          `${logPrefix} Framework detected via file extension (${ext}): ${config.name} (${
-            detectionTime.toFixed(2)
-          }ms)`,
-        );
         return config.name as Framework;
       }
     }
     
     // Check for framework-specific naming conventions
     if (src.includes(`.${config.name}.`)) {
-      const detectionTime = performance.now() - detectionStart;
-      console.log(
-        `${logPrefix} Framework detected via naming convention: ${config.name} (${
-          detectionTime.toFixed(2)
-        }ms)`,
-      );
       return config.name as Framework;
     }
   }
@@ -390,43 +453,23 @@ export async function detectFramework(
   // Try to read file content for more accurate detection
   try {
     let fileContent: string;
-    let contentSource = "";
 
     try {
       // Try to read the file directly using resolved path
-      const resolvedPath = resolveIslandPath(src);
+      const resolvedPath = await resolveIslandPath(src);
       const filePath = resolvedPath.replace(/^\//, "");
-      console.log(
-        `${logPrefix} Attempting direct file read: ${src} -> ${filePath}`,
-      );
       fileContent = await Deno.readTextFile(filePath);
-      contentSource = "direct file read";
-    } catch (fileError) {
-      console.log(
-        `${logPrefix} Direct file read failed, trying Vite SSR:`,
-        fileError,
-      );
+    } catch {
       // If direct read fails, try through Vite in development
       const viteServer = globalThis.__viteDevServer;
       if (viteServer) {
-        const resolvedPath = resolveIslandPath(src);
-        console.log(
-          `${logPrefix} Using Vite SSR module loading: ${src} -> ${resolvedPath}`,
-        );
+        const resolvedPath = await resolveIslandPath(src);
         const module = await viteServer.ssrLoadModule(resolvedPath);
         fileContent = module.toString();
-        contentSource = "Vite SSR module";
       } else {
-        console.log(
-          `${logPrefix} No Vite server available, cannot detect framework`,
-        );
         return "unknown";
       }
     }
-
-    console.log(
-      `${logPrefix} File content loaded via ${contentSource} (${fileContent.length} chars)`,
-    );
 
     // Check imports and content patterns using integration configs
     for (const integration of integrations) {
@@ -435,12 +478,6 @@ export async function detectFramework(
       // Check import patterns
       for (const pattern of config.detectionPatterns.imports) {
         if (pattern.test(fileContent)) {
-          const detectionTime = performance.now() - detectionStart;
-          console.log(
-            `${logPrefix} Framework detected via import pattern: ${config.name} (${
-              detectionTime.toFixed(2)
-            }ms)`,
-          );
           return config.name as Framework;
         }
       }
@@ -448,12 +485,6 @@ export async function detectFramework(
       // Check content patterns
       for (const pattern of config.detectionPatterns.content) {
         if (pattern.test(fileContent)) {
-          const detectionTime = performance.now() - detectionStart;
-          console.log(
-            `${logPrefix} Framework detected via content pattern: ${config.name} (${
-              detectionTime.toFixed(2)
-            }ms)`,
-          );
           return config.name as Framework;
         }
       }
@@ -461,7 +492,6 @@ export async function detectFramework(
 
     // Fallback: If no integrations are loaded, use hardcoded patterns for backward compatibility
     if (integrations.length === 0) {
-      console.log(`${logPrefix} No integrations loaded, using fallback detection`);
       const checks = [
         {
           pattern: /solid-js|@jsxImportSource solid-js/,
@@ -475,33 +505,14 @@ export async function detectFramework(
 
       for (const check of checks) {
         if (check.pattern.test(fileContent)) {
-          const detectionTime = performance.now() - detectionStart;
-          console.log(
-            `${logPrefix} Framework detected via fallback content analysis: ${check.framework} (${
-              detectionTime.toFixed(2)
-            }ms)`,
-          );
           return check.framework;
         }
       }
     }
 
     // Default to preact for JSX files
-    const detectionTime = performance.now() - detectionStart;
-    console.log(
-      `${logPrefix} No specific framework detected, defaulting to preact (${
-        detectionTime.toFixed(2)
-      }ms)`,
-    );
     return "preact";
-  } catch (error) {
-    const detectionTime = performance.now() - detectionStart;
-    console.warn(
-      `${logPrefix} Framework detection failed after ${
-        detectionTime.toFixed(2)
-      }ms:`,
-      error,
-    );
+  } catch {
     return "unknown";
   }
 }

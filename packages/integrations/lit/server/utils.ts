@@ -118,14 +118,26 @@ export async function extractTagNameFromSource(src: string): Promise<string | nu
     
     const content = await Deno.readTextFile(componentPath);
     
-    // Try different quote styles
-    const patterns = [
+    // Try @customElement decorator with different quote styles
+    const decoratorPatterns = [
       /@customElement\s*\(\s*"([^"]+)"\s*\)/,
       /@customElement\s*\(\s*'([^']+)'\s*\)/,
       /@customElement\s*\(\s*`([^`]+)`\s*\)/,
     ];
     
-    for (const pattern of patterns) {
+    for (const pattern of decoratorPatterns) {
+      const match = content.match(pattern);
+      if (match?.[1]) return match[1];
+    }
+    
+    // Try static elementName property (for decorator-free components)
+    const elementNamePatterns = [
+      /static\s+elementName\s*=\s*"([^"]+)"/,
+      /static\s+elementName\s*=\s*'([^']+)'/,
+      /static\s+elementName\s*=\s*`([^`]+)`/,
+    ];
+    
+    for (const pattern of elementNamePatterns) {
       const match = content.match(pattern);
       if (match?.[1]) return match[1];
     }
@@ -152,7 +164,7 @@ export async function loadComponent(
     const componentPath = resolvedSrc.startsWith("/")
       ? join(Deno.cwd(), resolvedSrc.slice(1))
       : resolvedSrc;
-    module = await import(componentPath);
+    module = await import(/* @vite-ignore */ componentPath);
   }
   
   const Component = module.default || module[Object.keys(module)[0]];

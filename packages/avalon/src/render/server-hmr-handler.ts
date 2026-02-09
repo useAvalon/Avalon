@@ -5,6 +5,12 @@
  */
 
 import type { ViteDevServer, ModuleNode } from 'vite';
+import {
+  invalidateCacheForFile,
+  isIslandComponentFile,
+  clearPathCacheOnStructureChange,
+  clearIslandCache,
+} from '../islands/render-cache.ts';
 
 export interface ServerHMRHandlerConfig {
   /**
@@ -89,8 +95,6 @@ export class ServerHMRHandler {
   initialize(viteServer: ViteDevServer): void {
     this.viteServer = viteServer;
 
-    console.log('🔥 [ServerHMR] Initialized with Vite dev server');
-
     // Set up file watcher for server-side modules
     this.setupFileWatcher();
   }
@@ -105,17 +109,37 @@ export class ServerHMRHandler {
 
     // Listen to Vite's file change events
     this.viteServer.watcher.on('change', async (filePath: string) => {
-      console.log(`👀 [ServerHMR] Watcher detected change: ${filePath}`);
+      // Invalidate island render cache for component files
+      if (isIslandComponentFile(filePath)) {
+        invalidateCacheForFile(filePath);
+      }
+      
       await this.handleFileChange(filePath);
     });
 
     // Also listen for add events (new files)
     this.viteServer.watcher.on('add', async (filePath: string) => {
-      console.log(`➕ [ServerHMR] Watcher detected new file: ${filePath}`);
+      // Clear path cache when file structure changes
+      clearPathCacheOnStructureChange();
+      
+      // Invalidate cache for the new file if it's a component
+      if (isIslandComponentFile(filePath)) {
+        invalidateCacheForFile(filePath);
+      }
+      
       await this.handleFileChange(filePath);
     });
 
-    console.log('[ServerHMR] File watcher set up and listening');
+    // Listen for unlink events (deleted files)
+    this.viteServer.watcher.on('unlink', (filePath: string) => {
+      // Clear path cache when file structure changes
+      clearPathCacheOnStructureChange();
+      
+      // Invalidate cache for the deleted file
+      if (isIslandComponentFile(filePath)) {
+        invalidateCacheForFile(filePath);
+      }
+    });
   }
 
   /**
@@ -126,31 +150,22 @@ export class ServerHMRHandler {
       // Normalize path for consistent matching
       const normalizedPath = filePath.replace(/\\/g, '/');
 
-      console.log(`📝 [ServerHMR] Processing file change: ${normalizedPath}`);
-
-      // Debug: Show pattern matching
+      // Pattern matching
       const isPage = this.config.patterns?.pages?.test(normalizedPath);
       const isLayout = this.config.patterns?.layouts?.test(normalizedPath);
       const isApiRoute = this.config.patterns?.apiRoutes?.test(normalizedPath);
       const isMiddleware = this.config.patterns?.middleware?.test(normalizedPath);
-      
-      console.log(`   Pattern matches - page: ${isPage}, layout: ${isLayout}, api: ${isApiRoute}, middleware: ${isMiddleware}`);
 
       // Determine module type and handle accordingly
       if (isPage) {
-        console.log(`📄 [ServerHMR] Detected page change: ${normalizedPath}`);
         await this.handlePageUpdate(normalizedPath);
       } else if (isLayout) {
-        console.log(`🎨 [ServerHMR] Detected layout change: ${normalizedPath}`);
         await this.handleLayoutUpdate(normalizedPath);
       } else if (isApiRoute) {
-        console.log(`🔌 [ServerHMR] Detected API route change: ${normalizedPath}`);
         await this.handleAPIRouteUpdate(normalizedPath);
       } else if (isMiddleware) {
-        console.log(`⚙️ [ServerHMR] Detected middleware change: ${normalizedPath}`);
         await this.handleMiddlewareUpdate(normalizedPath);
       } else {
-        console.log(`   [ServerHMR] File type not handled by server HMR (island/component changes handled by Vite)`);
       }
     } catch (error) {
       this.handleError(filePath, error as Error);
@@ -490,8 +505,6 @@ export class ServerHMRHandler {
       return;
     }
 
-    console.log(`🔄 [ServerHMR] Triggering browser refresh for ${moduleType}: ${modulePath}`);
-
     // Send full-reload signal to browser
     this.viteServer.ws.send({
       type: 'full-reload',
@@ -544,6 +557,18 @@ export class ServerHMRHandler {
   clearCaches(): void {
     this.invalidationCache.clear();
     this.errorCache.clear();
+  }
+
+  /**
+   * Clear island render caches
+   * Can be called manually or on HMR updates
+   */
+  clearIslandRenderCaches(): void {
+    clearIslandCache();
+    
+    if (this.config.debugLogging) {
+      console.log('[ServerHMR] Cleared island render caches');
+    }
   }
 
   /**

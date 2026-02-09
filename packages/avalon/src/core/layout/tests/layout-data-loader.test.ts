@@ -1,6 +1,6 @@
 import { assertEquals, assertRejects, assertThrows, assert } from '@std/assert';
-import { describe, it, beforeEach, afterEach } from 'https://deno.land/std@0.208.0/testing/bdd.ts';
-import { FakeTime } from 'https://deno.land/std@0.208.0/testing/time.ts';
+import { describe, it, beforeEach, afterEach } from '@std/testing/bdd';
+import { FakeTime } from '@std/testing/time';
 import {
 	LayoutDataLoader,
 	LayoutDataLoadingError,

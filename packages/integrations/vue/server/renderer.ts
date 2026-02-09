@@ -30,93 +30,34 @@ import { extractCSS, generateScopeId, applyScopeToHTML } from "./css-extractor.t
 export async function render(params: RenderParams): Promise<RenderResult> {
   const { component: _component, props = {}, src, condition = "on:client", ssrOnly = false } = params;
   
-  const logPrefix = `🔄 [Vue:${src}]`;
-  const renderStart = performance.now();
-
-  console.log(`${logPrefix} Starting Vue SSR rendering...`, {
-    ssrOnly,
-    propsKeys: Object.keys(props),
-    isDev: Deno.env.get("DENO_ENV") !== "production",
-  });
-  
   try {
-    const moduleStart = performance.now();
-    
-    // Load the Vue component
     const VueComponent = await loadComponent(src);
-    
-    const moduleLoadTime = performance.now() - moduleStart;
-    console.log(
-      `${logPrefix} ✅ Module loaded in ${moduleLoadTime.toFixed(2)}ms`,
-      {
-        hasDefault: !!VueComponent,
-        componentType: typeof VueComponent,
-      },
-    );
-    
-    // Create SSR app instance
     // deno-lint-ignore no-explicit-any
     const app = createSSRApp(VueComponent as any, props);
-    
-    // Render to string
-    const renderStringStart = performance.now();
     const ssrHtml = await vueRenderToString(app);
-    const renderStringTime = performance.now() - renderStringStart;
     
-    console.log(
-      `${logPrefix} ✅ Vue component rendered successfully with vue/server-renderer in ${renderStringTime.toFixed(2)}ms`,
-    );
-    
-    // Extract CSS from the component file
     let componentCSS = "";
     let scopeId = "";
     
     try {
       scopeId = generateScopeId(src);
       componentCSS = await extractCSS(src, { scopeId });
-      
-      if (componentCSS) {
-        console.log(
-          `${logPrefix} 📝 Vue component CSS extracted and scoped: ${componentCSS.length} chars`,
-        );
-      } else {
-        console.log(`${logPrefix} ⚠️ No CSS extracted for Vue component`);
-      }
-    } catch (error) {
-      console.warn(`${logPrefix} ⚠️ Failed to extract CSS from Vue file:`, error);
+    } catch {
+      // CSS extraction failed, continue without CSS
     }
     
-    // Apply scoping to HTML if CSS was extracted
     let finalHtml = ssrHtml;
     if (componentCSS) {
       finalHtml = applyScopeToHTML(ssrHtml, scopeId);
     }
     
-    const result: VueRenderResult = {
+    return {
       html: finalHtml,
       css: componentCSS || undefined,
       scopeId: scopeId || undefined,
-      hydrationData: {
-        src,
-        props,
-        framework: "vue",
-        condition,
-        ssrOnly,
-      },
+      hydrationData: { src, props, framework: "vue", condition, ssrOnly },
     };
-    
-    const totalTime = performance.now() - renderStart;
-    console.log(
-      `${logPrefix} ✅ Vue SSR completed in ${totalTime.toFixed(2)}ms (module: ${moduleLoadTime.toFixed(2)}ms)`,
-    );
-    
-    return result;
   } catch (error) {
-    const failTime = performance.now() - renderStart;
-    console.error(
-      `${logPrefix} ❌ Vue SSR failed after ${failTime.toFixed(2)}ms:`,
-      error,
-    );
     throw new Error(`Vue SSR rendering failed: ${error}`);
   }
 }
@@ -165,7 +106,10 @@ async function loadComponent(src: string) {
     .replace("/islands/", "/dist/ssr/islands/")
     .replace(".vue", ".js");
   
-  const module = await import(ssrPath);
+  const module = await import(
+    /* @vite-ignore */
+    ssrPath
+  );
   return module.default || module;
 }
 

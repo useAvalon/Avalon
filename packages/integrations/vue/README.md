@@ -14,7 +14,7 @@ Official Vue 3 integration for the Avalon framework. Provides server-side render
 ## Installation
 
 ```bash
-deno add @avalon/integration-vue
+deno add @avalon/vue
 ```
 
 ## Usage
@@ -160,7 +160,7 @@ Scoped styles are automatically:
 Renders a Vue component to HTML string with SSR.
 
 ```typescript
-import { render } from "@avalon/integration-vue/server";
+import { render } from "@avalon/vue/server";
 
 const result = await render({
   component: VueComponent,
@@ -178,7 +178,7 @@ console.log(result.css);  // Extracted CSS
 Extracts CSS from a Vue SFC file.
 
 ```typescript
-import { extractCSS } from "@avalon/integration-vue";
+import { extractCSS } from "@avalon/vue";
 
 const css = await extractCSS("/islands/Counter.vue");
 ```
@@ -188,7 +188,7 @@ const css = await extractCSS("/islands/Counter.vue");
 Applies scoping to CSS selectors.
 
 ```typescript
-import { applyScopedCSS } from "@avalon/integration-vue";
+import { applyScopedCSS } from "@avalon/vue";
 
 const scoped = applyScopedCSS(".button { color: red; }", "data-v-abc123");
 // Result: ".button[data-v-abc123] { color: red; }"
@@ -201,7 +201,7 @@ const scoped = applyScopedCSS(".button { color: red; }", "data-v-abc123");
 Hydrates a Vue component on the client.
 
 ```typescript
-import { hydrate } from "@avalon/integration-vue/client";
+import { hydrate } from "@avalon/vue/client";
 import Counter from "./Counter.vue";
 
 const container = document.getElementById("island");
@@ -213,7 +213,7 @@ hydrate(container, Counter, { initialCount: 5 });
 The Vue integration is automatically configured when you use Vue components. You can customize the integration in your `avalon.config.ts`:
 
 ```typescript
-import { vueIntegration } from "@avalon/integration-vue";
+import { vueIntegration } from "@avalon/vue";
 
 export default {
   integrations: [
@@ -227,7 +227,7 @@ export default {
 The integration includes full TypeScript support:
 
 ```typescript
-import type { VueRenderParams, VueRenderResult } from "@avalon/integration-vue/types";
+import type { VueRenderParams, VueRenderResult } from "@avalon/vue/types";
 
 const params: VueRenderParams = {
   component: MyComponent,

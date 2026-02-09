@@ -1,7 +1,5 @@
 import { Component, ComponentChildren } from 'preact';
-import { LayoutErrorInfo, ErrorRecoveryStrategy, LayoutContext, LayoutData } from '../types/layout.ts';
-import { LayoutErrorRecovery } from '../core/layout/layout-error-recovery.ts';
-import { layoutErrorLogger } from '../core/layout/layout-error-logger.ts';
+import type { LayoutErrorInfo, LayoutContext, LayoutData } from '../types/layout.ts';
 
 export interface LayoutDataErrorBoundaryProps {
 	children: ComponentChildren;
@@ -27,8 +25,6 @@ export interface LayoutDataErrorBoundaryState {
  */
 export class LayoutDataErrorBoundary extends Component<LayoutDataErrorBoundaryProps, LayoutDataErrorBoundaryState> {
 	private maxRetries = 3;
-	private errorRecovery = new LayoutErrorRecovery();
-	private errorId: string | null = null;
 
 	constructor(props: LayoutDataErrorBoundaryProps) {
 		super(props);
@@ -43,13 +39,10 @@ export class LayoutDataErrorBoundary extends Component<LayoutDataErrorBoundaryPr
 	}
 
 	static override getDerivedStateFromError(error: Error): Partial<LayoutDataErrorBoundaryState> {
-		return {
-			hasError: true,
-			error,
-		};
+		return { hasError: true, error };
 	}
 
-	override componentDidCatch(error: Error, errorInfo: any): void {
+	override componentDidCatch(error: Error, errorInfo: { componentStack?: string }): void {
 		const layoutErrorInfo: LayoutErrorInfo = {
 			layoutPath: this.props.layoutPath,
 			errorType: 'loader',
@@ -58,18 +51,8 @@ export class LayoutDataErrorBoundary extends Component<LayoutDataErrorBoundaryPr
 			errorBoundary: 'LayoutDataErrorBoundary',
 		};
 
-		this.setState({
-			errorInfo: layoutErrorInfo,
-		});
+		this.setState({ errorInfo: layoutErrorInfo });
 
-		// Log the error
-		this.errorId = layoutErrorLogger.logError(error, layoutErrorInfo, undefined, {
-			url: this.props.context.request.url,
-			userAgent: this.props.context.request.headers.get('user-agent') || undefined,
-			referer: this.props.context.request.headers.get('referer') || undefined,
-		});
-
-		// Call onError callback if provided
 		if (this.props.onError) {
 			this.props.onError(error, layoutErrorInfo);
 		}
@@ -83,15 +66,7 @@ export class LayoutDataErrorBoundary extends Component<LayoutDataErrorBoundaryPr
 		this.setState({ isRetrying: true });
 
 		try {
-			// Increment retry count in logger
-			if (this.errorId) {
-				layoutErrorLogger.incrementRetryCount(this.errorId);
-			}
-
-			// Attempt to retry the loader
 			const data = await this.props.retryLoader();
-
-			// Success - reset error state
 			this.setState({
 				hasError: false,
 				error: null,
@@ -100,50 +75,18 @@ export class LayoutDataErrorBoundary extends Component<LayoutDataErrorBoundaryPr
 				isRetrying: false,
 				fallbackData: data,
 			});
-
-			// Mark error as resolved
-			if (this.errorId) {
-				layoutErrorLogger.markResolved(this.errorId);
-			}
 		} catch (retryError) {
-			// Retry failed
 			this.setState({
 				retryCount: this.state.retryCount + 1,
 				isRetrying: false,
 				error: retryError instanceof Error ? retryError : new Error(String(retryError)),
 			});
-
-			// Log the retry failure
-			if (this.errorId) {
-				layoutErrorLogger.logError(
-					retryError instanceof Error ? retryError : new Error(String(retryError)),
-					{
-						layoutPath: this.props.layoutPath,
-						errorType: 'loader',
-						timestamp: Date.now(),
-						errorBoundary: 'LayoutDataErrorBoundary',
-					},
-					undefined,
-					{
-						url: this.props.context.request.url,
-					}
-				);
-			}
 		}
 	};
 
 	private handleUseFallback = (): void => {
 		if (this.state.fallbackData) {
-			this.setState({
-				hasError: false,
-				error: null,
-				errorInfo: null,
-			});
-
-			// Mark as resolved with fallback
-			if (this.errorId) {
-				layoutErrorLogger.markResolved(this.errorId);
-			}
+			this.setState({ hasError: false, error: null, errorInfo: null });
 		}
 	};
 
@@ -177,23 +120,9 @@ export class LayoutDataErrorBoundary extends Component<LayoutDataErrorBoundaryPr
 						<details class="error-details">
 							<summary>Error Details (Development)</summary>
 							<div class="error-info">
-								<p>
-									<strong>Error:</strong> {error.message}
-								</p>
-								<p>
-									<strong>Layout:</strong> {this.props.layoutPath}
-								</p>
-								<p>
-									<strong>Retry Count:</strong> {retryCount}
-								</p>
-								<p>
-									<strong>Has Fallback:</strong> {hasFallback ? 'Yes' : 'No'}
-								</p>
-								{this.errorId && (
-									<p>
-										<strong>Error ID:</strong> {this.errorId}
-									</p>
-								)}
+								<p><strong>Error:</strong> {error.message}</p>
+								<p><strong>Layout:</strong> {this.props.layoutPath}</p>
+								<p><strong>Retry Count:</strong> {retryCount}</p>
 							</div>
 							<pre class="error-stack">{error.stack}</pre>
 						</details>
@@ -207,7 +136,6 @@ export class LayoutDataErrorBoundary extends Component<LayoutDataErrorBoundaryPr
 		if (this.state.hasError) {
 			return this.renderErrorUI();
 		}
-
 		return this.props.children;
 	}
 }

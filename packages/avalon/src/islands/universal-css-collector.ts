@@ -51,13 +51,6 @@ export function addUniversalCSS(
   };
 
   globalThis.__universalSSRCSS.set(key, entry);
-
-  console.log(
-    `📝 [UniversalCSS] Added ${framework} CSS to universal collection: ${key} (${css.length} chars)`,
-  );
-  console.log(
-    `📝 [UniversalCSS] Current collection size: ${globalThis.__universalSSRCSS.size} entries`,
-  );
 }
 
 /**
@@ -98,14 +91,7 @@ export function getUniversalCSS(clear = false): string {
 
   if (clear) {
     globalThis.__universalSSRCSS.clear();
-    console.log(`🧹 Cleared universal SSR CSS collection`);
   }
-
-  console.log(
-    `📦 Retrieved universal SSR CSS: ${entries.length} components from ${
-      Object.keys(cssByFramework).length
-    } frameworks, ${combinedCSS.length} chars`,
-  );
 
   return combinedCSS;
 }
@@ -114,24 +100,15 @@ export function getUniversalCSS(clear = false): string {
  * Get CSS formatted for document head injection
  */
 export function getUniversalCSSForHead(clear = false): string {
-  console.log(`🎨 [UniversalCSS] getUniversalCSSForHead called (clear: ${clear})`);
   const css = getUniversalCSS(clear);
 
   if (!css.trim()) {
-    console.log(`⚠️ [UniversalCSS] No CSS to inject into head`);
     return "";
   }
 
   const timestamp = new Date().toISOString();
   const styleTag =
     `<style data-universal-ssr="true" data-generated="${timestamp}">\n${css}\n</style>`;
-
-  console.log(
-    `✅ [UniversalCSS] Generated universal SSR CSS for document head: ${styleTag.length} chars`,
-  );
-  console.log(
-    `📝 [UniversalCSS] Style tag preview:`, styleTag.substring(0, 200)
-  );
 
   return styleTag;
 }
@@ -142,7 +119,6 @@ export function getUniversalCSSForHead(clear = false): string {
 export function clearUniversalCSS(): void {
   if (globalThis.__universalSSRCSS) {
     globalThis.__universalSSRCSS.clear();
-    console.log(`🧹 Cleared all universal SSR CSS`);
   }
 }
 

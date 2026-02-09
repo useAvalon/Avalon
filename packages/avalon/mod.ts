@@ -1,5 +1,25 @@
 // === Core Avalon + Vite Architecture ===
 
+// Vite Plugin - unified configuration API
+export { avalon, getResolvedConfig, getIslandsDir, getPagesDir, getApiDir, getNitroConfig, isNitroEnabled } from './src/vite-plugin/plugin.ts';
+export type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig, MDXConfig, ResolvedMDXConfig, AvalonNitroConfig, CacheOptions, RouteRule, NitroConfigOutput, AvalonRuntimeConfig } from './src/vite-plugin/types.ts';
+
+// Nitro Integration - virtual modules and coordination
+export {
+  createNitroIntegration,
+  createNitroCoordinationPlugin,
+  createVirtualModulesPlugin,
+  getViteDevServer,
+  getAvalonConfig,
+  isDevelopmentMode,
+  VIRTUAL_MODULE_IDS,
+  RESOLVED_VIRTUAL_IDS,
+} from './src/vite-plugin/nitro-integration.ts';
+export type {
+  NitroIntegrationResult,
+  NitroCoordinationPluginOptions,
+} from './src/vite-plugin/nitro-integration.ts';
+
 // Main exports
 export { renderToHtml } from './src/render/ssr.ts';
 export { createServer, createServerSafe } from './src/render/server.ts';
@@ -9,9 +29,22 @@ export { default as Island, renderIsland, type IslandProps } from './src/islands
 
 // Island utilities
 export { addSvelteSSRCSS, getSvelteSSRCSS, getSvelteSSRCSSForHead, getSvelteSSRCSSStats, getSvelteComponentCSS, clearSvelteComponentCSS, generateComponentScopeId } from './src/islands/css-utils.ts';
-export { detectFramework, detectFrameworkFromSrc, resolveIslandPath } from './src/islands/framework-detection.ts';
+export { detectFramework, detectFrameworkFromSrc, resolveIslandPath, resolveIslandPathSync } from './src/islands/framework-detection.ts';
 export { analyzeComponentFile, renderComponentSSROnly } from './src/islands/component-analysis.ts';
 export type { Framework, RenderParams, SvelteSSRCSSEntry } from './src/islands/types.ts';
+
+// Island render cache utilities
+export {
+  clearCache,
+  clearIslandCache,
+  invalidateCacheForPath,
+  invalidateCacheForFile,
+  getCacheStats,
+  logCacheStats,
+  configureCache,
+  getCacheConfig,
+} from './src/islands/render-cache.ts';
+export type { CacheConfig as IslandCacheConfig, CacheStats as IslandCacheStats } from './src/islands/render-cache.ts';
 
 // Island Discovery System
 export {
@@ -66,13 +99,25 @@ export type {
 } from './src/islands/discovery/index.ts';
 
 // Integration system
-export { loadIntegration, detectAndLoadIntegration } from './src/islands/integration-loader.ts';
+export { loadIntegration, detectAndLoadIntegration, preloadIntegrations, detectFrameworksFromPageContent, DEFAULT_PRELOAD_FRAMEWORKS } from './src/islands/integration-loader.ts';
+export type { PreloadIntegrationsOptions } from './src/islands/integration-loader.ts';
 export { registry as integrationRegistry } from './src/core/integrations/registry.ts';
 export type { Integration, RenderParams as IntegrationRenderParams, RenderResult, IntegrationConfig } from '../integrations/shared/types.ts';
 
 // Build utilities
 export { generateIslandManifest, loadIslandManifest, getIslandBundlePath } from './src/build/island-manifest.ts';
 export type { IslandManifest, IslandEntry, ExtendedIslandManifest, ExtendedIslandEntry } from './src/build/island-manifest.ts';
+
+// MDX island transform (auto-wraps island imports in MDX with Island() calls)
+export { mdxIslandTransform } from './src/build/mdx-island-transform.ts';
+export type { MDXIslandTransformOptions } from './src/build/mdx-island-transform.ts';
+
+// Page island transform (auto-wraps island imports in TSX pages when using `island` prop)
+export { pageIslandTransform } from './src/build/page-island-transform.ts';
+export type { PageIslandTransformOptions } from './src/build/page-island-transform.ts';
+
+// Island directive type for the `island` prop
+export type { IslandDirective } from './src/types/island-prop.d.ts';
 
 // Island type generation
 export { generateIslandTypes, watchAndGenerateTypes } from './src/build/island-types-generator.ts';
@@ -90,11 +135,30 @@ export async function build(_options?: Record<string, unknown>) {
 export * from './src/core/api/api.ts';
 export { discoverApiRoutes, handleApiRequest } from './src/functions/api.ts';
 
-// Middleware system
-export { MiddlewareDiscovery } from './src/core/middleware/middleware-discovery.ts';
-export { MiddlewareExecutor } from './src/core/middleware/middleware-executor.ts';
-export { DefaultMiddlewareErrorHandler as MiddlewareErrorHandler } from './src/core/middleware/middleware-error-handler.ts';
-export { MiddlewareContextManager } from './src/core/middleware/middleware-context.ts';
+// Middleware system (Nitro-aligned)
+export {
+	defineMiddleware,
+	discoverScopedMiddleware,
+	executeScopedMiddleware,
+	clearMiddlewareCache,
+	invalidateMiddleware,
+	getMatchingMiddleware,
+	clearDiscoveryCache,
+	hasContextValue,
+	getContextValue,
+	setContextValue,
+	getMiddlewareCacheSize,
+	isLegacyMiddlewareResponse,
+} from './src/middleware/index.ts';
+
+export type {
+	MiddlewareHandler,
+	MiddlewareFileExport,
+	MiddlewareRoute,
+	MiddlewareDiscoveryOptions,
+	MiddlewareExecutorOptions,
+	LegacyMiddlewareResponse,
+} from './src/middleware/types.ts';
 
 // Layout system - comprehensive export (all layout functionality)
 export * from './src/layout-system.ts';
@@ -103,11 +167,10 @@ export * from './src/layout-system.ts';
 export type { RenderOptions, MetaTag, ScriptConfig } from './src/schemas/core.ts';
 export type { Routes, ServerConfig, RouteConfig } from './src/schemas/server.ts';
 export type { ApiContext, ApiHandler, ApiRouteConfig, ApiRoute, ApiMethod } from './src/schemas/api.ts';
+// Legacy middleware types (deprecated - use new middleware types from './src/middleware/types.ts')
+// These are kept for backward compatibility with existing code
 export type {
 	MiddlewareContext,
-	MiddlewareResponse,
-	MiddlewareHandler,
-	MiddlewareRoute,
 	MiddlewareChain,
 } from './src/schemas/middleware.ts';
 
@@ -117,24 +180,12 @@ export type { LayoutDataLoadingResult, LayoutDataLoadingOptions } from './src/co
 // Enhanced layout resolver types
 export type { EnhancedLayoutResolverOptions } from './src/core/layout/enhanced-layout-resolver.ts';
 
-// Layout utilities types
+// Layout cache types (essential only)
 export type {
-	LayoutUtilitiesConfig,
-	LayoutUtilitiesSuite,
 	CacheEntry,
 	CacheStats,
 	CacheConfig,
-	DebugConfig,
-	DebugLogEntry,
-	PerformanceMetric,
-	PerformanceSnapshot,
-	PerformanceThresholds,
-	PerformanceAlert,
-	ValidationError,
-	ValidationResult,
-	ValidationWarning,
-	ConfigValidationOptions,
-} from './src/core/layout/layout-utilities.ts';
+} from './src/core/layout/layout-cache-manager.ts';
 
 // Layout system types - comprehensive export
 export type {
@@ -192,18 +243,7 @@ export { PersistentIsland } from './src/components/PersistentIsland.tsx';
 export { LayoutErrorBoundary } from './src/components/LayoutErrorBoundary.tsx';
 export { LayoutDataErrorBoundary } from './src/components/LayoutDataErrorBoundary.tsx';
 export { IslandErrorBoundary, withIslandErrorBoundary } from './src/components/IslandErrorBoundary.tsx';
-export { LayoutErrorRecovery } from './src/core/layout/layout-error-recovery.ts';
-export {
-	LayoutErrorLogger,
-	LayoutErrorDebugger,
-	layoutErrorLogger,
-	layoutErrorDebugger,
-} from './src/core/layout/layout-error-logger.ts';
-export {
-	LayoutErrorBoundaryManager,
-	layoutErrorBoundaryManager,
-	ErrorBoundaryUtils,
-} from './src/core/layout/layout-error-boundary-manager.ts';
+export { StreamingErrorBoundary, withStreamingErrorBoundary } from './src/components/StreamingErrorBoundary.tsx';
 
 // Layout system interfaces
 export type {

@@ -1,4 +1,4 @@
-# @avalon/integration-svelte
+# @avalon/svelte
 
 Svelte 5 integration for Avalon framework. Provides server-side rendering (SSR) and client-side hydration for Svelte components in the Islands architecture.
 
@@ -14,7 +14,7 @@ Svelte 5 integration for Avalon framework. Provides server-side rendering (SSR) 
 ## Installation
 
 ```bash
-deno add @avalon/integration-svelte
+deno add @avalon/svelte
 ```
 
 ## Usage
@@ -182,7 +182,7 @@ For components that don't need interactivity:
 Renders a Svelte component to HTML on the server.
 
 ```typescript
-import { render } from "@avalon/integration-svelte/server";
+import { render } from "@avalon/svelte/server";
 
 const result = await render({
   src: "./islands/Counter.svelte",
@@ -201,7 +201,7 @@ console.log(result.head); // Head content (from svelte:head)
 Hydrates a server-rendered Svelte component.
 
 ```typescript
-import { hydrate } from "@avalon/integration-svelte/client";
+import { hydrate } from "@avalon/svelte/client";
 import Counter from "./Counter.svelte";
 
 const container = document.getElementById("counter");
@@ -213,7 +213,7 @@ hydrate(container, Counter, { count: 0 });
 Mounts a Svelte component without hydration (client-only rendering).
 
 ```typescript
-import { mount } from "@avalon/integration-svelte/client";
+import { mount } from "@avalon/svelte/client";
 import Counter from "./Counter.svelte";
 
 const container = document.getElementById("counter");
@@ -227,8 +227,8 @@ mount(container, Counter, { count: 0 });
 Extracts CSS from a Svelte render result.
 
 ```typescript
-import { render } from "@avalon/integration-svelte/server";
-import { extractCss } from "@avalon/integration-svelte";
+import { render } from "@avalon/svelte/server";
+import { extractCss } from "@avalon/svelte";
 
 const result = await render({ src: "./Counter.svelte", props: {} });
 const css = extractCss(result);
@@ -256,7 +256,7 @@ import type {
   SvelteComponentInstance,
   SvelteRenderParams,
   SvelteRenderResult 
-} from "@avalon/integration-svelte/types";
+} from "@avalon/svelte/types";
 ```
 
 ## Configuration

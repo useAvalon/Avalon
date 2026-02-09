@@ -1,11 +1,11 @@
-# @avalon/integration-preact
+# @avalon/preact
 
 Preact integration for Avalon framework. Provides server-side rendering (SSR) and client-side hydration for Preact components.
 
 ## Installation
 
 ```bash
-deno add @avalon/integration-preact
+deno add @avalon/preact
 ```
 
 ## Usage
@@ -77,7 +77,7 @@ Renders a Preact component to HTML string on the server.
 
 **Example:**
 ```typescript
-import { render } from "@avalon/integration-preact";
+import { render } from "@avalon/preact";
 
 const result = await render({
   src: "/islands/Counter.tsx",
@@ -118,7 +118,7 @@ Hydrates a server-rendered Preact component on the client.
 
 **Example:**
 ```typescript
-import { hydrate } from "@avalon/integration-preact/client";
+import { hydrate } from "@avalon/preact/client";
 import Counter from "./Counter.tsx";
 
 const container = document.getElementById("island-1");
@@ -184,7 +184,7 @@ import type {
   PreactRenderParams,
   PreactRenderResult,
   PreactHydrationOptions 
-} from "@avalon/integration-preact/types";
+} from "@avalon/preact/types";
 ```
 
 ## Error Handling

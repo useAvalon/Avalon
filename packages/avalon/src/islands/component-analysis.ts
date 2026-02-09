@@ -2,15 +2,82 @@ import type { JSX } from "preact";
 import {
   analyzeComponentContent,
   type AnalyzerOptions,
+  type AnalysisReport,
 } from "../core/components/component-analyzer.ts";
 import { resolveIslandPath } from "./framework-detection.ts";
 import type { IslandProps } from "./types.ts";
+import {
+  getCachedAnalysis,
+  setCachedAnalysis,
+  getCachedPath,
+  setCachedPath,
+} from "./render-cache.ts";
+
+/**
+ * Check if we're in development mode
+ */
+function isDev(): boolean {
+  try {
+    return typeof Deno !== "undefined" && Deno.env?.get("DENO_ENV") !== "production";
+  } catch {
+    return true; // Default to dev mode if we can't check
+  }
+}
+
+/**
+ * Log cache hit/miss in dev mode
+ */
+function logCacheEvent(_type: "hit" | "miss", _cacheType: string, _src: string): void {
+  // Silenced — set AVALON_VERBOSE=1 to enable
+}
+
+/**
+ * Get essential path variations for a component
+ * Reduced from 22 variations to essential ones for better performance
+ */
+function getEssentialPathVariations(src: string, resolvedSrc: string): string[] {
+  const baseName = src
+    .split("/")
+    .pop()
+    ?.replace(/\.(tsx|jsx|vue|svelte|ts|js)$/, "") || "";
+
+  // Get the original file extension
+  const originalExt = src.split(".").pop() || "tsx";
+
+  // Essential path variations - prioritized by likelihood
+  return [
+    // Direct paths first (most likely to succeed)
+    resolvedSrc.startsWith("/") ? resolvedSrc.substring(1) : resolvedSrc,
+    src.startsWith("/") ? src.substring(1) : src,
+    // Standard island locations
+    `src/islands/${baseName}.${originalExt}`,
+    `src/islands/${baseName}.tsx`,
+    `islands/${baseName}.${originalExt}`,
+    `islands/${baseName}.tsx`,
+    // Framework-specific extensions (only for common frameworks)
+    `src/islands/${baseName}.svelte`,
+    `src/islands/${baseName}.vue`,
+    `src/islands/${baseName}.solid.tsx`,
+  ];
+}
+
+/**
+ * Try to read a file asynchronously, returning null if not found
+ */
+async function tryReadFile(path: string): Promise<string | null> {
+  try {
+    return await Deno.readTextFile(path);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Analyze component file for rendering strategy
  * 
  * Attempts to read the component file from various path variations and
  * analyzes its content to determine the optimal rendering strategy.
+ * Uses caching to avoid repeated file I/O and analysis for the same components.
  * 
  * @param src - The source path to the component
  * @param options - Analyzer options for customizing the analysis
@@ -20,52 +87,41 @@ import type { IslandProps } from "./types.ts";
 export async function analyzeComponentFile(
   src: string,
   options: AnalyzerOptions = {},
-) {
-  // Resolve the path first, then try variations
-  const resolvedSrc = resolveIslandPath(src);
+): Promise<AnalysisReport> {
+  // Check analysis cache first
+  const cachedAnalysis = getCachedAnalysis(src);
+  if (cachedAnalysis) {
+    logCacheEvent("hit", "analysis", src);
+    return cachedAnalysis;
+  }
+  logCacheEvent("miss", "analysis", src);
 
-  // Create comprehensive path variations including framework-specific naming
-  const baseName = src
-    .split("/")
-    .pop()
-    ?.replace(/\.(tsx|jsx|vue|svelte)$/, "") || "";
+  // Check if we have a cached resolved path
+  let resolvedSrc = getCachedPath(src);
+  if (resolvedSrc) {
+    logCacheEvent("hit", "path", src);
+  } else {
+    logCacheEvent("miss", "path", src);
+    resolvedSrc = await resolveIslandPath(src);
+  }
 
-  // Get the original file extension
-  const originalExt = src.split(".").pop() || "tsx";
+  // Get essential path variations (reduced from 22 to ~9)
+  const pathVariations = getEssentialPathVariations(src, resolvedSrc);
 
-  const pathVariations = [
-    resolvedSrc.startsWith("/") ? resolvedSrc.substring(1) : resolvedSrc,
-    src.startsWith("/") ? src.substring(1) : src,
-    `examples/${baseName}.${originalExt}`,
-    `examples/${baseName}.tsx`,
-    `examples/${baseName}.ts`,
-    `examples/${baseName}.solid.tsx`,
-    `examples/${baseName}.preact.tsx`,
-    `examples/${baseName}.svelte`,
-    `examples/${baseName}.vue`,
-    `src/islands/${baseName}.${originalExt}`,
-    `src/islands/${baseName}.tsx`,
-    `src/islands/${baseName}.ts`,
-    `src/islands/${baseName}.solid.tsx`,
-    `src/islands/${baseName}.preact.tsx`,
-    `src/islands/${baseName}.svelte`,
-    `src/islands/${baseName}.vue`,
-    `islands/${baseName}.${originalExt}`,
-    `islands/${baseName}.tsx`,
-    `islands/${baseName}.ts`,
-    `islands/${baseName}.solid.tsx`,
-    `islands/${baseName}.preact.tsx`,
-    `islands/${baseName}.svelte`,
-    `islands/${baseName}.vue`,
-  ];
-
+  // Try each path variation
   for (const pathVariation of pathVariations) {
-    try {
-      const content = await Deno.readTextFile(pathVariation);
-      return analyzeComponentContent(pathVariation, content, options);
-    } catch {
-      // Continue to next path variation
-      continue;
+    const content = await tryReadFile(pathVariation);
+    if (content !== null) {
+      // Cache the resolved path for future lookups
+      setCachedPath(src, pathVariation);
+      
+      // Analyze the component content
+      const result = analyzeComponentContent(pathVariation, content, options);
+      
+      // Cache the analysis result
+      setCachedAnalysis(src, result);
+      
+      return result;
     }
   }
 
@@ -100,8 +156,6 @@ export async function renderComponentSSROnly({
   framework?: string;
   renderOptions: AnalyzerOptions;
 }) {
-  console.log(`🔄 Attempting SSR-only rendering for: ${src}`);
-
   try {
     // Import Island component dynamically to avoid circular dependencies
     const { default: Island } = await import("./island.tsx");
@@ -114,7 +168,6 @@ export async function renderComponentSSROnly({
     let framework: string;
     if (explicitFramework) {
       framework = explicitFramework;
-      console.log(`🔄 Using explicit framework for ${src}: ${framework}`);
     } else if (src.endsWith(".vue")) {
       framework = "vue";
     } else if (src.endsWith(".svelte")) {
@@ -123,10 +176,6 @@ export async function renderComponentSSROnly({
       framework = await detectFramework(src);
     } else {
       framework = "preact"; // Default fallback
-    }
-    
-    if (!explicitFramework) {
-      console.log(`🔄 Detected framework for ${src}: ${framework}`);
     }
     
     // Load the appropriate integration
@@ -146,12 +195,6 @@ export async function renderComponentSSROnly({
       viteServer,
       isDev,
     });
-    
-    console.log(`🔄 Integration rendered HTML for ${src}:`, {
-      hasHtml: !!renderResult.html,
-      htmlLength: renderResult.html?.length || 0,
-      htmlPreview: renderResult.html?.substring(0, 100),
-    });
 
     // Return Island component with the rendered HTML as children
     // This ensures the HTML is properly wrapped in <is-land> with ssrOnly attributes
@@ -167,7 +210,10 @@ export async function renderComponentSSROnly({
       hydrationData: undefined, // No hydration data for SSR-only components
     });
   } catch (error) {
-    console.error(`❌ SSR-only rendering failed for ${src}:`, error);
+    // Only log errors in development
+    if (typeof Deno !== "undefined" && Deno.env?.get("DENO_ENV") !== "production") {
+      console.error(`SSR-only rendering failed for ${src}:`, error);
+    }
     throw error;
   }
 }

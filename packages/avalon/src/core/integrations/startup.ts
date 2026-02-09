@@ -234,7 +234,7 @@ Or enable auto-discovery:
   };
 
 Make sure the integration package is installed:
-  deno add @avalon/integration-${framework}
+  deno add @avalon/${framework}
 `.trim();
   }
   

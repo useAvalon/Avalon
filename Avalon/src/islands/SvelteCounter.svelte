@@ -1,5 +1,9 @@
 <script lang="ts">
-  let count = $state(0);
+  interface Props {
+    initialCount?: number;
+  }
+  let { initialCount = 0 }: Props = $props();
+  let count = $state(initialCount);
   
   function increment() {
     count += 1;

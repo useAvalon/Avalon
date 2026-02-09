@@ -30,7 +30,10 @@ async function loadComponent(src: string) {
   }
   
   const ssrPath = src.replace("/islands/", "/dist/ssr/islands/").replace(/\.svelte$/, ".js");
-  const module = await import(ssrPath) as Record<string, unknown>;
+  const module = await import(
+    /* @vite-ignore */
+    ssrPath
+  ) as Record<string, unknown>;
   return module.default || module;
 }
 

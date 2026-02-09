@@ -1,4 +1,4 @@
-# @avalon/integration-react
+# @avalon/react
 
 React integration for the Avalon framework, providing support for React components as islands with React Server Components (RSC) support.
 

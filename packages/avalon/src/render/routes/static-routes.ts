@@ -2,7 +2,7 @@
  * Routes for serving static assets (CSS, JS, images, fonts, etc.)
  */
 
-import { join } from '@std/path';
+import { join } from 'node:path';
 import { serveStaticFile, hasStaticExtension } from '../file-utils.ts';
 import { STATIC_FILES_DIR } from '../constants.ts';
 import type { MiddlewareContext } from '../../schemas/middleware.ts';

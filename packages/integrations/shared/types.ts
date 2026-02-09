@@ -3,7 +3,7 @@
  * These types define the contract that all framework integrations must implement.
  */
 
-import type { ViteDevServer } from "vite";
+import type { Plugin, ViteDevServer } from "vite";
 
 /**
  * Hydration condition types that determine when an island should become interactive
@@ -97,10 +97,36 @@ export interface Integration {
   config(): IntegrationConfig;
 
   /**
-   * Optional: Provide Vite plugins for build-time processing
-   * @returns Vite plugin or array of plugins
+   * Optional: Provide Vite plugins required for this framework's build-time processing.
+   * 
+   * Each integration encapsulates its own Vite plugin configuration, eliminating
+   * the need for manual framework plugin setup in the user's vite.config.ts.
+   * 
+   * **Plugin Ordering Requirements:**
+   * - Lit integration plugins MUST be placed first (DOM shim requirement)
+   * - MDX plugins should come after Lit but before other framework plugins
+   * - Framework-specific plugins (React, Vue, Svelte, etc.) come last
+   * 
+   * The Avalon plugin handles ordering automatically when collecting plugins
+   * from all activated integrations.
+   * 
+   * @returns Promise resolving to a single Vite plugin or array of plugins
+   * 
+   * @example
+   * ```typescript
+   * async vitePlugin(): Promise<Plugin | Plugin[]> {
+   *   const { default: vue } = await import('@vitejs/plugin-vue');
+   *   return vue({
+   *     template: {
+   *       compilerOptions: {
+   *         isCustomElement: tag => tag === 'is-land',
+   *       },
+   *     },
+   *   });
+   * }
+   * ```
    */
-  vitePlugin?(): unknown | unknown[];
+  vitePlugin?(): Promise<Plugin | Plugin[]>;
 }
 
 /**

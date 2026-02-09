@@ -5,9 +5,10 @@
  * This integration follows the Avalon integration architecture, allowing Svelte
  * to be used alongside other frameworks in the same application.
  * 
- * @module @avalon/integration-svelte
+ * @module @avalon/svelte
  */
 
+import type { Plugin } from "vite";
 import type { Integration, IntegrationConfig } from "../shared/types.ts";
 import { render } from "./server/renderer.ts";
 import { getHydrationScript } from "./client/hydration.ts";
@@ -46,6 +47,30 @@ export const svelteIntegration: Integration = {
   
   config(): IntegrationConfig {
     return config;
+  },
+
+  /**
+   * Provides the @sveltejs/vite-plugin-svelte Vite plugin with SSR-appropriate configuration.
+   * Configures runes mode, CSS injection, and HMR settings for optimal Avalon integration.
+   */
+  async vitePlugin(): Promise<Plugin | Plugin[]> {
+    const { svelte } = await import("@sveltejs/vite-plugin-svelte");
+    return svelte({
+      compilerOptions: {
+        // Don't use custom elements mode - we want standard Svelte components
+        customElement: false,
+        // Enable Svelte 5 runes mode
+        runes: true,
+        // Disable dev mode for SSR (avoids dev-only warnings)
+        dev: false,
+        // Disable HMR in compiler (handled by Avalon's HMR coordinator)
+        hmr: false,
+        // Inject CSS into the component (collected during SSR)
+        css: "injected",
+      },
+      // Don't emit separate CSS files - CSS is collected during SSR
+      emitCss: false,
+    });
   },
 };
 

@@ -2,7 +2,7 @@
  * File serving utilities and security helpers
  */
 
-import { join } from '@std/path';
+import { join } from 'node:path';
 import { typeByExtension } from '@std/media-types';
 import { BINARY_EXTENSIONS, FONT_EXTENSIONS, STATIC_FILE_EXTENSIONS, DANGEROUS_PATH_PATTERNS } from './constants.ts';
 

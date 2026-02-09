@@ -1,4 +1,16 @@
-import type { LayoutRule, RouteInfo } from '../../schemas/layout.ts';
+// NOTE: Using inline types to avoid importing heavy schemas/layout.ts (which imports zod)
+interface LayoutRule {
+	matches: (layoutPath: string, route: RouteInfo) => boolean;
+	apply: boolean;
+	priority: number;
+}
+
+interface RouteInfo {
+	path: string;
+	params: Record<string, string>;
+	method: string;
+	headers: Headers;
+}
 
 /**
  * Built-in layout rules for common scenarios

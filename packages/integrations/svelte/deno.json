@@ -1,5 +1,5 @@
 {
-	"name": "@avalon/integration-svelte",
+	"name": "@avalon/svelte",
 	"version": "0.1.0",
 	"exports": {
 		".": "./mod.ts",
@@ -10,7 +10,9 @@
 	"imports": {
 		"svelte": "npm:svelte@^5.41.0",
 		"svelte/server": "npm:svelte@^5.41.0/server",
-		"svelte/compiler": "npm:svelte@^5.41.0/compiler"
+		"svelte/compiler": "npm:svelte@^5.41.0/compiler",
+		"vite": "npm:vite@8.0.0-beta.10",
+		"@sveltejs/vite-plugin-svelte": "npm:@sveltejs/vite-plugin-svelte@^5.0.3"
 	},
 	"compilerOptions": {
 		"lib": ["dom", "dom.iterable", "esnext", "deno.ns"]

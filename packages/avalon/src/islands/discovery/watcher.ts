@@ -6,7 +6,7 @@
  * nested island directories.
  */
 
-import { resolve, relative, extname, basename } from "@std/path";
+import { resolve, relative, extname, basename } from "node:path";
 import type {
   IslandDirectory,
   DiscoveredIsland,
@@ -151,7 +151,7 @@ export class IslandWatcher {
     }
 
     if (directories.length > 0) {
-      console.log(`👀 Watching ${directories.length} island director${directories.length === 1 ? 'y' : 'ies'} for changes`);
+      // Watching island directories for changes
     }
   }
 

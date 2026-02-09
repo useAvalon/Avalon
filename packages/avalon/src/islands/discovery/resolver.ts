@@ -39,7 +39,7 @@
  * - Default directory always has priority for simple name resolution
  */
 
-import { relative, resolve, dirname } from "@std/path";
+import { relative, resolve, dirname } from "node:path";
 import type { DiscoveredIsland, IslandDirectory } from "./types.ts";
 import type { IslandRegistry } from "./registry.ts";
 import { parseQualifiedIslandName, getQualifiedIslandName } from "./scanner.ts";

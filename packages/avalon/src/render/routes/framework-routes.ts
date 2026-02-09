@@ -22,7 +22,6 @@ export function createFrameworkRoutes(isDev: boolean) {
 					const filename = url.pathname.split('/').pop();
 					if (!filename) throw new Error('Invalid filename');
 
-					console.log(`📦 Serving Avalon chunk: ${filename}`);
 					const chunkPath = new URL(`../../../dist-avalon/${filename}`, import.meta.url);
 					const chunkScript = await Deno.readTextFile(chunkPath);
 					return new Response(chunkScript, {

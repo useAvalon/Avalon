@@ -1,28 +1,19 @@
-import { assertEquals, assertExists, assertRejects } from '@std/assert';
-import { describe, it, beforeEach, afterEach } from 'https://deno.land/std@0.208.0/testing/bdd.ts';
-import { join } from 'node:path';
-import { ComponentType } from 'preact';
+import { assertEquals, assertExists } from '@std/assert';
+import { describe, it, beforeEach, afterEach } from '@std/testing/bdd';
+import type { ComponentType } from 'preact';
 
 import {
 	EnhancedLayoutResolver,
 	createEnhancedLayoutResolver,
 	EnhancedLayoutResolverUtils,
-	type EnhancedLayoutResolverOptions,
 } from '../enhanced-layout-resolver.ts';
 import type {
 	LayoutContext,
-	LayoutData,
-	LayoutHandler,
 	LayoutProps,
 	LayoutConfig,
-	ResolvedLayout,
 } from '../../../types/layout.ts';
 
 // Mock components for testing
-const MockLayoutComponent: ComponentType<LayoutProps> = ({ children, data }) => {
-	return { type: 'div', props: { children: [data.title || 'Layout', children] } };
-};
-
 const MockPageComponent: ComponentType<any> = () => {
 	return { type: 'div', props: { children: 'Page Content' } };
 };
@@ -394,7 +385,7 @@ describe('Integration with layout system components', () => {
 
 		// Add a custom rule
 		matcher.addRule({
-			matches: (layoutPath: string, route: any) => route.path.startsWith('/api/'),
+			matches: (_layoutPath: string, route: any) => route.path.startsWith('/api/'),
 			apply: false,
 			priority: 100,
 		});

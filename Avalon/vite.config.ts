@@ -1,313 +1,228 @@
-import { defineConfig } from 'vite';
-import { resolve } from '@std/path';
-import { readdirSync } from 'node:fs';
-import type { UserConfig } from 'vite';
+import { defineConfig, createLogger } from 'vite';
+import { resolve } from 'node:path';
+import type { UserConfig, Plugin } from 'vite';
+import { avalon } from '../packages/avalon/src/vite-plugin/plugin.ts';
+import tailwindcss from '@tailwindcss/vite';
 
-// Auto-discover island entry points
-function discoverIslandEntries() {
-	const entries: Record<string, string> = {};
+// ── Suppress noisy third-party warnings that we can't fix upstream ──
 
-	try {
-		const files = readdirSync('src/islands');
-		for (const fileName of files) {
-			if (
-				fileName.endsWith('.tsx') ||
-				fileName.endsWith('.jsx') ||
-				fileName.endsWith('.ts') ||
-				fileName.endsWith('.js') ||
-				fileName.endsWith('.vue') ||
-				fileName.endsWith('.svelte')
-			) {
-				// Handle framework-specific naming conventions
-				let name;
-				if (fileName.endsWith('.solid.tsx') || fileName.endsWith('.solid.jsx')) {
-					name = fileName.replace(/\.solid\.(tsx|jsx)$/, '');
-				} else if (fileName.endsWith('.preact.tsx') || fileName.endsWith('.preact.jsx')) {
-					name = fileName.replace(/\.preact\.(tsx|jsx)$/, '');
-				} else {
-					name = fileName.replace(/\.(tsx|jsx|ts|js|vue|svelte)$/, '');
-				}
-				entries[`islands/${name}`] = resolve(`src/islands/${fileName}`);
-			}
-		}
-	} catch (error) {
-		console.warn('Islands directory not found or could not be read:', error);
-	}
+// 1. Vite logger: catches warnings routed through Vite's own logger
+const logger = createLogger();
+const originalWarn = logger.warn.bind(logger);
+logger.warn = (msg, options) => {
+	if (msg.includes('UNRESOLVED_IMPORT') && msg.includes('@std/')) return;
+	if (msg.includes('`esbuild` option was specified by')) return;
+	if (msg.includes('optimizeDeps.rollupOptions') || msg.includes('optimizeDeps.esbuildOptions')) return;
+	if (msg.includes('recommend switching to `@vitejs/plugin-react-oxc`')) return;
+	if (msg.includes('dynamic import cannot be analyzed by Vite')) return;
+	originalWarn(msg, options);
+};
 
-	return entries;
-}
+// 2. Console intercept: catches warnings written directly by third-party plugins
+//    (e.g. vite-plugin-svelte, Vite deprecation notices) that bypass the custom logger
+const _origConsoleWarn = console.warn;
+const _origConsoleLog = console.log;
+const _suppressPatterns = [
+	'optimizeDeps.rollupOptions',
+	'optimizeDeps.esbuildOptions',
+	'vite-plugin-svelte',
+	'no Svelte config found',
+];
+const _shouldSuppress = (args: unknown[]) =>
+	args.some(a => typeof a === 'string' && _suppressPatterns.some(p => a.includes(p)));
+console.warn = (...args: unknown[]) => { if (!_shouldSuppress(args)) _origConsoleWarn(...args); };
+console.log = (...args: unknown[]) => { if (!_shouldSuppress(args)) _origConsoleLog(...args); };
+
 
 export default defineConfig(async ({ command }): Promise<UserConfig> => {
-	const islandEntries = discoverIslandEntries();
-	const plugins = [];
 
-	// Lit SSR DOM shim plugin - must come first to install globals before Lit loads
-	try {
-		const { litSSRShimPlugin } = await import('../packages/avalon/src/build/lit-ssr-shim-plugin.ts');
-		plugins.push(litSSRShimPlugin());
-		console.log('✅ Loaded Lit SSR DOM shim plugin');
-	} catch (error) {
-		console.warn('Could not load Lit SSR shim plugin:', error);
-	}
+	// Create the Avalon plugin with unified configuration
+	// The avalon() function now returns all necessary plugins including:
+	// - MDX plugins
+	// - Core Avalon plugin
+	// - Deferred integration loader (loads framework plugins lazily)
+	// - Nitro integration plugins (when nitro config is provided)
+	//
+	// PERFORMANCE: Integration Vite plugins are loaded LAZILY by default.
+	// Only integrations that are actually used in your islands directory
+	// will have their Vite plugins loaded, significantly improving cold start time.
+	const avalonPlugins = await avalon({
+		// Directory configuration
+		islandsDir: 'src/islands',
+		pagesDir: 'src/pages',
+		apiDir: 'src/api',
 
-	// MDX plugin - must come first to process .mdx files
-	try {
-		const { createMDXPlugin } = await import('../packages/avalon/src/build/mdx-plugin.ts');
-		const mdxPlugins = await createMDXPlugin({
-			development: command === 'serve',
+		// Framework integrations to activate (for SSR and hydration)
+		// NOTE: With lazyIntegrations enabled (default), only integrations
+		// that are actually used in your islands will have their Vite plugins loaded.
+		// This means you can list all 6 frameworks here without performance penalty.
+		integrations: ['react', 'preact', 'vue', 'svelte', 'solid', 'lit'],
+
+		// Enable lazy loading of integration Vite plugins (default: true)
+		// When true, only loads Vite plugins for frameworks actually used in your project.
+		// Set to false to load all configured integrations at startup.
+		lazyIntegrations: true,
+
+		// MDX configuration
+		mdx: {
 			jsxImportSource: 'preact',
-		});
-		console.log(`📦 Loaded ${mdxPlugins.length} MDX plugins`);
-		plugins.push(...mdxPlugins);
-	} catch (error) {
-		console.error('❌ Could not load MDX plugin:', error);
-	}
+			syntaxHighlighting: true,
+		},
 
-	// Deno plugin
+		// Nitro server runtime configuration
+		// Enables universal deployment through Nitro presets
+		nitro: {
+			// Deployment preset - can be changed for different platforms:
+			// 'node-server' (default), 'vercel', 'cloudflare', 'deno-deploy', 'netlify', etc.
+			preset: 'node-server',
+
+			// Enable streaming SSR for better TTFB
+			streaming: true,
+
+			// Route rules for caching, redirects, and headers
+			// These rules configure Nitro's static asset handling with appropriate cache headers
+			routeRules: {
+				// API routes with CORS enabled
+				'/api/**': {
+					cors: true,
+					headers: {
+						'Access-Control-Allow-Origin': '*',
+						'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+					},
+				},
+				// Static assets with long cache (immutable, hashed filenames)
+				'/assets/**': {
+					headers: {
+						'Cache-Control': 'public, max-age=31536000, immutable',
+					},
+				},
+				// Islands with long cache (hashed filenames)
+				'/islands/**': {
+					headers: {
+						'Cache-Control': 'public, max-age=31536000, immutable',
+					},
+				},
+				// Chunks with long cache (hashed filenames)
+				'/chunks/**': {
+					headers: {
+						'Cache-Control': 'public, max-age=31536000, immutable',
+					},
+				},
+				// Font files with long cache
+				'/**/*.woff': {
+					headers: {
+						'Cache-Control': 'public, max-age=31536000, immutable',
+					},
+				},
+				'/**/*.woff2': {
+					headers: {
+						'Cache-Control': 'public, max-age=31536000, immutable',
+					},
+				},
+				// Favicon with medium cache (1 day)
+				'/favicon.ico': {
+					headers: {
+						'Cache-Control': 'public, max-age=86400',
+					},
+				},
+				// CSS files from public directory (may be mutable)
+				'/syntax-highlighting.css': {
+					headers: {
+						'Cache-Control': 'public, max-age=0, must-revalidate',
+					},
+				},
+			},
+
+			// Runtime configuration accessible via useRuntimeConfig()
+			runtimeConfig: {
+				// App-specific runtime config
+				appName: 'Avalon Demo',
+				appVersion: '1.0.0',
+			},
+
+			// Static asset serving configuration
+			staticAssets: {
+				publicDir: 'public',
+				buildDir: 'dist',
+				compression: true,
+			},
+		},
+
+		// Auto-discover integrations from component file extensions
+		autoDiscoverIntegrations: true,
+
+		// Validate integrations on startup
+		validateIntegrations: true,
+
+		// Show warnings for integration issues
+		showWarnings: true,
+
+		// Enable verbose logging (set to true for detailed startup diagnostics)
+		verbose: false,
+	});
+
+	// Additional plugins that are not part of framework integrations
+	const additionalPlugins: Plugin[] = [];
+
+	// Deno plugin for Deno compatibility
 	try {
 		const { default: deno } = await import('@deno/vite-plugin');
-		plugins.push(deno());
+		const denoPlugins = deno();
+		additionalPlugins.push(...(Array.isArray(denoPlugins) ? denoPlugins : [denoPlugins]));
 	} catch (error) {
 		console.warn('Could not load @deno/vite-plugin:', error);
 	}
 
-	// Vue plugin
+	// Auto-discover island entry points for build
+	const islandEntries: Record<string, string> = {};
 	try {
-		const { default: vue } = await import('@vitejs/plugin-vue');
-		plugins.push(
-			vue({
-				features: {
-					prodHydrationMismatchDetails: command === 'serve',
-				},
-				template: {
-					compilerOptions: {
-						isCustomElement: tag => tag === 'is-land',
-					},
-				},
-			})
-		);
-	} catch (error) {
-		console.warn('Could not load Vue plugin:', error);
-	}
-
-	// Svelte plugin
-	try {
-		const { svelte } = await import('@sveltejs/vite-plugin-svelte');
-		plugins.push(
-			svelte({
-				compilerOptions: {
-					customElement: false,
-					runes: true,
-					// Svelte 5: Keep dev: false for SSR compatibility
-					// The dev mode SSR tracking causes "Cannot read properties of null" errors
-					// because the tracking context isn't initialized in our SSR setup
-					dev: false,
-					// Svelte 5: DISABLE compiler-level HMR
-					// The compiler's HMR code (hmr.js) fails during hydration because it tries to
-					// access component metadata that doesn't exist in our islands architecture.
-					// Error: "Cannot convert undefined or null to object at getOwnPropertyDescriptors"
-					// Instead, we rely on Vite's module-level HMR to trigger full component re-hydration.
-					// This works correctly with our HMR coordinator which handles island updates.
-					hmr: false,
-					css: 'injected', // Inject CSS into component so we can extract it
-					// Note: 'hydratable' option was removed in Svelte 5 - components are always hydratable
-				},
-				// Note: 'hot' option is deprecated in Svelte 5 - use compilerOptions.hmr instead
-				emitCss: false, // Don't emit separate CSS files
-			})
-		);
-		console.log('✅ Loaded Svelte plugin (dev: false, hmr: false - using Vite module HMR)');
-	} catch (error) {
-		console.warn('Could not load Svelte plugin:', error);
-	}
-
-	// Framework detection plugin - determines React vs Preact based on imports
-	const frameworkDetectionPlugin = {
-		name: 'avalon:framework-detection',
-		enforce: 'pre' as const,
-		async resolveId(id: string) {
-			// Let other plugins handle the resolution
-			return null;
-		},
-		async load(id: string) {
-			// Only process TSX/JSX files
-			if (!/\.(tsx|jsx)$/.test(id)) {
-				return null;
+		const { readdirSync } = await import('node:fs');
+		const files = readdirSync('src/islands');
+		for (const fileName of files) {
+			if (/\.(tsx|jsx|ts|js|vue|svelte)$/.test(fileName)) {
+				const name = fileName
+					.replace(/\.solid\.(tsx|jsx)$/, '')
+					.replace(/\.preact\.(tsx|jsx)$/, '')
+					.replace(/\.(tsx|jsx|ts|js|vue|svelte)$/, '');
+				islandEntries[`islands/${name}`] = resolve(`src/islands/${fileName}`);
 			}
-
-			// Skip node_modules
-			if (id.includes('node_modules')) {
-				return null;
-			}
-
-			try {
-				const code = await Deno.readTextFile(id);
-				
-				// Check if file imports from React
-				const hasReactImport = /from\s+['"]react['"]/.test(code) || 
-				                      /from\s+['"]react\//.test(code);
-				
-				// Check if file imports from Preact
-				const hasPreactImport = /from\s+['"]preact['"]/.test(code) || 
-				                       /from\s+['"]preact\//.test(code);
-
-				// Store the framework info for other plugins to use
-				if (hasReactImport && !hasPreactImport) {
-					// Mark as React file
-					(this as any).meta = { ...(this as any).meta, framework: 'react' };
-				} else {
-					// Default to Preact
-					(this as any).meta = { ...(this as any).meta, framework: 'preact' };
-				}
-			} catch (error) {
-				// If we can't read the file, let other plugins handle it
-			}
-
-			return null; // Let other plugins process the file
-		},
-	};
-
-	plugins.push(frameworkDetectionPlugin);
-
-	// React plugin - processes files that import from 'react'
-	try {
-		const { default: react } = await import('@vitejs/plugin-react');
-		const reactPlugin = react();
-		
-		// Wrap the plugin to add content-based filtering
-		const wrappedReactPlugin = {
-			...reactPlugin,
-			name: 'avalon:react-wrapper',
-			async transform(code: string, id: string) {
-				// Only process TSX/JSX files
-				if (!/\.(tsx|jsx)$/.test(id)) return null;
-				if (id.includes('node_modules')) return null;
-				
-				// Skip Solid files
-				if (/\.solid\.(tsx|jsx)$/.test(id)) return null;
-				
-				// Check if file imports from React
-				const hasReactImport = /from\s+['"]react['"]/.test(code) || 
-				                      /from\s+['"]react\//.test(code);
-				const hasPreactImport = /from\s+['"]preact['"]/.test(code);
-				
-				// Only process if it's a React file
-				if (hasReactImport && !hasPreactImport) {
-					// Call the original React plugin's transform
-					if (reactPlugin.transform && typeof reactPlugin.transform === 'function') {
-						return await reactPlugin.transform.call(this, code, id);
-					}
-				}
-				
-				return null;
-			},
-		};
-		
-		plugins.push(wrappedReactPlugin);
-		console.log('✅ Loaded React plugin with content-based detection');
-	} catch (error) {
-		console.warn('Could not load React plugin:', error);
-	}
-
-	// Preact plugin - processes files that don't import from 'react'
-	try {
-		const { default: preact } = await import('@preact/preset-vite');
-		plugins.push(
-			preact({
-				// Process all TSX/JSX files - the React wrapper above will handle React files first
-				include: /\.(tsx|jsx)$/,
-				// Exclude Solid files
-				exclude: /\.solid\.(tsx|jsx)$/,
-			})
-		);
-		console.log('✅ Loaded Preact plugin');
-	} catch (error) {
-		console.warn('Could not load Preact plugin:', error);
-	}
-
-	// Solid plugin - only for Solid components
-	try {
-		const { default: solid } = await import('vite-plugin-solid');
-		plugins.push(
-			solid({
-				ssr: true,
-				hot: true,
-				// Only process files that are explicitly Solid components
-				include: [/\.solid\.(tsx|jsx)$/],
-			})
-		);
-	} catch (error) {
-		console.warn('Could not load Solid plugin:', error);
+		}
+	} catch (_error) {
+		// Islands directory not found - this is fine, it may not exist yet
 	}
 
 	return {
 		root: '.',
 		publicDir: 'public',
-		plugins,
+		customLogger: logger,
+
+		// Tailwind must come first to process CSS before other plugins
+		// Then Avalon plugins: Lit SSR shim → MDX → Core Avalon → Framework plugins
+		// Additional plugins (like Deno) come after
+		plugins: [tailwindcss() as unknown as Plugin, ...avalonPlugins, ...additionalPlugins.filter(p => p.name !== 'tailwindcss')],
 
 		optimizeDeps: {
 			include: [
-				// React - include all subpaths to prevent on-demand optimization
-				'react',
-				'react/jsx-runtime',
-				'react/jsx-dev-runtime',
-				'react-dom',
-				'react-dom/client',
-				// Vue
-				'vue',
-				// Svelte
-				'svelte',
-				'svelte/internal',
-				'svelte/store',
-				'svelte/animate',
-				'svelte/easing',
-				'svelte/motion',
-				'svelte/transition',
-				// Lit
-				'lit',
-				'@lit-labs/ssr-client',
-				'@lit-labs/ssr-client/lit-element-hydrate-support.js',
-				// Preact
-				'preact',
-				'preact/hooks',
-				'preact/jsx-runtime',
+				'react', 'react/jsx-runtime', 'react/jsx-dev-runtime', 'react-dom', 'react-dom/client',
+				'vue', 'svelte', 'svelte/internal', 'svelte/store', 'svelte/animate', 'svelte/easing', 'svelte/motion', 'svelte/transition',
+				'lit', '@lit-labs/ssr-client', '@lit-labs/ssr-client/lit-element-hydrate-support.js',
+				'preact', 'preact/hooks', 'preact/jsx-runtime',
 			],
-			// Exclude problematic packages from optimization
-			exclude: [],
-			// Increase timeout for slow connections
-			esbuildOptions: {
-				target: 'es2020',
-			},
-		},
-
-		esbuild: {
-			jsx: 'automatic',
-			jsxImportSource: 'preact', // Default to preact for JSX
-			target: 'es2020',
-			// Enable TypeScript decorator support for Lit components
-			tsconfigRaw: {
-				compilerOptions: {
-					experimentalDecorators: true,
-					useDefineForClassFields: false,
-				},
-			},
 		},
 
 		build: {
 			outDir: 'dist',
 			emptyOutDir: true,
 			rollupOptions: {
-				input: {
-					// Island entries for client-side bundles
-					...islandEntries,
+				external: [/^@std\//],
+				onwarn(warning, defaultHandler) {
+					// Suppress UNRESOLVED_IMPORT for Deno std library imports
+					if (warning.code === 'UNRESOLVED_IMPORT' && warning.exporter?.startsWith('@std/')) return;
+					defaultHandler(warning);
 				},
+				input: islandEntries,
 				output: {
-					entryFileNames: chunkInfo => {
-						if (chunkInfo.name?.startsWith('islands/')) {
-							return `islands/[name].[hash].js`;
-						}
-						return '[name].[hash].js';
-					},
+					entryFileNames: chunkInfo => chunkInfo.name?.startsWith('islands/') ? 'islands/[name].[hash].js' : '[name].[hash].js',
 					chunkFileNames: 'chunks/[name].[hash].js',
 					assetFileNames: 'assets/[name].[hash].[ext]',
 				},
@@ -321,45 +236,48 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			strictPort: false,
 			hmr: { port: 8013 },
 			cors: false,
-			// Pre-transform all discovered islands on startup
-			warmup: {
-				clientFiles: Object.values(islandEntries),
+			warmup: { clientFiles: Object.values(islandEntries) },
+			fs: {
+				// TODO: Remove this when Avalon is published to npm/jsr
+				// This is only needed during development because the framework packages
+				// are in a parent directory. Once published, users will import from
+				// the published package and won't need this workaround.
+				allow: ['..'],
 			},
 		},
 
 		ssr: {
+			// webworker target: Vite bundles all deps by default (handles CJS→ESM).
+			// Lit packages are explicitly externalized because their deep dependency
+			// tree (linkedom, uhyphen, cssom, buffer…) can't be processed by Vite's
+			// module runner under Deno. Their bare-specifier deps are in the import map.
 			target: 'webworker',
-			noExternal: [
-				'vue', 
-				'@vue/server-renderer', 
-				'@vue/shared', 
-				'svelte', 
-				'svelte/internal', 
-				'svelte/store', 
-				'svelte/server',
-				'react',
-				'react-dom',
-				'react-dom/client',
-				'react-dom/server',
-				'lit',
-				'@lit-labs/ssr',
+			external: [
+				'linkedom', 'uhyphen', 'cssom',
+				'lit', 'lit-html', 'lit-element',
 				'@lit/reactive-element',
-				'linkedom',
-				'htmlparser2',
+				'@lit-labs/ssr', '@lit-labs/ssr-client', '@lit-labs/ssr-dom-shim',
+				'parse5', '@parse5/tools', 'enhanced-resolve', 'node-fetch',
+			],
+			noExternal: [
+				'vue', '@vue/server-renderer', '@vue/shared',
+				'svelte', 'svelte/internal', 'svelte/store', 'svelte/server',
+				'react', 'react-dom', 'react-dom/client', 'react-dom/server',
 			],
 		},
 
 		resolve: {
 			alias: {
+				// Deno std library → Node built-ins (for Vite's SSR module runner)
+				'@std/path': 'node:path',
+				'@std/fs': resolve('../packages/avalon/src/utils/std-fs-shim.ts'),
 				'@/': resolve('src/'),
 				'$components/': resolve('src/components/'),
 				'$layouts/': resolve('src/layouts/'),
 				'$islands/': resolve('src/islands/'),
 				'$pages/': resolve('src/pages/'),
 				'$api/': resolve('src/api/'),
-				// Resolve Avalon client script from package location
 				'/src/client/main.js': resolve('../packages/avalon/src/client/main.js'),
-				// Resolve integration client files from new package location
 				'/@avalon/preact/client': resolve('../packages/integrations/preact/client/index.ts'),
 				'/@avalon/react/client': resolve('../packages/integrations/react/client/index.ts'),
 				'/@avalon/vue/client': resolve('../packages/integrations/vue/client/index.ts'),

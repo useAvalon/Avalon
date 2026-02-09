@@ -33,7 +33,6 @@ export type { LayoutConfig } from './schemas/layout.ts';
 // Enhanced Layout Resolver
 export {
 	EnhancedLayoutResolver,
-	defaultEnhancedLayoutResolver,
 	createEnhancedLayoutResolver,
 	EnhancedLayoutResolverUtils,
 } from './core/layout/enhanced-layout-resolver.ts';
@@ -56,70 +55,24 @@ export type { IslandState, PersistentIslandProps, PersistentIslandContext } from
 export { LayoutErrorBoundary } from './components/LayoutErrorBoundary.tsx';
 export { LayoutDataErrorBoundary } from './components/LayoutDataErrorBoundary.tsx';
 export { IslandErrorBoundary, withIslandErrorBoundary } from './components/IslandErrorBoundary.tsx';
-export { LayoutErrorRecovery } from './core/layout/layout-error-recovery.ts';
-export {
-	LayoutErrorLogger,
-	LayoutErrorDebugger,
-	layoutErrorLogger,
-	layoutErrorDebugger,
-} from './core/layout/layout-error-logger.ts';
-export {
-	LayoutErrorBoundaryManager,
-	layoutErrorBoundaryManager,
-	ErrorBoundaryUtils,
-} from './core/layout/layout-error-boundary-manager.ts';
+export { StreamingErrorBoundary, withStreamingErrorBoundary } from './components/StreamingErrorBoundary.tsx';
 export type { LayoutErrorInfo, LayoutErrorBoundaryProps, ErrorRecoveryStrategy } from './schemas/layout.ts';
 
 // === Streaming System ===
 
-export {
-	LayoutStreaming,
-	layoutStreaming,
-	createStreamingComponent,
-	StreamingUtils,
-	StreamingPriority,
-	DEFAULT_STREAMING_CONFIG,
-} from './core/layout/layout-streaming.ts';
 export { StreamingLayout, StreamingSuspense, withStreaming, useStreamingState } from './components/StreamingLayout.tsx';
-export {
-	StreamingPriorityLoader,
-	streamingPriorityLoader,
-	PriorityLoadingUtils,
-	LoadingPriority,
-	DEFAULT_LOAD_CONFIG,
-} from './core/layout/streaming-priority-loader.ts';
 export type { StreamingLayoutProps, StreamingComponent } from './schemas/layout.ts';
 
-// === Layout Utilities and Helpers ===
+// === Layout Utilities (Essential Only) ===
+// Debug and performance utilities are available via lazy import from './core/layout/layout-utilities.ts'
+// when needed in development mode
 
-export {
-	LayoutCacheManager,
-	LayoutDebugUtils,
-	LayoutPerformanceMonitor,
-	LayoutConfigValidator,
-	LayoutErrorReporter,
-	defaultLayoutUtilities,
-	withLayoutUtilities,
-	validateLayoutConfiguration,
-	getLayoutSystemHealthReport,
-} from './core/layout/layout-utilities.ts';
+export { LayoutCacheManager } from './core/layout/layout-cache-manager.ts';
 export type {
-	LayoutUtilitiesConfig,
-	LayoutUtilitiesSuite,
 	CacheEntry,
 	CacheStats,
 	CacheConfig,
-	DebugConfig,
-	DebugLogEntry,
-	PerformanceMetric,
-	PerformanceSnapshot,
-	PerformanceThresholds,
-	PerformanceAlert,
-	ValidationError,
-	ValidationResult,
-	ValidationWarning,
-	ConfigValidationOptions,
-} from './core/layout/layout-utilities.ts';
+} from './core/layout/layout-cache-manager.ts';
 
 // === Core Types and Schemas ===
 
@@ -198,9 +151,9 @@ export {
 export { EnhancedLayoutResolver as LayoutSystem } from './core/layout/enhanced-layout-resolver.ts';
 
 // Default instances for quick setup
-export { defaultEnhancedLayoutResolver as defaultLayoutSystem } from './core/layout/enhanced-layout-resolver.ts';
 export { defaultIslandPersistence as defaultPersistence } from './core/islands/island-persistence.ts';
-export { defaultLayoutUtilities as defaultUtilities } from './core/layout/layout-utilities.ts';
+// Note: defaultLayoutUtilities removed to reduce cold start overhead
+// Import directly from './core/layout/layout-utilities.ts' if needed
 
 // Factory functions for custom setups
 export { createEnhancedLayoutResolver as createLayoutSystem } from './core/layout/enhanced-layout-resolver.ts';

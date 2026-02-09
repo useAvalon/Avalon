@@ -1,8 +1,9 @@
 import { LitElement, html, css } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
 
-@customElement("lit-card")
 export class LitCard extends LitElement {
+  // Static element name for SSR tag name extraction
+  static elementName = "lit-card";
+
   static styles = css`
     :host {
       display: block;
@@ -125,19 +126,19 @@ export class LitCard extends LitElement {
     }
   `;
 
-  @property({ type: String, attribute: 'title' })
+  // Define properties without decorators
+  static properties = {
+    title: { type: String, attribute: 'title' },
+    description: { type: String, attribute: 'description' },
+    badge: { type: String, attribute: 'badge' },
+    likes: { type: Number, state: true },
+    views: { type: Number, state: true },
+  };
+
   title = "Lit Card Component";
-
-  @property({ type: String, attribute: 'description' })
   description = "This card demonstrates Lit's scoped styles and reactive properties.";
-
-  @property({ type: String, attribute: 'badge' })
   badge = "Featured";
-
-  @state()
   private likes = 0;
-
-  @state()
   private views = 0;
 
   connectedCallback() {
@@ -201,6 +202,11 @@ export class LitCard extends LitElement {
       </div>
     `;
   }
+}
+
+// Register custom element without decorator
+if (typeof customElements !== 'undefined' && !customElements.get("lit-card")) {
+  customElements.define("lit-card", LitCard);
 }
 
 declare global {
