@@ -261,18 +261,20 @@ export class SvelteHMRAdapter extends BaseFrameworkAdapter {
     }
     
     // Check if it's a Svelte component object (wrapped or exported)
-    if (typeof component === 'object' && component !== null) {
-      const obj = component as Record<string, unknown>;
-      
-      // Check for default export pattern
-      if (obj.default && typeof obj.default === 'function') {
-        return this.canHandle(obj.default);
-      }
-      
-      // Check for Svelte component markers
-      if (obj.$$render) {
-        return true;
-      }
+    if (component == null || typeof component !== 'object') {
+      return false;
+    }
+
+    const obj = component as Record<string, unknown>;
+    
+    // Check for default export pattern
+    if (obj.default && typeof obj.default === 'function') {
+      return this.canHandle(obj.default);
+    }
+    
+    // Check for Svelte component markers
+    if (obj.$$render) {
+      return true;
     }
     
     return false;

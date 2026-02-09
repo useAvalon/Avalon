@@ -3,7 +3,6 @@ import { serveDir } from '@std/http/file-server';
 import { join } from '@std/path';
 import { processMarkdown, extractCodeExamples } from './utils/markdown-processor.ts';
 import { validateAllExamples } from './utils/code-validator.ts';
-import { DocsLayout } from './layouts/DocsLayout.tsx';
 
 const PORT = 3001;
 

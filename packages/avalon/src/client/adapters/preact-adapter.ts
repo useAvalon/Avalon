@@ -133,18 +133,20 @@ export class PreactHMRAdapter extends BaseFrameworkAdapter {
     }
     
     // Check for Preact VNode types
-    if (typeof component === 'object' && component !== null) {
-      const obj = component as Record<string, unknown>;
-      
-      // Check for Preact VNode symbol
-      if (obj.$typeof) {
-        return true;
-      }
-      
-      // Check for wrapped components (HOCs, memo, forwardRef)
-      if (obj.type && typeof obj.type === 'function') {
-        return true;
-      }
+    if (component == null || typeof component !== 'object') {
+      return false;
+    }
+
+    const obj = component as Record<string, unknown>;
+    
+    // Check for Preact VNode symbol
+    if (obj.$typeof) {
+      return true;
+    }
+    
+    // Check for wrapped components (HOCs, memo, forwardRef)
+    if (obj.type && typeof obj.type === 'function') {
+      return true;
     }
     
     return false;

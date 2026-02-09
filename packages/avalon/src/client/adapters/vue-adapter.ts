@@ -176,34 +176,36 @@ export class VueHMRAdapter extends BaseFrameworkAdapter {
     }
     
     // Check if it's a component options object
-    if (typeof component === 'object' && component !== null) {
-      const obj = component as Record<string, unknown>;
-      
-      // Check for Vue-specific properties
-      const hasVueProperties = 
-        'setup' in obj ||
-        'data' in obj ||
-        'render' in obj ||
-        'template' in obj ||
-        'props' in obj ||
-        'computed' in obj ||
-        'methods' in obj ||
-        'components' in obj ||
-        'emits' in obj ||
-        // Lifecycle hooks
-        'mounted' in obj ||
-        'created' in obj ||
-        'beforeMount' in obj ||
-        'beforeCreate' in obj;
-      
-      if (hasVueProperties) {
-        return true;
-      }
-      
-      // Check for __vccOpts (Vue SFC compiled component marker)
-      if ('__vccOpts' in obj) {
-        return true;
-      }
+    if (component == null || typeof component !== 'object') {
+      return false;
+    }
+
+    const obj = component as Record<string, unknown>;
+    
+    // Check for Vue-specific properties
+    const hasVueProperties = 
+      'setup' in obj ||
+      'data' in obj ||
+      'render' in obj ||
+      'template' in obj ||
+      'props' in obj ||
+      'computed' in obj ||
+      'methods' in obj ||
+      'components' in obj ||
+      'emits' in obj ||
+      // Lifecycle hooks
+      'mounted' in obj ||
+      'created' in obj ||
+      'beforeMount' in obj ||
+      'beforeCreate' in obj;
+    
+    if (hasVueProperties) {
+      return true;
+    }
+    
+    // Check for __vccOpts (Vue SFC compiled component marker)
+    if ('__vccOpts' in obj) {
+      return true;
     }
     
     return false;

@@ -7,7 +7,7 @@
 
 // Import DOM shim FIRST
 import "./dom-shim.ts";
-import { DOM_SHIM_INSTALLED, verifyDOMShim, waitForDOMShim } from "./dom-shim.ts";
+import { verifyDOMShim, waitForDOMShim } from "./dom-shim.ts";
 
 import type { LitRenderParams, LitRenderResult } from "../types.ts";
 import { 
@@ -19,7 +19,7 @@ import {
 import type { LitElement } from "lit";
 import { LitElementRenderer } from "@lit-labs/ssr/lib/lit-element-renderer.js";
 
-if (!DOM_SHIM_INSTALLED || !verifyDOMShim()) {
+if (!verifyDOMShim()) {
   throw new Error("Lit DOM shim is not properly installed");
 }
 

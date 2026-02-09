@@ -105,5 +105,3 @@ export function verifyDOMShim(): boolean {
     typeof globalThis.Element !== "undefined"
   );
 }
-
-export const DOM_SHIM_INSTALLED = true;

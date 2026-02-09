@@ -1,5 +1,5 @@
 import { walk } from '@std/fs/walk';
-import { join, dirname, basename, extname } from '@std/path';
+import { join, dirname } from '@std/path';
 import { ensureDir } from '@std/fs/ensure-dir';
 import { processMarkdown, extractCodeExamples } from './utils/markdown-processor.ts';
 import { validateAllExamples, generateValidationReport } from './utils/code-validator.ts';
