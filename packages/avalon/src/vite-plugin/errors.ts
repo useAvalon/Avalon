@@ -57,11 +57,11 @@ export class AvalonConfigError extends Error {
  * @example
  * ```ts
  * throw new IntegrationError(
- *   "Failed to activate integration. Is @avalon/integration-react installed?",
+ *   "Failed to activate integration. Is @avalon/react installed?",
  *   "react",
  *   originalError
  * );
- * // Error: Integration 'react': Failed to activate integration. Is @avalon/integration-react installed?
+ * // Error: Integration 'react': Failed to activate integration. Is @avalon/react installed?
  * ```
  */
 export class IntegrationError extends Error {

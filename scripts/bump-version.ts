@@ -1,0 +1,148 @@
+/**
+ * Version bump script for Avalon releases.
+ *
+ * Usage:
+ *   # Bump only the core framework
+ *   deno run --allow-read --allow-write scripts/bump-version.ts --bump=minor --channel=beta --package=core
+ *
+ *   # Bump a specific integration
+ *   deno run --allow-read --allow-write scripts/bump-version.ts --bump=patch --channel=stable --package=lit
+ *
+ *   # Bump everything (breaking shared change)
+ *   deno run --allow-read --allow-write scripts/bump-version.ts --bump=major --channel=beta --package=all
+ *
+ * Package targets:
+ *   core     — @avalon/avalon + @avalon/shared
+ *   lit      — @avalon/lit
+ *   react    — @avalon/react
+ *   preact   — @avalon/preact
+ *   svelte   — @avalon/svelte
+ *   solid    — @avalon/solid
+ *   vue      — @avalon/vue
+ *   all      — everything (use for breaking shared changes)
+ */
+
+import { parseArgs } from "jsr:@std/cli/parse-args";
+
+const PACKAGE_MAP: Record<string, string[]> = {
+  core: [
+    "packages/avalon/deno.json",
+    "packages/integrations/shared/deno.json",
+  ],
+  lit: ["packages/integrations/lit/deno.json"],
+  react: ["packages/integrations/react/deno.json"],
+  preact: ["packages/integrations/preact/deno.json"],
+  svelte: ["packages/integrations/svelte/deno.json"],
+  solid: ["packages/integrations/solid/deno.json"],
+  vue: ["packages/integrations/vue/deno.json"],
+};
+
+const ALL_PACKAGES = Object.values(PACKAGE_MAP).flat();
+
+interface SemVer {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease?: string;
+}
+
+function parseSemVer(version: string): SemVer {
+  const [core, prerelease] = version.split("-");
+  const [major, minor, patch] = core.split(".").map(Number);
+  return { major, minor, patch, prerelease };
+}
+
+function formatSemVer(v: SemVer): string {
+  const core = `${v.major}.${v.minor}.${v.patch}`;
+  return v.prerelease ? `${core}-${v.prerelease}` : core;
+}
+
+function bumpVersion(
+  current: SemVer,
+  bump: "patch" | "minor" | "major",
+  channel: "stable" | "beta" | "rc",
+): SemVer {
+  const base = { ...current, prerelease: undefined };
+  const isExistingPrerelease = current.prerelease !== undefined;
+
+  if (isExistingPrerelease && channel !== "stable") {
+    const currentChannel = current.prerelease?.split(".")[0];
+    if (currentChannel === channel) {
+      const counter = parseInt(current.prerelease?.split(".")[1] ?? "0") + 1;
+      return { ...base, prerelease: `${channel}.${counter}` };
+    }
+    if (channel === "rc" && currentChannel === "beta") {
+      return { ...base, prerelease: `rc.1` };
+    }
+  }
+
+  let nextBase: SemVer;
+  switch (bump) {
+    case "major":
+      nextBase = { major: base.major + 1, minor: 0, patch: 0 };
+      break;
+    case "minor":
+      nextBase = { major: base.major, minor: base.minor + 1, patch: 0 };
+      break;
+    case "patch":
+      nextBase = { major: base.major, minor: base.minor, patch: base.patch + 1 };
+      break;
+  }
+
+  if (channel === "stable") {
+    return nextBase;
+  }
+
+  return { ...nextBase, prerelease: `${channel}.1` };
+}
+
+// --- Main ---
+
+const args = parseArgs(Deno.args, {
+  string: ["bump", "channel", "package"],
+  default: { bump: "patch", channel: "stable", package: "core" },
+});
+
+const bump = args.bump as "patch" | "minor" | "major";
+const channel = args.channel as "stable" | "beta" | "rc";
+const pkg = args.package as string;
+
+if (!["patch", "minor", "major"].includes(bump)) {
+  console.error(`Invalid bump type: ${bump}. Use patch, minor, or major.`);
+  Deno.exit(1);
+}
+
+if (!["stable", "beta", "rc"].includes(channel)) {
+  console.error(`Invalid channel: ${channel}. Use stable, beta, or rc.`);
+  Deno.exit(1);
+}
+
+const validPackages = [...Object.keys(PACKAGE_MAP), "all"];
+if (!validPackages.includes(pkg)) {
+  console.error(`Invalid package: ${pkg}. Use one of: ${validPackages.join(", ")}`);
+  Deno.exit(1);
+}
+
+const targetFiles = pkg === "all" ? ALL_PACKAGES : PACKAGE_MAP[pkg];
+
+console.log(`Target:  ${pkg}`);
+console.log(`Bump:    ${bump}`);
+console.log(`Channel: ${channel}`);
+console.log();
+
+for (const pkgPath of targetFiles) {
+  try {
+    const config = JSON.parse(await Deno.readTextFile(pkgPath));
+    const currentVersion = parseSemVer(config.version);
+    const nextVersion = bumpVersion(currentVersion, bump, channel);
+    const nextVersionStr = formatSemVer(nextVersion);
+
+    config.version = nextVersionStr;
+    await Deno.writeTextFile(pkgPath, JSON.stringify(config, null, "\t") + "\n");
+    console.log(`  ${config.name}: ${config.version !== nextVersionStr ? formatSemVer(currentVersion) : config.version} → ${nextVersionStr}`);
+  } catch (e) {
+    console.error(`  Failed to update ${pkgPath}: ${e}`);
+  }
+}
+
+console.log("\nDone.");

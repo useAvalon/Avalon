@@ -473,10 +473,10 @@ function generateHead(
     <script type="importmap">
     {
       "imports": {
-        "@avalon/integration-preact/client": "/packages/integrations/preact/client/index.ts",
-        "@avalon/integration-vue/client": "/packages/integrations/vue/client/index.ts",
-        "@avalon/integration-solid/client": "/packages/integrations/solid/client/index.ts",
-        "@avalon/integration-svelte/client": "/packages/integrations/svelte/client/index.ts",
+        "@avalon/preact/client": "/packages/integrations/preact/client/index.ts",
+        "@avalon/vue/client": "/packages/integrations/vue/client/index.ts",
+        "@avalon/solid/client": "/packages/integrations/solid/client/index.ts",
+        "@avalon/svelte/client": "/packages/integrations/svelte/client/index.ts",
         "@avalon/shared": "/packages/integrations/shared/types.ts"
       }
     }

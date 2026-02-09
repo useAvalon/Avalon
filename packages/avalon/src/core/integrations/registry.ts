@@ -138,8 +138,8 @@ export class IntegrationRegistry {
       
       throw new Error(
         `Failed to load integration for framework '${name}'. ` +
-        `Make sure @avalon/integration-${name} is installed.\n` +
-        `Install it with: deno add @avalon/integration-${name}`,
+        `Make sure @avalon/${name} is installed.\n` +
+        `Install it with: deno add @avalon/${name}`,
         { cause: error }
       );
     }

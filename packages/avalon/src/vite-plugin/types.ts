@@ -18,7 +18,7 @@ import type { AvalonNitroConfig } from "../nitro/config.ts";
 
 /**
  * Supported integration names
- * These correspond to the @avalon/integration-* packages
+ * These correspond to the @avalon/* packages
  */
 export type IntegrationName =
   | "react"

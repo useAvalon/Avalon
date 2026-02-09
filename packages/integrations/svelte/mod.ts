@@ -5,7 +5,7 @@
  * This integration follows the Avalon integration architecture, allowing Svelte
  * to be used alongside other frameworks in the same application.
  * 
- * @module @avalon/integration-svelte
+ * @module @avalon/svelte
  */
 
 import type { Plugin } from "vite";

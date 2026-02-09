@@ -1,0 +1,110 @@
+name: Canary Release
+
+# Publishes canary releases only for packages that actually changed.
+# Canary versions look like: 0.1.1-canary.20260209.abc1234
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/**"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  detect-changes:
+    name: Detect Changed Packages
+    runs-on: ubuntu-latest
+    outputs:
+      core: ${{ steps.changes.outputs.core }}
+      lit: ${{ steps.changes.outputs.lit }}
+      react: ${{ steps.changes.outputs.react }}
+      preact: ${{ steps.changes.outputs.preact }}
+      svelte: ${{ steps.changes.outputs.svelte }}
+      solid: ${{ steps.changes.outputs.solid }}
+      vue: ${{ steps.changes.outputs.vue }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            core:
+              - 'packages/avalon/**'
+              - 'packages/integrations/shared/**'
+            lit:
+              - 'packages/integrations/lit/**'
+            react:
+              - 'packages/integrations/react/**'
+            preact:
+              - 'packages/integrations/preact/**'
+            svelte:
+              - 'packages/integrations/svelte/**'
+            solid:
+              - 'packages/integrations/solid/**'
+            vue:
+              - 'packages/integrations/vue/**'
+
+  canary:
+    name: Publish Canary
+    needs: detect-changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Generate canary suffix
+        id: version
+        run: |
+          DATE=$(date +%Y%m%d)
+          SHA=$(git rev-parse --short HEAD)
+          echo "suffix=canary.${DATE}.${SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Bump and publish changed packages
+        run: |
+          SUFFIX="${{ steps.version.outputs.suffix }}"
+
+          publish_pkg() {
+            local CONFIG="$1"
+            if [ -f "$CONFIG" ]; then
+              BASE_VERSION=$(deno eval "const c = JSON.parse(Deno.readTextFileSync('$CONFIG')); console.log(c.version.split('-')[0])")
+              deno eval "
+                const config = JSON.parse(Deno.readTextFileSync('$CONFIG'));
+                config.version = '${BASE_VERSION}-${SUFFIX}';
+                Deno.writeTextFileSync('$CONFIG', JSON.stringify(config, null, '\t') + '\n');
+              "
+              echo "Publishing $(deno eval "console.log(JSON.parse(Deno.readTextFileSync('$CONFIG')).name)")@${BASE_VERSION}-${SUFFIX}"
+              deno publish --dry-run --allow-dirty --config "$CONFIG"
+            fi
+          }
+
+          if [ "${{ needs.detect-changes.outputs.core }}" = "true" ]; then
+            publish_pkg "packages/avalon/deno.json"
+            publish_pkg "packages/integrations/shared/deno.json"
+          fi
+          if [ "${{ needs.detect-changes.outputs.lit }}" = "true" ]; then
+            publish_pkg "packages/integrations/lit/deno.json"
+          fi
+          if [ "${{ needs.detect-changes.outputs.react }}" = "true" ]; then
+            publish_pkg "packages/integrations/react/deno.json"
+          fi
+          if [ "${{ needs.detect-changes.outputs.preact }}" = "true" ]; then
+            publish_pkg "packages/integrations/preact/deno.json"
+          fi
+          if [ "${{ needs.detect-changes.outputs.svelte }}" = "true" ]; then
+            publish_pkg "packages/integrations/svelte/deno.json"
+          fi
+          if [ "${{ needs.detect-changes.outputs.solid }}" = "true" ]; then
+            publish_pkg "packages/integrations/solid/deno.json"
+          fi
+          if [ "${{ needs.detect-changes.outputs.vue }}" = "true" ]; then
+            publish_pkg "packages/integrations/vue/deno.json"
+          fi
+
+      # Uncomment when ready to actually publish (replace --dry-run with real publish):
+      # Change `deno publish --dry-run` to `deno publish --tag canary` above

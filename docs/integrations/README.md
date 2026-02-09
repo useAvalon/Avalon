@@ -230,7 +230,7 @@ Returns JavaScript code for client-side hydration.
 ```typescript
 getHydrationScript(): string {
   return `
-    import { hydrate } from '@avalon/integration-preact/client';
+    import { hydrate } from '@avalon/preact/client';
     
     document.querySelectorAll('[data-framework="preact"]').forEach(el => {
       const src = el.getAttribute('data-src');
@@ -428,7 +428,7 @@ Create `deno.json`:
 
 ```json
 {
-  "name": "@avalon/integration-my-framework",
+  "name": "@avalon/my-framework",
   "version": "0.1.0",
   "exports": {
     ".": "./mod.ts",
@@ -527,7 +527,7 @@ export function hydrate(
 
 export function getHydrationScript(): string {
   return `
-    import { hydrate } from '@avalon/integration-my-framework/client';
+    import { hydrate } from '@avalon/my-framework/client';
     
     document.querySelectorAll('[data-framework="my-framework"]').forEach(el => {
       const src = el.getAttribute('data-src');
@@ -602,7 +602,7 @@ import { renderPreact } from "../islands/renderers/preact-renderer.ts";
 
 **After:**
 ```typescript
-import { render } from "@avalon/integration-preact";
+import { render } from "@avalon/preact";
 ```
 
 #### 2. Update Island Usage
@@ -653,10 +653,10 @@ The framework dependencies are now managed by integration packages. Update your 
 ```json
 {
   "imports": {
-    "@avalon/integration-preact": "./src/integrations/preact/mod.ts",
-    "@avalon/integration-vue": "./src/integrations/vue/mod.ts",
-    "@avalon/integration-solid": "./src/integrations/solid/mod.ts",
-    "@avalon/integration-svelte": "./src/integrations/svelte/mod.ts"
+    "@avalon/preact": "./src/integrations/preact/mod.ts",
+    "@avalon/vue": "./src/integrations/vue/mod.ts",
+    "@avalon/solid": "./src/integrations/solid/mod.ts",
+    "@avalon/svelte": "./src/integrations/svelte/mod.ts"
   }
 }
 ```

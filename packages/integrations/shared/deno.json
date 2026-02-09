@@ -1,5 +1,5 @@
 {
-	"name": "@avalon/integration-shared",
+	"name": "@avalon/shared",
 	"version": "0.1.0",
 	"exports": {
 		".": "./types.ts",

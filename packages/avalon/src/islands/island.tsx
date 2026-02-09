@@ -505,8 +505,8 @@ export async function renderIsland({
       devError(`${logPrefix} Failed to load ${detectedFramework} integration:`, error);
       throw new Error(
         `Failed to load integration for framework '${detectedFramework}'. ` +
-        `Make sure @avalon/integration-${detectedFramework} is installed.\n` +
-        `Install it with: deno add @avalon/integration-${detectedFramework}`,
+        `Make sure @avalon/${detectedFramework} is installed.\n` +
+        `Install it with: deno add @avalon/${detectedFramework}`,
         { cause: error }
       );
     }

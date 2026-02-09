@@ -85,7 +85,7 @@ export async function activateIntegrations(
       }
     } catch (error) {
       throw new IntegrationError(
-        `Failed to activate integration. Is @avalon/integration-${name} installed?`,
+        `Failed to activate integration. Is @avalon/${name} installed?`,
         name,
         error as Error
       );
@@ -132,7 +132,7 @@ export async function activateSingleIntegration(
     return true;
   } catch (error) {
     throw new IntegrationError(
-      `Failed to activate integration. Is @avalon/integration-${name} installed?`,
+      `Failed to activate integration. Is @avalon/${name} installed?`,
       name,
       error as Error
     );

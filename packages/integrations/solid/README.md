@@ -1,4 +1,4 @@
-# @avalon/integration-solid
+# @avalon/solid
 
 Solid integration for the Avalon framework. Provides server-side rendering (SSR) and client-side hydration for Solid components.
 
@@ -15,7 +15,7 @@ Solid integration for the Avalon framework. Provides server-side rendering (SSR)
 ## Installation
 
 ```bash
-deno add @avalon/integration-solid
+deno add @avalon/solid
 ```
 
 ## Usage
@@ -190,7 +190,7 @@ export default function SafeComponent() {
 Renders a Solid component to HTML string on the server.
 
 ```typescript
-import { render } from "@avalon/integration-solid/server";
+import { render } from "@avalon/solid/server";
 
 const result = await render({
   src: "/src/islands/Counter.solid.tsx",
@@ -210,7 +210,7 @@ Renders with automatic error handling, returning null on failure.
 Hydrates a server-rendered Solid component on the client.
 
 ```typescript
-import { hydrate } from "@avalon/integration-solid/client";
+import { hydrate } from "@avalon/solid/client";
 
 const container = document.getElementById("my-island");
 const { default: Component } = await import("/src/islands/Counter.solid.tsx");
