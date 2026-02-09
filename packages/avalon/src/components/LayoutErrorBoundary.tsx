@@ -1,5 +1,5 @@
-import { Component, ComponentChildren, ComponentType } from 'preact';
-import { LayoutErrorInfo, ErrorRecoveryStrategy } from '../types/layout.ts';
+import { Component, ComponentChildren } from 'preact';
+import type { LayoutErrorInfo, ErrorRecoveryStrategy } from '../types/layout.ts';
 
 export interface LayoutErrorBoundaryProps {
 	children: ComponentChildren;

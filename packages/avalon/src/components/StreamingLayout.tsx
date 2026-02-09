@@ -1,6 +1,6 @@
 import { ComponentChildren, ComponentType, Component } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { StreamingLayoutProps, IStreamingLayoutComponent } from '../types/layout.ts';
+import type { StreamingLayoutProps } from '../types/layout.ts';
 
 /**
  * Streaming Layout Component Props
@@ -330,16 +330,6 @@ export function StreamingSuspense(props: StreamingSuspenseProps): ComponentChild
 			}
 		};
 	}, [timeout, isLoading]);
-
-	// Handle child loading state changes
-	const handleLoadingChange = (childIsLoading: boolean) => {
-		if (!childIsLoading && isLoading) {
-			setIsLoading(false);
-			if (timeoutRef.current) {
-				clearTimeout(timeoutRef.current);
-			}
-		}
-	};
 
 	// Handle child errors
 	const handleError = (childError: Error) => {

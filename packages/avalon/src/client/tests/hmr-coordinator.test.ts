@@ -152,17 +152,6 @@ Deno.test('HMRCoordinator - module update types', async () => {
   ];
   
   for (const { type, shouldProcess } of updateTypes) {
-    const payload = {
-      type,
-      updates: shouldProcess ? [{
-        type: 'js-update' as const,
-        path: '/src/islands/Test.tsx',
-        acceptedPath: '/src/islands/Test.tsx',
-        timestamp: Date.now(),
-      }] : undefined,
-      timestamp: Date.now(),
-    };
-    
     // Verify coordinator can handle all payload types
     assertExists(coordinator.handleUpdate, 'Should have handleUpdate method');
   }

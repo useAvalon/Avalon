@@ -61,10 +61,8 @@ export class LayoutCacheManager {
 		memoryUsage: 0,
 	};
 	private cleanupTimer?: number;
-	private compressionEnabled: boolean;
 
 	constructor(private config: CacheConfig) {
-		this.compressionEnabled = config.enableCompression ?? true;
 		// Don't start cleanup timer in test environment
 		if (Deno.env.get('DENO_ENV') !== 'test') {
 			this.startCleanupTimer();

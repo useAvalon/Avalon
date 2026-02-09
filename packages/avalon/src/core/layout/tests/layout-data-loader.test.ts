@@ -1,6 +1,5 @@
-import { assertEquals, assertRejects, assertThrows, assert } from '@std/assert';
-import { describe, it, beforeEach, afterEach } from '@std/testing/bdd';
-import { FakeTime } from '@std/testing/time';
+import { assertEquals, assertThrows, assert } from '@std/assert';
+import { describe, it, beforeEach } from '@std/testing/bdd';
 import {
 	LayoutDataLoader,
 	LayoutDataLoadingError,
