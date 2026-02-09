@@ -1,8 +1,8 @@
 /** @jsxImportSource preact */
 import { useState } from 'preact/hooks';
 
-export default function PreactCounter() {
-	const [count, setCount] = useState(0);
+export default function PreactCounter({ initialCount = 0 }: { initialCount?: number }) {
+	const [count, setCount] = useState(initialCount);
 
 	return (
 		<div

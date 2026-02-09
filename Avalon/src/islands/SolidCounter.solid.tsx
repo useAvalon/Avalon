@@ -1,8 +1,8 @@
 /** @jsxImportSource solid-js */
 import { createSignal } from 'solid-js';
 
-export default function SolidCounter() {
-	const [count, setCount] = createSignal(0);
+export default function SolidCounter(props: { initialCount?: number }) {
+	const [count, setCount] = createSignal(props.initialCount ?? 0);
 
 	return (
 		<div style="text-align: center; padding: 20px; background: linear-gradient(135deg, #3a51b7ff, #2762b0ff); color: white; border-radius: 10px;">

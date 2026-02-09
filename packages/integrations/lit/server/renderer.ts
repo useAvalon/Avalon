@@ -16,42 +16,128 @@ import {
   collectStyles,
   extractTagNameFromSource
 } from "./utils.ts";
-import { render as litRender } from "@lit-labs/ssr";
-import { html, unsafeStatic } from "lit/static-html.js";
 import type { LitElement } from "lit";
+import { LitElementRenderer } from "@lit-labs/ssr/lib/lit-element-renderer.js";
 
 if (!DOM_SHIM_INSTALLED || !verifyDOMShim()) {
   throw new Error("Lit DOM shim is not properly installed");
 }
 
 /**
- * Render a Lit element using @lit-labs/ssr with declarative shadow DOM
- * Uses the proper SSR approach: render the custom element tag, not the instance
+ * Convert a camelCase prop name to the attribute name the Lit element expects.
+ * Checks the element's static `properties` map for an explicit `attribute`
+ * mapping; falls back to camelCase → kebab-case conversion.
+ */
+function propToAttribute(
+  ElementClass: typeof LitElement,
+  propName: string
+): string | null {
+  // deno-lint-ignore no-explicit-any
+  const propDefs = (ElementClass as any).properties as
+    | Record<string, { attribute?: string | boolean }>
+    | undefined;
+
+  if (propDefs && propName in propDefs) {
+    const def = propDefs[propName];
+    if (def.attribute === false) return null; // property-only, no attribute
+    if (typeof def.attribute === "string") return def.attribute;
+  }
+
+  // Default: camelCase → kebab-case
+  return propName.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+}
+
+/**
+ * Render a Lit element using @lit-labs/ssr's LitElementRenderer directly.
+ *
+ * The previous approach used `unsafeStatic(attrsString)` inside a tagged
+ * template literal.  That bakes attributes into the template's *static text*,
+ * so @lit-labs/ssr never calls `setAttribute` → `attributeChangedCallback` →
+ * `attributeToProperty` on the element instance.  Properties therefore stay at
+ * their class-field defaults (e.g. `count = 0`).
+ *
+ * By driving the renderer directly we can call `setAttribute` for every prop,
+ * which feeds through the full Lit reactive pipeline before `render()` runs.
  */
 function renderLitElementWithSSR(
   ElementClass: typeof LitElement,
   props: Record<string, unknown>,
   tagName: string
 ): { html: string; styles: string } {
-  // Build attributes for the custom element
-  const attributes = serializeAttributes(props);
-  const attrsString = attributes ? ` ${attributes}` : "";
-  
-  // Create the element template using lit's static html
-  // This is the proper way to SSR Lit elements - render the tag, not the class instance
-  const tag = unsafeStatic(tagName);
-  const elementTemplate = html`<${tag}${unsafeStatic(attrsString)} defer-hydration></${tag}>`;
-  
-  // Use @lit-labs/ssr to render the element
-  const ssrResult = litRender(elementTemplate);
-  
-  let renderedHtml = "";
-  for (const chunk of ssrResult) {
-    renderedHtml += chunk;
+  // Ensure the element is registered (loadComponent side-effects may have
+  // already done this, but be safe).
+  if (!customElements.get(tagName)) {
+    customElements.define(tagName, ElementClass as unknown as CustomElementConstructor);
   }
-  
+
+  // --- 1. Create the renderer (which internally does `new ElementClass()`) ---
+  const renderer = new LitElementRenderer(tagName);
+
+  // --- 2. Feed props as attributes so the reactive pipeline picks them up ---
+  for (const [key, value] of Object.entries(props)) {
+    if (value === undefined || value === null) continue;
+
+    const attrName = propToAttribute(ElementClass, key);
+    if (attrName === null) {
+      // Property with `attribute: false` — set directly on the instance
+      if (renderer.element) {
+        // deno-lint-ignore no-explicit-any
+        (renderer.element as any)[key] = value;
+      }
+      continue;
+    }
+
+    // Serialize the value to a string for setAttribute
+    let strValue: string;
+    if (typeof value === "boolean") {
+      if (!value) continue; // false booleans → omit attribute
+      strValue = "";
+    } else if (typeof value === "object") {
+      strValue = JSON.stringify(value);
+    } else {
+      strValue = String(value);
+    }
+
+    renderer.setAttribute(attrName, strValue);
+  }
+
+  // Always add defer-hydration for client-side hydration support
+  renderer.setAttribute("defer-hydration", "");
+
+  // --- 3. connectedCallback triggers willUpdate → update (reflects attrs) ---
+  renderer.connectedCallback();
+
+  // --- 4. Render shadow DOM content ---
+  const renderInfo = {
+    elementRenderers: [LitElementRenderer],
+    customElementInstanceStack: [renderer] as Array<InstanceType<typeof LitElementRenderer> | undefined>,
+    customElementHostStack: [renderer] as Array<InstanceType<typeof LitElementRenderer> | undefined>,
+    eventTargetStack: [] as Array<HTMLElement | undefined>,
+    slotStack: [] as Array<string | undefined>,
+    deferHydration: false,
+  };
+
+  let shadowContent = "";
+  const shadowResult = renderer.renderShadow(renderInfo);
+  if (shadowResult) {
+    for (const chunk of shadowResult) {
+      shadowContent += String(chunk);
+    }
+  }
+
+  // --- 5. Build the outer HTML with declarative shadow DOM ---
+  let attrsHtml = "";
+  for (const chunk of renderer.renderAttributes()) {
+    attrsHtml += chunk;
+  }
+
+  const renderedHtml =
+    `<${tagName}${attrsHtml}>` +
+    `<template shadowrootmode="open">${shadowContent}</template>` +
+    `</${tagName}>`;
+
   const styles = collectStyles(ElementClass);
-  
+
   return { html: renderedHtml, styles };
 }
 

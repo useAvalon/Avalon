@@ -66,18 +66,13 @@ export class WebCounter extends LitElement {
   `;
 
   // Define properties without decorators
+  // `count` is the displayed value, mapped to the `initial-count` attribute for SSR.
+  // On the client, the attribute sets the initial value; clicks mutate `count` directly.
   static properties = {
-    initialCount: { type: Number, attribute: 'initial-count' },
-    count: { type: Number, state: true },
+    count: { type: Number, attribute: 'initial-count', reflect: true },
   };
 
-  initialCount = 0;
-  private count = 0;
-
-  connectedCallback() {
-    super.connectedCallback();
-    this.count = this.initialCount;
-  }
+  count = 0;
 
   private increment() {
     this.count++;
