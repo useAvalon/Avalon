@@ -13,8 +13,8 @@
 
 import type { Plugin, UserConfig, BuildOptions } from "vite";
 import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
-import type { AvalonNitroConfig, NitroConfigOutput } from "./config.ts";
-import { DEFAULT_NITRO_CONFIG } from "./config.ts";
+import type { AvalonNitroConfig } from "./config.ts";
+import { DEFAULT_NITRO_CONFIG, VALID_V3_PRESETS } from "./config.ts";
 
 /**
  * Build mode for the Avalon application
@@ -61,6 +61,14 @@ export interface AvalonBuildConfig {
   preset: string;
   /** Enable verbose logging */
   verbose: boolean;
+  /** Nitro v3: Compatibility date for preset features (YYYY-MM-DD) */
+  compatibilityDate?: string;
+  /** Nitro v3: Dependencies to trace instead of bundle */
+  traceDeps?: string[];
+  /** Nitro v3: Rolldown-specific configuration */
+  rolldownConfig?: Record<string, unknown>;
+  /** Nitro v3: Custom server entry point */
+  serverEntry?: string;
 }
 
 /**
@@ -74,7 +82,7 @@ export const DEFAULT_BUILD_CONFIG: AvalonBuildConfig = {
   minify: "esbuild",
   target: "es2020",
   ssr: true,
-  preset: "node-server",
+  preset: "node_server",
   verbose: false,
 };
 
@@ -82,7 +90,13 @@ export const DEFAULT_BUILD_CONFIG: AvalonBuildConfig = {
  * Preset-specific output configurations
  */
 export const PRESET_OUTPUT_CONFIGS: Record<string, PresetOutputConfig> = {
-  "node-server": {
+  "node_server": {
+    outputDir: ".output",
+    serverEntry: "server/index.mjs",
+    supportsStreaming: true,
+    bundleDependencies: false,
+  },
+  "node_middleware": {
     outputDir: ".output",
     serverEntry: "server/index.mjs",
     supportsStreaming: true,
@@ -95,67 +109,78 @@ export const PRESET_OUTPUT_CONFIGS: Record<string, PresetOutputConfig> = {
     bundleDependencies: true,
     additionalFiles: ["config.json"],
   },
-  "vercel-edge": {
-    outputDir: ".vercel/output",
-    serverEntry: "functions/render.func/index.mjs",
-    supportsStreaming: true,
-    bundleDependencies: true,
-    env: { EDGE_RUNTIME: "1" },
-  },
-  "cloudflare": {
+  "cloudflare_module": {
     outputDir: "dist",
-    serverEntry: "_worker.js",
+    serverEntry: "server/index.mjs",
     supportsStreaming: false,
     bundleDependencies: true,
   },
-  "cloudflare-pages": {
+  "cloudflare_pages": {
     outputDir: "dist",
     serverEntry: "_worker.js",
     supportsStreaming: false,
     bundleDependencies: true,
     additionalFiles: ["_routes.json"],
   },
-  "cloudflare-module": {
-    outputDir: "dist",
-    serverEntry: "server/index.mjs",
-    supportsStreaming: false,
-    bundleDependencies: true,
-  },
-  "deno-deploy": {
+  "deno_deploy": {
     outputDir: ".output",
     serverEntry: "server/index.ts",
     supportsStreaming: true,
     bundleDependencies: false,
   },
-  "deno-server": {
+  "deno_server": {
     outputDir: ".output",
     serverEntry: "server/index.ts",
     supportsStreaming: true,
     bundleDependencies: false,
   },
-  "netlify": {
+  "netlify_functions": {
     outputDir: ".netlify",
     serverEntry: "functions-internal/render.mjs",
     supportsStreaming: true,
     bundleDependencies: true,
   },
-  "netlify-edge": {
+  "netlify_edge": {
     outputDir: ".netlify/edge-functions",
     serverEntry: "render.js",
     supportsStreaming: true,
     bundleDependencies: true,
   },
-  "aws-lambda": {
+  "aws_lambda": {
     outputDir: ".output",
     serverEntry: "server/index.mjs",
     supportsStreaming: false,
     bundleDependencies: true,
+  },
+  "azure_swa": {
+    outputDir: ".output",
+    serverEntry: "server/index.mjs",
+    supportsStreaming: false,
+    bundleDependencies: true,
+  },
+  "firebase_functions": {
+    outputDir: ".output",
+    serverEntry: "server/index.mjs",
+    supportsStreaming: true,
+    bundleDependencies: true,
+  },
+  "render_com": {
+    outputDir: ".output",
+    serverEntry: "server/index.mjs",
+    supportsStreaming: true,
+    bundleDependencies: false,
   },
   "static": {
     outputDir: "dist",
     serverEntry: "",
     supportsStreaming: false,
     bundleDependencies: false,
+  },
+  "browser": {
+    outputDir: "dist",
+    serverEntry: "",
+    supportsStreaming: false,
+    bundleDependencies: true,
   },
 };
 
@@ -210,7 +235,7 @@ export function createServerBuildConfig(
 ): BuildOptions {
   const config = { ...DEFAULT_BUILD_CONFIG, ...buildConfig };
   const preset = nitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset;
-  const presetConfig = PRESET_OUTPUT_CONFIGS[preset] ?? PRESET_OUTPUT_CONFIGS["node-server"];
+  const presetConfig = PRESET_OUTPUT_CONFIGS[preset] ?? PRESET_OUTPUT_CONFIGS["node_server"];
 
   return {
     outDir: config.serverOutDir,
@@ -299,12 +324,12 @@ function getServerExternals(preset: string): (string | RegExp)[] {
 
   // Preset-specific externals
   switch (preset) {
-    case "deno-deploy":
-    case "deno-server":
+    case "deno_deploy":
+    case "deno_server":
       // Deno handles its own dependencies
       return [...baseExternals];
 
-    case "node-server":
+    case "node_server":
       // Node.js can load from node_modules
       return [
         ...baseExternals,
@@ -324,7 +349,7 @@ function getServerExternals(preset: string): (string | RegExp)[] {
  * @returns Preset output configuration
  */
 export function getPresetOutputConfig(preset: string): PresetOutputConfig {
-  return PRESET_OUTPUT_CONFIGS[preset] ?? PRESET_OUTPUT_CONFIGS["node-server"];
+  return PRESET_OUTPUT_CONFIGS[preset] ?? PRESET_OUTPUT_CONFIGS["node_server"];
 }
 
 /**
@@ -466,10 +491,12 @@ export function validateBuildConfig(
   const errors: string[] = [];
 
   // Validate preset
-  if (config.preset && !PRESET_OUTPUT_CONFIGS[config.preset]) {
-    errors.push(
-      `Unknown preset: ${config.preset}. Valid presets: ${Object.keys(PRESET_OUTPUT_CONFIGS).join(", ")}`
-    );
+  if (config.preset) {
+    if (!VALID_V3_PRESETS.includes(config.preset)) {
+      errors.push(
+        `Unknown preset: ${config.preset}. Valid presets: ${VALID_V3_PRESETS.join(", ")}`
+      );
+    }
   }
 
   // Validate mode

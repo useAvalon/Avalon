@@ -143,7 +143,6 @@ export {
 // NOTE: API routes are now auto-discovered by Nitro from the api/ directory.
 // Only page discovery is needed for SSR rendering of page components.
 export {
-  // Primary exports
   discoverPageRoutes,
   filePathToPattern,
   isPrivateFile,
@@ -155,11 +154,6 @@ export {
   PAGE_EXTENSIONS,
   type PageDiscoveryOptions,
   type FilePathPatternResult,
-  // Deprecated exports (kept for backward compatibility)
-  discoverRoutes,
-  discoverApiRoutes,
-  filePathToApiPattern,
-  isMiddlewareFile,
 } from "./route-discovery.ts";
 
 // Build Configuration exports

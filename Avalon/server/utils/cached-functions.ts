@@ -13,7 +13,7 @@
  * Requirements: 4.2, 4.5
  */
 
-import { defineCachedFunction } from "nitropack/runtime";
+import { defineCachedFunction } from "nitro/cache";
 
 /**
  * Cached function to fetch GitHub repository stars

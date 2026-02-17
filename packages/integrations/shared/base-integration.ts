@@ -9,6 +9,7 @@ import type {
   RenderParams,
   RenderResult,
 } from "./types.ts";
+import type { Plugin } from "vite";
 
 /**
  * Abstract base class that integrations can extend to inherit common functionality
@@ -36,8 +37,8 @@ export abstract class BaseIntegration implements Integration {
    * Optional Vite plugin configuration
    * Subclasses can override this to provide build-time processing
    */
-  vitePlugin?(): unknown | unknown[] {
-    return undefined;
+  vitePlugin?(): Promise<Plugin | Plugin[]> {
+    return Promise.resolve(undefined as unknown as Plugin);
   }
 
   /**

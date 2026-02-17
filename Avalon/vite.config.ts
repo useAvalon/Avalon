@@ -27,6 +27,8 @@ const _suppressPatterns = [
 	'optimizeDeps.esbuildOptions',
 	'vite-plugin-svelte',
 	'no Svelte config found',
+	'Invalid input options',
+	'may not be able to be serialized',
 ];
 const _shouldSuppress = (args: unknown[]) =>
 	args.some(a => typeof a === 'string' && _suppressPatterns.some(p => a.includes(p)));
@@ -73,8 +75,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		// Enables universal deployment through Nitro presets
 		nitro: {
 			// Deployment preset - can be changed for different platforms:
-			// 'node-server' (default), 'vercel', 'cloudflare', 'deno-deploy', 'netlify', etc.
-			preset: 'node-server',
+			// 'node_server' (default), 'vercel', 'cloudflare_module', 'deno_deploy', 'netlify_functions', etc.
+			preset: 'node_server',
 
 			// Enable streaming SSR for better TTFB
 			streaming: true,

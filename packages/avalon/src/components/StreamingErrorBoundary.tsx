@@ -5,7 +5,7 @@
  * It ensures that errors in one component don't break the entire page.
  */
 
-import { Component, ComponentChildren } from 'preact';
+import { Component, type ComponentChildren } from 'preact';
 
 export interface StreamingErrorBoundaryProps {
 	children: ComponentChildren;

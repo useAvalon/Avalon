@@ -8,6 +8,7 @@
  */
 
 import type { Plugin, ViteDevServer } from "vite";
+import { nitro as nitroVitePlugin } from "nitro/vite";
 import type { ResolvedAvalonConfig } from "./types.ts";
 import {
   createNitroConfig,
@@ -59,12 +60,44 @@ export interface NitroCoordinationPluginOptions {
 /**
  * Creates the Nitro integration for Avalon — configuration, virtual modules,
  * build plugins, and SSR coordination.
+ *
+ * Uses the Nitro v3 Vite plugin from `nitro/vite` for server route discovery,
+ * SSR rendering pipeline, and Rolldown-optimized bundling.
  */
 export function createNitroIntegration(
   avalonConfig: ResolvedAvalonConfig,
   nitroConfig: AvalonNitroConfig = {}
 ): NitroIntegrationResult {
   const nitroOptions = createNitroConfig(nitroConfig, avalonConfig);
+
+  // Nitro v3 Vite plugin — only pass keys that Nitro actually accepts.
+  // Spreading the full nitroOptions leaks Avalon-specific keys (staticAssets,
+  // publicAssets, etc.) which Nitro forwards to Rolldown, causing
+  // "Invalid input options" warnings (e.g. "jsx" key errors).
+  const nitroVitePluginOptions: Record<string, unknown> = {
+    preset: nitroOptions.preset,
+    serverDir: nitroConfig.serverDir ?? nitroOptions.serverDir ?? "./server",
+    routeRules: nitroOptions.routeRules,
+    runtimeConfig: nitroOptions.runtimeConfig,
+    renderer: nitroConfig.renderer === false ? false : nitroOptions.renderer,
+    compatibilityDate: nitroOptions.compatibilityDate,
+  };
+
+  // Only include optional keys if they're defined
+  if (nitroOptions.publicRuntimeConfig) {
+    nitroVitePluginOptions.publicRuntimeConfig = nitroOptions.publicRuntimeConfig;
+  }
+  if (nitroOptions.publicAssets) {
+    nitroVitePluginOptions.publicAssets = nitroOptions.publicAssets;
+  }
+  if (nitroOptions.compressPublicAssets) {
+    nitroVitePluginOptions.compressPublicAssets = nitroOptions.compressPublicAssets;
+  }
+  if (nitroOptions.serverEntry) {
+    nitroVitePluginOptions.serverEntry = nitroOptions.serverEntry;
+  }
+
+  const nitroPlugin = nitroVitePlugin(nitroVitePluginOptions);
 
   const coordinationPlugin = createNitroCoordinationPlugin({
     avalonConfig,
@@ -86,14 +119,14 @@ export function createNitroIntegration(
   });
 
   const sourceMapConfig = createSourceMapConfig(
-    nitroConfig.preset ?? "node-server",
+    nitroConfig.preset ?? "node_server",
     avalonConfig.isDev
   );
   const sourceMapPlugin = createSourceMapPlugin(sourceMapConfig);
 
   return {
     nitroOptions,
-    plugins: [coordinationPlugin, virtualModulesPlugin, buildPlugin, manifestPlugin, sourceMapPlugin],
+    plugins: [...(Array.isArray(nitroPlugin) ? nitroPlugin : [nitroPlugin]), coordinationPlugin, virtualModulesPlugin, buildPlugin, manifestPlugin, sourceMapPlugin],
   };
 }
 
@@ -305,8 +338,10 @@ export function createNitroCoordinationPlugin(
 }
 
 /**
- * Prewarms only core infrastructure modules (fire-and-forget).
- * Pages, islands, and per-route middleware are loaded on-demand.
+ * Prewarms core infrastructure modules (fire-and-forget).
+ * Loads SSR infrastructure and framework renderers so the first page render
+ * doesn't pay the full module-load cost. Island components are loaded on-demand
+ * to avoid penalizing startup with unused modules.
  */
 async function prewarmCoreModules(server: ViteDevServer, verbose?: boolean): Promise<void> {
   const prewarmStart = performance.now();
@@ -316,7 +351,7 @@ async function prewarmCoreModules(server: ViteDevServer, verbose?: boolean): Pro
     { path: "../packages/avalon/src/render/ssr.ts", assignTo: "ssr" },
     { path: "../packages/avalon/src/core/layout/enhanced-layout-resolver.ts", assignTo: "layout" },
     { path: "../packages/avalon/src/middleware/index.ts", assignTo: null },
-    // Framework renderers
+    // Framework renderers — prewarm so first island render is fast
     { path: "../packages/integrations/react/server/renderer.ts", assignTo: null },
     { path: "../packages/integrations/vue/server/renderer.ts", assignTo: null },
     { path: "../packages/integrations/solid/server/renderer.ts", assignTo: null },

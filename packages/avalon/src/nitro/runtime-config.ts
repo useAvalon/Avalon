@@ -1,16 +1,20 @@
 /**
- * Nitro Runtime Configuration Module for Avalon
+ * Nitro v3 Runtime Configuration Module for Avalon
  *
- * This module provides runtime configuration support for Nitro integration,
+ * This module provides runtime configuration support for the Nitro v3 integration,
  * including environment variable overrides with NITRO_ prefix and a
  * useRuntimeConfig() function for accessing configuration in handlers.
  *
- * Requirements: 8.3
+ * Note: The 'nitro' namespace in runtimeConfig is reserved by Nitro v3
+ * and must not be used by application code.
+ *
+ * Requirements: 5.1, 5.2, 5.3, 11.4
  */
 
 /**
- * Avalon-specific runtime configuration stored in Nitro's runtimeConfig
- * This is accessed via useRuntimeConfig().avalon in handlers
+ * Avalon-specific runtime configuration stored in Nitro v3's runtimeConfig.
+ * This is accessed via useRuntimeConfig().avalon in handlers.
+ * The 'avalon' namespace is used to avoid conflict with the reserved 'nitro' namespace.
  */
 export interface AvalonRuntimeConfig {
   /** Enable streaming SSR responses */
@@ -63,10 +67,10 @@ export function setRuntimeConfig(config: RuntimeConfig): void {
 }
 
 /**
- * Gets the current runtime configuration
- * Applies environment variable overrides on each access
+ * Gets the current runtime configuration (Nitro v3 compatible).
+ * Applies environment variable overrides on each access.
  *
- * Requirements: 8.3
+ * Requirements: 5.1, 5.2
  *
  * @returns The runtime configuration with environment overrides applied
  * @throws Error if runtime config has not been initialized
@@ -126,10 +130,11 @@ export function getRuntimeConfigValue<T>(
 }
 
 /**
- * Applies environment variable overrides to runtime config
- * Environment variables with NITRO_ prefix override corresponding config values
+ * Applies environment variable overrides to runtime config.
+ * Environment variables with NITRO_ prefix override corresponding config values.
+ * This is compatible with Nitro v3's environment variable override mechanism.
  *
- * Requirements: 8.3
+ * Requirements: 5.2
  *
  * @param config - The base runtime configuration
  * @returns Configuration with environment overrides applied
@@ -425,6 +430,13 @@ export function validateRuntimeConfig(config: unknown): {
     }
   }
 
+  // Nitro v3: The 'nitro' namespace in runtimeConfig is reserved
+  if ("nitro" in cfg) {
+    errors.push(
+      'The "nitro" key in runtimeConfig is reserved by Nitro v3 and cannot be used'
+    );
+  }
+
   return {
     valid: errors.length === 0,
     errors,
@@ -470,9 +482,9 @@ export function mergeRuntimeConfigs(
       };
     }
 
-    // Merge other keys
+    // Merge other keys (excluding reserved 'nitro' namespace in v3)
     for (const [key, value] of Object.entries(config)) {
-      if (key !== "avalon" && key !== "public") {
+      if (key !== "avalon" && key !== "public" && key !== "nitro") {
         result[key] = value;
       }
     }
@@ -482,10 +494,10 @@ export function mergeRuntimeConfigs(
 }
 
 /**
- * Initializes runtime configuration from Nitro config output
- * This should be called during server startup
+ * Initializes runtime configuration from Nitro v3 config output.
+ * This should be called during server startup.
  *
- * @param nitroConfig - The Nitro configuration output
+ * @param nitroConfig - The Nitro v3 configuration output
  */
 export function initializeRuntimeConfig(nitroConfig: {
   runtimeConfig?: {

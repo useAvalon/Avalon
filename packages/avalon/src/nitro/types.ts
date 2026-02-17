@@ -3,10 +3,31 @@
  *
  * This module defines the core types used throughout the Nitro integration,
  * including render context, runtime configuration, and route definitions.
+ *
+ * In Nitro v3, canonical types should be imported from `nitro/types`.
+ * Avalon-specific types that extend or complement Nitro's types are defined here.
  */
 
 import type { MiddlewareContext } from "../schemas/middleware.ts";
 import type { ApiContext, ApiMethod } from "../schemas/api.ts";
+
+/**
+ * ServerRequest type reference from Nitro v3 (`nitro/types`).
+ * Re-exported here for convenience within Avalon's Nitro integration.
+ *
+ * Represents the server-side request object in Nitro v3's type system.
+ * When the full `nitro/types` package is available, prefer importing directly.
+ */
+export interface ServerRequest {
+  /** HTTP method */
+  method: string;
+  /** Request URL */
+  url: string;
+  /** Request headers */
+  headers: Record<string, string | string[] | undefined>;
+  /** Request body (if applicable) */
+  body?: unknown;
+}
 
 /**
  * H3 Event type placeholder

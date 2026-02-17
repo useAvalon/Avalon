@@ -143,6 +143,19 @@ export interface AvalonNitroConfig {
    * Static asset serving configuration
    */
   staticAssets?: StaticAssetsConfig;
+
+  /** Nitro v3: Compatibility date for preset features (YYYY-MM-DD) */
+  compatibilityDate?: string;
+  /** Nitro v3: Dependencies to trace instead of bundle */
+  traceDeps?: string[];
+  /** Nitro v3: Rolldown-specific configuration */
+  rolldownConfig?: Record<string, unknown>;
+  /** Nitro v3: Custom server entry point */
+  serverEntry?: string;
+  /** Nitro v3: Renderer configuration, or false to disable */
+  renderer?: { handler: string } | false;
+  /** Nitro v3: Pre-compress public assets (gzip, brotli, zstd) */
+  compressPublicAssets?: boolean | { gzip?: boolean; brotli?: boolean; zstd?: boolean };
 }
 
 /**
@@ -163,10 +176,20 @@ export interface NitroConfigOutput {
   };
   /** Public runtime configuration */
   publicRuntimeConfig?: Record<string, unknown>;
-  /** Renderer configuration */
+  /** Renderer configuration, or false to disable */
   renderer?: {
     handler: string;
-  };
+  } | false;
+  /** Nitro v3: Compatibility date for preset features (YYYY-MM-DD) */
+  compatibilityDate?: string;
+  /** Nitro v3: Dependencies to trace instead of bundle */
+  traceDeps?: string[];
+  /** Nitro v3: Rolldown-specific configuration */
+  rolldownConfig?: Record<string, unknown>;
+  /** Nitro v3: Custom server entry point */
+  serverEntry?: string;
+  /** Nitro v3: Pre-compress public assets (gzip, brotli, zstd) */
+  compressPublicAssets?: boolean | { gzip?: boolean; brotli?: boolean; zstd?: boolean };
   /** Public assets directory */
   publicAssets?: Array<{
     dir: string;
@@ -209,12 +232,70 @@ export const DEFAULT_STATIC_ASSETS_CONFIG: Required<StaticAssetsConfig> = {
 };
 
 /**
+ * Mapping from v2 hyphenated preset names to v3 underscore-convention names.
+ * Used by resolvePresetName() to transparently migrate legacy configurations.
+ */
+export const PRESET_MIGRATION_MAP: Record<string, string> = {
+  "node-server": "node_server",
+  "node-middleware": "node_middleware",
+  "deno-deploy": "deno_deploy",
+  "deno-server": "deno_server",
+  "vercel-edge": "vercel",
+  "cloudflare": "cloudflare_module",
+  "cloudflare-module": "cloudflare_module",
+  "cloudflare-pages": "cloudflare_pages",
+  "netlify-edge": "netlify_edge",
+  "aws-lambda": "aws_lambda",
+  "azure-functions": "azure_swa",
+  "firebase": "firebase_functions",
+  "render-com": "render_com",
+};
+
+/**
+ * All valid Nitro v3 preset names (underscore convention).
+ */
+export const VALID_V3_PRESETS: string[] = [
+  "node_server",
+  "node_middleware",
+  "vercel",
+  "cloudflare_module",
+  "cloudflare_pages",
+  "deno_deploy",
+  "deno_server",
+  "netlify_functions",
+  "netlify_edge",
+  "aws_lambda",
+  "azure_swa",
+  "firebase_functions",
+  "render_com",
+  "static",
+  "browser",
+];
+
+/**
+ * Resolves a preset name, migrating v2 names to v3 equivalents.
+ * Returns the v3 preset name or throws if unrecognized.
+ *
+ * @param preset - The preset name to resolve (v2 or v3)
+ * @returns The resolved v3 preset name
+ * @throws Error if the preset is not recognized
+ */
+export function resolvePresetName(preset: string): string {
+  if (VALID_V3_PRESETS.includes(preset)) return preset;
+  const mapped = PRESET_MIGRATION_MAP[preset];
+  if (mapped) return mapped;
+  throw new Error(
+    `Unknown Nitro preset: "${preset}". Valid presets: ${VALID_V3_PRESETS.join(", ")}`
+  );
+}
+
+/**
  * Default Nitro configuration values
  */
 export const DEFAULT_NITRO_CONFIG: Required<
   Pick<AvalonNitroConfig, "preset" | "serverDir" | "streaming">
 > = {
-  preset: "node-server",
+  preset: "node_server",
   serverDir: "server",
   streaming: true,
 };
@@ -255,6 +336,13 @@ export function createNitroConfig(
     islandsDir,
   };
 
+  // Validate that runtimeConfig does not contain a 'nitro' key (reserved in v3)
+  if (avalonNitroConfig.runtimeConfig && "nitro" in avalonNitroConfig.runtimeConfig) {
+    throw new Error(
+      'The "nitro" key in runtimeConfig is reserved by Nitro v3 and cannot be used.'
+    );
+  }
+
   // Merge user runtime config with Avalon runtime config
   const runtimeConfig: NitroConfigOutput["runtimeConfig"] = {
     avalon: avalonRuntimeConfig,
@@ -285,15 +373,24 @@ export function createNitroConfig(
     },
   ];
 
+  // Resolve renderer: support explicit false to disable, otherwise use default handler
+  const renderer: NitroConfigOutput["renderer"] =
+    avalonNitroConfig.renderer === false
+      ? false
+      : (avalonNitroConfig.renderer ?? { handler: "./server/renderer.ts" });
+
   return {
-    preset: avalonNitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset,
+    preset: resolvePresetName(avalonNitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset),
     serverDir: avalonNitroConfig.serverDir ?? DEFAULT_NITRO_CONFIG.serverDir,
     routeRules,
     runtimeConfig,
     publicRuntimeConfig: avalonNitroConfig.publicRuntimeConfig,
-    renderer: {
-      handler: "./server/renderer.ts",
-    },
+    renderer,
+    compatibilityDate: avalonNitroConfig.compatibilityDate,
+    traceDeps: avalonNitroConfig.traceDeps,
+    rolldownConfig: avalonNitroConfig.rolldownConfig,
+    serverEntry: avalonNitroConfig.serverEntry,
+    compressPublicAssets: avalonNitroConfig.compressPublicAssets,
     publicAssets,
     staticAssets: staticAssetsConfig,
   };
@@ -375,37 +472,13 @@ export function createDefaultStaticAssetRouteRules(
 }
 
 /**
- * Validates a Nitro preset name
+ * Validates a Nitro preset name against the v3 preset list
  *
  * @param preset - The preset name to validate
- * @returns True if the preset is a known valid preset
+ * @returns True if the preset is a known valid v3 preset
  */
 export function isValidPreset(preset: string): boolean {
-  const validPresets = [
-    "node-server",
-    "vercel",
-    "vercel-edge",
-    "cloudflare",
-    "cloudflare-pages",
-    "cloudflare-module",
-    "deno-deploy",
-    "deno-server",
-    "netlify",
-    "netlify-edge",
-    "aws-lambda",
-    "azure-functions",
-    "firebase",
-    "render-com",
-    "stormkit",
-    "cleavr",
-    "layer0",
-    "lagon",
-    "service-worker",
-    "static",
-    "browser",
-  ];
-
-  return validPresets.includes(preset);
+  return VALID_V3_PRESETS.includes(preset);
 }
 
 /**

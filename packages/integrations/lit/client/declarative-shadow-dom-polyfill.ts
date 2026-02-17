@@ -13,13 +13,14 @@ function processDeclarativeShadowDOM(): void {
   }
   
   // Skip if browser supports declarative shadow DOM natively
-  if (HTMLTemplateElement.prototype.hasOwnProperty('shadowRootMode')) {
+  if (Object.prototype.hasOwnProperty.call(HTMLTemplateElement.prototype, 'shadowRootMode')) {
     return;
   }
   
   const templates = document.querySelectorAll('template[shadowrootmode]');
   
-  templates.forEach((template) => {
+  templates.forEach((template: Element) => {
+    if (!(template instanceof HTMLTemplateElement)) return;
     const parent = template.parentElement;
     if (!parent || parent.shadowRoot) return;
     

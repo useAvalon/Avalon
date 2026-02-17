@@ -3,15 +3,15 @@
  *
  * This route demonstrates Nitro's built-in caching with defineCachedEventHandler.
  * The response is cached for 10 seconds with SWR enabled.
- *
+ *s
  * GET /api/cached-time
  *
  * Requirements: 4.1, 4.3
  */
 
-import { defineCachedEventHandler } from "nitropack/runtime";
+import { defineCachedHandler } from "nitro/cache";
 
-export default defineCachedEventHandler(
+export default defineCachedHandler(
   async () => {
     // Simulate expensive computation
     const now = new Date();

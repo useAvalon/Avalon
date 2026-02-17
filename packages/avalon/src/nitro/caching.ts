@@ -15,7 +15,7 @@
  *
  * USAGE:
  *
- * For API routes, use `defineCachedEventHandler` from 'nitropack/runtime':
+ * For API routes, use `defineCachedEventHandler` from 'nitro/cache':
  *
  * ```typescript
  * // api/expensive-data.ts
@@ -40,7 +40,7 @@
  *
  * ```typescript
  * // utils/cached-fetch.ts
- * import { defineCachedFunction } from 'nitropack/runtime';
+ * import { defineCachedFunction } from 'nitro/cache';
  *
  * export const getGitHubStars = defineCachedFunction(
  *   async (owner: string, repo: string) => {
@@ -377,7 +377,7 @@ export function mergeCacheOptions<T extends CachedEventHandlerOptions | CachedFu
 //
 // 1. defineCachedEventHandler (for HTTP handlers)
 // ------------------------------------------------
-// Import: import { defineCachedEventHandler } from 'nitropack/runtime';
+// Import: import { defineCachedEventHandler } from 'nitro/runtime';
 //
 // Usage:
 // ```typescript
@@ -400,7 +400,7 @@ export function mergeCacheOptions<T extends CachedEventHandlerOptions | CachedFu
 //
 // 2. defineCachedFunction (for any async function)
 // ------------------------------------------------
-// Import: import { defineCachedFunction } from 'nitropack/runtime';
+// Import: import { defineCachedFunction } from 'nitro/cache';
 //
 // Usage:
 // ```typescript
@@ -452,7 +452,7 @@ export function mergeCacheOptions<T extends CachedEventHandlerOptions | CachedFu
 // For manual invalidation, use the storage API:
 //
 // ```typescript
-// import { useStorage } from 'nitropack/runtime';
+// import { useStorage } from 'nitro/cache';
 //
 // // Clear specific cache entry
 // await useStorage('cache').removeItem('my-handler:key');

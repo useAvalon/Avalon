@@ -1,12 +1,13 @@
 /**
- * Tests for Nitro Runtime Configuration Module
+ * Tests for Nitro v3 Runtime Configuration Module
  *
  * Tests the runtime configuration support including:
  * - Environment variable overrides with NITRO_ prefix
- * - useRuntimeConfig() function
+ * - useRuntimeConfig() function (Nitro v3 compatible)
  * - Configuration merging and validation
+ * - Reserved 'nitro' namespace protection (v3 constraint)
  *
- * Requirements: 8.3
+ * Requirements: 5.1, 5.2, 5.3, 11.4
  */
 
 import { assertEquals, assertThrows, assertExists } from "jsr:@std/assert";
@@ -315,6 +316,48 @@ Deno.test("Runtime Config - isRuntimeConfigInitialized", () => {
   setRuntimeConfig(createDefaultRuntimeConfig());
 
   assertEquals(isRuntimeConfigInitialized(), true);
+});
+
+Deno.test("Runtime Config - validateRuntimeConfig rejects reserved 'nitro' namespace", () => {
+  const config = {
+    avalon: {
+      streaming: true,
+      pagesDir: "src/pages",
+      apiDir: "src/api",
+      islandsDir: "src/islands",
+    },
+    nitro: { someKey: "value" },
+  };
+
+  const result = validateRuntimeConfig(config);
+  assertEquals(result.valid, false);
+  assertEquals(result.errors.some((e: string) => e.includes("nitro") && e.includes("reserved")), true);
+});
+
+Deno.test("Runtime Config - mergeRuntimeConfigs ignores reserved 'nitro' namespace", () => {
+  const config1: Partial<RuntimeConfig> = {
+    avalon: {
+      streaming: true,
+      pagesDir: "src/pages",
+      apiDir: "src/api",
+      islandsDir: "src/islands",
+    },
+  };
+
+  const config2: Partial<RuntimeConfig> = {
+    avalon: {
+      streaming: true,
+      pagesDir: "src/pages",
+      apiDir: "src/api",
+      islandsDir: "src/islands",
+    },
+    nitro: { reserved: true },
+  } as Partial<RuntimeConfig>;
+
+  const merged = mergeRuntimeConfigs(config1, config2);
+
+  // The 'nitro' key should be silently dropped
+  assertEquals("nitro" in merged, false);
 });
 
 Deno.test("Runtime Config - NITRO_ENV_PREFIX constant", () => {

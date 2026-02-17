@@ -14,7 +14,7 @@
  * @module nitro/route-discovery
  */
 
-import { basename, dirname, extname, relative } from "node:path";
+import { basename, dirname, relative } from "node:path";
 import { walk } from "../utils/std-fs-shim.ts";
 import type { DiscoveredRoute } from "./types.ts";
 
@@ -397,59 +397,4 @@ export function matchRoutePattern(
   return { matches: true, params };
 }
 
-// ============================================================================
-// DEPRECATED EXPORTS - Kept for backward compatibility
-// These will be removed in a future version. Use Nitro's native routing instead.
-// ============================================================================
 
-/**
- * @deprecated API routes should be placed in the `api/` directory and are
- * auto-discovered by Nitro. This function is kept for backward compatibility.
- */
-export async function discoverApiRoutes(
-  _apiDir: string,
-  options?: { developmentMode?: boolean }
-): Promise<DiscoveredRoute[]> {
-  if (options?.developmentMode) {
-    console.warn(
-      "[route-discovery] discoverApiRoutes is deprecated. " +
-      "API routes are now auto-discovered by Nitro from the api/ directory."
-    );
-  }
-  return [];
-}
-
-/**
- * @deprecated Use discoverPageRoutes instead. API routes are handled by Nitro.
- */
-export async function discoverRoutes(options: {
-  pagesDir: string;
-  apiDir: string;
-  developmentMode?: boolean;
-  excludeDirectories?: string[];
-}): Promise<DiscoveredRoute[]> {
-  if (options.developmentMode) {
-    console.warn(
-      "[route-discovery] discoverRoutes is deprecated. " +
-      "Use discoverPageRoutes for pages. API routes are auto-discovered by Nitro."
-    );
-  }
-  return discoverPageRoutes(options.pagesDir, options);
-}
-
-/**
- * @deprecated API file pattern conversion is no longer needed.
- * Nitro handles API routing natively.
- */
-export function filePathToApiPattern(filePath: string): FilePathPatternResult & { method?: string } {
-  // Just delegate to the page pattern converter for backward compatibility
-  return { ...filePathToPattern(filePath), method: undefined };
-}
-
-/**
- * @deprecated Middleware files are now handled by Nitro's middleware/ directory.
- */
-export function isMiddlewareFile(relativePath: string): boolean {
-  const fileName = basename(relativePath);
-  return fileName === "_middleware.ts" || fileName === "_middleware.js";
-}

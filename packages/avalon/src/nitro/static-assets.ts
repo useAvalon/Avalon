@@ -11,7 +11,7 @@
  * This module provides:
  * - Route rules generation for cache headers via `createStaticAssetRouteRules()`
  * - MIME type detection and cache control utilities
- * - Support for pre-compressed assets (gzip, brotli)
+ * - Support for pre-compressed assets (gzip, brotli, zstd)
  * - ETag generation for cache validation
  *
  * ## Configuration
@@ -50,10 +50,17 @@ export interface StaticAssetConfig {
   buildDir?: string;
 
   /**
-   * Enable serving pre-compressed assets (gzip, brotli)
+   * Enable serving pre-compressed assets (gzip, brotli, zstd)
    * @default true
    */
   compression?: boolean;
+
+  /**
+   * Nitro v3: Pre-compress public assets during build.
+   * When true, enables all supported compression formats.
+   * Can also specify individual formats.
+   */
+  compressPublicAssets?: boolean | { gzip?: boolean; brotli?: boolean; zstd?: boolean };
 
   /**
    * Default cache control header for static assets
@@ -165,10 +172,14 @@ export const MIME_TYPES: Record<string, string> = {
 
 /**
  * Compression encoding mappings
+ *
+ * Nitro v3 supports gzip, brotli, and zstd pre-compression via
+ * the `compressPublicAssets` config option.
  */
 export const COMPRESSION_ENCODINGS: Record<string, string> = {
   ".gz": "gzip",
   ".br": "br",
+  ".zst": "zstd",
 };
 
 /**
@@ -289,6 +300,8 @@ export function parseAcceptEncoding(acceptEncoding: string | null): string[] {
 /**
  * Checks if a compressed version of a file exists
  *
+ * Supports gzip (.gz), brotli (.br), and zstd (.zst) compressed variants.
+ *
  * @param filePath - Original file path
  * @param encoding - Compression encoding to check
  * @returns Path to compressed file if it exists, null otherwise
@@ -300,6 +313,7 @@ export async function findCompressedFile(
   const extensionMap: Record<string, string> = {
     br: ".br",
     gzip: ".gz",
+    zstd: ".zst",
   };
 
   const ext = extensionMap[encoding];
@@ -353,7 +367,7 @@ export async function resolveStaticAsset(
       if (mergedConfig.compression && acceptEncoding) {
         const supportedEncodings = parseAcceptEncoding(acceptEncoding);
 
-        // Try brotli first, then gzip
+        // Try brotli first, then zstd, then gzip
         for (const encoding of supportedEncodings) {
           const compressedPath = await findCompressedFile(filePath, encoding);
           if (compressedPath) {
@@ -592,4 +606,45 @@ export function createStaticAssetRouteRules(
       },
     },
   };
+}
+
+/**
+ * Creates a Nitro v3 `publicAssets` configuration array from static asset config.
+ *
+ * Nitro v3 uses `publicAssets` to define directories served as static files,
+ * each with an optional `baseURL` and `maxAge`.
+ *
+ * @param config - Static asset configuration
+ * @returns Array of public asset directory entries for Nitro v3 config
+ */
+export function createPublicAssetsConfig(
+  config: StaticAssetConfig = {}
+): Array<{ dir: string; baseURL?: string; maxAge?: number }> {
+  const mergedConfig = { ...DEFAULT_STATIC_ASSET_CONFIG, ...config };
+
+  return [
+    {
+      dir: mergedConfig.publicDir,
+      maxAge: 0, // Mutable by default; immutable assets use route rules
+    },
+  ];
+}
+
+/**
+ * Resolves the `compressPublicAssets` option for Nitro v3 config.
+ *
+ * When `true`, enables all supported compression formats (gzip, brotli, zstd).
+ * When an object, passes through the individual format flags.
+ * When `false` or `undefined`, returns `undefined` (no compression).
+ *
+ * @param option - The compressPublicAssets config value
+ * @returns Resolved value for Nitro v3 `compressPublicAssets` config
+ */
+export function resolveCompressPublicAssets(
+  option: boolean | { gzip?: boolean; brotli?: boolean; zstd?: boolean } | undefined
+): boolean | { gzip?: boolean; brotli?: boolean; zstd?: boolean } | undefined {
+  if (option === undefined || option === false) {
+    return undefined;
+  }
+  return option;
 }

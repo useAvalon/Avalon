@@ -96,7 +96,7 @@ For caching function results (not HTTP handlers), use `defineCachedFunction`:
 
 ```typescript
 // server/utils/cached-functions.ts
-import { defineCachedFunction } from 'nitropack/runtime';
+import { defineCachedFunction } from 'nitro/runtime';
 
 export const getGitHubStars = defineCachedFunction(
   async (owner: string, repo: string) => {
@@ -152,7 +152,7 @@ Available drivers: `memory`, `redis`, `cloudflare-kv`, `vercel-kv`, `fs`
 Nitro automatically invalidates cache entries when they expire. For manual invalidation:
 
 ```typescript
-import { useStorage } from 'nitropack/runtime';
+import { useStorage } from 'nitro/runtime';
 
 // Clear specific cache entry
 await useStorage('cache').removeItem('my-handler:key');
