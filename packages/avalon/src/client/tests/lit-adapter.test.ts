@@ -8,7 +8,7 @@
  * - Property and attribute preservation
  */
 
-import { assertEquals, assertExists, assert } from 'jsr:@std/assert';
+import { describe, it, expect } from 'vitest';
 import { LitHMRAdapter } from '../adapters/lit-adapter.ts';
 
 // Mock HTMLElement for testing
@@ -149,263 +149,275 @@ const MockLitModule = {
   default: MockLitElement,
 };
 
-Deno.test('LitHMRAdapter - should have correct name', () => {
-  const adapter = new LitHMRAdapter();
-  assertEquals(adapter.name, 'lit');
+describe('LitHMRAdapter - name', () => {
+  it('should have correct name', () => {
+    const adapter = new LitHMRAdapter();
+    expect(adapter.name).toBe('lit');
+  });
 });
 
-Deno.test('LitHMRAdapter - canHandle should detect Lit components', () => {
-  const adapter = new LitHMRAdapter();
-  
-  // Should handle Lit element class
-  assert(adapter.canHandle(MockLitElement));
-  
-  // Should handle decorated Lit element
-  assert(adapter.canHandle(MockDecoratedLitElement));
-  
-  // Should handle module with default export
-  assert(adapter.canHandle(MockLitModule));
-  
-  // Should not handle non-Lit components
-  assert(!adapter.canHandle(null));
-  assert(!adapter.canHandle(undefined));
-  assert(!adapter.canHandle({}));
-  assert(!adapter.canHandle('string'));
-  assert(!adapter.canHandle(123));
-});
+describe('LitHMRAdapter - canHandle', () => {
+  it('should detect Lit components', () => {
+    const adapter = new LitHMRAdapter();
+    
+    // Should handle Lit element class
+    expect(adapter.canHandle(MockLitElement)).toBe(true);
+    
+    // Should handle decorated Lit element
+    expect(adapter.canHandle(MockDecoratedLitElement)).toBe(true);
+    
+    // Should handle module with default export
+    expect(adapter.canHandle(MockLitModule)).toBe(true);
+    
+    // Should not handle non-Lit components
+    expect(adapter.canHandle(null)).toBe(false);
+    expect(adapter.canHandle(undefined)).toBe(false);
+    expect(adapter.canHandle({})).toBe(false);
+    expect(adapter.canHandle('string')).toBe(false);
+    expect(adapter.canHandle(123)).toBe(false);
+  });
 
-Deno.test('LitHMRAdapter - canHandle should detect Lit by prototype methods', () => {
-  const adapter = new LitHMRAdapter();
-  
-  // Create a class with Lit-like methods
-  class LitLikeElement {
-    render() { return ''; }
-    requestUpdate() {}
-    get updateComplete() { return Promise.resolve(true); }
-  }
-  
-  assert(adapter.canHandle(LitLikeElement));
-});
-
-Deno.test('LitHMRAdapter - canHandle should detect Lit by function signature', () => {
-  const adapter = new LitHMRAdapter();
-  
-  // Create a class that looks like a Lit component in its string representation
-  class LitLikeComponent {
-    render() {
-      // This will show up in toString()
-      return 'html`<div>Hello</div>`';
+  it('should detect Lit by prototype methods', () => {
+    const adapter = new LitHMRAdapter();
+    
+    // Create a class with Lit-like methods
+    class LitLikeElement {
+      render() { return ''; }
+      requestUpdate() {}
+      get updateComplete() { return Promise.resolve(true); }
     }
-  }
-  
-  // The adapter should be able to detect Lit patterns
-  // We just verify the method exists and works
-  assertExists(adapter.canHandle);
-  
-  // Test with a class that has LitElement in its code
-  const hasLitPattern = adapter.canHandle(LitLikeComponent);
-  // This may or may not detect it depending on toString() output
-  // but we verify it doesn't throw
-  assert(typeof hasLitPattern === 'boolean');
+    
+    expect(adapter.canHandle(LitLikeElement)).toBe(true);
+  });
+
+  it('should detect Lit by function signature', () => {
+    const adapter = new LitHMRAdapter();
+    
+    // Create a class that looks like a Lit component in its string representation
+    class LitLikeComponent {
+      render() {
+        // This will show up in toString()
+        return 'html`<div>Hello</div>`';
+      }
+    }
+    
+    // The adapter should be able to detect Lit patterns
+    // We just verify the method exists and works
+    expect(adapter.canHandle).toBeDefined();
+    
+    // Test with a class that has LitElement in its code
+    const hasLitPattern = adapter.canHandle(LitLikeComponent);
+    // This may or may not detect it depending on toString() output
+    // but we verify it doesn't throw
+    expect(typeof hasLitPattern).toBe('boolean');
+  });
 });
 
-Deno.test('LitHMRAdapter - preserveState should capture element properties', () => {
-  const adapter = new LitHMRAdapter();
-  
-  // Create a mock island with a Lit element
-  const island = new MockHTMLElement() as unknown as HTMLElement;
-  island.setAttribute('data-framework', 'lit');
-  island.setAttribute('data-src', '/islands/Counter.lit.ts');
-  island.setAttribute('data-props', '{"initialCount": 5}');
-  island.setAttribute('data-tag-name', 'mock-counter');
-  
-  // Create a mock Lit element
-  const litElement = new MockHTMLElement() as unknown as HTMLElement & {
-    count: number;
-    label: string;
-  };
-  (litElement as unknown as Record<string, unknown>).count = 10;
-  (litElement as unknown as Record<string, unknown>).label = 'Test Counter';
-  litElement.setAttribute('data-lit-element', 'true');
-  litElement.setAttribute('theme', 'dark');
-  
-  (island as unknown as MockHTMLElement).appendChild(litElement as unknown as MockHTMLElement);
-  
-  // Preserve state - will return null due to missing document global
-  // but should not throw
-  const state = adapter.preserveState(island);
-  
-  // In a test environment without document, state will be null
-  // This is expected behavior - the adapter handles it gracefully
-  // In a real browser environment, state would be captured
-  if (state) {
-    assertEquals(state.framework, 'lit');
-    assertExists(state.data);
-  }
+describe('LitHMRAdapter - preserveState', () => {
+  it('should capture element properties', () => {
+    const adapter = new LitHMRAdapter();
+    
+    // Create a mock island with a Lit element
+    const island = new MockHTMLElement() as unknown as HTMLElement;
+    island.setAttribute('data-framework', 'lit');
+    island.setAttribute('data-src', '/islands/Counter.lit.ts');
+    island.setAttribute('data-props', '{"initialCount": 5}');
+    island.setAttribute('data-tag-name', 'mock-counter');
+    
+    // Create a mock Lit element
+    const litElement = new MockHTMLElement() as unknown as HTMLElement & {
+      count: number;
+      label: string;
+    };
+    (litElement as unknown as Record<string, unknown>).count = 10;
+    (litElement as unknown as Record<string, unknown>).label = 'Test Counter';
+    litElement.setAttribute('data-lit-element', 'true');
+    litElement.setAttribute('theme', 'dark');
+    
+    (island as unknown as MockHTMLElement).appendChild(litElement as unknown as MockHTMLElement);
+    
+    // Preserve state - will return null due to missing document global
+    // but should not throw
+    const state = adapter.preserveState(island);
+    
+    // In a test environment without document, state will be null
+    // This is expected behavior - the adapter handles it gracefully
+    // In a real browser environment, state would be captured
+    if (state) {
+      expect(state.framework).toBe('lit');
+      expect(state.data).toBeDefined();
+    }
+  });
+
+  it('should capture DOM state', () => {
+    const adapter = new LitHMRAdapter();
+    
+    // Create a mock island with form elements
+    const island = new MockHTMLElement() as unknown as HTMLElement;
+    island.setAttribute('data-framework', 'lit');
+    island.setAttribute('data-src', '/islands/Form.lit.ts');
+    island.setAttribute('data-tag-name', 'mock-form');
+    
+    // Note: Full DOM state capture requires a real DOM environment
+    // This test verifies the method doesn't throw
+    const state = adapter.preserveState(island);
+    
+    // State may be null in test environment without document global
+    // This is expected and handled gracefully
+    if (state) {
+      expect(state.framework).toBe('lit');
+    }
+  });
+
+  it('should handle missing elements gracefully', () => {
+    const adapter = new LitHMRAdapter();
+    
+    // Create an empty island
+    const island = new MockHTMLElement() as unknown as HTMLElement;
+    island.setAttribute('data-framework', 'lit');
+    island.setAttribute('data-src', '/islands/Empty.lit.ts');
+    
+    // Preserve state should not throw
+    const state = adapter.preserveState(island);
+    
+    // State may be null in test environment
+    if (state) {
+      expect(state.framework).toBe('lit');
+    }
+  });
 });
 
-Deno.test('LitHMRAdapter - preserveState should capture DOM state', () => {
-  const adapter = new LitHMRAdapter();
-  
-  // Create a mock island with form elements
-  const island = new MockHTMLElement() as unknown as HTMLElement;
-  island.setAttribute('data-framework', 'lit');
-  island.setAttribute('data-src', '/islands/Form.lit.ts');
-  island.setAttribute('data-tag-name', 'mock-form');
-  
-  // Note: Full DOM state capture requires a real DOM environment
-  // This test verifies the method doesn't throw
-  const state = adapter.preserveState(island);
-  
-  // State may be null in test environment without document global
-  // This is expected and handled gracefully
-  if (state) {
-    assertEquals(state.framework, 'lit');
-  }
-});
-
-Deno.test('LitHMRAdapter - preserveState should handle missing elements gracefully', () => {
-  const adapter = new LitHMRAdapter();
-  
-  // Create an empty island
-  const island = new MockHTMLElement() as unknown as HTMLElement;
-  island.setAttribute('data-framework', 'lit');
-  island.setAttribute('data-src', '/islands/Empty.lit.ts');
-  
-  // Preserve state should not throw
-  const state = adapter.preserveState(island);
-  
-  // State may be null in test environment
-  if (state) {
-    assertEquals(state.framework, 'lit');
-  }
-});
-
-Deno.test('LitHMRAdapter - handleError should not throw', () => {
-  const adapter = new LitHMRAdapter();
-  
-  const island = new MockHTMLElement() as unknown as HTMLElement;
-  const error = new Error('Test error');
-  
-  // handleError requires document global for creating error indicator
-  // In test environment, it will log but not throw
-  // This is expected behavior
-  try {
-    adapter.handleError(island, error);
-  } catch (e) {
-    // Expected in test environment without document
-    assert(e instanceof ReferenceError);
-  }
-});
-
-Deno.test('LitHMRAdapter - handleError should handle different error types', () => {
-  const adapter = new LitHMRAdapter();
-  
-  const island = new MockHTMLElement() as unknown as HTMLElement;
-  
-  // Test that different error types are handled
-  const errors = [
-    new Error('custom element already defined'),
-    new Error('property not found'),
-    new Error('render error'),
-  ];
-  
-  for (const error of errors) {
+describe('LitHMRAdapter - handleError', () => {
+  it('should not throw', () => {
+    const adapter = new LitHMRAdapter();
+    
+    const island = new MockHTMLElement() as unknown as HTMLElement;
+    const error = new Error('Test error');
+    
+    // handleError requires document global for creating error indicator
+    // In test environment, it will log but not throw
+    // This is expected behavior
     try {
       adapter.handleError(island, error);
     } catch (e) {
       // Expected in test environment without document
-      assert(e instanceof ReferenceError);
+      expect(e instanceof ReferenceError).toBe(true);
     }
-  }
+  });
+
+  it('should handle different error types', () => {
+    const adapter = new LitHMRAdapter();
+    
+    const island = new MockHTMLElement() as unknown as HTMLElement;
+    
+    // Test that different error types are handled
+    const errors = [
+      new Error('custom element already defined'),
+      new Error('property not found'),
+      new Error('render error'),
+    ];
+    
+    for (const error of errors) {
+      try {
+        adapter.handleError(island, error);
+      } catch (e) {
+        // Expected in test environment without document
+        expect(e instanceof ReferenceError).toBe(true);
+      }
+    }
+  });
 });
 
-Deno.test('LitHMRAdapter - restoreState should restore element properties', () => {
-  const adapter = new LitHMRAdapter();
-  
-  // Create a mock island with a Lit element
-  const island = new MockHTMLElement() as unknown as HTMLElement;
-  island.setAttribute('data-tag-name', 'mock-counter');
-  
-  const litElement = new MockHTMLElement() as unknown as HTMLElement & {
-    count: number;
-    label: string;
-  };
-  (litElement as unknown as Record<string, unknown>).count = 0;
-  (litElement as unknown as Record<string, unknown>).label = '';
-  (island as unknown as MockHTMLElement).appendChild(litElement as unknown as MockHTMLElement);
-  
-  // Create a state snapshot
-  const state = {
-    framework: 'lit' as const,
-    timestamp: Date.now(),
-    data: {
-      tagName: 'mock-counter',
-      elementProperties: {
-        count: 10,
-        label: 'Restored Counter',
+describe('LitHMRAdapter - restoreState', () => {
+  it('should restore element properties', () => {
+    const adapter = new LitHMRAdapter();
+    
+    // Create a mock island with a Lit element
+    const island = new MockHTMLElement() as unknown as HTMLElement;
+    island.setAttribute('data-tag-name', 'mock-counter');
+    
+    const litElement = new MockHTMLElement() as unknown as HTMLElement & {
+      count: number;
+      label: string;
+    };
+    (litElement as unknown as Record<string, unknown>).count = 0;
+    (litElement as unknown as Record<string, unknown>).label = '';
+    (island as unknown as MockHTMLElement).appendChild(litElement as unknown as MockHTMLElement);
+    
+    // Create a state snapshot
+    const state = {
+      framework: 'lit' as const,
+      timestamp: Date.now(),
+      data: {
+        tagName: 'mock-counter',
+        elementProperties: {
+          count: 10,
+          label: 'Restored Counter',
+        },
+        elementAttributes: {
+          theme: 'dark',
+        },
       },
-      elementAttributes: {
-        theme: 'dark',
+    };
+    
+    // Restore state
+    adapter.restoreState(island, state);
+    
+    // Verify properties were restored
+    expect((litElement as unknown as Record<string, unknown>).count).toBe(10);
+    expect((litElement as unknown as Record<string, unknown>).label).toBe('Restored Counter');
+    expect(litElement.getAttribute('theme')).toBe('dark');
+  });
+
+  it('should handle missing elements gracefully', () => {
+    const adapter = new LitHMRAdapter();
+    
+    const island = new MockHTMLElement() as unknown as HTMLElement;
+    
+    const state = {
+      framework: 'lit' as const,
+      timestamp: Date.now(),
+      data: {
+        tagName: 'missing-element',
+        elementProperties: { count: 10 },
       },
-    },
-  };
-  
-  // Restore state
-  adapter.restoreState(island, state);
-  
-  // Verify properties were restored
-  assertEquals((litElement as unknown as Record<string, unknown>).count, 10);
-  assertEquals((litElement as unknown as Record<string, unknown>).label, 'Restored Counter');
-  assertEquals(litElement.getAttribute('theme'), 'dark');
+    };
+    
+    // Should not throw
+    adapter.restoreState(island, state);
+  });
 });
 
-Deno.test('LitHMRAdapter - restoreState should handle missing elements gracefully', () => {
-  const adapter = new LitHMRAdapter();
-  
-  const island = new MockHTMLElement() as unknown as HTMLElement;
-  
-  const state = {
-    framework: 'lit' as const,
-    timestamp: Date.now(),
-    data: {
-      tagName: 'missing-element',
-      elementProperties: { count: 10 },
-    },
-  };
-  
-  // Should not throw
-  adapter.restoreState(island, state);
-});
+describe('LitHMRAdapter - unmount', () => {
+  it('should clean up element', () => {
+    const adapter = new LitHMRAdapter();
+    
+    const island = new MockHTMLElement() as unknown as HTMLElement;
+    island.setAttribute('data-tag-name', 'mock-counter');
+    
+    const litElement = new MockHTMLElement() as unknown as HTMLElement;
+    (island as unknown as MockHTMLElement).appendChild(litElement as unknown as MockHTMLElement);
+    
+    // Verify element exists
+    expect((island as unknown as MockHTMLElement).children.length).toBe(1);
+    
+    // Unmount - this will call querySelectorAll and remove elements
+    adapter.unmount(island);
+    
+    // In the mock implementation, remove() clears the _children array
+    // but the parent's children array is not automatically updated
+    // This is a limitation of the mock - in a real DOM, the element would be removed
+    // We just verify unmount doesn't throw
+  });
 
-Deno.test('LitHMRAdapter - unmount should clean up element', () => {
-  const adapter = new LitHMRAdapter();
-  
-  const island = new MockHTMLElement() as unknown as HTMLElement;
-  island.setAttribute('data-tag-name', 'mock-counter');
-  
-  const litElement = new MockHTMLElement() as unknown as HTMLElement;
-  (island as unknown as MockHTMLElement).appendChild(litElement as unknown as MockHTMLElement);
-  
-  // Verify element exists
-  assertEquals((island as unknown as MockHTMLElement).children.length, 1);
-  
-  // Unmount - this will call querySelectorAll and remove elements
-  adapter.unmount(island);
-  
-  // In the mock implementation, remove() clears the _children array
-  // but the parent's children array is not automatically updated
-  // This is a limitation of the mock - in a real DOM, the element would be removed
-  // We just verify unmount doesn't throw
-});
-
-Deno.test('LitHMRAdapter - unmount should handle missing elements gracefully', () => {
-  const adapter = new LitHMRAdapter();
-  
-  const island = new MockHTMLElement() as unknown as HTMLElement;
-  
-  // Should not throw
-  adapter.unmount(island);
+  it('should handle missing elements gracefully', () => {
+    const adapter = new LitHMRAdapter();
+    
+    const island = new MockHTMLElement() as unknown as HTMLElement;
+    
+    // Should not throw
+    adapter.unmount(island);
+  });
 });
 
 // Note: Full integration tests for update() method would require:

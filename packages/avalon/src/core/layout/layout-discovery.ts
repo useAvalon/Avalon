@@ -1,8 +1,7 @@
 import { join, resolve, relative } from 'node:path';
-// NOTE: Using Deno.statSync instead of @std/fs for faster cold start
-// The @std/fs module adds significant import overhead
+import { statSync } from 'node:fs';
 
-// deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ComponentType<P = any> = ((props: P) => any) | (new (props: P) => any);
 
 // Inline type definitions to avoid importing heavy schemas/layout.ts (which imports zod)
@@ -119,10 +118,9 @@ export class LayoutDiscovery {
 			const fsPath = pathToCheck === '' ? this.baseDirectory : join(this.baseDirectory, pathToCheck);
 			const layoutFilePath = join(fsPath, this.filePattern);
 
-			// Use Deno.statSync instead of @std/fs existsSync for faster cold start
 			let layoutExists = false;
 			try {
-				Deno.statSync(layoutFilePath);
+				statSync(layoutFilePath);
 				layoutExists = true;
 			} catch {
 				// File doesn't exist

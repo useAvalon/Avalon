@@ -372,7 +372,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
     },
 
     configureServer(server: ViteDevServer) {
-      // deno-lint-ignore no-explicit-any
+      
       (globalThis as any).__viteDevServer = server;
 
       if (resolvedConfig.verbose) {

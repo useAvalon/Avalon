@@ -4,11 +4,11 @@
  * Validates: Requirements 6.1, 6.2, 6.3
  */
 
-import { assertEquals, assertExists } from '@std/assert';
+import { describe, it, expect } from 'vitest';
 import { validateServerConfig } from '../../schemas/server.ts';
 
-Deno.test('Streaming configuration integration', async (t) => {
-	await t.step('should enable streaming by default', () => {
+describe('Streaming configuration integration', () => {
+	it('should enable streaming by default', () => {
 		const config = {
 			routes: {
 				'/': {
@@ -21,13 +21,13 @@ Deno.test('Streaming configuration integration', async (t) => {
 
 		const validated = validateServerConfig(config);
 
-		assertExists(validated.streaming);
-		assertEquals(validated.streaming.enabled, true);
-		assertEquals(validated.streaming.onShellReadyTimeout, 5000);
-		assertEquals(validated.streaming.onAllReadyTimeout, 30000);
+		expect(validated.streaming).toBeDefined();
+		expect(validated.streaming.enabled).toEqual(true);
+		expect(validated.streaming.onShellReadyTimeout).toEqual(5000);
+		expect(validated.streaming.onAllReadyTimeout).toEqual(30000);
 	});
 
-	await t.step('should allow disabling streaming for backward compatibility', () => {
+	it('should allow disabling streaming for backward compatibility', () => {
 		const config = {
 			routes: {
 				'/': {
@@ -43,11 +43,11 @@ Deno.test('Streaming configuration integration', async (t) => {
 
 		const validated = validateServerConfig(config);
 
-		assertExists(validated.streaming);
-		assertEquals(validated.streaming.enabled, false);
+		expect(validated.streaming).toBeDefined();
+		expect(validated.streaming.enabled).toEqual(false);
 	});
 
-	await t.step('should allow custom timeout values', () => {
+	it('should allow custom timeout values', () => {
 		const config = {
 			routes: {
 				'/': {
@@ -65,13 +65,13 @@ Deno.test('Streaming configuration integration', async (t) => {
 
 		const validated = validateServerConfig(config);
 
-		assertExists(validated.streaming);
-		assertEquals(validated.streaming.enabled, true);
-		assertEquals(validated.streaming.onShellReadyTimeout, 10000);
-		assertEquals(validated.streaming.onAllReadyTimeout, 60000);
+		expect(validated.streaming).toBeDefined();
+		expect(validated.streaming.enabled).toEqual(true);
+		expect(validated.streaming.onShellReadyTimeout).toEqual(10000);
+		expect(validated.streaming.onAllReadyTimeout).toEqual(60000);
 	});
 
-	await t.step('should use defaults when streaming config is partially provided', () => {
+	it('should use defaults when streaming config is partially provided', () => {
 		const config = {
 			routes: {
 				'/': {
@@ -82,15 +82,14 @@ Deno.test('Streaming configuration integration', async (t) => {
 			port: 8001,
 			streaming: {
 				enabled: false,
-				// onShellReadyTimeout and onAllReadyTimeout not provided
 			},
 		};
 
 		const validated = validateServerConfig(config);
 
-		assertExists(validated.streaming);
-		assertEquals(validated.streaming.enabled, false);
-		assertEquals(validated.streaming.onShellReadyTimeout, 5000);
-		assertEquals(validated.streaming.onAllReadyTimeout, 30000);
+		expect(validated.streaming).toBeDefined();
+		expect(validated.streaming.enabled).toEqual(false);
+		expect(validated.streaming.onShellReadyTimeout).toEqual(5000);
+		expect(validated.streaming.onAllReadyTimeout).toEqual(30000);
 	});
 });

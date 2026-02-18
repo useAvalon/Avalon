@@ -32,6 +32,7 @@
  * @module nitro/island-manifest
  */
 
+import { readFile } from "node:fs/promises";
 import type { Plugin } from "vite";
 import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
 import type { IslandManifest, IslandEntry } from "./types.ts";
@@ -488,7 +489,7 @@ export async function loadIslandManifest(
   manifestPath: string = "dist/island-manifest.json"
 ): Promise<BuildIslandManifest | null> {
   try {
-    const content = await Deno.readTextFile(manifestPath);
+    const content = await readFile(manifestPath, "utf-8");
     return JSON.parse(content) as BuildIslandManifest;
   } catch {
     return null;

@@ -1,7 +1,8 @@
-import { assertEquals, assertExists, assert } from '@std/assert';
-import { join } from '@std/path';
-import { existsSync } from '@std/fs';
-import { ensureDir } from '@std/fs';
+import { describe, it, expect } from 'vitest';
+import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { rm, writeFile } from 'node:fs/promises';
+import { ensureDir } from '../packages/avalon/src/utils/fs.ts';
 import { MiddlewareDiscovery } from '../packages/avalon/src/core/middleware/middleware-discovery.ts';
 import type { MiddlewareWatcherCallback } from '../packages/avalon/src/schemas/middleware.ts';
 
@@ -11,21 +12,18 @@ import type { MiddlewareWatcherCallback } from '../packages/avalon/src/schemas/m
  */
 
 // Test directory setup
-const testDir = join(Deno.cwd(), 'tests', 'fixtures', 'hot-reload-simple-test');
+const testDir = join(process.cwd(), 'tests', 'fixtures', 'hot-reload-simple-test');
 
 async function setupTestDirectory(): Promise<void> {
-	// Clean up any existing test directory
 	if (existsSync(testDir)) {
-		await Deno.remove(testDir, { recursive: true });
+		await rm(testDir, { recursive: true });
 	}
-
-	// Create test directory structure
 	await ensureDir(testDir);
 }
 
 async function cleanupTestDirectory(): Promise<void> {
 	if (existsSync(testDir)) {
-		await Deno.remove(testDir, { recursive: true });
+		await rm(testDir, { recursive: true });
 	}
 }
 
@@ -38,201 +36,178 @@ export default async function ${name}Middleware(context, next) {
 `;
 }
 
-Deno.test('Middleware Hot Reload - Watch Mode', async () => {
-	await setupTestDirectory();
+describe('Middleware Hot Reload', () => {
+	it('should enable watch mode', async () => {
+		await setupTestDirectory();
 
-	const discovery = new MiddlewareDiscovery({
-		baseDirectory: testDir,
-		filePattern: '_middleware.ts',
-		enableWatching: true,
-		developmentMode: true,
+		const discovery = new MiddlewareDiscovery({
+			baseDirectory: testDir,
+			filePattern: '_middleware.ts',
+			enableWatching: true,
+			developmentMode: true,
+		});
+
+		try {
+			expect(discovery.isWatchModeEnabled()).toEqual(true);
+
+			await new Promise(resolve => setTimeout(resolve, 200));
+
+			expect(discovery.isWatcherActive()).toEqual(true);
+		} finally {
+			discovery.stopWatcher();
+			await cleanupTestDirectory();
+		}
 	});
 
-	try {
-		assert(discovery.isWatchModeEnabled(), 'Watch mode should be enabled');
+	it('should detect new middleware files', async () => {
+		await setupTestDirectory();
 
-		// Give the watcher a moment to start
-		await new Promise(resolve => setTimeout(resolve, 200));
+		const discovery = new MiddlewareDiscovery({
+			baseDirectory: testDir,
+			filePattern: '_middleware.ts',
+			enableWatching: true,
+			developmentMode: true,
+		});
 
-		assert(discovery.isWatcherActive(), 'File watcher should be active');
-	} finally {
-		discovery.stopWatcher();
-		await cleanupTestDirectory();
-	}
-});
+		const watchEvents: Array<{ filePath: string; event: string }> = [];
 
-Deno.test('Middleware Hot Reload - File Detection', async () => {
-	await setupTestDirectory();
+		try {
+			const callback: MiddlewareWatcherCallback = (filePath, event) => {
+				watchEvents.push({ filePath, event });
+			};
+			discovery.setWatcherCallback(callback);
 
-	const discovery = new MiddlewareDiscovery({
-		baseDirectory: testDir,
-		filePattern: '_middleware.ts',
-		enableWatching: true,
-		developmentMode: true,
+			await new Promise(resolve => setTimeout(resolve, 200));
+
+			const middlewarePath = join(testDir, '_middleware.ts');
+			await writeFile(middlewarePath, createTestMiddleware('global'));
+
+			await new Promise(resolve => setTimeout(resolve, 500));
+
+			const addEvent = watchEvents.find(e => e.event === 'add' && e.filePath === middlewarePath);
+			expect(addEvent).toBeDefined();
+		} finally {
+			discovery.stopWatcher();
+			await cleanupTestDirectory();
+		}
 	});
 
-	const watchEvents: Array<{ filePath: string; event: string }> = [];
+	it('should invalidate cache on file changes', async () => {
+		await setupTestDirectory();
 
-	try {
-		// Set up watcher callback
-		const callback: MiddlewareWatcherCallback = (filePath, event) => {
-			watchEvents.push({ filePath, event });
-		};
-		discovery.setWatcherCallback(callback);
+		const discovery = new MiddlewareDiscovery({
+			baseDirectory: testDir,
+			filePattern: '_middleware.ts',
+			enableWatching: true,
+			developmentMode: true,
+		});
 
-		// Give the watcher time to start
-		await new Promise(resolve => setTimeout(resolve, 200));
+		try {
+			const middlewarePath = join(testDir, '_middleware.ts');
+			await writeFile(middlewarePath, createTestMiddleware('global'));
 
-		// Create a new middleware file
-		const middlewarePath = join(testDir, '_middleware.ts');
-		await Deno.writeTextFile(middlewarePath, createTestMiddleware('global'));
+			await new Promise(resolve => setTimeout(resolve, 200));
 
-		// Wait for file system event to be processed
-		await new Promise(resolve => setTimeout(resolve, 500));
+			const initialChain = await discovery.buildMiddlewareChain(new URL('http://localhost/test'));
+			expect(initialChain.length).toEqual(1);
 
-		// Check that the event was detected
-		const addEvent = watchEvents.find(e => e.event === 'add' && e.filePath === middlewarePath);
-		assertExists(addEvent, 'Should detect new middleware file creation');
-	} finally {
-		discovery.stopWatcher();
-		await cleanupTestDirectory();
-	}
-});
+			const initialStats = discovery.getCacheStats();
+			expect(initialStats.middlewareCount).toEqual(1);
 
-Deno.test('Middleware Hot Reload - Cache Invalidation', async () => {
-	await setupTestDirectory();
+			await writeFile(middlewarePath, createTestMiddleware('globalModified'));
 
-	const discovery = new MiddlewareDiscovery({
-		baseDirectory: testDir,
-		filePattern: '_middleware.ts',
-		enableWatching: true,
-		developmentMode: true,
+			await new Promise(resolve => setTimeout(resolve, 500));
+
+			const newChain = await discovery.buildMiddlewareChain(new URL('http://localhost/test'));
+			expect(newChain.length).toEqual(1);
+		} finally {
+			discovery.stopWatcher();
+			await cleanupTestDirectory();
+		}
 	});
 
-	try {
-		// Create initial middleware file
-		const middlewarePath = join(testDir, '_middleware.ts');
-		await Deno.writeTextFile(middlewarePath, createTestMiddleware('global'));
+	it('should handle invalid middleware files', async () => {
+		await setupTestDirectory();
 
-		// Give the watcher time to start
-		await new Promise(resolve => setTimeout(resolve, 200));
+		const discovery = new MiddlewareDiscovery({
+			baseDirectory: testDir,
+			filePattern: '_middleware.ts',
+			enableWatching: true,
+			developmentMode: true,
+		});
 
-		// Load middleware to populate cache
-		const initialChain = await discovery.buildMiddlewareChain(new URL('http://localhost/test'));
-		assertEquals(initialChain.length, 1, 'Should load initial middleware');
+		try {
+			const middlewarePath = join(testDir, '_middleware.ts');
+			await writeFile(middlewarePath, 'export const notDefault = () => {};');
 
-		// Check cache stats
-		const initialStats = discovery.getCacheStats();
-		assertEquals(initialStats.middlewareCount, 1, 'Should have cached middleware');
+			await new Promise(resolve => setTimeout(resolve, 200));
 
-		// Modify the middleware file
-		await Deno.writeTextFile(middlewarePath, createTestMiddleware('globalModified'));
-
-		// Wait for file system event and cache invalidation
-		await new Promise(resolve => setTimeout(resolve, 500));
-
-		// Middleware should still be loadable after change
-		const newChain = await discovery.buildMiddlewareChain(new URL('http://localhost/test'));
-		assertEquals(newChain.length, 1, 'Should still load middleware after change');
-	} finally {
-		discovery.stopWatcher();
-		await cleanupTestDirectory();
-	}
-});
-
-Deno.test('Middleware Hot Reload - Invalid Files', async () => {
-	await setupTestDirectory();
-
-	const discovery = new MiddlewareDiscovery({
-		baseDirectory: testDir,
-		filePattern: '_middleware.ts',
-		enableWatching: true,
-		developmentMode: true,
+			const chain = await discovery.buildMiddlewareChain(new URL('http://localhost/test'));
+			expect(chain.length).toEqual(0);
+		} finally {
+			discovery.stopWatcher();
+			await cleanupTestDirectory();
+		}
 	});
 
-	try {
-		// Create invalid middleware file (missing default export)
-		const middlewarePath = join(testDir, '_middleware.ts');
-		await Deno.writeTextFile(middlewarePath, 'export const notDefault = () => {};');
+	it('should handle non-existent directory', async () => {
+		const nonExistentDir = join(testDir, 'non-existent');
 
-		// Give the watcher time to start
-		await new Promise(resolve => setTimeout(resolve, 200));
+		const discovery = new MiddlewareDiscovery({
+			baseDirectory: nonExistentDir,
+			filePattern: '_middleware.ts',
+			enableWatching: true,
+			developmentMode: true,
+		});
 
-		// Try to build middleware chain
-		const chain = await discovery.buildMiddlewareChain(new URL('http://localhost/test'));
-		assertEquals(chain.length, 0, 'Should not include invalid middleware in chain');
-	} finally {
-		discovery.stopWatcher();
-		await cleanupTestDirectory();
-	}
-});
+		try {
+			await new Promise(resolve => setTimeout(resolve, 200));
 
-Deno.test('Middleware Hot Reload - Non-existent Directory', async () => {
-	const nonExistentDir = join(testDir, 'non-existent');
-
-	const discovery = new MiddlewareDiscovery({
-		baseDirectory: nonExistentDir,
-		filePattern: '_middleware.ts',
-		enableWatching: true,
-		developmentMode: true,
+			expect(discovery.isWatchModeEnabled()).toEqual(true);
+			expect(discovery.isWatcherActive()).toEqual(false);
+		} finally {
+			discovery.stopWatcher();
+		}
 	});
 
-	try {
-		// Should not crash when trying to watch non-existent directory
-		await new Promise(resolve => setTimeout(resolve, 200));
+	it('should manage watcher callbacks', async () => {
+		await setupTestDirectory();
 
-		// Discovery should still be functional for other operations
-		assert(discovery.isWatchModeEnabled(), 'Watch mode should still be enabled');
-		assert(!discovery.isWatcherActive(), 'Watcher should not be active for non-existent directory');
-	} finally {
-		discovery.stopWatcher();
-	}
-});
+		const discovery = new MiddlewareDiscovery({
+			baseDirectory: testDir,
+			filePattern: '_middleware.ts',
+			enableWatching: true,
+			developmentMode: true,
+		});
 
-Deno.test('Middleware Hot Reload - Callback Management', async () => {
-	await setupTestDirectory();
+		const watchEvents: Array<{ filePath: string; event: string }> = [];
 
-	const discovery = new MiddlewareDiscovery({
-		baseDirectory: testDir,
-		filePattern: '_middleware.ts',
-		enableWatching: true,
-		developmentMode: true,
+		try {
+			const callback: MiddlewareWatcherCallback = (filePath, event) => {
+				watchEvents.push({ filePath, event });
+			};
+			discovery.setWatcherCallback(callback);
+
+			await new Promise(resolve => setTimeout(resolve, 200));
+
+			const middlewarePath = join(testDir, '_middleware.ts');
+			await writeFile(middlewarePath, createTestMiddleware('global'));
+
+			await new Promise(resolve => setTimeout(resolve, 500));
+
+			expect(watchEvents.length > 0).toEqual(true);
+
+			discovery.removeWatcherCallback();
+			const eventCountBeforeRemoval = watchEvents.length;
+
+			await writeFile(middlewarePath, createTestMiddleware('globalModified'));
+
+			await new Promise(resolve => setTimeout(resolve, 500));
+
+			expect(watchEvents.length).toEqual(eventCountBeforeRemoval);
+		} finally {
+			discovery.stopWatcher();
+			await cleanupTestDirectory();
+		}
 	});
-
-	const watchEvents: Array<{ filePath: string; event: string }> = [];
-
-	try {
-		// Set up watcher callback
-		const callback: MiddlewareWatcherCallback = (filePath, event) => {
-			watchEvents.push({ filePath, event });
-		};
-		discovery.setWatcherCallback(callback);
-
-		// Give the watcher time to start
-		await new Promise(resolve => setTimeout(resolve, 200));
-
-		// Create a middleware file
-		const middlewarePath = join(testDir, '_middleware.ts');
-		await Deno.writeTextFile(middlewarePath, createTestMiddleware('global'));
-
-		// Wait for event
-		await new Promise(resolve => setTimeout(resolve, 500));
-
-		assert(watchEvents.length > 0, 'Should receive callback with callback set');
-
-		// Remove callback
-		discovery.removeWatcherCallback();
-		const eventCountBeforeRemoval = watchEvents.length;
-
-		// Modify the file
-		await Deno.writeTextFile(middlewarePath, createTestMiddleware('globalModified'));
-
-		// Wait for potential event
-		await new Promise(resolve => setTimeout(resolve, 500));
-
-		assertEquals(watchEvents.length, eventCountBeforeRemoval, 'Should not receive new callbacks after removal');
-	} finally {
-		discovery.stopWatcher();
-		await cleanupTestDirectory();
-	}
 });

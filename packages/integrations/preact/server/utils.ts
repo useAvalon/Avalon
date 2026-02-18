@@ -2,7 +2,7 @@ import type { PreactComponent, PreactComponentModule } from "../types.ts";
 
 // Extend globalThis to include Vite dev server
 declare global {
-  // deno-lint-ignore no-explicit-any
+  
   var __viteDevServer: any;
 }
 
@@ -29,7 +29,7 @@ function resolveIslandPath(src: string) {
  * Handles both development (via Vite) and production (from build output)
  */
 export async function loadComponent(src: string) {
-  const isDev = Deno.env.get("DENO_ENV") !== "production";
+  const isDev = process.env.NODE_ENV !== "production";
   
   if (isDev && globalThis.__viteDevServer) {
     // Development: use Vite's SSR module loading

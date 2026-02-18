@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from '@std/assert';
+import { describe, it, expect } from 'vitest';
 import {
 	type MiddlewareContext,
 	type MiddlewareResponse,
@@ -12,172 +12,170 @@ import {
 } from '../packages/avalon/src/schemas/middleware.ts';
 import { safeValidators } from '../packages/avalon/src/schemas/index.ts';
 
-Deno.test('Middleware Types - MiddlewareContext interface', () => {
-	const mockContext: MiddlewareContext = {
-		request: new Request('https://example.com/test'),
-		url: new URL('https://example.com/test'),
-		params: { id: '123' },
-		query: { search: 'test', tags: ['tag1', 'tag2'] },
-		state: new Map([['user', { id: 1, name: 'Test User' }]]),
-		locals: { startTime: Date.now() },
-	};
+describe('Middleware Types - MiddlewareContext interface', () => {
+	it('should validate middleware context', () => {
+		const mockContext: MiddlewareContext = {
+			request: new Request('https://example.com/test'),
+			url: new URL('https://example.com/test'),
+			params: { id: '123' },
+			query: { search: 'test', tags: ['tag1', 'tag2'] },
+			state: new Map([['user', { id: 1, name: 'Test User' }]]),
+			locals: { startTime: Date.now() },
+		};
 
-	// Verify all required properties exist
-	assertExists(mockContext.request);
-	assertExists(mockContext.url);
-	assertExists(mockContext.params);
-	assertExists(mockContext.query);
-	assertExists(mockContext.state);
-	assertExists(mockContext.locals);
+		expect(mockContext.request).toBeDefined();
+		expect(mockContext.url).toBeDefined();
+		expect(mockContext.params).toBeDefined();
+		expect(mockContext.query).toBeDefined();
+		expect(mockContext.state).toBeDefined();
+		expect(mockContext.locals).toBeDefined();
 
-	// Verify type guard works
-	assertEquals(isMiddlewareContext(mockContext), true);
-	assertEquals(isMiddlewareContext({}), false);
-});
-
-Deno.test('Middleware Types - MiddlewareResponse interface', () => {
-	const mockResponse: MiddlewareResponse = {
-		response: new Response('Hello World'),
-		continue: false,
-	};
-
-	const mockContinueResponse: MiddlewareResponse = {
-		continue: true,
-	};
-
-	// Verify required properties
-	assertEquals(mockResponse.continue, false);
-	assertEquals(mockContinueResponse.continue, true);
-	assertExists(mockResponse.response);
-
-	// Verify type guard works
-	assertEquals(isMiddlewareResponse(mockResponse), true);
-	assertEquals(isMiddlewareResponse(mockContinueResponse), true);
-	assertEquals(isMiddlewareResponse({ continue: 'invalid' }), false);
-});
-
-Deno.test('Middleware Types - MiddlewareHandler function type', async () => {
-	const mockHandler: MiddlewareHandler = async (context, next) => {
-		// Add some data to context
-		context.locals.processed = true;
-
-		// Call next middleware
-		const result = await next();
-
-		// Return result
-		return result;
-	};
-
-	const mockContext: MiddlewareContext = {
-		request: new Request('https://example.com/test'),
-		url: new URL('https://example.com/test'),
-		params: {},
-		query: {},
-		state: new Map(),
-		locals: {},
-	};
-
-	const mockNext = async (): Promise<MiddlewareResponse> => ({
-		continue: true,
+		expect(isMiddlewareContext(mockContext)).toEqual(true);
+		expect(isMiddlewareContext({})).toEqual(false);
 	});
-
-	// Test handler execution
-	const result = await mockHandler(mockContext, mockNext);
-
-	assertEquals(result.continue, true);
-	assertEquals(mockContext.locals.processed, true);
 });
 
-Deno.test('Middleware Types - MiddlewareRoute interface', () => {
-	const mockRoute: MiddlewareRoute = {
-		pattern: new URLPattern({ pathname: '/api/*' }),
-		middlewarePath: 'src/api/_middleware.ts',
-		priority: 1,
-		type: 'api',
-	};
+describe('Middleware Types - MiddlewareResponse interface', () => {
+	it('should validate middleware response', () => {
+		const mockResponse: MiddlewareResponse = {
+			response: new Response('Hello World'),
+			continue: false,
+		};
 
-	// Verify all required properties exist
-	assertExists(mockRoute.pattern);
-	assertEquals(mockRoute.middlewarePath, 'src/api/_middleware.ts');
-	assertEquals(mockRoute.priority, 1);
-	assertEquals(mockRoute.type, 'api');
+		const mockContinueResponse: MiddlewareResponse = {
+			continue: true,
+		};
 
-	// Verify type guard works
-	assertEquals(isMiddlewareRoute(mockRoute), true);
-	assertEquals(isMiddlewareRoute({ pattern: 'invalid' }), false);
+		expect(mockResponse.continue).toEqual(false);
+		expect(mockContinueResponse.continue).toEqual(true);
+		expect(mockResponse.response).toBeDefined();
+
+		expect(isMiddlewareResponse(mockResponse)).toEqual(true);
+		expect(isMiddlewareResponse(mockContinueResponse)).toEqual(true);
+		expect(isMiddlewareResponse({ continue: 'invalid' })).toEqual(false);
+	});
 });
 
-Deno.test('Middleware Types - MiddlewareChain interface', () => {
-	const mockHandler: MiddlewareHandler = async (context, next) => next();
+describe('Middleware Types - MiddlewareHandler function type', () => {
+	it('should execute handler correctly', async () => {
+		const mockHandler: MiddlewareHandler = async (context, next) => {
+			context.locals.processed = true;
+			const result = await next();
+			return result;
+		};
 
-	const mockChain: MiddlewareChain = {
-		global: [mockHandler],
-		scoped: [mockHandler, mockHandler],
-		route: '/api/users',
-		totalMiddleware: 3,
-	};
+		const mockContext: MiddlewareContext = {
+			request: new Request('https://example.com/test'),
+			url: new URL('https://example.com/test'),
+			params: {},
+			query: {},
+			state: new Map(),
+			locals: {},
+		};
 
-	// Verify all required properties exist
-	assertEquals(mockChain.global.length, 1);
-	assertEquals(mockChain.scoped.length, 2);
-	assertEquals(mockChain.route, '/api/users');
-	assertEquals(mockChain.totalMiddleware, 3);
+		const mockNext = async (): Promise<MiddlewareResponse> => ({
+			continue: true,
+		});
 
-	// Verify type guard works
-	assertEquals(isMiddlewareChain(mockChain), true);
-	assertEquals(isMiddlewareChain({ global: 'invalid' }), false);
+		const result = await mockHandler(mockContext, mockNext);
+
+		expect(result.continue).toEqual(true);
+		expect(mockContext.locals.processed).toEqual(true);
+	});
 });
 
-Deno.test('Middleware Types - Configuration validation', () => {
-	const validConfig = {
-		developmentMode: true,
-		enableLogging: true,
-		maxExecutionTime: 5000,
-	};
+describe('Middleware Types - MiddlewareRoute interface', () => {
+	it('should validate middleware route', () => {
+		const mockRoute: MiddlewareRoute = {
+			pattern: new URLPattern({ pathname: '/api/*' }),
+			middlewarePath: 'src/api/_middleware.ts',
+			priority: 1,
+			type: 'api',
+		};
 
-	const invalidConfig = {
-		developmentMode: 'invalid',
-		maxExecutionTime: -1,
-	};
+		expect(mockRoute.pattern).toBeDefined();
+		expect(mockRoute.middlewarePath).toEqual('src/api/_middleware.ts');
+		expect(mockRoute.priority).toEqual(1);
+		expect(mockRoute.type).toEqual('api');
 
-	// Test validators
-	const validResult = safeValidators.middlewareConfig(validConfig);
-	const invalidResult = safeValidators.middlewareConfig(invalidConfig);
-
-	assertEquals(validResult.success, true);
-	assertEquals(invalidResult.success, false);
-
-	if (validResult.success) {
-		assertEquals(validResult.data.developmentMode, true);
-		assertEquals(validResult.data.enableLogging, true);
-		assertEquals(validResult.data.maxExecutionTime, 5000);
-	}
+		expect(isMiddlewareRoute(mockRoute)).toEqual(true);
+		expect(isMiddlewareRoute({ pattern: 'invalid' })).toEqual(false);
+	});
 });
 
-Deno.test('Middleware Types - Discovery options validation', () => {
-	const validOptions = {
-		baseDirectory: 'src',
-		filePattern: '_middleware.ts',
-		enableWatching: true,
-		excludeDirectories: ['node_modules', 'dist'],
-	};
+describe('Middleware Types - MiddlewareChain interface', () => {
+	it('should validate middleware chain', () => {
+		const mockHandler: MiddlewareHandler = async (context, next) => next();
 
-	const invalidOptions = {
-		baseDirectory: 123, // Should be string
-		filePattern: '', // Should not be empty
-	};
+		const mockChain: MiddlewareChain = {
+			global: [mockHandler],
+			scoped: [mockHandler, mockHandler],
+			route: '/api/users',
+			totalMiddleware: 3,
+		};
 
-	// Test validators
-	const validResult = safeValidators.middlewareDiscoveryOptions(validOptions);
-	const invalidResult = safeValidators.middlewareDiscoveryOptions(invalidOptions);
+		expect(mockChain.global.length).toEqual(1);
+		expect(mockChain.scoped.length).toEqual(2);
+		expect(mockChain.route).toEqual('/api/users');
+		expect(mockChain.totalMiddleware).toEqual(3);
 
-	assertEquals(validResult.success, true);
-	assertEquals(invalidResult.success, false);
+		expect(isMiddlewareChain(mockChain)).toEqual(true);
+		expect(isMiddlewareChain({ global: 'invalid' })).toEqual(false);
+	});
+});
 
-	if (validResult.success) {
-		assertEquals(validResult.data.baseDirectory, 'src');
-		assertEquals(validResult.data.filePattern, '_middleware.ts');
-		assertEquals(validResult.data.enableWatching, true);
-		assertEquals(validResult.data.excludeDirectories?.length, 2);
-	}
+describe('Middleware Types - Configuration validation', () => {
+	it('should validate valid config', () => {
+		const validConfig = {
+			developmentMode: true,
+			enableLogging: true,
+			maxExecutionTime: 5000,
+		};
+
+		const invalidConfig = {
+			developmentMode: 'invalid',
+			maxExecutionTime: -1,
+		};
+
+		const validResult = safeValidators.middlewareConfig(validConfig);
+		const invalidResult = safeValidators.middlewareConfig(invalidConfig);
+
+		expect(validResult.success).toEqual(true);
+		expect(invalidResult.success).toEqual(false);
+
+		if (validResult.success) {
+			expect(validResult.data.developmentMode).toEqual(true);
+			expect(validResult.data.enableLogging).toEqual(true);
+			expect(validResult.data.maxExecutionTime).toEqual(5000);
+		}
+	});
+});
+
+describe('Middleware Types - Discovery options validation', () => {
+	it('should validate valid options', () => {
+		const validOptions = {
+			baseDirectory: 'src',
+			filePattern: '_middleware.ts',
+			enableWatching: true,
+			excludeDirectories: ['node_modules', 'dist'],
+		};
+
+		const invalidOptions = {
+			baseDirectory: 123,
+			filePattern: '',
+		};
+
+		const validResult = safeValidators.middlewareDiscoveryOptions(validOptions);
+		const invalidResult = safeValidators.middlewareDiscoveryOptions(invalidOptions);
+
+		expect(validResult.success).toEqual(true);
+		expect(invalidResult.success).toEqual(false);
+
+		if (validResult.success) {
+			expect(validResult.data.baseDirectory).toEqual('src');
+			expect(validResult.data.filePattern).toEqual('_middleware.ts');
+			expect(validResult.data.enableWatching).toEqual(true);
+			expect(validResult.data.excludeDirectories?.length).toEqual(2);
+		}
+	});
 });

@@ -1,51 +1,53 @@
-import { serve } from '@std/http/server';
-import { serveDir } from '@std/http/file-server';
-import { join } from '@std/path';
-import { processMarkdown, extractCodeExamples } from './utils/markdown-processor.ts';
-import { validateAllExamples } from './utils/code-validator.ts';
+import { readFile, readdir, stat } from 'node:fs/promises';
+import { join, extname } from 'node:path';
+import { processMarkdown, extractCodeExamples } from './utils/markdown-processor';
+import { validateAllExamples } from './utils/code-validator';
 
 const PORT = 3001;
 
-interface RouteHandler {
-	pattern: URLPattern;
-	handler: (request: Request, match: URLPatternResult) => Promise<Response> | Response;
+// MIME type mapping for static files
+const MIME_TYPES: Record<string, string> = {
+	'.html': 'text/html',
+	'.css': 'text/css',
+	'.js': 'application/javascript',
+	'.json': 'application/json',
+	'.png': 'image/png',
+	'.jpg': 'image/jpeg',
+	'.jpeg': 'image/jpeg',
+	'.gif': 'image/gif',
+	'.svg': 'image/svg+xml',
+	'.ico': 'image/x-icon',
+	'.woff': 'font/woff',
+	'.woff2': 'font/woff2',
+	'.ttf': 'font/ttf',
+	'.eot': 'application/vnd.ms-fontobject',
+};
+
+function getMimeType(filePath: string): string {
+	const ext = extname(filePath).toLowerCase();
+	return MIME_TYPES[ext] || 'application/octet-stream';
 }
 
-// Route handlers
-const routes: RouteHandler[] = [
-	// Static assets
-	{
-		pattern: new URLPattern({ pathname: '/styles/*' }),
-		handler: request => serveDir(request, { fsRoot: './src/styles' }),
-	},
-	{
-		pattern: new URLPattern({ pathname: '/scripts/*' }),
-		handler: request => serveDir(request, { fsRoot: './src/scripts' }),
-	},
+/**
+ * Serve static files from a directory
+ */
+async function serveStaticFile(filePath: string): Promise<Response | null> {
+	try {
+		const file = Bun.file(filePath);
+		if (!(await file.exists())) return null;
+		const mimeType = getMimeType(filePath);
+		return new Response(file, {
+			headers: { 'Content-Type': mimeType },
+		});
+	} catch {
+		return null;
+	}
+}
 
-	// Documentation pages
-	{
-		pattern: new URLPattern({ pathname: '/docs/*' }),
-		handler: handleDocsPage,
-	},
-
-	// Root redirect
-	{
-		pattern: new URLPattern({ pathname: '/' }),
-		handler: () => Response.redirect('/docs', 302),
-	},
-
-	// API endpoints
-	{
-		pattern: new URLPattern({ pathname: '/api/validate' }),
-		handler: handleValidateAPI,
-	},
-];
-
-async function handleDocsPage(request: Request, match: URLPatternResult): Promise<Response> {
-	const url = new URL(request.url);
-	const pathname = url.pathname;
-
+/**
+ * Handle documentation page requests
+ */
+async function handleDocsPage(pathname: string): Promise<Response> {
 	try {
 		// Map URL to markdown file
 		let markdownPath = pathname.replace('/docs', '');
@@ -55,17 +57,17 @@ async function handleDocsPage(request: Request, match: URLPatternResult): Promis
 			markdownPath += '.md';
 		}
 
-		const filePath = join(Deno.cwd(), 'docs', markdownPath);
+		const filePath = join(process.cwd(), 'docs', markdownPath);
 
 		// Read and process markdown file
 		let content: string;
 		try {
-			content = await Deno.readTextFile(filePath);
+			content = await readFile(filePath, 'utf-8');
 		} catch {
 			// Try index.md if direct file doesn't exist
-			const indexPath = join(Deno.cwd(), 'docs', markdownPath.replace('.md', '/README.md'));
+			const indexPath = join(process.cwd(), 'docs', markdownPath.replace('.md', '/README.md'));
 			try {
-				content = await Deno.readTextFile(indexPath);
+				content = await readFile(indexPath, 'utf-8');
 			} catch {
 				return new Response('Page not found', { status: 404 });
 			}
@@ -95,6 +97,9 @@ async function handleDocsPage(request: Request, match: URLPatternResult): Promis
 	}
 }
 
+/**
+ * Handle validation API requests
+ */
 async function handleValidateAPI(request: Request): Promise<Response> {
 	if (request.method !== 'POST') {
 		return new Response('Method not allowed', { status: 405 });
@@ -102,7 +107,7 @@ async function handleValidateAPI(request: Request): Promise<Response> {
 
 	try {
 		const { code, language, framework } = await request.json();
-		const { validateCode } = await import('./utils/code-validator.ts');
+		const { validateCode } = await import('./utils/code-validator');
 
 		const result = await validateCode(code, language, {
 			checkSyntax: true,
@@ -114,7 +119,7 @@ async function handleValidateAPI(request: Request): Promise<Response> {
 		return new Response(JSON.stringify(result), {
 			headers: { 'Content-Type': 'application/json' },
 		});
-	} catch (error) {
+	} catch (error: any) {
 		return new Response(JSON.stringify({ error: error.message }), {
 			status: 400,
 			headers: { 'Content-Type': 'application/json' },
@@ -244,20 +249,51 @@ async function renderDocsPage(options: RenderDocsPageOptions): Promise<string> {
 	return html;
 }
 
-// Request router
+/**
+ * Main request handler
+ */
 async function handleRequest(request: Request): Promise<Response> {
 	const url = new URL(request.url);
+	const pathname = url.pathname;
 
-	for (const route of routes) {
-		const match = route.pattern.exec(url);
-		if (match) {
-			return await route.handler(request, match);
-		}
+	// Static assets - styles
+	if (pathname.startsWith('/styles/')) {
+		const filePath = join(process.cwd(), 'docs', 'src', pathname);
+		const response = await serveStaticFile(filePath);
+		if (response) return response;
+		return new Response('Not Found', { status: 404 });
+	}
+
+	// Static assets - scripts
+	if (pathname.startsWith('/scripts/')) {
+		const filePath = join(process.cwd(), 'docs', 'src', pathname);
+		const response = await serveStaticFile(filePath);
+		if (response) return response;
+		return new Response('Not Found', { status: 404 });
+	}
+
+	// Documentation pages
+	if (pathname.startsWith('/docs')) {
+		return handleDocsPage(pathname);
+	}
+
+	// Root redirect
+	if (pathname === '/') {
+		return Response.redirect('/docs', 302);
+	}
+
+	// API endpoints
+	if (pathname === '/api/validate') {
+		return handleValidateAPI(request);
 	}
 
 	return new Response('Not Found', { status: 404 });
 }
 
-// Start server
+// Start server using Bun.serve
 console.log(`🚀 Documentation server starting on http://localhost:${PORT}`);
-await serve(handleRequest, { port: PORT });
+
+Bun.serve({
+	port: PORT,
+	fetch: handleRequest,
+});

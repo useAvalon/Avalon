@@ -8,6 +8,7 @@
 
 import type { JSX } from 'preact';
 import { render as preactRenderToString } from 'preact-render-to-string';
+import { readFile } from 'node:fs/promises';
 import { EnhancedFrameworkDetector } from '../core/components/enhanced-framework-detector.ts';
 
 export interface FrameworkSSRContext {
@@ -500,7 +501,7 @@ export class IsolatedSSRRenderer {
 
 			for (const pathVariation of pathVariations) {
 				try {
-					return await Deno.readTextFile(pathVariation);
+					return await readFile(pathVariation, 'utf-8');
 				} catch {
 					// Continue to next path variation
 					continue;

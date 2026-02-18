@@ -8,16 +8,17 @@ import "./dom-shim.ts";
 import type { LitElement } from "lit";
 import type { CSSResult } from "lit";
 import { join } from "node:path";
+import { readFile } from "node:fs/promises";
 
 /**
  * Extract custom element tag name from a Lit component
  */
 export function getTagName(ElementClass: typeof LitElement): string {
-  // deno-lint-ignore no-explicit-any
+  
   const tagName = (ElementClass as any).elementName || 
-                  // deno-lint-ignore no-explicit-any
+                  
                   (ElementClass as any).tagName ||
-                  // deno-lint-ignore no-explicit-any
+                  
                   (ElementClass as any)._tagName;
   
   if (tagName && typeof tagName === "string") {
@@ -74,7 +75,7 @@ export function serializeAttributes(props: Record<string, unknown>): string {
  */
 export function collectStyles(ElementClass: typeof LitElement): string {
   try {
-    // deno-lint-ignore no-explicit-any
+    
     const styles = (ElementClass as any).styles;
     if (!styles) return "";
     
@@ -113,10 +114,10 @@ export async function extractTagNameFromSource(src: string): Promise<string | nu
   try {
     const resolvedSrc = resolveIslandPath(src);
     const componentPath = resolvedSrc.startsWith("/") 
-      ? join(Deno.cwd(), resolvedSrc.slice(1))
+      ? join(process.cwd(), resolvedSrc.slice(1))
       : resolvedSrc;
     
-    const content = await Deno.readTextFile(componentPath);
+    const content = await readFile(componentPath, "utf-8");
     
     // Try @customElement decorator with different quote styles
     const decoratorPatterns = [
@@ -162,7 +163,7 @@ export async function loadComponent(
     module = await viteServer.ssrLoadModule(resolvedSrc);
   } else {
     const componentPath = resolvedSrc.startsWith("/")
-      ? join(Deno.cwd(), resolvedSrc.slice(1))
+      ? join(process.cwd(), resolvedSrc.slice(1))
       : resolvedSrc;
     module = await import(/* @vite-ignore */ componentPath);
   }

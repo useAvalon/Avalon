@@ -15,28 +15,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: denoland/setup-deno@v2
+      - uses: oven-sh/setup-bun@v2
         with:
-          deno-version: v2.x
-      - run: deno lint
-      - run: deno fmt --check
+          bun-version: latest
+      - run: bun install
+      - run: bunx biome check .
+      - run: bunx biome format --check .
 
-  # test:
-  #   name: Test
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: denoland/setup-deno@v2
-  #       with:
-  #         deno-version: v2.x
-  #     - run: deno test -A
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: bun install
+      - run: bunx vitest run
 
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: denoland/setup-deno@v2
+      - uses: oven-sh/setup-bun@v2
         with:
-          deno-version: v2.x
-      - run: deno check packages/avalon/mod.ts
+          bun-version: latest
+      - run: bun install
+      - run: bunx tsc --noEmit

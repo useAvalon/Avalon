@@ -3,14 +3,14 @@
  * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5
  */
 
-import { assertEquals, assertExists } from '@std/assert';
+import { describe, it, expect } from 'vitest';
 import { ServerHMRHandler } from '../server-hmr-handler.ts';
 
 // Mock ViteDevServer for testing
 function createMockViteServer() {
   const sentMessages: Array<{ type: string; event?: string; data?: unknown; path?: string }> = [];
   const invalidatedModules: string[] = [];
-  
+
   return {
     sentMessages,
     invalidatedModules,
@@ -34,15 +34,15 @@ function createMockViteServer() {
   };
 }
 
-Deno.test('ServerHMRHandler - initialization', async (t) => {
-  await t.step('should create handler with default config', () => {
+describe('ServerHMRHandler - initialization', () => {
+  it('should create handler with default config', () => {
     const handler = new ServerHMRHandler({
       debugLogging: false,
     });
-    assertExists(handler);
+    expect(handler).toBeDefined();
   });
 
-  await t.step('should create handler with custom config', () => {
+  it('should create handler with custom config', () => {
     const customHandler = new ServerHMRHandler({
       debugLogging: true,
       errorHandling: {
@@ -50,143 +50,133 @@ Deno.test('ServerHMRHandler - initialization', async (t) => {
         displayInBrowser: false,
       },
     });
-    assertExists(customHandler);
+    expect(customHandler).toBeDefined();
   });
 });
 
-Deno.test('ServerHMRHandler - statistics', async (t) => {
-  const handler = new ServerHMRHandler({
-    debugLogging: false,
-  });
+describe('ServerHMRHandler - statistics', () => {
+  it('should return initial stats', () => {
+    const handler = new ServerHMRHandler({
+      debugLogging: false,
+    });
 
-  await t.step('should return initial stats', () => {
     const stats = handler.getStats();
-    assertEquals(stats.totalInvalidations, 0);
-    assertEquals(stats.cachedErrors, 0);
-    assertEquals(stats.recentInvalidations.length, 0);
+    expect(stats.totalInvalidations).toEqual(0);
+    expect(stats.cachedErrors).toEqual(0);
+    expect(stats.recentInvalidations.length).toEqual(0);
   });
 
-  await t.step('should clear caches', () => {
+  it('should clear caches', () => {
+    const handler = new ServerHMRHandler({
+      debugLogging: false,
+    });
+
     handler.clearCaches();
     const stats = handler.getStats();
-    assertEquals(stats.totalInvalidations, 0);
-    assertEquals(stats.cachedErrors, 0);
+    expect(stats.totalInvalidations).toEqual(0);
+    expect(stats.cachedErrors).toEqual(0);
   });
 });
 
-Deno.test('ServerHMRHandler - error caching', async (t) => {
-  const handler = new ServerHMRHandler({
-    debugLogging: false,
-  });
+describe('ServerHMRHandler - error caching', () => {
+  it('should cache and retrieve errors', () => {
+    const handler = new ServerHMRHandler({
+      debugLogging: false,
+    });
 
-  await t.step('should cache and retrieve errors', () => {
     const modulePath = '/test/module.ts';
 
     // Initially no error
-    assertEquals(handler.getCachedError(modulePath), undefined);
+    expect(handler.getCachedError(modulePath)).toEqual(undefined);
 
     // Clear error (should not throw)
     handler.clearCachedError(modulePath);
 
     // Verify still no error
-    assertEquals(handler.getCachedError(modulePath), undefined);
+    expect(handler.getCachedError(modulePath)).toEqual(undefined);
   });
 
-  await t.step('should get invalidation timestamp', () => {
+  it('should get invalidation timestamp', () => {
+    const handler = new ServerHMRHandler({
+      debugLogging: false,
+    });
+
     const modulePath = '/test/module.ts';
-    assertEquals(handler.getInvalidationTimestamp(modulePath), undefined);
+    expect(handler.getInvalidationTimestamp(modulePath)).toEqual(undefined);
   });
 });
 
-
-Deno.test('ServerHMRHandler - page update triggers browser refresh', async (t) => {
-  await t.step('should send full-reload on page update', async () => {
+describe('ServerHMRHandler - page update triggers browser refresh', () => {
+  it('should send full-reload on page update', async () => {
     const handler = new ServerHMRHandler({ debugLogging: false });
     const mockServer = createMockViteServer();
-    
-    // Initialize with mock server
+
     handler.initialize(mockServer as unknown as Parameters<typeof handler.initialize>[0]);
-    
-    // Trigger page update
+
     const result = await handler.handlePageUpdate('/src/pages/index.tsx');
-    
-    // Verify result
-    assertEquals(result.success, true);
-    assertEquals(result.invalidatedModules.length, 1);
-    
-    // Verify full-reload was sent
+
+    expect(result.success).toEqual(true);
+    expect(result.invalidatedModules.length).toEqual(1);
+
     const fullReloadMessage = mockServer.sentMessages.find(m => m.type === 'full-reload');
-    assertExists(fullReloadMessage);
-    assertEquals(fullReloadMessage.path, '/src/pages/index.tsx');
+    expect(fullReloadMessage).toBeDefined();
+    expect(fullReloadMessage!.path).toEqual('/src/pages/index.tsx');
   });
 });
 
-Deno.test('ServerHMRHandler - layout update triggers browser refresh', async (t) => {
-  await t.step('should send full-reload on layout update', async () => {
+describe('ServerHMRHandler - layout update triggers browser refresh', () => {
+  it('should send full-reload on layout update', async () => {
     const handler = new ServerHMRHandler({ debugLogging: false });
     const mockServer = createMockViteServer();
-    
-    // Initialize with mock server
+
     handler.initialize(mockServer as unknown as Parameters<typeof handler.initialize>[0]);
-    
-    // Trigger layout update
+
     const result = await handler.handleLayoutUpdate('/src/layouts/_layout.tsx');
-    
-    // Verify result
-    assertEquals(result.success, true);
-    
-    // Verify full-reload was sent
+
+    expect(result.success).toEqual(true);
+
     const fullReloadMessage = mockServer.sentMessages.find(m => m.type === 'full-reload');
-    assertExists(fullReloadMessage);
-    assertEquals(fullReloadMessage.path, '/src/layouts/_layout.tsx');
+    expect(fullReloadMessage).toBeDefined();
+    expect(fullReloadMessage!.path).toEqual('/src/layouts/_layout.tsx');
   });
 });
 
-Deno.test('ServerHMRHandler - API route update sends custom event', async (t) => {
-  await t.step('should send custom event on API route update (no full reload)', async () => {
+describe('ServerHMRHandler - API route update sends custom event', () => {
+  it('should send custom event on API route update (no full reload)', async () => {
     const handler = new ServerHMRHandler({ debugLogging: false });
     const mockServer = createMockViteServer();
-    
-    // Initialize with mock server
+
     handler.initialize(mockServer as unknown as Parameters<typeof handler.initialize>[0]);
-    
-    // Trigger API route update
+
     const result = await handler.handleAPIRouteUpdate('/src/api/hello.ts');
-    
-    // Verify result
-    assertEquals(result.success, true);
-    assertEquals(result.invalidatedModules.length, 1);
-    
-    // Verify custom event was sent (not full-reload)
+
+    expect(result.success).toEqual(true);
+    expect(result.invalidatedModules.length).toEqual(1);
+
     const customMessage = mockServer.sentMessages.find(m => m.type === 'custom');
-    assertExists(customMessage);
-    assertEquals(customMessage.event, 'avalon:api-route-updated');
-    
-    // Verify NO full-reload was sent
+    expect(customMessage).toBeDefined();
+    expect(customMessage!.event).toEqual('avalon:api-route-updated');
+
     const fullReloadMessage = mockServer.sentMessages.find(m => m.type === 'full-reload');
-    assertEquals(fullReloadMessage, undefined);
+    expect(fullReloadMessage).toEqual(undefined);
   });
 });
 
-Deno.test('ServerHMRHandler - middleware update triggers browser refresh', async (t) => {
-  await t.step('should send full-reload on middleware update', async () => {
+describe('ServerHMRHandler - middleware update triggers browser refresh', () => {
+  it('should send full-reload on middleware update', async () => {
     const handler = new ServerHMRHandler({ debugLogging: false });
     const mockServer = createMockViteServer();
-    
-    // Initialize with mock server
+
     handler.initialize(mockServer as unknown as Parameters<typeof handler.initialize>[0]);
-    
-    // Trigger middleware update
+
     const result = await handler.handleMiddlewareUpdate('/src/middleware/_middleware.ts');
-    
-    // Verify result
-    assertEquals(result.success, true);
-    assertEquals(result.warnings.length, 1);
-    assertEquals(result.warnings[0], 'Middleware chain will be rebuilt on next request');
-    
-    // Verify full-reload was sent
+
+    expect(result.success).toEqual(true);
+    expect(result.warnings.length).toEqual(1);
+    expect(result.warnings[0]).toEqual('Middleware chain will be rebuilt on next request');
+
     const fullReloadMessage = mockServer.sentMessages.find(m => m.type === 'full-reload');
-    assertExists(fullReloadMessage);
-    assertEquals(fullReloadMessage.path, '/src/middleware/_middleware.ts');
+    expect(fullReloadMessage).toBeDefined();
+    expect(fullReloadMessage!.path).toEqual('/src/middleware/_middleware.ts');
   });
 });

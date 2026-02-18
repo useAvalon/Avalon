@@ -1,5 +1,6 @@
 import type { JSX } from 'preact';
 import { render as preactRenderToString } from 'preact-render-to-string';
+import { readFile } from 'node:fs/promises';
 import type { RenderOptions } from '../schemas/core.ts';
 import { getUniversalCSSForHead } from '../islands/universal-css-collector.ts';
 import { getUniversalHeadForInjection } from '../islands/universal-head-collector.ts';
@@ -96,7 +97,7 @@ function getIsolatedRenderer(): IsolatedSSRRenderer {
 			enableStrictIsolation: true,
 			allowedCrossFrameworkImports: ['preact', 'preact-render-to-string'],
 			errorHandling: 'fallback',
-			debugLogging: Deno.env.get('DENO_ENV') !== 'production',
+			debugLogging: process.env.NODE_ENV !== 'production',
 		};
 		isolatedRenderer = new IsolatedSSRRenderer(config);
 	}
@@ -250,7 +251,7 @@ async function validateComponentImports(
 		let foundPath = '';
 		for (const pathVariation of pathVariations) {
 			try {
-				componentContent = await Deno.readTextFile(pathVariation);
+				componentContent = await readFile(pathVariation, 'utf-8');
 				foundPath = pathVariation;
 				break;
 			} catch {
@@ -339,7 +340,7 @@ async function determineRenderStrategy(
 		let analysisResult = null;
 		for (const pathVariation of pathVariations) {
 			try {
-				componentContent = await Deno.readTextFile(pathVariation);
+				componentContent = await readFile(pathVariation, 'utf-8');
 
 				// Perform intelligent component analysis
 				const analyzerOptions: AnalyzerOptions = {
@@ -454,7 +455,7 @@ function generateHead(
 	frameworks: FrameworkDetection,
 	viteHmrPort?: number
 ): string {
-	const isDev = Deno.env.get('DENO_ENV') !== 'production';
+	const isDev = process.env.NODE_ENV !== 'production';
 
 	const metaTags = generateMetaTags(options);
 	const styleTags = generateStyleTags(options);
@@ -1197,7 +1198,7 @@ ${head}
  * Generates an error page for streaming errors
  */
 function generateErrorPage(error: Error): string {
-	const isDev = Deno.env.get('DENO_ENV') !== 'production';
+	const isDev = process.env.NODE_ENV !== 'production';
 	
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -1248,7 +1249,7 @@ function generateErrorPage(error: Error): string {
  * This is injected into the stream when an error occurs after the shell has been sent
  */
 function generateMidStreamErrorBoundary(error: Error, componentId?: string): string {
-	const isDev = Deno.env.get('DENO_ENV') !== 'production';
+	const isDev = process.env.NODE_ENV !== 'production';
 	
 	return `
 <div class="streaming-error-boundary" data-error-boundary="true" ${componentId ? `data-component-id="${componentId}"` : ''}>

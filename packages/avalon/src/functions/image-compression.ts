@@ -1,5 +1,6 @@
 import { join, extname, basename } from 'node:path';
-import { ensureDir, exists, walk } from '../utils/std-fs-shim.ts';
+import { stat as fsStat, copyFile } from 'node:fs/promises';
+import { ensureDir, exists, walk } from '../utils/fs.ts';
 
 /**
  * Image compression configuration type
@@ -66,8 +67,8 @@ async function convertToWebP(options: ImageProcessingOptions): Promise<void> {
 			.toFile(options.output);
 
 		// Log file size reduction
-		const inputStat = await Deno.stat(options.input);
-		const outputStat = await Deno.stat(options.output);
+		const inputStat = await fsStat(options.input);
+		const outputStat = await fsStat(options.output);
 		const reduction = Math.round((1 - outputStat.size / inputStat.size) * 100);
 
 		const inputKB = Math.round(inputStat.size / 1024);
@@ -103,7 +104,7 @@ async function convertWithImageToWebp(options: ImageProcessingOptions): Promise<
 
 		// For non-WebP formats, copy the original file for now
 		console.warn(`Format conversion to ${options.format} not implemented yet, copying original`);
-		await Deno.copyFile(options.input, options.output);
+		await copyFile(options.input, options.output);
 		console.log(`📄 Copied: ${options.input} -> ${options.output}`);
 	} catch (error) {
 		console.error(`❌ Failed to process ${options.input}:`, error);
@@ -131,8 +132,8 @@ async function processImage(
 
 		// Skip if output already exists and is newer than input
 		if (await exists(outputPath)) {
-			const inputStat = await Deno.stat(inputPath);
-			const outputStat = await Deno.stat(outputPath);
+			const inputStat = await fsStat(inputPath);
+			const outputStat = await fsStat(outputPath);
 			if (outputStat.mtime && inputStat.mtime && outputStat.mtime > inputStat.mtime) {
 				console.log(`⏭️  Skipping (already up to date): ${outputPath}`);
 				continue;
@@ -179,7 +180,7 @@ async function processImage(
 	if (config.preserveOriginal) {
 		const originalOutputPath = join(outputDir, basename(inputPath));
 		if (inputPath !== originalOutputPath) {
-			await Deno.copyFile(inputPath, originalOutputPath);
+			await copyFile(inputPath, originalOutputPath);
 			console.log(`📄 Preserved original: ${originalOutputPath}`);
 		}
 	}

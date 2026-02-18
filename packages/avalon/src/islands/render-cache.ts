@@ -141,7 +141,7 @@ const islandCache: IslandRenderCache = {
  */
 function isDev(): boolean {
   try {
-    return typeof Deno !== "undefined" && Deno.env?.get("DENO_ENV") !== "production";
+    return process.env.NODE_ENV !== "production";
   } catch {
     return true; // Default to dev mode if we can't check
   }
@@ -149,7 +149,7 @@ function isDev(): boolean {
 
 function isVerbose(): boolean {
   try {
-    return typeof Deno !== "undefined" && Deno.env?.get("AVALON_VERBOSE") === "1";
+    return process.env.AVALON_VERBOSE === "1";
   } catch {
     return false;
   }

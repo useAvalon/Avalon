@@ -49,7 +49,7 @@ export async function loadConfig(startDir?: string): Promise<ConfigLoadResult> {
   const errors: string[] = [];
   const warnings: string[] = [];
   
-  const searchDir = startDir || Deno.cwd();
+  const searchDir = startDir || process.cwd();
   const configPath = await findConfigFile(searchDir);
   
   if (!configPath) {

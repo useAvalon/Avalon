@@ -1,9 +1,9 @@
 import { resolve, relative } from 'node:path';
+import { statSync } from 'node:fs';
 import process from 'node:process';
-// NOTE: Using Deno.statSync instead of @std/fs for faster cold start
 import { LayoutDiscovery } from './layout-discovery.ts';
 
-// deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ComponentType<P = any> = ((props: P) => any) | (new (props: P) => any);
 
 // NOTE: Using inline types to avoid importing heavy schemas/layout.ts (which imports zod)
@@ -305,10 +305,10 @@ export class LayoutComposer {
 					resolve(this.layoutDiscovery.getOptions().baseDirectory, layoutPath),
 				];
 
-				// Find the first existing path using Deno.statSync
+				// Find the first existing path using statSync
 				resolvedPath = possiblePaths.find(path => {
 					try {
-						Deno.statSync(path);
+						statSync(path);
 						return true;
 					} catch {
 						return false;
@@ -316,10 +316,10 @@ export class LayoutComposer {
 				}) || layoutPath;
 			}
 
-			// Check if file exists using Deno.statSync
+			// Check if file exists using statSync
 			let fileExists = false;
 			try {
-				Deno.statSync(resolvedPath);
+				statSync(resolvedPath);
 				fileExists = true;
 			} catch {
 				// File doesn't exist

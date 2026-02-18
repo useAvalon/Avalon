@@ -9,7 +9,7 @@ import { LayoutCacheManager, defaultCacheConfig } from './layout-cache-manager.t
 // NOTE: Using inline types to avoid importing heavy types/layout.ts (which imports schemas/layout.ts with zod)
 // This significantly improves cold start time
 
-// deno-lint-ignore no-explicit-any
+
 type ComponentType<P = any> = ((props: P) => any) | (new (props: P) => any);
 
 interface LayoutContext {
@@ -23,9 +23,9 @@ interface LayoutContext {
 type LayoutData = Record<string, unknown>;
 
 interface LayoutHandler {
-	// deno-lint-ignore no-explicit-any
+	
 	component: ComponentType<any>;
-	// deno-lint-ignore no-explicit-any
+	
 	loader?: (ctx: LayoutContext) => Promise<any>;
 	path: string;
 	priority: number;
@@ -40,13 +40,13 @@ interface LayoutDiscoveryOptions {
 }
 
 interface ResolvedLayout {
-	// deno-lint-ignore no-explicit-any
+	
 	handlers: any[];
-	// deno-lint-ignore no-explicit-any
+	
 	dataLoaders: any[];
-	// deno-lint-ignore no-explicit-any
+	
 	errorBoundaries: any[];
-	// deno-lint-ignore no-explicit-any
+	
 	streamingComponents: any[];
 	metadata: {
 		totalLayouts: number;

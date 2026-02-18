@@ -3,6 +3,7 @@
 import type { ComponentType } from "react";
 import type { ComponentMetadata } from "../types.ts";
 import { join } from "node:path";
+import { readFileSync } from "node:fs";
 
 /**
  * Resolve island path from /islands/ to /src/islands/
@@ -39,7 +40,7 @@ export async function loadComponent(src: string): Promise<ComponentType<Record<s
     let componentPath: string;
     if (resolvedSrc.startsWith("/")) {
       // Remove leading slash and join with cwd
-      componentPath = join(Deno.cwd(), resolvedSrc.slice(1));
+      componentPath = join(process.cwd(), resolvedSrc.slice(1));
     } else {
       componentPath = resolvedSrc;
     }
@@ -81,13 +82,13 @@ export function hasUseClientDirective(src: string): boolean {
     let componentPath: string;
     if (resolvedSrc.startsWith("/")) {
       // Remove leading slash and join with cwd
-      componentPath = join(Deno.cwd(), resolvedSrc.slice(1));
+      componentPath = join(process.cwd(), resolvedSrc.slice(1));
     } else {
       componentPath = resolvedSrc;
     }
     
     // Read the file content
-    const content = Deno.readTextFileSync(componentPath);
+    const content = readFileSync(componentPath, "utf-8");
     
     // Check for "use client" directive at the top of the file
     // It should be one of the first statements (after imports/comments)
@@ -134,13 +135,13 @@ export function analyzeComponent(filePath: string): ComponentMetadata {
     let componentPath: string;
     if (resolvedPath.startsWith("/")) {
       // Remove leading slash and join with cwd
-      componentPath = join(Deno.cwd(), resolvedPath.slice(1));
+      componentPath = join(process.cwd(), resolvedPath.slice(1));
     } else {
       componentPath = resolvedPath;
     }
     
     // Read the file content
-    const content = Deno.readTextFileSync(componentPath);
+    const content = readFileSync(componentPath, "utf-8");
     
     // Check for directives
     const isClientComponent = /^['"]use client['"];?\s*$/m.test(content);

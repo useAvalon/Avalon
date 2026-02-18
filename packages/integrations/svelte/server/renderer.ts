@@ -1,5 +1,4 @@
-/// <reference lib="deno.ns" />
-
+import { readFile } from "node:fs/promises";
 import { render as svelteRender } from "svelte/server";
 import type { RenderParams, RenderResult } from "../../shared/types.ts";
 import type { SvelteSsrRenderResult } from "../types.ts";
@@ -21,7 +20,7 @@ function resolveIslandPath(src: string) {
 }
 
 async function loadComponent(src: string) {
-  const isDev = Deno.env.get("DENO_ENV") !== "production";
+  const isDev = process.env.NODE_ENV !== "production";
   
   if (isDev && globalThis.__viteDevServer) {
     const resolvedPath = resolveIslandPath(src);
@@ -41,7 +40,7 @@ async function extractCSS(src: string, scopeId: string) {
   try {
     const resolved = resolveIslandPath(src);
     const filePath = resolved.startsWith('/') ? resolved.slice(1) : resolved;
-    const sourceCode = await Deno.readTextFile(filePath);
+    const sourceCode = await readFile(filePath, "utf-8");
     const styleMatch = sourceCode.match(/<style[^>]*>([\s\S]*?)<\/style>/);
     
     if (styleMatch) {
@@ -65,7 +64,7 @@ export async function render(params: RenderParams): Promise<RenderResult> {
     }
     
     // Type assertions needed because loadComponent returns unknown and props are dynamic
-    // deno-lint-ignore no-explicit-any
+    
     const result: SvelteSsrRenderResult = svelteRender(Component as any, { props: props || {}, context: new Map() });
     const ssrHtml = result.body;
     const ssrHead = result.head || "";

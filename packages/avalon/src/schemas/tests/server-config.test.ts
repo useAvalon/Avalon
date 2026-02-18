@@ -2,11 +2,11 @@
  * Tests for server configuration with file-system routing
  */
 
-import { assertEquals, assertExists } from '@std/assert';
+import { describe, it, expect } from 'vitest';
 import { validateServerConfig, safeValidateServerConfig } from '../server.ts';
 
-Deno.test('Server configuration with file-system routing', async t => {
-	await t.step('should validate config with file-system routing enabled', () => {
+describe('Server configuration with file-system routing', () => {
+	it('should validate config with file-system routing enabled', () => {
 		const config = {
 			routes: {},
 			port: 8001,
@@ -26,23 +26,23 @@ Deno.test('Server configuration with file-system routing', async t => {
 		};
 
 		const result = validateServerConfig(config);
-		assertExists(result);
-		assertEquals(result.fileSystemRouting?.enabled, true);
-		assertEquals(result.fileSystemRouting?.discovery?.pagesDirectory, 'src/pages');
+		expect(result).toBeDefined();
+		expect(result.fileSystemRouting?.enabled).toEqual(true);
+		expect(result.fileSystemRouting?.discovery?.pagesDirectory).toEqual('src/pages');
 	});
 
-	await t.step('should validate config without file-system routing', () => {
+	it('should validate config without file-system routing', () => {
 		const config = {
 			routes: {},
 			port: 8001,
 		};
 
 		const result = validateServerConfig(config);
-		assertExists(result);
-		assertEquals(result.fileSystemRouting, undefined);
+		expect(result).toBeDefined();
+		expect(result.fileSystemRouting).toEqual(undefined);
 	});
 
-	await t.step('should validate config with partial file-system routing config', () => {
+	it('should validate config with partial file-system routing config', () => {
 		const config = {
 			routes: {},
 			port: 8001,
@@ -52,11 +52,11 @@ Deno.test('Server configuration with file-system routing', async t => {
 		};
 
 		const result = validateServerConfig(config);
-		assertExists(result);
-		assertEquals(result.fileSystemRouting?.enabled, true);
+		expect(result).toBeDefined();
+		expect(result.fileSystemRouting?.enabled).toEqual(true);
 	});
 
-	await t.step('should handle invalid file-system routing config gracefully', () => {
+	it('should handle invalid file-system routing config gracefully', () => {
 		const config = {
 			routes: {},
 			port: 8001,
@@ -66,6 +66,6 @@ Deno.test('Server configuration with file-system routing', async t => {
 		};
 
 		const result = safeValidateServerConfig(config);
-		assertEquals(result.success, false);
+		expect(result.success).toEqual(false);
 	});
 });

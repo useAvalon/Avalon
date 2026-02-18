@@ -214,7 +214,7 @@ function optimizeSSRCSSCollection(css: string) {
     const crossOptimized = optimizeCrossComponentCSS(withoutDuplicateComments);
 
     // Apply final formatting based on environment
-    const isDev = Deno.env.get("DENO_ENV") !== "production";
+    const isDev = process.env.NODE_ENV !== "production";
     if (!isDev) {
       return minifyCSS(crossOptimized);
     }
@@ -379,7 +379,7 @@ export function optimizeComponentCSS(css: string) {
     const optimizedCSS = optimizedRules.join("\n");
 
     // Apply environment-specific optimizations
-    const isDev = Deno.env.get("DENO_ENV") !== "production";
+    const isDev = process.env.NODE_ENV !== "production";
     if (!isDev) {
       return minifyCSS(optimizedCSS);
     }

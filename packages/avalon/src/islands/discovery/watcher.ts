@@ -7,6 +7,7 @@
  */
 
 import { resolve, relative, extname, basename } from "node:path";
+import { watch, type FSWatcher } from "node:fs";
 import type {
   IslandDirectory,
   DiscoveredIsland,
@@ -14,7 +15,7 @@ import type {
   IslandDiscoveryConfig,
 } from "./types.ts";
 import { isSupportedIslandExtension } from "./types.ts";
-import { discoverIslandDirectories, discoverIslandsInDirectory } from "./scanner.ts";
+import { discoverIslandsInDirectory } from "./scanner.ts";
 import { IslandRegistry } from "./registry.ts";
 
 /**
@@ -51,10 +52,10 @@ export class IslandWatcher {
   private _config: IslandDiscoveryConfig;
   private _options: Required<IslandWatcherOptions>;
   private _registry: IslandRegistry;
-  private _watchers: Deno.FsWatcher[] = [];
+  private _watchers: FSWatcher[] = [];
   private _callbacks: Set<IslandChangeCallback> = new Set();
   private _isWatching = false;
-  private _debounceTimers: Map<string, number> = new Map();
+  private _debounceTimers: Map<string, ReturnType<typeof setTimeout>> = new Map();
 
   constructor(
     projectRoot: string,
@@ -141,7 +142,7 @@ export class IslandWatcher {
 
     for (const directory of directories) {
       try {
-        await this._watchDirectory(directory);
+        this._watchDirectory(directory);
       } catch (error) {
         console.warn(
           `⚠️ Failed to watch island directory ${directory.relativePath}:`,
@@ -149,55 +150,31 @@ export class IslandWatcher {
         );
       }
     }
-
-    if (directories.length > 0) {
-      // Watching island directories for changes
-    }
   }
 
   /**
    * Watch a single island directory for changes.
    */
-  private async _watchDirectory(directory: IslandDirectory): Promise<void> {
+  private _watchDirectory(directory: IslandDirectory): void {
     try {
-      const watcher = Deno.watchFs(directory.path, { recursive: false });
-      this._watchers.push(watcher);
+      const fsWatcher = watch(directory.path, { recursive: false }, (eventType, filename) => {
+        if (!this._isWatching || !filename) return;
 
-      // Process events asynchronously
-      this._processWatcherEvents(watcher, directory);
-    } catch (error) {
-      if (error instanceof Deno.errors.NotFound) {
+        const filePath = resolve(directory.path, filename);
+        const ext = extname(filename);
+        if (!isSupportedIslandExtension(ext)) return;
+
+        // Map Node.js event types to our event types
+        const kind: "change" | "rename" = eventType as "change" | "rename";
+        this._debounceEvent(filePath, kind, directory);
+      });
+
+      this._watchers.push(fsWatcher);
+    } catch (error: any) {
+      if (error?.code === 'ENOENT') {
         console.warn(`⚠️ Island directory not found: ${directory.relativePath}`);
       } else {
         throw error;
-      }
-    }
-  }
-
-  /**
-   * Process events from a file watcher.
-   */
-  private async _processWatcherEvents(
-    watcher: Deno.FsWatcher,
-    directory: IslandDirectory
-  ): Promise<void> {
-    try {
-      for await (const event of watcher) {
-        if (!this._isWatching) break;
-
-        for (const path of event.paths) {
-          // Only process supported island file extensions
-          const ext = extname(path);
-          if (!isSupportedIslandExtension(ext)) continue;
-
-          // Debounce events for the same file
-          this._debounceEvent(path, event.kind, directory);
-        }
-      }
-    } catch (error) {
-      // Watcher was closed or error occurred
-      if (this._isWatching) {
-        console.warn(`⚠️ Watcher error for ${directory.relativePath}:`, error);
       }
     }
   }
@@ -207,7 +184,7 @@ export class IslandWatcher {
    */
   private _debounceEvent(
     filePath: string,
-    kind: Deno.FsEvent["kind"],
+    kind: "change" | "rename",
     directory: IslandDirectory
   ): void {
     // Clear existing timer for this file
@@ -230,26 +207,25 @@ export class IslandWatcher {
    */
   private async _handleFileChange(
     filePath: string,
-    kind: Deno.FsEvent["kind"],
+    kind: "change" | "rename",
     directory: IslandDirectory
   ): Promise<void> {
     const relativePath = relative(this._projectRoot, filePath).replace(/\\/g, "/");
     
-    // Map Deno.FsEvent kind to our event type
+    // Node.js fs.watch emits "rename" for both add and remove, "change" for modifications
+    // We need to check if the file exists to determine if it was added or removed
     let eventType: IslandChangeEvent["type"];
-    switch (kind) {
-      case "create":
+    if (kind === "change") {
+      eventType = "change";
+    } else {
+      // "rename" - check if file exists to determine add vs remove
+      try {
+        const { stat } = await import("node:fs/promises");
+        await stat(filePath);
         eventType = "add";
-        break;
-      case "modify":
-        eventType = "change";
-        break;
-      case "remove":
+      } catch {
         eventType = "remove";
-        break;
-      default:
-        // Ignore other event types (access, etc.)
-        return;
+      }
     }
 
     // Try to find or create the island info
@@ -311,7 +287,6 @@ export class IslandWatcher {
    * Extract component name from file name.
    */
   private _extractComponentName(fileName: string): string {
-    // Handle double extensions like .solid.tsx, .react.tsx, .lit.ts
     const frameworkPatterns = [
       ".solid.tsx", ".solid.jsx",
       ".react.tsx", ".react.jsx",
@@ -325,7 +300,6 @@ export class IslandWatcher {
       }
     }
     
-    // Handle single extensions
     const singleExtensions = [".tsx", ".ts", ".jsx", ".js", ".vue", ".svelte"];
     for (const ext of singleExtensions) {
       if (fileName.endsWith(ext)) {
@@ -370,7 +344,7 @@ export class IslandWatcher {
     const directories = this._registry.directories;
     for (const directory of directories) {
       try {
-        await this._watchDirectory(directory);
+        this._watchDirectory(directory);
       } catch (error) {
         console.warn(
           `⚠️ Failed to watch island directory ${directory.relativePath}:`,
@@ -383,12 +357,6 @@ export class IslandWatcher {
 
 /**
  * Create an island watcher for the given registry.
- * 
- * @param projectRoot - The root directory of the project
- * @param registry - The island registry to watch
- * @param config - Optional discovery configuration
- * @param options - Optional watcher options
- * @returns The island watcher instance
  */
 export function createIslandWatcher(
   projectRoot: string,

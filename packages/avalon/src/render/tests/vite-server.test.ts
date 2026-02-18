@@ -2,14 +2,14 @@
  * Tests for Vite server proxy functionality
  */
 
-import { assertEquals, assertStringIncludes } from '@std/assert';
+import { describe, it, expect, afterAll } from 'vitest';
 import { proxyToVite } from '../vite-server.ts';
 import { DEFAULT_SERVER_PORT, VITE_DEV_PORT } from '../constants.ts';
 
 // Mock fetch for testing
 const originalFetch = globalThis.fetch;
 
-Deno.test('proxyToVite - CORS headers', async t => {
+describe('proxyToVite - CORS headers', () => {
 	// Mock successful response
 	globalThis.fetch = async (_url: string | URL | Request, _init?: RequestInit) => {
 		return new Response('mock content', {
@@ -20,68 +20,68 @@ Deno.test('proxyToVite - CORS headers', async t => {
 		});
 	};
 
-	await t.step('should add CORS headers to response', async () => {
+	it('should add CORS headers to response', async () => {
 		const request = new Request(`http://localhost:${DEFAULT_SERVER_PORT}/.vite/deps/preact.js`);
 		const response = await proxyToVite(request, `http://localhost:${VITE_DEV_PORT}`);
 
-		assertEquals(response.headers.get('Access-Control-Allow-Origin'), '*');
-		assertEquals(response.headers.get('Access-Control-Allow-Methods'), 'GET, POST, PUT, DELETE, OPTIONS');
-		assertEquals(response.headers.get('Access-Control-Allow-Headers'), 'Content-Type, Authorization, X-Requested-With');
+		expect(response.headers.get('Access-Control-Allow-Origin')).toEqual('*');
+		expect(response.headers.get('Access-Control-Allow-Methods')).toEqual('GET, POST, PUT, DELETE, OPTIONS');
+		expect(response.headers.get('Access-Control-Allow-Headers')).toEqual('Content-Type, Authorization, X-Requested-With');
 	});
 
-	await t.step('should set proper cache headers for .vite/deps/', async () => {
+	it('should set proper cache headers for .vite/deps/', async () => {
 		const request = new Request(`http://localhost:${DEFAULT_SERVER_PORT}/.vite/deps/solid-js_web.js`);
 		const response = await proxyToVite(request, `http://localhost:${VITE_DEV_PORT}`);
 
-		assertEquals(response.headers.get('Cache-Control'), 'public, max-age=31536000, immutable');
+		expect(response.headers.get('Cache-Control')).toEqual('public, max-age=31536000, immutable');
 	});
 
-	await t.step('should set no-cache for @vite/ paths', async () => {
+	it('should set no-cache for @vite/ paths', async () => {
 		const request = new Request(`http://localhost:${DEFAULT_SERVER_PORT}/@vite/client`);
 		const response = await proxyToVite(request, `http://localhost:${VITE_DEV_PORT}`);
 
-		assertEquals(response.headers.get('Cache-Control'), 'no-cache, no-store, must-revalidate');
+		expect(response.headers.get('Cache-Control')).toEqual('no-cache, no-store, must-revalidate');
 	});
 
-	await t.step('should set no-cache for /src/ paths', async () => {
+	it('should set no-cache for /src/ paths', async () => {
 		const request = new Request(`http://localhost:${DEFAULT_SERVER_PORT}/src/islands/Counter.tsx`);
 		const response = await proxyToVite(request, `http://localhost:${VITE_DEV_PORT}`);
 
-		assertEquals(response.headers.get('Cache-Control'), 'no-cache, must-revalidate');
+		expect(response.headers.get('Cache-Control')).toEqual('no-cache, must-revalidate');
 	});
 });
 
-Deno.test('proxyToVite - OPTIONS request handling', async t => {
-	await t.step('should handle OPTIONS preflight requests', async () => {
+describe('proxyToVite - OPTIONS request handling', () => {
+	it('should handle OPTIONS preflight requests', async () => {
 		const request = new Request(`http://localhost:${DEFAULT_SERVER_PORT}/.vite/deps/preact.js`, {
 			method: 'OPTIONS',
 		});
 		const response = await proxyToVite(request, `http://localhost:${VITE_DEV_PORT}`);
 
-		assertEquals(response.status, 200);
-		assertEquals(response.headers.get('Access-Control-Allow-Origin'), '*');
-		assertEquals(response.headers.get('Access-Control-Allow-Methods'), 'GET, POST, PUT, DELETE, OPTIONS');
-		assertEquals(response.headers.get('Access-Control-Max-Age'), '86400');
+		expect(response.status).toEqual(200);
+		expect(response.headers.get('Access-Control-Allow-Origin')).toEqual('*');
+		expect(response.headers.get('Access-Control-Allow-Methods')).toEqual('GET, POST, PUT, DELETE, OPTIONS');
+		expect(response.headers.get('Access-Control-Max-Age')).toEqual('86400');
 	});
 });
 
-Deno.test('proxyToVite - Error handling', async t => {
-	// Mock fetch error
-	globalThis.fetch = async (_url: string | URL | Request, _init?: RequestInit) => {
-		throw new Error('Network error');
-	};
+describe('proxyToVite - Error handling', () => {
+	it('should return 502 on proxy error', async () => {
+		// Mock fetch error
+		globalThis.fetch = async (_url: string | URL | Request, _init?: RequestInit) => {
+			throw new Error('Network error');
+		};
 
-	await t.step('should return 502 on proxy error', async () => {
 		const request = new Request(`http://localhost:${DEFAULT_SERVER_PORT}/.vite/deps/preact.js`);
 		const response = await proxyToVite(request, `http://localhost:${VITE_DEV_PORT}`);
 
-		assertEquals(response.status, 502);
+		expect(response.status).toEqual(502);
 		const text = await response.text();
-		assertEquals(text, 'Vite proxy failed');
+		expect(text).toEqual('Vite proxy failed');
 	});
 });
 
 // Restore original fetch
-Deno.test('Cleanup', () => {
+afterAll(() => {
 	globalThis.fetch = originalFetch;
 });

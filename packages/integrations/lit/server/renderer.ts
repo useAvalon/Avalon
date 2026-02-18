@@ -32,7 +32,7 @@ function propToAttribute(
   ElementClass: typeof LitElement,
   propName: string
 ): string | null {
-  // deno-lint-ignore no-explicit-any
+  
   const propDefs = (ElementClass as any).properties as
     | Record<string, { attribute?: string | boolean }>
     | undefined;
@@ -81,7 +81,7 @@ function renderLitElementWithSSR(
     if (attrName === null) {
       // Property with `attribute: false` — set directly on the instance
       if (renderer.element) {
-        // deno-lint-ignore no-explicit-any
+        
         (renderer.element as any)[key] = value;
       }
       continue;

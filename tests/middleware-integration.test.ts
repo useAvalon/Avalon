@@ -1,4 +1,4 @@
-import { assertEquals } from '@std/assert';
+import { describe, it, expect } from 'vitest';
 import {
 	type MiddlewareContext,
 	type MiddlewareResponse,
@@ -12,106 +12,105 @@ import {
 	isValidMiddlewareDiscoveryOptions,
 } from '../packages/avalon/src/schemas/index.ts';
 
-Deno.test('Middleware Integration - All types exported from main schemas', () => {
-	// Test that we can create instances of all middleware types
-	const context: MiddlewareContext = {
-		request: new Request('https://example.com'),
-		url: new URL('https://example.com'),
-		params: {},
-		query: {},
-		state: new Map(),
-		locals: {},
-	};
+describe('Middleware Integration - All types exported from main schemas', () => {
+	it('should create instances of all middleware types', () => {
+		const context: MiddlewareContext = {
+			request: new Request('https://example.com'),
+			url: new URL('https://example.com'),
+			params: {},
+			query: {},
+			state: new Map(),
+			locals: {},
+		};
 
-	const response: MiddlewareResponse = {
-		continue: true,
-	};
+		const response: MiddlewareResponse = {
+			continue: true,
+		};
 
-	const handler: MiddlewareHandler = async (ctx, next) => next();
+		const handler: MiddlewareHandler = async (ctx, next) => next();
 
-	const route: MiddlewareRoute = {
-		pattern: new URLPattern({ pathname: '/*' }),
-		middlewarePath: 'src/_middleware.ts',
-		priority: 0,
-		type: 'global',
-	};
+		const route: MiddlewareRoute = {
+			pattern: new URLPattern({ pathname: '/*' }),
+			middlewarePath: 'src/_middleware.ts',
+			priority: 0,
+			type: 'global',
+		};
 
-	const chain: MiddlewareChain = {
-		global: [handler],
-		scoped: [],
-		route: '/',
-		totalMiddleware: 1,
-	};
+		const chain: MiddlewareChain = {
+			global: [handler],
+			scoped: [],
+			route: '/',
+			totalMiddleware: 1,
+		};
 
-	const config: MiddlewareConfig = {
-		developmentMode: true,
-		enableLogging: false,
-	};
+		const config: MiddlewareConfig = {
+			developmentMode: true,
+			enableLogging: false,
+		};
 
-	const discoveryOptions: MiddlewareDiscoveryOptions = {
-		baseDirectory: 'src',
-		filePattern: '_middleware.ts',
-	};
+		const discoveryOptions: MiddlewareDiscoveryOptions = {
+			baseDirectory: 'src',
+			filePattern: '_middleware.ts',
+		};
 
-	// Verify all types are properly defined
-	assertEquals(typeof context, 'object');
-	assertEquals(typeof response, 'object');
-	assertEquals(typeof handler, 'function');
-	assertEquals(typeof route, 'object');
-	assertEquals(typeof chain, 'object');
-	assertEquals(typeof config, 'object');
-	assertEquals(typeof discoveryOptions, 'object');
+		expect(typeof context).toEqual('object');
+		expect(typeof response).toEqual('object');
+		expect(typeof handler).toEqual('function');
+		expect(typeof route).toEqual('object');
+		expect(typeof chain).toEqual('object');
+		expect(typeof config).toEqual('object');
+		expect(typeof discoveryOptions).toEqual('object');
+	});
 });
 
-Deno.test('Middleware Integration - Validators work from main export', () => {
-	const validConfig = {
-		developmentMode: true,
-		enableLogging: false,
-		maxExecutionTime: 3000,
-	};
+describe('Middleware Integration - Validators work from main export', () => {
+	it('should validate valid configs', () => {
+		const validConfig = {
+			developmentMode: true,
+			enableLogging: false,
+			maxExecutionTime: 3000,
+		};
 
-	const validDiscoveryOptions = {
-		baseDirectory: 'src',
-		filePattern: '_middleware.ts',
-		enableWatching: true,
-	};
+		const validDiscoveryOptions = {
+			baseDirectory: 'src',
+			filePattern: '_middleware.ts',
+			enableWatching: true,
+		};
 
-	// Test safe validators
-	const configResult = safeValidators.middlewareConfig(validConfig);
-	const discoveryResult = safeValidators.middlewareDiscoveryOptions(validDiscoveryOptions);
+		const configResult = safeValidators.middlewareConfig(validConfig);
+		const discoveryResult = safeValidators.middlewareDiscoveryOptions(validDiscoveryOptions);
 
-	assertEquals(configResult.success, true);
-	assertEquals(discoveryResult.success, true);
+		expect(configResult.success).toEqual(true);
+		expect(discoveryResult.success).toEqual(true);
 
-	// Test type guards
-	assertEquals(isValidMiddlewareConfig(validConfig), true);
-	assertEquals(isValidMiddlewareDiscoveryOptions(validDiscoveryOptions), true);
-
-	// Test invalid data - use data that violates the schema constraints
-	const invalidConfigResult = safeValidators.middlewareConfig({
-		developmentMode: 'not-boolean',
-		maxExecutionTime: -1, // negative number should fail
-	});
-	const invalidDiscoveryResult = safeValidators.middlewareDiscoveryOptions({
-		baseDirectory: 123, // should be string
-		filePattern: '', // empty string should fail
+		expect(isValidMiddlewareConfig(validConfig)).toEqual(true);
+		expect(isValidMiddlewareDiscoveryOptions(validDiscoveryOptions)).toEqual(true);
 	});
 
-	assertEquals(invalidConfigResult.success, false);
-	assertEquals(invalidDiscoveryResult.success, false);
-
-	assertEquals(
-		isValidMiddlewareConfig({
+	it('should reject invalid configs', () => {
+		const invalidConfigResult = safeValidators.middlewareConfig({
 			developmentMode: 'not-boolean',
 			maxExecutionTime: -1,
-		}),
-		false
-	);
-	assertEquals(
-		isValidMiddlewareDiscoveryOptions({
+		});
+		const invalidDiscoveryResult = safeValidators.middlewareDiscoveryOptions({
 			baseDirectory: 123,
 			filePattern: '',
-		}),
-		false
-	);
+		});
+
+		expect(invalidConfigResult.success).toEqual(false);
+		expect(invalidDiscoveryResult.success).toEqual(false);
+
+		expect(
+			isValidMiddlewareConfig({
+				developmentMode: 'not-boolean',
+				maxExecutionTime: -1,
+			})
+		).toEqual(false);
+		expect(
+			isValidMiddlewareDiscoveryOptions({
+				baseDirectory: 123,
+				filePattern: '',
+			})
+		).toEqual(false);
+	});
 });

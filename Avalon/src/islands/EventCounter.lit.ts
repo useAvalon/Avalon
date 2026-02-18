@@ -29,9 +29,16 @@ export class EventWebCounter extends LitElement {
     count: { type: Number, state: true },
   };
 
-  initialCount = 0;
-  private count = -1;
+  // Use declare to avoid class field shadowing Lit's reactive accessors
+  declare initialCount: number;
+  declare count: number;
   private _handler: ((e: Event) => void) | null = null;
+
+  constructor() {
+    super();
+    this.initialCount = 0;
+    this.count = -1;
+  }
 
   willUpdate(changedProperties: Map<string, unknown>) {
     if (this.count === -1 || changedProperties.has('initialCount')) {

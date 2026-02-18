@@ -12,6 +12,7 @@
 
 import { registry } from "./registry.ts";
 import type { Integration } from "../../../../integrations/shared/types.ts";
+import { statSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 /**
@@ -30,14 +31,14 @@ const KNOWN_INTEGRATIONS = [
  * Find the root of the Avalon monorepo by looking for packages/integrations
  */
 function findMonorepoRoot(): string {
-  let currentDir = Deno.cwd();
+  let currentDir = process.cwd();
   
   // Walk up the directory tree looking for packages/integrations
   for (let i = 0; i < 10; i++) {
     try {
       const integrationsPath = join(currentDir, "packages", "integrations");
-      const stat = Deno.statSync(integrationsPath);
-      if (stat.isDirectory) {
+      const stat = statSync(integrationsPath);
+      if (stat.isDirectory()) {
         return currentDir;
       }
     } catch {
@@ -53,7 +54,7 @@ function findMonorepoRoot(): string {
   }
   
   // Fallback to cwd
-  return Deno.cwd();
+  return process.cwd();
 }
 
 /**

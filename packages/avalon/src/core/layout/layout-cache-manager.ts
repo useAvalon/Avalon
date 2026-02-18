@@ -64,7 +64,7 @@ export class LayoutCacheManager {
 
 	constructor(private config: CacheConfig) {
 		// Don't start cleanup timer in test environment
-		if (Deno.env.get('DENO_ENV') !== 'test') {
+		if (process.env.NODE_ENV !== 'test') {
 			this.startCleanupTimer();
 		}
 	}

@@ -318,7 +318,7 @@ export function createTypedPageComponent<TRoute extends string>(
 ): TypedPageComponent<TRoute> {
 	return (props: { params: RouteParameters<TRoute>; query: URLSearchParams; data?: unknown }) => {
 		// Validate props in development
-		if (typeof Deno !== 'undefined' && Deno.env.get('NODE_ENV') === 'development') {
+		if (process.env.NODE_ENV === 'development') {
 			if (!isValidPageProps<TRoute>(props, expectedParams)) {
 				console.warn('Invalid props passed to typed page component:', props);
 			}
@@ -337,7 +337,7 @@ export function createTypedMetadataGenerator<TRoute extends string>(
 ): TypedMetadataGenerator<TRoute> {
 	return async params => {
 		// Validate params in development
-		if (typeof Deno !== 'undefined' && Deno.env.get('NODE_ENV') === 'development') {
+		if (process.env.NODE_ENV === 'development') {
 			if (!isValidRouteParams<TRoute>(params, expectedParams)) {
 				console.warn('Invalid params passed to typed metadata generator:', params);
 			}
@@ -356,7 +356,7 @@ export function createTypedPageLoader<TRoute extends string, TData = unknown>(
 ): TypedPageLoader<TRoute, TData> {
 	return async context => {
 		// Validate params in development
-		if (typeof Deno !== 'undefined' && Deno.env.get('NODE_ENV') === 'development') {
+		if (process.env.NODE_ENV === 'development') {
 			if (!isValidRouteParams<TRoute>(context.params, expectedParams)) {
 				console.warn('Invalid params passed to typed page loader:', context.params);
 			}
@@ -375,7 +375,7 @@ export function createTypedApiHandler<TRoute extends string>(
 ): TypedApiHandler<TRoute> {
 	return async (request, context) => {
 		// Validate params in development
-		if (typeof Deno !== 'undefined' && Deno.env.get('NODE_ENV') === 'development') {
+		if (process.env.NODE_ENV === 'development') {
 			if (!isValidRouteParams<TRoute>(context.params, expectedParams)) {
 				console.warn('Invalid params passed to typed API handler:', context.params);
 			}

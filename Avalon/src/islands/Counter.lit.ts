@@ -72,7 +72,13 @@ export class WebCounter extends LitElement {
     count: { type: Number, attribute: 'initial-count', reflect: true },
   };
 
-  count = 0;
+  // Use declare to avoid class field shadowing Lit's reactive accessor
+  declare count: number;
+
+  constructor() {
+    super();
+    this.count = 0;
+  }
 
   private increment() {
     this.count++;

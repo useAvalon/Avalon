@@ -14,8 +14,9 @@
  * @module nitro/route-discovery
  */
 
+import { stat } from "node:fs/promises";
 import { basename, dirname, relative } from "node:path";
-import { walk } from "../utils/std-fs-shim.ts";
+import { walk } from "../utils/fs.ts";
 import type { DiscoveredRoute } from "./types.ts";
 
 /**
@@ -81,8 +82,8 @@ export async function discoverPageRoutes(
 
   try {
     // Check if directory exists
-    const stat = await Deno.stat(pagesDir);
-    if (!stat.isDirectory) {
+    const statResult = await stat(pagesDir);
+    if (!statResult.isDirectory()) {
       if (options?.developmentMode) {
         console.warn(
           `[route-discovery] Pages path is not a directory: ${pagesDir}`
@@ -90,8 +91,8 @@ export async function discoverPageRoutes(
       }
       return [];
     }
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
       if (options?.developmentMode) {
         console.warn(
           `[route-discovery] Pages directory not found: ${pagesDir}`

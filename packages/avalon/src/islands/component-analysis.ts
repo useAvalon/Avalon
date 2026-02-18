@@ -12,13 +12,14 @@ import {
   getCachedPath,
   setCachedPath,
 } from "./render-cache.ts";
+import { readFile } from "node:fs/promises";
 
 /**
  * Check if we're in development mode
  */
 function isDev(): boolean {
   try {
-    return typeof Deno !== "undefined" && Deno.env?.get("DENO_ENV") !== "production";
+    return process.env.NODE_ENV !== "production";
   } catch {
     return true; // Default to dev mode if we can't check
   }
@@ -66,7 +67,7 @@ function getEssentialPathVariations(src: string, resolvedSrc: string): string[] 
  */
 async function tryReadFile(path: string): Promise<string | null> {
   try {
-    return await Deno.readTextFile(path);
+    return await readFile(path, 'utf-8');
   } catch {
     return null;
   }
@@ -183,7 +184,7 @@ export async function renderComponentSSROnly({
     
     // Get Vite server reference for dev mode
     const viteServer = globalThis.__viteDevServer;
-    const isDev = typeof Deno !== "undefined" && Deno.env?.get("DENO_ENV") !== "production";
+    const isDev = process.env.NODE_ENV !== "production";
     
     // Render the component using the integration
     const renderResult = await integration.render({
@@ -211,7 +212,7 @@ export async function renderComponentSSROnly({
     });
   } catch (error) {
     // Only log errors in development
-    if (typeof Deno !== "undefined" && Deno.env?.get("DENO_ENV") !== "production") {
+    if (process.env.NODE_ENV !== "production") {
       console.error(`SSR-only rendering failed for ${src}:`, error);
     }
     throw error;

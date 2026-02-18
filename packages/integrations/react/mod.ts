@@ -106,7 +106,7 @@ export const reactIntegration: Integration = {
             !hasPreactImport &&
             typeof originalTransform === "function"
           ) {
-            // deno-lint-ignore no-explicit-any
+            
             return await (originalTransform as any).call(this, code, id, options);
           }
 

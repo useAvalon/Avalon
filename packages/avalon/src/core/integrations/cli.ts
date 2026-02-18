@@ -9,6 +9,7 @@ import {
   formatInitializationResult,
   formatIntegrationList,
 } from "./startup.ts";
+import { stat as fsStat, writeFile } from "node:fs/promises";
 import { generateDefaultConfig } from "./config-loader.ts";
 import { registry } from "./registry.ts";
 import { validateIntegration, formatValidationResult } from "./validator.ts";
@@ -39,7 +40,7 @@ export async function validateCommand(): Promise<void> {
   console.log(formatInitializationResult(result));
   
   if (!result.success) {
-    Deno.exit(1);
+    process.exit(1);
   }
 }
 
@@ -61,7 +62,7 @@ export async function initCommand(options: { verbose?: boolean } = {}): Promise<
   }
   
   if (!result.success) {
-    Deno.exit(1);
+    process.exit(1);
   }
 }
 
@@ -73,18 +74,18 @@ export async function generateConfigCommand(options: { force?: boolean } = {}): 
   
   // Check if file already exists
   try {
-    await Deno.stat(configPath);
+    await fsStat(configPath);
     
     if (!options.force) {
       console.error(`Error: ${configPath} already exists. Use --force to overwrite.`);
-      Deno.exit(1);
+      process.exit(1);
     }
   } catch {
     // File doesn't exist, proceed
   }
   
   const content = generateDefaultConfig();
-  await Deno.writeTextFile(configPath, content);
+  await writeFile(configPath, content);
   
   console.log(`✓ Generated ${configPath}`);
 }
@@ -102,11 +103,11 @@ export async function validateIntegrationCommand(name: string): Promise<void> {
     console.log(formatValidationResult(result));
     
     if (!result.valid) {
-      Deno.exit(1);
+      process.exit(1);
     }
   } catch (error) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-    Deno.exit(1);
+    process.exit(1);
   }
 }
 
@@ -152,7 +153,7 @@ export async function infoCommand(name: string): Promise<void> {
     }
   } catch (error) {
     console.error(`Error: ${error instanceof Error ? error.message : String(error)}`);
-    Deno.exit(1);
+    process.exit(1);
   }
 }
 
@@ -187,7 +188,7 @@ export async function main(args: string[]): Promise<void> {
       if (!args[1]) {
         console.error("Error: Please specify an integration name");
         console.error("Usage: avalon integrations info <name>");
-        Deno.exit(1);
+        process.exit(1);
       }
       await infoCommand(args[1]);
       break;
@@ -226,5 +227,5 @@ Examples:
 
 // Run CLI if this is the main module
 if (import.meta.main) {
-  await main(Deno.args);
+  await main(process.argv.slice(2));
 }

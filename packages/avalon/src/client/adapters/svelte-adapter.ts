@@ -405,7 +405,7 @@ export class SvelteHMRAdapter extends BaseFrameworkAdapter {
         const svelteMount = svelteModule.mount as ((component: unknown, options: { target: HTMLElement; props: Record<string, unknown> }) => unknown) | undefined;
         
         if (svelteMount) {
-          // deno-lint-ignore no-explicit-any
+          
           instance = svelteMount(Component as any, {
             target: island,
             props,

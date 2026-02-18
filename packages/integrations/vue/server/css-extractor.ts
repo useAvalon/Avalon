@@ -5,6 +5,7 @@
  * Handles both scoped and global styles with proper attribute application.
  */
 
+import { readFile } from "node:fs/promises";
 import type { CSSExtractionOptions, StyleBlock } from "../types.ts";
 
 /**
@@ -34,7 +35,7 @@ export async function extractCSS(
   
   for (const path of pathVariations) {
     try {
-      vueContent = await Deno.readTextFile(path);
+      vueContent = await readFile(path, "utf-8");
       break;
     } catch {
       continue;

@@ -1,0 +1,17 @@
+{
+	"name": "@avalon/integration-preact",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./mod.ts",
+		"./server": "./server/renderer.ts",
+		"./client": "./client/index.ts",
+		"./types": "./types.ts"
+	},
+	"dependencies": {
+		"preact": "10.26.9",
+		"preact-render-to-string": "6.5.13",
+		"vite": "8.0.0-beta.10",
+		"@preact/preset-vite": "^2.10.1"
+	}
+}

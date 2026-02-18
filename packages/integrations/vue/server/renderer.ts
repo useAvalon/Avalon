@@ -32,7 +32,7 @@ export async function render(params: RenderParams): Promise<RenderResult> {
   
   try {
     const VueComponent = await loadComponent(src);
-    // deno-lint-ignore no-explicit-any
+    
     const app = createSSRApp(VueComponent as any, props);
     const ssrHtml = await vueRenderToString(app);
     
@@ -89,12 +89,12 @@ function resolveIslandPath(src: string) {
 }
 
 async function loadComponent(src: string) {
-  const isDev = Deno.env.get("DENO_ENV") !== "production";
+  const isDev = process.env.NODE_ENV !== "production";
   
-  // deno-lint-ignore no-explicit-any
+  
   if (isDev && (globalThis as any).__viteDevServer) {
     // Development: use Vite's SSR module loading
-    // deno-lint-ignore no-explicit-any
+    
     const viteServer = (globalThis as any).__viteDevServer;
     const resolvedPath = resolveIslandPath(src);
     const module = await viteServer.ssrLoadModule(resolvedPath);

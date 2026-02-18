@@ -25,8 +25,8 @@ export async function setupViteServer(isDev: boolean): Promise<ViteServerSetup> 
 		await preloadIntegrationsNative();
 
 		const { createServer } = await import('vite');
-		const { dirname } = await import('@std/path');
-		const cwd = globalThis.Deno?.cwd() || process.cwd();
+		const { dirname } = await import('node:path');
+		const cwd = process.cwd();
 		// Allow both current directory and parent directory (for integration files)
 		const parentDir = dirname(cwd);
 		const viteDevServer = await createServer({
@@ -80,12 +80,12 @@ export async function setupViteServer(isDev: boolean): Promise<ViteServerSetup> 
 		const viteServerUrl = `http://localhost:${VITE_DEV_PORT}`;
 
 		// Make Vite server available globally for SSR
-		// deno-lint-ignore no-explicit-any
+		
 		(globalThis as any).__viteDevServer = viteDevServer;
 
 		// Initialize server-side HMR handler
 		const serverHMRHandler = new ServerHMRHandler({
-			debugLogging: Deno.env.get('DEBUG_HMR') === 'true',
+			debugLogging: process.env.DEBUG_HMR === 'true',
 			errorHandling: {
 				keepAlive: true,
 				displayInBrowser: true,
@@ -96,7 +96,7 @@ export async function setupViteServer(isDev: boolean): Promise<ViteServerSetup> 
 		return { viteDevServer, viteServerUrl, serverHMRHandler };
 	} catch (error) {
 		console.error('❌ Failed to start Vite dev server. This is required for development:', error);
-		console.log('💡 Make sure you have vite.config.ts and @deno/vite-plugin installed');
+		console.log('💡 Make sure you have vite.config.ts configured correctly');
 		throw error;
 	}
 }

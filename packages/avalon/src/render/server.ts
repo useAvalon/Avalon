@@ -40,13 +40,16 @@ import {
 	type ErrorHandlerOptions,
 } from '../nitro/error-handler.ts';
 
+// Type alias for Bun server - using the Server type from Bun's global namespace
+type BunServer = ReturnType<typeof Bun.serve>;
+
 /**
  * Creates a server with validated configuration
  * @param config - Server configuration object
- * @returns Deno server instance
+ * @returns Bun server instance
  * @throws {ValidationError} When configuration is invalid
  */
-export async function createServer(config: ServerConfig): Promise<Deno.HttpServer> {
+export async function createServer(config: ServerConfig): Promise<BunServer> {
 	// Validate the entire server configuration
 	const validatedConfig = validateServerConfig(config);
 
@@ -63,7 +66,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 	const mergedDefaultOptions = mergeOptions({}, defaultOptions, {});
 
 	// Get API routes (development vs production)
-	const isDev = Deno.env.get('DENO_ENV') !== 'production';
+	const isDev = process.env.NODE_ENV !== 'production';
 
 	// Initialize dev logger
 	const devLogger = isDev ? new DevLogger() : null;
@@ -345,27 +348,25 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		});
 	}
 
-	const server = Deno.serve(
-		{
-			port,
-			onListen: ({ port: serverPort }) => {
-				if (devLogger) {
-					devLogger.finish(
-						`http://localhost:${serverPort}`,
-						viteDevServer ? 'http://localhost:8010' : undefined,
-						viteDevServer ? 'ws://localhost:8011' : undefined
-					);
-				} else {
-					console.log(`🚀 Server running on http://localhost:${serverPort}`);
-					if (isDev && viteDevServer) {
-						console.log(`⚡ Vite dev server: http://localhost:8010`);
-						console.log(`🔥 HMR WebSocket: ws://localhost:8011`);
-					}
-				}
-			},
-		},
-		requestHandler
-	);
+	const server = Bun.serve({
+		port,
+		fetch: requestHandler,
+	});
+
+	// Log server startup
+	if (devLogger) {
+		devLogger.finish(
+			`http://localhost:${server.port}`,
+			viteDevServer ? 'http://localhost:8010' : undefined,
+			viteDevServer ? 'ws://localhost:8011' : undefined
+		);
+	} else {
+		console.log(`🚀 Server running on http://localhost:${server.port}`);
+		if (isDev && viteDevServer) {
+			console.log(`⚡ Vite dev server: http://localhost:8010`);
+			console.log(`🔥 HMR WebSocket: ws://localhost:8011`);
+		}
+	}
 
 	// Add cleanup on process exit with duplicate prevention
 	let isShuttingDown = false;
@@ -378,7 +379,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		isShuttingDown = true;
 
 		// Just exit immediately - no need for graceful shutdown messages
-		Deno.exit(0);
+		process.exit(0);
 	};
 
 	// Single signal handler
@@ -387,10 +388,10 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
 		cleanup(); // Don't await - let it run with its own timeout
 	};
 
-	// Register signal handlers only once
-	Deno.addSignalListener('SIGINT', handleSignal);
-	Deno.addSignalListener('SIGTERM', handleSignal);
-	Deno.addSignalListener('SIGQUIT', handleSignal);
+	// Register signal handlers only once using Node.js process.on()
+	process.on('SIGINT', handleSignal);
+	process.on('SIGTERM', handleSignal);
+	process.on('SIGQUIT', handleSignal);
 
 	// Manual exit handler for development (tip is shown in dev logger)
 
@@ -402,7 +403,7 @@ export async function createServer(config: ServerConfig): Promise<Deno.HttpServe
  * @param config - Server configuration object (potentially invalid)
  * @returns Server instance or throws with helpful error message
  */
-export async function createServerSafe(config: unknown): Promise<Deno.HttpServer> {
+export async function createServerSafe(config: unknown): Promise<BunServer> {
 	const result = safeValidateServerConfig(config);
 
 	if (!result.success) {
@@ -425,6 +426,6 @@ export function validateServerConfiguration(config: unknown): z.SafeParseReturnT
 }
 
 // Media compression functionality moved to scripts/compress-media.ts
-// Use: deno run --allow-read --allow-write --allow-run scripts/compress-media.ts
+// Use: bun run scripts/compress-media.ts
 
 export type { Routes, ServerConfig, RouteConfig };

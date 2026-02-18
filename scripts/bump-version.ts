@@ -3,13 +3,13 @@
  *
  * Usage:
  *   # Bump only the core framework
- *   deno run --allow-read --allow-write scripts/bump-version.ts --bump=minor --channel=beta --package=core
+ *   bun run scripts/bump-version.ts --bump=minor --channel=beta --package=core
  *
  *   # Bump a specific integration
- *   deno run --allow-read --allow-write scripts/bump-version.ts --bump=patch --channel=stable --package=lit
+ *   bun run scripts/bump-version.ts --bump=patch --channel=stable --package=lit
  *
  *   # Bump everything (breaking shared change)
- *   deno run --allow-read --allow-write scripts/bump-version.ts --bump=major --channel=beta --package=all
+ *   bun run scripts/bump-version.ts --bump=major --channel=beta --package=all
  *
  * Package targets:
  *   core     — @avalon/avalon + @avalon/shared
@@ -22,19 +22,20 @@
  *   all      — everything (use for breaking shared changes)
  */
 
-import { parseArgs } from "jsr:@std/cli/parse-args";
+import { parseArgs } from "node:util";
+import { readFile, writeFile } from "node:fs/promises";
 
 const PACKAGE_MAP: Record<string, string[]> = {
   core: [
-    "packages/avalon/deno.json",
-    "packages/integrations/shared/deno.json",
+    "packages/avalon/package.json",
+    "packages/integrations/shared/package.json",
   ],
-  lit: ["packages/integrations/lit/deno.json"],
-  react: ["packages/integrations/react/deno.json"],
-  preact: ["packages/integrations/preact/deno.json"],
-  svelte: ["packages/integrations/svelte/deno.json"],
-  solid: ["packages/integrations/solid/deno.json"],
-  vue: ["packages/integrations/vue/deno.json"],
+  lit: ["packages/integrations/lit/package.json"],
+  react: ["packages/integrations/react/package.json"],
+  preact: ["packages/integrations/preact/package.json"],
+  svelte: ["packages/integrations/svelte/package.json"],
+  solid: ["packages/integrations/solid/package.json"],
+  vue: ["packages/integrations/vue/package.json"],
 };
 
 const ALL_PACKAGES = Object.values(PACKAGE_MAP).flat();
@@ -98,29 +99,33 @@ function bumpVersion(
 
 // --- Main ---
 
-const args = parseArgs(Deno.args, {
-  string: ["bump", "channel", "package"],
-  default: { bump: "patch", channel: "stable", package: "core" },
+const { values } = parseArgs({
+  args: process.argv.slice(2),
+  options: {
+    bump: { type: "string", default: "patch" },
+    channel: { type: "string", default: "stable" },
+    package: { type: "string", default: "core" },
+  },
 });
 
-const bump = args.bump as "patch" | "minor" | "major";
-const channel = args.channel as "stable" | "beta" | "rc";
-const pkg = args.package as string;
+const bump = values.bump as "patch" | "minor" | "major";
+const channel = values.channel as "stable" | "beta" | "rc";
+const pkg = values.package as string;
 
 if (!["patch", "minor", "major"].includes(bump)) {
   console.error(`Invalid bump type: ${bump}. Use patch, minor, or major.`);
-  Deno.exit(1);
+  process.exit(1);
 }
 
 if (!["stable", "beta", "rc"].includes(channel)) {
   console.error(`Invalid channel: ${channel}. Use stable, beta, or rc.`);
-  Deno.exit(1);
+  process.exit(1);
 }
 
 const validPackages = [...Object.keys(PACKAGE_MAP), "all"];
 if (!validPackages.includes(pkg)) {
   console.error(`Invalid package: ${pkg}. Use one of: ${validPackages.join(", ")}`);
-  Deno.exit(1);
+  process.exit(1);
 }
 
 const targetFiles = pkg === "all" ? ALL_PACKAGES : PACKAGE_MAP[pkg];
@@ -132,13 +137,13 @@ console.log();
 
 for (const pkgPath of targetFiles) {
   try {
-    const config = JSON.parse(await Deno.readTextFile(pkgPath));
+    const config = JSON.parse(await readFile(pkgPath, "utf-8"));
     const currentVersion = parseSemVer(config.version);
     const nextVersion = bumpVersion(currentVersion, bump, channel);
     const nextVersionStr = formatSemVer(nextVersion);
 
     config.version = nextVersionStr;
-    await Deno.writeTextFile(pkgPath, JSON.stringify(config, null, "\t") + "\n");
+    await writeFile(pkgPath, JSON.stringify(config, null, "\t") + "\n");
     console.log(`  ${config.name}: ${config.version !== nextVersionStr ? formatSemVer(currentVersion) : config.version} → ${nextVersionStr}`);
   } catch (e) {
     console.error(`  Failed to update ${pkgPath}: ${e}`);

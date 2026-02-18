@@ -1,12 +1,17 @@
-#!/usr/bin/env -S deno run --allow-all
+#!/usr/bin/env bun
 /**
  * Avalon Build Command - Batteries Included
- * Users can run: deno run --allow-all build.ts
+ * Users can run: bun run build.ts
  */
 
+import { mkdir, writeFile } from 'node:fs/promises';
+import { execFile as execFileCb } from 'node:child_process';
+import { promisify } from 'node:util';
 import { generateIslandManifest } from '../packages/avalon/src/build/island-manifest.ts';
 import { BuildLogger } from '../packages/avalon/src/utils/build-logger.ts';
 import { detectUsedIntegrations, getRequiredIntegrations } from '../packages/avalon/src/build/integration-detection-plugin.ts';
+
+const execFile = promisify(execFileCb);
 
 interface BuildStep {
 	name: string;
@@ -16,15 +21,13 @@ interface BuildStep {
 
 
 
-async function runCommand(args: string[], description: string, silent = false): Promise<void> {
-	const process = new Deno.Command('deno', {
-		args,
-		stdout: silent ? 'piped' : 'inherit',
-		stderr: silent ? 'piped' : 'inherit',
-	});
-
-	const { success } = await process.output();
-	if (!success) {
+async function runCommand(command: string, args: string[], description: string, silent = false): Promise<void> {
+	try {
+		const options = silent
+			? { stdio: 'pipe' as const }
+			: { stdio: 'inherit' as const };
+		await execFile(command, args, options);
+	} catch {
 		throw new Error(`${description} failed`);
 	}
 }
@@ -44,11 +47,9 @@ async function buildSSRBundles(logger: BuildLogger): Promise<void> {
 	try {
 		// Use the SSR-specific Vite config
 		await runCommand(
+			'bunx',
 			[
-				'run',
-				'--allow-all',
-				'--unstable-detect-cjs',
-				'npm:vite',
+				'vite',
 				'build',
 				'--config',
 				'packages/avalon/vite.ssr.config.ts',
@@ -66,14 +67,14 @@ async function generateManifest(logger: BuildLogger): Promise<void> {
 	const manifest = await generateIslandManifest();
 	const islandCount = Object.keys(manifest.islands).length;
 	
-	await Deno.mkdir('dist', { recursive: true });
-	await Deno.writeTextFile('dist/island-manifest.json', JSON.stringify(manifest, null, 2));
+	await mkdir('dist', { recursive: true });
+	await writeFile('dist/island-manifest.json', JSON.stringify(manifest, null, 2));
 	
 	logger.updateProgress('manifest', islandCount, islandCount);
 }
 
 async function runViteBuild(_logger: BuildLogger): Promise<void> {
-	await runCommand(['run', '--allow-all', '--unstable-detect-cjs', 'npm:vite', 'build', '--config', 'packages/avalon/vite.config.ts'], 'Vite build', true);
+	await runCommand('bunx', ['vite', 'build', '--config', 'packages/avalon/vite.config.ts'], 'Vite build', true);
 }
 
 async function buildIntegrations(_logger: BuildLogger): Promise<void> {
@@ -131,7 +132,7 @@ async function buildWithLogger(): Promise<void> {
 		logger.finish(true);
 	} catch (_error) {
 		logger.finish(false);
-		Deno.exit(1);
+		process.exit(1);
 	}
 }
 
