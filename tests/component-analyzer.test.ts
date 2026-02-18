@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from '@std/assert';
+import { describe, it, expect } from 'vitest';
 import {
 	analyzeComponentFile,
 	analyzeComponentContent,
@@ -7,28 +7,28 @@ import {
 	generateAnalysisSummary,
 } from '../packages/avalon/src/core/components/component-analyzer.ts';
 
-Deno.test('Component Analyzer Integration', async t => {
-	await t.step('should analyze real component files', async () => {
+describe('Component Analyzer Integration', () => {
+	it('should analyze real component files', async () => {
 		const report = await analyzeComponentFile('examples/SvelteCounter.svelte', { logDecisions: false });
 
-		assertEquals(report.analysis.framework, 'svelte');
-		assertEquals(report.analysis.hasScript, true);
-		assertEquals(report.analysis.hasHydrateFunction, true);
-		assertEquals(report.decision.shouldHydrate, true);
-		assertExists(report.metadata);
+		expect(report.analysis.framework).toEqual('svelte');
+		expect(report.analysis.hasScript).toEqual(true);
+		expect(report.analysis.hasHydrateFunction).toEqual(true);
+		expect(report.decision.shouldHydrate).toEqual(true);
+		expect(report.metadata).toBeDefined();
 	});
 
-	await t.step('should provide quick hydration check', async () => {
+	it('should provide quick hydration check', async () => {
 		const shouldHydrateResult = await shouldHydrate('examples/TestCounterNoHydrate.svelte');
-		assertEquals(shouldHydrateResult, false); // Has script but no hydrate function, defaults to SSR-only
+		expect(shouldHydrateResult).toEqual(false); // Has script but no hydrate function, defaults to SSR-only
 	});
 
-	await t.step('should detect component framework', async () => {
+	it('should detect component framework', async () => {
 		const framework = await getComponentFramework('examples/TestCounter.vue');
-		assertEquals(framework, 'vue');
+		expect(framework).toEqual('vue');
 	});
 
-	await t.step('should analyze component content directly', () => {
+	it('should analyze component content directly', () => {
 		const vueContent = `
 <template>
   <div>Static content</div>
@@ -36,20 +36,20 @@ Deno.test('Component Analyzer Integration', async t => {
 `;
 
 		const report = analyzeComponentContent('test.vue', vueContent);
-		assertEquals(report.analysis.framework, 'vue');
-		assertEquals(report.analysis.hasScript, false);
-		assertEquals(report.decision.shouldHydrate, false);
+		expect(report.analysis.framework).toEqual('vue');
+		expect(report.analysis.hasScript).toEqual(false);
+		expect(report.decision.shouldHydrate).toEqual(false);
 	});
 
-	await t.step('should handle analysis errors gracefully', async () => {
+	it('should handle analysis errors gracefully', async () => {
 		// Test with non-existent file
 		const shouldHydrateResult = await shouldHydrate('non-existent.vue');
-		assertEquals(shouldHydrateResult, true); // Defaults to hydrate on error
+		expect(shouldHydrateResult).toEqual(true); // Defaults to hydrate on error
 	});
 });
 
-Deno.test('Analysis Summary Generation', async t => {
-	await t.step('should generate summary statistics', () => {
+describe('Analysis Summary Generation', () => {
+	it('should generate summary statistics', () => {
 		const mockReports = new Map();
 
 		// Add some mock reports
@@ -67,10 +67,10 @@ Deno.test('Analysis Summary Generation', async t => {
 
 		const summary = generateAnalysisSummary(mockReports);
 
-		assertEquals(summary.total, 2);
-		assertEquals(summary.byFramework.vue, 1);
-		assertEquals(summary.byFramework.svelte, 1);
-		assertEquals(summary.byStrategy.hydrate, 1);
-		assertEquals(summary.byStrategy['ssr-only'], 1);
+		expect(summary.total).toEqual(2);
+		expect(summary.byFramework.vue).toEqual(1);
+		expect(summary.byFramework.svelte).toEqual(1);
+		expect(summary.byStrategy.hydrate).toEqual(1);
+		expect(summary.byStrategy['ssr-only']).toEqual(1);
 	});
 });

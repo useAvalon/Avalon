@@ -4,11 +4,11 @@
  * Validates: Requirements 6.1, 6.2, 6.3, 10.1
  */
 
-import { assertEquals, assertExists } from '@std/assert';
+import { describe, it, expect } from 'vitest';
 import { StreamingConfigSchema, type StreamingConfig } from '../server.ts';
 
-Deno.test('StreamingConfigSchema', async (t) => {
-	await t.step('should accept valid streaming configuration with all fields', () => {
+describe('StreamingConfigSchema', () => {
+	it('should accept valid streaming configuration with all fields', () => {
 		const config = {
 			enabled: true,
 			onShellReadyTimeout: 5000,
@@ -17,34 +17,34 @@ Deno.test('StreamingConfigSchema', async (t) => {
 
 		const result = StreamingConfigSchema.parse(config);
 
-		assertEquals(result.enabled, true);
-		assertEquals(result.onShellReadyTimeout, 5000);
-		assertEquals(result.onAllReadyTimeout, 30000);
+		expect(result.enabled).toEqual(true);
+		expect(result.onShellReadyTimeout).toEqual(5000);
+		expect(result.onAllReadyTimeout).toEqual(30000);
 	});
 
-	await t.step('should use default values when not provided', () => {
+	it('should use default values when not provided', () => {
 		const config = {};
 
 		const result = StreamingConfigSchema.parse(config);
 
-		assertEquals(result.enabled, true);
-		assertEquals(result.onShellReadyTimeout, 5000);
-		assertEquals(result.onAllReadyTimeout, 30000);
+		expect(result.enabled).toEqual(true);
+		expect(result.onShellReadyTimeout).toEqual(5000);
+		expect(result.onAllReadyTimeout).toEqual(30000);
 	});
 
-	await t.step('should accept enabled: false for backward compatibility', () => {
+	it('should accept enabled: false for backward compatibility', () => {
 		const config = {
 			enabled: false,
 		};
 
 		const result = StreamingConfigSchema.parse(config);
 
-		assertEquals(result.enabled, false);
-		assertEquals(result.onShellReadyTimeout, 5000);
-		assertEquals(result.onAllReadyTimeout, 30000);
+		expect(result.enabled).toEqual(false);
+		expect(result.onShellReadyTimeout).toEqual(5000);
+		expect(result.onAllReadyTimeout).toEqual(30000);
 	});
 
-	await t.step('should accept custom timeout values', () => {
+	it('should accept custom timeout values', () => {
 		const config = {
 			enabled: true,
 			onShellReadyTimeout: 10000,
@@ -53,27 +53,22 @@ Deno.test('StreamingConfigSchema', async (t) => {
 
 		const result = StreamingConfigSchema.parse(config);
 
-		assertEquals(result.enabled, true);
-		assertEquals(result.onShellReadyTimeout, 10000);
-		assertEquals(result.onAllReadyTimeout, 60000);
+		expect(result.enabled).toEqual(true);
+		expect(result.onShellReadyTimeout).toEqual(10000);
+		expect(result.onAllReadyTimeout).toEqual(60000);
 	});
 
-	await t.step('should reject negative timeout values', () => {
+	it('should reject negative timeout values', () => {
 		const config = {
 			enabled: true,
 			onShellReadyTimeout: -1000,
 			onAllReadyTimeout: 30000,
 		};
 
-		try {
-			StreamingConfigSchema.parse(config);
-			throw new Error('Should have thrown validation error');
-		} catch (error) {
-			assertExists(error);
-		}
+		expect(() => StreamingConfigSchema.parse(config)).toThrow();
 	});
 
-	await t.step('should accept zero timeout values', () => {
+	it('should accept zero timeout values', () => {
 		const config = {
 			enabled: true,
 			onShellReadyTimeout: 0,
@@ -82,20 +77,18 @@ Deno.test('StreamingConfigSchema', async (t) => {
 
 		const result = StreamingConfigSchema.parse(config);
 
-		assertEquals(result.enabled, true);
-		assertEquals(result.onShellReadyTimeout, 0);
-		assertEquals(result.onAllReadyTimeout, 0);
+		expect(result.enabled).toEqual(true);
+		expect(result.onShellReadyTimeout).toEqual(0);
+		expect(result.onAllReadyTimeout).toEqual(0);
 	});
 
-	await t.step('should be optional in server config', () => {
-		// When streaming config is not provided, it should use defaults
+	it('should be optional in server config', () => {
 		const result = StreamingConfigSchema.optional().parse(undefined);
 
-		assertEquals(result, undefined);
+		expect(result).toEqual(undefined);
 	});
 
-	await t.step('should use defaults when optional and not provided', () => {
-		// When using the default() method, it should provide default values
+	it('should use defaults when optional and not provided', () => {
 		const schema = StreamingConfigSchema.optional().default({
 			enabled: true,
 			onShellReadyTimeout: 5000,
@@ -104,22 +97,23 @@ Deno.test('StreamingConfigSchema', async (t) => {
 
 		const result = schema.parse(undefined);
 
-		assertEquals(result.enabled, true);
-		assertEquals(result.onShellReadyTimeout, 5000);
-		assertEquals(result.onAllReadyTimeout, 30000);
+		expect(result.enabled).toEqual(true);
+		expect(result.onShellReadyTimeout).toEqual(5000);
+		expect(result.onAllReadyTimeout).toEqual(30000);
 	});
 });
 
-Deno.test('StreamingConfig type inference', () => {
-	// This test verifies that the TypeScript type is correctly inferred
-	const config: StreamingConfig = {
-		enabled: true,
-		onShellReadyTimeout: 5000,
-		onAllReadyTimeout: 30000,
-	};
+describe('StreamingConfig type inference', () => {
+	it('should have correct types', () => {
+		const config: StreamingConfig = {
+			enabled: true,
+			onShellReadyTimeout: 5000,
+			onAllReadyTimeout: 30000,
+		};
 
-	assertExists(config);
-	assertEquals(typeof config.enabled, 'boolean');
-	assertEquals(typeof config.onShellReadyTimeout, 'number');
-	assertEquals(typeof config.onAllReadyTimeout, 'number');
+		expect(config).toBeDefined();
+		expect(typeof config.enabled).toEqual('boolean');
+		expect(typeof config.onShellReadyTimeout).toEqual('number');
+		expect(typeof config.onAllReadyTimeout).toEqual('number');
+	});
 });

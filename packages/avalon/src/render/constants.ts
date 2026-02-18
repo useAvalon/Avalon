@@ -5,7 +5,7 @@
 import { join } from 'node:path';
 
 // Server configuration
-export const STATIC_FILES_DIR = join(Deno.cwd(), 'public');
+export const STATIC_FILES_DIR = join(process.cwd(), 'public');
 export const VITE_DEV_PORT = 8012;
 export const VITE_HMR_PORT = 8013;
 export const DEFAULT_SERVER_PORT = 8002; // Updated to match Avalon demo and design requirements
@@ -72,7 +72,6 @@ export const DANGEROUS_PATH_PATTERNS = [
 	'.well-known',
 	'node_modules',
 	'package.json',
-	'deno.json',
 	'.env',
 	'/.',
 ] as const;

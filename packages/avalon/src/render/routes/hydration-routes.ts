@@ -2,6 +2,7 @@
  * Routes for serving framework-specific modules during hydration
  */
 
+import { readFile } from 'node:fs/promises';
 import { FrameworkModuleResolver } from '../../core/modules/framework-module-resolver.ts';
 import type { MiddlewareContext } from '../../schemas/middleware.ts';
 import type { LayoutContext } from '../../types/layout.ts';
@@ -99,7 +100,7 @@ export class HydrationRouteHandler {
 			try {
 				// Remove leading slash for file system access
 				const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
-				const content = await Deno.readTextFile(normalizedPath);
+				const content = await readFile(normalizedPath, 'utf-8');
 				return content;
 			} catch {
 				// Continue to next path

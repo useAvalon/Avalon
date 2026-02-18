@@ -1,8 +1,7 @@
-import { walk } from '@std/fs/walk';
-import { join, dirname } from '@std/path';
-import { ensureDir } from '@std/fs/ensure-dir';
-import { processMarkdown, extractCodeExamples } from './utils/markdown-processor.ts';
-import { validateAllExamples, generateValidationReport } from './utils/code-validator.ts';
+import { readFile, writeFile, copyFile, readdir, mkdir } from 'node:fs/promises';
+import { join, dirname } from 'node:path';
+import { processMarkdown, extractCodeExamples } from './utils/markdown-processor';
+import { validateAllExamples, generateValidationReport } from './utils/code-validator';
 
 interface BuildOptions {
 	inputDir: string;
@@ -15,6 +14,65 @@ interface BuildResult {
 	examples: number;
 	validationErrors: number;
 	buildTime: number;
+}
+
+interface WalkEntry {
+	path: string;
+	name: string;
+	isFile: boolean;
+	isDirectory: boolean;
+}
+
+/**
+ * Ensures a directory exists, creating it recursively if needed.
+ */
+async function ensureDir(dir: string): Promise<void> {
+	try {
+		await mkdir(dir, { recursive: true });
+	} catch {
+		// Directory already exists
+	}
+}
+
+/**
+ * Walks a directory tree yielding entries.
+ */
+async function* walk(
+	root: string,
+	options: { exts?: string[]; skip?: RegExp[] } = {}
+): AsyncIterableIterator<WalkEntry> {
+	const { exts, skip } = options;
+
+	async function* walkDir(dir: string): AsyncIterableIterator<WalkEntry> {
+		let entries;
+		try {
+			entries = await readdir(dir, { withFileTypes: true });
+		} catch {
+			return;
+		}
+
+		for (const entry of entries) {
+			const fullPath = join(dir, entry.name);
+
+			if (skip?.some(r => r.test(fullPath))) continue;
+
+			const walkEntry: WalkEntry = {
+				path: fullPath,
+				name: entry.name,
+				isFile: entry.isFile(),
+				isDirectory: entry.isDirectory(),
+			};
+
+			if (entry.isDirectory()) {
+				yield* walkDir(fullPath);
+			} else if (entry.isFile()) {
+				if (exts && !exts.some(ext => entry.name.endsWith(ext))) continue;
+				yield walkEntry;
+			}
+		}
+	}
+
+	yield* walkDir(root);
 }
 
 /**
@@ -49,7 +107,7 @@ export async function buildDocs(options: BuildOptions): Promise<BuildResult> {
 
 	// Generate validation report
 	const validationReport = await generateFullValidationReport(inputDir);
-	await Deno.writeTextFile(join(outputDir, 'validation-report.md'), validationReport);
+	await writeFile(join(outputDir, 'validation-report.md'), validationReport);
 
 	const buildTime = Date.now() - startTime;
 
@@ -72,7 +130,7 @@ async function processMarkdownFile(
 	outputDir: string,
 	baseUrl: string
 ): Promise<void> {
-	const content = await Deno.readTextFile(filePath);
+	const content = await readFile(filePath, 'utf-8');
 	const processed = await processMarkdown(content);
 
 	// Extract and validate code examples
@@ -96,7 +154,7 @@ async function processMarkdownFile(
 	await ensureDir(dirname(outputPath));
 
 	// Write HTML file
-	await Deno.writeTextFile(outputPath, html);
+	await writeFile(outputPath, html);
 
 	console.log(`📄 Processed: ${relativePath}`);
 }
@@ -245,7 +303,7 @@ function generateTableOfContents(headings: Array<{ level: number; text: string; 
 }
 
 async function copyStaticAssets(outputDir: string): Promise<void> {
-	const assetsDir = join(Deno.cwd(), 'docs', 'src');
+	const assetsDir = join(process.cwd(), 'docs', 'src');
 
 	// Copy styles
 	const stylesInput = join(assetsDir, 'styles');
@@ -257,7 +315,7 @@ async function copyStaticAssets(outputDir: string): Promise<void> {
 			const relativePath = entry.path.replace(stylesInput, '');
 			const outputPath = join(stylesOutput, relativePath);
 			await ensureDir(dirname(outputPath));
-			await Deno.copyFile(entry.path, outputPath);
+			await copyFile(entry.path, outputPath);
 		}
 	}
 
@@ -272,7 +330,7 @@ async function copyStaticAssets(outputDir: string): Promise<void> {
 				const relativePath = entry.path.replace(scriptsInput, '');
 				const outputPath = join(scriptsOutput, relativePath);
 				await ensureDir(dirname(outputPath));
-				await Deno.copyFile(entry.path, outputPath);
+				await copyFile(entry.path, outputPath);
 			}
 		}
 	} catch {
@@ -287,7 +345,7 @@ async function generateFullValidationReport(inputDir: string): Promise<string> {
 
 	for await (const entry of walk(inputDir, { exts: ['.md'] })) {
 		if (entry.isFile) {
-			const content = await Deno.readTextFile(entry.path);
+			const content = await readFile(entry.path, 'utf-8');
 			const examples = extractCodeExamples(content);
 			const results = await validateAllExamples(examples);
 
@@ -301,14 +359,17 @@ async function generateFullValidationReport(inputDir: string): Promise<string> {
 }
 
 // CLI interface
-if (import.meta.main) {
-	const inputDir = join(Deno.cwd(), 'docs');
-	const outputDir = join(Deno.cwd(), 'docs', 'dist');
+const isMain = import.meta.url === `file://${process.argv[1]}` || 
+               (typeof Bun !== 'undefined' && Bun.main === import.meta.path);
+
+if (isMain) {
+	const inputDir = join(process.cwd(), 'docs');
+	const outputDir = join(process.cwd(), 'docs', 'dist');
 
 	try {
 		await buildDocs({ inputDir, outputDir });
 	} catch (error) {
 		console.error('❌ Build failed:', error);
-		Deno.exit(1);
+		process.exit(1);
 	}
 }

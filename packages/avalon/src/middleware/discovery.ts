@@ -14,6 +14,7 @@
  */
 
 import { join, relative, resolve } from 'node:path';
+import { stat as fsStat, readdir } from 'node:fs/promises';
 import type { MiddlewareRoute, MiddlewareDiscoveryOptions } from './types.ts';
 
 /**
@@ -117,16 +118,16 @@ async function scanDirectory(
 ): Promise<void> {
   try {
     // Check if directory exists
-    const dirInfo = await Deno.stat(dir).catch(() => null);
-    if (!dirInfo?.isDirectory) {
+    const dirInfo = await fsStat(dir).catch(() => null);
+    if (!dirInfo?.isDirectory()) {
       return;
     }
 
     // Recursively scan directory
     await scanDirectoryRecursive(dir, dir, type, filePattern, excludeDirs, routes, devMode);
-  } catch (error) {
+  } catch (error: any) {
     // Directory doesn't exist or can't be read - skip silently
-    if (devMode && !(error instanceof Deno.errors.NotFound)) {
+    if (devMode && error?.code !== 'ENOENT') {
       console.warn(`[middleware] Error scanning ${dir}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -153,15 +154,16 @@ async function scanDirectoryRecursive(
   devMode: boolean
 ): Promise<void> {
   try {
-    for await (const entry of Deno.readDir(currentDir)) {
+    const entries = await readdir(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
       const fullPath = join(currentDir, entry.name);
 
       // Skip excluded directories
-      if (entry.isDirectory && excludeDirs.includes(entry.name)) {
+      if (entry.isDirectory() && excludeDirs.includes(entry.name)) {
         continue;
       }
 
-      if (entry.isDirectory) {
+      if (entry.isDirectory()) {
         // Recursively scan subdirectories
         await scanDirectoryRecursive(rootDir, fullPath, type, filePattern, excludeDirs, routes, devMode);
       } else if (entry.name === filePattern) {
@@ -171,8 +173,8 @@ async function scanDirectoryRecursive(
         routes.push(route);
       }
     }
-  } catch (error) {
-    if (devMode && !(error instanceof Deno.errors.NotFound)) {
+  } catch (error: any) {
+    if (devMode && error?.code !== 'ENOENT') {
       console.warn(`[middleware] Error reading ${currentDir}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }

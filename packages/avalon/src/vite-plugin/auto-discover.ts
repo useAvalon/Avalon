@@ -8,6 +8,8 @@
 
 import type { IntegrationName } from "./types.ts";
 import { resolve } from "node:path";
+import { stat as fsStat, readdir } from "node:fs/promises";
+import { readFileSync, openSync, readSync, closeSync } from "node:fs";
 
 /**
  * File extension to integration name mapping
@@ -102,8 +104,8 @@ export async function discoverIntegrationsFromFiles(
 
   // Check if directory exists
   try {
-    const stat = await Deno.stat(resolvedDir);
-    if (!stat.isDirectory) {
+    const statResult = await fsStat(resolvedDir);
+    if (!statResult.isDirectory()) {
       return discovered;
     }
   } catch {
@@ -128,13 +130,14 @@ async function scanDirectoryForIntegrations(
   discovered: Set<IntegrationName>
 ): Promise<void> {
   try {
-    for await (const entry of Deno.readDir(dirPath)) {
+    const entries = await readdir(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
       const fullPath = resolve(dirPath, entry.name);
 
-      if (entry.isDirectory) {
+      if (entry.isDirectory()) {
         // Recursively scan subdirectories
         await scanDirectoryForIntegrations(fullPath, discovered);
-      } else if (entry.isFile) {
+      } else if (entry.isFile()) {
         // Check if this is a supported component file
         const integration = await detectIntegrationFromFile(fullPath, entry.name);
         if (integration) {
@@ -142,9 +145,9 @@ async function scanDirectoryForIntegrations(
         }
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     // Log but don't fail on permission errors or other issues
-    if (!(error instanceof Deno.errors.PermissionDenied)) {
+    if (error?.code !== 'EACCES') {
       console.warn(`Warning: Could not scan directory ${dirPath}:`, error);
     }
   }
@@ -181,12 +184,12 @@ async function detectIntegrationFromFile(
   if (normalizedName.endsWith(".tsx") || normalizedName.endsWith(".jsx")) {
     try {
       // Read first 500 bytes - enough to detect imports and pragmas
-      const file = await Deno.open(filePath, { read: true });
-      const buffer = new Uint8Array(500);
-      await file.read(buffer);
-      file.close();
+      const fd = openSync(filePath, 'r');
+      const buffer = Buffer.alloc(500);
+      readSync(fd, buffer, 0, 500, 0);
+      closeSync(fd);
       
-      const content = new TextDecoder().decode(buffer);
+      const content = buffer.toString('utf-8');
       
       // Check content patterns for framework detection
       for (const { pattern, integration } of CONTENT_DETECTION_PATTERNS) {

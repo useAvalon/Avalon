@@ -12,7 +12,7 @@ export async function setupApiRoutes(isDev: boolean) {
 	}
 
 	try {
-		const routesModule = await import(join(Deno.cwd(), 'src/routes.ts'));
+		const routesModule = await import(join(process.cwd(), 'src/routes.ts'));
 		const routes = routesModule.routes;
 		return routes;
 	} catch {

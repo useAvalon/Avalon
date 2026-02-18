@@ -135,11 +135,21 @@ export class LitCard extends LitElement {
     views: { type: Number, state: true },
   };
 
-  title = "Lit Card Component";
-  description = "This card demonstrates Lit's scoped styles and reactive properties.";
-  badge = "Featured";
-  private likes = 0;
-  private views = 0;
+  // Use declare to avoid class field shadowing Lit's reactive accessors
+  declare title: string;
+  declare description: string;
+  declare badge: string;
+  declare likes: number;
+  declare views: number;
+
+  constructor() {
+    super();
+    this.title = "Lit Card Component";
+    this.description = "This card demonstrates Lit's scoped styles and reactive properties.";
+    this.badge = "Featured";
+    this.likes = 0;
+    this.views = 0;
+  }
 
   connectedCallback() {
     super.connectedCallback();

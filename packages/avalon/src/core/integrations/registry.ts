@@ -1,24 +1,25 @@
 import type { Integration } from "../../../../integrations/shared/types.ts";
 import { dirname, join } from "node:path";
+import { statSync } from "node:fs";
 
 /**
  * Find the root of the Avalon monorepo by looking for packages/integrations
  */
 function findMonorepoRoot(): string {
-  let currentDir = globalThis.Deno?.cwd() || process.cwd();
-  
+  let currentDir = process.cwd();
+
   // Walk up the directory tree looking for packages/integrations
   for (let i = 0; i < 10; i++) {
     try {
       const integrationsPath = join(currentDir, "packages", "integrations");
-      const stat = Deno.statSync(integrationsPath);
-      if (stat.isDirectory) {
+      const stat = statSync(integrationsPath);
+      if (stat.isDirectory()) {
         return currentDir;
       }
     } catch {
       // Directory doesn't exist, try parent
     }
-    
+
     const parent = dirname(currentDir);
     if (parent === currentDir) {
       // Reached root, stop
@@ -26,9 +27,9 @@ function findMonorepoRoot(): string {
     }
     currentDir = parent;
   }
-  
+
   // Fallback to cwd
-  return globalThis.Deno?.cwd() || process.cwd();
+  return process.cwd();
 }
 
 /**
@@ -139,7 +140,7 @@ export class IntegrationRegistry {
       throw new Error(
         `Failed to load integration for framework '${name}'. ` +
         `Make sure @avalon/${name} is installed.\n` +
-        `Install it with: deno add @avalon/${name}`,
+        `Install it with: bun add @avalon/${name}`,
         { cause: error }
       );
     }

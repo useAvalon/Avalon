@@ -6,8 +6,7 @@
  * contamination in real-world scenarios.
  */
 
-import { assertEquals, assertStringIncludes } from '@std/assert';
-import { describe, it, beforeEach, afterEach } from '@std/testing/bdd';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { renderToHtml, type RouteConfig, type ComponentRenderOptions } from '../ssr.ts';
 import { h } from 'preact';
 
@@ -95,14 +94,14 @@ export default function ContaminatedComponent() {
 ]);
 
 describe('SSR Isolation Integration', () => {
-	let originalReadTextFile: typeof Deno.readTextFile;
+	let originalReadTextFile: typeof readFile;
 	let originalConsoleWarn: typeof console.warn;
 	let warnings: string[] = [];
 
 	beforeEach(() => {
 		// Mock file reading
-		originalReadTextFile = Deno.readTextFile;
-		Deno.readTextFile = async (path: string | URL): Promise<string> => {
+		originalReadTextFile = readFile;
+		readFile = async (path: string | URL): Promise<string> => {
 			const pathStr = typeof path === 'string' ? path : path.pathname;
 			const filename = pathStr.split('/').pop() || '';
 			const content = mockComponentFiles.get(filename);
@@ -122,7 +121,7 @@ describe('SSR Isolation Integration', () => {
 
 	afterEach(() => {
 		// Restore original functions
-		Deno.readTextFile = originalReadTextFile;
+		readFile = originalReadTextFile;
 		console.warn = originalConsoleWarn;
 	});
 
@@ -140,16 +139,16 @@ describe('SSR Isolation Integration', () => {
 			const html = await renderToHtml(routeConfig, {}, undefined, renderOptions);
 
 			// Should contain the component
-			assertStringIncludes(html, 'Preact Counter');
+			expect(html).toContain('Preact Counter');
 
 			// Should have proper HTML structure
-			assertStringIncludes(html, '<!DOCTYPE html>');
-			assertStringIncludes(html, '<html lang="en">');
-			assertStringIncludes(html, '<head>');
-			assertStringIncludes(html, '<body>');
+			expect(html).toContain('<!DOCTYPE html>');
+			expect(html).toContain('<html lang="en">');
+			expect(html).toContain('<head>');
+			expect(html).toContain('<body>');
 
 			// Should include framework-specific attributes
-			assertStringIncludes(html, 'data-hydrate="PreactCounter.tsx"');
+			expect(html).toContain('data-hydrate="PreactCounter.tsx"');
 		});
 
 		it('should render Solid component with isolation', async () => {
@@ -165,11 +164,11 @@ describe('SSR Isolation Integration', () => {
 			const html = await renderToHtml(routeConfig, {}, undefined, renderOptions);
 
 			// Should contain the component
-			assertStringIncludes(html, 'Solid Counter');
+			expect(html).toContain('Solid Counter');
 
 			// Should have proper HTML structure
-			assertStringIncludes(html, '<!DOCTYPE html>');
-			assertStringIncludes(html, 'data-hydrate="SolidCounter.tsx"');
+			expect(html).toContain('<!DOCTYPE html>');
+			expect(html).toContain('data-hydrate="SolidCounter.tsx"');
 		});
 
 		it('should render mixed framework page', async () => {
@@ -185,16 +184,16 @@ describe('SSR Isolation Integration', () => {
 			const html = await renderToHtml(routeConfig, {}, undefined, renderOptions);
 
 			// Should contain both components
-			assertStringIncludes(html, 'Mixed Framework Page');
-			assertStringIncludes(html, 'Preact Counter');
-			assertStringIncludes(html, 'Solid Counter');
+			expect(html).toContain('Mixed Framework Page');
+			expect(html).toContain('Preact Counter');
+			expect(html).toContain('Solid Counter');
 
 			// Should have both framework hydration attributes
-			assertStringIncludes(html, 'data-hydrate="PreactCounter.tsx"');
-			assertStringIncludes(html, 'data-hydrate="SolidCounter.tsx"');
+			expect(html).toContain('data-hydrate="PreactCounter.tsx"');
+			expect(html).toContain('data-hydrate="SolidCounter.tsx"');
 
 			// Should include scripts for frameworks
-			assertStringIncludes(html, '/src/client/main.js');
+			expect(html).toContain('/src/client/main.js');
 		});
 	});
 
@@ -218,7 +217,7 @@ describe('SSR Isolation Integration', () => {
 				// If we get here, the error was handled gracefully
 			} catch (error) {
 				// Error should be properly wrapped
-				assertStringIncludes((error as Error).message, 'Failed to render component');
+				expect((error as Error).message).toContain('Failed to render component');
 			}
 		});
 
@@ -235,8 +234,8 @@ describe('SSR Isolation Integration', () => {
 			// This should work even if isolated rendering has issues
 			const html = await renderToHtml(routeConfig, {}, undefined, renderOptions);
 
-			assertStringIncludes(html, 'Preact Counter');
-			assertStringIncludes(html, '<!DOCTYPE html>');
+			expect(html).toContain('Preact Counter');
+			expect(html).toContain('<!DOCTYPE html>');
 		});
 	});
 
@@ -255,11 +254,11 @@ describe('SSR Isolation Integration', () => {
 			const html = await renderToHtml(routeConfig, {}, undefined, renderOptions);
 
 			// Should have processed both components
-			assertStringIncludes(html, 'Preact Counter');
-			assertStringIncludes(html, 'Solid Counter');
+			expect(html).toContain('Preact Counter');
+			expect(html).toContain('Solid Counter');
 
 			// Should include proper HTML structure
-			assertStringIncludes(html, '<!DOCTYPE html>');
+			expect(html).toContain('<!DOCTYPE html>');
 		});
 
 		it('should handle SSR-only components correctly', async () => {
@@ -284,10 +283,10 @@ describe('SSR Isolation Integration', () => {
 			const html = await renderToHtml(routeConfig, {}, undefined, renderOptions);
 
 			// Should render the component
-			assertStringIncludes(html, 'Static Content');
+			expect(html).toContain('Static Content');
 
 			// Should have proper HTML structure
-			assertStringIncludes(html, '<!DOCTYPE html>');
+			expect(html).toContain('<!DOCTYPE html>');
 		});
 	});
 
@@ -310,29 +309,29 @@ describe('SSR Isolation Integration', () => {
 			);
 
 			// All should render successfully
-			assertEquals(htmlResults.length, 3);
+			expect(htmlResults.length).toEqual(3);
 
 			htmlResults.forEach(html => {
-				assertStringIncludes(html, '<!DOCTYPE html>');
-				assertStringIncludes(html, '<body>');
+				expect(html).toContain('<!DOCTYPE html>');
+				expect(html).toContain('<body>');
 			});
 
 			// First should have Preact content
-			assertStringIncludes(htmlResults[0], 'Preact Counter');
+			expect(htmlResults[0]).toContain('Preact Counter');
 
 			// Second should have Solid content
-			assertStringIncludes(htmlResults[1], 'Solid Counter');
+			expect(htmlResults[1]).toContain('Solid Counter');
 
 			// Third should have both
-			assertStringIncludes(htmlResults[2], 'Mixed Framework Page');
+			expect(htmlResults[2]).toContain('Mixed Framework Page');
 		});
 	});
 
 	describe('Development vs Production Behavior', () => {
 		it('should include development scripts in development mode', async () => {
 			// Set development environment
-			const originalEnv = Deno.env.get('DENO_ENV');
-			Deno.env.set('DENO_ENV', 'development');
+			const originalEnv = process.env['DENO_ENV'];
+			process.env['DENO_ENV'] = 'development';
 
 			try {
 				const routeConfig: RouteConfig = {
@@ -342,24 +341,24 @@ describe('SSR Isolation Integration', () => {
 				const html = await renderToHtml(routeConfig, {}, 3000); // HMR port
 
 				// Should include development scripts
-				assertStringIncludes(html, '/src/client/main.js');
+				expect(html).toContain('/src/client/main.js');
 
 				// Should have proper HTML structure
-				assertStringIncludes(html, '<script');
+				expect(html).toContain('<script');
 			} finally {
 				// Restore environment
 				if (originalEnv) {
-					Deno.env.set('DENO_ENV', originalEnv);
+					process.env['NODE_ENV'] = originalEnv;
 				} else {
-					Deno.env.delete('DENO_ENV');
+					delete process.env['NODE_ENV'];
 				}
 			}
 		});
 
 		it('should use production scripts in production mode', async () => {
 			// Set production environment
-			const originalEnv = Deno.env.get('DENO_ENV');
-			Deno.env.set('DENO_ENV', 'production');
+			const originalEnv = process.env['NODE_ENV'];
+			process.env['NODE_ENV'] = 'production';
 
 			try {
 				const routeConfig: RouteConfig = {
@@ -369,16 +368,16 @@ describe('SSR Isolation Integration', () => {
 				const html = await renderToHtml(routeConfig, {});
 
 				// Should include scripts
-				assertStringIncludes(html, '<script');
+				expect(html).toContain('<script');
 
 				// Should have proper HTML structure
-				assertStringIncludes(html, '<!DOCTYPE html>');
+				expect(html).toContain('<!DOCTYPE html>');
 			} finally {
 				// Restore environment
 				if (originalEnv) {
-					Deno.env.set('DENO_ENV', originalEnv);
+					process.env['NODE_ENV'] = originalEnv;
 				} else {
-					Deno.env.delete('DENO_ENV');
+					delete process.env['NODE_ENV'];
 				}
 			}
 		});
@@ -407,7 +406,7 @@ describe('SSR Isolation Integration', () => {
 			const html = await renderToHtml(routeConfig, {}, undefined, renderOptions);
 
 			// Should still render the component
-			assertStringIncludes(html, 'Contaminated Component');
+			expect(html).toContain('Contaminated Component');
 
 			// Should have generated warnings about cross-framework imports
 			// Note: This depends on the import validation being called during SSR
@@ -419,7 +418,7 @@ describe('SSR Isolation Integration', () => {
 			);
 
 			// This assertion might be true or false depending on whether the validation runs
-			assertEquals(typeof hasValidationWarning, 'boolean');
+			expect(typeof hasValidationWarning).toEqual('boolean');
 		});
 	});
 });

@@ -60,9 +60,11 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: denoland/setup-deno@v2
+      - uses: oven-sh/setup-bun@v2
         with:
-          deno-version: v2.x
+          bun-version: latest
+
+      - run: bun install
 
       - name: Configure git
         run: |
@@ -71,7 +73,7 @@ jobs:
 
       - name: Bump version
         run: |
-          deno run --allow-read --allow-write scripts/bump-version.ts \
+          bun run scripts/bump-version.ts \
             --bump=${{ inputs.bump }} \
             --channel=${{ inputs.channel }} \
             --package=${{ inputs.package }}
@@ -91,27 +93,34 @@ jobs:
               ;;
           esac
 
-      - name: Publish to JSR (dry run)
+      - name: Publish to npm (dry run)
         if: ${{ inputs.dry-run == true }}
         run: |
           for pkg in ${{ steps.targets.outputs.packages }}; do
-            if [ -f "$pkg/deno.json" ]; then
+            if [ -f "$pkg/package.json" ]; then
               echo "[DRY RUN] Publishing $pkg..."
-              deno publish --dry-run --allow-dirty --config "$pkg/deno.json"
+              cd "$pkg"
+              npm publish --dry-run
+              cd -
             fi
           done
 
-      - name: Publish to JSR
+      - name: Publish to npm
         if: ${{ inputs.dry-run == false }}
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
           TAG="${{ inputs.channel }}"
           if [ "$TAG" = "stable" ]; then
             TAG="latest"
           fi
           for pkg in ${{ steps.targets.outputs.packages }}; do
-            if [ -f "$pkg/deno.json" ]; then
+            if [ -f "$pkg/package.json" ]; then
               echo "Publishing $pkg with tag $TAG..."
-              deno publish --allow-dirty --config "$pkg/deno.json" --tag "$TAG"
+              cd "$pkg"
+              npm publish --tag "$TAG" --access public
+              cd -
             fi
           done
 
@@ -120,8 +129,8 @@ jobs:
         run: |
           # Use the first target package to get the version
           FIRST_PKG=$(echo "${{ steps.targets.outputs.packages }}" | awk '{print $1}')
-          VERSION=$(deno eval "const c = JSON.parse(Deno.readTextFileSync('${FIRST_PKG}/deno.json')); console.log(c.version)")
-          NAME=$(deno eval "const c = JSON.parse(Deno.readTextFileSync('${FIRST_PKG}/deno.json')); console.log(c.name)")
+          VERSION=$(node -e "const c = JSON.parse(require('fs').readFileSync('${FIRST_PKG}/package.json', 'utf-8')); console.log(c.version)")
+          NAME=$(node -e "const c = JSON.parse(require('fs').readFileSync('${FIRST_PKG}/package.json', 'utf-8')); console.log(c.name)")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "name=$NAME" >> "$GITHUB_OUTPUT"
 

@@ -54,9 +54,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: denoland/setup-deno@v2
+      - uses: oven-sh/setup-bun@v2
         with:
-          deno-version: v2.x
+          bun-version: latest
+
+      - run: bun install
 
       - name: Generate canary suffix
         id: version
@@ -72,39 +74,45 @@ jobs:
           publish_pkg() {
             local CONFIG="$1"
             if [ -f "$CONFIG" ]; then
-              BASE_VERSION=$(deno eval "const c = JSON.parse(Deno.readTextFileSync('$CONFIG')); console.log(c.version.split('-')[0])")
-              deno eval "
-                const config = JSON.parse(Deno.readTextFileSync('$CONFIG'));
+              BASE_VERSION=$(node -e "const c = JSON.parse(require('fs').readFileSync('$CONFIG', 'utf-8')); console.log(c.version.split('-')[0])")
+              node -e "
+                const fs = require('fs');
+                const config = JSON.parse(fs.readFileSync('$CONFIG', 'utf-8'));
                 config.version = '${BASE_VERSION}-${SUFFIX}';
-                Deno.writeTextFileSync('$CONFIG', JSON.stringify(config, null, '\t') + '\n');
+                fs.writeFileSync('$CONFIG', JSON.stringify(config, null, '\t') + '\n');
               "
-              echo "Publishing $(deno eval "console.log(JSON.parse(Deno.readTextFileSync('$CONFIG')).name)")@${BASE_VERSION}-${SUFFIX}"
-              deno publish --dry-run --allow-dirty --config "$CONFIG"
+              PKG_NAME=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$CONFIG', 'utf-8')).name)")
+              echo "Publishing ${PKG_NAME}@${BASE_VERSION}-${SUFFIX}"
+              PKG_DIR=$(dirname "$CONFIG")
+              cd "$PKG_DIR"
+              npm publish --dry-run --tag canary
+              cd -
             fi
           }
 
           if [ "${{ needs.detect-changes.outputs.core }}" = "true" ]; then
-            publish_pkg "packages/avalon/deno.json"
-            publish_pkg "packages/integrations/shared/deno.json"
+            publish_pkg "packages/avalon/package.json"
+            publish_pkg "packages/integrations/shared/package.json"
           fi
           if [ "${{ needs.detect-changes.outputs.lit }}" = "true" ]; then
-            publish_pkg "packages/integrations/lit/deno.json"
+            publish_pkg "packages/integrations/lit/package.json"
           fi
           if [ "${{ needs.detect-changes.outputs.react }}" = "true" ]; then
-            publish_pkg "packages/integrations/react/deno.json"
+            publish_pkg "packages/integrations/react/package.json"
           fi
           if [ "${{ needs.detect-changes.outputs.preact }}" = "true" ]; then
-            publish_pkg "packages/integrations/preact/deno.json"
+            publish_pkg "packages/integrations/preact/package.json"
           fi
           if [ "${{ needs.detect-changes.outputs.svelte }}" = "true" ]; then
-            publish_pkg "packages/integrations/svelte/deno.json"
+            publish_pkg "packages/integrations/svelte/package.json"
           fi
           if [ "${{ needs.detect-changes.outputs.solid }}" = "true" ]; then
-            publish_pkg "packages/integrations/solid/deno.json"
+            publish_pkg "packages/integrations/solid/package.json"
           fi
           if [ "${{ needs.detect-changes.outputs.vue }}" = "true" ]; then
-            publish_pkg "packages/integrations/vue/deno.json"
+            publish_pkg "packages/integrations/vue/package.json"
           fi
 
       # Uncomment when ready to actually publish (replace --dry-run with real publish):
-      # Change `deno publish --dry-run` to `deno publish --tag canary` above
+      # Change `npm publish --dry-run` to `npm publish --access public` above
+      # And add NPM_TOKEN secret to the environment

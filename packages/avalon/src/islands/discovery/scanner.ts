@@ -6,6 +6,7 @@
  */
 
 import { resolve, relative, dirname, basename, extname } from "node:path";
+import { stat as fsStat, readdir } from "node:fs/promises";
 import type {
   IslandDirectory,
   IslandDiscoveryConfig,
@@ -35,8 +36,8 @@ export async function discoverIslandDirectories(
 
   // Check if src directory exists
   try {
-    const stat = await Deno.stat(srcDir);
-    if (!stat.isDirectory) {
+    const statResult = await fsStat(srcDir);
+    if (!statResult.isDirectory()) {
       return directories;
     }
   } catch {
@@ -72,8 +73,9 @@ async function scanForIslandDirectories(
   results: IslandDirectory[]
 ): Promise<void> {
   try {
-    for await (const entry of Deno.readDir(currentDir)) {
-      if (!entry.isDirectory) continue;
+    const entries = await readdir(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
 
       const fullPath = resolve(currentDir, entry.name);
       const relativeFromRoot = relative(projectRoot, fullPath);
@@ -103,9 +105,9 @@ async function scanForIslandDirectories(
         results
       );
     }
-  } catch (error) {
+  } catch (error: any) {
     // Log but don't fail on permission errors or other issues
-    if (!(error instanceof Deno.errors.PermissionDenied)) {
+    if (error?.code !== 'EACCES') {
       console.warn(`Warning: Could not scan directory ${currentDir}:`, error);
     }
   }
@@ -192,8 +194,8 @@ export async function hasDefaultIslandsDirectory(
 ): Promise<boolean> {
   const defaultPath = getDefaultIslandsPath(projectRoot, rootDir);
   try {
-    const stat = await Deno.stat(defaultPath);
-    return stat.isDirectory;
+    const statResult = await fsStat(defaultPath);
+    return statResult.isDirectory();
   } catch {
     return false;
   }
@@ -214,8 +216,9 @@ export async function discoverIslandsInDirectory(
   const islands: DiscoveredIsland[] = [];
 
   try {
-    for await (const entry of Deno.readDir(directory.path)) {
-      if (!entry.isFile) continue;
+    const entries = await readdir(directory.path, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
 
       const ext = extname(entry.name);
       if (!isSupportedIslandExtension(ext)) continue;

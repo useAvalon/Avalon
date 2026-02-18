@@ -1,0 +1,25 @@
+{
+  "name": "avalon-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/avalon",
+    "packages/integrations/*",
+    "Avalon"
+  ],
+  "scripts": {
+    "dev": "bun run --filter avalon-demo dev",
+    "build": "bun run --filter avalon-demo build",
+    "test": "bunx vitest run",
+    "lint": "bunx biome check .",
+    "format": "bunx biome format --write .",
+    "typecheck": "bunx tsc --noEmit"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/bun": "^1.3.9",
+    "fast-check": "^3.22.0",
+    "typescript": "^5.3.3",
+    "vite": "^7.3.1",
+    "vitest": "^3.0.0"
+  }
+}

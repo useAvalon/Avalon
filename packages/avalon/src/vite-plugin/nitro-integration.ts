@@ -9,6 +9,7 @@
 
 import type { Plugin, ViteDevServer } from "vite";
 import { nitro as nitroVitePlugin } from "nitro/vite";
+import { stat as fsStat } from "node:fs/promises";
 import type { ResolvedAvalonConfig } from "./types.ts";
 import {
   createNitroConfig,
@@ -155,7 +156,7 @@ export function createNitroCoordinationPlugin(
 
       async function getScopedMiddleware(): Promise<MiddlewareRoute[]> {
         if (!scopedMiddlewareRoutes) {
-          const viteRoot = server.config.root || Deno.cwd();
+          const viteRoot = server.config.root || process.cwd();
           scopedMiddlewareRoutes = await discoverScopedMiddleware({
             baseDir: `${viteRoot}/src`,
             devMode: verbose,
@@ -509,9 +510,9 @@ export function isDevelopmentMode(): boolean {
 
 // ─── SSR Request Handling ────────────────────────────────────────────────────
 
-// deno-lint-ignore no-explicit-any
+
 let cachedSSRModule: any = null;
-// deno-lint-ignore no-explicit-any
+
 let cachedLayoutModule: any = null;
 
 async function handleSSRRequest(
@@ -554,7 +555,7 @@ async function findPageFile(
   }
 
   const extensions = [".tsx", ".ts", ".jsx", ".js", ".mdx", ".md"];
-  const viteRoot = server.config.root || Deno.cwd();
+  const viteRoot = server.config.root || process.cwd();
   const possiblePaths: string[] = [];
 
   for (const ext of extensions) {
@@ -569,8 +570,8 @@ async function findPageFile(
   for (const relativePath of possiblePaths) {
     try {
       const fullPath = `${viteRoot}/${relativePath}`;
-      const stat = await Deno.stat(fullPath);
-      if (stat.isFile) return `/${relativePath}`;
+      const stat = await fsStat(fullPath);
+      if (stat.isFile()) return `/${relativePath}`;
     } catch {
       // File doesn't exist
     }
@@ -608,7 +609,7 @@ async function renderPageToHtml(
     // Try layout-aware rendering first
     if (ssrModule.renderToHtmlWithLayouts && layoutModule.EnhancedLayoutResolver && layoutModule.EnhancedLayoutResolverUtils) {
       try {
-        const viteRoot = server.config.root || Deno.cwd();
+        const viteRoot = server.config.root || process.cwd();
 
         if (!globalThis.__avalonLayoutResolver) {
           globalThis.__avalonLayoutResolver = new layoutModule.EnhancedLayoutResolver({
@@ -761,7 +762,7 @@ async function findApiFile(
 ): Promise<string | null> {
   const routePath = pathname.replace(/^\/api/, "") || "/index";
   const extensions = [".ts", ".js"];
-  const viteRoot = server.config.root || Deno.cwd();
+  const viteRoot = server.config.root || process.cwd();
   const possiblePaths: string[] = [];
 
   for (const ext of extensions) {
@@ -776,8 +777,8 @@ async function findApiFile(
   for (const relativePath of possiblePaths) {
     try {
       const fullPath = `${viteRoot}/${relativePath}`;
-      const stat = await Deno.stat(fullPath);
-      if (stat.isFile) return `/${relativePath}`;
+      const stat = await fsStat(fullPath);
+      if (stat.isFile()) return `/${relativePath}`;
     } catch {
       // File doesn't exist
     }

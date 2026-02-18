@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { resolve } from '@std/path';
+import { resolve } from 'node:path';
 import type { UserConfig } from 'vite';
 
 /**

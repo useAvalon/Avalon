@@ -17,7 +17,7 @@
  */
 export function isDev(): boolean {
   try {
-    return typeof Deno !== "undefined" && Deno.env?.get("DENO_ENV") !== "production";
+    return process.env.NODE_ENV !== "production";
   } catch {
     return true; // Default to dev mode if we can't check
   }
@@ -29,7 +29,7 @@ export function isDev(): boolean {
  */
 export function isVerbose(): boolean {
   try {
-    return typeof Deno !== "undefined" && Deno.env?.get("AVALON_VERBOSE") === "1";
+    return process.env.AVALON_VERBOSE === "1";
   } catch {
     return false;
   }
@@ -178,14 +178,13 @@ export class DevLogger {
     this.suppressConsole();
     
     // Clear screen once at start
-    const encoder = new TextEncoder();
-    Deno.stdout.writeSync(encoder.encode('\x1b[2J\x1b[H'));
+    process.stdout.write('\x1b[2J\x1b[H');
     
     const header = COLORS.cyan + AVALON_ASCII + COLORS.reset + '\n' +
                    COLORS.gray + '  Development Server' + COLORS.reset + '\n\n';
     this.headerLines = AVALON_ASCII.split('\n').length + 2;
     
-    Deno.stdout.writeSync(encoder.encode(header));
+    process.stdout.write(header);
   }
 
   private suppressConsole() {
@@ -251,8 +250,7 @@ export class DevLogger {
     // Clear to end of line
     output += '\x1b[K';
     
-    const encoder = new TextEncoder();
-    Deno.stdout.writeSync(encoder.encode(output));
+    process.stdout.write(output);
   }
 
   startSpinner() {
@@ -272,10 +270,9 @@ export class DevLogger {
     this.stopSpinner();
     
     // Clear the status line
-    const encoder = new TextEncoder();
     let output = `\x1b[${this.headerLines + 1};0H`;
     output += '\x1b[J'; // Clear from cursor down
-    Deno.stdout.writeSync(encoder.encode(output));
+    process.stdout.write(output);
     
     const elapsed = ((Date.now() - this.startTime) / 1000).toFixed(1);
     

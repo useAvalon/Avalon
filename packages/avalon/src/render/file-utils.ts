@@ -3,11 +3,12 @@
  */
 
 import { join } from 'node:path';
-import { typeByExtension } from '@std/media-types';
+import { readFile as fsReadFile } from 'node:fs/promises';
+import mime from 'mime-types';
 import { BINARY_EXTENSIONS, FONT_EXTENSIONS, STATIC_FILE_EXTENSIONS, DANGEROUS_PATH_PATTERNS } from './constants.ts';
 
 function getMimeType(extension: string): string {
-	return typeByExtension(extension) || 'application/octet-stream';
+	return mime.lookup(extension) || 'application/octet-stream';
 }
 
 // Security helpers
@@ -66,7 +67,7 @@ export async function serveBinaryFile(
 	originalUrl?: string,
 	normalizedPath?: string
 ): Promise<Response> {
-	const fileBytes = await Deno.readFile(filePath);
+	const fileBytes = await fsReadFile(filePath);
 
 	const headers = isFontFile(extension)
 		? createFontHeaders(extension, originalUrl || (normalizedPath ? '/' + normalizedPath : undefined))
@@ -76,7 +77,7 @@ export async function serveBinaryFile(
 }
 
 export async function serveTextFile(filePath: string, extension: string): Promise<Response> {
-	const fileContent = await Deno.readTextFile(filePath);
+	const fileContent = await fsReadFile(filePath, 'utf-8');
 	return new Response(fileContent, { headers: createTextHeaders(extension) });
 }
 

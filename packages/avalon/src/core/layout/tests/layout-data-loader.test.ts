@@ -1,5 +1,4 @@
-import { assertEquals, assertThrows, assert } from '@std/assert';
-import { describe, it, beforeEach } from '@std/testing/bdd';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
 	LayoutDataLoader,
 	LayoutDataLoadingError,
@@ -10,7 +9,6 @@ import {
 } from '../layout-data-loader.ts';
 import type { LayoutContext, LayoutData, LayoutHandler, LayoutLoader } from '../../../schemas/layout.ts';
 
-// Mock layout handlers for testing
 function createMockLayoutHandler(path: string, loader?: LayoutLoader, priority: number = 0): LayoutHandler {
 	return {
 		component: () => null,
@@ -20,7 +18,6 @@ function createMockLayoutHandler(path: string, loader?: LayoutLoader, priority: 
 	};
 }
 
-// Mock layout context for testing
 function createMockLayoutContext(): LayoutContext {
 	return {
 		request: new Request('http://localhost/test'),
@@ -45,9 +42,8 @@ describe('LayoutDataLoader', () => {
 	describe('loadLayoutData', () => {
 		it('should return empty array when no handlers have loaders', async () => {
 			const handlers = [createMockLayoutHandler('/layout1'), createMockLayoutHandler('/layout2')];
-
 			const results = await loader.loadLayoutData(handlers, mockContext);
-			assertEquals(results.length, 0);
+			expect(results.length).toEqual(0);
 		});
 
 		it('should load data from single layout loader', async () => {
@@ -57,11 +53,11 @@ describe('LayoutDataLoader', () => {
 
 			const results = await loader.loadLayoutData(handlers, mockContext);
 
-			assertEquals(results.length, 1);
-			assertEquals(results[0].success, true);
-			assertEquals(results[0].data, testData);
-			assertEquals(results[0].layoutPath, '/layout1');
-			assert(results[0].loadingTime >= 0);
+			expect(results.length).toEqual(1);
+			expect(results[0].success).toEqual(true);
+			expect(results[0].data).toEqual(testData);
+			expect(results[0].layoutPath).toEqual('/layout1');
+			expect(results[0].loadingTime >= 0).toEqual(true);
 		});
 
 		it('should load data from multiple layout loaders in parallel', async () => {
@@ -86,14 +82,13 @@ describe('LayoutDataLoader', () => {
 			const results = await loader.loadLayoutData(handlers, mockContext);
 			const totalTime = performance.now() - startTime;
 
-			assertEquals(results.length, 2);
-			assertEquals(results[0].success, true);
-			assertEquals(results[0].data, testData1);
-			assertEquals(results[1].success, true);
-			assertEquals(results[1].data, testData2);
+			expect(results.length).toEqual(2);
+			expect(results[0].success).toEqual(true);
+			expect(results[0].data).toEqual(testData1);
+			expect(results[1].success).toEqual(true);
+			expect(results[1].data).toEqual(testData2);
 
-			// Should complete in parallel (less than sequential time)
-			assert(totalTime < 140); // Should be closer to 100ms than 150ms
+			expect(totalTime < 140).toEqual(true);
 		});
 
 		it('should handle loader errors gracefully when continueOnError is true', async () => {
@@ -110,12 +105,12 @@ describe('LayoutDataLoader', () => {
 
 			const results = await loader.loadLayoutData(handlers, mockContext);
 
-			assertEquals(results.length, 2);
-			assertEquals(results[0].success, false);
-			assert(results[0].error instanceof LayoutDataLoadingError);
-			assertEquals(results[0].layoutPath, '/layout1');
-			assertEquals(results[1].success, true);
-			assertEquals(results[1].data, testData);
+			expect(results.length).toEqual(2);
+			expect(results[0].success).toEqual(false);
+			expect(results[0].error).toBeInstanceOf(LayoutDataLoadingError);
+			expect(results[0].layoutPath).toEqual('/layout1');
+			expect(results[1].success).toEqual(true);
+			expect(results[1].data).toEqual(testData);
 		});
 
 		it('should fail fast when continueOnError is false', async () => {
@@ -136,8 +131,8 @@ describe('LayoutDataLoader', () => {
 
 			const results = await loaderWithError.loadLayoutData(handlers, mockContext);
 
-			assertEquals(results.length, 1);
-			assertEquals(results[0].success, false);
+			expect(results.length).toEqual(1);
+			expect(results[0].success).toEqual(false);
 		});
 
 		it('should handle timeout errors', async () => {
@@ -153,9 +148,9 @@ describe('LayoutDataLoader', () => {
 			const handlers = [createMockLayoutHandler('/slow-layout', slowLoader)];
 			const results = await timeoutLoader.loadLayoutData(handlers, mockContext);
 
-			assertEquals(results.length, 1);
-			assertEquals(results[0].success, false);
-			assert(results[0].error?.message.includes('timed out'));
+			expect(results.length).toEqual(1);
+			expect(results[0].success).toEqual(false);
+			expect(results[0].error?.message).toContain('timed out');
 		});
 
 		it('should retry failed loaders', async () => {
@@ -176,10 +171,10 @@ describe('LayoutDataLoader', () => {
 			const handlers = [createMockLayoutHandler('/retry-layout', retryLoader)];
 			const results = await retryingLoader.loadLayoutData(handlers, mockContext);
 
-			assertEquals(results.length, 1);
-			assertEquals(results[0].success, true);
-			assertEquals(results[0].data.attempt, 3);
-			assertEquals(attemptCount, 3);
+			expect(results.length).toEqual(1);
+			expect(results[0].success).toEqual(true);
+			expect(results[0].data.attempt).toEqual(3);
+			expect(attemptCount).toEqual(3);
 		});
 
 		it('should load data sequentially when parallel loading is disabled', async () => {
@@ -202,53 +197,35 @@ describe('LayoutDataLoader', () => {
 			};
 
 			const handlers = [createMockLayoutHandler('/layout1', loader1), createMockLayoutHandler('/layout2', loader2)];
-
 			const results = await sequentialLoader.loadLayoutData(handlers, mockContext);
 
-			assertEquals(results.length, 2);
-			assertEquals(executionOrder, ['loader1', 'loader2']);
-			assertEquals(results[0].data.order, 1);
-			assertEquals(results[1].data.order, 2);
+			expect(results.length).toEqual(2);
+			expect(executionOrder).toEqual(['loader1', 'loader2']);
+			expect(results[0].data.order).toEqual(1);
+			expect(results[1].data.order).toEqual(2);
 		});
 	});
 
 	describe('processLoadingResults', () => {
 		it('should process successful loading results correctly', () => {
 			const handlers = [createMockLayoutHandler('/layout1'), createMockLayoutHandler('/layout2')];
-
 			const results = [
-				{
-					success: true,
-					data: { layout1: 'data1' },
-					loadingTime: 100,
-					layoutPath: '/layout1',
-				},
-				{
-					success: true,
-					data: { layout2: 'data2' },
-					loadingTime: 150,
-					layoutPath: '/layout2',
-				},
+				{ success: true, data: { layout1: 'data1' }, loadingTime: 100, layoutPath: '/layout1' },
+				{ success: true, data: { layout2: 'data2' }, loadingTime: 150, layoutPath: '/layout2' },
 			];
 
 			const { data, errors } = loader.processLoadingResults(results, handlers);
 
-			assertEquals(data.length, 2);
-			assertEquals(data[0], { layout1: 'data1' });
-			assertEquals(data[1], { layout2: 'data2' });
-			assertEquals(errors.length, 0);
+			expect(data.length).toEqual(2);
+			expect(data[0]).toEqual({ layout1: 'data1' });
+			expect(data[1]).toEqual({ layout2: 'data2' });
+			expect(errors.length).toEqual(0);
 		});
 
 		it('should handle failed loading results with fallback data', () => {
 			const handlers = [createMockLayoutHandler('/layout1'), createMockLayoutHandler('/layout2')];
-
 			const results = [
-				{
-					success: true,
-					data: { layout1: 'data1' },
-					loadingTime: 100,
-					layoutPath: '/layout1',
-				},
+				{ success: true, data: { layout1: 'data1' }, loadingTime: 100, layoutPath: '/layout1' },
 				{
 					success: false,
 					data: {},
@@ -260,12 +237,12 @@ describe('LayoutDataLoader', () => {
 
 			const { data, errors } = loader.processLoadingResults(results, handlers);
 
-			assertEquals(data.length, 2);
-			assertEquals(data[0], { layout1: 'data1' });
-			assertEquals(data[1], {});
-			assertEquals(errors.length, 1);
-			assertEquals(errors[0].layoutPath, '/layout2');
-			assertEquals(errors[0].errorType, 'loader');
+			expect(data.length).toEqual(2);
+			expect(data[0]).toEqual({ layout1: 'data1' });
+			expect(data[1]).toEqual({});
+			expect(errors.length).toEqual(1);
+			expect(errors[0].layoutPath).toEqual('/layout2');
+			expect(errors[0].errorType).toEqual('loader');
 		});
 
 		it('should handle handlers without loaders', () => {
@@ -276,21 +253,16 @@ describe('LayoutDataLoader', () => {
 			];
 
 			const results = [
-				{
-					success: true,
-					data: { layout2: 'data2' },
-					loadingTime: 100,
-					layoutPath: '/layout2',
-				},
+				{ success: true, data: { layout2: 'data2' }, loadingTime: 100, layoutPath: '/layout2' },
 			];
 
 			const { data, errors } = loader.processLoadingResults(results, handlers);
 
-			assertEquals(data.length, 3);
-			assertEquals(data[0], {}); // No loader for layout1
-			assertEquals(data[1], { layout2: 'data2' });
-			assertEquals(data[2], {}); // No loader for layout3
-			assertEquals(errors.length, 0);
+			expect(data.length).toEqual(3);
+			expect(data[0]).toEqual({});
+			expect(data[1]).toEqual({ layout2: 'data2' });
+			expect(data[2]).toEqual({});
+			expect(errors.length).toEqual(0);
 		});
 	});
 
@@ -300,10 +272,10 @@ describe('LayoutDataLoader', () => {
 
 			const enhancedContext = loader.createEnhancedContext(mockContext, parentData);
 
-			assertEquals(enhancedContext.request, mockContext.request);
-			assertEquals(enhancedContext.params, mockContext.params);
-			assertEquals(enhancedContext.query, mockContext.query);
-			assertEquals(enhancedContext.state.get('parentLayoutData'), parentData);
+			expect(enhancedContext.request).toEqual(mockContext.request);
+			expect(enhancedContext.params).toEqual(mockContext.params);
+			expect(enhancedContext.query).toEqual(mockContext.query);
+			expect(enhancedContext.state.get('parentLayoutData')).toEqual(parentData);
 		});
 
 		it('should not modify original context', () => {
@@ -312,8 +284,8 @@ describe('LayoutDataLoader', () => {
 
 			loader.createEnhancedContext(mockContext, parentData);
 
-			assertEquals(mockContext.state, originalState);
-			assertEquals(mockContext.state.has('parentLayoutData'), false);
+			expect(mockContext.state).toEqual(originalState);
+			expect(mockContext.state.has('parentLayoutData')).toEqual(false);
 		});
 	});
 
@@ -322,11 +294,11 @@ describe('LayoutDataLoader', () => {
 			const error = new LayoutDataLoadingError('Test error', '/test-layout');
 			const fallbackData = loader.createFallbackData('/test-layout', error);
 
-			assertEquals(fallbackData.__layoutError, true);
-			assertEquals(fallbackData.__layoutPath, '/test-layout');
-			assertEquals(fallbackData.__errorMessage, 'Test error');
-			assertEquals(fallbackData.__errorType, 'data-loading');
-			assert(typeof fallbackData.__timestamp === 'number');
+			expect(fallbackData.__layoutError).toEqual(true);
+			expect(fallbackData.__layoutPath).toEqual('/test-layout');
+			expect(fallbackData.__errorMessage).toEqual('Test error');
+			expect(fallbackData.__errorType).toEqual('data-loading');
+			expect(typeof fallbackData.__timestamp).toEqual('number');
 		});
 	});
 
@@ -334,32 +306,26 @@ describe('LayoutDataLoader', () => {
 		it('should validate correct layout data', () => {
 			const validData = { key: 'value', number: 42 };
 			const result = loader.validateLayoutData(validData, '/test');
-			assertEquals(result, validData);
+			expect(result).toEqual(validData);
 		});
 
 		it('should handle null and undefined data', () => {
-			assertEquals(loader.validateLayoutData(null, '/test'), {});
-			assertEquals(loader.validateLayoutData(undefined, '/test'), {});
+			expect(loader.validateLayoutData(null, '/test')).toEqual({});
+			expect(loader.validateLayoutData(undefined, '/test')).toEqual({});
 		});
 
 		it('should reject non-object data', () => {
-			assertThrows(
-				() => loader.validateLayoutData('string', '/test'),
-				LayoutDataLoadingError,
+			expect(() => loader.validateLayoutData('string', '/test')).toThrow(
 				'Layout loader must return an object, got string'
 			);
 
-			assertThrows(
-				() => loader.validateLayoutData(42, '/test'),
-				LayoutDataLoadingError,
+			expect(() => loader.validateLayoutData(42, '/test')).toThrow(
 				'Layout loader must return an object, got number'
 			);
 		});
 
 		it('should reject array data', () => {
-			assertThrows(
-				() => loader.validateLayoutData(['array'], '/test'),
-				LayoutDataLoadingError,
+			expect(() => loader.validateLayoutData(['array'], '/test')).toThrow(
 				'Layout loader must return an object, not an array'
 			);
 		});
@@ -375,8 +341,8 @@ describe('Utility Functions', () => {
 			});
 
 			const options = customLoader.getOptions();
-			assertEquals(options.timeout, 2000);
-			assertEquals(options.enableParallelLoading, false);
+			expect(options.timeout).toEqual(2000);
+			expect(options.enableParallelLoading).toEqual(false);
 		});
 	});
 
@@ -389,9 +355,9 @@ describe('Utility Functions', () => {
 
 			const result = await loadSingleLayoutData(handler, context);
 
-			assertEquals(result.success, true);
-			assertEquals(result.data, testData);
-			assertEquals(result.layoutPath, '/single-layout');
+			expect(result.success).toEqual(true);
+			expect(result.data).toEqual(testData);
+			expect(result.layoutPath).toEqual('/single-layout');
 		});
 
 		it('should handle handler without loader', async () => {
@@ -400,9 +366,9 @@ describe('Utility Functions', () => {
 
 			const result = await loadSingleLayoutData(handler, context);
 
-			assertEquals(result.success, true);
-			assertEquals(result.data, {});
-			assertEquals(result.layoutPath, '/no-loader');
+			expect(result.success).toEqual(true);
+			expect(result.data).toEqual({});
+			expect(result.layoutPath).toEqual('/no-loader');
 		});
 	});
 
@@ -414,11 +380,11 @@ describe('Utility Functions', () => {
 
 			const merged = mergeLayoutData(data1, data2, data3);
 
-			assertEquals(merged, {
+			expect(merged).toEqual({
 				key1: 'value1',
 				key2: 'value2',
 				key3: 'value3',
-				shared: 'from2', // Later values override earlier ones
+				shared: 'from2',
 			});
 		});
 
@@ -426,7 +392,7 @@ describe('Utility Functions', () => {
 			const validData = { key: 'value' };
 			const merged = mergeLayoutData(validData, null as any, undefined as any, [] as any, 'string' as any);
 
-			assertEquals(merged, { key: 'value' });
+			expect(merged).toEqual({ key: 'value' });
 		});
 	});
 
@@ -437,13 +403,13 @@ describe('Utility Functions', () => {
 			context.state.set('parentLayoutData', parentData);
 
 			const extracted = getParentLayoutData(context);
-			assertEquals(extracted, parentData);
+			expect(extracted).toEqual(parentData);
 		});
 
 		it('should return empty array when no parent data exists', () => {
 			const context = createMockLayoutContext();
 			const extracted = getParentLayoutData(context);
-			assertEquals(extracted, []);
+			expect(extracted).toEqual([]);
 		});
 
 		it('should return empty array when parent data is not an array', () => {
@@ -451,7 +417,7 @@ describe('Utility Functions', () => {
 			context.state.set('parentLayoutData', 'not-an-array');
 
 			const extracted = getParentLayoutData(context);
-			assertEquals(extracted, []);
+			expect(extracted).toEqual([]);
 		});
 	});
 });
@@ -461,17 +427,17 @@ describe('LayoutDataLoadingError', () => {
 		const originalError = new Error('Original error');
 		const layoutError = new LayoutDataLoadingError('Layout loading failed', '/test-layout', originalError);
 
-		assertEquals(layoutError.message, 'Layout loading failed');
-		assertEquals(layoutError.layoutPath, '/test-layout');
-		assertEquals(layoutError.originalError, originalError);
-		assertEquals(layoutError.name, 'LayoutDataLoadingError');
+		expect(layoutError.message).toEqual('Layout loading failed');
+		expect(layoutError.layoutPath).toEqual('/test-layout');
+		expect(layoutError.originalError).toEqual(originalError);
+		expect(layoutError.name).toEqual('LayoutDataLoadingError');
 	});
 
 	it('should create error without original error', () => {
 		const layoutError = new LayoutDataLoadingError('Layout loading failed', '/test-layout');
 
-		assertEquals(layoutError.message, 'Layout loading failed');
-		assertEquals(layoutError.layoutPath, '/test-layout');
-		assertEquals(layoutError.originalError, undefined);
+		expect(layoutError.message).toEqual('Layout loading failed');
+		expect(layoutError.layoutPath).toEqual('/test-layout');
+		expect(layoutError.originalError).toEqual(undefined);
 	});
 });

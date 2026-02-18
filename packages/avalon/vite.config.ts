@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
-import deno from '@deno/vite-plugin';
+import { readdir, readFile } from 'node:fs/promises';
 import type { UserConfig } from 'vite';
 import { createMDXPlugin } from './src/build/mdx-plugin.ts';
 import { integrationDetectionPlugin, detectUsedIntegrations, getRequiredIntegrations } from './src/build/integration-detection-plugin.ts';
@@ -26,7 +26,7 @@ function isSupportedFile(filename: string): boolean {
  * @returns Record of entry names to file paths for Vite build input
  */
 async function discoverIslandEntries(): Promise<Record<string, string>> {
-	const cwd = Deno.cwd();
+	const cwd = process.cwd();
 	const allEntries: Record<string, string> = {};
 
 	try {
@@ -61,13 +61,14 @@ async function hasFilesWithExtension(
 	extension: SupportedExtension,
 	dirs: readonly string[] = FRAMEWORK_DETECTION_DIRS
 ): Promise<boolean> {
-	const cwd = Deno.cwd();
+	const cwd = process.cwd();
 
 	for (const dir of dirs) {
 		try {
 			const dirPath = resolve(cwd, dir);
-			for await (const entry of Deno.readDir(dirPath)) {
-				if (entry.isFile && entry.name.endsWith(extension)) {
+			const entries = await readdir(dirPath, { withFileTypes: true });
+			for (const entry of entries) {
+				if (entry.isFile() && entry.name.endsWith(extension)) {
 					return true;
 				}
 			}
@@ -79,14 +80,15 @@ async function hasFilesWithExtension(
 }
 
 async function hasSolidFiles(): Promise<boolean> {
-	const cwd = Deno.cwd();
+	const cwd = process.cwd();
 
 	for (const dir of FRAMEWORK_DETECTION_DIRS) {
 		try {
 			const dirPath = resolve(cwd, dir);
-			for await (const entry of Deno.readDir(dirPath)) {
-				if (entry.isFile && (entry.name.endsWith('.tsx') || entry.name.endsWith('.jsx'))) {
-					const content = await Deno.readTextFile(resolve(dirPath, entry.name));
+			const entries = await readdir(dirPath, { withFileTypes: true });
+			for (const entry of entries) {
+				if (entry.isFile() && (entry.name.endsWith('.tsx') || entry.name.endsWith('.jsx'))) {
+					const content = await readFile(resolve(dirPath, entry.name), 'utf-8');
 					if (
 						content.includes('solid-js') ||
 						content.includes('from "solid-js"') ||
@@ -144,7 +146,6 @@ interface PluginConfig {
 
 async function loadFrameworkPlugin(pluginConfig: PluginConfig) {
 	try {
-		// deno-lint-ignore no-external-import
 		const module = await import(pluginConfig.packageName);
 		const plugin = pluginConfig.name === 'svelte' ? module.svelte : module.default;
 		console.log(`✅ ${pluginConfig.successMessage}`);
@@ -174,7 +175,7 @@ async function loadFrameworkPlugins(frameworks: { vue: boolean; solid: boolean; 
 			}),
 			successMessage: 'Vue plugin loaded for .vue file support',
 			errorMessage: 'Vue files detected but @vitejs/plugin-vue not available',
-			installHint: 'Install with: deno add npm:@vitejs/plugin-vue',
+			installHint: 'Install with: bun add @vitejs/plugin-vue',
 		});
 		if (vuePlugin) plugins.push(vuePlugin);
 	}
@@ -186,7 +187,7 @@ async function loadFrameworkPlugins(frameworks: { vue: boolean; solid: boolean; 
 			config: () => ({ ssr: true, hot: true }),
 			successMessage: 'Solid plugin loaded for Solid.js support with SSR',
 			errorMessage: 'Solid.js files detected but vite-plugin-solid not available',
-			installHint: 'Install with: deno add npm:vite-plugin-solid',
+			installHint: 'Install with: bun add vite-plugin-solid',
 		});
 		if (solidPlugin) plugins.push(solidPlugin);
 	}
@@ -206,7 +207,7 @@ async function loadFrameworkPlugins(frameworks: { vue: boolean; solid: boolean; 
 			}),
 			successMessage: 'Svelte plugin loaded for .svelte file support with SSR',
 			errorMessage: 'Svelte files detected but @sveltejs/vite-plugin-svelte not available',
-			installHint: 'Install with: deno add npm:@sveltejs/vite-plugin-svelte',
+			installHint: 'Install with: bun add @sveltejs/vite-plugin-svelte',
 		});
 		if (sveltePlugin) plugins.push(sveltePlugin);
 	}
@@ -251,8 +252,6 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			integrationBundlerPlugin({ integrations: requiredIntegrations, ssr: false }),
 			// MDX plugins
 			...mdxPlugins.map(plugin => ({ ...plugin, enforce: 'pre' })),
-			// Deno plugin
-			deno(),
 			// JSX import source plugin
 			createJsxImportSourcePlugin(),
 			// Framework-specific plugins

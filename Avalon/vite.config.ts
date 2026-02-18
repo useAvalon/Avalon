@@ -10,7 +10,6 @@ import tailwindcss from '@tailwindcss/vite';
 const logger = createLogger();
 const originalWarn = logger.warn.bind(logger);
 logger.warn = (msg, options) => {
-	if (msg.includes('UNRESOLVED_IMPORT') && msg.includes('@std/')) return;
 	if (msg.includes('`esbuild` option was specified by')) return;
 	if (msg.includes('optimizeDeps.rollupOptions') || msg.includes('optimizeDeps.esbuildOptions')) return;
 	if (msg.includes('recommend switching to `@vitejs/plugin-react-oxc`')) return;
@@ -163,18 +162,6 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		verbose: false,
 	});
 
-	// Additional plugins that are not part of framework integrations
-	const additionalPlugins: Plugin[] = [];
-
-	// Deno plugin for Deno compatibility
-	try {
-		const { default: deno } = await import('@deno/vite-plugin');
-		const denoPlugins = deno();
-		additionalPlugins.push(...(Array.isArray(denoPlugins) ? denoPlugins : [denoPlugins]));
-	} catch (error) {
-		console.warn('Could not load @deno/vite-plugin:', error);
-	}
-
 	// Auto-discover island entry points for build
 	const islandEntries: Record<string, string> = {};
 	try {
@@ -200,8 +187,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 		// Tailwind must come first to process CSS before other plugins
 		// Then Avalon plugins: Lit SSR shim → MDX → Core Avalon → Framework plugins
-		// Additional plugins (like Deno) come after
-		plugins: [tailwindcss() as unknown as Plugin, ...avalonPlugins, ...additionalPlugins.filter(p => p.name !== 'tailwindcss')],
+		plugins: [tailwindcss() as unknown as Plugin, ...avalonPlugins],
 
 		optimizeDeps: {
 			include: [
@@ -216,12 +202,6 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			outDir: 'dist',
 			emptyOutDir: true,
 			rollupOptions: {
-				external: [/^@std\//],
-				onwarn(warning, defaultHandler) {
-					// Suppress UNRESOLVED_IMPORT for Deno std library imports
-					if (warning.code === 'UNRESOLVED_IMPORT' && warning.exporter?.startsWith('@std/')) return;
-					defaultHandler(warning);
-				},
 				input: islandEntries,
 				output: {
 					entryFileNames: chunkInfo => chunkInfo.name?.startsWith('islands/') ? 'islands/[name].[hash].js' : '[name].[hash].js',
@@ -250,17 +230,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 		ssr: {
 			// webworker target: Vite bundles all deps by default (handles CJS→ESM).
-			// Lit packages are explicitly externalized because their deep dependency
-			// tree (linkedom, uhyphen, cssom, buffer…) can't be processed by Vite's
-			// module runner under Deno. Their bare-specifier deps are in the import map.
 			target: 'webworker',
-			external: [
-				'linkedom', 'uhyphen', 'cssom',
-				'lit', 'lit-html', 'lit-element',
-				'@lit/reactive-element',
-				'@lit-labs/ssr', '@lit-labs/ssr-client', '@lit-labs/ssr-dom-shim',
-				'parse5', '@parse5/tools', 'enhanced-resolve', 'node-fetch',
-			],
 			noExternal: [
 				'vue', '@vue/server-renderer', '@vue/shared',
 				'svelte', 'svelte/internal', 'svelte/store', 'svelte/server',
@@ -270,9 +240,6 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 		resolve: {
 			alias: {
-				// Deno std library → Node built-ins (for Vite's SSR module runner)
-				'@std/path': 'node:path',
-				'@std/fs': resolve('../packages/avalon/src/utils/std-fs-shim.ts'),
 				'@/': resolve('src/'),
 				'$components/': resolve('src/components/'),
 				'$layouts/': resolve('src/layouts/'),

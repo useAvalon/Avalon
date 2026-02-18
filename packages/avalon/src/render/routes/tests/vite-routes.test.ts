@@ -2,28 +2,28 @@
  * Tests for Vite route proxying functionality
  */
 
-import { assertEquals } from '@std/assert';
+import { describe, it, expect } from 'vitest';
 import { createViteRoutes } from '../vite-routes.ts';
 import { DEFAULT_SERVER_PORT, VITE_DEV_PORT } from '../../constants.ts';
 
-Deno.test('createViteRoutes - Development mode', async t => {
+describe('createViteRoutes - Development mode', () => {
 	const viteServerUrl = `http://localhost:${VITE_DEV_PORT}`;
 	const routes = createViteRoutes(true, viteServerUrl);
 
-	await t.step('should create routes in development mode', () => {
-		assertEquals(Array.isArray(routes), true);
-		assertEquals(routes.length > 0, true);
+	it('should create routes in development mode', () => {
+		expect(Array.isArray(routes)).toEqual(true);
+		expect(routes.length > 0).toEqual(true);
 	});
 
-	await t.step('should include .vite/deps/* route pattern', () => {
-		const viteDepRoute = routes.find(route => 
+	it('should include .vite/deps/* route pattern', () => {
+		const viteDepRoute = routes.find(route =>
 			route.pattern.pathname === '/.vite/deps/*'
 		);
-		assertEquals(viteDepRoute !== undefined, true, 'Missing .vite/deps/* route pattern');
-		assertEquals(typeof viteDepRoute?.handler, 'function');
+		expect(viteDepRoute !== undefined).toEqual(true);
+		expect(typeof viteDepRoute?.handler).toEqual('function');
 	});
 
-	await t.step('should include all required Vite route patterns', () => {
+	it('should include all required Vite route patterns', () => {
 		const expectedPatterns = [
 			'/.vite/deps/*',
 			'/@vite/*',
@@ -37,37 +37,36 @@ Deno.test('createViteRoutes - Development mode', async t => {
 
 		expectedPatterns.forEach(pattern => {
 			const route = routes.find(r => r.pattern.pathname === pattern);
-			assertEquals(route !== undefined, true, `Missing route pattern: ${pattern}`);
+			expect(route !== undefined).toEqual(true);
 		});
 	});
 });
 
-Deno.test('createViteRoutes - Production mode', async t => {
-	await t.step('should return empty array in production mode', () => {
+describe('createViteRoutes - Production mode', () => {
+	it('should return empty array in production mode', () => {
 		const routes = createViteRoutes(false, '');
-		assertEquals(routes.length, 0);
+		expect(routes.length).toEqual(0);
 	});
 
-	await t.step('should return empty array when viteServerUrl is empty', () => {
+	it('should return empty array when viteServerUrl is empty', () => {
 		const routes = createViteRoutes(true, '');
-		assertEquals(routes.length, 0);
+		expect(routes.length).toEqual(0);
 	});
 });
 
-Deno.test('Vite route patterns - URL matching', async t => {
+describe('Vite route patterns - URL matching', () => {
 	const viteServerUrl = `http://localhost:${VITE_DEV_PORT}`;
 	const routes = createViteRoutes(true, viteServerUrl);
 
-	await t.step('should match .vite/deps/ URLs', () => {
-		const viteDepRoute = routes.find(route => 
+	it('should match .vite/deps/ URLs', () => {
+		const viteDepRoute = routes.find(route =>
 			route.pattern.pathname === '/.vite/deps/*'
 		);
-		
+
 		if (!viteDepRoute) {
 			throw new Error('.vite/deps/* route not found');
 		}
 
-		// Test various dependency URLs
 		const testUrls = [
 			`http://localhost:${DEFAULT_SERVER_PORT}/.vite/deps/preact.js`,
 			`http://localhost:${DEFAULT_SERVER_PORT}/.vite/deps/solid-js_web.js`,
@@ -79,15 +78,15 @@ Deno.test('Vite route patterns - URL matching', async t => {
 		testUrls.forEach(url => {
 			const urlPattern = viteDepRoute.pattern;
 			const match = urlPattern.test(url);
-			assertEquals(match, true, `URL should match pattern: ${url}`);
+			expect(match).toEqual(true);
 		});
 	});
 
-	await t.step('should not match non-vite URLs', () => {
-		const viteDepRoute = routes.find(route => 
+	it('should not match non-vite URLs', () => {
+		const viteDepRoute = routes.find(route =>
 			route.pattern.pathname === '/.vite/deps/*'
 		);
-		
+
 		if (!viteDepRoute) {
 			throw new Error('.vite/deps/* route not found');
 		}
@@ -102,7 +101,7 @@ Deno.test('Vite route patterns - URL matching', async t => {
 		nonMatchingUrls.forEach(url => {
 			const urlPattern = viteDepRoute.pattern;
 			const match = urlPattern.test(url);
-			assertEquals(match, false, `URL should not match pattern: ${url}`);
+			expect(match).toEqual(false);
 		});
 	});
 });

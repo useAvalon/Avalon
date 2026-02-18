@@ -1,0 +1,16 @@
+{
+	"name": "@avalon/integration-solid",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./mod.ts",
+		"./server": "./server/renderer.ts",
+		"./client": "./client/index.ts",
+		"./types": "./types.ts"
+	},
+	"dependencies": {
+		"solid-js": "1.9.8",
+		"vite": "8.0.0-beta.10",
+		"vite-plugin-solid": "^2.11.6"
+	}
+}

@@ -33,7 +33,8 @@ export interface AnalysisReport {
 export async function analyzeComponentFile(filePath: string, options: AnalyzerOptions = {}): Promise<AnalysisReport> {
 	try {
 		// Read component file
-		const content = await Deno.readTextFile(filePath);
+		const { readFile } = await import('node:fs/promises');
+		const content = await readFile(filePath, 'utf-8');
 
 		// Perform analysis
 		const analysis = analyzeComponent(filePath, content);

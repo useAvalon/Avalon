@@ -186,7 +186,7 @@ export function createLoadContext(
   viteServer?: ViteDevServer,
   buildOutput?: string,
 ) {
-  const isDev = Deno.env.get("DENO_ENV") !== "production";
+  const isDev = process.env.NODE_ENV !== "production";
 
   return {
     isDev,

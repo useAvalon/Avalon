@@ -33,6 +33,9 @@
  * @module nitro/static-assets
  */
 
+import { stat, readFile } from "node:fs/promises";
+import type { Stats } from "node:fs";
+
 /**
  * Configuration options for static asset serving
  */
@@ -322,7 +325,7 @@ export async function findCompressedFile(
   const compressedPath = filePath + ext;
 
   try {
-    await Deno.stat(compressedPath);
+    await stat(compressedPath);
     return compressedPath;
   } catch {
     return null;
@@ -357,8 +360,8 @@ export async function resolveStaticAsset(
 
     // Check if the file exists
     try {
-      const stat = await Deno.stat(filePath);
-      if (!stat.isFile) continue;
+      const fileStat = await stat(filePath);
+      if (!fileStat.isFile()) continue;
 
       // File exists, check for compressed versions if compression is enabled
       let resolvedPath = filePath;
@@ -401,7 +404,7 @@ export async function resolveStaticAsset(
  * @param stat - File stat information
  * @returns ETag string
  */
-export function generateETag(stat: Deno.FileInfo): string {
+export function generateETag(stat: Stats): string {
   const mtime = stat.mtime?.getTime() ?? 0;
   const size = stat.size;
   return `"${mtime.toString(16)}-${size.toString(16)}"`;
@@ -452,7 +455,7 @@ export function shouldReturn304(
  */
 export function createStaticAssetHeaders(
   asset: ResolvedStaticAsset,
-  stat: Deno.FileInfo,
+  stat: Stats,
   config: StaticAssetConfig = {}
 ): Headers {
   const mergedConfig = { ...DEFAULT_STATIC_ASSET_CONFIG, ...config };
@@ -519,13 +522,13 @@ export async function serveStaticAsset(
   }
 
   // Get file stats
-  const stat = await Deno.stat(asset.filePath);
+  const fileStat = await stat(asset.filePath);
 
   // Check for 304 Not Modified
   const mergedConfig = { ...DEFAULT_STATIC_ASSET_CONFIG, ...config };
   if (mergedConfig.etag) {
-    const etag = generateETag(stat);
-    if (shouldReturn304(request.headers, etag, stat.mtime)) {
+    const etag = generateETag(fileStat);
+    if (shouldReturn304(request.headers, etag, fileStat.mtime)) {
       return new Response(null, {
         status: 304,
         headers: {
@@ -537,7 +540,7 @@ export async function serveStaticAsset(
   }
 
   // Create response headers
-  const headers = createStaticAssetHeaders(asset, stat, config);
+  const headers = createStaticAssetHeaders(asset, fileStat, config);
 
   // Handle HEAD requests
   if (request.method === "HEAD") {
@@ -545,7 +548,7 @@ export async function serveStaticAsset(
   }
 
   // Read and return the file
-  const file = await Deno.readFile(asset.filePath);
+  const file = await readFile(asset.filePath);
   return new Response(file, { status: 200, headers });
 }
 

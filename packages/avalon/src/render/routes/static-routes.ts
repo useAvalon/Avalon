@@ -22,7 +22,7 @@ export function createStaticRoutes(isDev: boolean) {
 			handler: async (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/islands\//, '');
-				return await serveStaticFile(`islands/${path}`, join(Deno.cwd(), 'dist'));
+				return await serveStaticFile(`islands/${path}`, join(process.cwd(), 'dist'));
 			},
 		},
 
@@ -32,7 +32,7 @@ export function createStaticRoutes(isDev: boolean) {
 			handler: async (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/dist\//, '');
-				return await serveStaticFile(path, join(Deno.cwd(), 'dist'));
+				return await serveStaticFile(path, join(process.cwd(), 'dist'));
 			},
 		},
 
@@ -42,7 +42,7 @@ export function createStaticRoutes(isDev: boolean) {
 			handler: async (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/chunks\//, '');
-				return await serveStaticFile(path, join(Deno.cwd(), 'dist/chunks'));
+				return await serveStaticFile(path, join(process.cwd(), 'dist/chunks'));
 			},
 		},
 
@@ -52,7 +52,7 @@ export function createStaticRoutes(isDev: boolean) {
 			handler: async (req: Request, _middlewareContext?: MiddlewareContext, _layoutContext?: LayoutContext) => {
 				const url = new URL(req.url);
 				const path = url.pathname.replace(/^\/dist\//, '');
-				return await serveStaticFile(path, join(Deno.cwd(), 'dist'));
+				return await serveStaticFile(path, join(process.cwd(), 'dist'));
 			},
 		},
 
@@ -72,7 +72,6 @@ export function createStaticRoutes(isDev: boolean) {
 					path.includes('/.') ||
 					path.includes('node_modules') ||
 					path.includes('package.json') ||
-					path.includes('deno.json') ||
 					path.includes('.env')
 				) {
 					return new Response('Not Found', { status: 404 });

@@ -45,15 +45,15 @@ export class BuildLogger {
     console.warn = () => {}; // Suppress
     
     // Check if we're in a TTY
-    this.isTTY = Deno.stdout.isTerminal();
+    this.isTTY = process.stdout.isTTY ?? false;
     
     if (this.isTTY) {
       // Clear screen once and hide cursor
-      Deno.stdout.writeSync(this.encoder.encode('\x1b[2J\x1b[H\x1b[?25l'));
+      process.stdout.write('\x1b[2J\x1b[H\x1b[?25l');
       
       // Print ASCII art header (only once)
       const header = COLORS.cyan + AVALON_ASCII + COLORS.reset + '\n';
-      Deno.stdout.writeSync(this.encoder.encode(header));
+      process.stdout.write(header);
     } else {
       // Non-TTY: just print header once
       this.originalConsoleLog(COLORS.cyan + COLORS.bold + 'Avalon Build' + COLORS.reset);
@@ -136,7 +136,7 @@ export class BuildLogger {
       output += '\x1b[J';
       
       // Write directly to stdout
-      Deno.stdout.writeSync(this.encoder.encode(output));
+      process.stdout.write(output);
     }
   }
 
@@ -166,7 +166,7 @@ export class BuildLogger {
     
     if (this.isTTY) {
       // Show cursor
-      Deno.stdout.writeSync(this.encoder.encode('\x1b[?25h'));
+      process.stdout.write('\x1b[?25h');
     }
     
     const elapsed = ((Date.now() - this.startTime) / 1000).toFixed(1);

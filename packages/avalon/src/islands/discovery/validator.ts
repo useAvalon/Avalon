@@ -6,6 +6,7 @@
  */
 
 import { resolve, relative, basename, extname } from "node:path";
+import { readFile, stat as fsStat, readdir } from "node:fs/promises";
 import type {
   IslandDirectory,
   DiscoveredIsland,
@@ -155,7 +156,7 @@ export class IslandValidator {
     const errors: ValidationError[] = [];
     const warnings: ValidationWarning[] = [];
     try {
-      const content = await Deno.readTextFile(filePath);
+      const content = await readFile(filePath, 'utf-8');
       const ext = extname(filePath).toLowerCase();
       if (ext === ".vue") {
         if (!this.isValidVueComponent(content)) {
@@ -263,7 +264,7 @@ export class IslandValidator {
     for (const island of islands) {
       const imports: string[] = [];
       try {
-        const content = await Deno.readTextFile(island.filePath);
+        const content = await readFile(island.filePath, 'utf-8');
         const importedPaths = this.extractImports(content, island.filePath);
         for (const importPath of importedPaths) {
           const resolvedIsland = this.resolveImportToIsland(importPath, island, islandByName, islandPaths);
@@ -340,8 +341,8 @@ export class IslandValidator {
     const errors: ValidationError[] = [];
     const warnings: ValidationWarning[] = [];
     try {
-      const stat = await Deno.stat(filePath);
-      if (!stat.isFile) {
+      const statResult = await fsStat(filePath);
+      if (!statResult.isFile()) {
         errors.push({ type: "invalid-export", message: `Path is not a file: ${filePath}`, filePath });
         return { valid: false, errors, warnings };
       }
@@ -373,8 +374,9 @@ export class IslandValidator {
     const warnings: ValidationWarning[] = [];
     let hasIslands = false;
     try {
-      for await (const entry of Deno.readDir(directory.path)) {
-        if (!entry.isFile) continue;
+      const entries = await readdir(directory.path, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isFile()) continue;
         const ext = extname(entry.name);
         if (!isSupportedIslandExtension(ext)) continue;
         hasIslands = true;

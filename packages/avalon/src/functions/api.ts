@@ -1,5 +1,6 @@
 import { join, relative } from 'node:path';
-import { walk } from '../utils/std-fs-shim.ts';
+import { stat as fsStat, writeFile } from 'node:fs/promises';
+import { walk } from '../utils/fs.ts';
 import type { ApiRoute, ApiRouteConfig, ApiContext, ApiMethod } from '../schemas/api.ts';
 import type { MiddlewareContext } from '../schemas/middleware.ts';
 import { methodNotAllowed } from '../core/api/api.ts';
@@ -24,12 +25,12 @@ import { methodNotAllowed } from '../core/api/api.ts';
  * For serverless/edge deployments, use Nitro's native routing instead.
  */
 export async function discoverApiRoutes() {
-	const apiDir = join(Deno.cwd(), 'src', 'api');
+	const apiDir = join(process.cwd(), 'src', 'api');
 	const routes: ApiRoute[] = [];
 
 	// Check if API directory exists
 	try {
-		await Deno.stat(apiDir);
+		await fsStat(apiDir);
 	} catch {
 		// API directory doesn't exist, return empty array
 		return routes;
@@ -81,12 +82,12 @@ export function registerApiRoutes(routeConfigs: Array<{ path: string; config: Ap
  * @returns The generated TypeScript code as a string
  */
 export async function generateStaticRoutes(outputPath = './src/routes.ts') {
-	const apiDir = join(Deno.cwd(), 'src', 'api');
+	const apiDir = join(process.cwd(), 'src', 'api');
 	const routes: string[] = [];
 
 	// Check if API directory exists
 	try {
-		await Deno.stat(apiDir);
+		await fsStat(apiDir);
 	} catch {
 		console.warn('API directory not found, generating empty routes');
 		return generateRouteFile([]);
@@ -100,7 +101,7 @@ export async function generateStaticRoutes(outputPath = './src/routes.ts') {
 		if (entry.isFile) {
 			const relativePath = relative(apiDir, entry.path);
 			const urlPath = filePathToUrlPath(relativePath);
-			const importPath = relative(Deno.cwd(), entry.path);
+			const importPath = relative(process.cwd(), entry.path);
 			const routeName = `route_${routes.length}`;
 
 			routes.push(`import ${routeName} from './${importPath.replace(/\\/g, '/')}';`);
@@ -110,7 +111,7 @@ export async function generateStaticRoutes(outputPath = './src/routes.ts') {
 
 	const code = generateRouteFile(routes);
 
-	await Deno.writeTextFile(outputPath, code);
+	await writeFile(outputPath, code);
 	console.log(`Generated static routes at: ${outputPath}`);
 
 	return code;

@@ -47,7 +47,7 @@ export function mergeOptions(
 	routeOptions: Partial<RenderOptions>
 ): RenderOptions {
 	// Validate inputs in development mode (soft validation with warnings)
-	if (Deno.env.get('NODE_ENV') === 'development' || Deno.env.get('DENO_ENV') === 'development') {
+	if (process.env.NODE_ENV === 'development') {
 		devValidators.renderOptionsSoft(baseOptions, 'baseOptions');
 		devValidators.renderOptionsSoft(defaultOptions, 'defaultOptions');
 		devValidators.renderOptionsSoft(routeOptions, 'routeOptions');

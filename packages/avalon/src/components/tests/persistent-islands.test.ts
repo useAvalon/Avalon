@@ -1,4 +1,4 @@
-import { assertEquals, assertExists } from 'jsr:@std/assert';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { IslandPersistence } from '../../core/islands/island-persistence.ts';
 import { IslandStateSerializer } from '../../core/islands/island-state-serializer.ts';
 import { createPersistentIslandContext } from '../../core/islands/persistent-island-context.ts';
@@ -40,118 +40,108 @@ const mockStorage = new MockStorage();
 	sessionStorage: mockStorage,
 	localStorage: mockStorage,
 };
-
-// Also mock the global storage objects
 (globalThis as any).sessionStorage = mockStorage;
 (globalThis as any).localStorage = mockStorage;
 
-Deno.test('IslandPersistence - Basic Operations', async t => {
-	await t.step('should save and load state', () => {
-		mockStorage.clear();
+describe('IslandPersistence - Basic Operations', () => {
+	beforeEach(() => { mockStorage.clear(); });
+
+	it('should save and load state', () => {
 		const persistence = new IslandPersistence();
 		const testState: IslandState = { count: 42, name: 'test' };
 
 		persistence.saveState('test-island', testState);
 		const loadedState = persistence.loadState('test-island');
 
-		assertEquals(loadedState, testState);
+		expect(loadedState).toEqual(testState);
 	});
 
-	await t.step('should return null for non-existent state', () => {
-		mockStorage.clear();
+	it('should return null for non-existent state', () => {
 		const persistence = new IslandPersistence();
 		const loadedState = persistence.loadState('non-existent');
 
-		assertEquals(loadedState, null);
+		expect(loadedState).toEqual(null);
 	});
 
-	await t.step('should clear state', () => {
-		mockStorage.clear();
+	it('should clear state', () => {
 		const persistence = new IslandPersistence();
 		const testState: IslandState = { count: 42 };
 
 		persistence.saveState('test-island', testState);
-		assertEquals(persistence.hasState('test-island'), true);
+		expect(persistence.hasState('test-island')).toEqual(true);
 
 		persistence.clearState('test-island');
-		assertEquals(persistence.hasState('test-island'), false);
-		assertEquals(persistence.loadState('test-island'), null);
+		expect(persistence.hasState('test-island')).toEqual(false);
+		expect(persistence.loadState('test-island')).toEqual(null);
 	});
 
-	await t.step('should check if state exists', () => {
-		mockStorage.clear();
+	it('should check if state exists', () => {
 		const persistence = new IslandPersistence();
 		const testState: IslandState = { count: 42 };
 
-		assertEquals(persistence.hasState('test-island'), false);
+		expect(persistence.hasState('test-island')).toEqual(false);
 
 		persistence.saveState('test-island', testState);
-		assertEquals(persistence.hasState('test-island'), true);
+		expect(persistence.hasState('test-island')).toEqual(true);
 
-		// Clean up after this test
 		persistence.clearState('test-island');
 	});
 
-	await t.step('should get stored IDs', () => {
-		mockStorage.clear();
+	it('should get stored IDs', () => {
 		const persistence = new IslandPersistence();
 
 		persistence.saveState('island-1', { count: 1 });
 		persistence.saveState('island-2', { count: 2 });
 
 		const storedIds = persistence.getStoredIds();
-		assertEquals(storedIds.sort(), ['island-1', 'island-2']);
+		expect(storedIds.sort()).toEqual(['island-1', 'island-2']);
 	});
 
-	await t.step('should clear all states', () => {
-		mockStorage.clear();
+	it('should clear all states', () => {
 		const persistence = new IslandPersistence();
 
 		persistence.saveState('island-1', { count: 1 });
 		persistence.saveState('island-2', { count: 2 });
 
-		assertEquals(persistence.getStoredIds().length, 2);
+		expect(persistence.getStoredIds().length).toEqual(2);
 
 		persistence.clearAllStates();
-		assertEquals(persistence.getStoredIds().length, 0);
+		expect(persistence.getStoredIds().length).toEqual(0);
 	});
 });
 
-Deno.test('IslandPersistence - Configuration', async t => {
-	await t.step('should use custom key prefix', () => {
-		mockStorage.clear();
+describe('IslandPersistence - Configuration', () => {
+	beforeEach(() => { mockStorage.clear(); });
+
+	it('should use custom key prefix', () => {
 		const persistence = new IslandPersistence({ keyPrefix: 'custom-prefix' });
 		const testState: IslandState = { count: 42 };
 
 		persistence.saveState('test-island', testState);
 
-		// Check that the key was stored with custom prefix
 		const config = persistence.getConfig();
-		assertEquals(config.keyPrefix, 'custom-prefix');
+		expect(config.keyPrefix).toEqual('custom-prefix');
 
-		// Verify state can be loaded
 		const loadedState = persistence.loadState('test-island');
-		assertEquals(loadedState, testState);
+		expect(loadedState).toEqual(testState);
 
-		// Clean up
 		persistence.clearState('test-island');
 	});
 
-	await t.step('should provide storage stats', () => {
-		mockStorage.clear();
+	it('should provide storage stats', () => {
 		const persistence = new IslandPersistence();
 
 		persistence.saveState('island-1', { count: 1 });
 		persistence.saveState('island-2', { count: 2, name: 'test' });
 
 		const stats = persistence.getStorageStats();
-		assertEquals(stats.islandKeys, 2);
-		assertEquals(stats.estimatedSize > 0, true);
+		expect(stats.islandKeys).toEqual(2);
+		expect(stats.estimatedSize > 0).toEqual(true);
 	});
 });
 
-Deno.test('IslandStateSerializer - Basic Serialization', async t => {
-	await t.step('should serialize and deserialize basic types', () => {
+describe('IslandStateSerializer - Basic Serialization', () => {
+	it('should serialize and deserialize basic types', () => {
 		const state: IslandState = {
 			string: 'hello',
 			number: 42,
@@ -164,33 +154,33 @@ Deno.test('IslandStateSerializer - Basic Serialization', async t => {
 		const serialized = IslandStateSerializer.serialize(state);
 		const deserialized = IslandStateSerializer.deserialize(serialized);
 
-		assertEquals(deserialized, state);
+		expect(deserialized).toEqual(state);
 	});
 
-	await t.step('should handle Date objects', () => {
+	it('should handle Date objects', () => {
 		const date = new Date('2023-01-01T00:00:00.000Z');
 		const state: IslandState = { timestamp: date };
 
 		const serialized = IslandStateSerializer.serialize(state);
 		const deserialized = IslandStateSerializer.deserialize(serialized);
 
-		assertEquals(deserialized.timestamp instanceof Date, true);
-		assertEquals((deserialized.timestamp as Date).getTime(), date.getTime());
+		expect(deserialized.timestamp instanceof Date).toEqual(true);
+		expect((deserialized.timestamp as Date).getTime()).toEqual(date.getTime());
 	});
 
-	await t.step('should handle RegExp objects', () => {
+	it('should handle RegExp objects', () => {
 		const regex = /test/gi;
 		const state: IslandState = { pattern: regex };
 
 		const serialized = IslandStateSerializer.serialize(state);
 		const deserialized = IslandStateSerializer.deserialize(serialized);
 
-		assertEquals(deserialized.pattern instanceof RegExp, true);
-		assertEquals((deserialized.pattern as RegExp).source, regex.source);
-		assertEquals((deserialized.pattern as RegExp).flags, regex.flags);
+		expect(deserialized.pattern instanceof RegExp).toEqual(true);
+		expect((deserialized.pattern as RegExp).source).toEqual(regex.source);
+		expect((deserialized.pattern as RegExp).flags).toEqual(regex.flags);
 	});
 
-	await t.step('should handle Map objects', () => {
+	it('should handle Map objects', () => {
 		const map = new Map([
 			['key1', 'value1'],
 			['key2', 'value2'],
@@ -200,24 +190,24 @@ Deno.test('IslandStateSerializer - Basic Serialization', async t => {
 		const serialized = IslandStateSerializer.serialize(state);
 		const deserialized = IslandStateSerializer.deserialize(serialized);
 
-		assertEquals(deserialized.map instanceof Map, true);
-		assertEquals((deserialized.map as Map<string, string>).get('key1'), 'value1');
-		assertEquals((deserialized.map as Map<string, string>).get('key2'), 'value2');
+		expect(deserialized.map instanceof Map).toEqual(true);
+		expect((deserialized.map as Map<string, string>).get('key1')).toEqual('value1');
+		expect((deserialized.map as Map<string, string>).get('key2')).toEqual('value2');
 	});
 
-	await t.step('should handle Set objects', () => {
+	it('should handle Set objects', () => {
 		const set = new Set(['value1', 'value2']);
 		const state: IslandState = { set };
 
 		const serialized = IslandStateSerializer.serialize(state);
 		const deserialized = IslandStateSerializer.deserialize(serialized);
 
-		assertEquals(deserialized.set instanceof Set, true);
-		assertEquals((deserialized.set as Set<string>).has('value1'), true);
-		assertEquals((deserialized.set as Set<string>).has('value2'), true);
+		expect(deserialized.set instanceof Set).toEqual(true);
+		expect((deserialized.set as Set<string>).has('value1')).toEqual(true);
+		expect((deserialized.set as Set<string>).has('value2')).toEqual(true);
 	});
 
-	await t.step('should convert functions to null', () => {
+	it('should convert functions to null', () => {
 		const state: IslandState = {
 			func: () => 'test',
 			value: 42,
@@ -226,11 +216,11 @@ Deno.test('IslandStateSerializer - Basic Serialization', async t => {
 		const serialized = IslandStateSerializer.serialize(state);
 		const deserialized = IslandStateSerializer.deserialize(serialized);
 
-		assertEquals(deserialized.func, null);
-		assertEquals(deserialized.value, 42);
+		expect(deserialized.func).toEqual(null);
+		expect(deserialized.value).toEqual(42);
 	});
 
-	await t.step('should convert undefined to null', () => {
+	it('should convert undefined to null', () => {
 		const state: IslandState = {
 			undef: undefined,
 			value: 42,
@@ -239,30 +229,30 @@ Deno.test('IslandStateSerializer - Basic Serialization', async t => {
 		const serialized = IslandStateSerializer.serialize(state);
 		const deserialized = IslandStateSerializer.deserialize(serialized);
 
-		assertEquals(deserialized.undef, null);
-		assertEquals(deserialized.value, 42);
+		expect(deserialized.undef).toEqual(null);
+		expect(deserialized.value).toEqual(42);
 	});
 });
 
-Deno.test('IslandStateSerializer - Validation and Utilities', async t => {
-	await t.step('should validate serializable state', () => {
+describe('IslandStateSerializer - Validation and Utilities', () => {
+	it('should validate serializable state', () => {
 		const validState: IslandState = { count: 42, name: 'test' };
 		const validation = IslandStateSerializer.validate(validState);
 
-		assertEquals(validation.valid, true);
-		assertEquals(validation.errors.length, 0);
+		expect(validation.valid).toEqual(true);
+		expect(validation.errors.length).toEqual(0);
 	});
 
-	await t.step('should calculate state size', () => {
+	it('should calculate state size', () => {
 		const state: IslandState = { count: 42, name: 'test' };
 		const size = IslandStateSerializer.getSize(state);
 
-		assertEquals(size.bytes > 0, true);
-		assertEquals(size.kilobytes > 0, true);
-		assertEquals(typeof size.readable, 'string');
+		expect(size.bytes > 0).toEqual(true);
+		expect(size.kilobytes > 0).toEqual(true);
+		expect(typeof size.readable).toEqual('string');
 	});
 
-	await t.step('should clone state', () => {
+	it('should clone state', () => {
 		const original: IslandState = {
 			count: 42,
 			nested: { value: 'test' },
@@ -271,22 +261,21 @@ Deno.test('IslandStateSerializer - Validation and Utilities', async t => {
 
 		const cloned = IslandStateSerializer.clone(original);
 
-		// Should be equal but not the same reference
-		assertEquals(IslandStateSerializer.equals(original, cloned), true);
-		assertEquals(original === cloned, false);
-		assertEquals(original.nested === cloned.nested, false);
+		expect(IslandStateSerializer.equals(original, cloned)).toEqual(true);
+		expect(original === cloned).toEqual(false);
+		expect(original.nested === cloned.nested).toEqual(false);
 	});
 
-	await t.step('should compare states for equality', () => {
+	it('should compare states for equality', () => {
 		const state1: IslandState = { count: 42, name: 'test' };
 		const state2: IslandState = { count: 42, name: 'test' };
 		const state3: IslandState = { count: 43, name: 'test' };
 
-		assertEquals(IslandStateSerializer.equals(state1, state2), true);
-		assertEquals(IslandStateSerializer.equals(state1, state3), false);
+		expect(IslandStateSerializer.equals(state1, state2)).toEqual(true);
+		expect(IslandStateSerializer.equals(state1, state3)).toEqual(false);
 	});
 
-	await t.step('should sanitize state', () => {
+	it('should sanitize state', () => {
 		const state: IslandState = {
 			count: 42,
 			func: () => 'test',
@@ -296,28 +285,29 @@ Deno.test('IslandStateSerializer - Validation and Utilities', async t => {
 
 		const sanitized = IslandStateSerializer.sanitize(state);
 
-		assertEquals(sanitized.count, 42);
-		assertEquals(sanitized.func, null);
-		assertEquals(sanitized.undef, null);
-		assertEquals(sanitized.date instanceof Date, true);
+		expect(sanitized.count).toEqual(42);
+		expect(sanitized.func).toEqual(null);
+		expect(sanitized.undef).toEqual(null);
+		expect(sanitized.date instanceof Date).toEqual(true);
 	});
 });
 
-Deno.test('PersistentIslandContext - Context Creation', async t => {
-	await t.step('should create context with save/load/clear functions', () => {
+describe('PersistentIslandContext - Context Creation', () => {
+	beforeEach(() => { mockStorage.clear(); });
+
+	it('should create context with save/load/clear functions', () => {
 		const context = createPersistentIslandContext('test-island');
 
-		assertExists(context.saveState);
-		assertExists(context.loadState);
-		assertExists(context.clearState);
+		expect(context.saveState).toBeDefined();
+		expect(context.loadState).toBeDefined();
+		expect(context.clearState).toBeDefined();
 
-		assertEquals(typeof context.saveState, 'function');
-		assertEquals(typeof context.loadState, 'function');
-		assertEquals(typeof context.clearState, 'function');
+		expect(typeof context.saveState).toEqual('function');
+		expect(typeof context.loadState).toEqual('function');
+		expect(typeof context.clearState).toEqual('function');
 	});
 
-	await t.step('should save and load state through context', () => {
-		mockStorage.clear();
+	it('should save and load state through context', () => {
 		const persistence = new IslandPersistence();
 		const context = createPersistentIslandContext('test-island', persistence);
 		const testState: IslandState = { count: 42 };
@@ -325,30 +315,29 @@ Deno.test('PersistentIslandContext - Context Creation', async t => {
 		context.saveState(testState);
 		const loadedState = context.loadState();
 
-		assertEquals(loadedState, testState);
+		expect(loadedState).toEqual(testState);
 	});
 
-	await t.step('should clear state through context', () => {
-		mockStorage.clear();
+	it('should clear state through context', () => {
 		const persistence = new IslandPersistence();
 		const context = createPersistentIslandContext('test-island', persistence);
 		const testState: IslandState = { count: 42 };
 
 		context.saveState(testState);
-		assertEquals(context.loadState(), testState);
+		expect(context.loadState()).toEqual(testState);
 
 		context.clearState();
-		assertEquals(context.loadState(), null);
+		expect(context.loadState()).toEqual(null);
 	});
 });
 
-Deno.test('Integration - Complete Persistent Islands Flow', async t => {
-	await t.step('should handle complete save/load/clear cycle', () => {
-		mockStorage.clear();
+describe('Integration - Complete Persistent Islands Flow', () => {
+	beforeEach(() => { mockStorage.clear(); });
+
+	it('should handle complete save/load/clear cycle', () => {
 		const persistence = new IslandPersistence();
 		const context = createPersistentIslandContext('integration-test', persistence);
 
-		// Complex state with various data types
 		const complexState: IslandState = {
 			counter: 42,
 			user: {
@@ -367,59 +356,43 @@ Deno.test('Integration - Complete Persistent Islands Flow', async t => {
 			tags: new Set(['tag1', 'tag2', 'tag3']),
 		};
 
-		// Save through context
 		context.saveState(complexState);
 
-		// Verify persistence layer has the state
-		assertEquals(persistence.hasState('integration-test'), true);
+		expect(persistence.hasState('integration-test')).toEqual(true);
 
-		// Load through context
 		const loadedState = context.loadState();
-		assertExists(loadedState);
+		expect(loadedState).toBeDefined();
 
-		// Verify complex data types are preserved
-		assertEquals(loadedState.counter, 42);
-		assertEquals(loadedState.user.name, 'John Doe');
-		assertEquals(loadedState.timestamps[0] instanceof Date, true);
-		assertEquals(loadedState.patterns[0] instanceof RegExp, true);
-		assertEquals(loadedState.cache instanceof Map, true);
-		assertEquals(loadedState.tags instanceof Set, true);
+		expect(loadedState!.counter).toEqual(42);
+		expect(loadedState!.user.name).toEqual('John Doe');
+		expect(loadedState!.timestamps[0] instanceof Date).toEqual(true);
+		expect(loadedState!.patterns[0] instanceof RegExp).toEqual(true);
+		expect(loadedState!.cache instanceof Map).toEqual(true);
+		expect(loadedState!.tags instanceof Set).toEqual(true);
 
-		// Verify Map contents
-		const loadedMap = loadedState.cache as Map<string, any>;
-		assertEquals(loadedMap.get('key1').value, 'cached1');
-		assertEquals(loadedMap.get('key1').expires instanceof Date, true);
+		const loadedMap = loadedState!.cache as Map<string, any>;
+		expect(loadedMap.get('key1').value).toEqual('cached1');
+		expect(loadedMap.get('key1').expires instanceof Date).toEqual(true);
 
-		// Verify Set contents
-		const loadedSet = loadedState.tags as Set<string>;
-		assertEquals(loadedSet.has('tag1'), true);
-		assertEquals(loadedSet.has('tag2'), true);
-		assertEquals(loadedSet.has('tag3'), true);
+		const loadedSet = loadedState!.tags as Set<string>;
+		expect(loadedSet.has('tag1')).toEqual(true);
+		expect(loadedSet.has('tag2')).toEqual(true);
+		expect(loadedSet.has('tag3')).toEqual(true);
 
-		// Clear through context
 		context.clearState();
-		assertEquals(context.loadState(), null);
-		assertEquals(persistence.hasState('integration-test'), false);
+		expect(context.loadState()).toEqual(null);
+		expect(persistence.hasState('integration-test')).toEqual(false);
 	});
 
-	await t.step('should handle serialization errors gracefully', () => {
-		mockStorage.clear();
+	it('should handle serialization errors gracefully', () => {
 		const persistence = new IslandPersistence();
 
-		// Create a circular reference that will cause serialization to fail
 		const circularState: any = { count: 42 };
 		circularState.self = circularState;
 
-		// This should not throw, but should log an error
 		persistence.saveState('circular-test', circularState);
 
-		// Should return null since save failed
 		const loadedState = persistence.loadState('circular-test');
-		assertEquals(loadedState, null);
+		expect(loadedState).toEqual(null);
 	});
-});
-
-// Clean up after tests
-Deno.test('Cleanup', () => {
-	mockStorage.clear();
 });

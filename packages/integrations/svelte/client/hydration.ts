@@ -21,22 +21,14 @@ import type { SvelteComponent, SvelteComponentInstance } from "../types.ts";
 
 /**
  * Check if we're in development mode
- * Works in both Deno and browser environments
+ * Works in both Node.js/Bun and browser environments
  */
 function isDev(): boolean {
-  // Check Deno environment
-  if (typeof Deno !== 'undefined') {
-    try {
-      return Deno.env.get("DENO_ENV") !== "production";
-    } catch {
-      return true; // Default to dev if we can't read env
-    }
-  }
   // Check Vite's __DEV__ global (set in vite.config.ts)
   if (typeof globalThis !== 'undefined' && '__DEV__' in globalThis) {
     return !!(globalThis as Record<string, unknown>).__DEV__;
   }
-  // Check browser/Node environment via globalThis
+  // Check browser/Node/Bun environment via globalThis
   try {
     const proc = (globalThis as Record<string, unknown>).process as { env?: { NODE_ENV?: string } } | undefined;
     if (proc?.env?.NODE_ENV) {
@@ -77,7 +69,7 @@ export function hydrate(
         targetElement = componentDiv as HTMLElement;
       }
 
-      // deno-lint-ignore no-explicit-any
+      
       const app = svelteHydrate(Component as any, {
         target: targetElement,
         props,
@@ -86,7 +78,7 @@ export function hydrate(
       return app as SvelteComponentInstance;
     } else {
       // Use Svelte 5's mount function for empty containers
-      // deno-lint-ignore no-explicit-any
+      
       const app = svelteMount(Component as any, {
         target: container,
         props,
@@ -100,7 +92,7 @@ export function hydrate(
       try {
         // Clear the element and mount fresh
         container.innerHTML = '';
-        // deno-lint-ignore no-explicit-any
+        
         const app = svelteMount(Component as any, {
           target: container,
           props,
@@ -185,7 +177,7 @@ export function mount(
   Component: SvelteComponent,
   props: Record<string, unknown>
 ) {
-  // deno-lint-ignore no-explicit-any
+  
   const instance = svelteMount(Component as any, {
     target: container,
     props: props || {},

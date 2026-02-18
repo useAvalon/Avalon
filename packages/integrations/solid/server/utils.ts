@@ -13,7 +13,7 @@ import type { SolidComponent } from "../types.ts";
  * @returns Loaded Solid component
  */
 export async function loadComponent(src: string) {
-  const isDev = Deno.env.get("DENO_ENV") !== "production";
+  const isDev = process.env.NODE_ENV !== "production";
   
   if (isDev) {
     return await loadComponentDev(src);

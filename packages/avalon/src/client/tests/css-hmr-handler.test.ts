@@ -2,7 +2,7 @@
  * Tests for CSS HMR Handler
  */
 
-import { assertEquals } from 'jsr:@std/assert';
+import { describe, it, expect } from 'vitest';
 import { CSSHMRHandler, getCSSHMRHandler } from '../css-hmr-handler.ts';
 import type { Update } from '../hmr-coordinator.ts';
 
@@ -105,8 +105,8 @@ const mockDocument = new MockDocument();
 (globalThis as any).document = mockDocument;
 (globalThis as any).CustomEvent = MockCustomEvent;
 
-Deno.test('CSSHMRHandler - Global CSS Updates', async (t) => {
-  await t.step('should handle global CSS update', async () => {
+describe('CSSHMRHandler - Global CSS Updates', () => {
+  it('should handle global CSS update', async () => {
     mockDocument.clearListeners();
     
     const handler = new CSSHMRHandler();
@@ -127,15 +127,15 @@ Deno.test('CSSHMRHandler - Global CSS Updates', async (t) => {
 
     await handler.handleCSSUpdate(update);
     
-    assertEquals(eventFired, true);
-    assertEquals(eventDetail.type, 'global');
-    assertEquals(eventDetail.success, true);
+    expect(eventFired).toBe(true);
+    expect(eventDetail.type).toBe('global');
+    expect(eventDetail.success).toBe(true);
     handler.clearCache();
   });
 });
 
-Deno.test('CSSHMRHandler - CSS Module Updates', async (t) => {
-  await t.step('should identify CSS module updates', async () => {
+describe('CSSHMRHandler - CSS Module Updates', () => {
+  it('should identify CSS module updates', async () => {
     mockDocument.clearListeners();
     mockDocument.clearElements();
     
@@ -162,13 +162,13 @@ Deno.test('CSSHMRHandler - CSS Module Updates', async (t) => {
 
     await handler.handleCSSUpdate(update);
     
-    assertEquals(eventFired, true);
-    assertEquals(eventDetail.type, 'module');
+    expect(eventFired).toBe(true);
+    expect(eventDetail.type).toBe('module');
     handler.clearCache();
     mockDocument.clearElements();
   });
 
-  await t.step('should find islands using CSS module in same directory', async () => {
+  it('should find islands using CSS module in same directory', async () => {
     mockDocument.clearElements();
     mockDocument.clearListeners();
     
@@ -190,17 +190,17 @@ Deno.test('CSSHMRHandler - CSS Module Updates', async (t) => {
     mockIsland.addEventListener('hmr-update-required', (e: Event) => {
       const customEvent = e as MockCustomEvent;
       rerenderEventFired = true;
-      assertEquals(customEvent.detail.reason, 'css-module-update');
+      expect(customEvent.detail.reason).toBe('css-module-update');
     });
 
     await handler.handleCSSUpdate(update);
     
-    assertEquals(rerenderEventFired, true);
+    expect(rerenderEventFired).toBe(true);
     handler.clearCache();
     mockDocument.clearElements();
   });
 
-  await t.step('should handle CSS module with no affected islands', async () => {
+  it('should handle CSS module with no affected islands', async () => {
     mockDocument.clearElements();
     
     const handler = new CSSHMRHandler();
@@ -217,8 +217,8 @@ Deno.test('CSSHMRHandler - CSS Module Updates', async (t) => {
   });
 });
 
-Deno.test('CSSHMRHandler - Scoped CSS Updates', async (t) => {
-  await t.step('should identify scoped CSS updates for Svelte', async () => {
+describe('CSSHMRHandler - Scoped CSS Updates', () => {
+  it('should identify scoped CSS updates for Svelte', async () => {
     mockDocument.clearListeners();
     mockDocument.clearElements();
     
@@ -245,13 +245,13 @@ Deno.test('CSSHMRHandler - Scoped CSS Updates', async (t) => {
 
     await handler.handleCSSUpdate(update);
     
-    assertEquals(eventFired, true);
-    assertEquals(eventDetail.type, 'scoped');
+    expect(eventFired).toBe(true);
+    expect(eventDetail.type).toBe('scoped');
     handler.clearCache();
     mockDocument.clearElements();
   });
 
-  await t.step('should identify scoped CSS updates for Vue', async () => {
+  it('should identify scoped CSS updates for Vue', async () => {
     mockDocument.clearListeners();
     mockDocument.clearElements();
     
@@ -278,15 +278,15 @@ Deno.test('CSSHMRHandler - Scoped CSS Updates', async (t) => {
 
     await handler.handleCSSUpdate(update);
     
-    assertEquals(eventFired, true);
-    assertEquals(eventDetail.type, 'scoped');
+    expect(eventFired).toBe(true);
+    expect(eventDetail.type).toBe('scoped');
     handler.clearCache();
     mockDocument.clearElements();
   });
 });
 
-Deno.test('CSSHMRHandler - CSS Module Registration', async (t) => {
-  await t.step('should register CSS module usage explicitly', async () => {
+describe('CSSHMRHandler - CSS Module Registration', () => {
+  it('should register CSS module usage explicitly', async () => {
     mockDocument.clearElements();
     mockDocument.clearListeners();
     
@@ -311,14 +311,14 @@ Deno.test('CSSHMRHandler - CSS Module Registration', async (t) => {
 
     await handler.handleCSSUpdate(update);
     
-    assertEquals(eventFired, true);
+    expect(eventFired).toBe(true);
     handler.clearCache();
     mockDocument.clearElements();
   });
 });
 
-Deno.test('CSSHMRHandler - Cache Management', async (t) => {
-  await t.step('should clear cache', async () => {
+describe('CSSHMRHandler - Cache Management', () => {
+  it('should clear cache', async () => {
     mockDocument.clearElements();
     
     const mockIsland = new MockHTMLElement();
@@ -344,17 +344,17 @@ Deno.test('CSSHMRHandler - Cache Management', async (t) => {
     await handler.handleCSSUpdate(update);
     
     // Should not find the island after cache clear
-    assertEquals(eventFired, false);
+    expect(eventFired).toBe(false);
     handler.clearCache();
     mockDocument.clearElements();
   });
 });
 
-Deno.test('CSSHMRHandler - Singleton Instance', async (t) => {
-  await t.step('should return same instance from getCSSHMRHandler', () => {
+describe('CSSHMRHandler - Singleton Instance', () => {
+  it('should return same instance from getCSSHMRHandler', () => {
     const instance1 = getCSSHMRHandler();
     const instance2 = getCSSHMRHandler();
     
-    assertEquals(instance1, instance2);
+    expect(instance1).toBe(instance2);
   });
 });

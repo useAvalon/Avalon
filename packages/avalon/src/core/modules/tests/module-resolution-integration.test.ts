@@ -2,65 +2,64 @@
  * Integration tests for module resolution system
  */
 
-import { assertEquals, assertStringIncludes } from '@std/assert';
+import { describe, it, expect } from 'vitest';
 import { FrameworkModuleResolver } from '../framework-module-resolver.ts';
 import { HydrationRouteHandler, createHydrationRoutes } from '../../../render/routes/hydration-routes.ts';
 
-Deno.test('Module Resolution Integration - End-to-end flow', async t => {
-	await t.step('should resolve Solid .tsx to .js for hydration', () => {
+describe('Module Resolution Integration - End-to-end flow', () => {
+	it('should resolve Solid .tsx to .js for hydration', () => {
 		const resolver = new FrameworkModuleResolver('development');
 
 		const result = resolver.resolveModule('/src/islands/Counter.tsx', 'solid', {
 			forHydration: true,
 		});
 
-		assertEquals(result.originalPath, '/src/islands/Counter.tsx');
-		assertEquals(result.resolvedPath, '/src/islands/Counter.js');
-		assertEquals(result.framework, 'solid');
-		assertEquals(result.shouldTransform, true);
-		assertEquals(result.mimeType, 'application/javascript');
-		assertEquals(result.url, '/src/islands/Counter.js');
+		expect(result.originalPath).toEqual('/src/islands/Counter.tsx');
+		expect(result.resolvedPath).toEqual('/src/islands/Counter.js');
+		expect(result.framework).toEqual('solid');
+		expect(result.shouldTransform).toEqual(true);
+		expect(result.mimeType).toEqual('application/javascript');
+		expect(result.url).toEqual('/src/islands/Counter.js');
 	});
 
-	await t.step('should handle different frameworks correctly', () => {
+	it('should handle different frameworks correctly', () => {
 		const resolver = new FrameworkModuleResolver('production', 'https://cdn.example.com');
 
 		// Test Preact
 		const preactResult = resolver.resolveModule('/components/Button.jsx', 'preact', {
 			forHydration: true,
 		});
-		assertEquals(preactResult.resolvedPath, '/components/Button.js');
-		assertEquals(preactResult.url, 'https://cdn.example.com/components/Button.js');
+		expect(preactResult.resolvedPath).toEqual('/components/Button.js');
+		expect(preactResult.url).toEqual('https://cdn.example.com/components/Button.js');
 
 		// Test Vue
 		const vueResult = resolver.resolveModule('/components/Modal.vue', 'vue', {
 			forHydration: true,
 		});
-		assertEquals(vueResult.resolvedPath, '/components/Modal.js');
-		assertEquals(vueResult.mimeType, 'application/javascript');
+		expect(vueResult.resolvedPath).toEqual('/components/Modal.js');
+		expect(vueResult.mimeType).toEqual('application/javascript');
 
 		// Test Svelte
 		const svelteResult = resolver.resolveModule('/components/Card.svelte', 'svelte', {
 			forHydration: true,
 		});
-		assertEquals(svelteResult.resolvedPath, '/components/Card.js');
+		expect(svelteResult.resolvedPath).toEqual('/components/Card.js');
 	});
 
-	await t.step('should create proper hydration routes', () => {
+	it('should create proper hydration routes', () => {
 		const routes = createHydrationRoutes(true);
 
-		// Verify we have routes for all the expected patterns
 		const patterns = routes.map(route => route.pattern.pathname);
 
-		assertEquals(patterns.includes('/src/islands/*'), true);
-		assertEquals(patterns.includes('/src/components/*'), true);
-		assertEquals(patterns.includes('*.tsx'), true);
-		assertEquals(patterns.includes('*.jsx'), true);
-		assertEquals(patterns.includes('*.vue'), true);
-		assertEquals(patterns.includes('*.svelte'), true);
+		expect(patterns.includes('/src/islands/*')).toEqual(true);
+		expect(patterns.includes('/src/components/*')).toEqual(true);
+		expect(patterns.includes('*.tsx')).toEqual(true);
+		expect(patterns.includes('*.jsx')).toEqual(true);
+		expect(patterns.includes('*.vue')).toEqual(true);
+		expect(patterns.includes('*.svelte')).toEqual(true);
 	});
 
-	await t.step('should handle development vs production modes', () => {
+	it('should handle development vs production modes', () => {
 		const devResolver = new FrameworkModuleResolver('development');
 		const prodResolver = new FrameworkModuleResolver('production');
 
@@ -69,55 +68,45 @@ Deno.test('Module Resolution Integration - End-to-end flow', async t => {
 		const devResult = devResolver.resolveModule(testPath, 'solid', { forHydration: true });
 		const prodResult = prodResolver.resolveModule(testPath, 'solid', { forHydration: true });
 
-		// Both should transform the path the same way
-		assertEquals(devResult.resolvedPath, prodResult.resolvedPath);
-		assertEquals(devResult.resolvedPath, '/src/islands/Counter.js');
+		expect(devResult.resolvedPath).toEqual(prodResult.resolvedPath);
+		expect(devResult.resolvedPath).toEqual('/src/islands/Counter.js');
 
-		// Mode should be reflected in the resolver
-		assertEquals(devResolver.getMode(), 'development');
-		assertEquals(prodResolver.getMode(), 'production');
+		expect(devResolver.getMode()).toEqual('development');
+		expect(prodResolver.getMode()).toEqual('production');
 	});
 });
 
-Deno.test('Module Resolution Integration - Error scenarios', async t => {
-	await t.step('should handle unsupported frameworks gracefully', () => {
+describe('Module Resolution Integration - Error scenarios', () => {
+	it('should handle unsupported frameworks gracefully', () => {
 		const resolver = new FrameworkModuleResolver();
 
-		let errorThrown = false;
-		try {
+		expect(() => {
 			resolver.resolveModule('/test.tsx', 'react');
-		} catch (error) {
-			errorThrown = true;
-			assertStringIncludes((error as Error).message, 'Unknown framework: react');
-		}
-
-		assertEquals(errorThrown, true);
+		}).toThrow('Unknown framework: react');
 	});
 
-	await t.step('should handle invalid paths gracefully', () => {
+	it('should handle invalid paths gracefully', () => {
 		const resolver = new FrameworkModuleResolver();
 
-		// Should not throw for empty or invalid paths
 		const result = resolver.resolveModule('', 'solid', { forHydration: true });
-		assertEquals(result.originalPath, '');
-		assertEquals(result.resolvedPath, '');
+		expect(result.originalPath).toEqual('');
+		expect(result.resolvedPath).toEqual('');
 	});
 
-	await t.step('should handle MIME type detection for unknown extensions', () => {
+	it('should handle MIME type detection for unknown extensions', () => {
 		const resolver = new FrameworkModuleResolver();
 
-		assertEquals(resolver.getMimeType('/test.unknown'), 'text/plain');
-		assertEquals(resolver.getMimeType('/test'), 'text/plain');
-		assertEquals(resolver.getMimeType(''), 'text/plain');
+		expect(resolver.getMimeType('/test.unknown')).toEqual('text/plain');
+		expect(resolver.getMimeType('/test')).toEqual('text/plain');
+		expect(resolver.getMimeType('')).toEqual('text/plain');
 	});
 });
 
-Deno.test('Module Resolution Integration - Performance considerations', async t => {
-	await t.step('should handle multiple resolutions efficiently', () => {
+describe('Module Resolution Integration - Performance considerations', () => {
+	it('should handle multiple resolutions efficiently', () => {
 		const resolver = new FrameworkModuleResolver();
 		const startTime = performance.now();
 
-		// Perform multiple resolutions
 		for (let i = 0; i < 100; i++) {
 			resolver.resolveModule(`/src/islands/Counter${i}.tsx`, 'solid', {
 				forHydration: true,
@@ -127,18 +116,16 @@ Deno.test('Module Resolution Integration - Performance considerations', async t 
 		const endTime = performance.now();
 		const duration = endTime - startTime;
 
-		// Should complete 100 resolutions in reasonable time (less than 100ms)
-		assertEquals(duration < 100, true, `Resolution took ${duration}ms, expected < 100ms`);
+		expect(duration < 100).toEqual(true);
 	});
 
-	await t.step('should cache framework configurations', () => {
+	it('should cache framework configurations', () => {
 		const resolver = new FrameworkModuleResolver();
 
-		// Multiple calls should return the same config object
 		const config1 = resolver.getFrameworkConfig('solid');
 		const config2 = resolver.getFrameworkConfig('solid');
 
-		assertEquals(config1, config2);
-		assertEquals(config1?.extensions.includes('.tsx'), true);
+		expect(config1).toEqual(config2);
+		expect(config1?.extensions.includes('.tsx')).toEqual(true);
 	});
 });

@@ -26,7 +26,7 @@ export function hydrate(
 
   const tagName =
     container.getAttribute("data-tag-name") ||
-    // deno-lint-ignore no-explicit-any
+    
     (ElementClass as any).elementName ||
     ElementClass.name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 
@@ -60,7 +60,7 @@ function performHydration(
     // Client-only render
     const newElement = document.createElement(tagName);
     Object.entries(props).forEach(([key, value]) => {
-      // deno-lint-ignore no-explicit-any
+      
       (newElement as any)[key] = value;
     });
     container.appendChild(newElement);
@@ -69,7 +69,7 @@ function performHydration(
 
   // Register custom element if needed
   if (!customElements.get(tagName)) {
-    // deno-lint-ignore no-explicit-any
+    
     customElements.define(tagName, ElementClass as any);
   }
 

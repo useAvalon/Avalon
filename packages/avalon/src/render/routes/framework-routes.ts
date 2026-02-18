@@ -2,6 +2,8 @@
  * Routes for serving Avalon framework scripts and assets
  */
 
+import { readFile } from 'node:fs/promises';
+
 import type { MiddlewareContext } from '../../schemas/middleware.ts';
 import type { LayoutContext } from '../../types/layout.ts';
 
@@ -23,7 +25,7 @@ export function createFrameworkRoutes(isDev: boolean) {
 					if (!filename) throw new Error('Invalid filename');
 
 					const chunkPath = new URL(`../../../dist-avalon/${filename}`, import.meta.url);
-					const chunkScript = await Deno.readTextFile(chunkPath);
+					const chunkScript = await readFile(new URL(chunkPath), 'utf-8');
 					return new Response(chunkScript, {
 						headers: {
 							'Content-Type': 'application/javascript; charset=utf-8',

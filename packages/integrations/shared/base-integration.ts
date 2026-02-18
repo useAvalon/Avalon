@@ -97,7 +97,7 @@ export abstract class BaseIntegration implements Integration {
    * @returns True if in development mode
    */
   protected isDevelopment(params: RenderParams): boolean {
-    return params.isDev ?? Deno.env.get("DENO_ENV") !== "production";
+    return params.isDev ?? process.env.NODE_ENV !== "production";
   }
 
   /**

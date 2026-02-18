@@ -67,7 +67,7 @@ export function hydrate(
         const errorMsg = error instanceof Error ? error.message : String(error);
         container.setAttribute('data-hydration-error', errorMsg);
         // Only log in dev
-        if (typeof Deno !== 'undefined' && Deno.env.get("DENO_ENV") !== "production") {
+        if (process.env.NODE_ENV !== "production") {
           console.error(`Solid hydration failed:`, error);
         }
       }
@@ -75,7 +75,7 @@ export function hydrate(
       container.setAttribute('data-hydration-status', 'failed');
       container.setAttribute('data-hydration-error', 'Failed to load Solid hydration module');
       // Only log in dev
-      if (typeof Deno !== 'undefined' && Deno.env.get("DENO_ENV") !== "production") {
+      if (process.env.NODE_ENV !== "production") {
         console.error(`Failed to import solid-js/web:`, importError);
       }
     });
@@ -85,7 +85,7 @@ export function hydrate(
     const errorMsg = error instanceof Error ? error.message : String(error);
     container.setAttribute('data-hydration-error', errorMsg);
     // Only log in dev
-    if (typeof Deno !== 'undefined' && Deno.env.get("DENO_ENV") !== "production") {
+    if (process.env.NODE_ENV !== "production") {
       console.error(`Solid hydration setup failed:`, error);
     }
   }

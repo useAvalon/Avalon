@@ -5,7 +5,7 @@
  * Requirements: 2.1-2.7
  */
 
-import { assertEquals, assertExists, assertThrows } from 'jsr:@std/assert';
+import { describe, it, expect } from 'vitest';
 import {
   type FrameworkHMRAdapter,
   type StateSnapshot,
@@ -141,365 +141,378 @@ class MockHTMLElement {
   }
 }
 
-Deno.test('FrameworkHMRAdapter - interface contract', () => {
-  const adapter = new MockFrameworkAdapter();
-  
-  // Verify all required properties and methods exist
-  assertExists(adapter.name, 'Adapter should have name property');
-  assertEquals(typeof adapter.canHandle, 'function', 'Should have canHandle method');
-  assertEquals(typeof adapter.preserveState, 'function', 'Should have preserveState method');
-  assertEquals(typeof adapter.update, 'function', 'Should have update method');
-  assertEquals(typeof adapter.restoreState, 'function', 'Should have restoreState method');
-  assertEquals(typeof adapter.handleError, 'function', 'Should have handleError method');
-});
-
-Deno.test('FrameworkHMRAdapter - canHandle method', () => {
-  const adapter = new MockFrameworkAdapter();
-  
-  // Test canHandle with different component types
-  assertEquals(adapter.canHandle(() => {}), true, 'Should handle function components');
-  assertEquals(adapter.canHandle(class {}), true, 'Should handle class components');
-  assertEquals(adapter.canHandle({}), false, 'Should not handle objects');
-  assertEquals(adapter.canHandle('string'), false, 'Should not handle strings');
-});
-
-Deno.test('FrameworkHMRAdapter - preserveState returns valid snapshot', () => {
-  const adapter = new MockFrameworkAdapter();
-  const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
-  
-  const snapshot = adapter.preserveState(mockIsland);
-  
-  assertExists(snapshot, 'Should return a snapshot');
-  assertEquals(snapshot?.framework, 'mock', 'Snapshot should have framework name');
-  assertEquals(typeof snapshot?.timestamp, 'number', 'Snapshot should have timestamp');
-  assertExists(snapshot?.data, 'Snapshot should have data object');
-});
-
-Deno.test('FrameworkHMRAdapter - update method is async', async () => {
-  const adapter = new MockFrameworkAdapter();
-  const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
-  
-  // Verify update returns a Promise
-  const result = adapter.update(mockIsland, () => {}, {});
-  assertExists(result, 'Update should return a value');
-  assertEquals(result instanceof Promise, true, 'Update should return a Promise');
-  
-  // Await the promise
-  await result;
-});
-
-Deno.test('AdapterRegistry - initialization', () => {
-  const registry = new AdapterRegistry();
-  
-  assertExists(registry, 'Registry should be created');
-  assertEquals(registry.size, 0, 'Registry should start empty');
-  assertEquals(registry.getRegisteredFrameworks().length, 0, 'Should have no registered frameworks');
-});
-
-Deno.test('AdapterRegistry - register adapter', () => {
-  const registry = new AdapterRegistry();
-  const adapter = new MockFrameworkAdapter();
-  
-  registry.register('mock', adapter);
-  
-  assertEquals(registry.size, 1, 'Registry should have one adapter');
-  assertEquals(registry.has('mock'), true, 'Should have mock adapter');
-  assertEquals(registry.has('MOCK'), true, 'Should be case-insensitive');
-});
-
-Deno.test('AdapterRegistry - register multiple adapters', () => {
-  const registry = new AdapterRegistry();
-  const adapter1 = new MockFrameworkAdapter();
-  const adapter2 = new AnotherMockAdapter();
-  
-  registry.register('mock', adapter1);
-  registry.register('another', adapter2);
-  
-  assertEquals(registry.size, 2, 'Registry should have two adapters');
-  assertEquals(registry.has('mock'), true, 'Should have mock adapter');
-  assertEquals(registry.has('another'), true, 'Should have another adapter');
-  
-  const frameworks = registry.getRegisteredFrameworks();
-  assertEquals(frameworks.length, 2, 'Should return two framework names');
-  assertEquals(frameworks.includes('mock'), true, 'Should include mock');
-  assertEquals(frameworks.includes('another'), true, 'Should include another');
-});
-
-Deno.test('AdapterRegistry - get adapter', () => {
-  const registry = new AdapterRegistry();
-  const adapter = new MockFrameworkAdapter();
-  
-  registry.register('mock', adapter);
-  
-  const retrieved = registry.get('mock');
-  assertExists(retrieved, 'Should retrieve adapter');
-  assertEquals(retrieved?.name, 'mock', 'Should retrieve correct adapter');
-  
-  // Test case-insensitivity
-  const retrievedUpper = registry.get('MOCK');
-  assertExists(retrievedUpper, 'Should retrieve adapter with uppercase name');
-  assertEquals(retrievedUpper?.name, 'mock', 'Should retrieve same adapter');
-});
-
-Deno.test('AdapterRegistry - get non-existent adapter', () => {
-  const registry = new AdapterRegistry();
-  
-  const retrieved = registry.get('nonexistent');
-  assertEquals(retrieved, undefined, 'Should return undefined for non-existent adapter');
-});
-
-Deno.test('AdapterRegistry - findAdapter by component', () => {
-  const registry = new AdapterRegistry();
-  const adapter1 = new MockFrameworkAdapter(); // Handles functions
-  const adapter2 = new AnotherMockAdapter(); // Handles objects
-  
-  registry.register('mock', adapter1);
-  registry.register('another', adapter2);
-  
-  // Test finding adapter for function component
-  const functionAdapter = registry.findAdapter(() => {});
-  assertExists(functionAdapter, 'Should find adapter for function');
-  assertEquals(functionAdapter?.name, 'mock', 'Should find mock adapter for function');
-  
-  // Test finding adapter for object component
-  const objectAdapter = registry.findAdapter({});
-  assertExists(objectAdapter, 'Should find adapter for object');
-  assertEquals(objectAdapter?.name, 'another', 'Should find another adapter for object');
-  
-  // Test finding adapter for unsupported component
-  const noneAdapter = registry.findAdapter('string');
-  assertEquals(noneAdapter, undefined, 'Should not find adapter for string');
-});
-
-Deno.test('AdapterRegistry - unregister adapter', () => {
-  const registry = new AdapterRegistry();
-  const adapter = new MockFrameworkAdapter();
-  
-  registry.register('mock', adapter);
-  assertEquals(registry.size, 1, 'Should have one adapter');
-  
-  const removed = registry.unregister('mock');
-  assertEquals(removed, true, 'Should return true when removing existing adapter');
-  assertEquals(registry.size, 0, 'Should have no adapters after removal');
-  assertEquals(registry.has('mock'), false, 'Should not have mock adapter');
-});
-
-Deno.test('AdapterRegistry - unregister non-existent adapter', () => {
-  const registry = new AdapterRegistry();
-  
-  const removed = registry.unregister('nonexistent');
-  assertEquals(removed, false, 'Should return false when removing non-existent adapter');
-});
-
-Deno.test('AdapterRegistry - clear all adapters', () => {
-  const registry = new AdapterRegistry();
-  const adapter1 = new MockFrameworkAdapter();
-  const adapter2 = new AnotherMockAdapter();
-  
-  registry.register('mock', adapter1);
-  registry.register('another', adapter2);
-  assertEquals(registry.size, 2, 'Should have two adapters');
-  
-  registry.clear();
-  assertEquals(registry.size, 0, 'Should have no adapters after clear');
-  assertEquals(registry.getRegisteredFrameworks().length, 0, 'Should have no registered frameworks');
-});
-
-Deno.test('AdapterRegistry - validation: null adapter', () => {
-  const registry = new AdapterRegistry();
-  
-  assertThrows(
-    () => registry.register('test', null as any),
-    Error,
-    'Cannot register null/undefined adapter',
-    'Should throw error for null adapter'
-  );
-});
-
-Deno.test('AdapterRegistry - validation: adapter without name', () => {
-  const registry = new AdapterRegistry();
-  const invalidAdapter = {
-    canHandle: () => true,
-    preserveState: () => null,
-    update: async () => {},
-    restoreState: () => {},
-    handleError: () => {},
-  } as any;
-  
-  assertThrows(
-    () => registry.register('test', invalidAdapter),
-    Error,
-    'must have a name property',
-    'Should throw error for adapter without name'
-  );
-});
-
-Deno.test('AdapterRegistry - validation: adapter without canHandle', () => {
-  const registry = new AdapterRegistry();
-  const invalidAdapter = {
-    name: 'test',
-    preserveState: () => null,
-    update: async () => {},
-    restoreState: () => {},
-    handleError: () => {},
-  } as any;
-  
-  assertThrows(
-    () => registry.register('test', invalidAdapter),
-    Error,
-    'must implement canHandle method',
-    'Should throw error for adapter without canHandle'
-  );
-});
-
-Deno.test('AdapterRegistry - validation: adapter without preserveState', () => {
-  const registry = new AdapterRegistry();
-  const invalidAdapter = {
-    name: 'test',
-    canHandle: () => true,
-    update: async () => {},
-    restoreState: () => {},
-    handleError: () => {},
-  } as any;
-  
-  assertThrows(
-    () => registry.register('test', invalidAdapter),
-    Error,
-    'must implement preserveState method',
-    'Should throw error for adapter without preserveState'
-  );
-});
-
-Deno.test('AdapterRegistry - validation: adapter without update', () => {
-  const registry = new AdapterRegistry();
-  const invalidAdapter = {
-    name: 'test',
-    canHandle: () => true,
-    preserveState: () => null,
-    restoreState: () => {},
-    handleError: () => {},
-  } as any;
-  
-  assertThrows(
-    () => registry.register('test', invalidAdapter),
-    Error,
-    'must implement update method',
-    'Should throw error for adapter without update'
-  );
-});
-
-Deno.test('AdapterRegistry - validation: adapter without restoreState', () => {
-  const registry = new AdapterRegistry();
-  const invalidAdapter = {
-    name: 'test',
-    canHandle: () => true,
-    preserveState: () => null,
-    update: async () => {},
-    handleError: () => {},
-  } as any;
-  
-  assertThrows(
-    () => registry.register('test', invalidAdapter),
-    Error,
-    'must implement restoreState method',
-    'Should throw error for adapter without restoreState'
-  );
-});
-
-Deno.test('AdapterRegistry - validation: adapter without handleError', () => {
-  const registry = new AdapterRegistry();
-  const invalidAdapter = {
-    name: 'test',
-    canHandle: () => true,
-    preserveState: () => null,
-    update: async () => {},
-    restoreState: () => {},
-  } as any;
-  
-  assertThrows(
-    () => registry.register('test', invalidAdapter),
-    Error,
-    'must implement handleError method',
-    'Should throw error for adapter without handleError'
-  );
-});
-
-Deno.test('BaseFrameworkAdapter - default preserveState captures DOM state', () => {
-  const adapter = new TestBaseAdapter();
-  const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
-  
-  const snapshot = adapter.preserveState(mockIsland);
-  
-  // Note: In Deno test environment without DOM, preserveState may return null
-  // This is expected behavior - the adapter gracefully handles missing DOM
-  if (snapshot) {
-    assertEquals(snapshot.framework, 'test-base', 'Should have correct framework name');
-    assertEquals(typeof snapshot.timestamp, 'number', 'Should have timestamp');
-    assertExists(snapshot.data, 'Should have data object');
-  } else {
-    // Graceful degradation when DOM is not available
-    assertEquals(snapshot, null, 'Should return null when DOM is not available');
-  }
-});
-
-Deno.test('BaseFrameworkAdapter - default restoreState handles DOM state', () => {
-  const adapter = new TestBaseAdapter();
-  const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
-  
-  const snapshot: StateSnapshot = {
-    framework: 'test-base',
-    timestamp: Date.now(),
-    data: {},
-    dom: {
-      scrollPosition: { x: 100, y: 200 },
-    },
-  };
-  
-  // Should not throw
-  adapter.restoreState(mockIsland, snapshot);
-  
-  // Verify scroll position was restored
-  assertEquals(mockIsland.scrollLeft, 100, 'Should restore scroll left');
-  assertEquals(mockIsland.scrollTop, 200, 'Should restore scroll top');
-});
-
-Deno.test('BaseFrameworkAdapter - default handleError adds error indicator', () => {
-  const adapter = new TestBaseAdapter();
-  const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
-  const error = new Error('Test error');
-  
-  // In Deno test environment without DOM, handleError may fail
-  // This is expected - the adapter requires DOM APIs
-  try {
-    adapter.handleError(mockIsland, error);
+describe('FrameworkHMRAdapter - interface contract', () => {
+  it('should have all required properties and methods', () => {
+    const adapter = new MockFrameworkAdapter();
     
-    // If it succeeds, verify error attributes were set
-    assertEquals(mockIsland.getAttribute('data-hmr-error'), 'true', 'Should mark island as having error');
-    assertEquals(mockIsland.getAttribute('data-hmr-error-message'), 'Test error', 'Should store error message');
-  } catch (e) {
-    // Expected in Deno environment without DOM
-    assertEquals((e as Error).message.includes('document is not defined'), true, 'Should fail gracefully without DOM');
-  }
+    // Verify all required properties and methods exist
+    expect(adapter.name).toBeDefined();
+    expect(typeof adapter.canHandle).toBe('function');
+    expect(typeof adapter.preserveState).toBe('function');
+    expect(typeof adapter.update).toBe('function');
+    expect(typeof adapter.restoreState).toBe('function');
+    expect(typeof adapter.handleError).toBe('function');
+  });
 });
 
-Deno.test('StateSnapshot - structure validation', () => {
-  const snapshot: StateSnapshot = {
-    framework: 'test',
-    timestamp: Date.now(),
-    data: { key: 'value' },
-    dom: {
-      scrollPosition: { x: 0, y: 100 },
-      focusedElement: '#input',
-      formValues: { name: 'test' },
-    },
-  };
-  
-  // Verify structure
-  assertEquals(typeof snapshot.framework, 'string', 'Framework should be string');
-  assertEquals(typeof snapshot.timestamp, 'number', 'Timestamp should be number');
-  assertEquals(typeof snapshot.data, 'object', 'Data should be object');
-  assertExists(snapshot.dom, 'DOM state should exist');
-  assertExists(snapshot.dom?.scrollPosition, 'Scroll position should exist');
-  assertExists(snapshot.dom?.focusedElement, 'Focused element should exist');
-  assertExists(snapshot.dom?.formValues, 'Form values should exist');
+describe('FrameworkHMRAdapter - canHandle method', () => {
+  it('should handle different component types correctly', () => {
+    const adapter = new MockFrameworkAdapter();
+    
+    // Test canHandle with different component types
+    expect(adapter.canHandle(() => {})).toBe(true);
+    expect(adapter.canHandle(class {})).toBe(true);
+    expect(adapter.canHandle({})).toBe(false);
+    expect(adapter.canHandle('string')).toBe(false);
+  });
+});
+
+describe('FrameworkHMRAdapter - preserveState', () => {
+  it('should return valid snapshot', () => {
+    const adapter = new MockFrameworkAdapter();
+    const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
+    
+    const snapshot = adapter.preserveState(mockIsland);
+    
+    expect(snapshot).toBeDefined();
+    expect(snapshot?.framework).toBe('mock');
+    expect(typeof snapshot?.timestamp).toBe('number');
+    expect(snapshot?.data).toBeDefined();
+  });
+});
+
+describe('FrameworkHMRAdapter - update method', () => {
+  it('should be async and return a Promise', async () => {
+    const adapter = new MockFrameworkAdapter();
+    const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
+    
+    // Verify update returns a Promise
+    const result = adapter.update(mockIsland, () => {}, {});
+    expect(result).toBeDefined();
+    expect(result instanceof Promise).toBe(true);
+    
+    // Await the promise
+    await result;
+  });
+});
+
+describe('AdapterRegistry - initialization', () => {
+  it('should start empty', () => {
+    const registry = new AdapterRegistry();
+    
+    expect(registry).toBeDefined();
+    expect(registry.size).toBe(0);
+    expect(registry.getRegisteredFrameworks().length).toBe(0);
+  });
+});
+
+describe('AdapterRegistry - register adapter', () => {
+  it('should register adapter correctly', () => {
+    const registry = new AdapterRegistry();
+    const adapter = new MockFrameworkAdapter();
+    
+    registry.register('mock', adapter);
+    
+    expect(registry.size).toBe(1);
+    expect(registry.has('mock')).toBe(true);
+    expect(registry.has('MOCK')).toBe(true);
+  });
+});
+
+describe('AdapterRegistry - register multiple adapters', () => {
+  it('should handle multiple adapters', () => {
+    const registry = new AdapterRegistry();
+    const adapter1 = new MockFrameworkAdapter();
+    const adapter2 = new AnotherMockAdapter();
+    
+    registry.register('mock', adapter1);
+    registry.register('another', adapter2);
+    
+    expect(registry.size).toBe(2);
+    expect(registry.has('mock')).toBe(true);
+    expect(registry.has('another')).toBe(true);
+    
+    const frameworks = registry.getRegisteredFrameworks();
+    expect(frameworks.length).toBe(2);
+    expect(frameworks.includes('mock')).toBe(true);
+    expect(frameworks.includes('another')).toBe(true);
+  });
+});
+
+describe('AdapterRegistry - get adapter', () => {
+  it('should retrieve adapter correctly', () => {
+    const registry = new AdapterRegistry();
+    const adapter = new MockFrameworkAdapter();
+    
+    registry.register('mock', adapter);
+    
+    const retrieved = registry.get('mock');
+    expect(retrieved).toBeDefined();
+    expect(retrieved?.name).toBe('mock');
+    
+    // Test case-insensitivity
+    const retrievedUpper = registry.get('MOCK');
+    expect(retrievedUpper).toBeDefined();
+    expect(retrievedUpper?.name).toBe('mock');
+  });
+});
+
+describe('AdapterRegistry - get non-existent adapter', () => {
+  it('should return undefined for non-existent adapter', () => {
+    const registry = new AdapterRegistry();
+    
+    const retrieved = registry.get('nonexistent');
+    expect(retrieved).toBeUndefined();
+  });
+});
+
+describe('AdapterRegistry - findAdapter by component', () => {
+  it('should find correct adapter for component type', () => {
+    const registry = new AdapterRegistry();
+    const adapter1 = new MockFrameworkAdapter(); // Handles functions
+    const adapter2 = new AnotherMockAdapter(); // Handles objects
+    
+    registry.register('mock', adapter1);
+    registry.register('another', adapter2);
+    
+    // Test finding adapter for function component
+    const functionAdapter = registry.findAdapter(() => {});
+    expect(functionAdapter).toBeDefined();
+    expect(functionAdapter?.name).toBe('mock');
+    
+    // Test finding adapter for object component
+    const objectAdapter = registry.findAdapter({});
+    expect(objectAdapter).toBeDefined();
+    expect(objectAdapter?.name).toBe('another');
+    
+    // Test finding adapter for unsupported component
+    const noneAdapter = registry.findAdapter('string');
+    expect(noneAdapter).toBeUndefined();
+  });
+});
+
+describe('AdapterRegistry - unregister adapter', () => {
+  it('should unregister adapter correctly', () => {
+    const registry = new AdapterRegistry();
+    const adapter = new MockFrameworkAdapter();
+    
+    registry.register('mock', adapter);
+    expect(registry.size).toBe(1);
+    
+    const removed = registry.unregister('mock');
+    expect(removed).toBe(true);
+    expect(registry.size).toBe(0);
+    expect(registry.has('mock')).toBe(false);
+  });
+});
+
+describe('AdapterRegistry - unregister non-existent adapter', () => {
+  it('should return false when removing non-existent adapter', () => {
+    const registry = new AdapterRegistry();
+    
+    const removed = registry.unregister('nonexistent');
+    expect(removed).toBe(false);
+  });
+});
+
+describe('AdapterRegistry - clear all adapters', () => {
+  it('should clear all adapters', () => {
+    const registry = new AdapterRegistry();
+    const adapter1 = new MockFrameworkAdapter();
+    const adapter2 = new AnotherMockAdapter();
+    
+    registry.register('mock', adapter1);
+    registry.register('another', adapter2);
+    expect(registry.size).toBe(2);
+    
+    registry.clear();
+    expect(registry.size).toBe(0);
+    expect(registry.getRegisteredFrameworks().length).toBe(0);
+  });
+});
+
+describe('AdapterRegistry - validation: null adapter', () => {
+  it('should throw error for null adapter', () => {
+    const registry = new AdapterRegistry();
+    
+    expect(() => registry.register('test', null as any)).toThrow('Cannot register null/undefined adapter');
+  });
+});
+
+describe('AdapterRegistry - validation: adapter without name', () => {
+  it('should throw error for adapter without name', () => {
+    const registry = new AdapterRegistry();
+    const invalidAdapter = {
+      canHandle: () => true,
+      preserveState: () => null,
+      update: async () => {},
+      restoreState: () => {},
+      handleError: () => {},
+    } as any;
+    
+    expect(() => registry.register('test', invalidAdapter)).toThrow('must have a name property');
+  });
+});
+
+describe('AdapterRegistry - validation: adapter without canHandle', () => {
+  it('should throw error for adapter without canHandle', () => {
+    const registry = new AdapterRegistry();
+    const invalidAdapter = {
+      name: 'test',
+      preserveState: () => null,
+      update: async () => {},
+      restoreState: () => {},
+      handleError: () => {},
+    } as any;
+    
+    expect(() => registry.register('test', invalidAdapter)).toThrow('must implement canHandle method');
+  });
+});
+
+describe('AdapterRegistry - validation: adapter without preserveState', () => {
+  it('should throw error for adapter without preserveState', () => {
+    const registry = new AdapterRegistry();
+    const invalidAdapter = {
+      name: 'test',
+      canHandle: () => true,
+      update: async () => {},
+      restoreState: () => {},
+      handleError: () => {},
+    } as any;
+    
+    expect(() => registry.register('test', invalidAdapter)).toThrow('must implement preserveState method');
+  });
+});
+
+describe('AdapterRegistry - validation: adapter without update', () => {
+  it('should throw error for adapter without update', () => {
+    const registry = new AdapterRegistry();
+    const invalidAdapter = {
+      name: 'test',
+      canHandle: () => true,
+      preserveState: () => null,
+      restoreState: () => {},
+      handleError: () => {},
+    } as any;
+    
+    expect(() => registry.register('test', invalidAdapter)).toThrow('must implement update method');
+  });
+});
+
+describe('AdapterRegistry - validation: adapter without restoreState', () => {
+  it('should throw error for adapter without restoreState', () => {
+    const registry = new AdapterRegistry();
+    const invalidAdapter = {
+      name: 'test',
+      canHandle: () => true,
+      preserveState: () => null,
+      update: async () => {},
+      handleError: () => {},
+    } as any;
+    
+    expect(() => registry.register('test', invalidAdapter)).toThrow('must implement restoreState method');
+  });
+});
+
+describe('AdapterRegistry - validation: adapter without handleError', () => {
+  it('should throw error for adapter without handleError', () => {
+    const registry = new AdapterRegistry();
+    const invalidAdapter = {
+      name: 'test',
+      canHandle: () => true,
+      preserveState: () => null,
+      update: async () => {},
+      restoreState: () => {},
+    } as any;
+    
+    expect(() => registry.register('test', invalidAdapter)).toThrow('must implement handleError method');
+  });
+});
+
+describe('BaseFrameworkAdapter - default preserveState', () => {
+  it('should capture DOM state when available', () => {
+    const adapter = new TestBaseAdapter();
+    const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
+    
+    const snapshot = adapter.preserveState(mockIsland);
+    
+    // Note: In test environment without DOM, preserveState may return null
+    // This is expected behavior - the adapter gracefully handles missing DOM
+    if (snapshot) {
+      expect(snapshot.framework).toBe('test-base');
+      expect(typeof snapshot.timestamp).toBe('number');
+      expect(snapshot.data).toBeDefined();
+    } else {
+      // Graceful degradation when DOM is not available
+      expect(snapshot).toBeNull();
+    }
+  });
+});
+
+describe('BaseFrameworkAdapter - default restoreState', () => {
+  it('should handle DOM state restoration', () => {
+    const adapter = new TestBaseAdapter();
+    const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
+    
+    const snapshot: StateSnapshot = {
+      framework: 'test-base',
+      timestamp: Date.now(),
+      data: {},
+      dom: {
+        scrollPosition: { x: 100, y: 200 },
+      },
+    };
+    
+    // Should not throw
+    adapter.restoreState(mockIsland, snapshot);
+    
+    // Verify scroll position was restored
+    expect(mockIsland.scrollLeft).toBe(100);
+    expect(mockIsland.scrollTop).toBe(200);
+  });
+});
+
+describe('BaseFrameworkAdapter - default handleError', () => {
+  it('should add error indicator', () => {
+    const adapter = new TestBaseAdapter();
+    const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
+    const error = new Error('Test error');
+    
+    // In test environment without DOM, handleError may fail
+    // This is expected - the adapter requires DOM APIs
+    try {
+      adapter.handleError(mockIsland, error);
+      
+      // If it succeeds, verify error attributes were set
+      expect(mockIsland.getAttribute('data-hmr-error')).toBe('true');
+      expect(mockIsland.getAttribute('data-hmr-error-message')).toBe('Test error');
+    } catch (e) {
+      // Expected in test environment without DOM
+      expect((e as Error).message.includes('document is not defined')).toBe(true);
+    }
+  });
+});
+
+describe('StateSnapshot - structure validation', () => {
+  it('should have correct structure', () => {
+    const snapshot: StateSnapshot = {
+      framework: 'test',
+      timestamp: Date.now(),
+      data: { key: 'value' },
+      dom: {
+        scrollPosition: { x: 0, y: 100 },
+        focusedElement: '#input',
+        formValues: { name: 'test' },
+      },
+    };
+    
+    // Verify structure
+    expect(typeof snapshot.framework).toBe('string');
+    expect(typeof snapshot.timestamp).toBe('number');
+    expect(typeof snapshot.data).toBe('object');
+    expect(snapshot.dom).toBeDefined();
+    expect(snapshot.dom?.scrollPosition).toBeDefined();
+    expect(snapshot.dom?.focusedElement).toBeDefined();
+    expect(snapshot.dom?.formValues).toBeDefined();
+  });
 });

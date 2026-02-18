@@ -82,10 +82,19 @@ export class LitButton extends LitElement {
     lastClickTime: { type: String, state: true },
   };
 
-  label = "Click Me";
-  variant = "primary";
-  private clickCount = 0;
-  private lastClickTime = "";
+  // Use declare to avoid class field shadowing Lit's reactive accessors
+  declare label: string;
+  declare variant: string;
+  declare clickCount: number;
+  declare lastClickTime: string;
+
+  constructor() {
+    super();
+    this.label = "Click Me";
+    this.variant = "primary";
+    this.clickCount = 0;
+    this.lastClickTime = "";
+  }
 
   private handleClick() {
     this.clickCount++;

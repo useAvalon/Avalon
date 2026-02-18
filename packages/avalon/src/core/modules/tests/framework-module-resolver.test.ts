@@ -2,266 +2,262 @@
  * Tests for FrameworkModuleResolver
  */
 
-import { assertEquals, assertThrows } from '@std/assert';
+import { describe, it, expect } from 'vitest';
 import { FrameworkModuleResolver } from '../framework-module-resolver.ts';
 
-Deno.test('FrameworkModuleResolver - Basic functionality', async t => {
-	await t.step('should create resolver with default settings', () => {
+describe('FrameworkModuleResolver - Basic functionality', () => {
+	it('should create resolver with default settings', () => {
 		const resolver = new FrameworkModuleResolver();
-		assertEquals(resolver.getMode(), 'development');
-		assertEquals(resolver.getBaseUrl(), '');
+		expect(resolver.getMode()).toEqual('development');
+		expect(resolver.getBaseUrl()).toEqual('');
 	});
 
-	await t.step('should create resolver with custom settings', () => {
+	it('should create resolver with custom settings', () => {
 		const resolver = new FrameworkModuleResolver('production', 'https://example.com');
-		assertEquals(resolver.getMode(), 'production');
-		assertEquals(resolver.getBaseUrl(), 'https://example.com');
+		expect(resolver.getMode()).toEqual('production');
+		expect(resolver.getBaseUrl()).toEqual('https://example.com');
 	});
 
-	await t.step('should update mode and base URL', () => {
+	it('should update mode and base URL', () => {
 		const resolver = new FrameworkModuleResolver();
 		resolver.setMode('production');
 		resolver.setBaseUrl('https://test.com');
-		assertEquals(resolver.getMode(), 'production');
-		assertEquals(resolver.getBaseUrl(), 'https://test.com');
+		expect(resolver.getMode()).toEqual('production');
+		expect(resolver.getBaseUrl()).toEqual('https://test.com');
 	});
 });
 
-Deno.test('FrameworkModuleResolver - Framework support', async t => {
+describe('FrameworkModuleResolver - Framework support', () => {
 	const resolver = new FrameworkModuleResolver();
 
-	await t.step('should support known frameworks', () => {
-		assertEquals(resolver.isFrameworkSupported('solid'), true);
-		assertEquals(resolver.isFrameworkSupported('preact'), true);
-		assertEquals(resolver.isFrameworkSupported('vue'), true);
-		assertEquals(resolver.isFrameworkSupported('svelte'), true);
+	it('should support known frameworks', () => {
+		expect(resolver.isFrameworkSupported('solid')).toEqual(true);
+		expect(resolver.isFrameworkSupported('preact')).toEqual(true);
+		expect(resolver.isFrameworkSupported('vue')).toEqual(true);
+		expect(resolver.isFrameworkSupported('svelte')).toEqual(true);
 	});
 
-	await t.step('should not support unknown frameworks', () => {
-		assertEquals(resolver.isFrameworkSupported('unknown'), false);
-		assertEquals(resolver.isFrameworkSupported('react'), false);
+	it('should not support unknown frameworks', () => {
+		expect(resolver.isFrameworkSupported('unknown')).toEqual(false);
+		expect(resolver.isFrameworkSupported('react')).toEqual(false);
 	});
 
-	await t.step('should return supported frameworks list', () => {
+	it('should return supported frameworks list', () => {
 		const frameworks = resolver.getSupportedFrameworks();
-		assertEquals(frameworks.includes('solid'), true);
-		assertEquals(frameworks.includes('preact'), true);
-		assertEquals(frameworks.includes('vue'), true);
-		assertEquals(frameworks.includes('svelte'), true);
+		expect(frameworks.includes('solid')).toEqual(true);
+		expect(frameworks.includes('preact')).toEqual(true);
+		expect(frameworks.includes('vue')).toEqual(true);
+		expect(frameworks.includes('svelte')).toEqual(true);
 	});
 
-	await t.step('should get framework configuration', () => {
+	it('should get framework configuration', () => {
 		const solidConfig = resolver.getFrameworkConfig('solid');
-		assertEquals(solidConfig?.extensions.includes('.tsx'), true);
-		assertEquals(solidConfig?.hydrationExtension, '.js');
-		assertEquals(solidConfig?.mimeType, 'application/javascript');
+		expect(solidConfig?.extensions.includes('.tsx')).toEqual(true);
+		expect(solidConfig?.hydrationExtension).toEqual('.js');
+		expect(solidConfig?.mimeType).toEqual('application/javascript');
 
 		const unknownConfig = resolver.getFrameworkConfig('unknown');
-		assertEquals(unknownConfig, undefined);
+		expect(unknownConfig).toEqual(undefined);
 	});
 });
 
-Deno.test('FrameworkModuleResolver - Solid path transformation', async t => {
+describe('FrameworkModuleResolver - Solid path transformation', () => {
 	const resolver = new FrameworkModuleResolver();
 
-	await t.step('should transform .tsx to .js for Solid hydration', () => {
+	it('should transform .tsx to .js for Solid hydration', () => {
 		const result = resolver.resolveModule('/src/islands/Counter.tsx', 'solid', {
 			forHydration: true,
 		});
 
-		assertEquals(result.originalPath, '/src/islands/Counter.tsx');
-		assertEquals(result.resolvedPath, '/src/islands/Counter.js');
-		assertEquals(result.framework, 'solid');
-		assertEquals(result.shouldTransform, true);
-		assertEquals(result.mimeType, 'application/javascript');
-		assertEquals(result.url, '/src/islands/Counter.js');
+		expect(result.originalPath).toEqual('/src/islands/Counter.tsx');
+		expect(result.resolvedPath).toEqual('/src/islands/Counter.js');
+		expect(result.framework).toEqual('solid');
+		expect(result.shouldTransform).toEqual(true);
+		expect(result.mimeType).toEqual('application/javascript');
+		expect(result.url).toEqual('/src/islands/Counter.js');
 	});
 
-	await t.step('should transform .jsx to .js for Solid hydration', () => {
+	it('should transform .jsx to .js for Solid hydration', () => {
 		const result = resolver.resolveModule('/src/islands/Counter.jsx', 'solid', {
 			forHydration: true,
 		});
 
-		assertEquals(result.originalPath, '/src/islands/Counter.jsx');
-		assertEquals(result.resolvedPath, '/src/islands/Counter.js');
-		assertEquals(result.shouldTransform, true);
+		expect(result.originalPath).toEqual('/src/islands/Counter.jsx');
+		expect(result.resolvedPath).toEqual('/src/islands/Counter.js');
+		expect(result.shouldTransform).toEqual(true);
 	});
 
-	await t.step('should not transform non-hydration requests', () => {
+	it('should not transform non-hydration requests', () => {
 		const result = resolver.resolveModule('/src/islands/Counter.tsx', 'solid', {
 			forHydration: false,
 		});
 
-		assertEquals(result.originalPath, '/src/islands/Counter.tsx');
-		assertEquals(result.resolvedPath, '/src/islands/Counter.tsx');
-		assertEquals(result.shouldTransform, false);
+		expect(result.originalPath).toEqual('/src/islands/Counter.tsx');
+		expect(result.resolvedPath).toEqual('/src/islands/Counter.tsx');
+		expect(result.shouldTransform).toEqual(false);
 	});
 
-	await t.step('should not transform .js files', () => {
+	it('should not transform .js files', () => {
 		const result = resolver.resolveModule('/src/islands/Counter.js', 'solid', {
 			forHydration: true,
 		});
 
-		assertEquals(result.originalPath, '/src/islands/Counter.js');
-		assertEquals(result.resolvedPath, '/src/islands/Counter.js');
-		assertEquals(result.shouldTransform, false);
+		expect(result.originalPath).toEqual('/src/islands/Counter.js');
+		expect(result.resolvedPath).toEqual('/src/islands/Counter.js');
+		expect(result.shouldTransform).toEqual(false);
 	});
 });
 
-Deno.test('FrameworkModuleResolver - Preact path transformation', async t => {
+describe('FrameworkModuleResolver - Preact path transformation', () => {
 	const resolver = new FrameworkModuleResolver();
 
-	await t.step('should transform .tsx to .js for Preact hydration', () => {
+	it('should transform .tsx to .js for Preact hydration', () => {
 		const result = resolver.resolveModule('/src/islands/Counter.tsx', 'preact', {
 			forHydration: true,
 		});
 
-		assertEquals(result.originalPath, '/src/islands/Counter.tsx');
-		assertEquals(result.resolvedPath, '/src/islands/Counter.js');
-		assertEquals(result.framework, 'preact');
-		assertEquals(result.shouldTransform, true);
-		assertEquals(result.mimeType, 'application/javascript');
+		expect(result.originalPath).toEqual('/src/islands/Counter.tsx');
+		expect(result.resolvedPath).toEqual('/src/islands/Counter.js');
+		expect(result.framework).toEqual('preact');
+		expect(result.shouldTransform).toEqual(true);
+		expect(result.mimeType).toEqual('application/javascript');
 	});
 
-	await t.step('should transform .jsx to .js for Preact hydration', () => {
+	it('should transform .jsx to .js for Preact hydration', () => {
 		const result = resolver.resolveModule('/src/islands/Counter.jsx', 'preact', {
 			forHydration: true,
 		});
 
-		assertEquals(result.resolvedPath, '/src/islands/Counter.js');
-		assertEquals(result.shouldTransform, true);
+		expect(result.resolvedPath).toEqual('/src/islands/Counter.js');
+		expect(result.shouldTransform).toEqual(true);
 	});
 });
 
-Deno.test('FrameworkModuleResolver - Vue path transformation', async t => {
+describe('FrameworkModuleResolver - Vue path transformation', () => {
 	const resolver = new FrameworkModuleResolver();
 
-	await t.step('should transform .vue to .js for Vue hydration', () => {
+	it('should transform .vue to .js for Vue hydration', () => {
 		const result = resolver.resolveModule('/src/islands/Counter.vue', 'vue', {
 			forHydration: true,
 		});
 
-		assertEquals(result.originalPath, '/src/islands/Counter.vue');
-		assertEquals(result.resolvedPath, '/src/islands/Counter.js');
-		assertEquals(result.framework, 'vue');
-		assertEquals(result.shouldTransform, true);
-		assertEquals(result.mimeType, 'application/javascript');
+		expect(result.originalPath).toEqual('/src/islands/Counter.vue');
+		expect(result.resolvedPath).toEqual('/src/islands/Counter.js');
+		expect(result.framework).toEqual('vue');
+		expect(result.shouldTransform).toEqual(true);
+		expect(result.mimeType).toEqual('application/javascript');
 	});
 });
 
-Deno.test('FrameworkModuleResolver - Svelte path transformation', async t => {
+describe('FrameworkModuleResolver - Svelte path transformation', () => {
 	const resolver = new FrameworkModuleResolver();
 
-	await t.step('should transform .svelte to .js for Svelte hydration', () => {
+	it('should transform .svelte to .js for Svelte hydration', () => {
 		const result = resolver.resolveModule('/src/islands/Counter.svelte', 'svelte', {
 			forHydration: true,
 		});
 
-		assertEquals(result.originalPath, '/src/islands/Counter.svelte');
-		assertEquals(result.resolvedPath, '/src/islands/Counter.js');
-		assertEquals(result.framework, 'svelte');
-		assertEquals(result.shouldTransform, true);
-		assertEquals(result.mimeType, 'application/javascript');
+		expect(result.originalPath).toEqual('/src/islands/Counter.svelte');
+		expect(result.resolvedPath).toEqual('/src/islands/Counter.js');
+		expect(result.framework).toEqual('svelte');
+		expect(result.shouldTransform).toEqual(true);
+		expect(result.mimeType).toEqual('application/javascript');
 	});
 });
 
-Deno.test('FrameworkModuleResolver - MIME type detection', async t => {
+describe('FrameworkModuleResolver - MIME type detection', () => {
 	const resolver = new FrameworkModuleResolver();
 
-	await t.step('should detect JavaScript MIME types', () => {
-		assertEquals(resolver.getMimeType('/test.js'), 'application/javascript');
-		assertEquals(resolver.getMimeType('/test.mjs'), 'application/javascript');
-		assertEquals(resolver.getMimeType('/test.ts'), 'application/javascript');
-		assertEquals(resolver.getMimeType('/test.tsx'), 'application/javascript');
-		assertEquals(resolver.getMimeType('/test.jsx'), 'application/javascript');
+	it('should detect JavaScript MIME types', () => {
+		expect(resolver.getMimeType('/test.js')).toEqual('application/javascript');
+		expect(resolver.getMimeType('/test.mjs')).toEqual('application/javascript');
+		expect(resolver.getMimeType('/test.ts')).toEqual('application/javascript');
+		expect(resolver.getMimeType('/test.tsx')).toEqual('application/javascript');
+		expect(resolver.getMimeType('/test.jsx')).toEqual('application/javascript');
 	});
 
-	await t.step('should detect component MIME types', () => {
-		assertEquals(resolver.getMimeType('/test.vue'), 'application/javascript');
-		assertEquals(resolver.getMimeType('/test.svelte'), 'application/javascript');
+	it('should detect component MIME types', () => {
+		expect(resolver.getMimeType('/test.vue')).toEqual('application/javascript');
+		expect(resolver.getMimeType('/test.svelte')).toEqual('application/javascript');
 	});
 
-	await t.step('should detect other MIME types', () => {
-		assertEquals(resolver.getMimeType('/test.css'), 'text/css');
-		assertEquals(resolver.getMimeType('/test.json'), 'application/json');
-		assertEquals(resolver.getMimeType('/test.txt'), 'text/plain');
-		assertEquals(resolver.getMimeType('/test.unknown'), 'text/plain');
+	it('should detect other MIME types', () => {
+		expect(resolver.getMimeType('/test.css')).toEqual('text/css');
+		expect(resolver.getMimeType('/test.json')).toEqual('application/json');
+		expect(resolver.getMimeType('/test.txt')).toEqual('text/plain');
+		expect(resolver.getMimeType('/test.unknown')).toEqual('text/plain');
 	});
 });
 
-Deno.test('FrameworkModuleResolver - URL generation', async t => {
-	await t.step('should generate URLs without base URL', () => {
+describe('FrameworkModuleResolver - URL generation', () => {
+	it('should generate URLs without base URL', () => {
 		const resolver = new FrameworkModuleResolver();
-		assertEquals(resolver.generateModuleUrl('/src/test.js'), '/src/test.js');
-		assertEquals(resolver.generateModuleUrl('src/test.js'), '/src/test.js');
+		expect(resolver.generateModuleUrl('/src/test.js')).toEqual('/src/test.js');
+		expect(resolver.generateModuleUrl('src/test.js')).toEqual('/src/test.js');
 	});
 
-	await t.step('should generate URLs with base URL', () => {
+	it('should generate URLs with base URL', () => {
 		const resolver = new FrameworkModuleResolver('development', 'https://example.com');
-		assertEquals(resolver.generateModuleUrl('/src/test.js'), 'https://example.com/src/test.js');
-		assertEquals(resolver.generateModuleUrl('src/test.js'), 'https://example.com/src/test.js');
+		expect(resolver.generateModuleUrl('/src/test.js')).toEqual('https://example.com/src/test.js');
+		expect(resolver.generateModuleUrl('src/test.js')).toEqual('https://example.com/src/test.js');
 	});
 
-	await t.step('should handle base URL with trailing slash', () => {
+	it('should handle base URL with trailing slash', () => {
 		const resolver = new FrameworkModuleResolver('development', 'https://example.com/');
-		assertEquals(resolver.generateModuleUrl('/src/test.js'), 'https://example.com/src/test.js');
+		expect(resolver.generateModuleUrl('/src/test.js')).toEqual('https://example.com/src/test.js');
 	});
 
-	await t.step('should generate URLs with custom base URL option', () => {
+	it('should generate URLs with custom base URL option', () => {
 		const resolver = new FrameworkModuleResolver();
 		const result = resolver.resolveModule('/src/test.tsx', 'solid', {
 			forHydration: true,
 			baseUrl: 'https://custom.com',
 		});
-		assertEquals(result.url, 'https://custom.com/src/test.js');
+		expect(result.url).toEqual('https://custom.com/src/test.js');
 	});
 });
 
-Deno.test('FrameworkModuleResolver - Transformation detection', async t => {
+describe('FrameworkModuleResolver - Transformation detection', () => {
 	const resolver = new FrameworkModuleResolver();
 
-	await t.step('should detect when transformation is needed', () => {
-		assertEquals(resolver.needsTransformation('/test.tsx', 'solid'), true);
-		assertEquals(resolver.needsTransformation('/test.jsx', 'solid'), true);
-		assertEquals(resolver.needsTransformation('/test.vue', 'vue'), true);
-		assertEquals(resolver.needsTransformation('/test.svelte', 'svelte'), true);
+	it('should detect when transformation is needed', () => {
+		expect(resolver.needsTransformation('/test.tsx', 'solid')).toEqual(true);
+		expect(resolver.needsTransformation('/test.jsx', 'solid')).toEqual(true);
+		expect(resolver.needsTransformation('/test.vue', 'vue')).toEqual(true);
+		expect(resolver.needsTransformation('/test.svelte', 'svelte')).toEqual(true);
 	});
 
-	await t.step('should detect when transformation is not needed', () => {
-		assertEquals(resolver.needsTransformation('/test.js', 'solid'), false);
-		assertEquals(resolver.needsTransformation('/test.css', 'solid'), false);
-		assertEquals(resolver.needsTransformation('/test.tsx', 'unknown'), false);
+	it('should detect when transformation is not needed', () => {
+		expect(resolver.needsTransformation('/test.js', 'solid')).toEqual(false);
+		expect(resolver.needsTransformation('/test.css', 'solid')).toEqual(false);
+		expect(resolver.needsTransformation('/test.tsx', 'unknown')).toEqual(false);
 	});
 });
 
-Deno.test('FrameworkModuleResolver - Error handling', async t => {
+describe('FrameworkModuleResolver - Error handling', () => {
 	const resolver = new FrameworkModuleResolver();
 
-	await t.step('should throw error for unknown framework', () => {
-		assertThrows(
-			() => {
-				resolver.resolveModule('/test.tsx', 'unknown');
-			},
-			Error,
-			'Unknown framework: unknown'
-		);
+	it('should throw error for unknown framework', () => {
+		expect(() => {
+			resolver.resolveModule('/test.tsx', 'unknown');
+		}).toThrow('Unknown framework: unknown');
 	});
 });
 
-Deno.test('FrameworkModuleResolver - Development vs Production mode', async t => {
-	await t.step('should handle development mode', () => {
+describe('FrameworkModuleResolver - Development vs Production mode', () => {
+	it('should handle development mode', () => {
 		const resolver = new FrameworkModuleResolver('development');
 		const result = resolver.resolveModule('/src/test.tsx', 'solid', {
 			forHydration: true,
 		});
-		assertEquals(result.resolvedPath, '/src/test.js');
+		expect(result.resolvedPath).toEqual('/src/test.js');
 	});
 
-	await t.step('should handle production mode', () => {
+	it('should handle production mode', () => {
 		const resolver = new FrameworkModuleResolver('production');
 		const result = resolver.resolveModule('/src/test.tsx', 'solid', {
 			forHydration: true,
 		});
-		assertEquals(result.resolvedPath, '/src/test.js');
+		expect(result.resolvedPath).toEqual('/src/test.js');
 	});
 });

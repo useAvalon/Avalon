@@ -34,7 +34,7 @@ export async function render(params: RenderParams): Promise<RenderResult> {
     let generateHydrationScript: (options?: { nonce?: string; eventNames?: string[] }) => string;
 
     const solidWeb = await import("solid-js/web");
-    // deno-lint-ignore no-explicit-any
+    
     const solidWebModule = solidWeb as any;
     renderToStringAsync = solidWebModule.renderToStringAsync || solidWebModule.default?.renderToStringAsync;
     createComponent = solidWebModule.createComponent || solidWebModule.default?.createComponent;

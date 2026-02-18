@@ -3,6 +3,7 @@ import type { ViteDevServer } from "vite";
 import { registry } from "../core/integrations/registry.ts";
 import { IslandRegistry, createIslandRegistry } from "./discovery/index.ts";
 import { getCachedPath, setCachedPath } from "./render-cache.ts";
+import { stat as fsStat, readFile } from "node:fs/promises";
 
 // Global Vite server reference
 declare global {
@@ -42,7 +43,7 @@ export function hasFrameworkIntegration(framework: string) {
  */
 function isDev(): boolean {
   try {
-    return typeof Deno !== "undefined" && Deno.env?.get("DENO_ENV") !== "production";
+    return process.env.NODE_ENV !== "production";
   } catch {
     return true; // Default to dev mode if we can't check
   }
@@ -55,7 +56,7 @@ function isDev(): boolean {
  */
 async function fileExists(path: string): Promise<boolean> {
   try {
-    await Deno.stat(path);
+    await fsStat(path);
     return true;
   } catch {
     return false;
@@ -342,7 +343,7 @@ export function isNestedIslandPath(path: string): boolean {
  * @returns The island registry
  */
 export async function getOrCreateIslandRegistry(
-  projectRoot: string = Deno.cwd()
+  projectRoot: string = process.cwd()
 ): Promise<IslandRegistry> {
   if (!globalThis.__islandRegistry) {
     globalThis.__islandRegistry = await createIslandRegistry(projectRoot);
@@ -458,7 +459,7 @@ export async function detectFramework(
       // Try to read the file directly using resolved path
       const resolvedPath = await resolveIslandPath(src);
       const filePath = resolvedPath.replace(/^\//, "");
-      fileContent = await Deno.readTextFile(filePath);
+      fileContent = await readFile(filePath, 'utf-8');
     } catch {
       // If direct read fails, try through Vite in development
       const viteServer = globalThis.__viteDevServer;

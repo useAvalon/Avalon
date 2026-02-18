@@ -1,36 +1,37 @@
-import { assertEquals } from 'jsr:@std/assert';
+import { describe, it, expect } from 'vitest';
+import { readFile } from 'node:fs/promises';
 import { analyzeComponent } from '../../core/components/component-detection.ts';
 
 // Read real component files
-const svelteWithHydrate = await Deno.readTextFile('./examples/SvelteCounter.svelte');
-const svelteWithoutHydrate = await Deno.readTextFile('./examples/TestCounterNoHydrate.svelte');
-const vueWithHydrate = await Deno.readTextFile('./examples/TestCounter.vue');
+const svelteWithHydrate = await readFile('./examples/SvelteCounter.svelte', 'utf-8');
+const svelteWithoutHydrate = await readFile('./examples/TestCounterNoHydrate.svelte', 'utf-8');
+const vueWithHydrate = await readFile('./examples/TestCounter.vue', 'utf-8');
 
-Deno.test('Real Component Detection', async t => {
-	await t.step('should correctly analyze SvelteCounter.svelte (with hydrate)', () => {
+describe('Real Component Detection', () => {
+	it('should correctly analyze SvelteCounter.svelte (with hydrate)', () => {
 		const analysis = analyzeComponent('examples/SvelteCounter.svelte', svelteWithHydrate);
 
-		assertEquals(analysis.framework, 'svelte');
-		assertEquals(analysis.hasScript, true);
-		assertEquals(analysis.hasHydrateFunction, true);
-		assertEquals(analysis.recommendedStrategy, 'hydrate');
+		expect(analysis.framework).toEqual('svelte');
+		expect(analysis.hasScript).toEqual(true);
+		expect(analysis.hasHydrateFunction).toEqual(true);
+		expect(analysis.recommendedStrategy).toEqual('hydrate');
 	});
 
-	await t.step('should correctly analyze TestCounterNoHydrate.svelte (without hydrate)', () => {
+	it('should correctly analyze TestCounterNoHydrate.svelte (without hydrate)', () => {
 		const analysis = analyzeComponent('examples/TestCounterNoHydrate.svelte', svelteWithoutHydrate);
 
-		assertEquals(analysis.framework, 'svelte');
-		assertEquals(analysis.hasScript, true);
-		assertEquals(analysis.hasHydrateFunction, false);
-		assertEquals(analysis.recommendedStrategy, 'ssr-only'); // Default to SSR-only unless explicit hydrate function
+		expect(analysis.framework).toEqual('svelte');
+		expect(analysis.hasScript).toEqual(true);
+		expect(analysis.hasHydrateFunction).toEqual(false);
+		expect(analysis.recommendedStrategy).toEqual('ssr-only');
 	});
 
-	await t.step('should correctly analyze TestCounter.vue (with hydrate)', () => {
+	it('should correctly analyze TestCounter.vue (with hydrate)', () => {
 		const analysis = analyzeComponent('examples/TestCounter.vue', vueWithHydrate);
 
-		assertEquals(analysis.framework, 'vue');
-		assertEquals(analysis.hasScript, true);
-		assertEquals(analysis.hasHydrateFunction, true);
-		assertEquals(analysis.recommendedStrategy, 'hydrate');
+		expect(analysis.framework).toEqual('vue');
+		expect(analysis.hasScript).toEqual(true);
+		expect(analysis.hasHydrateFunction).toEqual(true);
+		expect(analysis.recommendedStrategy).toEqual('hydrate');
 	});
 });

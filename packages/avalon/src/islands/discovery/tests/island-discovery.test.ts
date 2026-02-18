@@ -1,12 +1,13 @@
+import { mkdir, writeFile, rm } from 'node:fs/promises';
 /**
  * Tests for Island Discovery System
  * 
  * Verifies the core discovery functionality for nested islands support.
  */
 
-import { assertEquals, assertExists, assert } from "jsr:@std/assert";
-import { join, resolve } from "jsr:@std/path";
-import { ensureDir } from "jsr:@std/fs";
+import { describe, it, expect } from 'vitest';
+import { join, resolve } from 'node:path';
+
 import {
   discoverIslandDirectories,
   discoverIslandsInDirectory,
@@ -24,21 +25,21 @@ const TEST_DIR = resolve("./test-islands-discovery-temp");
 async function setupTestDirectory(): Promise<void> {
   // Clean up if exists
   try {
-    await Deno.remove(TEST_DIR, { recursive: true });
+    await rm(TEST_DIR, { recursive: true });
   } catch {
     // Ignore if doesn't exist
   }
 
   // Create test directory structure
-  await ensureDir(join(TEST_DIR, "src", "islands"));
-  await ensureDir(join(TEST_DIR, "src", "modules", "auth", "islands"));
-  await ensureDir(join(TEST_DIR, "src", "modules", "dashboard", "islands"));
-  await ensureDir(join(TEST_DIR, "src", "features", "blog", "islands"));
+  await mkdir(join(TEST_DIR, "src", "islands"), { recursive: true });
+  await mkdir(join(TEST_DIR, "src", "modules", "auth", "islands"), { recursive: true });
+  await mkdir(join(TEST_DIR, "src", "modules", "dashboard", "islands"), { recursive: true });
+  await mkdir(join(TEST_DIR, "src", "features", "blog", "islands"), { recursive: true });
 }
 
 async function cleanupTestDirectory(): Promise<void> {
   try {
-    await Deno.remove(TEST_DIR, { recursive: true });
+    await rm(TEST_DIR, { recursive: true });
   } catch {
     // Ignore cleanup errors
   }
@@ -49,58 +50,62 @@ async function createTestIsland(
   content = "export default function Component() { return null; }"
 ): Promise<void> {
   const filePath = join(TEST_DIR, relativePath);
-  await Deno.writeTextFile(filePath, content);
+  await writeFile(filePath, content);
 }
 
 // ============================================================================
 // Scanner Tests
 // ============================================================================
 
-Deno.test("Island Discovery - discovers default islands directory", async () => {
+describe('Island Discovery - discovers default islands directory', () => {
+	it('Island Discovery - discovers default islands directory', async () => {
   await setupTestDirectory();
   try {
     const directories = await discoverIslandDirectories(TEST_DIR);
     
     // Should find the default islands directory
     const defaultDir = directories.find(d => d.isDefault);
-    assertExists(defaultDir);
-    assertEquals(defaultDir!.relativePath, "islands");
-    assertEquals(defaultDir!.namespace, "");
+    expect(defaultDir).toBeDefined();
+    expect(defaultDir!.relativePath).toEqual("islands");
+    expect(defaultDir!.namespace).toEqual("");
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Discovery - discovers nested islands directories", async () => {
+describe('Island Discovery - discovers nested islands directories', () => {
+	it('Island Discovery - discovers nested islands directories', async () => {
   await setupTestDirectory();
   try {
     const directories = await discoverIslandDirectories(TEST_DIR);
     
     // Should find all islands directories
-    assertEquals(directories.length, 4);
+    expect(directories.length).toEqual(4);
     
     // Check namespaces
     const namespaces = directories.map(d => d.namespace).sort();
-    assertEquals(namespaces, ["", "features/blog", "modules/auth", "modules/dashboard"]);
+    expect(namespaces).toEqual(["", "features/blog", "modules/auth", "modules/dashboard"]);
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Discovery - default directory has highest priority", async () => {
+describe('Island Discovery - default directory has highest priority', () => {
+	it('Island Discovery - default directory has highest priority', async () => {
   await setupTestDirectory();
   try {
     const directories = await discoverIslandDirectories(TEST_DIR);
     
     // Default directory should be first
-    assertEquals(directories[0].isDefault, true);
-    assertEquals(directories[0].relativePath, "islands");
+    expect(directories[0].isDefault).toEqual(true);
+    expect(directories[0].relativePath).toEqual("islands");
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Discovery - discovers island files in directory", async () => {
+describe('Island Discovery - discovers island files in directory', () => {
+	it('Island Discovery - discovers island files in directory', async () => {
   await setupTestDirectory();
   try {
     // Create test island files
@@ -113,16 +118,17 @@ Deno.test("Island Discovery - discovers island files in directory", async () => 
     
     const islands = await discoverIslandsInDirectory(defaultDir, TEST_DIR);
     
-    assertEquals(islands.length, 3);
+    expect(islands.length).toEqual(3);
     
     const names = islands.map(i => i.name).sort();
-    assertEquals(names, ["Button", "Card", "Counter"]);
+    expect(names).toEqual(["Button", "Card", "Counter"]);
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Discovery - detects framework from file extension", async () => {
+describe('Island Discovery - detects framework from file extension', () => {
+	it('Island Discovery - detects framework from file extension', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/PreactCounter.tsx");
@@ -137,17 +143,18 @@ Deno.test("Island Discovery - detects framework from file extension", async () =
     
     const frameworks = new Map(islands.map(i => [i.name, i.framework]));
     
-    assertEquals(frameworks.get("PreactCounter"), "preact");
-    assertEquals(frameworks.get("VueCounter"), "vue");
-    assertEquals(frameworks.get("SvelteCounter"), "svelte");
-    assertEquals(frameworks.get("SolidCounter"), "solid");
-    assertEquals(frameworks.get("LitCounter"), "lit");
+    expect(frameworks.get("PreactCounter")).toEqual("preact");
+    expect(frameworks.get("VueCounter")).toEqual("vue");
+    expect(frameworks.get("SvelteCounter")).toEqual("svelte");
+    expect(frameworks.get("SolidCounter")).toEqual("solid");
+    expect(frameworks.get("LitCounter")).toEqual("lit");
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Discovery - discovers all islands across directories", async () => {
+describe('Island Discovery - discovers all islands across directories', () => {
+	it('Island Discovery - discovers all islands across directories', async () => {
   await setupTestDirectory();
   try {
     // Create islands in different directories
@@ -158,10 +165,10 @@ Deno.test("Island Discovery - discovers all islands across directories", async (
     
     const allIslands = await discoverAllIslands(TEST_DIR);
     
-    assertEquals(allIslands.length, 4);
+    expect(allIslands.length).toEqual(4);
     
     const names = allIslands.map(i => i.name).sort();
-    assertEquals(names, ["Chart", "Counter", "LoginForm", "PostCard"]);
+    expect(names).toEqual(["Chart", "Counter", "LoginForm", "PostCard"]);
   } finally {
     await cleanupTestDirectory();
   }
@@ -171,7 +178,8 @@ Deno.test("Island Discovery - discovers all islands across directories", async (
 // Qualified Name Tests
 // ============================================================================
 
-Deno.test("Island Discovery - qualified name for default directory", async () => {
+describe('Island Discovery - qualified name for default directory', () => {
+	it('Island Discovery - qualified name for default directory', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/Counter.tsx");
@@ -180,13 +188,14 @@ Deno.test("Island Discovery - qualified name for default directory", async () =>
     const counter = allIslands.find(i => i.name === "Counter")!;
     
     const qualifiedName = getQualifiedIslandName(counter);
-    assertEquals(qualifiedName, "Counter");
+    expect(qualifiedName).toEqual("Counter");
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Discovery - qualified name for nested directory", async () => {
+describe('Island Discovery - qualified name for nested directory', () => {
+	it('Island Discovery - qualified name for nested directory', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/modules/auth/islands/LoginForm.tsx");
@@ -195,34 +204,36 @@ Deno.test("Island Discovery - qualified name for nested directory", async () => 
     const loginForm = allIslands.find(i => i.name === "LoginForm")!;
     
     const qualifiedName = getQualifiedIslandName(loginForm);
-    assertEquals(qualifiedName, "modules/auth/LoginForm");
+    expect(qualifiedName).toEqual("modules/auth/LoginForm");
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Discovery - parse qualified name", () => {
+describe('Island Discovery - parse qualified name', () => {
+	it('Island Discovery - parse qualified name', () => {
   // Simple name
   let result = parseQualifiedIslandName("Counter");
-  assertEquals(result.namespace, "");
-  assertEquals(result.name, "Counter");
+  expect(result.namespace).toEqual("");
+  expect(result.name).toEqual("Counter");
   
   // Qualified name
   result = parseQualifiedIslandName("modules/auth/LoginForm");
-  assertEquals(result.namespace, "modules/auth");
-  assertEquals(result.name, "LoginForm");
+  expect(result.namespace).toEqual("modules/auth");
+  expect(result.name).toEqual("LoginForm");
   
   // Deeply nested
   result = parseQualifiedIslandName("features/blog/posts/PostCard");
-  assertEquals(result.namespace, "features/blog/posts");
-  assertEquals(result.name, "PostCard");
+  expect(result.namespace).toEqual("features/blog/posts");
+  expect(result.name).toEqual("PostCard");
 });
 
 // ============================================================================
 // Registry Tests
 // ============================================================================
 
-Deno.test("Island Registry - registers and resolves islands", async () => {
+describe('Island Registry - registers and resolves islands', () => {
+	it('Island Registry - registers and resolves islands', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/Counter.tsx");
@@ -230,23 +241,24 @@ Deno.test("Island Registry - registers and resolves islands", async () => {
     
     const registry = await createIslandRegistry(TEST_DIR);
     
-    assertEquals(registry.size, 2);
+    expect(registry.size).toEqual(2);
     
     // Resolve by name
     const counter = registry.resolve("Counter");
-    assertExists(counter);
-    assertEquals(counter!.name, "Counter");
+    expect(counter).toBeDefined();
+    expect(counter!.name).toEqual("Counter");
     
     // Resolve by qualified name
     const loginForm = registry.resolve("modules/auth/LoginForm");
-    assertExists(loginForm);
-    assertEquals(loginForm!.name, "LoginForm");
+    expect(loginForm).toBeDefined();
+    expect(loginForm!.name).toEqual("LoginForm");
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Registry - detects collisions", async () => {
+describe('Island Registry - detects collisions', () => {
+	it('Island Registry - detects collisions', async () => {
   await setupTestDirectory();
   try {
     // Create islands with same name in different directories
@@ -257,15 +269,16 @@ Deno.test("Island Registry - detects collisions", async () => {
     const registry = await createIslandRegistry(TEST_DIR);
     const collisions = registry.detectCollisions();
     
-    assertEquals(collisions.length, 1);
-    assertEquals(collisions[0].name, "Counter");
-    assertEquals(collisions[0].islands.length, 3);
+    expect(collisions.length).toEqual(1);
+    expect(collisions[0].name).toEqual("Counter");
+    expect(collisions[0].islands.length).toEqual(3);
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Registry - resolves collisions with priority", async () => {
+describe('Island Registry - resolves collisions with priority', () => {
+	it('Island Registry - resolves collisions with priority', async () => {
   await setupTestDirectory();
   try {
     // Create islands with same name
@@ -276,14 +289,15 @@ Deno.test("Island Registry - resolves collisions with priority", async () => {
     
     // Default directory should win
     const counter = registry.resolve("Counter");
-    assertExists(counter);
-    assertEquals(counter!.directory.isDefault, true);
+    expect(counter).toBeDefined();
+    expect(counter!.directory.isDefault).toEqual(true);
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Registry - finds all islands by name", async () => {
+describe('Island Registry - finds all islands by name', () => {
+	it('Island Registry - finds all islands by name', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/Counter.tsx");
@@ -292,7 +306,7 @@ Deno.test("Island Registry - finds all islands by name", async () => {
     const registry = await createIslandRegistry(TEST_DIR);
     const matches = registry.findByName("Counter");
     
-    assertEquals(matches.length, 2);
+    expect(matches.length).toEqual(2);
   } finally {
     await cleanupTestDirectory();
   }
@@ -302,7 +316,8 @@ Deno.test("Island Registry - finds all islands by name", async () => {
 // Resolver Tests
 // ============================================================================
 
-Deno.test("Island Resolver - resolves by name", async () => {
+describe('Island Resolver - resolves by name', () => {
+	it('Island Resolver - resolves by name', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/Counter.tsx");
@@ -311,15 +326,16 @@ Deno.test("Island Resolver - resolves by name", async () => {
     const resolver = createIslandResolver(registry, TEST_DIR);
     
     const result = resolver.resolve("Counter");
-    assertExists(result);
-    assertEquals(result!.island.name, "Counter");
-    assertEquals(result!.ambiguous, false);
+    expect(result).toBeDefined();
+    expect(result!.island.name).toEqual("Counter");
+    expect(result!.ambiguous).toEqual(false);
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Resolver - resolves by qualified name", async () => {
+describe('Island Resolver - resolves by qualified name', () => {
+	it('Island Resolver - resolves by qualified name', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/modules/auth/islands/LoginForm.tsx");
@@ -328,15 +344,16 @@ Deno.test("Island Resolver - resolves by qualified name", async () => {
     const resolver = createIslandResolver(registry, TEST_DIR);
     
     const result = resolver.resolve("modules/auth/LoginForm");
-    assertExists(result);
-    assertEquals(result!.island.name, "LoginForm");
-    assertEquals(result!.island.namespace, "modules/auth");
+    expect(result).toBeDefined();
+    expect(result!.island.name).toEqual("LoginForm");
+    expect(result!.island.namespace).toEqual("modules/auth");
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Resolver - marks ambiguous resolutions", async () => {
+describe('Island Resolver - marks ambiguous resolutions', () => {
+	it('Island Resolver - marks ambiguous resolutions', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/Counter.tsx");
@@ -346,16 +363,17 @@ Deno.test("Island Resolver - marks ambiguous resolutions", async () => {
     const resolver = createIslandResolver(registry, TEST_DIR);
     
     const result = resolver.resolve("Counter");
-    assertExists(result);
-    assertEquals(result!.ambiguous, true);
-    assertExists(result!.alternatives);
-    assertEquals(result!.alternatives!.length, 1);
+    expect(result).toBeDefined();
+    expect(result!.ambiguous).toEqual(true);
+    expect(result!.alternatives).toBeDefined();
+    expect(result!.alternatives!.length).toEqual(1);
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Resolver - generates import paths", async () => {
+describe('Island Resolver - generates import paths', () => {
+	it('Island Resolver - generates import paths', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/Counter.tsx");
@@ -364,7 +382,7 @@ Deno.test("Island Resolver - generates import paths", async () => {
     const resolver = createIslandResolver(registry, TEST_DIR);
     
     const result = resolver.resolve("Counter");
-    assertExists(result);
+    expect(result).toBeDefined();
     
     // Import path should be relative
     assert(result!.importPath.includes("Counter.tsx"));
@@ -373,7 +391,8 @@ Deno.test("Island Resolver - generates import paths", async () => {
   }
 });
 
-Deno.test("Island Resolver - suggests qualified names for disambiguation", async () => {
+describe('Island Resolver - suggests qualified names for disambiguation', () => {
+	it('Island Resolver - suggests qualified names for disambiguation', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/Counter.tsx");
@@ -384,7 +403,7 @@ Deno.test("Island Resolver - suggests qualified names for disambiguation", async
     
     const suggestions = resolver.suggestQualifiedNames("Counter");
     
-    assertEquals(suggestions.length, 2);
+    expect(suggestions.length).toEqual(2);
     assert(suggestions.includes("Counter"));
     assert(suggestions.includes("modules/auth/Counter"));
   } finally {
@@ -392,7 +411,8 @@ Deno.test("Island Resolver - suggests qualified names for disambiguation", async
   }
 });
 
-Deno.test("Island Resolver - provides resolution order documentation", async () => {
+describe('Island Resolver - provides resolution order documentation', () => {
+	it('Island Resolver - provides resolution order documentation', async () => {
   await setupTestDirectory();
   try {
     const registry = await createIslandRegistry(TEST_DIR);
@@ -400,7 +420,7 @@ Deno.test("Island Resolver - provides resolution order documentation", async () 
     
     const order = resolver.getResolutionOrder();
     
-    assert(order.length > 0);
+    expect(order.length > 0).toBeTruthy();
     assert(order.some(line => line.includes("default")));
   } finally {
     await cleanupTestDirectory();
@@ -411,25 +431,28 @@ Deno.test("Island Resolver - provides resolution order documentation", async () 
 // Edge Cases
 // ============================================================================
 
-Deno.test("Island Discovery - handles empty directories", async () => {
+describe('Island Discovery - handles empty directories', () => {
+	it('Island Discovery - handles empty directories', async () => {
   await setupTestDirectory();
   try {
     // Don't create any island files
     const allIslands = await discoverAllIslands(TEST_DIR);
-    assertEquals(allIslands.length, 0);
+    expect(allIslands.length).toEqual(0);
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Discovery - handles nonexistent directory", async () => {
+describe('Island Discovery - handles nonexistent directory', () => {
+	it('Island Discovery - handles nonexistent directory', async () => {
   const nonexistentDir = "/tmp/nonexistent_islands_" + Date.now();
   
   const directories = await discoverIslandDirectories(nonexistentDir);
-  assertEquals(directories.length, 0);
+  expect(directories.length).toEqual(0);
 });
 
-Deno.test("Island Discovery - ignores unsupported file extensions", async () => {
+describe('Island Discovery - ignores unsupported file extensions', () => {
+	it('Island Discovery - ignores unsupported file extensions', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/Counter.tsx");
@@ -439,18 +462,19 @@ Deno.test("Island Discovery - ignores unsupported file extensions", async () => 
     const allIslands = await discoverAllIslands(TEST_DIR);
     
     // Should only find the .tsx file
-    assertEquals(allIslands.length, 1);
-    assertEquals(allIslands[0].name, "Counter");
+    expect(allIslands.length).toEqual(1);
+    expect(allIslands[0].name).toEqual("Counter");
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Discovery - excludes node_modules", async () => {
+describe('Island Discovery - excludes node_modules', () => {
+	it('Island Discovery - excludes node_modules', async () => {
   await setupTestDirectory();
   try {
     // Create islands in node_modules (should be excluded)
-    await ensureDir(join(TEST_DIR, "src", "node_modules", "some-package", "islands"));
+    await mkdir(join(TEST_DIR, "src", "node_modules", "some-package", "islands"), { recursive: true });
     await createTestIsland("src/node_modules/some-package/islands/Counter.tsx");
     
     // Create a valid island
@@ -459,13 +483,12 @@ Deno.test("Island Discovery - excludes node_modules", async () => {
     const allIslands = await discoverAllIslands(TEST_DIR);
     
     // Should only find Button, not the one in node_modules
-    assertEquals(allIslands.length, 1);
-    assertEquals(allIslands[0].name, "Button");
+    expect(allIslands.length).toEqual(1);
+    expect(allIslands[0].name).toEqual("Button");
   } finally {
     await cleanupTestDirectory();
   }
 });
-
 
 // ============================================================================
 // Validator Tests
@@ -481,7 +504,8 @@ import {
   formatValidationResult,
 } from "../validator.ts";
 
-Deno.test("Island Validator - validates valid component", async () => {
+describe('Island Validator - validates valid component', () => {
+	it('Island Validator - validates valid component', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/Counter.tsx", `
@@ -494,14 +518,15 @@ Deno.test("Island Validator - validates valid component", async () => {
     const filePath = join(TEST_DIR, "src/islands/Counter.tsx");
     const result = await validator.validateComponent(filePath);
     
-    assertEquals(result.valid, true);
-    assertEquals(result.errors.length, 0);
+    expect(result.valid).toEqual(true);
+    expect(result.errors.length).toEqual(0);
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Validator - detects missing export", async () => {
+describe('Island Validator - detects missing export', () => {
+	it('Island Validator - detects missing export', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/NoExport.tsx", `
@@ -514,15 +539,16 @@ Deno.test("Island Validator - detects missing export", async () => {
     const filePath = join(TEST_DIR, "src/islands/NoExport.tsx");
     const result = await validator.validateComponent(filePath);
     
-    assertEquals(result.valid, false);
-    assertEquals(result.errors.length, 1);
-    assertEquals(result.errors[0].type, "invalid-export");
+    expect(result.valid).toEqual(false);
+    expect(result.errors.length).toEqual(1);
+    expect(result.errors[0].type).toEqual("invalid-export");
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Validator - validates Vue component", async () => {
+describe('Island Validator - validates Vue component', () => {
+	it('Island Validator - validates Vue component', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/VueCounter.vue", `
@@ -539,14 +565,15 @@ Deno.test("Island Validator - validates Vue component", async () => {
     const filePath = join(TEST_DIR, "src/islands/VueCounter.vue");
     const result = await validator.validateComponent(filePath);
     
-    assertEquals(result.valid, true);
-    assertEquals(result.errors.length, 0);
+    expect(result.valid).toEqual(true);
+    expect(result.errors.length).toEqual(0);
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Validator - validates Svelte component", async () => {
+describe('Island Validator - validates Svelte component', () => {
+	it('Island Validator - validates Svelte component', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/SvelteCounter.svelte", `
@@ -560,14 +587,15 @@ Deno.test("Island Validator - validates Svelte component", async () => {
     const filePath = join(TEST_DIR, "src/islands/SvelteCounter.svelte");
     const result = await validator.validateComponent(filePath);
     
-    assertEquals(result.valid, true);
-    assertEquals(result.errors.length, 0);
+    expect(result.valid).toEqual(true);
+    expect(result.errors.length).toEqual(0);
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Validator - warns on lowercase component name", async () => {
+describe('Island Validator - warns on lowercase component name', () => {
+	it('Island Validator - warns on lowercase component name', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/counter.tsx", `
@@ -581,16 +609,17 @@ Deno.test("Island Validator - warns on lowercase component name", async () => {
     const result = await validator.validateComponent(filePath);
     
     // Should pass but with warning
-    assertEquals(result.valid, true);
-    assertEquals(result.warnings.length, 1);
-    assertEquals(result.warnings[0].type, "deprecated-pattern");
+    expect(result.valid).toEqual(true);
+    expect(result.warnings.length).toEqual(1);
+    expect(result.warnings[0].type).toEqual("deprecated-pattern");
     assert(result.warnings[0].message.includes("PascalCase"));
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Validator - validates Lit component", async () => {
+describe('Island Validator - validates Lit component', () => {
+	it('Island Validator - validates Lit component', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/LitCounter.lit.ts", `
@@ -609,14 +638,15 @@ Deno.test("Island Validator - validates Lit component", async () => {
     const filePath = join(TEST_DIR, "src/islands/LitCounter.lit.ts");
     const result = await validator.validateComponent(filePath);
     
-    assertEquals(result.valid, true);
-    assertEquals(result.errors.length, 0);
+    expect(result.valid).toEqual(true);
+    expect(result.errors.length).toEqual(0);
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Validator - validates directory with empty warning", async () => {
+describe('Island Validator - validates directory with empty warning', () => {
+	it('Island Validator - validates directory with empty warning', async () => {
   await setupTestDirectory();
   try {
     const directories = await discoverIslandDirectories(TEST_DIR);
@@ -625,39 +655,41 @@ Deno.test("Island Validator - validates directory with empty warning", async () 
     const validator = createIslandValidator(TEST_DIR);
     const result = await validator.validateDirectory(defaultDir);
     
-    assertEquals(result.valid, true);
-    assertEquals(result.warnings.length, 1);
-    assertEquals(result.warnings[0].type, "empty-directory");
+    expect(result.valid).toEqual(true);
+    expect(result.warnings.length).toEqual(1);
+    expect(result.warnings[0].type).toEqual("empty-directory");
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Validator - validates naming convention", () => {
+describe('Island Validator - validates naming convention', () => {
+	it('Island Validator - validates naming convention', () => {
   const validator = createIslandValidator("/tmp");
   
   // Valid PascalCase
   let result = validator.validateNamingConvention("Counter", "/tmp/Counter.tsx");
-  assertEquals(result.valid, true);
-  assertEquals(result.errors.length, 0);
-  assertEquals(result.warnings.length, 0);
+  expect(result.valid).toEqual(true);
+  expect(result.errors.length).toEqual(0);
+  expect(result.warnings.length).toEqual(0);
   
   // Valid PascalCase with numbers
   result = validator.validateNamingConvention("Counter2", "/tmp/Counter2.tsx");
-  assertEquals(result.valid, true);
+  expect(result.valid).toEqual(true);
   
   // Invalid - lowercase
   result = validator.validateNamingConvention("counter", "/tmp/counter.tsx");
-  assertEquals(result.valid, true); // Still valid, just warning
-  assertEquals(result.warnings.length, 1);
+  expect(result.valid).toEqual(true); // Still valid, just warning
+  expect(result.warnings.length).toEqual(1);
   
   // Invalid - empty
   result = validator.validateNamingConvention("", "/tmp/.tsx");
-  assertEquals(result.valid, false);
-  assertEquals(result.errors.length, 1);
+  expect(result.valid).toEqual(false);
+  expect(result.errors.length).toEqual(1);
 });
 
-Deno.test("Island Validator - detects circular dependencies", async () => {
+describe('Island Validator - detects circular dependencies', () => {
+	it('Island Validator - detects circular dependencies', async () => {
   await setupTestDirectory();
   try {
     // Create islands with circular dependency: A -> B -> C -> A
@@ -684,14 +716,15 @@ Deno.test("Island Validator - detects circular dependencies", async () => {
     const validator = createIslandValidator(TEST_DIR);
     const cycles = await validator.detectCircularDependencies(allIslands);
     
-    assertEquals(cycles.length, 1);
-    assertEquals(cycles[0].cycle.length, 4); // A -> B -> C -> A (4 nodes including repeat)
+    expect(cycles.length).toEqual(1);
+    expect(cycles[0].cycle.length).toEqual(4); // A -> B -> C -> A (4 nodes including repeat)
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Validator - no circular dependencies for independent islands", async () => {
+describe('Island Validator - no circular dependencies for independent islands', () => {
+	it('Island Validator - no circular dependencies for independent islands', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/Counter.tsx", `
@@ -709,13 +742,14 @@ Deno.test("Island Validator - no circular dependencies for independent islands",
     const validator = createIslandValidator(TEST_DIR);
     const cycles = await validator.detectCircularDependencies(allIslands);
     
-    assertEquals(cycles.length, 0);
+    expect(cycles.length).toEqual(0);
   } finally {
     await cleanupTestDirectory();
   }
 });
 
-Deno.test("Island Validator - formatValidationError includes file path", () => {
+describe('Island Validator - formatValidationError includes file path', () => {
+	it('Island Validator - formatValidationError includes file path', () => {
   const error = {
     type: "invalid-export" as const,
     message: "No default export",
@@ -732,7 +766,8 @@ Deno.test("Island Validator - formatValidationError includes file path", () => {
   assert(formatted.includes("Add export default"));
 });
 
-Deno.test("Island Validator - formatValidationWarning includes suggestion", () => {
+describe('Island Validator - formatValidationWarning includes suggestion', () => {
+	it('Island Validator - formatValidationWarning includes suggestion', () => {
   const warning = {
     type: "deprecated-pattern" as const,
     message: "Use PascalCase",
@@ -746,7 +781,8 @@ Deno.test("Island Validator - formatValidationWarning includes suggestion", () =
   assert(formatted.includes("Rename to Counter"));
 });
 
-Deno.test("Island Validator - formatCircularDependency shows chain", () => {
+describe('Island Validator - formatCircularDependency shows chain', () => {
+	it('Island Validator - formatCircularDependency shows chain', () => {
   const circular = {
     cycle: ["/project/src/A.tsx", "/project/src/B.tsx", "/project/src/A.tsx"],
     description: "Circular dependency",
@@ -759,7 +795,8 @@ Deno.test("Island Validator - formatCircularDependency shows chain", () => {
   assert(formatted.includes("Circular dependency"));
 });
 
-Deno.test("Island Validator - formatValidationResult shows summary", () => {
+describe('Island Validator - formatValidationResult shows summary', () => {
+	it('Island Validator - formatValidationResult shows summary', () => {
   const result = {
     valid: false,
     errors: [{
@@ -780,7 +817,8 @@ Deno.test("Island Validator - formatValidationResult shows summary", () => {
   assert(formatted.includes("Validation failed"));
 });
 
-Deno.test("Island Validator - validateAllIslands combines results", async () => {
+describe('Island Validator - validateAllIslands combines results', () => {
+	it('Island Validator - validateAllIslands combines results', async () => {
   await setupTestDirectory();
   try {
     await createTestIsland("src/islands/ValidCounter.tsx", `
@@ -797,8 +835,8 @@ Deno.test("Island Validator - validateAllIslands combines results", async () => 
     const allIslands = await discoverAllIslands(TEST_DIR);
     const result = await validateAllIslands(allIslands, TEST_DIR);
     
-    assertEquals(result.valid, false);
-    assertEquals(result.errors.length, 1);
+    expect(result.valid).toEqual(false);
+    expect(result.errors.length).toEqual(1);
   } finally {
     await cleanupTestDirectory();
   }

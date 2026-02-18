@@ -1,4 +1,5 @@
 import { extname } from 'node:path';
+import { readFile } from 'node:fs/promises';
 import { h } from 'preact';
 import { marked } from 'marked';
 import type { RoutePageModule } from '../../schemas/routing.ts';
@@ -13,7 +14,7 @@ export class MDXProcessor {
 	async processMDXFile(filePath: string): Promise<RoutePageModule> {
 		try {
 			// Read the MDX file content
-			const content = await Deno.readTextFile(filePath);
+			const content = await readFile(filePath, 'utf-8');
 
 			// Process markdown content using marked library
 			const component = () => {

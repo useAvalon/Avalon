@@ -5,12 +5,12 @@
  * including validation, management, and configuration operations.
  */
 
-import { assertEquals, assertExists, assert } from '@std/assert';
+import { describe, it, expect } from 'vitest';
 import { FrameworkRegistry, createFrameworkConfig, defaultFrameworkRegistry } from '../framework-registry.ts';
 import type { FrameworkConfig } from '../enhanced-framework-detector.ts';
 
-Deno.test('FrameworkRegistry - Basic Operations', async t => {
-	await t.step('should initialize with default frameworks', () => {
+describe('FrameworkRegistry - Basic Operations', () => {
+	it('should initialize with default frameworks', () => {
 		const registry = new FrameworkRegistry();
 		const frameworks = registry.getAllFrameworks();
 
@@ -18,29 +18,29 @@ Deno.test('FrameworkRegistry - Basic Operations', async t => {
 		assert(frameworks.has('solid'));
 		assert(frameworks.has('vue'));
 		assert(frameworks.has('svelte'));
-		assertEquals(frameworks.size, 4);
+		expect(frameworks.size).toEqual(4);
 	});
 
-	await t.step('should get framework by name', () => {
+	it('should get framework by name', () => {
 		const registry = new FrameworkRegistry();
 		const preactConfig = registry.getFramework('preact');
 
-		assertExists(preactConfig);
-		assertEquals(preactConfig.name, 'preact');
+		expect(preactConfig).toBeDefined();
+		expect(preactConfig.name).toEqual('preact');
 		assert(preactConfig.fileExtensions.includes('.tsx'));
 		assert(preactConfig.jsxImportSources.includes('preact'));
 	});
 
-	await t.step('should return undefined for non-existent framework', () => {
+	it('should return undefined for non-existent framework', () => {
 		const registry = new FrameworkRegistry();
 		const config = registry.getFramework('nonexistent');
 
-		assertEquals(config, undefined);
+		expect(config).toEqual(undefined);
 	});
 });
 
-Deno.test('FrameworkRegistry - Framework Registration', async t => {
-	await t.step('should register valid custom framework', () => {
+describe('FrameworkRegistry - Framework Registration', () => {
+	it('should register valid custom framework', () => {
 		const registry = new FrameworkRegistry();
 		const customConfig: FrameworkConfig = {
 			name: 'custom',
@@ -57,15 +57,15 @@ Deno.test('FrameworkRegistry - Framework Registration', async t => {
 
 		const result = registry.registerFramework('custom', customConfig);
 
-		assertEquals(result.isValid, true);
-		assertEquals(result.errors.length, 0);
+		expect(result.isValid).toEqual(true);
+		expect(result.errors.length).toEqual(0);
 
 		const registered = registry.getFramework('custom');
-		assertExists(registered);
-		assertEquals(registered.name, 'custom');
+		expect(registered).toBeDefined();
+		expect(registered.name).toEqual('custom');
 	});
 
-	await t.step('should reject invalid framework configuration', () => {
+	it('should reject invalid framework configuration', () => {
 		const registry = new FrameworkRegistry();
 		const invalidConfig: FrameworkConfig = {
 			name: '',
@@ -82,13 +82,13 @@ Deno.test('FrameworkRegistry - Framework Registration', async t => {
 
 		const result = registry.registerFramework('invalid', invalidConfig);
 
-		assertEquals(result.isValid, false);
-		assert(result.errors.length > 0);
+		expect(result.isValid).toEqual(false);
+		expect(result.errors.length > 0).toBeTruthy();
 		assert(result.errors.some(e => e.includes('name is required')));
 		assert(result.errors.some(e => e.includes('file extension is required')));
 	});
 
-	await t.step('should prevent custom frameworks when disabled', () => {
+	it('should prevent custom frameworks when disabled', () => {
 		const registry = new FrameworkRegistry({ allowCustomFrameworks: false });
 		const customConfig: FrameworkConfig = {
 			name: 'custom',
@@ -105,51 +105,51 @@ Deno.test('FrameworkRegistry - Framework Registration', async t => {
 
 		const result = registry.registerFramework('custom', customConfig);
 
-		assertEquals(result.isValid, false);
+		expect(result.isValid).toEqual(false);
 		assert(result.errors.some(e => e.includes('Custom framework')));
 	});
 });
 
-Deno.test('FrameworkRegistry - Framework Updates', async t => {
-	await t.step('should update existing framework', () => {
+describe('FrameworkRegistry - Framework Updates', () => {
+	it('should update existing framework', () => {
 		const registry = new FrameworkRegistry();
 
 		const result = registry.updateFramework('preact', {
 			fileExtensions: ['.tsx', '.jsx', '.preact'],
 		});
 
-		assertEquals(result.isValid, true);
+		expect(result.isValid).toEqual(true);
 
 		const updated = registry.getFramework('preact');
-		assertExists(updated);
+		expect(updated).toBeDefined();
 		assert(updated.fileExtensions.includes('.preact'));
 	});
 
-	await t.step('should reject update for non-existent framework', () => {
+	it('should reject update for non-existent framework', () => {
 		const registry = new FrameworkRegistry();
 
 		const result = registry.updateFramework('nonexistent', {
 			fileExtensions: ['.test'],
 		});
 
-		assertEquals(result.isValid, false);
+		expect(result.isValid).toEqual(false);
 		assert(result.errors.some(e => e.includes('not found')));
 	});
 
-	await t.step('should validate updates', () => {
+	it('should validate updates', () => {
 		const registry = new FrameworkRegistry();
 
 		const result = registry.updateFramework('preact', {
 			fileExtensions: [], // Invalid - empty extensions
 		});
 
-		assertEquals(result.isValid, false);
+		expect(result.isValid).toEqual(false);
 		assert(result.errors.some(e => e.includes('file extension is required')));
 	});
 });
 
-Deno.test('FrameworkRegistry - Framework Removal', async t => {
-	await t.step('should remove custom frameworks', () => {
+describe('FrameworkRegistry - Framework Removal', () => {
+	it('should remove custom frameworks', () => {
 		const registry = new FrameworkRegistry();
 
 		// First register a custom framework
@@ -171,22 +171,22 @@ Deno.test('FrameworkRegistry - Framework Removal', async t => {
 		// Then remove it
 		const removed = registry.unregisterFramework('custom');
 
-		assertEquals(removed, true);
-		assertEquals(registry.getFramework('custom'), undefined);
+		expect(removed).toEqual(true);
+		expect(registry.getFramework('custom')).toEqual(undefined);
 	});
 
-	await t.step('should not remove default frameworks', () => {
+	it('should not remove default frameworks', () => {
 		const registry = new FrameworkRegistry();
 
 		const removed = registry.unregisterFramework('preact');
 
-		assertEquals(removed, false);
-		assertExists(registry.getFramework('preact'));
+		expect(removed).toEqual(false);
+		expect(registry.getFramework('preact').toBeDefined());
 	});
 });
 
-Deno.test('FrameworkRegistry - Validation', async t => {
-	await t.step('should validate framework configuration completeness', () => {
+describe('FrameworkRegistry - Validation', () => {
+	it('should validate framework configuration completeness', () => {
 		const registry = new FrameworkRegistry();
 
 		const validConfig: FrameworkConfig = {
@@ -204,11 +204,11 @@ Deno.test('FrameworkRegistry - Validation', async t => {
 
 		const result = registry.validateFrameworkConfig(validConfig);
 
-		assertEquals(result.isValid, true);
-		assertEquals(result.errors.length, 0);
+		expect(result.isValid).toEqual(true);
+		expect(result.errors.length).toEqual(0);
 	});
 
-	await t.step('should detect missing required fields', () => {
+	it('should detect missing required fields', () => {
 		const registry = new FrameworkRegistry();
 
 		const incompleteConfig = {
@@ -219,11 +219,11 @@ Deno.test('FrameworkRegistry - Validation', async t => {
 
 		const result = registry.validateFrameworkConfig(incompleteConfig);
 
-		assertEquals(result.isValid, false);
-		assert(result.errors.length > 0);
+		expect(result.isValid).toEqual(false);
+		expect(result.errors.length > 0).toBeTruthy();
 	});
 
-	await t.step('should validate file extension format', () => {
+	it('should validate file extension format', () => {
 		const registry = new FrameworkRegistry();
 
 		const invalidConfig: FrameworkConfig = {
@@ -241,11 +241,11 @@ Deno.test('FrameworkRegistry - Validation', async t => {
 
 		const result = registry.validateFrameworkConfig(invalidConfig);
 
-		assertEquals(result.isValid, false);
+		expect(result.isValid).toEqual(false);
 		assert(result.errors.some(e => e.includes('must start with a dot')));
 	});
 
-	await t.step('should warn about potential conflicts', () => {
+	it('should warn about potential conflicts', () => {
 		const registry = new FrameworkRegistry();
 
 		// Register a framework that conflicts with existing ones
@@ -265,14 +265,14 @@ Deno.test('FrameworkRegistry - Validation', async t => {
 		const result = registry.validateFrameworkConfig(conflictingConfig);
 
 		// Should be valid but with warnings
-		assertEquals(result.isValid, true);
-		assert(result.warnings.length > 0);
+		expect(result.isValid).toEqual(true);
+		expect(result.warnings.length > 0).toBeTruthy();
 		assert(result.warnings.some(w => w.includes('overlap')));
 	});
 });
 
-Deno.test('FrameworkRegistry - Query Operations', async t => {
-	await t.step('should get frameworks by extension', () => {
+describe('FrameworkRegistry - Query Operations', () => {
+	it('should get frameworks by extension', () => {
 		const registry = new FrameworkRegistry();
 
 		const tsxFrameworks = registry.getFrameworksByExtension('.tsx');
@@ -283,39 +283,39 @@ Deno.test('FrameworkRegistry - Query Operations', async t => {
 		assert(!tsxFrameworks.includes('svelte'));
 	});
 
-	await t.step('should get frameworks by JSX import source', () => {
+	it('should get frameworks by JSX import source', () => {
 		const registry = new FrameworkRegistry();
 
 		const preactFrameworks = registry.getFrameworksByJSXImportSource('preact');
 		const solidFrameworks = registry.getFrameworksByJSXImportSource('solid-js');
 
-		assertEquals(preactFrameworks, ['preact']);
-		assertEquals(solidFrameworks, ['solid']);
+		expect(preactFrameworks).toEqual(['preact']);
+		expect(solidFrameworks).toEqual(['solid']);
 	});
 
-	await t.step('should return empty array for unknown extension', () => {
+	it('should return empty array for unknown extension', () => {
 		const registry = new FrameworkRegistry();
 
 		const unknownFrameworks = registry.getFrameworksByExtension('.unknown');
 
-		assertEquals(unknownFrameworks, []);
+		expect(unknownFrameworks).toEqual([]);
 	});
 });
 
-Deno.test('FrameworkRegistry - Configuration Management', async t => {
-	await t.step('should export configuration', () => {
+describe('FrameworkRegistry - Configuration Management', () => {
+	it('should export configuration', () => {
 		const registry = new FrameworkRegistry();
 
 		const config = registry.exportConfig();
 
-		assertExists(config.preact);
-		assertExists(config.solid);
-		assertExists(config.vue);
-		assertExists(config.svelte);
-		assertEquals(Object.keys(config).length, 4);
+		expect(config.preact).toBeDefined();
+		expect(config.solid).toBeDefined();
+		expect(config.vue).toBeDefined();
+		expect(config.svelte).toBeDefined();
+		expect(Object.keys(config).length).toEqual(4);
 	});
 
-	await t.step('should import configuration', () => {
+	it('should import configuration', () => {
 		const registry = new FrameworkRegistry();
 
 		const customConfig = {
@@ -335,14 +335,14 @@ Deno.test('FrameworkRegistry - Configuration Management', async t => {
 
 		const results = registry.importConfig(customConfig);
 
-		assertEquals(results.length, 2);
+		expect(results.length).toEqual(2);
 		assert(results.every(r => r.isValid));
 
-		assertExists(registry.getFramework('custom1'));
-		assertExists(registry.getFramework('custom2'));
+		expect(registry.getFramework('custom1').toBeDefined());
+		expect(registry.getFramework('custom2').toBeDefined());
 	});
 
-	await t.step('should reset to defaults', () => {
+	it('should reset to defaults', () => {
 		const registry = new FrameworkRegistry();
 
 		// Add custom framework
@@ -354,30 +354,30 @@ Deno.test('FrameworkRegistry - Configuration Management', async t => {
 		});
 
 		registry.registerFramework('custom', customConfig);
-		assertEquals(registry.getAllFrameworks().size, 5);
+		expect(registry.getAllFrameworks().size).toEqual(5);
 
 		// Reset
 		registry.reset();
-		assertEquals(registry.getAllFrameworks().size, 4);
-		assertEquals(registry.getFramework('custom'), undefined);
+		expect(registry.getAllFrameworks().size).toEqual(4);
+		expect(registry.getFramework('custom')).toEqual(undefined);
 	});
 });
 
-Deno.test('FrameworkRegistry - Statistics', async t => {
-	await t.step('should provide accurate statistics', () => {
+describe('FrameworkRegistry - Statistics', () => {
+	it('should provide accurate statistics', () => {
 		const registry = new FrameworkRegistry();
 
 		const stats = registry.getStats();
 
-		assertEquals(stats.totalFrameworks, 4);
-		assertEquals(stats.defaultFrameworks, 4);
-		assertEquals(stats.customFrameworks, 0);
+		expect(stats.totalFrameworks).toEqual(4);
+		expect(stats.defaultFrameworks).toEqual(4);
+		expect(stats.customFrameworks).toEqual(0);
 		assert(stats.supportedExtensions.includes('.tsx'));
 		assert(stats.supportedExtensions.includes('.vue'));
 		assert(stats.supportedExtensions.includes('.svelte'));
 	});
 
-	await t.step('should update statistics after adding custom frameworks', () => {
+	it('should update statistics after adding custom frameworks', () => {
 		const registry = new FrameworkRegistry();
 
 		const customConfig = createFrameworkConfig('custom', {
@@ -391,15 +391,15 @@ Deno.test('FrameworkRegistry - Statistics', async t => {
 
 		const stats = registry.getStats();
 
-		assertEquals(stats.totalFrameworks, 5);
-		assertEquals(stats.defaultFrameworks, 4);
-		assertEquals(stats.customFrameworks, 1);
+		expect(stats.totalFrameworks).toEqual(5);
+		expect(stats.defaultFrameworks).toEqual(4);
+		expect(stats.customFrameworks).toEqual(1);
 		assert(stats.supportedExtensions.includes('.custom'));
 	});
 });
 
-Deno.test('FrameworkRegistry - createFrameworkConfig Utility', async t => {
-	await t.step('should create valid framework configuration', () => {
+describe('FrameworkRegistry - createFrameworkConfig Utility', () => {
+	it('should create valid framework configuration', () => {
 		const config = createFrameworkConfig('test', {
 			fileExtensions: ['.test'],
 			ssrModules: ['test/server'],
@@ -409,16 +409,16 @@ Deno.test('FrameworkRegistry - createFrameworkConfig Utility', async t => {
 			jsxPragmas: ['@jsxImportSource test'],
 		});
 
-		assertEquals(config.name, 'test');
-		assertEquals(config.fileExtensions, ['.test']);
-		assertEquals(config.ssrModules, ['test/server']);
-		assertEquals(config.hydrationModules, ['test/client']);
-		assertEquals(config.detectionPatterns.imports.length, 2);
-		assertEquals(config.detectionPatterns.content.length, 2);
-		assertEquals(config.detectionPatterns.jsxPragmas, ['@jsxImportSource test']);
+		expect(config.name).toEqual('test');
+		expect(config.fileExtensions).toEqual(['.test']);
+		expect(config.ssrModules).toEqual(['test/server']);
+		expect(config.hydrationModules).toEqual(['test/client']);
+		expect(config.detectionPatterns.imports.length).toEqual(2);
+		expect(config.detectionPatterns.content.length).toEqual(2);
+		expect(config.detectionPatterns.jsxPragmas).toEqual(['@jsxImportSource test']);
 	});
 
-	await t.step('should handle optional parameters', () => {
+	it('should handle optional parameters', () => {
 		const config = createFrameworkConfig('minimal', {
 			fileExtensions: ['.min'],
 			ssrModules: ['minimal/server'],
@@ -426,21 +426,21 @@ Deno.test('FrameworkRegistry - createFrameworkConfig Utility', async t => {
 			importPatterns: [/^minimal$/],
 		});
 
-		assertEquals(config.jsxImportSources, []);
-		assertEquals(config.detectionPatterns.content, []);
-		assertEquals(config.detectionPatterns.jsxPragmas, []);
+		expect(config.jsxImportSources).toEqual([]);
+		expect(config.detectionPatterns.content).toEqual([]);
+		expect(config.detectionPatterns.jsxPragmas).toEqual([]);
 	});
 });
 
-Deno.test('FrameworkRegistry - Default Registry Instance', async t => {
-	await t.step('should provide working default instance', () => {
+describe('FrameworkRegistry - Default Registry Instance', () => {
+	it('should provide working default instance', () => {
 		const preactConfig = defaultFrameworkRegistry.getFramework('preact');
 
-		assertExists(preactConfig);
-		assertEquals(preactConfig.name, 'preact');
+		expect(preactConfig).toBeDefined();
+		expect(preactConfig.name).toEqual('preact');
 	});
 
-	await t.step('should allow modifications to default instance', () => {
+	it('should allow modifications to default instance', () => {
 		const customConfig = createFrameworkConfig('test-default', {
 			fileExtensions: ['.test-default'],
 			ssrModules: ['test-default/server'],
@@ -450,8 +450,8 @@ Deno.test('FrameworkRegistry - Default Registry Instance', async t => {
 
 		const result = defaultFrameworkRegistry.registerFramework('test-default', customConfig);
 
-		assertEquals(result.isValid, true);
-		assertExists(defaultFrameworkRegistry.getFramework('test-default'));
+		expect(result.isValid).toEqual(true);
+		expect(defaultFrameworkRegistry.getFramework('test-default').toBeDefined());
 
 		// Clean up
 		defaultFrameworkRegistry.unregisterFramework('test-default');

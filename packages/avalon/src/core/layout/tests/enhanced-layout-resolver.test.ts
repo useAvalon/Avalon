@@ -1,5 +1,7 @@
-import { assertEquals, assertExists } from '@std/assert';
-import { describe, it, beforeEach, afterEach } from '@std/testing/bdd';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { ComponentType } from 'preact';
 
 import {
@@ -43,13 +45,10 @@ describe('EnhancedLayoutResolver', () => {
 	let tempDir: string;
 
 	beforeEach(async () => {
-		// Set test environment to prevent timers
-		Deno.env.set('DENO_ENV', 'test');
+		process.env.NODE_ENV = 'test';
 
-		// Create temporary directory for test layouts
-		tempDir = await Deno.makeTempDir({ prefix: 'layout_resolver_test_' });
+		tempDir = await mkdtemp(join(tmpdir(), 'layout_resolver_test_'));
 
-		// Create resolver with test configuration
 		resolver = createEnhancedLayoutResolver({
 			baseDirectory: tempDir,
 			developmentMode: true,
@@ -62,14 +61,12 @@ describe('EnhancedLayoutResolver', () => {
 	});
 
 	afterEach(async () => {
-		// Clean up resolver resources
 		if (resolver) {
 			resolver.destroy();
 		}
 
-		// Clean up temporary directory
 		try {
-			await Deno.remove(tempDir, { recursive: true });
+			await rm(tempDir, { recursive: true });
 		} catch {
 			// Ignore cleanup errors
 		}
@@ -82,11 +79,11 @@ describe('EnhancedLayoutResolver', () => {
 			});
 
 			const options = defaultResolver.getOptions();
-			assertEquals(options.baseDirectory, tempDir);
-			assertEquals(options.filePattern, '_layout.tsx');
-			assertEquals(options.enableCaching, true);
-			assertEquals(options.enableStreaming, true);
-			assertEquals(options.enableErrorBoundaries, true);
+			expect(options.baseDirectory).toEqual(tempDir);
+			expect(options.filePattern).toEqual('_layout.tsx');
+			expect(options.enableCaching).toEqual(true);
+			expect(options.enableStreaming).toEqual(true);
+			expect(options.enableErrorBoundaries).toEqual(true);
 		});
 
 		it('should create resolver with custom options', () => {
@@ -100,11 +97,11 @@ describe('EnhancedLayoutResolver', () => {
 			});
 
 			const options = customResolver.getOptions();
-			assertEquals(options.filePattern, 'layout.tsx');
-			assertEquals(options.enableCaching, false);
-			assertEquals(options.enableStreaming, false);
-			assertEquals(options.cacheTTL, 10000);
-			assertEquals(options.maxCacheSize, 500);
+			expect(options.filePattern).toEqual('layout.tsx');
+			expect(options.enableCaching).toEqual(false);
+			expect(options.enableStreaming).toEqual(false);
+			expect(options.cacheTTL).toEqual(10000);
+			expect(options.maxCacheSize).toEqual(500);
 		});
 
 		it('should update options after creation', () => {
@@ -114,8 +111,8 @@ describe('EnhancedLayoutResolver', () => {
 			});
 
 			const options = resolver.getOptions();
-			assertEquals(options.enableCaching, false);
-			assertEquals(options.enableStreaming, false);
+			expect(options.enableCaching).toEqual(false);
+			expect(options.enableStreaming).toEqual(false);
 		});
 	});
 
@@ -126,23 +123,21 @@ describe('EnhancedLayoutResolver', () => {
 
 			const result = await resolver.resolveLayouts('/test', pageModule, context);
 
-			assertExists(result);
-			assertEquals(result.handlers.length, 0);
-			assertEquals(result.dataLoaders.length, 0);
-			assertEquals(result.metadata.totalLayouts, 0);
-			assertEquals(result.metadata.cacheHit, false);
+			expect(result).toBeDefined();
+			expect(result.handlers.length).toEqual(0);
+			expect(result.dataLoaders.length).toEqual(0);
+			expect(result.metadata.totalLayouts).toEqual(0);
+			expect(result.metadata.cacheHit).toEqual(false);
 		});
 
 		it('should handle layout resolution errors gracefully', async () => {
 			const context = createMockLayoutContext('/error');
 			const pageModule = createMockPageModule();
 
-			// This should not throw, but handle errors gracefully
 			const result = await resolver.resolveLayouts('/error', pageModule, context);
 
-			assertExists(result);
-			// Should return empty result on error
-			assertEquals(result.handlers.length, 0);
+			expect(result).toBeDefined();
+			expect(result.handlers.length).toEqual(0);
 		});
 
 		it('should collect performance metrics', async () => {
@@ -151,11 +146,11 @@ describe('EnhancedLayoutResolver', () => {
 
 			const result = await resolver.resolveLayouts('/metrics', pageModule, context);
 
-			assertExists(result.metadata);
-			assertEquals(typeof result.metadata.resolutionTime, 'number');
-			assertEquals(result.metadata.resolutionTime >= 0, true);
-			assertEquals(typeof result.metadata.totalLayouts, 'number');
-			assertEquals(typeof result.metadata.cacheHit, 'boolean');
+			expect(result.metadata).toBeDefined();
+			expect(typeof result.metadata.resolutionTime).toEqual('number');
+			expect(result.metadata.resolutionTime >= 0).toEqual(true);
+			expect(typeof result.metadata.totalLayouts).toEqual('number');
+			expect(typeof result.metadata.cacheHit).toEqual('boolean');
 		});
 	});
 
@@ -164,50 +159,41 @@ describe('EnhancedLayoutResolver', () => {
 			const context = createMockLayoutContext('/cache-test');
 			const pageModule = createMockPageModule();
 
-			// First resolution
 			const result1 = await resolver.resolveLayouts('/cache-test', pageModule, context);
-			assertEquals(result1.metadata.cacheHit, false);
+			expect(result1.metadata.cacheHit).toEqual(false);
 
-			// Second resolution should hit cache
 			const result2 = await resolver.resolveLayouts('/cache-test', pageModule, context);
-			assertEquals(result2.metadata.cacheHit, true);
+			expect(result2.metadata.cacheHit).toEqual(true);
 		});
 
 		it('should respect cache TTL', async () => {
-			// Create resolver with very short TTL
 			const shortTTLResolver = createEnhancedLayoutResolver({
 				baseDirectory: tempDir,
 				enableCaching: true,
-				cacheTTL: 10, // 10ms
+				cacheTTL: 10,
 			});
 
 			const context = createMockLayoutContext('/ttl-test');
 			const pageModule = createMockPageModule();
 
-			// First resolution
 			await shortTTLResolver.resolveLayouts('/ttl-test', pageModule, context);
 
-			// Wait for TTL to expire
 			await new Promise(resolve => setTimeout(resolve, 20));
 
-			// Second resolution should not hit cache
 			const result = await shortTTLResolver.resolveLayouts('/ttl-test', pageModule, context);
-			assertEquals(result.metadata.cacheHit, false);
+			expect(result.metadata.cacheHit).toEqual(false);
 		});
 
 		it('should clear cache when requested', async () => {
 			const context = createMockLayoutContext('/clear-test');
 			const pageModule = createMockPageModule();
 
-			// First resolution to populate cache
 			await resolver.resolveLayouts('/clear-test', pageModule, context);
 
-			// Clear cache
 			resolver.clearCache();
 
-			// Second resolution should not hit cache
 			const result = await resolver.resolveLayouts('/clear-test', pageModule, context);
-			assertEquals(result.metadata.cacheHit, false);
+			expect(result.metadata.cacheHit).toEqual(false);
 		});
 
 		it('should disable caching when requested', async () => {
@@ -216,13 +202,11 @@ describe('EnhancedLayoutResolver', () => {
 			const context = createMockLayoutContext('/no-cache');
 			const pageModule = createMockPageModule();
 
-			// First resolution
 			const result1 = await resolver.resolveLayouts('/no-cache', pageModule, context);
-			assertEquals(result1.metadata.cacheHit, false);
+			expect(result1.metadata.cacheHit).toEqual(false);
 
-			// Second resolution should also not hit cache
 			const result2 = await resolver.resolveLayouts('/no-cache', pageModule, context);
-			assertEquals(result2.metadata.cacheHit, false);
+			expect(result2.metadata.cacheHit).toEqual(false);
 		});
 	});
 
@@ -235,9 +219,8 @@ describe('EnhancedLayoutResolver', () => {
 
 			const result = await resolver.resolveLayouts('/replace', pageModule, context);
 
-			assertExists(result);
-			// With replaceLayout: true and no customLayout, should have no layouts
-			assertEquals(result.handlers.length, 0);
+			expect(result).toBeDefined();
+			expect(result.handlers.length).toEqual(0);
 		});
 
 		it('should handle skipLayouts configuration', async () => {
@@ -248,9 +231,8 @@ describe('EnhancedLayoutResolver', () => {
 
 			const result = await resolver.resolveLayouts('/skip', pageModule, context);
 
-			assertExists(result);
-			// Should process the configuration even with no actual layouts
-			assertEquals(result.metadata.totalLayouts, 0);
+			expect(result).toBeDefined();
+			expect(result.metadata.totalLayouts).toEqual(0);
 		});
 
 		it('should handle onlyLayouts configuration', async () => {
@@ -261,47 +243,46 @@ describe('EnhancedLayoutResolver', () => {
 
 			const result = await resolver.resolveLayouts('/only', pageModule, context);
 
-			assertExists(result);
-			// Should process the configuration even with no actual layouts
-			assertEquals(result.metadata.totalLayouts, 0);
+			expect(result).toBeDefined();
+			expect(result.metadata.totalLayouts).toEqual(0);
 		});
 	});
 
 	describe('component access', () => {
 		it('should provide access to layout discovery', () => {
 			const discovery = resolver.getLayoutDiscovery();
-			assertExists(discovery);
-			assertEquals(typeof discovery.discoverLayouts, 'function');
+			expect(discovery).toBeDefined();
+			expect(typeof discovery.discoverLayouts).toEqual('function');
 		});
 
 		it('should provide access to layout matcher', () => {
 			const matcher = resolver.getLayoutMatcher();
-			assertExists(matcher);
-			assertEquals(typeof matcher.shouldApplyLayout, 'function');
+			expect(matcher).toBeDefined();
+			expect(typeof matcher.shouldApplyLayout).toEqual('function');
 		});
 
 		it('should provide access to layout composer', () => {
 			const composer = resolver.getLayoutComposer();
-			assertExists(composer);
-			assertEquals(typeof composer.resolveLayouts, 'function');
+			expect(composer).toBeDefined();
+			expect(typeof composer.resolveLayouts).toEqual('function');
 		});
 
 		it('should provide access to layout data loader', () => {
 			const dataLoader = resolver.getLayoutDataLoader();
-			assertExists(dataLoader);
-			assertEquals(typeof dataLoader.loadLayoutData, 'function');
+			expect(dataLoader).toBeDefined();
+			expect(typeof dataLoader.loadLayoutData).toEqual('function');
 		});
 
 		it('should provide access to layout streaming', () => {
 			const streaming = resolver.getLayoutStreaming();
-			assertExists(streaming);
-			assertEquals(typeof streaming.renderWithStreaming, 'function');
+			expect(streaming).toBeDefined();
+			expect(typeof streaming.renderWithStreaming).toEqual('function');
 		});
 
 		it('should provide access to error recovery', () => {
 			const errorRecovery = resolver.getErrorRecovery();
-			assertExists(errorRecovery);
-			assertEquals(typeof errorRecovery.handleLayoutError, 'function');
+			expect(errorRecovery).toBeDefined();
+			expect(typeof errorRecovery.handleLayoutError).toEqual('function');
 		});
 	});
 
@@ -309,12 +290,12 @@ describe('EnhancedLayoutResolver', () => {
 		it('should provide resolver statistics', () => {
 			const stats = resolver.getResolverStats();
 
-			assertExists(stats);
-			assertEquals(typeof stats.cacheSize, 'number');
-			assertEquals(typeof stats.cacheHitRate, 'number');
-			assertEquals(typeof stats.totalResolutions, 'number');
-			assertEquals(typeof stats.averageResolutionTime, 'number');
-			assertEquals(typeof stats.errorCount, 'number');
+			expect(stats).toBeDefined();
+			expect(typeof stats.cacheSize).toEqual('number');
+			expect(typeof stats.cacheHitRate).toEqual('number');
+			expect(typeof stats.totalResolutions).toEqual('number');
+			expect(typeof stats.averageResolutionTime).toEqual('number');
+			expect(typeof stats.errorCount).toEqual('number');
 		});
 	});
 });
@@ -324,42 +305,42 @@ describe('EnhancedLayoutResolverUtils', () => {
 		it('should create basic configuration', () => {
 			const config = EnhancedLayoutResolverUtils.createBasicConfig('/test', false);
 
-			assertEquals(config.baseDirectory, '/test');
-			assertEquals(config.developmentMode, false);
-			assertEquals(config.enableCaching, true);
-			assertEquals(config.enableStreaming, true);
-			assertEquals(config.enableErrorBoundaries, true);
-			assertEquals(config.enableMetrics, false);
-			assertEquals(config.enableDebugInfo, false);
+			expect(config.baseDirectory).toEqual('/test');
+			expect(config.developmentMode).toEqual(false);
+			expect(config.enableCaching).toEqual(true);
+			expect(config.enableStreaming).toEqual(true);
+			expect(config.enableErrorBoundaries).toEqual(true);
+			expect(config.enableMetrics).toEqual(false);
+			expect(config.enableDebugInfo).toEqual(false);
 		});
 
 		it('should create production configuration', () => {
 			const config = EnhancedLayoutResolverUtils.createProductionConfig('/prod');
 
-			assertEquals(config.baseDirectory, '/prod');
-			assertEquals(config.developmentMode, false);
-			assertEquals(config.enableCaching, true);
-			assertEquals(config.cacheTTL, 15 * 60 * 1000); // 15 minutes
-			assertEquals(config.maxCacheSize, 5000);
-			assertEquals(config.enableStreaming, true);
-			assertEquals(config.enableErrorBoundaries, true);
-			assertEquals(config.enableMetrics, false);
-			assertEquals(config.enableDebugInfo, false);
+			expect(config.baseDirectory).toEqual('/prod');
+			expect(config.developmentMode).toEqual(false);
+			expect(config.enableCaching).toEqual(true);
+			expect(config.cacheTTL).toEqual(15 * 60 * 1000);
+			expect(config.maxCacheSize).toEqual(5000);
+			expect(config.enableStreaming).toEqual(true);
+			expect(config.enableErrorBoundaries).toEqual(true);
+			expect(config.enableMetrics).toEqual(false);
+			expect(config.enableDebugInfo).toEqual(false);
 		});
 
 		it('should create development configuration', () => {
 			const config = EnhancedLayoutResolverUtils.createDevelopmentConfig('/dev');
 
-			assertEquals(config.baseDirectory, '/dev');
-			assertEquals(config.developmentMode, true);
-			assertEquals(config.enableWatching, true);
-			assertEquals(config.enableCaching, true);
-			assertEquals(config.cacheTTL, 1 * 60 * 1000); // 1 minute
-			assertEquals(config.maxCacheSize, 100);
-			assertEquals(config.enableStreaming, true);
-			assertEquals(config.enableErrorBoundaries, true);
-			assertEquals(config.enableMetrics, true);
-			assertEquals(config.enableDebugInfo, true);
+			expect(config.baseDirectory).toEqual('/dev');
+			expect(config.developmentMode).toEqual(true);
+			expect(config.enableWatching).toEqual(true);
+			expect(config.enableCaching).toEqual(true);
+			expect(config.cacheTTL).toEqual(1 * 60 * 1000);
+			expect(config.maxCacheSize).toEqual(100);
+			expect(config.enableStreaming).toEqual(true);
+			expect(config.enableErrorBoundaries).toEqual(true);
+			expect(config.enableMetrics).toEqual(true);
+			expect(config.enableDebugInfo).toEqual(true);
 		});
 	});
 });
@@ -369,7 +350,7 @@ describe('Integration with layout system components', () => {
 	let tempDir: string;
 
 	beforeEach(async () => {
-		tempDir = await Deno.makeTempDir({ prefix: 'layout_integration_test_' });
+		tempDir = await mkdtemp(join(tmpdir(), 'layout_integration_test_'));
 		resolver = createEnhancedLayoutResolver({
 			baseDirectory: tempDir,
 			developmentMode: true,
@@ -377,13 +358,12 @@ describe('Integration with layout system components', () => {
 	});
 
 	afterEach(async () => {
-		await Deno.remove(tempDir, { recursive: true });
+		await rm(tempDir, { recursive: true });
 	});
 
 	it('should integrate with layout matcher for conditional rendering', async () => {
 		const matcher = resolver.getLayoutMatcher();
 
-		// Add a custom rule
 		matcher.addRule({
 			matches: (_layoutPath: string, route: any) => route.path.startsWith('/api/'),
 			apply: false,
@@ -395,17 +375,15 @@ describe('Integration with layout system components', () => {
 
 		const result = await resolver.resolveLayouts('/api/test', pageModule, context);
 
-		assertExists(result);
-		// Should work even with conditional rendering rules
-		assertEquals(result.metadata.totalLayouts, 0);
+		expect(result).toBeDefined();
+		expect(result.metadata.totalLayouts).toEqual(0);
 	});
 
 	it('should integrate with layout composer for composition control', async () => {
 		const composer = resolver.getLayoutComposer();
 
-		// Verify composer is properly integrated
-		assertExists(composer);
-		assertEquals(typeof composer.resolveLayouts, 'function');
+		expect(composer).toBeDefined();
+		expect(typeof composer.resolveLayouts).toEqual('function');
 
 		const context = createMockLayoutContext('/compose');
 		const pageModule = createMockPageModule({
@@ -414,24 +392,23 @@ describe('Integration with layout system components', () => {
 
 		const result = await resolver.resolveLayouts('/compose', pageModule, context);
 
-		assertExists(result);
-		assertEquals(result.metadata.totalLayouts, 0);
+		expect(result).toBeDefined();
+		expect(result.metadata.totalLayouts).toEqual(0);
 	});
 
 	it('should integrate with data loader for layout data', async () => {
 		const dataLoader = resolver.getLayoutDataLoader();
 
-		// Verify data loader is properly integrated
-		assertExists(dataLoader);
-		assertEquals(typeof dataLoader.loadLayoutData, 'function');
+		expect(dataLoader).toBeDefined();
+		expect(typeof dataLoader.loadLayoutData).toEqual('function');
 
 		const context = createMockLayoutContext('/data');
 		const pageModule = createMockPageModule();
 
 		const result = await resolver.resolveLayouts('/data', pageModule, context);
 
-		assertExists(result);
-		assertEquals(result.dataLoaders.length, 0); // No layouts with loaders
+		expect(result).toBeDefined();
+		expect(result.dataLoaders.length).toEqual(0);
 	});
 });
 
@@ -440,7 +417,7 @@ describe('Error handling and recovery', () => {
 	let tempDir: string;
 
 	beforeEach(async () => {
-		tempDir = await Deno.makeTempDir({ prefix: 'layout_error_test_' });
+		tempDir = await mkdtemp(join(tmpdir(), 'layout_error_test_'));
 		resolver = createEnhancedLayoutResolver({
 			baseDirectory: tempDir,
 			developmentMode: true,
@@ -449,11 +426,10 @@ describe('Error handling and recovery', () => {
 	});
 
 	afterEach(async () => {
-		await Deno.remove(tempDir, { recursive: true });
+		await rm(tempDir, { recursive: true });
 	});
 
 	it('should handle errors in discovery stage', async () => {
-		// Create a resolver with invalid base directory
 		const invalidResolver = createEnhancedLayoutResolver({
 			baseDirectory: '/nonexistent/path',
 			developmentMode: true,
@@ -462,11 +438,10 @@ describe('Error handling and recovery', () => {
 		const context = createMockLayoutContext('/error');
 		const pageModule = createMockPageModule();
 
-		// Should not throw, but handle error gracefully
 		const result = await invalidResolver.resolveLayouts('/error', pageModule, context);
 
-		assertExists(result);
-		assertEquals(result.handlers.length, 0);
+		expect(result).toBeDefined();
+		expect(result.handlers.length).toEqual(0);
 	});
 
 	it('should handle errors in composition stage', async () => {
@@ -475,11 +450,10 @@ describe('Error handling and recovery', () => {
 			customLayout: '/nonexistent/layout.tsx',
 		});
 
-		// Should not throw, but handle error gracefully
 		const result = await resolver.resolveLayouts('/composition-error', pageModule, context);
 
-		assertExists(result);
-		assertEquals(result.metadata.totalLayouts, 0);
+		expect(result).toBeDefined();
+		expect(result.metadata.totalLayouts).toEqual(0);
 	});
 });
 
@@ -488,7 +462,7 @@ describe('Performance and metrics', () => {
 	let tempDir: string;
 
 	beforeEach(async () => {
-		tempDir = await Deno.makeTempDir({ prefix: 'layout_perf_test_' });
+		tempDir = await mkdtemp(join(tmpdir(), 'layout_perf_test_'));
 		resolver = createEnhancedLayoutResolver({
 			baseDirectory: tempDir,
 			developmentMode: true,
@@ -497,7 +471,7 @@ describe('Performance and metrics', () => {
 	});
 
 	afterEach(async () => {
-		await Deno.remove(tempDir, { recursive: true });
+		await rm(tempDir, { recursive: true });
 	});
 
 	it('should collect timing metrics', async () => {
@@ -506,9 +480,9 @@ describe('Performance and metrics', () => {
 
 		const result = await resolver.resolveLayouts('/perf', pageModule, context);
 
-		assertExists(result.metadata);
-		assertEquals(typeof result.metadata.resolutionTime, 'number');
-		assertEquals(result.metadata.resolutionTime >= 0, true);
+		expect(result.metadata).toBeDefined();
+		expect(typeof result.metadata.resolutionTime).toEqual('number');
+		expect(result.metadata.resolutionTime >= 0).toEqual(true);
 	});
 
 	it('should handle multiple concurrent resolutions', async () => {
@@ -517,20 +491,18 @@ describe('Performance and metrics', () => {
 		const context3 = createMockLayoutContext('/concurrent3');
 		const pageModule = createMockPageModule();
 
-		// Run multiple resolutions concurrently
 		const [result1, result2, result3] = await Promise.all([
 			resolver.resolveLayouts('/concurrent1', pageModule, context1),
 			resolver.resolveLayouts('/concurrent2', pageModule, context2),
 			resolver.resolveLayouts('/concurrent3', pageModule, context3),
 		]);
 
-		assertExists(result1);
-		assertExists(result2);
-		assertExists(result3);
+		expect(result1).toBeDefined();
+		expect(result2).toBeDefined();
+		expect(result3).toBeDefined();
 
-		// All should complete successfully
-		assertEquals(typeof result1.metadata.resolutionTime, 'number');
-		assertEquals(typeof result2.metadata.resolutionTime, 'number');
-		assertEquals(typeof result3.metadata.resolutionTime, 'number');
+		expect(typeof result1.metadata.resolutionTime).toEqual('number');
+		expect(typeof result2.metadata.resolutionTime).toEqual('number');
+		expect(typeof result3.metadata.resolutionTime).toEqual('number');
 	});
 });

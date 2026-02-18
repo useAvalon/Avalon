@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
-import deno from '@deno/vite-plugin';
+import { readdir } from 'node:fs/promises';
 import type { UserConfig } from 'vite';
 import { detectUsedIntegrations, getRequiredIntegrations } from './src/build/integration-detection-plugin.ts';
 import { integrationResolverPlugin, createIntegrationAliases } from './src/build/integration-resolver-plugin.ts';
@@ -19,12 +19,13 @@ export default defineConfig(async (): Promise<UserConfig> => {
 
 	// Discover island entries for SSR
 	const islandEntries: Record<string, string> = {};
-	const cwd = Deno.cwd();
+	const cwd = process.cwd();
 	
 	try {
 		const islandsPath = resolve(cwd, 'islands');
-		for await (const dirEntry of Deno.readDir(islandsPath)) {
-			if (dirEntry.isFile) {
+		const dirEntries = await readdir(islandsPath, { withFileTypes: true });
+		for (const dirEntry of dirEntries) {
+			if (dirEntry.isFile()) {
 				const name = dirEntry.name;
 				if (name.endsWith('.tsx') || name.endsWith('.jsx') || 
 				    name.endsWith('.vue') || name.endsWith('.svelte')) {
@@ -43,7 +44,6 @@ export default defineConfig(async (): Promise<UserConfig> => {
 	// Vue SSR plugin
 	if (requiredIntegrations.includes('vue')) {
 		try {
-			// deno-lint-ignore no-external-import
 			const { default: vue } = await import('@vitejs/plugin-vue');
 			frameworkPlugins.push(vue({
 				template: {
@@ -60,7 +60,6 @@ export default defineConfig(async (): Promise<UserConfig> => {
 	// Solid SSR plugin
 	if (requiredIntegrations.includes('solid')) {
 		try {
-			// deno-lint-ignore no-external-import
 			const { default: solid } = await import('vite-plugin-solid');
 			frameworkPlugins.push(solid({ 
 				ssr: true,
@@ -74,7 +73,6 @@ export default defineConfig(async (): Promise<UserConfig> => {
 	// Svelte SSR plugin
 	if (requiredIntegrations.includes('svelte')) {
 		try {
-			// deno-lint-ignore no-external-import
 			const { svelte } = await import('@sveltejs/vite-plugin-svelte');
 			frameworkPlugins.push(svelte({
 				compilerOptions: {
@@ -98,8 +96,6 @@ export default defineConfig(async (): Promise<UserConfig> => {
 			// Integration plugins
 			integrationResolverPlugin(),
 			integrationBundlerPlugin({ integrations: requiredIntegrations, ssr: true }),
-			// Deno plugin
-			deno(),
 			// Framework plugins
 			...frameworkPlugins,
 		],

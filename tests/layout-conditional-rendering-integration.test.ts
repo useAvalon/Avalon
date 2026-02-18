@@ -1,10 +1,11 @@
-import { assertEquals, assertExists } from '@std/assert';
-import { describe, it, beforeEach, afterEach } from '@std/testing/bdd';
+import { describe, it, beforeEach, afterEach, expect } from 'vitest';
 import { LayoutDiscovery } from '../packages/avalon/src/core/layout/layout-discovery.ts';
 import { LayoutMatcher } from '../packages/avalon/src/core/layout/layout-matcher.ts';
 import type { LayoutRule, LayoutContext } from '../packages/avalon/src/schemas/layout.ts';
-import { join } from '@std/path';
-import { ensureDir, emptyDir } from '@std/fs';
+import { join } from 'node:path';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { ensureDir } from '../packages/avalon/src/utils/fs.ts';
 
 describe('Layout Conditional Rendering Integration', () => {
 	let testDir: string;
@@ -12,7 +13,7 @@ describe('Layout Conditional Rendering Integration', () => {
 
 	beforeEach(async () => {
 		// Create a temporary test directory
-		testDir = await Deno.makeTempDir({ prefix: 'layout_test_' });
+		testDir = await mkdtemp(join(tmpdir(), 'layout_test_'));
 
 		// Create test layout structure
 		await createTestLayoutStructure(testDir);
@@ -27,7 +28,7 @@ describe('Layout Conditional Rendering Integration', () => {
 
 	afterEach(async () => {
 		// Clean up test directory
-		await Deno.remove(testDir, { recursive: true });
+		await rm(testDir, { recursive: true });
 	});
 
 	async function createTestLayoutStructure(baseDir: string) {
@@ -35,7 +36,7 @@ describe('Layout Conditional Rendering Integration', () => {
 		await ensureDir(pagesDir);
 
 		// Create root layout
-		await Deno.writeTextFile(
+		await writeFile(
 			join(pagesDir, '_layout.tsx'),
 			`export default function RootLayout({ children }) { return children; }`
 		);
@@ -43,7 +44,7 @@ describe('Layout Conditional Rendering Integration', () => {
 		// Create admin layout
 		const adminDir = join(pagesDir, 'admin');
 		await ensureDir(adminDir);
-		await Deno.writeTextFile(
+		await writeFile(
 			join(adminDir, '_layout.tsx'),
 			`export default function AdminLayout({ children }) { return children; }`
 		);
@@ -51,7 +52,7 @@ describe('Layout Conditional Rendering Integration', () => {
 		// Create mobile layout
 		const mobileDir = join(pagesDir, 'mobile');
 		await ensureDir(mobileDir);
-		await Deno.writeTextFile(
+		await writeFile(
 			join(mobileDir, '_layout.tsx'),
 			`export default function MobileLayout({ children }) { return children; }`
 		);
@@ -59,7 +60,7 @@ describe('Layout Conditional Rendering Integration', () => {
 		// Create API layout (should be skipped)
 		const apiDir = join(pagesDir, 'api');
 		await ensureDir(apiDir);
-		await Deno.writeTextFile(
+		await writeFile(
 			join(apiDir, '_layout.tsx'),
 			`export default function ApiLayout({ children }) { return children; }`
 		);
@@ -86,7 +87,7 @@ describe('Layout Conditional Rendering Integration', () => {
 			const handlers = await layoutDiscovery.buildLayoutChainWithConditionalRendering(url, request);
 
 			// Should not include any layouts for API routes
-			assertEquals(handlers.length, 0);
+			expect(handlers.length).toEqual(0);
 		});
 
 		it('should apply layouts for regular routes', async () => {
@@ -96,8 +97,8 @@ describe('Layout Conditional Rendering Integration', () => {
 			const handlers = await layoutDiscovery.buildLayoutChainWithConditionalRendering(url, request);
 
 			// Should include root layout
-			assertEquals(handlers.length, 1);
-			assertEquals(handlers[0].path.includes('_layout.tsx'), true);
+			expect(handlers.length).toEqual(1);
+			expect(handlers[0].path.includes('_layout.tsx')).toEqual(true);
 		});
 
 		it('should skip mobile layouts for desktop user agents', async () => {
@@ -109,12 +110,9 @@ describe('Layout Conditional Rendering Integration', () => {
 			const handlers = await layoutDiscovery.buildLayoutChainWithConditionalRendering(url, request);
 
 			// Should only include root layout, not mobile layout
-			assertEquals(handlers.length, 1);
-			assertEquals(handlers[0].path.includes('pages/_layout.tsx'), true);
-			assertEquals(
-				handlers.some(h => h.path.includes('mobile')),
-				false
-			);
+			expect(handlers.length).toEqual(1);
+			expect(handlers[0].path.includes('pages/_layout.tsx')).toEqual(true);
+			expect(handlers.some(h => h.path.includes('mobile'))).toEqual(false);
 		});
 
 		it('should apply mobile layouts for mobile user agents', async () => {
@@ -126,34 +124,22 @@ describe('Layout Conditional Rendering Integration', () => {
 			const handlers = await layoutDiscovery.buildLayoutChainWithConditionalRendering(url, request);
 
 			// Should include both root and mobile layouts
-			assertEquals(handlers.length, 2);
-			assertEquals(
-				handlers.some(h => h.path.includes('pages/_layout.tsx')),
-				true
-			);
-			assertEquals(
-				handlers.some(h => h.path.includes('mobile/_layout.tsx')),
-				true
-			);
+			expect(handlers.length).toEqual(2);
+			expect(handlers.some(h => h.path.includes('pages/_layout.tsx'))).toEqual(true);
+			expect(handlers.some(h => h.path.includes('mobile/_layout.tsx'))).toEqual(true);
 		});
 
 		it('should skip admin layouts for non-admin routes', async () => {
 			const request = createMockRequest('/home');
 			const url = new URL(request.url);
 
-			// First, let's check what layouts would be discovered without conditional rendering
-			const allHandlers = await layoutDiscovery.buildLayoutChain(url);
-
 			// Now check with conditional rendering
 			const filteredHandlers = await layoutDiscovery.buildLayoutChainWithConditionalRendering(url, request);
 
 			// Should only include root layout, not admin layout
-			assertEquals(filteredHandlers.length, 1);
-			assertEquals(filteredHandlers[0].path.includes('pages/_layout.tsx'), true);
-			assertEquals(
-				filteredHandlers.some(h => h.path.includes('admin')),
-				false
-			);
+			expect(filteredHandlers.length).toEqual(1);
+			expect(filteredHandlers[0].path.includes('pages/_layout.tsx')).toEqual(true);
+			expect(filteredHandlers.some(h => h.path.includes('admin'))).toEqual(false);
 		});
 
 		it('should apply admin layouts for admin routes', async () => {
@@ -163,15 +149,9 @@ describe('Layout Conditional Rendering Integration', () => {
 			const handlers = await layoutDiscovery.buildLayoutChainWithConditionalRendering(url, request);
 
 			// Should include both root and admin layouts
-			assertEquals(handlers.length, 2);
-			assertEquals(
-				handlers.some(h => h.path.includes('pages/_layout.tsx')),
-				true
-			);
-			assertEquals(
-				handlers.some(h => h.path.includes('admin/_layout.tsx')),
-				true
-			);
+			expect(handlers.length).toEqual(2);
+			expect(handlers.some(h => h.path.includes('pages/_layout.tsx'))).toEqual(true);
+			expect(handlers.some(h => h.path.includes('admin/_layout.tsx'))).toEqual(true);
 		});
 
 		it('should skip layouts when X-Skip-Layout header is present', async () => {
@@ -183,7 +163,7 @@ describe('Layout Conditional Rendering Integration', () => {
 			const handlers = await layoutDiscovery.buildLayoutChainWithConditionalRendering(url, request);
 
 			// Should skip all layouts
-			assertEquals(handlers.length, 0);
+			expect(handlers.length).toEqual(0);
 		});
 	});
 
@@ -206,7 +186,7 @@ describe('Layout Conditional Rendering Integration', () => {
 			const handlers = await layoutDiscovery.buildLayoutChainWithConditionalRendering(url, request);
 
 			// Should skip all layouts for POST requests
-			assertEquals(handlers.length, 0);
+			expect(handlers.length).toEqual(0);
 		});
 
 		it('should handle rule priority correctly', async () => {
@@ -235,7 +215,7 @@ describe('Layout Conditional Rendering Integration', () => {
 			const handlers = await layoutDiscovery.buildLayoutChainWithConditionalRendering(url, request);
 
 			// High priority rule should win (skip layouts)
-			assertEquals(handlers.length, 0);
+			expect(handlers.length).toEqual(0);
 		});
 	});
 
@@ -244,7 +224,7 @@ describe('Layout Conditional Rendering Integration', () => {
 			// Create a layout with a data loader
 			const layoutWithLoader = join(testDir, 'pages', 'blog', '_layout.tsx');
 			await ensureDir(join(testDir, 'pages', 'blog'));
-			await Deno.writeTextFile(
+			await writeFile(
 				layoutWithLoader,
 				`
 export default function BlogLayout({ children, data }) { 
@@ -270,20 +250,20 @@ export async function layoutLoader(ctx) {
 			const result = await layoutDiscovery.buildLayoutChainWithConditionalRenderingAndData(url, context);
 
 			// Should have root and blog layouts
-			assertEquals(result.handlers.length, 2);
-			assertEquals(result.data.length, 2);
+			expect(result.handlers.length).toEqual(2);
+			expect(result.data.length).toEqual(2);
 
 			// Root layout has no loader, so empty data
-			assertEquals(Object.keys(result.data[0]).length, 0);
+			expect(Object.keys(result.data[0]).length).toEqual(0);
 
 			// Blog layout has loader, so should have data
-			assertEquals(result.data[1].blogTitle, 'My Blog');
+			expect(result.data[1].blogTitle).toEqual('My Blog');
 		});
 
 		it('should not load data for layouts that are skipped by conditional rendering', async () => {
 			// Create an API layout with a data loader
 			const apiLayoutWithLoader = join(testDir, 'pages', 'api', '_layout.tsx');
-			await Deno.writeTextFile(
+			await writeFile(
 				apiLayoutWithLoader,
 				`
 export default function ApiLayout({ children, data }) { 
@@ -309,9 +289,9 @@ export async function layoutLoader(ctx) {
 			const result = await layoutDiscovery.buildLayoutChainWithConditionalRenderingAndData(url, context);
 
 			// Should have no layouts for API routes
-			assertEquals(result.handlers.length, 0);
-			assertEquals(result.data.length, 0);
-			assertEquals(result.errors.length, 0);
+			expect(result.handlers.length).toEqual(0);
+			expect(result.data.length).toEqual(0);
+			expect(result.errors.length).toEqual(0);
 		});
 	});
 
@@ -345,19 +325,19 @@ export async function layoutLoader(ctx) {
 			);
 
 			// Special route should be skipped
-			assertEquals(specialHandlers.length, 0);
+			expect(specialHandlers.length).toEqual(0);
 
 			// Regular route should have layouts (no rules match)
-			assertEquals(regularHandlers.length, 1);
+			expect(regularHandlers.length).toEqual(1);
 		});
 
 		it('should provide access to the current layout matcher', () => {
 			const matcher = layoutDiscovery.getLayoutMatcher();
-			assertExists(matcher);
+			expect(matcher).toBeDefined();
 
 			// Should have built-in rules
 			const rules = matcher.getRules();
-			assertEquals(rules.length >= 4, true); // At least 4 built-in rules
+			expect(rules.length >= 4).toEqual(true); // At least 4 built-in rules
 		});
 	});
 
@@ -383,7 +363,7 @@ export async function layoutLoader(ctx) {
 			const handlers = await layoutDiscovery.buildLayoutChainWithConditionalRendering(url, request);
 
 			// Should still have root layout (error handling defaults to applying layouts)
-			assertEquals(handlers.length, 1);
+			expect(handlers.length).toEqual(1);
 		});
 	});
 });

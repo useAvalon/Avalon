@@ -341,30 +341,19 @@ export function deepClone<T>(obj: T): T {
  *
  * @returns Record of environment variables
  */
+/**
+ * Gets environment variables from the runtime environment
+ *
+ * @returns Record of environment variables
+ */
 export function getEnvironmentVariables(): Record<string, string> {
-  // Check for Deno environment
-  if (typeof Deno !== "undefined" && Deno.env) {
-    return Object.fromEntries(Deno.env.toObject ? 
-      Object.entries(Deno.env.toObject()) : 
-      []
-    );
-  }
-
-  // Check for Node.js environment
-  // Use globalThis to avoid TypeScript errors in Deno
-  const globalProcess = (globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }).process;
-  if (globalProcess?.env) {
-    const env: Record<string, string> = {};
-    for (const [key, value] of Object.entries(globalProcess.env)) {
-      if (value !== undefined) {
-        env[key] = value;
-      }
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) {
+      env[key] = value;
     }
-    return env;
   }
-
-  // Fallback: empty object
-  return {};
+  return env;
 }
 
 /**

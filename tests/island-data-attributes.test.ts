@@ -1,10 +1,9 @@
-import { assertEquals, assertStringIncludes } from "jsr:@std/assert";
-import { h } from "preact";
+import { describe, it, expect } from 'vitest';
 import { renderToString } from "preact-render-to-string";
 import Island from "../packages/avalon/src/islands/island.tsx";
 
-Deno.test("Island component - data attributes", async (t) => {
-  await t.step("should render with data-src attribute", () => {
+describe("Island component - data attributes", () => {
+  it("should render with data-src attribute", () => {
     const island = Island({
       src: "/islands/Counter.tsx",
       condition: "on:client",
@@ -14,10 +13,10 @@ Deno.test("Island component - data attributes", async (t) => {
 
     const html = renderToString(island);
     // Path is resolved to /src/islands/Counter.tsx by the nested islands support
-    assertStringIncludes(html, 'data-src="/src/islands/Counter.tsx"');
+    expect(html).toContain('data-src="/src/islands/Counter.tsx"');
   });
 
-  await t.step("should render with data-condition attribute", () => {
+  it("should render with data-condition attribute", () => {
     const island = Island({
       src: "/islands/Counter.tsx",
       condition: "on:visible",
@@ -26,10 +25,10 @@ Deno.test("Island component - data attributes", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-condition="on:visible"');
+    expect(html).toContain('data-condition="on:visible"');
   });
 
-  await t.step("should render with data-framework attribute", () => {
+  it("should render with data-framework attribute", () => {
     const island = Island({
       src: "/islands/Counter.tsx",
       framework: "preact",
@@ -38,10 +37,10 @@ Deno.test("Island component - data attributes", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-framework="preact"');
+    expect(html).toContain('data-framework="preact"');
   });
 
-  await t.step("should render with data-props attribute", () => {
+  it("should render with data-props attribute", () => {
     const island = Island({
       src: "/islands/Counter.tsx",
       props: { count: 42, name: "test" },
@@ -49,13 +48,13 @@ Deno.test("Island component - data attributes", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-props=');
+    expect(html).toContain('data-props=');
     // Props are JSON stringified and HTML-escaped
-    assertStringIncludes(html, '&quot;count&quot;:42');
-    assertStringIncludes(html, '&quot;name&quot;:&quot;test&quot;');
+    expect(html).toContain('&quot;count&quot;:42');
+    expect(html).toContain('&quot;name&quot;:&quot;test&quot;');
   });
 
-  await t.step("should render with data-render-strategy='hydrate' for interactive islands", () => {
+  it("should render with data-render-strategy='hydrate' for interactive islands", () => {
     const island = Island({
       src: "/islands/Counter.tsx",
       props: { count: 0 },
@@ -63,10 +62,10 @@ Deno.test("Island component - data attributes", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-render-strategy="hydrate"');
+    expect(html).toContain('data-render-strategy="hydrate"');
   });
 
-  await t.step("should render with data-render-strategy='ssr-only' for SSR-only islands", () => {
+  it("should render with data-render-strategy='ssr-only' for SSR-only islands", () => {
     const island = Island({
       src: "/islands/Static.tsx",
       props: {},
@@ -75,10 +74,10 @@ Deno.test("Island component - data attributes", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-render-strategy="ssr-only"');
+    expect(html).toContain('data-render-strategy="ssr-only"');
   });
 
-  await t.step("should NOT include data-hydrate attribute", () => {
+  it("should NOT include data-hydrate attribute", () => {
     const island = Island({
       src: "/islands/Counter.tsx",
       props: { count: 0 },
@@ -86,10 +85,10 @@ Deno.test("Island component - data attributes", async (t) => {
     });
 
     const html = renderToString(island);
-    assertEquals(html.includes('data-hydrate='), false, "Should not include data-hydrate attribute");
+    expect(html.includes('data-hydrate=')).toEqual(false);
   });
 
-  await t.step("should detect framework from .vue extension", () => {
+  it("should detect framework from .vue extension", () => {
     const island = Island({
       src: "/islands/Counter.vue",
       props: { count: 0 },
@@ -97,10 +96,10 @@ Deno.test("Island component - data attributes", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-framework="vue"');
+    expect(html).toContain('data-framework="vue"');
   });
 
-  await t.step("should detect framework from .svelte extension", () => {
+  it("should detect framework from .svelte extension", () => {
     const island = Island({
       src: "/islands/Counter.svelte",
       props: { count: 0 },
@@ -108,10 +107,10 @@ Deno.test("Island component - data attributes", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-framework="svelte"');
+    expect(html).toContain('data-framework="svelte"');
   });
 
-  await t.step("should detect framework from .solid. in filename", () => {
+  it("should detect framework from .solid. in filename", () => {
     const island = Island({
       src: "/islands/Counter.solid.tsx",
       props: { count: 0 },
@@ -119,10 +118,10 @@ Deno.test("Island component - data attributes", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-framework="solid"');
+    expect(html).toContain('data-framework="solid"');
   });
 
-  await t.step("should default to preact for .tsx files", () => {
+  it("should default to preact for .tsx files", () => {
     const island = Island({
       src: "/islands/Counter.tsx",
       props: { count: 0 },
@@ -130,12 +129,12 @@ Deno.test("Island component - data attributes", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-framework="preact"');
+    expect(html).toContain('data-framework="preact"');
   });
 });
 
-Deno.test("Island component - hydration conditions", async (t) => {
-  await t.step("should support on:client condition", () => {
+describe("Island component - hydration conditions", () => {
+  it("should support on:client condition", () => {
     const island = Island({
       src: "/islands/Counter.tsx",
       condition: "on:client",
@@ -144,10 +143,10 @@ Deno.test("Island component - hydration conditions", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-condition="on:client"');
+    expect(html).toContain('data-condition="on:client"');
   });
 
-  await t.step("should support on:visible condition", () => {
+  it("should support on:visible condition", () => {
     const island = Island({
       src: "/islands/Counter.tsx",
       condition: "on:visible",
@@ -156,10 +155,10 @@ Deno.test("Island component - hydration conditions", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-condition="on:visible"');
+    expect(html).toContain('data-condition="on:visible"');
   });
 
-  await t.step("should support on:interaction condition", () => {
+  it("should support on:interaction condition", () => {
     const island = Island({
       src: "/islands/Counter.tsx",
       condition: "on:interaction",
@@ -168,10 +167,10 @@ Deno.test("Island component - hydration conditions", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-condition="on:interaction"');
+    expect(html).toContain('data-condition="on:interaction"');
   });
 
-  await t.step("should support on:idle condition", () => {
+  it("should support on:idle condition", () => {
     const island = Island({
       src: "/islands/Counter.tsx",
       condition: "on:idle",
@@ -180,10 +179,10 @@ Deno.test("Island component - hydration conditions", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-condition="on:idle"');
+    expect(html).toContain('data-condition="on:idle"');
   });
 
-  await t.step("should support media: condition", () => {
+  it("should support media: condition", () => {
     const island = Island({
       src: "/islands/Counter.tsx",
       condition: "media:(min-width: 768px)",
@@ -192,12 +191,12 @@ Deno.test("Island component - hydration conditions", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-condition="media:(min-width: 768px)"');
+    expect(html).toContain('data-condition="media:(min-width: 768px)"');
   });
 });
 
-Deno.test("Island component - SSR with children", async (t) => {
-  await t.step("should render children with hydration attributes", () => {
+describe("Island component - SSR with children", () => {
+  it("should render children with hydration attributes", () => {
     const island = Island({
       src: "/islands/Counter.tsx",
       condition: "on:client",
@@ -208,13 +207,13 @@ Deno.test("Island component - SSR with children", async (t) => {
 
     const html = renderToString(island);
     // Path is resolved to /src/islands/Counter.tsx by the nested islands support
-    assertStringIncludes(html, 'data-src="/src/islands/Counter.tsx"');
-    assertStringIncludes(html, 'data-condition="on:client"');
-    assertStringIncludes(html, 'data-framework="preact"');
-    assertStringIncludes(html, "<div>SSR Content</div>");
+    expect(html).toContain('data-src="/src/islands/Counter.tsx"');
+    expect(html).toContain('data-condition="on:client"');
+    expect(html).toContain('data-framework="preact"');
+    expect(html).toContain("<div>SSR Content</div>");
   });
 
-  await t.step("should render SSR-only children without hydration attributes", () => {
+  it("should render SSR-only children without hydration attributes", () => {
     const island = Island({
       src: "/islands/Static.tsx",
       props: {},
@@ -224,15 +223,15 @@ Deno.test("Island component - SSR with children", async (t) => {
     });
 
     const html = renderToString(island);
-    assertStringIncludes(html, 'data-render-strategy="ssr-only"');
-    assertStringIncludes(html, "<div>Static Content</div>");
-    assertEquals(html.includes('data-src='), false, "Should not include data-src for SSR-only");
-    assertEquals(html.includes('data-condition='), false, "Should not include data-condition for SSR-only");
+    expect(html).toContain('data-render-strategy="ssr-only"');
+    expect(html).toContain("<div>Static Content</div>");
+    expect(html.includes('data-src=')).toEqual(false);
+    expect(html.includes('data-condition=')).toEqual(false);
   });
 });
 
-Deno.test("Island component - ID generation", async (t) => {
-  await t.step("should generate deterministic ID from src path", () => {
+describe("Island component - ID generation", () => {
+  it("should generate deterministic ID from src path", () => {
     const island1 = Island({
       src: "/islands/Counter.tsx",
       props: {},
@@ -249,11 +248,11 @@ Deno.test("Island component - ID generation", async (t) => {
     const html2 = renderToString(island2);
 
     // Both should have the same ID
-    assertStringIncludes(html1, 'id="island--islands-Counter-tsx"');
-    assertStringIncludes(html2, 'id="island--islands-Counter-tsx"');
+    expect(html1).toContain('id="island--islands-Counter-tsx"');
+    expect(html2).toContain('id="island--islands-Counter-tsx"');
   });
 
-  await t.step("should generate different IDs for different components", () => {
+  it("should generate different IDs for different components", () => {
     const island1 = Island({
       src: "/islands/Counter.tsx",
       props: {},
@@ -269,7 +268,7 @@ Deno.test("Island component - ID generation", async (t) => {
     const html1 = renderToString(island1);
     const html2 = renderToString(island2);
 
-    assertStringIncludes(html1, 'id="island--islands-Counter-tsx"');
-    assertStringIncludes(html2, 'id="island--islands-Button-tsx"');
+    expect(html1).toContain('id="island--islands-Counter-tsx"');
+    expect(html2).toContain('id="island--islands-Button-tsx"');
   });
 });

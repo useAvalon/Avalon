@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "types": [
+      "vite/client",
+      "./src/types/mdx.d.ts",
+      "./src/client/types/vite-virtual-modules.d.ts",
+      "./src/client/types/framework-runtime.d.ts"
+    ]
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "mod.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -932,9 +932,7 @@ function generateStreamingFooter(): string {
  * Generates an error boundary for mid-stream errors
  */
 function generateStreamingErrorBoundary(error: Error): string {
-  const isDev = typeof Deno !== "undefined" 
-    ? Deno.env.get("DENO_ENV") !== "production"
-    : process.env.NODE_ENV !== "production";
+  const isDev = process.env.NODE_ENV !== "production";
 
   return `
     <div class="streaming-error-boundary" data-error-boundary="true" style="

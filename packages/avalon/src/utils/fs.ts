@@ -1,7 +1,7 @@
 /**
- * Shim for @std/fs functions used in the codebase.
- * Provides Node.js-compatible implementations of Deno standard library
- * filesystem functions so they work in Vite's SSR module runner.
+ * Filesystem utilities for Avalon.
+ * Provides Node.js-compatible implementations of common filesystem
+ * functions used throughout the codebase.
  */
 
 import { readdirSync, statSync } from "node:fs";

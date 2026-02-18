@@ -1,162 +1,107 @@
-import { assertEquals, assertExists } from 'jsr:@std/assert';
+import { describe, it, expect } from 'vitest';
 
 // Test the enhanced hydration option parsing functionality
-// Since the functions are in main.js, we'll test the behavior through integration
 
-Deno.test('Hydration Option Parsing - validateRootMargin patterns', () => {
-	// Test basic rootMargin validation patterns
-	const validPatterns = ['10px', '10px 20px', '10px 20px 30px 40px', '10%', '-10px', '0px', '100px 50px'];
+describe('Hydration Option Parsing - validateRootMargin patterns', () => {
+  it('should validate valid rootMargin patterns', () => {
+    const validPatterns = ['10px', '10px 20px', '10px 20px 30px 40px', '10%', '-10px', '0px', '100px 50px'];
+    const rootMarginRegex = /^(-?\d+(?:\.\d+)?(?:px|%)?(?:\s+-?\d+(?:\.\d+)?(?:px|%)?){0,3})$/;
 
-	const invalidPatterns = [
-		'invalid',
-		'',
-		'10px 20px 30px 40px 50px', // too many values
-		'abc',
-		'10px invalid 20px',
-	];
+    validPatterns.forEach(pattern => {
+      expect(rootMarginRegex.test(pattern.trim())).toBe(true);
+    });
+  });
 
-	// Since we can't easily import the function, we'll test the regex pattern directly
-	const rootMarginRegex = /^(-?\d+(?:\.\d+)?(?:px|%)?(?:\s+-?\d+(?:\.\d+)?(?:px|%)?){0,3})$/;
+  it('should reject invalid rootMargin patterns', () => {
+    const invalidPatterns = ['invalid', '', '10px 20px 30px 40px 50px', 'abc', '10px invalid 20px'];
+    const rootMarginRegex = /^(-?\d+(?:\.\d+)?(?:px|%)?(?:\s+-?\d+(?:\.\d+)?(?:px|%)?){0,3})$/;
 
-	validPatterns.forEach(pattern => {
-		assertEquals(rootMarginRegex.test(pattern.trim()), true, `Pattern "${pattern}" should be valid`);
-	});
-
-	invalidPatterns.forEach(pattern => {
-		assertEquals(rootMarginRegex.test(pattern.trim()), false, `Pattern "${pattern}" should be invalid`);
-	});
+    invalidPatterns.forEach(pattern => {
+      expect(rootMarginRegex.test(pattern.trim())).toBe(false);
+    });
+  });
 });
 
-Deno.test('Hydration Option Parsing - directive parsing patterns', () => {
-	// Test directive parsing patterns
-	const testCases = [
-		{
-			input: 'on:client',
-			expectedDirective: 'on:client',
-			description: 'simple directive',
-		},
-		{
-			input: 'on:visible={{rootMargin: "100px"}}',
-			expectedDirective: 'on:visible',
-			description: 'directive with options',
-		},
-		{
-			input: 'on:idle={{timeout: 10000}}',
-			expectedDirective: 'on:idle',
-			description: 'idle directive with timeout',
-		},
-		{
-			input: 'media:screen',
-			expectedDirective: 'media:screen',
-			description: 'media directive',
-		},
-	];
+describe('Hydration Option Parsing - directive parsing patterns', () => {
+  it('should parse directives correctly', () => {
+    const testCases = [
+      { input: 'on:client', expectedDirective: 'on:client' },
+      { input: 'on:visible={{rootMargin: "100px"}}', expectedDirective: 'on:visible' },
+      { input: 'on:idle={{timeout: 10000}}', expectedDirective: 'on:idle' },
+      { input: 'media:screen', expectedDirective: 'media:screen' },
+    ];
 
-	testCases.forEach(testCase => {
-		// Extract directive name (everything before the first '=' or the whole string)
-		const directiveMatch = testCase.input.match(/^([^=\s]+)/);
-		const directive = directiveMatch ? directiveMatch[1] : 'on:client';
-
-		assertEquals(directive, testCase.expectedDirective, `Failed for ${testCase.description}`);
-	});
+    testCases.forEach(testCase => {
+      const directiveMatch = testCase.input.match(/^([^=\s]+)/);
+      const directive = directiveMatch ? directiveMatch[1] : 'on:client';
+      expect(directive).toBe(testCase.expectedDirective);
+    });
+  });
 });
 
-Deno.test('Hydration Option Parsing - option extraction patterns', () => {
-	// Test option extraction patterns
-	const testCases = [
-		{
-			input: 'on:visible={{rootMargin: "100px"}}',
-			expectedOptions: 'rootMargin: "100px"',
-			description: 'single option',
-		},
-		{
-			input: 'on:visible={{rootMargin: "50px", threshold: 0.5}}',
-			expectedOptions: 'rootMargin: "50px", threshold: 0.5',
-			description: 'multiple options',
-		},
-		{
-			input: 'on:idle={{timeout: 10000}}',
-			expectedOptions: 'timeout: 10000',
-			description: 'timeout option',
-		},
-	];
+describe('Hydration Option Parsing - option extraction patterns', () => {
+  it('should extract options correctly', () => {
+    const testCases = [
+      { input: 'on:visible={{rootMargin: "100px"}}', expectedOptions: 'rootMargin: "100px"' },
+      { input: 'on:visible={{rootMargin: "50px", threshold: 0.5}}', expectedOptions: 'rootMargin: "50px", threshold: 0.5' },
+      { input: 'on:idle={{timeout: 10000}}', expectedOptions: 'timeout: 10000' },
+    ];
 
-	testCases.forEach(testCase => {
-		const optionsMatch = testCase.input.match(/=\s*\{\{(.+?)\}\}/);
-		const extractedOptions = optionsMatch ? optionsMatch[1] : '';
-
-		assertEquals(extractedOptions, testCase.expectedOptions, `Failed for ${testCase.description}`);
-	});
+    testCases.forEach(testCase => {
+      const optionsMatch = testCase.input.match(/=\s*\{\{(.+?)\}\}/);
+      const extractedOptions = optionsMatch ? optionsMatch[1] : '';
+      expect(extractedOptions).toBe(testCase.expectedOptions);
+    });
+  });
 });
 
-Deno.test('Hydration Option Parsing - JSON parsing preparation', () => {
-	// Test the normalization of options strings for JSON parsing
-	const testCases = [
-		{
-			input: 'rootMargin: "100px"',
-			expected: '"rootMargin": "100px"',
-			description: 'add quotes to property names',
-		},
-		{
-			input: "rootMargin: '100px'",
-			expected: '"rootMargin": "100px"',
-			description: 'convert single quotes to double quotes',
-		},
-		{
-			input: 'timeout: 5000',
-			expected: '"timeout": 5000',
-			description: 'numeric values',
-		},
-	];
+describe('Hydration Option Parsing - JSON parsing preparation', () => {
+  it('should normalize options strings for JSON parsing', () => {
+    const testCases = [
+      { input: 'rootMargin: "100px"', expected: '"rootMargin": "100px"' },
+      { input: "rootMargin: '100px'", expected: '"rootMargin": "100px"' },
+      { input: 'timeout: 5000', expected: '"timeout": 5000' },
+    ];
 
-	testCases.forEach(testCase => {
-		// Simulate the normalization process
-		const normalized = testCase.input
-			.replace(/(\w+):/g, '"$1":') // Add quotes around property names
-			.replace(/'/g, '"'); // Convert single quotes to double quotes
-
-		assertEquals(normalized, testCase.expected, `Failed for ${testCase.description}`);
-
-		// Test that it can be parsed as JSON
-		try {
-			const parsed = JSON.parse(`{${normalized}}`);
-			assertExists(parsed, `Should be able to parse normalized JSON for ${testCase.description}`);
-		} catch (error) {
-			throw new Error(
-				`Failed to parse JSON for ${testCase.description}: ${error instanceof Error ? error.message : String(error)}`
-			);
-		}
-	});
+    testCases.forEach(testCase => {
+      const normalized = testCase.input
+        .replace(/(\w+):/g, '"$1":')
+        .replace(/'/g, '"');
+      expect(normalized).toBe(testCase.expected);
+      const parsed = JSON.parse('{' + normalized + '}');
+      expect(parsed).toBeDefined();
+    });
+  });
 });
 
-Deno.test('Hydration Option Parsing - validation ranges', () => {
-	// Test validation ranges for different option types
+describe('Hydration Option Parsing - validation ranges', () => {
+  it('should validate threshold values (0-1 range)', () => {
+    const validThresholds = [0, 0.5, 1, 0.25, 0.75];
+    const invalidThresholds = [-0.1, 1.1, 2, -1, '0.5', null, undefined];
 
-	// Threshold validation (0-1 range)
-	const validThresholds = [0, 0.5, 1, 0.25, 0.75];
-	const invalidThresholds = [-0.1, 1.1, 2, -1, '0.5', null, undefined];
+    validThresholds.forEach(threshold => {
+      const isValid = typeof threshold === 'number' && threshold >= 0 && threshold <= 1;
+      expect(isValid).toBe(true);
+    });
 
-	validThresholds.forEach(threshold => {
-		const isValid = typeof threshold === 'number' && threshold >= 0 && threshold <= 1;
-		assertEquals(isValid, true, `Threshold ${threshold} should be valid`);
-	});
+    invalidThresholds.forEach(threshold => {
+      const isValid = typeof threshold === 'number' && threshold >= 0 && threshold <= 1;
+      expect(isValid).toBe(false);
+    });
+  });
 
-	invalidThresholds.forEach(threshold => {
-		const isValid = typeof threshold === 'number' && threshold >= 0 && threshold <= 1;
-		assertEquals(isValid, false, `Threshold ${threshold} should be invalid`);
-	});
+  it('should validate timeout values (positive numbers up to 60 seconds)', () => {
+    const validTimeouts = [1000, 5000, 30000, 60000];
+    const invalidTimeouts = [0, -1000, 70000, '5000', null, undefined];
 
-	// Timeout validation (positive numbers up to 60 seconds)
-	const validTimeouts = [1000, 5000, 30000, 60000];
-	const invalidTimeouts = [0, -1000, 70000, '5000', null, undefined];
+    validTimeouts.forEach(timeout => {
+      const isValid = typeof timeout === 'number' && timeout > 0 && timeout <= 60000;
+      expect(isValid).toBe(true);
+    });
 
-	validTimeouts.forEach(timeout => {
-		const isValid = typeof timeout === 'number' && timeout > 0 && timeout <= 60000;
-		assertEquals(isValid, true, `Timeout ${timeout} should be valid`);
-	});
-
-	invalidTimeouts.forEach(timeout => {
-		const isValid = typeof timeout === 'number' && timeout > 0 && timeout <= 60000;
-		assertEquals(isValid, false, `Timeout ${timeout} should be invalid`);
-	});
+    invalidTimeouts.forEach(timeout => {
+      const isValid = typeof timeout === 'number' && timeout > 0 && timeout <= 60000;
+      expect(isValid).toBe(false);
+    });
+  });
 });

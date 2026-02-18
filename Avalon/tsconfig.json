@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "$components/*": ["./src/components/*"],
+      "$pages/*": ["./src/pages/*"],
+      "$layouts/*": ["./src/layouts/*"],
+      "$islands/*": ["./src/islands/*"],
+      "$api/*": ["./src/api/*"]
+    }
+  }
+}
