@@ -1,4 +1,4 @@
-import type { Integration } from "../../../../integrations/shared/types.ts";
+import type { Integration } from "@avalon/core";
 import { dirname, join } from "node:path";
 import { statSync } from "node:fs";
 

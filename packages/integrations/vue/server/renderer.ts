@@ -9,7 +9,7 @@
 
 import { createSSRApp } from "vue";
 import { renderToString as vueRenderToString } from "vue/server-renderer";
-import type { RenderParams, RenderResult } from "../../shared/types.ts";
+import type { RenderParams, RenderResult } from "../../core/types.ts";
 import type { VueRenderResult } from "../types.ts";
 import { extractCSS, generateScopeId, applyScopeToHTML } from "./css-extractor.ts";
 

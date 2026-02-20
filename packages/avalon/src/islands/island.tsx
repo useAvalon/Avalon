@@ -8,7 +8,7 @@ import { loadIntegration, detectFrameworkFromPath } from "./integration-loader.t
 import { addUniversalCSS } from "./universal-css-collector.ts";
 import { addUniversalHead } from "./universal-head-collector.ts";
 import { getIslandBundlePath } from "../build/island-manifest.ts";
-import type { Integration } from "../../../integrations/shared/types.ts";
+import type { Integration } from "../../../integrations/core/types.ts";
 import { isDev, devLog, devWarn, devError, logRenderTiming } from "../utils/dev-logger.ts";
 
 // Enhanced global CSS collector for SSR with scoping support

@@ -6,7 +6,7 @@
  */
 
 import type { Plugin } from "vite";
-import type { Integration, IntegrationConfig } from "../shared/types.ts";
+import type { Integration, IntegrationConfig } from "../core/types.ts";
 import { render, renderWithErrorBoundary } from "./server/renderer.ts";
 import { getHydrationScript } from "./client/hydration.ts";
 
@@ -90,4 +90,4 @@ export type {
   IntegrationConfig, 
   RenderParams, 
   RenderResult 
-} from "../shared/types.ts";
+} from "../core/types.ts";

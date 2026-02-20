@@ -10,13 +10,13 @@
   },
   "dependencies": {
     "@avalon/avalon": "workspace:*",
-    "@avalon/integration-lit": "workspace:*",
-    "@avalon/integration-preact": "workspace:*",
-    "@avalon/integration-react": "workspace:*",
-    "@avalon/integration-shared": "workspace:*",
-    "@avalon/integration-solid": "workspace:*",
-    "@avalon/integration-svelte": "workspace:*",
-    "@avalon/integration-vue": "workspace:*",
+    "@avalon/lit": "workspace:*",
+    "@avalon/preact": "workspace:*",
+    "@avalon/react": "workspace:*",
+    "@avalon/core": "workspace:*",
+    "@avalon/solid": "workspace:*",
+    "@avalon/svelte": "workspace:*",
+    "@avalon/vue": "workspace:*",
     "@tailwindcss/vite": "^4.1.8",
     "tailwindcss": "^4.1.8"
   }

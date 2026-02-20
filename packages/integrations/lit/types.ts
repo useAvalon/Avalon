@@ -3,7 +3,7 @@
  */
 
 import type { LitElement } from "lit";
-import type { RenderParams, RenderResult } from "../shared/types.ts";
+import type { RenderParams, RenderResult } from "../core/types.ts";
 
 /**
  * Lit-specific render parameters
@@ -34,4 +34,4 @@ export interface LitHydrationOptions {
 }
 
 // Re-export shared types for convenience
-export type { RenderParams, RenderResult } from "../shared/types.ts";
+export type { RenderParams, RenderResult } from "../core/types.ts";

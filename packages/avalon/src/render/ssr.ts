@@ -478,7 +478,7 @@ function generateHead(
         "@avalon/vue/client": "/packages/integrations/vue/client/index.ts",
         "@avalon/solid/client": "/packages/integrations/solid/client/index.ts",
         "@avalon/svelte/client": "/packages/integrations/svelte/client/index.ts",
-        "@avalon/shared": "/packages/integrations/shared/types.ts"
+        "@avalon/shared": "/packages/integrations/core/types.ts"
       }
     }
     </script>`;

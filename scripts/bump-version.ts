@@ -12,7 +12,7 @@
  *   bun run scripts/bump-version.ts --bump=major --channel=beta --package=all
  *
  * Package targets:
- *   core     — @avalon/avalon + @avalon/shared
+ *   core     — @avalon/avalon + @avalon/core
  *   lit      — @avalon/lit
  *   react    — @avalon/react
  *   preact   — @avalon/preact
@@ -28,7 +28,7 @@ import { readFile, writeFile } from "node:fs/promises";
 const PACKAGE_MAP: Record<string, string[]> = {
   core: [
     "packages/avalon/package.json",
-    "packages/integrations/shared/package.json",
+    "packages/integrations/core/package.json",
   ],
   lit: ["packages/integrations/lit/package.json"],
   react: ["packages/integrations/react/package.json"],

@@ -1,5 +1,5 @@
 import { registry } from "./registry.ts";
-import type { Integration } from "../../../../integrations/shared/types.ts";
+import type { Integration } from "@avalon/core";
 
 /**
  * Cache for loaded integrations to avoid repeated dynamic imports

@@ -7,7 +7,7 @@
 /// <reference lib="dom" />
 /// <reference lib="dom.iterable" />
 
-import type { RenderParams, RenderResult } from "../shared/types.ts";
+import type { RenderParams, RenderResult } from "../core/types.ts";
 
 /**
  * Svelte-specific render parameters

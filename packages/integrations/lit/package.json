@@ -1,5 +1,5 @@
 {
-	"name": "@avalon/integration-lit",
+	"name": "@avalon/lit",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {

@@ -5,7 +5,7 @@
  * Migrated from src/islands/renderers/solid-renderer.ts
  */
 
-import type { RenderParams, RenderResult } from "../../shared/types.ts";
+import type { RenderParams, RenderResult } from "../../core/types.ts";
 import type { SolidComponent } from "../types.ts";
 import { loadComponent } from "./utils.ts";
 

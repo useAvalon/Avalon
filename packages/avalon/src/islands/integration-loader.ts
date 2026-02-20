@@ -1,6 +1,6 @@
 import { registry } from "../core/integrations/registry.ts";
 import { getMissingIntegrationError } from "../core/integrations/startup.ts";
-import type { Integration } from "../../../integrations/shared/types.ts";
+import type { Integration } from "@avalon/core";
 import { devWarn } from "../utils/dev-logger.ts";
 
 /**

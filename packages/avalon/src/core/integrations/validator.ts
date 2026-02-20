@@ -1,4 +1,4 @@
-import type { Integration, IntegrationConfig } from "../../../../integrations/shared/types.ts";
+import type { Integration, IntegrationConfig } from "@avalon/core";
 
 /**
  * Validation result for an integration

@@ -4,7 +4,7 @@
  * Type definitions specific to the Vue integration package.
  */
 
-import type { RenderParams, RenderResult } from "../shared/types.ts";
+import type { RenderParams, RenderResult } from "../core/types.ts";
 
 /**
  * Vue-specific render parameters

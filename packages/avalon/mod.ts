@@ -102,7 +102,7 @@ export type {
 export { loadIntegration, detectAndLoadIntegration, preloadIntegrations, detectFrameworksFromPageContent, DEFAULT_PRELOAD_FRAMEWORKS } from './src/islands/integration-loader.ts';
 export type { PreloadIntegrationsOptions } from './src/islands/integration-loader.ts';
 export { registry as integrationRegistry } from './src/core/integrations/registry.ts';
-export type { Integration, RenderParams as IntegrationRenderParams, RenderResult, IntegrationConfig } from '../integrations/shared/types.ts';
+export type { Integration, RenderParams as IntegrationRenderParams, RenderResult, IntegrationConfig } from '@avalon/core';
 
 // Build utilities
 export { generateIslandManifest, loadIslandManifest, getIslandBundlePath } from './src/build/island-manifest.ts';

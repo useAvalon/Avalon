@@ -1,5 +1,5 @@
 {
-	"name": "@avalon/integration-vue",
+	"name": "@avalon/vue",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {

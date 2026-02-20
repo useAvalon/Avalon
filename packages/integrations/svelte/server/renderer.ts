@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { render as svelteRender } from "svelte/server";
-import type { RenderParams, RenderResult } from "../../shared/types.ts";
+import type { RenderParams, RenderResult } from "../../core/types.ts";
 import type { SvelteSsrRenderResult } from "../types.ts";
 
 declare global {

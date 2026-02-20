@@ -11,7 +11,7 @@
  */
 
 import { registry } from "./registry.ts";
-import type { Integration } from "../../../../integrations/shared/types.ts";
+import type { Integration } from "@avalon/core";
 import { statSync } from "node:fs";
 import { dirname, join } from "node:path";
 
