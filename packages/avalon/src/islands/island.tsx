@@ -8,7 +8,7 @@ import { loadIntegration, detectFrameworkFromPath } from "./integration-loader.t
 import { addUniversalCSS } from "./universal-css-collector.ts";
 import { addUniversalHead } from "./universal-head-collector.ts";
 import { getIslandBundlePath } from "../build/island-manifest.ts";
-import type { Integration } from "../integrations/shared/types.ts";
+import type { Integration } from "../../../integrations/shared/types.ts";
 import { isDev, devLog, devWarn, devError, logRenderTiming } from "../utils/dev-logger.ts";
 
 // Enhanced global CSS collector for SSR with scoping support
@@ -29,7 +29,7 @@ export interface IslandProps {
   /** Props to pass to the island component */
   props?: Record<string, unknown>;
   /** Children to render inside the island (for SSR) */
-  children?: JSX.Element | JSX.Element[] | string;
+  children?: import('preact').ComponentChildren;
   /** Whether to render server-side (default: true unless condition is 'on:client') */
   ssr?: boolean;
   /** Framework hint for client hydration */
@@ -239,7 +239,7 @@ async function renderWithExplicitFramework({
   src: string;
   condition: IslandProps["condition"];
   props: Record<string, unknown>;
-  children?: JSX.Element | JSX.Element[] | string;
+  children?: import('preact').ComponentChildren;
   ssr: boolean;
   framework: NonNullable<IslandProps["framework"]>;
   ssrOnly: boolean;

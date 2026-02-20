@@ -136,6 +136,10 @@ export async function createServer(config: ServerConfig): Promise<BunServer> {
 	await getScopedMiddleware();
 	if (devLogger) await devLogger.completeTask('middleware');
 
+	// Initialize layout system - derive base directory from pages directory
+	if (devLogger) devLogger.startTask('layouts');
+	const pagesDirectory = fileSystemRouting?.discovery?.pagesDirectory || 'src/pages';
+
 	// Initialize error page discovery for custom 404/500 pages
 	const errorHandlerOptions: ErrorHandlerOptions = {
 		isDev,
@@ -145,18 +149,13 @@ export async function createServer(config: ServerConfig): Promise<BunServer> {
 			? async (filePath: string) => {
 					// ssrLoadModule throws if the file doesn't exist
 					const module = await viteDevServer.ssrLoadModule(filePath);
-					return module;
+					return module as import('../types/layout.ts').PageModule;
 				}
 			: undefined,
 	};
 	
 	// Pre-discover error pages at startup
 	await discoverErrorPages(errorHandlerOptions);
-
-	// Initialize layout system - derive base directory from pages directory
-	if (devLogger) devLogger.startTask('layouts');
-	const pagesDirectory = fileSystemRouting?.discovery?.pagesDirectory || 'src/pages';
-	const layoutBaseDirectory = pagesDirectory.replace('/pages', '');
 
 	const layoutResolver = new EnhancedLayoutResolver({
 		// Don't use createDevelopmentConfig - it enables expensive features like bundleOptimization
@@ -169,8 +168,6 @@ export async function createServer(config: ServerConfig): Promise<BunServer> {
 		enableCaching: true,
 		cacheTTL: 60 * 1000, // 1 minute cache
 		maxCacheSize: 100,
-		enableStreaming: true,
-		enableErrorBoundaries: true,
 		enableMetrics: false, // Disable metrics for performance
 		enableDebugInfo: false, // Disable debug info for performance
 		// CRITICAL: Do NOT include bundleOptimization - it runs on every request and is very slow
@@ -320,11 +317,7 @@ export async function createServer(config: ServerConfig): Promise<BunServer> {
 				};
 				
 				// Render the error page
-				const html = await renderToHtml(errorRouteConfig, {
-					url: url.pathname,
-					params: {},
-					query: Object.fromEntries(url.searchParams),
-				});
+				const html = await renderToHtml(errorRouteConfig, {});
 				
 				return new Response(html, {
 					status: 404,
@@ -421,7 +414,7 @@ export async function createServerSafe(config: unknown): Promise<BunServer> {
  * @param config - Configuration to validate
  * @returns Validation result with detailed error information
  */
-export function validateServerConfiguration(config: unknown): z.SafeParseReturnType<unknown, ServerConfig> {
+export function validateServerConfiguration(config: unknown): z.ZodSafeParseResult<ServerConfig> {
 	return safeValidateServerConfig(config);
 }
 

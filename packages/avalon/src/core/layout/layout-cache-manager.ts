@@ -1,24 +1,4 @@
-// NOTE: Using inline types to avoid importing heavy types/layout.ts (which imports schemas/layout.ts with zod)
-interface LayoutHandler {
-	component: unknown;
-	loader?: unknown;
-	path: string;
-	priority: number;
-}
-
-interface ResolvedLayout {
-	handlers: LayoutHandler[];
-	dataLoaders: unknown[];
-	errorBoundaries: unknown[];
-	streamingComponents: unknown[];
-	metadata: {
-		totalLayouts: number;
-		resolutionTime: number;
-		cacheHit: boolean;
-	};
-}
-
-type LayoutData = Record<string, unknown>;
+import type { LayoutHandler, ResolvedLayout, LayoutData } from './layout-types.ts';
 
 export interface CacheEntry<T> {
 	value: T;

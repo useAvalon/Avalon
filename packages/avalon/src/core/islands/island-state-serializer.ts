@@ -36,7 +36,7 @@ export class IslandStateSerializer {
 	/**
 	 * Transform state for serialization, handling special types
 	 */
-	private static transformForSerialization(obj: any): any {
+	private static transformForSerialization(obj: unknown): unknown {
 		if (obj === null) {
 			return obj;
 		}
@@ -97,19 +97,13 @@ export class IslandStateSerializer {
 			return obj.map(item => IslandStateSerializer.transformForSerialization(item));
 		}
 
-		// Handle arrays
-		if (Array.isArray(obj)) {
-			return obj.map(item => IslandStateSerializer.transformForSerialization(item));
-		}
-
 		// Handle plain objects
 		if (typeof obj === 'object') {
-			const result: any = {};
-			// Use for...in to include all enumerable properties, including undefined
-			for (const key in obj) {
-				if (obj.hasOwnProperty(key)) {
-					const value = obj[key];
-					result[key] = IslandStateSerializer.transformForSerialization(value);
+			const result: Record<string, unknown> = {};
+			const record = obj as Record<string, unknown>;
+			for (const key in record) {
+				if (Object.prototype.hasOwnProperty.call(record, key)) {
+					result[key] = IslandStateSerializer.transformForSerialization(record[key]);
 				}
 			}
 			return result;
@@ -121,28 +115,33 @@ export class IslandStateSerializer {
 	/**
 	 * JSON.parse reviver function to restore special types
 	 */
-	private static reviver(key: string, value: any): any {
+	private static reviver(key: string, value: unknown): unknown {
 		// Check if this is a special type object
-		if (value && typeof value === 'object' && value.__type && value.__value !== undefined) {
-			switch (value.__type) {
-				case 'Date':
-					return new Date(value.__value);
+		if (value && typeof value === 'object') {
+			const v = value as Record<string, unknown>;
+			if (v.__type && v.__value !== undefined) {
+				switch (v.__type) {
+					case 'Date':
+						return new Date(v.__value as string);
 
-				case 'RegExp':
-					return new RegExp(value.__value.source, value.__value.flags);
+					case 'RegExp': {
+						const rv = v.__value as { source: string; flags: string };
+						return new RegExp(rv.source, rv.flags);
+					}
 
-				case 'Map':
-					return new Map(value.__value);
+					case 'Map':
+						return new Map(v.__value as Iterable<[unknown, unknown]>);
 
-				case 'Set':
-					return new Set(value.__value);
+					case 'Set':
+						return new Set(v.__value as Iterable<unknown>);
 
-				case 'undefined':
-					return null;
+					case 'undefined':
+						return null;
 
-				default:
-					console.warn(`Unknown special type "${value.__type}" in serialized state`);
-					return value.__value;
+					default:
+						console.warn(`Unknown special type "${v.__type}" in serialized state`);
+						return v.__value;
+				}
 			}
 		}
 

@@ -10,36 +10,38 @@
  * of truth) to prevent drift between the two config paths.
  */
 
-import { DEFAULT_CONFIG } from "../vite-plugin/config.ts";
+import { z } from "zod";
+import { DEFAULT_CONFIG } from "../vite-plugin/config";
 
 /**
  * Configuration for a single integration
  */
-export interface IntegrationConfigEntry {
+export const IntegrationConfigEntrySchema = z.object({
   /** Name of the integration (e.g., "preact", "react", "vue", "solid", "svelte", "lit") */
-  name: string;
+  name: z.string(),
   /** Whether this integration is enabled */
-  enabled?: boolean;
+  enabled: z.boolean().optional(),
   /** Custom options for the integration */
-  options?: Record<string, unknown>;
-}
+  options: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type IntegrationConfigEntry = z.infer<typeof IntegrationConfigEntrySchema>;
 
 /**
  * Avalon configuration file structure
  */
-export interface AvalonConfig {
+export const AvalonConfigSchema = z.object({
   /** List of integrations to register */
-  integrations?: IntegrationConfigEntry[];
-  
+  integrations: z.array(IntegrationConfigEntrySchema).optional(),
   /** Auto-discover integrations from used components (default: true) */
-  autoDiscoverIntegrations?: boolean;
-  
+  autoDiscoverIntegrations: z.boolean().optional(),
   /** Validate integrations on startup (default: true) */
-  validateIntegrations?: boolean;
-  
+  validateIntegrations: z.boolean().optional(),
   /** Show warnings for integration issues (default: true) */
-  showWarnings?: boolean;
-}
+  showWarnings: z.boolean().optional(),
+});
+
+export type AvalonConfig = z.infer<typeof AvalonConfigSchema>;
 
 /**
  * Merge user config with defaults derived from the canonical DEFAULT_CONFIG

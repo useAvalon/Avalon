@@ -49,15 +49,6 @@ declare module 'vue' {
   export const version: string;
 }
 
-declare module 'preact' {
-  export function h<P = Record<string, unknown>>(
-    component: unknown,
-    props: P | null,
-    ...children: unknown[]
-  ): unknown;
-  export function render(vnode: unknown, container: HTMLElement): void;
-  export function hydrate(vnode: unknown, container: HTMLElement): void;
-}
 
 declare module 'svelte' {
   export interface SvelteComponent {

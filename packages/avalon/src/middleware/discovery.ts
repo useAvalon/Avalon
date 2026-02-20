@@ -125,9 +125,9 @@ async function scanDirectory(
 
     // Recursively scan directory
     await scanDirectoryRecursive(dir, dir, type, filePattern, excludeDirs, routes, devMode);
-  } catch (error: any) {
+  } catch (error) {
     // Directory doesn't exist or can't be read - skip silently
-    if (devMode && error?.code !== 'ENOENT') {
+    if (devMode && (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'ENOENT')) {
       console.warn(`[middleware] Error scanning ${dir}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -173,8 +173,8 @@ async function scanDirectoryRecursive(
         routes.push(route);
       }
     }
-  } catch (error: any) {
-    if (devMode && error?.code !== 'ENOENT') {
+  } catch (error) {
+    if (devMode && (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'ENOENT')) {
       console.warn(`[middleware] Error reading ${currentDir}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }

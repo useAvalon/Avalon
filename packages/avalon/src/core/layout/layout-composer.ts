@@ -2,67 +2,20 @@ import { resolve, relative } from 'node:path';
 import { statSync } from 'node:fs';
 import process from 'node:process';
 import { LayoutDiscovery } from './layout-discovery.ts';
+import type {
+	ComponentType,
+	LayoutHandler,
+	LayoutConfig,
+	LayoutContext,
+	LayoutData,
+	LayoutDiscoveryOptions,
+	LayoutProps,
+	PageModule,
+} from './layout-types.ts';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ComponentType<P = any> = ((props: P) => any) | (new (props: P) => any);
-
-// NOTE: Using inline types to avoid importing heavy schemas/layout.ts (which imports zod)
-interface LayoutHandler {
-	component: ComponentType<LayoutProps>;
-	loader?: (ctx: LayoutContext) => Promise<unknown>;
-	path: string;
-	priority: number;
-}
-
-interface LayoutConfig {
-	skipLayouts?: string[];
-	replaceLayout?: boolean;
-	onlyLayouts?: string[];
-	customLayout?: string;
-}
-
-interface LayoutContext {
-	request: Request;
-	params: Record<string, string>;
-	query: URLSearchParams;
-	state: Map<string, unknown>;
-	middlewareContext?: unknown;
-}
-
-interface LayoutDiscoveryOptions {
-	baseDirectory: string;
-	filePattern?: string;
-	excludeDirectories?: string[];
-	enableWatching?: boolean;
-	developmentMode?: boolean;
-}
-
-interface LayoutProps {
-	children: unknown;
-	data: Record<string, unknown>;
-	frontmatter?: Record<string, unknown>;
-	route: {
-		path: string;
-		params: Record<string, string>;
-		query: URLSearchParams;
-	};
-}
-
-/**
- * Page module interface with optional layout configuration
- */
-interface PageModule {
-	default: ComponentType<unknown>;
-	layoutConfig?: LayoutConfig;
-	loader?: (ctx: unknown) => Promise<unknown>;
-}
-
-/**
- * Layout file export interface
- */
 interface LayoutFileExport {
 	default: ComponentType<LayoutProps>;
-	layoutLoader?: (ctx: LayoutContext) => Promise<unknown>;
+	layoutLoader?: (ctx: LayoutContext) => Promise<LayoutData>;
 }
 
 /**

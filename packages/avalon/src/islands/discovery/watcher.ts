@@ -170,8 +170,8 @@ export class IslandWatcher {
       });
 
       this._watchers.push(fsWatcher);
-    } catch (error: any) {
-      if (error?.code === 'ENOENT') {
+    } catch (error) {
+      if (error instanceof Error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
         console.warn(`⚠️ Island directory not found: ${directory.relativePath}`);
       } else {
         throw error;

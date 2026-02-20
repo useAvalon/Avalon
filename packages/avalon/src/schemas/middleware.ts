@@ -156,12 +156,12 @@ export interface MiddlewareDiscoveryOptions {
  * Schema for middleware context validation
  */
 export const MiddlewareContextSchema = z.object({
-	request: z.any(), // Request object
-	url: z.any(), // URL object
-	params: z.record(z.string()),
-	query: z.record(z.union([z.string(), z.array(z.string())])),
-	state: z.any(), // Map object
-	locals: z.record(z.unknown()),
+	request: z.instanceof(Request),
+	url: z.instanceof(URL),
+	params: z.record(z.string(), z.string()),
+	query: z.record(z.string(), z.union([z.string(), z.array(z.string())])),
+	state: z.instanceof(Map),
+	locals: z.record(z.string(), z.unknown()),
 });
 
 /**
@@ -169,7 +169,7 @@ export const MiddlewareContextSchema = z.object({
  * Schema for middleware response validation
  */
 export const MiddlewareResponseSchema = z.object({
-	response: z.any().optional(), // Response object
+	response: z.instanceof(Response).optional(),
 	continue: z.boolean(),
 });
 
@@ -178,7 +178,7 @@ export const MiddlewareResponseSchema = z.object({
  * Schema for middleware route validation
  */
 export const MiddlewareRouteSchema = z.object({
-	pattern: z.any(), // URLPattern object
+	pattern: z.instanceof(URLPattern),
 	middlewarePath: z.string(),
 	priority: z.number(),
 	type: z.enum(['global', 'pages', 'api']),

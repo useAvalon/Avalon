@@ -91,8 +91,8 @@ export async function discoverPageRoutes(
       }
       return [];
     }
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
+  } catch (error) {
+    if (error instanceof Error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
       if (options?.developmentMode) {
         console.warn(
           `[route-discovery] Pages directory not found: ${pagesDir}`
@@ -109,7 +109,7 @@ export async function discoverPageRoutes(
   for await (
     const entry of walk(pagesDir, {
       includeDirs: false,
-      followSymlinks: false,
+      includeSymlinks: false,
       exts: extensions,
     })
   ) {

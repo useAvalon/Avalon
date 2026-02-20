@@ -18,6 +18,25 @@ import {
 	MetadataSchema,
 	ResolvedMetadataSchema,
 } from './routing.ts';
+import type { RenderOptions } from './core.ts';
+import type { ServerConfig } from './server.ts';
+import type { MiddlewareConfig, MiddlewareDiscoveryOptions } from './middleware.ts';
+import type {
+	LayoutContext,
+	LayoutData,
+	LayoutHandler,
+	LayoutDiscoveryOptions,
+	LayoutConfig,
+	ResolvedLayout,
+} from './layout.ts';
+import type {
+	FileSystemRoute,
+	RoutePageModule,
+	RouteDiscoveryOptions,
+	FileSystemRouterConfig,
+	Metadata,
+	ResolvedMetadata,
+} from './routing.ts';
 
 // Re-export all schemas and types
 export * from './core.ts';
@@ -27,26 +46,6 @@ export * from './middleware.ts';
 export * from './layout.ts';
 export * from './routing.ts';
 export * from './integration-config.ts';
-
-// === Explicit Type Definitions ===
-
-// Use z.infer to get the actual output types from schemas
-type RenderOptions = z.infer<typeof RenderOptionsSchema>;
-type ServerConfig = z.infer<typeof ServerConfigSchema>;
-type MiddlewareConfig = z.infer<typeof MiddlewareConfigSchema>;
-type MiddlewareDiscoveryOptions = z.infer<typeof MiddlewareDiscoveryOptionsSchema>;
-type LayoutContext = z.infer<typeof LayoutContextSchema>;
-type LayoutData = z.infer<typeof LayoutDataSchema>;
-type LayoutHandler = z.infer<typeof LayoutHandlerSchema>;
-type LayoutDiscoveryOptions = z.infer<typeof LayoutDiscoverySchema>;
-type LayoutConfig = z.infer<typeof LayoutConfigSchema>;
-type ResolvedLayout = z.infer<typeof ResolvedLayoutSchema>;
-type FileSystemRoute = z.infer<typeof FileSystemRouteSchema>;
-type RoutePageModule = z.infer<typeof RoutePageModuleSchema>;
-type RouteDiscoveryOptions = z.infer<typeof RouteDiscoveryOptionsSchema>;
-type FileSystemRouterConfig = z.infer<typeof FileSystemRouterConfigSchema>;
-type Metadata = z.infer<typeof MetadataSchema>;
-type ResolvedMetadata = z.infer<typeof ResolvedMetadataSchema>;
 
 // === Validation Result Types ===
 
@@ -84,9 +83,9 @@ export class ValidationError extends Error {
 	 * Get formatted error messages
 	 */
 	getFormattedErrors(): string[] {
-		return this.zodError.errors.map((error): string => {
-			const path = error.path.length > 0 ? `${error.path.join('.')}: ` : '';
-			return `${path}${error.message}`;
+		return this.zodError.issues.map((issue): string => {
+			const path = issue.path.length > 0 ? `${issue.path.join('.')}: ` : '';
+			return `${path}${issue.message}`;
 		});
 	}
 
@@ -108,8 +107,8 @@ export function createValidationError(message: string, zodError: z.ZodError): Va
 /**
  * Generic safe validator that returns a result object
  */
-export function safeValidate<TOutput, TDef extends z.ZodTypeDef = z.ZodTypeDef, TInput = TOutput>(
-	schema: z.ZodType<TOutput, TDef, TInput>,
+export function safeValidate<TOutput>(
+	schema: z.ZodType<TOutput>,
 	data: unknown,
 	errorMessage = 'Validation failed'
 ): ValidationResult<TOutput> {
@@ -128,8 +127,8 @@ export function safeValidate<TOutput, TDef extends z.ZodTypeDef = z.ZodTypeDef, 
 /**
  * Generic validator that throws on error
  */
-export function validate<TOutput, TDef extends z.ZodTypeDef = z.ZodTypeDef, TInput = TOutput>(
-	schema: z.ZodType<TOutput, TDef, TInput>,
+export function validate<TOutput>(
+	schema: z.ZodType<TOutput>,
 	data: unknown,
 	errorMessage = 'Validation failed'
 ): TOutput {
@@ -373,7 +372,12 @@ export function safeValidateBatch<T extends Record<string, unknown>>(
 		return { success: true, data: result };
 	} catch (error) {
 		const validationError =
-			error instanceof ValidationError ? error : createValidationError('Batch validation failed', new z.ZodError([]));
+			error instanceof ValidationError
+				? error
+				: createValidationError(
+						'Batch validation failed',
+						new z.ZodError([{ code: 'custom', message: String(error), path: [] }])
+					);
 
 		return { success: false, error: validationError };
 	}
@@ -381,5 +385,5 @@ export function safeValidateBatch<T extends Record<string, unknown>>(
 
 // === Utility Type Extractors ===
 export type ExtractValidationData<T> = T extends ValidationResult<infer U> ? U : never;
-export type ExtractSchemaInput<T> = T extends z.ZodType<unknown, z.ZodTypeDef, infer U> ? U : never;
+export type ExtractSchemaInput<T> = T extends z.ZodType<infer U> ? U : never;
 export type ExtractSchemaOutput<T> = T extends z.ZodType<infer U> ? U : never;

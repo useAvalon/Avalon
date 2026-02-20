@@ -231,7 +231,7 @@ export class IslandPersistence implements IIslandPersistence {
 	/**
 	 * JSON.stringify replacer function to handle special types
 	 */
-	private replacer(key: string, value: any): any {
+	private replacer(key: string, value: unknown): unknown {
 		// Handle Date objects
 		if (value instanceof Date) {
 			return {
@@ -284,25 +284,30 @@ export class IslandPersistence implements IIslandPersistence {
 	/**
 	 * JSON.parse reviver function to restore special types
 	 */
-	private reviver(key: string, value: any): any {
+	private reviver(key: string, value: unknown): unknown {
 		// Check if this is a special type object
-		if (value && typeof value === 'object' && value.__type && value.__value !== undefined) {
-			switch (value.__type) {
-				case 'Date':
-					return new Date(value.__value);
+		if (value && typeof value === 'object') {
+			const obj = value as Record<string, unknown>;
+			if (obj.__type && obj.__value !== undefined) {
+				switch (obj.__type) {
+					case 'Date':
+						return new Date(obj.__value as string);
 
-				case 'RegExp':
-					return new RegExp(value.__value.source, value.__value.flags);
+					case 'RegExp': {
+						const rv = obj.__value as { source: string; flags: string };
+						return new RegExp(rv.source, rv.flags);
+					}
 
-				case 'Map':
-					return new Map(value.__value);
+					case 'Map':
+						return new Map(obj.__value as Iterable<[unknown, unknown]>);
 
-				case 'Set':
-					return new Set(value.__value);
+					case 'Set':
+						return new Set(obj.__value as Iterable<unknown>);
 
-				default:
-					console.warn(`Unknown special type "${value.__type}" in serialized state`);
-					return value.__value;
+					default:
+						console.warn(`Unknown special type "${obj.__type}" in serialized state`);
+						return obj.__value;
+				}
 			}
 		}
 

@@ -145,9 +145,9 @@ async function scanDirectoryForIntegrations(
         }
       }
     }
-  } catch (error: any) {
+  } catch (error) {
     // Log but don't fail on permission errors or other issues
-    if (error?.code !== 'EACCES') {
+    if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'EACCES') {
       console.warn(`Warning: Could not scan directory ${dirPath}:`, error);
     }
   }

@@ -3,7 +3,7 @@ import { z } from 'zod';
 /**
  * Supported HTTP methods for API routes
  */
-export const ApiMethodSchema: z.ZodEnum<['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS']> = z.enum([
+export const ApiMethodSchema = z.enum([
 	'GET',
 	'POST',
 	'PUT',
@@ -18,38 +18,22 @@ export type ApiMethod = z.infer<typeof ApiMethodSchema>;
 /**
  * Context object provided to API handlers
  */
-export const ApiContextSchema: z.ZodObject<{
-	request: z.ZodAny;
-	url: z.ZodAny;
-	params: z.ZodRecord<z.ZodString, z.ZodString>;
-	query: z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodArray<z.ZodString>]>>;
-	state: z.ZodOptional<z.ZodAny>;
-	locals: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodUnknown>>;
-}> = z.object({
+export const ApiContextSchema = z.object({
 	/** HTTP request object */
-	request: z.any(), // Request object
+	request: z.instanceof(Request),
 	/** URL object for easy access to pathname, search params, etc */
-	url: z.any(), // URL object
+	url: z.instanceof(URL),
 	/** Route parameters extracted from dynamic routes like /api/users/[id].ts */
-	params: z.record(z.string()),
+	params: z.record(z.string(), z.string()),
 	/** Query parameters from URL search params */
-	query: z.record(z.union([z.string(), z.array(z.string())])),
+	query: z.record(z.string(), z.union([z.string(), z.array(z.string())])),
 	/** State map from middleware execution (optional) */
-	state: z.any().optional(), // Map object
+	state: z.instanceof(Map).optional(),
 	/** Locals object from middleware execution (optional) */
-	locals: z.record(z.unknown()).optional(),
+	locals: z.record(z.string(), z.unknown()).optional(),
 });
 
-export type ApiContext = {
-	request: Request;
-	url: URL;
-	params: Record<string, string>;
-	query: Record<string, string | string[]>;
-	/** State map from middleware execution (optional) */
-	state?: Map<string, unknown>;
-	/** Locals object from middleware execution (optional) */
-	locals?: Record<string, unknown>;
-};
+export type ApiContext = z.infer<typeof ApiContextSchema>;
 
 /**
  * API handler function signature

@@ -6,7 +6,7 @@ import type { ComponentChildren } from 'preact';
  */
 export const LayoutContextSchema = z.object({
 	request: z.instanceof(Request),
-	params: z.record(z.string()),
+	params: z.record(z.string(), z.string()),
 	query: z.instanceof(URLSearchParams),
 	state: z.instanceof(Map),
 	middlewareContext: z.any().optional(), // MiddlewareContext type from middleware system
@@ -15,7 +15,7 @@ export const LayoutContextSchema = z.object({
 /**
  * Layout Data Schema - Flexible data structure for layout loaders
  */
-export const LayoutDataSchema = z.record(z.unknown());
+export const LayoutDataSchema = z.record(z.string(), z.unknown());
 
 /**
  * Layout Route Schema - Represents a discovered layout file with routing information
@@ -44,10 +44,10 @@ export const LayoutHandlerSchema = z.object({
 export const LayoutPropsSchema = z.object({
 	children: z.any(), // ComponentChildren - can't validate JSX with Zod
 	data: LayoutDataSchema,
-	frontmatter: z.record(z.any()).optional(), // Frontmatter from MDX files
+	frontmatter: z.record(z.string(), z.any()).optional(), // Frontmatter from MDX files
 	route: z.object({
 		path: z.string(),
-		params: z.record(z.string()),
+		params: z.record(z.string(), z.string()),
 		query: z.instanceof(URLSearchParams),
 	}),
 });
@@ -68,7 +68,7 @@ export const LayoutDiscoveryOptionsSchema = z.object({
  */
 export const RouteInfoSchema = z.object({
 	path: z.string(),
-	params: z.record(z.string()),
+	params: z.record(z.string(), z.string()),
 	method: z.string(),
 	headers: z.instanceof(Headers),
 });
@@ -95,7 +95,7 @@ export const LayoutConfigSchema = z.object({
 /**
  * Island State Schema - State data for persistent islands
  */
-export const IslandStateSchema = z.record(z.unknown());
+export const IslandStateSchema = z.record(z.string(), z.unknown());
 
 /**
  * Persistent Island Props Schema
@@ -131,7 +131,7 @@ export const LayoutErrorInfoSchema = z.object({
 export const LayoutErrorBoundaryPropsSchema = z.object({
 	children: z.any(), // ComponentChildren
 	fallback: z.any(), // (error: Error, retry: () => void) => ComponentChildren - can't validate function signature with Zod
-	onError: z.any().optional(), // (error: Error, errorInfo: any) => void - can't validate function signature with Zod
+	onError: z.any().optional(), // (error: Error, errorInfo: unknown) => void - can't validate function signature with Zod
 });
 
 /**
@@ -206,13 +206,7 @@ export type LayoutData = z.infer<typeof LayoutDataSchema>;
 export type LayoutRoute = z.infer<typeof LayoutRouteSchema>;
 export type LayoutHandler = z.infer<typeof LayoutHandlerSchema>;
 export type LayoutProps = z.infer<typeof LayoutPropsSchema>;
-export type LayoutDiscoveryOptions = {
-	baseDirectory: string;
-	filePattern?: string;
-	excludeDirectories?: string[];
-	enableWatching?: boolean;
-	developmentMode?: boolean;
-};
+export type LayoutDiscoveryOptions = z.infer<typeof LayoutDiscoveryOptionsSchema>;
 export type RouteInfo = z.infer<typeof RouteInfoSchema>;
 export type LayoutRule = z.infer<typeof LayoutRuleSchema>;
 export type LayoutConfig = z.infer<typeof LayoutConfigSchema>;

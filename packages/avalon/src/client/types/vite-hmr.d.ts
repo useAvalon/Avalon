@@ -9,7 +9,7 @@ declare module 'vite/types/hmrPayload' {
     timestamp?: number;
     path?: string;
     err?: Error;
-    data?: any;
+    data?: unknown;
     event?: string;
   }
 
@@ -26,19 +26,19 @@ declare global {
   interface ImportMeta {
     hot?: {
       accept(): void;
-      accept(cb: (mod: any) => void): void;
-      accept(dep: string, cb: (mod: any) => void): void;
-      accept(deps: readonly string[], cb: (mods: any[]) => void): void;
+      accept(cb: (mod: unknown) => void): void;
+      accept(dep: string, cb: (mod: unknown) => void): void;
+      accept(deps: readonly string[], cb: (mods: unknown[]) => void): void;
       
-      dispose(cb: (data: any) => void): void;
+      dispose(cb: (data: unknown) => void): void;
       decline(): void;
       invalidate(): void;
       
-      on(event: string, cb: (payload: any) => void): void;
-      off(event: string, cb: (payload: any) => void): void;
-      send(event: string, data?: any): void;
+      on(event: string, cb: (payload: unknown) => void): void;
+      off(event: string, cb: (payload: unknown) => void): void;
+      send(event: string, data?: unknown): void;
       
-      data: any;
+      data: unknown;
     };
   }
 }

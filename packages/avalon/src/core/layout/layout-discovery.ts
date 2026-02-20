@@ -1,65 +1,19 @@
 import { join, resolve, relative } from 'node:path';
 import { statSync } from 'node:fs';
+import type {
+	ComponentType,
+	LayoutRoute,
+	LayoutHandler,
+	LayoutDiscoveryOptions,
+	LayoutContext,
+	LayoutData,
+	LayoutProps,
+	LayoutErrorInfo,
+} from './layout-types.ts';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ComponentType<P = any> = ((props: P) => any) | (new (props: P) => any);
+// Re-export for consumers
+export type { LayoutDiscoveryOptions };
 
-// Inline type definitions to avoid importing heavy schemas/layout.ts (which imports zod)
-interface LayoutRoute {
-	pattern: URLPattern;
-	layoutPath: string;
-	priority: number;
-	type: 'root' | 'nested';
-	depth: number;
-}
-
-interface LayoutHandler {
-	component: ComponentType<LayoutProps>;
-	loader?: (ctx: LayoutContext) => Promise<LayoutData>;
-	path: string;
-	priority: number;
-}
-
-interface LayoutDiscoveryOptions {
-	baseDirectory: string;
-	filePattern?: string;
-	excludeDirectories?: string[];
-	enableWatching?: boolean;
-	developmentMode?: boolean;
-}
-
-interface LayoutContext {
-	request: Request;
-	params: Record<string, string>;
-	query: URLSearchParams;
-	state: Map<string, unknown>;
-	middlewareContext?: unknown;
-}
-
-type LayoutData = Record<string, unknown>;
-
-interface LayoutProps {
-	children: unknown;
-	data: LayoutData;
-	frontmatter?: Record<string, unknown>;
-	route: {
-		path: string;
-		params: Record<string, string>;
-		query: URLSearchParams;
-	};
-}
-
-interface LayoutErrorInfo {
-	layoutPath: string;
-	errorType: 'component' | 'loader' | 'rendering' | 'island';
-	timestamp: number;
-	componentStack?: string;
-	errorBoundary?: string;
-}
-
-/**
- * Layout file export interface
- */
 interface LayoutFileExport {
 	default: ComponentType<LayoutProps>;
 	layoutLoader?: (ctx: LayoutContext) => Promise<LayoutData>;

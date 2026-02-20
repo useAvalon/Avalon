@@ -457,7 +457,7 @@ export function createTypedPageComponent<TRoute extends string>(
 	expectedParams: (keyof RouteParameters<TRoute>)[]
 ): TypedPageComponent<TRoute> {
 	// Return a wrapper component that validates props
-	const WrappedComponent: TypedPageComponent<TRoute> = (props) => {
+	const WrappedComponent: TypedPageComponent<TRoute> = (props: unknown) => {
 		// Validate props in development
 		if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
 			if (!isValidPageProps<TRoute>(props, expectedParams)) {
@@ -507,6 +507,42 @@ export function createTypedPageLoader<TRoute extends string, TData = unknown>(
 		}
 
 		return await loader(context);
+	};
+}
+
+/**
+ * Validate component accepts correct props for a route
+ */
+export function validatePageComponent<TRoute extends string>(
+	component: unknown,
+	_expectedParams: (keyof RouteParameters<TRoute>)[]
+): component is TypedPageComponent<TRoute> {
+	// In TypeScript, we can't really validate function signatures at runtime
+	// This is more of a development-time helper
+	if (typeof component !== 'function') {
+		return false;
+	}
+
+	// Could add more sophisticated validation in development mode
+	return true;
+}
+
+/**
+ * Create a typed API handler with parameter validation
+ */
+export function createTypedApiHandler<TRoute extends string>(
+	handler: TypedApiHandler<TRoute>,
+	expectedParams: (keyof RouteParameters<TRoute>)[]
+): TypedApiHandler<TRoute> {
+	return async (request, context) => {
+		// Validate params in development
+		if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+			if (!isValidRouteParams<TRoute>(context.params, expectedParams)) {
+				console.warn('Invalid params passed to typed API handler:', context.params);
+			}
+		}
+
+		return await handler(request, context);
 	};
 }
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { IslandPersistence } from '../../core/islands/island-persistence.ts';
 import { IslandStateSerializer } from '../../core/islands/island-state-serializer.ts';
-import { createPersistentIslandContext } from '../../core/islands/persistent-island-context.ts';
+import { createPersistentIslandContext } from '../../core/islands/persistent-island-context.tsx';
 import type { IslandState } from '../../schemas/layout.ts';
 
 // Mock Storage for testing

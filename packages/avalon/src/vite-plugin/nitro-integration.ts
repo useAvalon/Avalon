@@ -511,9 +511,9 @@ export function isDevelopmentMode(): boolean {
 // ─── SSR Request Handling ────────────────────────────────────────────────────
 
 
-let cachedSSRModule: any = null;
+let cachedSSRModule: unknown = null;
 
-let cachedLayoutModule: any = null;
+let cachedLayoutModule: unknown = null;
 
 async function handleSSRRequest(
   server: ViteDevServer,
@@ -593,12 +593,16 @@ async function renderPageToHtml(
     if (!cachedSSRModule) {
       cachedSSRModule = await server.ssrLoadModule("../packages/avalon/src/render/ssr.ts");
     }
-    const ssrModule = cachedSSRModule;
+    // cachedSSRModule is the dynamically-loaded render/ssr.ts module;
+    // expected exports: renderToHtml, renderToHtmlWithLayouts
+    const ssrModule = cachedSSRModule as Record<string, unknown>;
 
     if (!cachedLayoutModule) {
       cachedLayoutModule = await server.ssrLoadModule("../packages/avalon/src/core/layout/enhanced-layout-resolver.ts");
     }
-    const layoutModule = cachedLayoutModule;
+    // cachedLayoutModule is the dynamically-loaded enhanced-layout-resolver.ts module;
+    // expected exports: EnhancedLayoutResolver, EnhancedLayoutResolverUtils
+    const layoutModule = cachedLayoutModule as Record<string, unknown>;
 
     const routeConfig = {
       component: () => typeof PageComponent === "function" ? (PageComponent as () => unknown)() : PageComponent,
@@ -612,7 +616,8 @@ async function renderPageToHtml(
         const viteRoot = server.config.root || process.cwd();
 
         if (!globalThis.__avalonLayoutResolver) {
-          globalThis.__avalonLayoutResolver = new layoutModule.EnhancedLayoutResolver({
+          const EnhancedLayoutResolver = layoutModule.EnhancedLayoutResolver as new (opts: Record<string, unknown>) => unknown;
+          globalThis.__avalonLayoutResolver = new EnhancedLayoutResolver({
             baseDirectory: `${viteRoot}/src/layouts`,
             filePattern: '_layout.tsx',
             excludeDirectories: ['node_modules', '.git', 'dist', 'build'],
@@ -636,7 +641,7 @@ async function renderPageToHtml(
           request: { method: "GET", url: fullUrl, headers: new Headers() },
         };
 
-        return await ssrModule.renderToHtmlWithLayouts(
+        return await (ssrModule.renderToHtmlWithLayouts as Function)(
           routeConfig,
           globalThis.__avalonLayoutResolver,
           layoutContext,
@@ -651,7 +656,7 @@ async function renderPageToHtml(
     }
 
     if (ssrModule.renderToHtml) {
-      return await ssrModule.renderToHtml(
+      return await (ssrModule.renderToHtml as Function)(
         routeConfig,
         { title: metadata.title || "Avalon App" },
         undefined,

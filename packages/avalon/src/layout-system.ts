@@ -46,7 +46,7 @@ export {
 	createPersistentIslandContext,
 	usePersistentIslandContext,
 	PersistentIslandProvider,
-} from './core/islands/persistent-island-context.ts';
+} from './core/islands/persistent-island-context.tsx';
 export { PersistentIsland } from './components/PersistentIsland.tsx';
 export type { IslandState, PersistentIslandProps, PersistentIslandContext } from './schemas/layout.ts';
 

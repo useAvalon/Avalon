@@ -30,10 +30,9 @@ import type {
 	StreamingReadyCheck,
 } from '../schemas/layout.ts';
 
-// Define component types locally
-export type ComponentType<P = unknown> = ((props: P) => unknown) | (new (props: P) => unknown);
-export type ComponentChildren = unknown;
-export type Component<P = unknown> = ComponentType<P>;
+// Re-export component types from preact
+import type { ComponentType, ComponentChildren } from 'preact';
+export type { ComponentType, ComponentChildren };
 
 // Import concrete implementations
 export { LayoutDiscovery } from '../core/layout/layout-discovery.ts';
@@ -81,7 +80,7 @@ export {
 	createPersistentIslandContext,
 	usePersistentIslandContext,
 	PersistentIslandProvider,
-} from '../core/islands/persistent-island-context.ts';
+} from '../core/islands/persistent-island-context.tsx';
 export { PersistentIsland } from '../components/PersistentIsland.tsx';
 
 // Export error boundary functionality

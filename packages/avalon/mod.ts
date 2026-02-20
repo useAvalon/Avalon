@@ -236,7 +236,7 @@ export {
 	createPersistentIslandContext,
 	usePersistentIslandContext,
 	PersistentIslandProvider,
-} from './src/core/islands/persistent-island-context.ts';
+} from './src/core/islands/persistent-island-context.tsx';
 export { PersistentIsland } from './src/components/PersistentIsland.tsx';
 
 // Error boundary system

@@ -5,110 +5,25 @@ import { LayoutMatcher } from './layout-matcher.ts';
 import { LayoutComposer } from './layout-composer.ts';
 import { LayoutDataLoader } from './layout-data-loader.ts';
 import { LayoutCacheManager, defaultCacheConfig } from './layout-cache-manager.ts';
-
-// NOTE: Using inline types to avoid importing heavy types/layout.ts (which imports schemas/layout.ts with zod)
-// This significantly improves cold start time
-
-
-type ComponentType<P = any> = ((props: P) => any) | (new (props: P) => any);
-
-interface LayoutContext {
-	request: Request;
-	params: Record<string, string>;
-	query: URLSearchParams;
-	state: Map<string, unknown>;
-	middlewareContext?: unknown;
-}
-
-type LayoutData = Record<string, unknown>;
-
-interface LayoutHandler {
-	
-	component: ComponentType<any>;
-	
-	loader?: (ctx: LayoutContext) => Promise<any>;
-	path: string;
-	priority: number;
-}
-
-interface LayoutDiscoveryOptions {
-	baseDirectory: string;
-	filePattern?: string;
-	excludeDirectories?: string[];
-	enableWatching?: boolean;
-	developmentMode?: boolean;
-}
-
-interface ResolvedLayout {
-	
-	handlers: any[];
-	
-	dataLoaders: any[];
-	
-	errorBoundaries: any[];
-	
-	streamingComponents: any[];
-	metadata: {
-		totalLayouts: number;
-		resolutionTime: number;
-		cacheHit: boolean;
-	};
-}
-
-interface LayoutCache {
-	resolved: Map<string, ResolvedLayout>;
-	handlers: Map<string, LayoutHandler>;
-	data: Map<string, LayoutData>;
-	ttl: Map<string, number>;
-}
-
-interface RouteInfo {
-	path: string;
-	params: Record<string, string>;
-	method: string;
-	headers: Headers;
-}
-
-interface LayoutConfig {
-	skipLayouts?: string[];
-	replaceLayout?: boolean;
-	onlyLayouts?: string[];
-	customLayout?: string;
-}
-
-interface LayoutErrorInfo {
-	layoutPath: string;
-	errorType: 'component' | 'loader' | 'rendering' | 'island';
-	timestamp: number;
-	componentStack?: string;
-	errorBoundary?: string;
-}
+import type {
+	ComponentType,
+	LayoutContext,
+	LayoutData,
+	LayoutHandler,
+	LayoutProps,
+	LayoutDiscoveryOptions,
+	ResolvedLayout,
+	LayoutCache,
+	RouteInfo,
+	LayoutErrorInfo,
+	PageModule,
+} from './layout-types.ts';
 
 interface IEnhancedLayoutResolver {
 	resolveAndRender(routePath: string, pageModule: PageModule, context: LayoutContext): Promise<ResolvedLayout>;
 	getCachedResolution(routePath: string): ResolvedLayout | null;
 	clearCache(): void;
 	setCaching(enabled: boolean): void;
-}
-
-interface LayoutProps {
-	children: unknown;
-	data: LayoutData;
-	frontmatter?: Record<string, unknown>;
-	route: {
-		path: string;
-		params: Record<string, string>;
-		query: URLSearchParams;
-	};
-}
-
-/**
- * Page module interface with optional layout configuration
- */
-interface PageModule {
-	default: ComponentType<any>;
-	layoutConfig?: LayoutConfig;
-	loader?: (ctx: any) => Promise<any>;
 }
 
 /**
@@ -176,7 +91,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 	/**
 	 * Resolve layout chain for a route
 	 */
-	async resolveLayouts(routePath: string, pageModule: any, context: LayoutContext): Promise<ResolvedLayout> {
+	async resolveLayouts(routePath: string, pageModule: PageModule, context: LayoutContext): Promise<ResolvedLayout> {
 		const startTime = performance.now();
 		const cacheKey = this.generateCacheKey(routePath, pageModule, context);
 
@@ -226,7 +141,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 		const totalTime = performance.now() - startTime;
 		const resolvedLayout: ResolvedLayout = {
 			handlers,
-			dataLoaders: handlers.map(h => h.loader).filter(Boolean),
+			dataLoaders: handlers.map(h => h.loader).filter((l): l is (ctx: LayoutContext) => Promise<LayoutData> => l !== undefined),
 			errorBoundaries: [],
 			streamingComponents: [],
 			metadata: { totalLayouts: handlers.length, resolutionTime: totalTime, cacheHit: false },
@@ -250,7 +165,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 	/**
 	 * Resolve and render complete layout chain
 	 */
-	async resolveAndRender(routePath: string, pageModule: any, context: LayoutContext): Promise<ResolvedLayout> {
+	async resolveAndRender(routePath: string, pageModule: PageModule, context: LayoutContext): Promise<ResolvedLayout> {
 		const resolvedLayout = await this.resolveLayouts(routePath, pageModule, context);
 
 		if (this.options.developmentMode) {
@@ -269,32 +184,45 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 
 	private renderLayoutsToString(
 		resolvedLayout: ResolvedLayout,
-		pageModule: any,
+		pageModule: PageModule,
 		context: LayoutContext,
 		layoutData: LayoutData[] = []
 	): string {
+		// Helper to call a ComponentType as a plain function regardless of whether
+		// it's a class constructor or a function component.
+		function callComponent<P>(component: ComponentType<P>, props: P): unknown {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			return (component as (props: P) => unknown)(props);
+		}
+
 		try {
-			const PageComponent = pageModule.default || (() => null);
-			let currentComponent = PageComponent;
+			const PageComponent: ComponentType<LayoutProps> = pageModule.default || (() => null);
+			let currentComponent: ComponentType<LayoutProps> = PageComponent;
 
 			for (let i = resolvedLayout.handlers.length - 1; i >= 0; i--) {
 				const handler = resolvedLayout.handlers[i];
 				const LayoutComponent = handler.component;
 				const previousComponent = currentComponent;
-				const layoutDataForThis = layoutData[i] || {};
+				const layoutDataForThis: LayoutData = layoutData[i] || {};
 
-				currentComponent = (props: any) => {
-					return LayoutComponent({
-						...props,
-						data: layoutDataForThis,
-						frontmatter: pageModule.frontmatter,
-						children: previousComponent(props),
-					});
-				};
+				currentComponent = (props: LayoutProps) => callComponent(LayoutComponent, {
+					...props,
+					data: layoutDataForThis,
+					frontmatter: pageModule.frontmatter,
+					children: callComponent(previousComponent, props),
+				});
 			}
 
 			return preactRenderToString(
-				currentComponent({ url: new URL(context.request.url), params: context.params })
+				callComponent(currentComponent, {
+					children: null,
+					data: {},
+					route: {
+						path: new URL(context.request.url).pathname,
+						params: context.params,
+						query: context.query,
+					},
+				}) as Parameters<typeof preactRenderToString>[0]
 			);
 		} catch (error) {
 			if (this.options.developmentMode) {
@@ -327,19 +255,21 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 		if (!enabled) this.clearCache();
 	}
 
-	private generateCacheKey(routePath: string, pageModule: any, context: LayoutContext): string {
+	private generateCacheKey(routePath: string, pageModule: PageModule, context: LayoutContext): string {
 		const pageConfigHash = pageModule.layoutConfig ? JSON.stringify(pageModule.layoutConfig) : '';
 		return `${routePath}:${pageConfigHash}:${context.request.method}:${context.request.url}`;
 	}
 
-	private getMemoryUsage(): number | undefined {
-		if (typeof performance !== 'undefined' && 'memory' in performance) {
-			return (performance as any).memory.usedJSHeapSize;
-		}
-		return undefined;
-	}
 
-	getResolverStats() {
+	getResolverStats(): {
+		cacheSize: number;
+		cacheHitRate: number;
+		totalResolutions: number;
+		averageResolutionTime: number;
+		errorCount: number;
+		cacheStats: ReturnType<LayoutCacheManager['getStats']>;
+		discoveryStats: ReturnType<LayoutDiscovery['getCacheStats']>;
+	} {
 		const cacheStats = this.cacheManager.getStats();
 		const discoveryStats = this.layoutDiscovery.getCacheStats();
 		return {

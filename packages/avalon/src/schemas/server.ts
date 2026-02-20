@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { RenderOptionsSchema } from './core.ts';
-import { FileSystemRouterConfigSchema } from './routing.ts';
+import { RenderOptionsSchema } from './core';
+import { FileSystemRouterConfigSchema } from './routing';
 
 // Component render options schema
 export const ComponentRenderOptionsSchema = z
@@ -73,11 +73,12 @@ type JSXElementType =
 /**
  * Internal JSX schema - used only for building other schemas
  */
-const JSXElementSchema: z.ZodType<JSXElementType> = z.lazy(() =>
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const JSXElementSchema: z.ZodType<any> = z.lazy(() =>
 	z.union([
 		z.object({
 			type: z.union([z.string(), z.function()]),
-			props: z.record(z.unknown()).nullable(),
+			props: z.record(z.string(), z.unknown()).nullable(),
 			key: z.union([z.string(), z.number()]).nullable().optional(),
 			_owner: z.unknown().optional(),
 			_store: z.unknown().optional(),
@@ -94,12 +95,12 @@ const JSXElementSchema: z.ZodType<JSXElementType> = z.lazy(() =>
 /**
  * Internal route component schema
  */
-const RouteComponentSchema: z.ZodSchema = z.function().args().returns(z.any());
+const RouteComponentSchema = z.function();
 
 /**
  * Internal route config schema
  */
-const RouteConfigSchema: z.ZodSchema = z.object({
+const RouteConfigSchema = z.object({
 	component: RouteComponentSchema,
 	options: RenderOptionsSchema.optional(),
 });
@@ -107,9 +108,12 @@ const RouteConfigSchema: z.ZodSchema = z.object({
 /**
  * Internal routes schema
  */
-const RoutesSchema: z.ZodSchema = z.record(
-	z.string().regex(/^\/.*/, "Route paths must start with '/'"),
+const RoutesSchema = z.record(
+	z.string(),
 	RouteConfigSchema
+).refine(
+	(routes) => Object.keys(routes).every((k) => k.startsWith('/')),
+	{ message: "Route paths must start with '/'" }
 );
 
 // === Public Schema (Only One Actually Used) ===
@@ -117,7 +121,7 @@ const RoutesSchema: z.ZodSchema = z.record(
 /**
  * Server configuration schema - the only schema actually used for validation
  */
-export const ServerConfigSchema: z.ZodSchema = z.object({
+export const ServerConfigSchema = z.object({
 	routes: RoutesSchema,
 	port: z
 		.number()
@@ -170,6 +174,6 @@ export function validateServerConfig(data: unknown): ServerConfig {
 /**
  * Safe server config validation - used internally by createServerSafe()
  */
-export function safeValidateServerConfig(data: unknown): z.SafeParseReturnType<unknown, ServerConfig> {
+export function safeValidateServerConfig(data: unknown): z.ZodSafeParseResult<ServerConfig> {
 	return ServerConfigSchema.safeParse(data);
 }

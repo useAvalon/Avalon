@@ -1,7 +1,18 @@
-import { createContext, h } from 'preact';
+import { createContext } from 'preact';
+import type { ComponentChildren } from 'preact';
 import { useContext } from 'preact/hooks';
-import type { IslandState, PersistentIslandContext } from '../../schemas/layout.ts';
+import type { IslandState } from '../../schemas/layout.ts';
 import { defaultIslandPersistence } from './island-persistence.ts';
+
+/**
+ * Explicit interface for persistent island context
+ * (Zod z.any() inference for function types is unreliable)
+ */
+export interface PersistentIslandContextType {
+	saveState: (state: IslandState) => void;
+	loadState: () => IslandState | null;
+	clearState: () => void;
+}
 
 /**
  * Context for persistent island state operations
@@ -9,7 +20,7 @@ import { defaultIslandPersistence } from './island-persistence.ts';
  * Provides save, load, and clear operations for island state management
  * across navigation and browser sessions.
  */
-export const PersistentIslandContextProvider = createContext<PersistentIslandContext | null>(null);
+export const PersistentIslandContextProvider = createContext<PersistentIslandContextType | null>(null as PersistentIslandContextType | null);
 
 /**
  * Create a persistent island context for a specific island ID
@@ -17,7 +28,7 @@ export const PersistentIslandContextProvider = createContext<PersistentIslandCon
 export function createPersistentIslandContext(
 	persistentId: string,
 	persistence = defaultIslandPersistence
-): PersistentIslandContext {
+): PersistentIslandContextType {
 	return {
 		saveState: (state: IslandState) => {
 			persistence.saveState(persistentId, state);
@@ -37,7 +48,7 @@ export function createPersistentIslandContext(
  * Hook to use persistent island context
  * Must be used within a PersistentIsland component
  */
-export function usePersistentIslandContext(): PersistentIslandContext {
+export function usePersistentIslandContext(): PersistentIslandContextType {
 	const context = useContext(PersistentIslandContextProvider);
 
 	if (!context) {
@@ -56,10 +67,14 @@ export function PersistentIslandProvider({
 	persistence = defaultIslandPersistence,
 }: {
 	persistentId: string;
-	children: any;
+	children: ComponentChildren;
 	persistence?: typeof defaultIslandPersistence;
 }) {
 	const contextValue = createPersistentIslandContext(persistentId, persistence);
 
-	return h(PersistentIslandContextProvider.Provider, { value: contextValue }, children);
+	return (
+		<PersistentIslandContextProvider.Provider value={contextValue}>
+			{children}
+		</PersistentIslandContextProvider.Provider>
+	);
 }
