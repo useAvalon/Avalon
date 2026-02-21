@@ -1,0 +1,50 @@
+.title {
+  color: #2c3e50;
+  margin-bottom: 20px;
+}
+
+.subtitle {
+  color: #6c757d;
+  margin-bottom: 30px;
+  font-size: 1.1rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 25px;
+}
+
+.card {
+  background: #fff;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  border: 2px solid var(--card-accent);
+}
+
+.cardTitle {
+  color: var(--card-accent);
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.infoBox {
+  margin-top: 40px;
+  padding: 25px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 1px solid #e9ecef;
+}
+
+.infoTitle {
+  color: #495057;
+  margin-bottom: 15px;
+}
+
+.infoList {
+  color: #6c757d;
+  line-height: 1.8;
+}

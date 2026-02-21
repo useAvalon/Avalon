@@ -1,160 +1,57 @@
-import { renderIsland } from '@avalon/avalon';
+/** @jsxImportSource preact */
+
+import ReactCounter from '../islands/ReactCounter.tsx';
+import PreactCounter from '../islands/PreactCounter.tsx';
+import LitCounter from '../islands/Counter.lit.ts';
+import VueCounter from '../islands/VueCounter.vue';
+import SvelteCounter from '../islands/SvelteCounter.svelte';
+import SolidCounter from '../islands/SolidCounter.solid.tsx';
+import styles from './frameworks.module.css';
 
 export default async function FrameworksPage() {
-	// Render all islands in parallel for better performance
-	// This reduces the total render time from ~6x single island time to ~1x
-	const [
-		reactCounter,
-		preactCounter,
-		litCounter,
-		vueCounter,
-		svelteCounter,
-		solidCounter,
-	] = await Promise.all([
-		renderIsland({
-			src: '/src/islands/ReactCounter.tsx',
-			condition: 'on:interaction',
-			framework: 'react',
-			props: { initialCount: 0 },
-		}),
-		renderIsland({
-			src: '/src/islands/PreactCounter.tsx',
-			condition: 'on:interaction',
-			framework: 'preact',
-		}),
-		renderIsland({
-			src: '/src/islands/Counter.lit.ts',
-			condition: 'on:interaction',
-			framework: 'lit',
-			props: { initialCount: 0 },
-		}),
-		renderIsland({
-			src: '/src/islands/VueCounter.vue',
-			condition: 'on:interaction',
-			framework: 'vue',
-		}),
-		renderIsland({
-			src: '/src/islands/SvelteCounter.svelte',
-			condition: 'on:interaction',
-			framework: 'svelte',
-		}),
-		renderIsland({
-			src: '/src/islands/SolidCounter.solid.tsx',
-			condition: 'on:interaction',
-			framework: 'solid',
-		}),
-	]);
-
 	return (
 		<div>
-			<h1 style={{ color: '#2c3e50', marginBottom: '20px' }}>🎨 Multi-Framework Components</h1>
+			<h1 class={styles.title}>🎨 Multi-Framework Components</h1>
 
-			<p style={{ color: '#6c757d', marginBottom: '30px', fontSize: '1.1rem' }}>
+			<p class={styles.subtitle}>
 				The same counter component implemented in different frameworks, all working together seamlessly.
 			</p>
 
-			<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '25px' }}>
-				{/* React Counter */}
-				<div
-					style={{
-						background: '#fff',
-						padding: '25px',
-						borderRadius: '12px',
-						boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-						border: '2px solid #61dafb',
-					}}>
-					<h3 style={{ color: '#61dafb', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-						⚛️ React Counter
-					</h3>
-					{reactCounter}
+			<div class={styles.grid}>
+				<div class={styles.card} style={{ '--card-accent': '#61dafb' } as any}>
+					<h3 class={styles.cardTitle}>⚛️ React Counter</h3>
+					<ReactCounter island={{ condition: 'on:interaction' }} initialCount={0} />
 				</div>
 
-				{/* Preact Counter */}
-				<div
-					style={{
-						background: '#fff',
-						padding: '25px',
-						borderRadius: '12px',
-						boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-						border: '2px solid #673ab7',
-					}}>
-					<h3 style={{ color: '#673ab7', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-						⚛️ Preact Counter
-					</h3>
-					{preactCounter}
+				<div class={styles.card} style={{ '--card-accent': '#673ab7' } as any}>
+					<h3 class={styles.cardTitle}>⚛️ Preact Counter</h3>
+					<PreactCounter island={{ condition: 'on:interaction' }} />
 				</div>
 
-				{/* Lit Counter */}
-				<div
-					style={{
-						background: '#fff',
-						padding: '25px',
-						borderRadius: '12px',
-						boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-						border: '2px solid #ff6b6b',
-					}}>
-					<h3 style={{ color: '#ff6b6b', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-						🔥 Lit Counter
-					</h3>
-					{litCounter}
+				<div class={styles.card} style={{ '--card-accent': '#ff6b6b' } as any}>
+					<h3 class={styles.cardTitle}>🔥 Lit Counter</h3>
+					<LitCounter island={{ condition: 'on:interaction' }} initialCount={0} />
 				</div>
 
-				{/* Vue Counter */}
-				<div
-					style={{
-						background: '#fff',
-						padding: '25px',
-						borderRadius: '12px',
-						boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-						border: '2px solid #4fc08d',
-					}}>
-					<h3 style={{ color: '#4fc08d', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-						💚 Vue Counter
-					</h3>
-					{vueCounter}
+				<div class={styles.card} style={{ '--card-accent': '#4fc08d' } as any}>
+					<h3 class={styles.cardTitle}>💚 Vue Counter</h3>
+					<VueCounter island={{ condition: 'on:interaction' }} />
 				</div>
 
-				{/* Svelte Counter */}
-				<div
-					style={{
-						background: '#fff',
-						padding: '25px',
-						borderRadius: '12px',
-						boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-						border: '2px solid #ff3e00',
-					}}>
-					<h3 style={{ color: '#ff3e00', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-						🔥 Svelte Counter
-					</h3>
-					{svelteCounter}
+				<div class={styles.card} style={{ '--card-accent': '#ff3e00' } as any}>
+					<h3 class={styles.cardTitle}>🔥 Svelte Counter</h3>
+					<SvelteCounter island={{ condition: 'on:interaction' }} />
 				</div>
 
-				{/* Solid Counter */}
-				<div
-					style={{
-						background: '#fff',
-						padding: '25px',
-						borderRadius: '12px',
-						boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
-						border: '2px solid #2c4f7c',
-					}}>
-					<h3 style={{ color: '#2c4f7c', marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-						💎 Solid Counter
-					</h3>
-					{solidCounter}
+				<div class={styles.card} style={{ '--card-accent': '#2c4f7c' } as any}>
+					<h3 class={styles.cardTitle}>💎 Solid Counter</h3>
+					<SolidCounter island={{ condition: 'on:interaction' }} />
 				</div>
 			</div>
 
-			<div
-				style={{
-					marginTop: '40px',
-					padding: '25px',
-					background: '#f8f9fa',
-					borderRadius: '12px',
-					border: '1px solid #e9ecef',
-				}}>
-				<h3 style={{ color: '#495057', marginBottom: '15px' }}>🔍 What's Happening Here?</h3>
-				<ul style={{ color: '#6c757d', lineHeight: '1.8' }}>
+			<div class={styles.infoBox}>
+				<h3 class={styles.infoTitle}>🔍 What's Happening Here?</h3>
+				<ul class={styles.infoList}>
 					<li>Each counter is a separate framework component</li>
 					<li>They're hydrated independently using islands architecture</li>
 					<li>The page itself is server-rendered with Preact</li>

@@ -34,6 +34,7 @@ import {
 import type { MiddlewareRoute } from "../middleware/types.ts";
 import type { H3Event } from "h3";
 import { generateErrorPage, generateFallback404 } from "../render/error-pages.ts";
+import { collectCssFromModuleGraph, injectSsrCss } from "../render/collect-css.ts";
 
 export const VIRTUAL_MODULE_IDS = {
   PAGE_ROUTES: "virtual:avalon/page-routes",
@@ -534,7 +535,18 @@ async function handleSSRRequest(
       return null;
     }
 
-    return await renderPageToHtml(PageComponent, pageModule, pathname, config, server);
+    // Collect CSS from the module graph after loading the page module.
+    // This captures CSS modules, plain CSS imports, and any transitive CSS deps.
+    const cssContents = await collectCssFromModuleGraph(server, pageFile);
+
+    let html = await renderPageToHtml(PageComponent, pageModule, pathname, config, server);
+
+    // Inject collected CSS into the HTML so styles are present on first paint
+    if (cssContents.length > 0) {
+      html = injectSsrCss(html, cssContents);
+    }
+
+    return html;
   } catch (error) {
     console.error(`[SSR] Error rendering ${pageFile}:`, error);
     throw error;
