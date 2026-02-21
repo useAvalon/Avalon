@@ -1,5 +1,4 @@
 /** @jsxImportSource preact */
-/// <reference path="../../../packages/avalon/src/types/island-jsx.d.ts" />
 
 // --- Section 1: Shared state via CustomEvent ---
 import EventPreactCounter from '../islands/EventPreactCounter.tsx';

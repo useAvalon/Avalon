@@ -84,3 +84,6 @@ export class EventWebCounter extends LitElement {
 if (typeof customElements !== 'undefined' && !customElements.get("event-web-counter")) {
   customElements.define("event-web-counter", EventWebCounter);
 }
+
+// Default export for use in Preact JSX pages.
+export default EventWebCounter as unknown as (props: { island?: import('../../../packages/avalon/src/types/island-prop.d.ts').IslandDirective }) => null;

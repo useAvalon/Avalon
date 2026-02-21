@@ -1,5 +1,4 @@
 /** @jsxImportSource preact */
-/// <reference path="../../../packages/avalon/src/types/island-jsx.d.ts" />
 import PreactCounter from '../islands/PreactCounter.tsx';
 import ReactCounter from '../islands/ReactCounter.tsx';
 import VueCounter from '../islands/VueCounter.vue';

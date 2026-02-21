@@ -1,0 +1,98 @@
+import type { Plugin } from 'vite';
+import type { Pluggable } from 'unified';
+
+export interface MDXPluginOptions {
+	remarkPlugins?: Pluggable[];
+	rehypePlugins?: Pluggable[];
+	development?: boolean;
+	jsxImportSource?: string;
+	/** Enable syntax highlighting via rehype-highlight (default: true) */
+	syntaxHighlighting?: boolean;
+}
+
+/**
+ * Creates and configures the MDX Vite plugin
+ * 
+ * This function sets up the MDX plugin with:
+ * - Frontmatter processing (remark-frontmatter, remark-mdx-frontmatter)
+ * - GitHub Flavored Markdown support (remark-gfm)
+ * - Syntax highlighting (rehype-highlight) - enabled by default
+ * - Custom remark/rehype plugins
+ * - JSX runtime configuration
+ * 
+ * @param options - MDX plugin configuration options
+ * @returns Array of Vite plugins (empty if MDX dependencies are not available)
+ * 
+ * @example
+ * ```ts
+ * // Basic usage with defaults
+ * const plugins = await createMDXPlugin();
+ * 
+ * // With React JSX runtime
+ * const plugins = await createMDXPlugin({ jsxImportSource: 'react' });
+ * 
+ * // Disable syntax highlighting
+ * const plugins = await createMDXPlugin({ syntaxHighlighting: false });
+ * ```
+ */
+export async function createMDXPlugin(options: MDXPluginOptions = {}): Promise<Plugin[]> {
+	const { 
+		remarkPlugins = [], 
+		rehypePlugins = [], 
+		development = false, 
+		jsxImportSource = 'preact',
+		syntaxHighlighting = true,
+	} = options;
+
+	try {
+		// Load the core MDX plugin
+		const { default: mdx } = await import('@mdx-js/rollup');
+
+		// Load remark plugins for frontmatter processing and GFM support
+		const { default: remarkFrontmatter } = await import('remark-frontmatter');
+		const { default: remarkMdxFrontmatter } = await import('remark-mdx-frontmatter');
+		const { default: remarkGfm } = await import('remark-gfm');
+
+		// Build rehype plugins array based on options
+		const finalRehypePlugins: Pluggable[] = [];
+		
+		// Add syntax highlighting if enabled
+		if (syntaxHighlighting) {
+			try {
+				const { default: rehypeHighlight } = await import('rehype-highlight');
+				finalRehypePlugins.push(rehypeHighlight);
+			} catch {
+				console.warn('[avalon:mdx] rehype-highlight not available, syntax highlighting disabled');
+			}
+		}
+		
+		// Add user-provided rehype plugins
+		finalRehypePlugins.push(...rehypePlugins);
+
+		// Configure MDX plugin with frontmatter processing, GFM support, and optional syntax highlighting
+		const mdxPlugin = mdx({
+			// Plugin chains - frontmatter must come first, then export as named exports
+			remarkPlugins: [remarkFrontmatter, remarkMdxFrontmatter, remarkGfm, ...remarkPlugins],
+			rehypePlugins: finalRehypePlugins,
+
+			// JSX configuration for the specified runtime
+			jsxImportSource: jsxImportSource,
+
+			// Development vs production optimizations
+			development,
+
+			// Ensure proper module format
+			format: 'mdx',
+		});
+
+		return [mdxPlugin];
+	} catch (error) {
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		console.error('❌ Failed to configure MDX plugin:', errorMessage);
+		console.warn('💡 Install missing dependencies or check import map');
+
+		// Always return empty array to allow server to start without MDX
+		console.warn('⚠️ MDX plugin disabled - .mdx files will not be processed');
+		return [];
+	}
+}

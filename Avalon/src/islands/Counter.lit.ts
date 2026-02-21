@@ -118,3 +118,7 @@ declare global {
     "web-counter": WebCounter;
   }
 }
+
+// Default export for use in Preact JSX pages.
+// The Avalon island transform uses the class directly; this export is for TypeScript compatibility.
+export default WebCounter as unknown as (props: { initialCount?: number; island?: import('../../../packages/avalon/src/types/island-prop.d.ts').IslandDirective }) => null;

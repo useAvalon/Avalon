@@ -118,6 +118,7 @@ export type { PageIslandTransformOptions } from './src/build/page-island-transfo
 
 // Island directive type for the `island` prop
 export type { IslandDirective } from './src/types/island-prop.d.ts';
+export { asIsland } from './src/types/as-island.ts';
 
 // Island type generation
 export { generateIslandTypes, watchAndGenerateTypes } from './src/build/island-types-generator.ts';

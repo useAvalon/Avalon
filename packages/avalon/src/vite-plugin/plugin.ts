@@ -26,6 +26,7 @@ import { mdxIslandTransform } from "../build/mdx-island-transform.ts";
 import { pageIslandTransform } from "../build/page-island-transform.ts";
 import { registry } from "../core/integrations/registry.ts";
 import { createNitroIntegration } from "./nitro-integration.ts";
+import { islandSidecarPlugin } from "./island-sidecar-plugin.ts";
 import type { AvalonNitroConfig, NitroConfigOutput } from "../nitro/config.ts";
 
 // Declare global type for Avalon config
@@ -274,6 +275,12 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
     globalThis.__nitroConfig = nitroOptions;
   }
 
+  // Island sidecar generation plugin
+  const sidecarPlugin = islandSidecarPlugin({
+    islandsDir: preResolvedConfig.islandsDir,
+    verbose: preResolvedConfig.verbose,
+  });
+
   // The main Avalon plugin
   const avalonPlugin: Plugin = {
     name: "avalon",
@@ -397,6 +404,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
     ...litPlugins,
     ...mdxPlugins,
     avalonPlugin,
+    sidecarPlugin,
     ...nitroPlugins,
     ...otherIntegrationPlugins,
   ];
