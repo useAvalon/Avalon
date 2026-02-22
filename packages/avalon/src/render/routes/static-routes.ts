@@ -5,7 +5,7 @@
 import { join } from 'node:path';
 import { serveStaticFile, hasStaticExtension } from '../file-utils.ts';
 import { STATIC_FILES_DIR } from '../constants.ts';
-import type { MiddlewareContext } from '../../schemas/middleware.ts';
+import type { MiddlewareContext } from '../../nitro/middleware-adapter.ts';
 import type { LayoutContext } from '../../types/layout.ts';
 
 export function createStaticRoutes(isDev: boolean) {

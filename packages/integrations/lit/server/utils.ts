@@ -5,8 +5,7 @@
 // Import DOM shim FIRST before any Lit imports
 import "./dom-shim.ts";
 
-import type { LitElement } from "lit";
-import type { CSSResult } from "lit";
+import type { LitElement, CSSResult } from "lit";
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 
@@ -28,7 +27,7 @@ export function getTagName(ElementClass: typeof LitElement): string {
   // Convert PascalCase to kebab-case
   const className = ElementClass.name;
   if (className) {
-    return className.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+    return className.replaceAll(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
   }
   
   throw new Error("Could not determine tag name for Lit component");
@@ -36,11 +35,11 @@ export function getTagName(ElementClass: typeof LitElement): string {
 
 function escapeAttributeValue(value: string): string {
   return value
-    .replace(/&/g, "&amp;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replaceAll('&', "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll('\'', "&#39;")
+    .replaceAll('<', "&lt;")
+    .replaceAll('>', "&gt;");
 }
 
 /**
@@ -52,7 +51,7 @@ export function serializeAttributes(props: Record<string, unknown>): string {
   for (const [key, value] of Object.entries(props)) {
     if (value === undefined || value === null) continue;
     
-    const attrName = key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+    const attrName = key.replaceAll(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
     
     if (typeof value === "boolean") {
       if (value) attributes.push(attrName);
@@ -88,14 +87,14 @@ export function collectStyles(ElementClass: typeof LitElement): string {
   }
 }
 
-function extractCssFromStyle(style: CSSResult | string | unknown): string {
+function extractCssFromStyle(style: unknown): string {
   if (!style) return "";
   if (typeof style === "string") return style;
   if (typeof style === "object" && "cssText" in style) {
     return (style as CSSResult).cssText;
   }
   if (typeof style === "object" && "toString" in style) {
-    return String(style);
+    return (style as { toString(): string }).toString();
   }
   return "";
 }
@@ -127,7 +126,7 @@ export async function extractTagNameFromSource(src: string): Promise<string | nu
     ];
     
     for (const pattern of decoratorPatterns) {
-      const match = content.match(pattern);
+      const match = new RegExp(pattern).exec(content);
       if (match?.[1]) return match[1];
     }
     
@@ -139,7 +138,7 @@ export async function extractTagNameFromSource(src: string): Promise<string | nu
     ];
     
     for (const pattern of elementNamePatterns) {
-      const match = content.match(pattern);
+      const match = new RegExp(pattern).exec(content);
       if (match?.[1]) return match[1];
     }
     

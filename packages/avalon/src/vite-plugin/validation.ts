@@ -62,102 +62,51 @@ export interface ValidationSummary {
  * ```
  */
 export function validateIntegration(integration: unknown): ValidationResult {
+  if (integration === null || integration === undefined) {
+    return { integration: "unknown" as IntegrationName, valid: false, errors: ["Integration is null or undefined"], warnings: [] };
+  }
+  if (typeof integration !== "object") {
+    return { integration: "unknown" as IntegrationName, valid: false, errors: [`Integration must be an object, got ${typeof integration}`], warnings: [] };
+  }
+
+  const obj = integration as Record<string, unknown>;
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // Handle null/undefined
-  if (integration === null || integration === undefined) {
-    return {
-      integration: "unknown" as IntegrationName,
-      valid: false,
-      errors: ["Integration is null or undefined"],
-      warnings: [],
-    };
+  checkStringProp(obj, "name", errors);
+  checkStringProp(obj, "version", errors);
+  checkFunctionProp(obj, "render", errors);
+  checkFunctionProp(obj, "getHydrationScript", errors);
+  checkFunctionProp(obj, "config", errors);
+
+  if (obj.vitePlugin !== undefined && typeof obj.vitePlugin !== "function") {
+    warnings.push(`'vitePlugin' should be a function if provided, got ${typeof obj.vitePlugin}`);
   }
 
-  // Ensure it's an object
-  if (typeof integration !== "object") {
-    return {
-      integration: "unknown" as IntegrationName,
-      valid: false,
-      errors: [`Integration must be an object, got ${typeof integration}`],
-      warnings: [],
-    };
+  const integrationName = typeof obj.name === "string"
+    ? (obj.name as IntegrationName)
+    : ("unknown" as IntegrationName);
+
+  return { integration: integrationName, valid: errors.length === 0, errors, warnings };
+}
+
+function checkStringProp(obj: Record<string, unknown>, key: string, errors: string[]): void {
+  const val = obj[key];
+  if (typeof val !== "string") {
+    errors.push(val === undefined
+      ? `Missing required '${key}' property`
+      : `Invalid '${key}' property: expected string, got ${typeof val}`);
+  } else if (val.trim() === "") {
+    errors.push(`'${key}' property cannot be empty`);
   }
+}
 
-  const integrationObj = integration as Record<string, unknown>;
-
-  // Check required 'name' property
-  if (typeof integrationObj.name !== "string") {
-    errors.push(
-      integrationObj.name === undefined
-        ? "Missing required 'name' property"
-        : `Invalid 'name' property: expected string, got ${typeof integrationObj.name}`
-    );
-  } else if (integrationObj.name.trim() === "") {
-    errors.push("'name' property cannot be empty");
+function checkFunctionProp(obj: Record<string, unknown>, key: string, errors: string[]): void {
+  if (typeof obj[key] !== "function") {
+    errors.push(obj[key] === undefined
+      ? `Missing required '${key}' method`
+      : `Invalid '${key}' method: expected function, got ${typeof obj[key]}`);
   }
-
-  // Check required 'version' property
-  if (typeof integrationObj.version !== "string") {
-    errors.push(
-      integrationObj.version === undefined
-        ? "Missing required 'version' property"
-        : `Invalid 'version' property: expected string, got ${typeof integrationObj.version}`
-    );
-  } else if (integrationObj.version.trim() === "") {
-    errors.push("'version' property cannot be empty");
-  }
-
-  // Check required 'render' method
-  if (typeof integrationObj.render !== "function") {
-    errors.push(
-      integrationObj.render === undefined
-        ? "Missing required 'render' method"
-        : `Invalid 'render' method: expected function, got ${typeof integrationObj.render}`
-    );
-  }
-
-  // Check required 'getHydrationScript' method
-  if (typeof integrationObj.getHydrationScript !== "function") {
-    errors.push(
-      integrationObj.getHydrationScript === undefined
-        ? "Missing required 'getHydrationScript' method"
-        : `Invalid 'getHydrationScript' method: expected function, got ${typeof integrationObj.getHydrationScript}`
-    );
-  }
-
-  // Check required 'config' method
-  if (typeof integrationObj.config !== "function") {
-    errors.push(
-      integrationObj.config === undefined
-        ? "Missing required 'config' method"
-        : `Invalid 'config' method: expected function, got ${typeof integrationObj.config}`
-    );
-  }
-
-  // Check optional 'vitePlugin' method (warn if present but not a function)
-  if (
-    integrationObj.vitePlugin !== undefined &&
-    typeof integrationObj.vitePlugin !== "function"
-  ) {
-    warnings.push(
-      `'vitePlugin' should be a function if provided, got ${typeof integrationObj.vitePlugin}`
-    );
-  }
-
-  // Determine the integration name for the result
-  const integrationName =
-    typeof integrationObj.name === "string"
-      ? (integrationObj.name as IntegrationName)
-      : ("unknown" as IntegrationName);
-
-  return {
-    integration: integrationName,
-    valid: errors.length === 0,
-    errors,
-    warnings,
-  };
 }
 
 /**

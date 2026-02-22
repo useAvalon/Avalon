@@ -70,6 +70,8 @@ export const svelteIntegration: Integration = {
       },
       // Don't emit separate CSS files - CSS is collected during SSR
       emitCss: false,
+      // Disable Svelte library prebundling - conflicts with Vite 8's rolldown dep scanner
+      prebundleSvelteLibraries: false,
     });
   },
 };

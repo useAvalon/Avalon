@@ -4,7 +4,7 @@
 
 import { readFile } from 'node:fs/promises';
 
-import type { MiddlewareContext } from '../../schemas/middleware.ts';
+import type { MiddlewareContext } from '../../nitro/middleware-adapter.ts';
 import type { LayoutContext } from '../../types/layout.ts';
 
 export function createFrameworkRoutes(isDev: boolean) {

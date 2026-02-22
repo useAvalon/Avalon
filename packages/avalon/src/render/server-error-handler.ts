@@ -237,7 +237,7 @@ export function generateErrorHTML(error: ServerError): string {
       <div class="error-icon">!</div>
       <div class="error-title">
         <h1>${errorType}</h1>
-        <div class="error-location">${location}</div>
+        <div class="error-location">${escapeHtml(location)}</div>
       </div>
     </div>
 

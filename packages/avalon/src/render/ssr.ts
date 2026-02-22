@@ -1,4 +1,4 @@
-import type { JSX } from 'preact';
+import { type JSX, h } from 'preact';
 import { render as preactRenderToString } from 'preact-render-to-string';
 import { readFile } from 'node:fs/promises';
 import type { RenderOptions } from '../schemas/core.ts';
@@ -450,6 +450,16 @@ function generateHMRScript(isDev: boolean, viteHmrPort?: number): string {
 		: '';
 }
 
+/** Escape HTML special characters for safe interpolation into HTML */
+function escapeHtml(str: string): string {
+	return str
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#039;");
+}
+
 function generateHead(
 	options: Partial<RenderOptions>,
 	frameworks: FrameworkDetection,
@@ -488,7 +498,7 @@ function generateHead(
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
       ${metaTags}
-      <title>${options.title || 'Avalon App'}</title>
+      <title>${escapeHtml(String(options.title || 'Avalon App'))}</title>
       ${importMap}
       ${styleTags}
       ${universalCSS}
@@ -668,7 +678,7 @@ export async function renderToHtmlWithLayouts(
 
 				const layoutRenderRequest: IsolatedRenderRequest = {
 					componentPath: `layout-${i}`,
-					component: () => handler.component(layoutProps),
+					component: () => h(handler.component, layoutProps),
 				};
 
 				const layoutResult = await renderer.renderWithIsolation(layoutRenderRequest);
@@ -677,12 +687,12 @@ export async function renderToHtmlWithLayouts(
 					wrappedContent = layoutResult.html;
 				} else {
 					// Fallback to standard layout rendering
-					const layoutElement = handler.component(layoutProps);
+					const layoutElement = h(handler.component, layoutProps);
 					wrappedContent = preactRenderToString(layoutElement);
 				}
 			} catch {
 				// Fallback to standard layout rendering
-				const layoutElement = handler.component(layoutProps);
+				const layoutElement = h(handler.component, layoutProps);
 				wrappedContent = preactRenderToString(layoutElement);
 			}
 		}
@@ -1040,7 +1050,7 @@ export async function renderToHtmlStreamWithLayouts(
 
 						const layoutRenderRequest: IsolatedRenderRequest = {
 							componentPath: `layout-${i}`,
-							component: () => handler.component(layoutProps),
+							component: () => h(handler.component, layoutProps),
 						};
 
 						const layoutResult = await renderer.renderWithIsolation(layoutRenderRequest);
@@ -1048,11 +1058,11 @@ export async function renderToHtmlStreamWithLayouts(
 						if (layoutResult.success) {
 							wrappedContent = layoutResult.html;
 						} else {
-							const layoutElement = handler.component(layoutProps);
+							const layoutElement = h(handler.component, layoutProps);
 							wrappedContent = preactRenderToString(layoutElement);
 						}
 					} catch {
-						const layoutElement = handler.component(layoutProps);
+						const layoutElement = h(handler.component, layoutProps);
 						wrappedContent = preactRenderToString(layoutElement);
 					}
 				}

@@ -423,7 +423,7 @@ export function isValidRoutePattern(pattern: string): boolean {
 			const param = match.slice(1, -1); // Remove brackets
 
 			// Check for valid parameter names
-			if (!/^[a-zA-Z_][a-zA-Z0-9_]*(\?)?$/.test(param) && !/^\.\.\.([a-zA-Z_][a-zA-Z0-9_]*)$/.test(param)) {
+			if (!/^[a-zA-Z_]\w*(\?)?$/.test(param) && !/^\.\.\.[a-zA-Z_]\w*$/.test(param)) {
 				return false;
 			}
 		}
@@ -438,7 +438,7 @@ export function isValidRoutePattern(pattern: string): boolean {
 			const group = match.slice(1, -1); // Remove parentheses
 
 			// Check for valid group names
-			if (!/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(group)) {
+			if (!/^[a-zA-Z_]\w*-*\w*$/.test(group)) {
 				return false;
 			}
 		}
@@ -457,15 +457,12 @@ export function createTypedPageComponent<TRoute extends string>(
 	expectedParams: (keyof RouteParameters<TRoute>)[]
 ): TypedPageComponent<TRoute> {
 	// Return a wrapper component that validates props
-	const WrappedComponent: TypedPageComponent<TRoute> = (props: unknown) => {
-		// Validate props in development
-		if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+	const WrappedComponent: TypedPageComponent<TRoute> = (props) => {
+		if (process.env?.NODE_ENV === 'development') {
 			if (!isValidPageProps<TRoute>(props, expectedParams)) {
 				console.warn('Invalid props passed to typed page component:', props);
 			}
 		}
-
-		// Use h() to render the component (works for both function and class components)
 		return h(component, props);
 	};
 	
@@ -481,7 +478,7 @@ export function createTypedMetadataGenerator<TRoute extends string>(
 ): TypedMetadataGenerator<TRoute> {
 	return async params => {
 		// Validate params in development
-		if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+		if (process.env?.NODE_ENV === 'development') {
 			if (!isValidRouteParams<TRoute>(params, expectedParams)) {
 				console.warn('Invalid params passed to typed metadata generator:', params);
 			}
@@ -500,7 +497,7 @@ export function createTypedPageLoader<TRoute extends string, TData = unknown>(
 ): TypedPageLoader<TRoute, TData> {
 	return async context => {
 		// Validate params in development
-		if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+		if (process.env?.NODE_ENV === 'development') {
 			if (!isValidRouteParams<TRoute>(context.params, expectedParams)) {
 				console.warn('Invalid params passed to typed page loader:', context.params);
 			}
@@ -536,7 +533,7 @@ export function createTypedApiHandler<TRoute extends string>(
 ): TypedApiHandler<TRoute> {
 	return async (request, context) => {
 		// Validate params in development
-		if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+		if (process.env?.NODE_ENV === 'development') {
 			if (!isValidRouteParams<TRoute>(context.params, expectedParams)) {
 				console.warn('Invalid params passed to typed API handler:', context.params);
 			}

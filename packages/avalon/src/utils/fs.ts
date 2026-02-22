@@ -41,20 +41,34 @@ export async function* walk(
     skip,
   } = options;
 
-  yield* walkSync(root, 0, maxDepth, includeFiles, includeDirs, exts, match, skip);
+  yield* walkSync(root, 0, { maxDepth, includeFiles, includeDirs, exts, match, skip });
+}
+
+interface WalkSyncState {
+  maxDepth: number;
+  includeFiles: boolean;
+  includeDirs: boolean;
+  exts?: string[];
+  match?: RegExp[];
+  skip?: RegExp[];
+}
+
+function matchesFile(name: string, fullPath: string, opts: WalkSyncState): boolean {
+  if (opts.exts && !opts.exts.some((ext) => name.endsWith(ext))) return false;
+  if (opts.match && !opts.match.some((r) => r.test(fullPath))) return false;
+  return true;
+}
+
+function matchesDir(fullPath: string, match?: RegExp[]): boolean {
+  return !match || match.some((r) => r.test(fullPath));
 }
 
 function* walkSync(
   dir: string,
   depth: number,
-  maxDepth: number,
-  includeFiles: boolean,
-  includeDirs: boolean,
-  exts?: string[],
-  match?: RegExp[],
-  skip?: RegExp[],
+  opts: WalkSyncState,
 ): Generator<WalkEntry> {
-  if (depth > maxDepth) return;
+  if (depth > opts.maxDepth) return;
 
   let entries;
   try {
@@ -66,7 +80,7 @@ function* walkSync(
   for (const entry of entries) {
     const fullPath = join(dir, entry.name);
 
-    if (skip?.some((r) => r.test(fullPath))) continue;
+    if (opts.skip?.some((r) => r.test(fullPath))) continue;
 
     const walkEntry: WalkEntry = {
       path: fullPath,
@@ -77,15 +91,11 @@ function* walkSync(
     };
 
     if (entry.isDirectory()) {
-      if (includeDirs) {
-        if (!match || match.some((r) => r.test(fullPath))) {
-          yield walkEntry;
-        }
+      if (opts.includeDirs && matchesDir(fullPath, opts.match)) {
+        yield walkEntry;
       }
-      yield* walkSync(fullPath, depth + 1, maxDepth, includeFiles, includeDirs, exts, match, skip);
-    } else if (entry.isFile() && includeFiles) {
-      if (exts && !exts.some((ext) => entry.name.endsWith(ext))) continue;
-      if (match && !match.some((r) => r.test(fullPath))) continue;
+      yield* walkSync(fullPath, depth + 1, opts);
+    } else if (entry.isFile() && opts.includeFiles && matchesFile(entry.name, fullPath, opts)) {
       yield walkEntry;
     }
   }

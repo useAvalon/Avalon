@@ -3,8 +3,6 @@
  * 
  * Handles hydration of server-rendered Svelte components in the browser.
  * 
- * Migrated from src/client/svelte-hydration.js with enhanced SSR detection
- * and fallback handling.
  * 
  * Svelte 5 HMR Notes:
  * - HMR is controlled via compilerOptions.hmr in the Vite plugin config
@@ -17,7 +15,12 @@
 /// <reference lib="dom.iterable" />
 
 import { mount as svelteMount, hydrate as svelteHydrate } from "svelte";
-import type { SvelteComponent, SvelteComponentInstance } from "../types.ts";
+import type { Component } from "svelte";
+
+/**
+ * Svelte 5 component type
+ */
+type SvelteComponent = Component<Record<string, unknown>, Record<string, unknown>, string>;
 
 /**
  * Check if we're in development mode
@@ -51,64 +54,39 @@ function isDev(): boolean {
  * @param props - Component props
  * @returns The hydrated component instance
  */
+function mountFresh(
+  container: HTMLElement,
+  Component: SvelteComponent,
+  props: Record<string, unknown>
+): Record<string, unknown> {
+  container.innerHTML = '';
+  return svelteMount(Component, { target: container, props });
+}
+
 export function hydrate(
   container: HTMLElement,
   Component: SvelteComponent,
   props: Record<string, unknown>
 ) {
-  // Detect if element has existing SSR content or is empty
   const hasSSRContent = detectSSRContent(container);
 
   try {
     if (hasSSRContent) {
-      // Use Svelte 5's hydrate function for existing SSR content
-      // For Svelte 5, find the actual component container within the island
-      let targetElement = container;
       const componentDiv = container.querySelector('[data-svelte-component]');
-      if (componentDiv) {
-        targetElement = componentDiv as HTMLElement;
-      }
-
-      
-      const app = svelteHydrate(Component as any, {
-        target: targetElement,
-        props,
-      });
-
-      return app as SvelteComponentInstance;
-    } else {
-      // Use Svelte 5's mount function for empty containers
-      
-      const app = svelteMount(Component as any, {
-        target: container,
-        props,
-      });
-
-      return app as SvelteComponentInstance;
+      const targetElement = (componentDiv as HTMLElement | null) ?? container;
+      return svelteHydrate(Component, { target: targetElement, props });
     }
+    return svelteMount(Component, { target: container, props });
   } catch (error) {
-    // If hydration fails, try mounting as fallback
-    if (hasSSRContent) {
-      try {
-        // Clear the element and mount fresh
-        container.innerHTML = '';
-        
-        const app = svelteMount(Component as any, {
-          target: container,
-          props,
-        });
-        return app as SvelteComponentInstance;
-      } catch (mountError) {
-        if (isDev()) {
-          console.error(`Svelte mount fallback failed:`, mountError);
-        }
-        throw mountError;
-      }
-    } else {
-      if (isDev()) {
-        console.error(`Svelte hydration failed:`, error);
-      }
+    if (!hasSSRContent) {
+      if (isDev()) console.error(`Svelte hydration failed:`, error);
       throw error;
+    }
+    try {
+      return mountFresh(container, Component, props);
+    } catch (mountError) {
+      if (isDev()) console.error(`Svelte mount fallback failed:`, mountError);
+      throw mountError;
     }
   }
 }
@@ -123,7 +101,7 @@ function detectSSRContent(element: HTMLElement) {
   // Check if element has any meaningful content
   const hasTextContent = element.textContent && element.textContent.trim().length > 0;
   const hasChildElements = element.children && element.children.length > 0;
-  const hasAttributes = element.hasAttribute('data-ssr-content') || element.hasAttribute('data-svelte-rendered');
+  const hasAttributes = element.dataset.ssrContent !== undefined || element.dataset.svelteRendered !== undefined;
 
   // Consider it SSR content if it has text, child elements, or explicit markers
   return hasTextContent || hasChildElements || hasAttributes;
@@ -176,12 +154,9 @@ export function mount(
   container: HTMLElement,
   Component: SvelteComponent,
   props: Record<string, unknown>
-) {
-  
-  const instance = svelteMount(Component as any, {
+): Record<string, unknown> {
+  return svelteMount(Component, {
     target: container,
     props: props || {},
   });
-  
-  return instance as SvelteComponentInstance;
 }

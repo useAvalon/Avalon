@@ -128,7 +128,7 @@ function createLitDecoratorFixPlugin(): Plugin {
       // that esbuild handles correctly. We'll use a manual customElements.define() call.
       
       // Extract the tag name from @customElement("tag-name")
-      const customElementMatch = code.match(/@customElement\s*\(\s*["'`]([^"'`]+)["'`]\s*\)/);
+      const customElementMatch = new RegExp(/@customElement\s*\(\s*["'`]([^"'`]+)["'`]\s*\)/).exec(code);
       if (!customElementMatch) {
         return null;
       }
@@ -136,13 +136,13 @@ function createLitDecoratorFixPlugin(): Plugin {
       const tagName = customElementMatch[1];
       
       // Remove the @customElement decorator and add manual registration at the end
-      let modifiedCode = code.replace(
+      let modifiedCode = code.replaceAll(
         /@customElement\s*\(\s*["'`][^"'`]+["'`]\s*\)\s*\n?\s*(export\s+class\s+(\w+))/g,
         '$1'
       );
       
       // Extract the class name
-      const classNameMatch = code.match(/@customElement\s*\(\s*["'`][^"'`]+["'`]\s*\)\s*\n?\s*export\s+class\s+(\w+)/);
+      const classNameMatch = new RegExp(/@customElement\s*\(\s*["'`][^"'`]+["'`]\s*\)\s*\n?\s*export\s+class\s+(\w+)/).exec(code);
       if (classNameMatch) {
         const className = classNameMatch[1];
         
@@ -152,7 +152,7 @@ function createLitDecoratorFixPlugin(): Plugin {
         
         // Also add a static property for SSR to find the tag name
         modifiedCode = modifiedCode.replace(
-          new RegExp(`(export\\s+class\\s+${className}\\s+extends\\s+\\w+\\s*\\{)`),
+          new RegExp(String.raw`(export\s+class\s+${className}\s+extends\s+\w+\s*\{)`),
           `$1\n  static elementName = "${tagName}";`
         );
         

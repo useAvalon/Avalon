@@ -90,8 +90,8 @@ export const MetadataSchema = z.object({
 		.object({
 			title: z.string().optional(),
 			description: z.string().optional(),
-			image: z.string().url().optional(),
-			url: z.string().url().optional(),
+			image: z.url().optional(),
+			url: z.url().optional(),
 			type: z.string().optional(),
 			siteName: z.string().optional(),
 		})
@@ -102,15 +102,14 @@ export const MetadataSchema = z.object({
 			card: z.enum(['summary', 'summary_large_image', 'app', 'player']).optional(),
 			title: z.string().optional(),
 			description: z.string().optional(),
-			image: z.string().url().optional(),
-			creator: z.string().optional(),
+			image: z.url().optional(),
 			site: z.string().optional(),
 		})
 		.optional(),
 	/** Schema.org structured data */
 	schema: z.array(z.record(z.string(), z.unknown())).optional(),
 	/** Canonical URL */
-	canonical: z.string().url().optional(),
+	canonical: z.url().optional(),
 	/** Robots meta tag */
 	robots: z.string().optional(),
 });

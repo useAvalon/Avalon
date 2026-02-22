@@ -8,10 +8,10 @@
 
 import { renderToHtml, renderToHtmlWithLayouts, type ComponentRenderOptions } from '../ssr.ts';
 import { handleApiRequest } from '../../functions/api.ts';
-import type { Routes, RouteConfig } from '../../schemas/index.ts';
+import type { Routes } from '../../schemas/index.ts';
 import type { IslandManifest } from '../../build/island-manifest.ts';
 import type { RenderOptions } from '../../schemas/core.ts';
-import type { MiddlewareContext } from '../../schemas/middleware.ts';
+import type { MiddlewareContext } from '../../nitro/middleware-adapter.ts';
 import type { EnhancedLayoutResolver } from '../../core/layout/enhanced-layout-resolver.ts';
 import type { LayoutContext } from '../../types/layout.ts';
 import type { ApiRoute } from '../../schemas/api.ts';
@@ -58,7 +58,7 @@ export function createAppRoutes(
 				if (layoutResolver && layoutContext) {
 					// Use layout-aware rendering
 					htmlContent = await renderToHtmlWithLayouts(
-						routeConfig as RouteConfig,
+						routeConfig,
 						layoutResolver,
 						layoutContext,
 						path,
@@ -69,7 +69,7 @@ export function createAppRoutes(
 				} else {
 					// Fall back to standard rendering
 					htmlContent = await renderToHtml(
-						routeConfig as RouteConfig,
+						routeConfig,
 						extendedOptions,
 						viteHmrPort,
 						contextualRenderOptions

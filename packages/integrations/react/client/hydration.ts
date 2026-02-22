@@ -25,7 +25,7 @@ export function hydrate(
     const element = createElement(Component, props);
     
     hydrateRoot(container, element, {
-      onRecoverableError: options?.onRecoverableError || ((error: Error) => {
+      onRecoverableError: options?.onRecoverableError || ((error: unknown) => {
         console.error("React hydration recoverable error:", error);
       }),
     });
@@ -119,8 +119,8 @@ export function isHydrationReady(container: HTMLElement): boolean {
  */
 export function cleanupHydration(container: HTMLElement): void {
   // Remove hydration-specific attributes
-  container.removeAttribute('data-framework');
-  container.removeAttribute('data-src');
-  container.removeAttribute('data-props');
-  container.removeAttribute('data-condition');
+  delete container.dataset.framework;
+  delete container.dataset.src;
+  delete container.dataset.props;
+  delete container.dataset.condition;
 }

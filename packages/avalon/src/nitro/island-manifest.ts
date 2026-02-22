@@ -370,7 +370,7 @@ export function createIslandManifestPlugin(
               preload: [],
               sourcePath: chunk.facadeModuleId ?? "",
               chunkName: name,
-              contentHash: fileName.match(/\.([a-f0-9]+)\.js$/)?.[1] ?? "",
+              contentHash: /\.([a-f0-9]+)\.js$/.exec(fileName)?.[1] ?? "",
               preloadDeps: chunk.imports ?? [],
               usesStreaming: false,
             });
@@ -386,41 +386,8 @@ export function createIslandManifestPlugin(
       const buildTime = new Date().toISOString();
       
       for (const [fileName, chunk] of Object.entries(bundle)) {
-        // Get the content for size and etag calculation
-        let content: string | Uint8Array | undefined;
-        if (chunk.type === "asset" && chunk.source) {
-          content = chunk.source;
-        } else if (chunk.type === "chunk" && chunk.code) {
-          content = chunk.code;
-        }
-        
-        if (content) {
-          const size = typeof content === "string" 
-            ? new TextEncoder().encode(content).length 
-            : content.length;
-          const contentStr = typeof content === "string" 
-            ? content 
-            : new TextDecoder().decode(content);
-          const etag = await generateContentHash(contentStr);
-          
-          // Determine MIME type from extension
-          const ext = fileName.substring(fileName.lastIndexOf("."));
-          const mimeTypes: Record<string, string> = {
-            ".js": "application/javascript",
-            ".mjs": "application/javascript",
-            ".css": "text/css",
-            ".json": "application/json",
-            ".html": "text/html",
-            ".map": "application/json",
-          };
-          
-          assetMetadata[`/${fileName}`] = {
-            type: mimeTypes[ext] || "application/octet-stream",
-            etag: `"${etag}"`,
-            mtime: buildTime,
-            size,
-          };
-        }
+        const entry = await buildAssetMetadataEntry(fileName, chunk, buildTime);
+        if (entry) assetMetadata[`/${fileName}`] = entry;
       }
 
       const manifest: BuildIslandManifest = {
@@ -464,8 +431,48 @@ export function createIslandManifestPlugin(
 }
 
 /**
- * Detects framework from a Rollup chunk
- *
+ * Generates asset metadata entry for a single bundle chunk
+ */
+async function buildAssetMetadataEntry(
+  fileName: string,
+  chunk: { type: string; source?: string | Uint8Array; code?: string },
+  buildTime: string
+): Promise<AssetMetadata | null> {
+  let content: string | Uint8Array | undefined;
+  if (chunk.type === "asset" && chunk.source) {
+    content = chunk.source;
+  } else if (chunk.type === "chunk" && chunk.code) {
+    content = chunk.code;
+  }
+  if (!content) return null;
+
+  const size = typeof content === "string"
+    ? new TextEncoder().encode(content).length
+    : content.length;
+  const contentStr = typeof content === "string"
+    ? content
+    : new TextDecoder().decode(content);
+  const etag = await generateContentHash(contentStr);
+
+  const ext = fileName.substring(fileName.lastIndexOf("."));
+  const mimeTypes: Record<string, string> = {
+    ".js": "application/javascript",
+    ".mjs": "application/javascript",
+    ".css": "text/css",
+    ".json": "application/json",
+    ".html": "text/html",
+    ".map": "application/json",
+  };
+
+  return {
+    type: mimeTypes[ext] ?? "application/octet-stream",
+    etag: `"${etag}"`,
+    mtime: buildTime,
+    size,
+  };
+}
+
+/**
  * @param chunk - Rollup output chunk
  * @returns Detected framework name
  */

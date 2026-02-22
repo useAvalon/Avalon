@@ -188,12 +188,8 @@ export function createNitroCoordinationPlugin(
         const originalUrl = req.url || "/";
         let url = originalUrl;
 
-        if (url.endsWith(".html")) {
-          url = url.slice(0, -5) || "/";
-        }
-        if (url === "/index") {
-          url = "/";
-        }
+        if (url.endsWith(".html")) url = url.slice(0, -5) || "/";
+        if (url === "/index") url = "/";
 
         // Skip static files, HMR, and Vite internals
         if (
@@ -207,81 +203,15 @@ export function createNitroCoordinationPlugin(
           return next();
         }
 
-        // API routes
         if (url.startsWith("/api/")) {
-          try {
-            const apiResponse = await handleApiRequest(server, url, req, avalonConfig, verbose);
-            if (apiResponse) {
-              res.statusCode = apiResponse.status;
-              for (const [key, value] of Object.entries(apiResponse.headers)) {
-                res.setHeader(key, value);
-              }
-              res.end(apiResponse.body);
-              return;
-            }
-          } catch (error) {
-            console.error("[API Error]", error);
-            res.statusCode = 500;
-            res.setHeader("Content-Type", "application/json");
-            res.end(JSON.stringify({ error: "Internal Server Error" }));
-            return;
-          }
-          res.statusCode = 404;
-          res.setHeader("Content-Type", "application/json");
-          res.end(JSON.stringify({ error: "Not Found" }));
-          return;
+          return handleApiMiddleware(server, url, req, res, avalonConfig, verbose);
         }
 
         try {
-          // Execute scoped middleware
-          const middlewareStart = performance.now();
-          const middlewareRoutes = await getScopedMiddleware();
+          const middlewareHandled = await handleScopedMiddleware(server, url, req, res, getScopedMiddleware, verbose);
+          if (middlewareHandled) return;
 
-          if (middlewareRoutes.length > 0) {
-            const headers: Record<string, string> = {};
-            const rawHeaders = req.headers;
-            if (rawHeaders) {
-              for (const [key, value] of Object.entries(rawHeaders)) {
-                if (typeof value === 'string') {
-                  headers[key] = value;
-                } else if (Array.isArray(value)) {
-                  headers[key] = value.join(', ');
-                }
-              }
-            }
-
-            const h3Event = {
-              method: req.method || 'GET',
-              path: url,
-              node: { req: { url, headers }, res: {} },
-              context: {} as Record<string, unknown>,
-            } as unknown as H3Event;
-
-            const middlewareResponse = await executeScopedMiddleware(
-              h3Event,
-              middlewareRoutes,
-              { devMode: verbose }
-            );
-
-            const middlewareTime = performance.now() - middlewareStart;
-            if (middlewareTime > 100) {
-              console.warn(`⚠️ Slow middleware: ${middlewareTime.toFixed(0)}ms for ${url}`);
-            }
-
-            if (middlewareResponse) {
-              res.statusCode = middlewareResponse.status;
-              middlewareResponse.headers.forEach((value, key) => {
-                res.setHeader(key, value);
-              });
-              const body = await middlewareResponse.text();
-              res.end(body);
-              return;
-            }
-          }
-
-          // SSR rendering
           const html = await handleSSRRequest(server, url, avalonConfig);
-
           if (html) {
             res.statusCode = 200;
             res.setHeader("Content-Type", "text/html");
@@ -289,41 +219,7 @@ export function createNitroCoordinationPlugin(
             return;
           }
 
-          // 404 — try custom page, then fallback
-          try {
-            const { discoverErrorPages, getErrorPageModule, generateDefaultErrorPage } = await import("../nitro/error-handler.ts");
-
-            const errorPages = await discoverErrorPages({
-              isDev: avalonConfig.isDev,
-              pagesDir: avalonConfig.pagesDir,
-              loadPageModule: async (filePath: string): Promise<PageModule> => {
-                return await server.ssrLoadModule(filePath) as PageModule;
-              },
-            });
-            const errorPageModule = getErrorPageModule(404, errorPages);
-
-            if (errorPageModule?.default && typeof errorPageModule.default === 'function') {
-              const { renderToHtml } = await import("../render/ssr.ts");
-              const ErrorPageComponent = errorPageModule.default;
-              const errorHtml = await renderToHtml(
-                { component: () => ErrorPageComponent({ statusCode: 404, message: `Page not found: ${url}`, url }) },
-                {}
-              );
-              res.statusCode = 404;
-              res.setHeader("Content-Type", "text/html");
-              res.end(errorHtml);
-              return;
-            }
-
-            const fallbackHtml = generateDefaultErrorPage(404, `Page not found: ${url}`, avalonConfig.isDev);
-            res.statusCode = 404;
-            res.setHeader("Content-Type", "text/html");
-            res.end(fallbackHtml);
-          } catch {
-            res.statusCode = 404;
-            res.setHeader("Content-Type", "text/html");
-            res.end(generateFallback404(url));
-          }
+          await handle404(server, url, res, avalonConfig);
         } catch (error) {
           console.error("[SSR Error]", error);
           res.statusCode = 500;
@@ -337,6 +233,122 @@ export function createNitroCoordinationPlugin(
       // no-op in production — coordination happens via other plugins
     },
   };
+}
+
+// ─── Dev Server Middleware Helpers ───────────────────────────────────────────
+
+import type { ServerResponse, IncomingMessage } from "node:http";
+
+async function handleApiMiddleware(
+  server: ViteDevServer,
+  url: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+  config: ResolvedAvalonConfig,
+  verbose?: boolean
+): Promise<void> {
+  try {
+    const apiResponse = await handleApiRequest(server, url, req, config, verbose);
+    if (apiResponse) {
+      res.statusCode = apiResponse.status;
+      for (const [key, value] of Object.entries(apiResponse.headers)) {
+        res.setHeader(key, value);
+      }
+      res.end(apiResponse.body);
+      return;
+    }
+  } catch (error) {
+    console.error("[API Error]", error);
+    res.statusCode = 500;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ error: "Internal Server Error" }));
+    return;
+  }
+  res.statusCode = 404;
+  res.setHeader("Content-Type", "application/json");
+  res.end(JSON.stringify({ error: "Not Found" }));
+}
+
+async function handleScopedMiddleware(
+  server: ViteDevServer,
+  url: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+  getScopedMiddleware: () => Promise<MiddlewareRoute[]>,
+  verbose?: boolean
+): Promise<boolean> {
+  const middlewareStart = performance.now();
+  const middlewareRoutes = await getScopedMiddleware();
+  if (middlewareRoutes.length === 0) return false;
+
+  const headers: Record<string, string> = {};
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (typeof value === "string") headers[key] = value;
+    else if (Array.isArray(value)) headers[key] = value.join(", ");
+  }
+
+  const h3Event = {
+    method: req.method || "GET",
+    path: url,
+    node: { req: { url, headers }, res: {} },
+    context: {} as Record<string, unknown>,
+  } as unknown as H3Event;
+
+  const middlewareResponse = await executeScopedMiddleware(h3Event, middlewareRoutes, { devMode: verbose });
+
+  const middlewareTime = performance.now() - middlewareStart;
+  if (middlewareTime > 100) {
+    console.warn(`⚠️ Slow middleware: ${middlewareTime.toFixed(0)}ms for ${url}`);
+  }
+
+  if (middlewareResponse) {
+    res.statusCode = middlewareResponse.status;
+    middlewareResponse.headers.forEach((value, key) => { res.setHeader(key, value); });
+    res.end(await middlewareResponse.text());
+    return true;
+  }
+  return false;
+}
+
+async function handle404(
+  server: ViteDevServer,
+  url: string,
+  res: ServerResponse,
+  config: ResolvedAvalonConfig
+): Promise<void> {
+  try {
+    const { discoverErrorPages, getErrorPageModule, generateDefaultErrorPage } = await import("../nitro/error-handler.ts");
+    const errorPages = await discoverErrorPages({
+      isDev: config.isDev,
+      pagesDir: config.pagesDir,
+      loadPageModule: async (filePath: string): Promise<PageModule> => {
+        return await server.ssrLoadModule(filePath) as PageModule;
+      },
+    });
+    const errorPageModule = getErrorPageModule(404, errorPages);
+
+    if (errorPageModule?.default && typeof errorPageModule.default === "function") {
+      const { renderToHtml } = await import("../render/ssr.ts");
+      const ErrorPageComponent = errorPageModule.default;
+      const errorHtml = await renderToHtml(
+        { component: () => ErrorPageComponent({ statusCode: 404, message: `Page not found: ${url}`, url }) },
+        {}
+      );
+      res.statusCode = 404;
+      res.setHeader("Content-Type", "text/html");
+      res.end(errorHtml);
+      return;
+    }
+
+    const fallbackHtml = generateDefaultErrorPage(404, `Page not found: ${url}`, config.isDev);
+    res.statusCode = 404;
+    res.setHeader("Content-Type", "text/html");
+    res.end(fallbackHtml);
+  } catch {
+    res.statusCode = 404;
+    res.setHeader("Content-Type", "text/html");
+    res.end(generateFallback404(url));
+  }
 }
 
 /**
@@ -710,11 +722,11 @@ async function renderPageToHtml(
 
 function escapeHtml(str: string): string {
   return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 // ─── API Request Handling ────────────────────────────────────────────────────

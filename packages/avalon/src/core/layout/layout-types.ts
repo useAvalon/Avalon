@@ -103,7 +103,7 @@ export interface LayoutCache {
 }
 
 export interface PageModule {
-	default: ComponentType<unknown>;
+	default: ComponentType<Record<string, unknown>>;
 	layoutConfig?: LayoutConfig;
 	loader?: LayoutLoader;
 	frontmatter?: Record<string, unknown>;

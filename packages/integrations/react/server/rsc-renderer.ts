@@ -26,7 +26,7 @@ export async function renderServerComponent(
       // For async Server Components, we need to await the result
       // The component function returns a Promise<ReactElement>
       console.log("🔄 [RSC] Rendering async Server Component...");
-      const result = await (Component as (props: Record<string, unknown>) => Promise<ReactElement>)(props);
+      const result = await (Component as unknown as (props: Record<string, unknown>) => Promise<ReactElement>)(props);
       
       // Render the awaited result to string
       const html = renderToString(result);

@@ -168,12 +168,7 @@ export * from './src/layout-system.ts';
 export type { RenderOptions, MetaTag, ScriptConfig } from './src/schemas/core.ts';
 export type { Routes, ServerConfig, RouteConfig } from './src/schemas/server.ts';
 export type { ApiContext, ApiHandler, ApiRouteConfig, ApiRoute, ApiMethod } from './src/schemas/api.ts';
-// Legacy middleware types (deprecated - use new middleware types from './src/middleware/types.ts')
-// These are kept for backward compatibility with existing code
-export type {
-	MiddlewareContext,
-	MiddlewareChain,
-} from './src/schemas/middleware.ts';
+export type { MiddlewareContext } from './src/nitro/middleware-adapter.ts';
 
 // Layout data loading types
 export type { LayoutDataLoadingResult, LayoutDataLoadingOptions } from './src/core/layout/layout-data-loader.ts';

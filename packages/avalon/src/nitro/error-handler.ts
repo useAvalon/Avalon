@@ -12,7 +12,8 @@
  * Requirements: 10.1, 10.2, 10.3, 10.4, 10.5
  */
 
-import type { H3Event, PageModule, NitroRenderContext, AvalonRuntimeConfig } from "./types.ts";
+import type { PageModule, NitroRenderContext, AvalonRuntimeConfig } from "./types.ts";
+import type { H3Event } from "h3";
 import { HttpError, isHttpError, createNotFoundError, createInternalError } from "./types.ts";
 import { createRenderContext, getRequestURL } from "./renderer.ts";
 
@@ -227,8 +228,8 @@ export async function renderErrorPage(
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${metadata.title || `Error ${props.statusCode}`}</title>
-    ${metadata.description ? `<meta name="description" content="${metadata.description}">` : ""}
+    <title>${escapeHtml(String(metadata.title || `Error ${props.statusCode}`))}</title>
+    ${metadata.description ? `<meta name="description" content="${escapeHtml(String(metadata.description))}">` : ""}
     <style>
       body {
         font-family: system-ui, -apple-system, sans-serif;
@@ -276,7 +277,7 @@ export async function renderErrorPage(
     </style>
   </head>
   <body>
-    <div id="app" data-error-page="true" data-status-code="${props.statusCode}" data-props='${JSON.stringify(props)}'>
+    <div id="app" data-error-page="true" data-status-code="${props.statusCode}" data-props='${escapeHtml(JSON.stringify(props))}'>
       <!-- Custom error page content rendered by Avalon SSR pipeline -->
       <div class="error-page">
         <h1>${props.statusCode}</h1>
@@ -497,11 +498,11 @@ function getStatusText(statusCode: number): string {
  */
 function escapeHtml(str: string): string {
   return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    .replaceAll('&', "&amp;")
+    .replaceAll('<', "&lt;")
+    .replaceAll('>', "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll('\'', "&#039;");
 }
 
 /**

@@ -1,8 +1,7 @@
 // Server-side rendering logic for React components
 
-import { createElement, Component, type ComponentType } from "react";
+import { createElement, Component, type ComponentType, type ReactElement } from "react";
 import { renderToString } from "react-dom/server";
-import type { ReactElement } from "react";
 import type { ReactRenderParams, ReactRenderResult } from "../types.ts";
 import { loadComponent, serializeProps, hasUseClientDirective, analyzeComponent } from "./utils.ts";
 import { renderServerComponent } from "./rsc-renderer.ts";
@@ -11,7 +10,7 @@ import { renderServerComponent } from "./rsc-renderer.ts";
  * Props for Error Boundary component
  */
 interface ErrorBoundaryProps {
-  children: ReactElement;
+  children?: ReactElement;
   fallback?: ReactElement;
 }
 
@@ -56,7 +55,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
 
-    return this.props.children;
+    return this.props.children ?? createElement("div", null);
   }
 }
 
@@ -133,6 +132,61 @@ function createErrorBoundaryWrapper(
 }
 
 /**
+ * Resolves fallback to a ReactElement if it's a string
+ */
+function resolveFallbackElement(fallback?: ReactElement | string): ReactElement | undefined {
+  if (typeof fallback === "string") {
+    return createElement("div", { dangerouslySetInnerHTML: { __html: fallback } });
+  }
+  return fallback;
+}
+
+/**
+ * Renders a server component with fallback on failure
+ */
+async function renderServerComponentWithFallback(
+  Component: ComponentType<Record<string, unknown>>,
+  normalizedProps: Record<string, unknown>,
+  fallbackElement: ReactElement | undefined,
+  fallback: ReactElement | string | undefined,
+): Promise<{ html: string; element: ReactElement; failed: boolean }> {
+  try {
+    const html = await renderServerComponent(Component, normalizedProps);
+    const element = createElement("div", { dangerouslySetInnerHTML: { __html: html } });
+    return { html, element, failed: false };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    let html: string;
+    if (fallbackElement) {
+      html = renderToString(fallbackElement);
+    } else if (typeof fallback === "string") {
+      html = fallback;
+    } else {
+      html = `<!-- React Server Component SSR failed: ${errorMessage.replaceAll("-->", "--&gt;")} -->`;
+    }
+    const element = createElement("div", { dangerouslySetInnerHTML: { __html: html } });
+    return { html, element, failed: true };
+  }
+}
+
+/**
+ * Builds a fallback HTML string from various fallback types
+ */
+function buildFallbackHtml(errorMessage: string, fallback?: ReactElement | string): string {
+  if (typeof fallback === "string") {
+    return fallback;
+  }
+  if (fallback) {
+    try {
+      return renderToString(fallback);
+    } catch {
+      // fall through to default
+    }
+  }
+  return `<!-- React SSR failed: ${errorMessage.replaceAll("-->", "--&gt;")} -->`;
+}
+
+/**
  * Render a React component with error boundary
  */
 export async function renderWithErrorBoundary(
@@ -152,32 +206,23 @@ export async function renderWithErrorBoundary(
     const hasUseClient = hasUseClientDirective(src);
     const isServerComponent = params.isServerComponent ?? (metadata.isServerComponent || !hasUseClient);
     const normalizedProps = serializeProps(props);
-    
-    let fallbackElement: ReactElement | undefined;
-    if (typeof fallback === "string") {
-      fallbackElement = createElement("div", { dangerouslySetInnerHTML: { __html: fallback } });
-    } else {
-      fallbackElement = fallback;
-    }
+    const fallbackElement = resolveFallbackElement(fallback);
     
     let html: string;
     let element: ReactElement;
     
     if (isServerComponent) {
-      try {
-        html = await renderServerComponent(Component as ComponentType<Record<string, unknown>>, normalizedProps);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        if (fallbackElement) {
-          html = renderToString(fallbackElement);
-        } else if (typeof fallback === "string") {
-          html = fallback;
-        } else {
-          html = `<!-- React Server Component SSR failed: ${errorMessage} -->`;
-        }
-        return { html, isServerComponent: true, hydrationData: undefined };
+      const result = await renderServerComponentWithFallback(
+        Component as ComponentType<Record<string, unknown>>,
+        normalizedProps,
+        fallbackElement,
+        fallback,
+      );
+      if (result.failed) {
+        return { html: result.html, isServerComponent: true, hydrationData: undefined };
       }
-      element = createElement("div", { dangerouslySetInnerHTML: { __html: html } });
+      html = result.html;
+      element = result.element;
     } else {
       element = createErrorBoundaryWrapper(Component as ComponentType<Record<string, unknown>>, normalizedProps, fallbackElement);
       html = renderToString(element);
@@ -199,22 +244,8 @@ export async function renderWithErrorBoundary(
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    let fallbackHtml: string;
-    
-    if (typeof fallback === "string") {
-      fallbackHtml = fallback;
-    } else if (fallback) {
-      try {
-        fallbackHtml = renderToString(fallback);
-      } catch {
-        fallbackHtml = `<!-- React SSR failed: ${errorMessage} -->`;
-      }
-    } else {
-      fallbackHtml = `<!-- React SSR failed: ${errorMessage} -->`;
-    }
-    
     return {
-      html: fallbackHtml,
+      html: buildFallbackHtml(errorMessage, fallback),
       isServerComponent: false,
       hydrationData: { src: params.src, props: params.props || {}, framework: "react", metadata: { ssrFailed: true } },
     };

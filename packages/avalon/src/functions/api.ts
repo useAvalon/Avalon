@@ -2,7 +2,7 @@ import { join, relative } from 'node:path';
 import { stat as fsStat, writeFile } from 'node:fs/promises';
 import { walk } from '../utils/fs.ts';
 import type { ApiRoute, ApiRouteConfig, ApiContext, ApiMethod } from '../schemas/api.ts';
-import type { MiddlewareContext } from '../schemas/middleware.ts';
+import type { MiddlewareContext } from '../nitro/middleware-adapter.ts';
 import { methodNotAllowed } from '../core/api/api.ts';
 
 /**

@@ -49,7 +49,7 @@ export async function renderWithErrorBoundary(
     const errorMessage = error instanceof Error ? error.message : String(error);
     
     return {
-      html: fallback || `<!-- Preact SSR failed: ${errorMessage} -->`,
+      html: fallback || `<!-- Preact SSR failed: ${errorMessage.replaceAll("-->", "--&gt;")} -->`,
       hydrationData: {
         src: params.src,
         props: params.props || {},

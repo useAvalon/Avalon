@@ -65,7 +65,7 @@ export function combineCss(cssResults: (CssCollectionResult | null)[]) {
 export function generateScopeId(src: string) {
   // Create a simple hash from the source path
   const hash = src
-    .replace(/[^a-zA-Z0-9]/g, "")
+    .replaceAll(/[^a-zA-Z0-9]/g, "")
     .toLowerCase()
     .slice(-8);
   
@@ -83,7 +83,7 @@ export function scopeCss(css: string, scopeId: string) {
   if (!css) return "";
   
   // Add scope attribute to all selectors
-  return css.replace(/([^{}]+)\{/g, (match, selector) => {
+  return css.replaceAll(/([^{}]+)\{/g, (match, selector) => {
     // Skip @-rules
     if (selector.trim().startsWith("@")) {
       return match;
@@ -103,11 +103,11 @@ export function scopeCss(css: string, scopeId: string) {
 export function minifyCss(css: string) {
   return css
     // Remove comments
-    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replaceAll(/\/\*[\s\S]*?\*\//g, "")
     // Remove unnecessary whitespace
-    .replace(/\s+/g, " ")
+    .replaceAll(/\s+/g, " ")
     // Remove whitespace around special characters
-    .replace(/\s*([{}:;,])\s*/g, "$1")
+    .replaceAll(/\s*([{}:;,])\s*/g, "$1")
     .trim();
 }
 

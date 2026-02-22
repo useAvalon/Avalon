@@ -8,7 +8,7 @@ export const LayoutContextSchema = z.object({
 	request: z.instanceof(Request),
 	params: z.record(z.string(), z.string()),
 	query: z.instanceof(URLSearchParams),
-	state: z.instanceof(Map),
+	state: z.instanceof(Map<string, unknown>),
 	middlewareContext: z.any().optional(), // MiddlewareContext type from middleware system
 });
 
@@ -141,7 +141,7 @@ export const ErrorRecoveryStrategySchema = z.object({
 	type: z.enum(['retry', 'fallback', 'skip', 'redirect']),
 	maxRetries: z.number().int().positive().optional(),
 	fallbackComponent: z.any().optional(), // ComponentType
-	redirectUrl: z.string().url().optional(),
+	redirectUrl: z.url().optional(),
 });
 
 /**

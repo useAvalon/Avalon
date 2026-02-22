@@ -83,7 +83,7 @@ export interface ReactHydrationOptions {
   /** Hydration mode */
   mode?: "hydrate" | "render";
   /** Error recovery callback */
-  onRecoverableError?: (error: Error) => void;
+  onRecoverableError?: (error: unknown, errorInfo: import("react").ErrorInfo) => void;
 }
 
 /**

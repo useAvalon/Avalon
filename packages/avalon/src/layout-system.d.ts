@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 /**
  * Advanced Layout System - TypeScript Declarations
  *

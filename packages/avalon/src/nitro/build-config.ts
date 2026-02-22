@@ -22,6 +22,16 @@ import { DEFAULT_NITRO_CONFIG, VALID_V3_PRESETS } from "./config.ts";
 export type BuildMode = "client" | "server" | "both";
 
 /**
+ * Sourcemap option type
+ */
+export type SourcemapOption = boolean | "inline" | "hidden";
+
+/**
+ * Minify option type
+ */
+export type MinifyOption = boolean | "esbuild" | "terser";
+
+/**
  * Preset-specific build output configuration
  */
 export interface PresetOutputConfig {
@@ -50,9 +60,9 @@ export interface AvalonBuildConfig {
   /** Output directory for server bundle */
   serverOutDir: string;
   /** Enable source maps */
-  sourcemap: boolean | "inline" | "hidden";
+  sourcemap: SourcemapOption;
   /** Minify output */
-  minify: boolean | "esbuild" | "terser";
+  minify: MinifyOption;
   /** Target environment */
   target: string | string[];
   /** Enable SSR build */
@@ -376,7 +386,6 @@ export function createCombinedBuildConfig(
   nitroConfig: AvalonNitroConfig,
   buildConfig: Partial<AvalonBuildConfig> = {}
 ): Partial<UserConfig> {
-  const config = { ...DEFAULT_BUILD_CONFIG, ...buildConfig };
   const preset = nitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset;
   const presetConfig = getPresetOutputConfig(preset);
 
@@ -526,7 +535,7 @@ export interface SourceMapConfig {
   /** Enable source maps */
   enabled: boolean;
   /** Source map type: true for external, 'inline' for inline, 'hidden' for hidden */
-  type: boolean | "inline" | "hidden";
+  type: SourcemapOption;
   /** Include source content in source maps */
   includeContent: boolean;
   /** Source map URL prefix */
@@ -562,9 +571,6 @@ export function createSourceMapConfig(
     };
   }
 
-  // Production source maps depend on preset
-  const presetConfig = getPresetOutputConfig(preset);
-
   // Edge/serverless presets may have size constraints
   if (
     preset.includes("edge") ||
@@ -594,7 +600,7 @@ export function createSourceMapConfig(
  */
 export function getViteSourceMapOption(
   config: SourceMapConfig
-): boolean | "inline" | "hidden" {
+): SourcemapOption {
   if (!config.enabled) {
     return false;
   }

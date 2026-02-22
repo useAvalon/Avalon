@@ -33,10 +33,10 @@ import type {
   ApiHandler,
 } from "../schemas/api.ts";
 import type { MiddlewareRoute } from "../middleware/types.ts";
+import type { H3Event as H3EventFull } from 'h3';
 import {
   discoverScopedMiddleware,
   executeScopedMiddleware,
-  clearMiddlewareCache,
 } from "../middleware/index.ts";
 
 /**
@@ -84,8 +84,8 @@ export function getRequestURL(event: H3Event): URL {
 export function getRequestHeaders(event: H3Event): Headers {
   const headers = new Headers();
   // In a real Nitro environment, headers would come from event.node.req.headers
-  const nodeReq = event.node.req as { headers?: Record<string, string | string[] | undefined> };
-  if (nodeReq && nodeReq.headers) {
+  const nodeReq = event.node?.req as { headers?: Record<string, string | string[] | undefined> } | undefined;
+  if (nodeReq?.headers) {
     for (const [key, value] of Object.entries(nodeReq.headers)) {
       if (value) {
         if (Array.isArray(value)) {
@@ -115,7 +115,7 @@ export function toRequest(event: H3Event): Request {
     method,
     headers: getRequestHeaders(event),
     // Body handling would be done via h3's readBody in real implementation
-    body: hasBody ? undefined : undefined,
+    body: hasBody ? null : undefined,
   });
 }
 
@@ -172,9 +172,9 @@ export function getQuery(event: H3Event): Record<string, string | string[]> {
     if (query[key]) {
       // If key already exists, convert to array or add to existing array
       if (Array.isArray(query[key])) {
-        (query[key] as string[]).push(value);
+        (query[key]).push(value);
       } else {
-        query[key] = [query[key] as string, value];
+        query[key] = [query[key], value];
       }
     } else {
       query[key] = value;
@@ -239,7 +239,7 @@ export function handleApiResponse(result: unknown): Response {
 
   // For plain objects, serialize as JSON
   if (typeof result === "object") {
-    return new Response(JSON.stringify(result), {
+    return new Response(JSON.stringify(result, null, 0), {
       status: 200,
       headers: {
         "Content-Type": "application/json",
@@ -247,13 +247,15 @@ export function handleApiResponse(result: unknown): Response {
     });
   }
 
-  // For primitives (string, number, boolean), convert to string
-  return new Response(String(result), {
-    status: 200,
-    headers: {
-      "Content-Type": "text/plain",
-    },
-  });
+  // For primitives (string, number, boolean, bigint), convert to string
+  if (typeof result === "string" || typeof result === "number" || typeof result === "boolean" || typeof result === "bigint") {
+    return new Response(String(result), {
+      status: 200,
+      headers: { "Content-Type": "text/plain" },
+    });
+  }
+
+  return new Response(null, { status: 204 });
 }
 
 /**
@@ -354,12 +356,10 @@ export function createApiHandler(
    * Routes are cached for performance in production
    */
   async function getScopedMiddleware(): Promise<MiddlewareRoute[]> {
-    if (!scopedMiddlewareRoutes) {
-      scopedMiddlewareRoutes = await discoverScopedMiddleware({
-        baseDir,
-        devMode: isDev,
-      });
-    }
+    scopedMiddlewareRoutes ??= await discoverScopedMiddleware({
+      baseDir,
+      devMode: isDev,
+    });
     return scopedMiddlewareRoutes;
   }
 
@@ -371,7 +371,7 @@ export function createApiHandler(
       // Global middleware has already run (handled by Nitro's middleware/ directory)
       // Requirements: 3.2
       const middlewareRoutes = await getScopedMiddleware();
-      const middlewareResponse = await executeScopedMiddleware(event, middlewareRoutes, {
+      const middlewareResponse = await executeScopedMiddleware(event as unknown as H3EventFull, middlewareRoutes, {
         devMode: isDev,
       });
 
@@ -394,7 +394,7 @@ export function createApiHandler(
       }
 
       // Handle method-specific handlers
-      const handler = config[method] as ApiHandler | undefined;
+      const handler = config[method] satisfies ApiHandler | undefined;
 
       if (!handler) {
         // Method not allowed - return 405 with allowed methods
@@ -448,7 +448,7 @@ export function isValidApiMethod(method: string): method is ApiMethod {
  * }
  * ```
  */
-export { clearMiddlewareCache as clearApiMiddlewareCache };
+export { clearMiddlewareCache as clearApiMiddlewareCache } from "../middleware/index.ts";
 
 // ============================================================================
 // REMOVED FUNCTIONS (now handled by Nitro's built-in routing):

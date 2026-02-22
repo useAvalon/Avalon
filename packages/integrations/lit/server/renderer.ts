@@ -5,8 +5,6 @@
  * DOM shim MUST be imported first, before any Lit modules.
  */
 
-// Import DOM shim FIRST
-import "./dom-shim.ts";
 import { verifyDOMShim, waitForDOMShim } from "./dom-shim.ts";
 
 import type { LitRenderParams, LitRenderResult } from "../types.ts";
@@ -18,6 +16,7 @@ import {
 } from "./utils.ts";
 import type { LitElement } from "lit";
 import { LitElementRenderer } from "@lit-labs/ssr/lib/lit-element-renderer.js";
+import { collectResultSync } from "@lit-labs/ssr/lib/render-result.js";
 
 if (!verifyDOMShim()) {
   throw new Error("Lit DOM shim is not properly installed");
@@ -33,9 +32,7 @@ function propToAttribute(
   propName: string
 ): string | null {
   
-  const propDefs = (ElementClass as any).properties as
-    | Record<string, { attribute?: string | boolean }>
-    | undefined;
+  const propDefs = (ElementClass as unknown as { properties?: Record<string, { attribute?: string | boolean }> }).properties;
 
   if (propDefs && propName in propDefs) {
     const def = propDefs[propName];
@@ -44,7 +41,7 @@ function propToAttribute(
   }
 
   // Default: camelCase → kebab-case
-  return propName.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+  return propName.replaceAll(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 }
 
 /**
@@ -59,6 +56,34 @@ function propToAttribute(
  * By driving the renderer directly we can call `setAttribute` for every prop,
  * which feeds through the full Lit reactive pipeline before `render()` runs.
  */
+function serializePropValue(value: unknown): string | null {
+  if (typeof value === "boolean") return value ? "" : null;
+  if (typeof value === "object" || Array.isArray(value)) return JSON.stringify(value);
+  if (typeof value === "string" || typeof value === "number" || typeof value === "bigint") return String(value);
+  return null; // skip symbols and other non-serializable types
+}
+
+function applyPropsToRenderer(
+  renderer: LitElementRenderer,
+  ElementClass: typeof LitElement,
+  props: Record<string, unknown>
+): void {
+  for (const [key, value] of Object.entries(props)) {
+    if (value === undefined || value === null) continue;
+
+    const attrName = propToAttribute(ElementClass, key);
+    if (attrName === null) {
+      if (renderer.element) {
+        (renderer.element as unknown as Record<string, unknown>)[key] = value;
+      }
+      continue;
+    }
+
+    const strValue = serializePropValue(value);
+    if (strValue !== null) renderer.setAttribute(attrName, strValue);
+  }
+}
+
 function renderLitElementWithSSR(
   ElementClass: typeof LitElement,
   props: Record<string, unknown>,
@@ -74,32 +99,7 @@ function renderLitElementWithSSR(
   const renderer = new LitElementRenderer(tagName);
 
   // --- 2. Feed props as attributes so the reactive pipeline picks them up ---
-  for (const [key, value] of Object.entries(props)) {
-    if (value === undefined || value === null) continue;
-
-    const attrName = propToAttribute(ElementClass, key);
-    if (attrName === null) {
-      // Property with `attribute: false` — set directly on the instance
-      if (renderer.element) {
-        
-        (renderer.element as any)[key] = value;
-      }
-      continue;
-    }
-
-    // Serialize the value to a string for setAttribute
-    let strValue: string;
-    if (typeof value === "boolean") {
-      if (!value) continue; // false booleans → omit attribute
-      strValue = "";
-    } else if (typeof value === "object") {
-      strValue = JSON.stringify(value);
-    } else {
-      strValue = String(value);
-    }
-
-    renderer.setAttribute(attrName, strValue);
-  }
+  applyPropsToRenderer(renderer, ElementClass, props);
 
   // Always add defer-hydration for client-side hydration support
   renderer.setAttribute("defer-hydration", "");
@@ -120,16 +120,11 @@ function renderLitElementWithSSR(
   let shadowContent = "";
   const shadowResult = renderer.renderShadow(renderInfo);
   if (shadowResult) {
-    for (const chunk of shadowResult) {
-      shadowContent += String(chunk);
-    }
+    shadowContent = collectResultSync(shadowResult);
   }
 
   // --- 5. Build the outer HTML with declarative shadow DOM ---
-  let attrsHtml = "";
-  for (const chunk of renderer.renderAttributes()) {
-    attrsHtml += chunk;
-  }
+  const attrsHtml = collectResultSync(renderer.renderAttributes());
 
   const renderedHtml =
     `<${tagName}${attrsHtml}>` +
@@ -174,6 +169,9 @@ export async function render(params: LitRenderParams): Promise<LitRenderResult> 
     styles = collectStyles(ElementClass);
   } catch (loadError) {
     // Component loading failed, will use fallback rendering
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(`[Lit] Failed to load component from ${src}:`, loadError);
+    }
     ElementClass = null;
   }
   
@@ -187,6 +185,9 @@ export async function render(params: LitRenderParams): Promise<LitRenderResult> 
       html = ssrResult.html;
       styles = ssrResult.styles;
     } catch (ssrError) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(`[Lit] SSR failed for ${tagName}, using fallback:`, ssrError);
+      }
       html = renderFallback(tagName, attributes);
     }
   } else {
@@ -224,7 +225,7 @@ export async function renderWithErrorBoundary(
     const errorMessage = error instanceof Error ? error.message : String(error);
     
     return {
-      html: fallback || `<!-- Lit SSR failed: ${errorMessage} -->`,
+      html: fallback || `<!-- Lit SSR failed: ${errorMessage.replaceAll('-->', "--&gt;")} -->`,
       hydrationData: {
         src: params.src,
         props: params.props || {},

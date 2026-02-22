@@ -17,9 +17,18 @@ import type {
   H3Event,
   AvalonEventContext,
 } from "./types.ts";
-import type {
-  MiddlewareContext,
-} from "../schemas/middleware.ts";
+
+/**
+ * Context object passed through the middleware chain
+ */
+export interface MiddlewareContext {
+  request: Request;
+  url: URL;
+  params: Record<string, string>;
+  query: Record<string, string | string[]>;
+  state: Map<string, unknown>;
+  locals: Record<string, unknown>;
+}
 
 /**
  * Options for middleware context creation
@@ -46,8 +55,8 @@ export function getRequestURL(event: H3Event): URL {
  */
 export function getRequestHeaders(event: H3Event): Headers {
   const headers = new Headers();
-  const nodeReq = event.node.req as { headers?: Record<string, string | string[] | undefined> };
-  if (nodeReq && nodeReq.headers) {
+  const nodeReq = event.node?.req as { headers?: Record<string, string | string[] | undefined> } | undefined;
+  if (nodeReq?.headers) {
     for (const [key, value] of Object.entries(nodeReq.headers)) {
       if (value) {
         if (Array.isArray(value)) {
@@ -110,9 +119,9 @@ export function createMiddlewareContext(
   for (const [key, value] of url.searchParams.entries()) {
     if (query[key]) {
       if (Array.isArray(query[key])) {
-        (query[key] as string[]).push(value);
+        query[key].push(value);
       } else {
-        query[key] = [query[key] as string, value];
+        query[key] = [query[key], value];
       }
     } else {
       query[key] = value;

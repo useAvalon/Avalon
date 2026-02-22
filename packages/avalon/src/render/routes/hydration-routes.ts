@@ -4,7 +4,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { FrameworkModuleResolver } from '../../core/modules/framework-module-resolver.ts';
-import type { MiddlewareContext } from '../../schemas/middleware.ts';
+import type { MiddlewareContext } from '../../nitro/middleware-adapter.ts';
 import type { LayoutContext } from '../../types/layout.ts';
 
 export interface HydrationRequest {

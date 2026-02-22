@@ -13,4 +13,4 @@
 // This patches LitElement to use hydrate() instead of render() for SSR content
 import "@lit-labs/ssr-client/lit-element-hydrate-support.js";
 
-export {};
+

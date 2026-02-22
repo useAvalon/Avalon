@@ -2,7 +2,7 @@
  * Dev-Only Logging Utilities
  * 
  * These functions provide environment-aware logging that only outputs in development mode.
- * In production (DENO_ENV=production), all logging is suppressed for better performance.
+ * In production (NODE_ENV=production), all logging is suppressed for better performance.
  * 
  * @module dev-logger
  */
@@ -13,7 +13,7 @@
 
 /**
  * Check if we're in development mode
- * Returns true if DENO_ENV is not set to "production"
+ * Returns true if NODE_ENV is not set to "production"
  */
 export function isDev(): boolean {
   try {
@@ -160,15 +160,15 @@ interface DevTask {
 }
 
 export class DevLogger {
-  private tasks: Map<string, DevTask> = new Map();
-  private spinnerInterval?: number;
+  private readonly tasks: Map<string, DevTask> = new Map();
+  private spinnerInterval?: ReturnType<typeof setInterval>;
   private currentFrame = 0;
-  private startTime = Date.now();
-  private originalConsoleLog: typeof console.log;
-  private originalConsoleWarn: typeof console.warn;
-  private originalConsoleError: typeof console.error;
-  private suppressedLogs: string[] = [];
-  private headerLines = 0;
+  private readonly startTime = Date.now();
+  private readonly originalConsoleLog: typeof console.log;
+  private readonly originalConsoleWarn: typeof console.warn;
+  private readonly originalConsoleError: typeof console.error;
+  private readonly suppressedLogs: string[] = [];
+  private readonly headerLines: number = 0;
 
   constructor() {
     this.originalConsoleLog = console.log;
@@ -189,10 +189,10 @@ export class DevLogger {
 
   private suppressConsole() {
     console.log = (...args: unknown[]) => {
-      this.suppressedLogs.push(args.map(a => String(a)).join(' '));
+      this.suppressedLogs.push(args.map(String).join(' '));
     };
     console.warn = (...args: unknown[]) => {
-      this.suppressedLogs.push('[WARN] ' + args.map(a => String(a)).join(' '));
+      this.suppressedLogs.push('[WARN] ' + args.map(String).join(' '));
     };
     console.error = this.originalConsoleError;
   }

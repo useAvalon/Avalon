@@ -6,7 +6,6 @@
  */
 
 import type { RenderParams, RenderResult } from "../../core/types.ts";
-import type { SolidComponent } from "../types.ts";
 import { loadComponent } from "./utils.ts";
 
 /**
@@ -50,14 +49,14 @@ export async function render(params: RenderParams): Promise<RenderResult> {
     if (!generateHydrationScript) throw new Error("generateHydrationScript not found in solid-js/web");
     
     const renderId = `s${Math.random().toString(36).slice(2, 11)}`;
-    const html = await renderToStringAsync(() => createComponent(Component as SolidComponent, props), { renderId });
+    const html = await renderToStringAsync(() => createComponent(Component, props), { renderId });
     
     if (!html || typeof html !== "string") {
       throw new Error(`renderToStringAsync returned invalid result: ${typeof html}`);
     }
     
     const hydrationScript = generateHydrationScript();
-    const containerId = `solid-island-${src.replace(/[^a-zA-Z0-9]/g, "-")}`;
+    const containerId = `solid-island-${src.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
     
     return {
       html,

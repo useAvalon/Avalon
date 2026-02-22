@@ -2,6 +2,7 @@
   "name": "@avalon/avalon",
   "version": "0.1.1",
   "license": "MIT",
+  "type": "module",
   "exports": {
     ".": "./mod.ts",
     "./middleware": "./src/middleware/index.ts",

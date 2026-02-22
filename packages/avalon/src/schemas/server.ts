@@ -143,14 +143,18 @@ export const ServerConfigSchema = z.object({
 export type RouteComponent = () => JSXElementType;
 
 /**
- * Route configuration type
+ * Route configuration type — component signature matches ssr.ts RouteConfig
+ * to avoid type incompatibility when passing routes to renderToHtml/renderToHtmlWithLayouts.
  */
-export type RouteConfig = z.infer<typeof RouteConfigSchema>;
+export type RouteConfig = {
+	component: () => JSX.Element | Promise<JSX.Element>;
+	options?: z.infer<typeof RenderOptionsSchema>;
+};
 
 /**
  * Routes record type
  */
-export type Routes = z.infer<typeof RoutesSchema>;
+export type Routes = Record<string, RouteConfig>;
 
 /**
  * Server configuration type

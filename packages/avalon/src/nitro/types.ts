@@ -8,7 +8,7 @@
  * Avalon-specific types that extend or complement Nitro's types are defined here.
  */
 
-import type { MiddlewareContext } from "../schemas/middleware.ts";
+import type { MiddlewareContext } from "../nitro/middleware-adapter.ts";
 import type { ApiContext, ApiMethod } from "../schemas/api.ts";
 
 /**
@@ -37,9 +37,9 @@ export interface H3Event {
   /** HTTP method */
   method: string;
   /** Node.js request object */
-  node: {
+  node?: {
     req: unknown;
-    res: unknown;
+    res?: unknown;
   };
   /** Event context for storing data */
   context: Record<string, unknown>;

@@ -27,7 +27,7 @@
  */
 
 import type {
-  H3Event,
+  H3Event as LocalH3Event,
   NitroRenderContext,
   LayoutContext,
   SSRRenderOptions,
@@ -36,6 +36,7 @@ import type {
   AvalonRuntimeConfig,
   HttpError,
 } from "./types.ts";
+import type { H3Event } from "h3";
 import { createNotFoundError, createInternalError, isHttpError } from "./types.ts";
 import type { MiddlewareRoute } from "../middleware/types.ts";
 import { discoverScopedMiddleware, executeScopedMiddleware, clearMiddlewareCache } from "../middleware/index.ts";
@@ -657,7 +658,7 @@ async function renderPageComponent(
   // 3. Apply layouts using the layout resolver
   // 4. Return the fully rendered HTML
 
-  const componentName = pageModule.default?.name || "Page";
+  const componentName = (pageModule.default as { name?: string })?.name || "Page";
   const metadata = pageModule.metadata || {};
 
   return `<!DOCTYPE html>
@@ -665,11 +666,11 @@ async function renderPageComponent(
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${metadata.title || "Avalon App"}</title>
-    ${metadata.description ? `<meta name="description" content="${metadata.description}">` : ""}
+    <title>${escapeHtml(String(metadata.title || "Avalon App"))}</title>
+    ${metadata.description ? `<meta name="description" content="${escapeHtml(String(metadata.description))}">` : ""}
   </head>
   <body>
-    <div id="app" data-page="${componentName}" data-props='${JSON.stringify(pageProps)}'>
+    <div id="app" data-page="${escapeHtml(String(componentName))}" data-props='${escapeHtml(JSON.stringify(pageProps))}'>
       <!-- Page content rendered by Avalon SSR pipeline -->
     </div>
   </body>
@@ -899,8 +900,8 @@ function generateStreamingShell(
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${metadata.title || "Avalon App"}</title>
-    ${metadata.description ? `<meta name="description" content="${metadata.description}">` : ""}
+    <title>${escapeHtml(String(metadata.title || "Avalon App"))}</title>
+    ${metadata.description ? `<meta name="description" content="${escapeHtml(String(metadata.description))}">` : ""}
   </head>
   <body>
 `;
@@ -913,8 +914,8 @@ function generateStreamingContent(
   pageModule: PageModule,
   pageProps: Record<string, unknown>
 ): string {
-  const componentName = pageModule.default?.name || "Page";
-  return `    <div id="app" data-page="${componentName}" data-props='${JSON.stringify(pageProps)}'>
+  const componentName = (pageModule.default as { name?: string })?.name || "Page";
+  return `    <div id="app" data-page="${escapeHtml(String(componentName))}" data-props='${escapeHtml(JSON.stringify(pageProps))}'>
       <!-- Page content rendered by Avalon SSR pipeline -->
     </div>
 `;

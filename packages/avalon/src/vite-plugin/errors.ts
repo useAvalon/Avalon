@@ -117,14 +117,11 @@ function formatValue(value: unknown): string {
     return `[${value.slice(0, 3).map(formatValue).join(", ")}, ... (${value.length} items)]`;
   }
   if (typeof value === "object") {
-    const keys = Object.keys(value);
-    if (keys.length === 0) {
-      return "{}";
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "[Circular]";
     }
-    if (keys.length <= 3) {
-      return `{ ${keys.join(", ")} }`;
-    }
-    return `{ ${keys.slice(0, 3).join(", ")}, ... (${keys.length} keys) }`;
   }
-  return String(value);
+  return String(value as string | number | boolean | bigint | symbol);
 }

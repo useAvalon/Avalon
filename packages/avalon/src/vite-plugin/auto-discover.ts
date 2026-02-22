@@ -9,7 +9,7 @@
 import type { IntegrationName } from "./types.ts";
 import { resolve } from "node:path";
 import { stat as fsStat, readdir } from "node:fs/promises";
-import { readFileSync, openSync, readSync, closeSync } from "node:fs";
+import { openSync, readSync, closeSync } from "node:fs";
 
 /**
  * File extension to integration name mapping
@@ -95,8 +95,6 @@ export async function discoverIntegrationsFromFiles(
   islandsDir: string,
   projectRoot?: string
 ): Promise<Set<IntegrationName>> {
-  const discovered = new Set<IntegrationName>();
-
   // Resolve the islands directory path
   const resolvedDir = projectRoot
     ? resolve(projectRoot, islandsDir)
@@ -106,16 +104,14 @@ export async function discoverIntegrationsFromFiles(
   try {
     const statResult = await fsStat(resolvedDir);
     if (!statResult.isDirectory()) {
-      return discovered;
+      return new Set();
     }
   } catch {
-    // Directory doesn't exist, return empty set
-    return discovered;
+    return new Set();
   }
 
-  // Recursively scan the directory
+  const discovered = new Set<IntegrationName>();
   await scanDirectoryForIntegrations(resolvedDir, discovered);
-
   return discovered;
 }
 
@@ -153,6 +149,22 @@ async function scanDirectoryForIntegrations(
   }
 }
 
+function detectIntegrationFromContent(filePath: string): IntegrationName {
+  try {
+    const fd = openSync(filePath, 'r');
+    const buffer = Buffer.alloc(500);
+    readSync(fd, buffer, 0, 500, 0);
+    closeSync(fd);
+    const content = buffer.toString('utf-8');
+    for (const { pattern, integration } of CONTENT_DETECTION_PATTERNS) {
+      if (pattern.test(content)) return integration;
+    }
+  } catch {
+    // fall through to default
+  }
+  return DEFAULT_JSX_INTEGRATION;
+}
+
 /**
  * Detect the integration from a file by checking name patterns and content
  *
@@ -182,28 +194,7 @@ async function detectIntegrationFromFile(
 
   // Third, for JSX/TSX files, read content to detect framework
   if (normalizedName.endsWith(".tsx") || normalizedName.endsWith(".jsx")) {
-    try {
-      // Read first 500 bytes - enough to detect imports and pragmas
-      const fd = openSync(filePath, 'r');
-      const buffer = Buffer.alloc(500);
-      readSync(fd, buffer, 0, 500, 0);
-      closeSync(fd);
-      
-      const content = buffer.toString('utf-8');
-      
-      // Check content patterns for framework detection
-      for (const { pattern, integration } of CONTENT_DETECTION_PATTERNS) {
-        if (pattern.test(content)) {
-          return integration;
-        }
-      }
-      
-      // Default to preact for generic JSX/TSX
-      return DEFAULT_JSX_INTEGRATION;
-    } catch {
-      // If we can't read the file, fall back to default
-      return DEFAULT_JSX_INTEGRATION;
-    }
+    return detectIntegrationFromContent(filePath);
   }
 
   // Fourth, check for Lit components (.ts/.js files with PascalCase names)

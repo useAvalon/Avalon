@@ -1,5 +1,4 @@
-import { hydrate as preactHydrate } from "preact";
-import { h } from "preact";
+import { hydrate as preactHydrate , h} from "preact";
 import type { ComponentType } from "preact";
 import type { PreactHydrationOptions } from "../types.ts";
 
@@ -60,8 +59,8 @@ export function isHydrationReady(container: HTMLElement) {
  */
 export function cleanupHydration(container: HTMLElement) {
   // Remove hydration-specific attributes
-  container.removeAttribute('data-framework');
-  container.removeAttribute('data-src');
-  container.removeAttribute('data-props');
-  container.removeAttribute('data-condition');
+  delete container.dataset.framework;
+  delete container.dataset.src;
+  delete container.dataset.props;
+  delete container.dataset.condition;
 }

@@ -187,7 +187,8 @@ export function serializeProps(props: Record<string, unknown>): Record<string, u
   try {
     // Use JSON stringify/parse to remove non-serializable values
     // This also handles nested objects and arrays
-    return JSON.parse(JSON.stringify(props));
+    // biome-ignore lint/performance/noBarrelFile: JSON round-trip intentionally strips non-serializable values (functions, symbols) which structuredClone cannot handle
+    return JSON.parse(JSON.stringify(props)) as Record<string, unknown>;
   } catch (error) {
     console.warn("Failed to serialize props, returning empty object:", error);
     return {};

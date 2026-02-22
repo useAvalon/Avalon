@@ -22,13 +22,13 @@ export function hydrate(
   props: Record<string, unknown>,
   options?: LitHydrationOptions
 ): void {
-  if (container.hasAttribute("data-lit-hydrated")) return;
+  if (Object.hasOwn(container.dataset, "litHydrated")) return;
 
   const tagName =
-    container.getAttribute("data-tag-name") ||
+    container.dataset.tagName ||
     
     (ElementClass as any).elementName ||
-    ElementClass.name.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+    ElementClass.name.replaceAll(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 
   if (!tagName) {
     throw new Error("Could not determine tag name for Lit component");
@@ -36,16 +36,16 @@ export function hydrate(
 
   if (options?.defer) {
     const trigger = () => performHydration(container, ElementClass, tagName, props);
-    if (typeof requestIdleCallback !== "undefined") {
-      requestIdleCallback(trigger);
-    } else {
+    if (typeof requestIdleCallback === "undefined") {
       setTimeout(trigger, 0);
+    } else {
+      requestIdleCallback(trigger);
     }
     return;
   }
 
   performHydration(container, ElementClass, tagName, props);
-  container.setAttribute("data-lit-hydrated", "true");
+  container.dataset.litHydrated = "true";
 }
 
 function performHydration(

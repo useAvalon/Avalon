@@ -155,7 +155,9 @@ export function serializeProps(props: Record<string, unknown>) {
     return JSON.stringify(props)
       .replace(/</g, "\\u003c")
       .replace(/>/g, "\\u003e")
-      .replace(/&/g, "\\u0026");
+      .replace(/&/g, "\\u0026")
+      .replace(/'/g, "\\u0027")
+      .replace(/"/g, "\\u0022");
   } catch (error) {
     console.error("Failed to serialize props:", error);
     return "{}";

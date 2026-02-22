@@ -1,6 +1,5 @@
 import type {
 	LayoutContext,
-	LayoutData,
 	LayoutRoute,
 	LayoutHandler,
 	LayoutProps,
@@ -10,37 +9,16 @@ import type {
 	LayoutConfig,
 	IslandState,
 	PersistentIslandProps,
-	PersistentIslandContext,
 	LayoutErrorInfo,
 	LayoutErrorBoundaryProps,
 	ErrorRecoveryStrategy,
 	StreamingLayoutProps,
 	StreamingComponent,
 	ResolvedLayout,
-	LayoutCache,
-	EnhancedLayoutContext,
 	LayoutLoader,
-	LayoutMatcherFunction,
-	LayoutErrorHandler,
-	LayoutRetryFunction,
-	LayoutFallbackRenderer,
-	IslandStateSaver,
-	IslandStateLoader,
-	IslandStateClearer,
-	StreamingReadyCheck,
 } from '../schemas/layout.ts';
-
-// Re-export component types from preact
 import type { ComponentType, ComponentChildren } from 'preact';
-export type { ComponentType, ComponentChildren };
 
-// Import concrete implementations
-export { LayoutDiscovery } from '../core/layout/layout-discovery.ts';
-export { LayoutDataLoader } from '../core/layout/layout-data-loader.ts';
-export { LayoutMatcher as LayoutMatcherClass } from '../core/layout/layout-matcher.ts';
-export { LayoutComposer } from '../core/layout/layout-composer.ts';
-
-// Re-export all types from schemas for convenience
 export type {
 	LayoutContext,
 	LayoutData,
@@ -71,7 +49,14 @@ export type {
 	IslandStateLoader,
 	IslandStateClearer,
 	StreamingReadyCheck,
-};
+} from '../schemas/layout.ts';
+export type { ComponentType, ComponentChildren } from 'preact';
+
+// Import concrete implementations
+export { LayoutDiscovery } from '../core/layout/layout-discovery.ts';
+export { LayoutDataLoader } from '../core/layout/layout-data-loader.ts';
+export { LayoutMatcher as LayoutMatcherClass } from '../core/layout/layout-matcher.ts';
+export { LayoutComposer } from '../core/layout/layout-composer.ts';
 
 // Export persistent islands functionality
 export { IslandPersistence, defaultIslandPersistence } from '../core/islands/island-persistence.ts';
