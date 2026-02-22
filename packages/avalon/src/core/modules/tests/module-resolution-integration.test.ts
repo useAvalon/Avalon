@@ -4,7 +4,6 @@
 
 import { describe, it, expect } from 'vitest';
 import { FrameworkModuleResolver } from '../framework-module-resolver.ts';
-import { HydrationRouteHandler, createHydrationRoutes } from '../../../render/routes/hydration-routes.ts';
 
 describe('Module Resolution Integration - End-to-end flow', () => {
 	it('should resolve Solid .tsx to .js for hydration', () => {
@@ -44,19 +43,6 @@ describe('Module Resolution Integration - End-to-end flow', () => {
 			forHydration: true,
 		});
 		expect(svelteResult.resolvedPath).toEqual('/components/Card.js');
-	});
-
-	it('should create proper hydration routes', () => {
-		const routes = createHydrationRoutes(true);
-
-		const patterns = routes.map(route => route.pattern.pathname);
-
-		expect(patterns.includes('/src/islands/*')).toEqual(true);
-		expect(patterns.includes('/src/components/*')).toEqual(true);
-		expect(patterns.includes('*.tsx')).toEqual(true);
-		expect(patterns.includes('*.jsx')).toEqual(true);
-		expect(patterns.includes('*.vue')).toEqual(true);
-		expect(patterns.includes('*.svelte')).toEqual(true);
 	});
 
 	it('should handle development vs production modes', () => {

@@ -22,7 +22,6 @@ export type {
 
 // Main exports
 export { renderToHtml } from './src/render/ssr.ts';
-export { createServer, createServerSafe } from './src/render/server.ts';
 
 // Universal Island component (single function auto-detects framework)
 export { default as Island, renderIsland, type IslandProps } from './src/islands/island.tsx';
@@ -166,7 +165,6 @@ export * from './src/layout-system.ts';
 
 // Core types
 export type { RenderOptions, MetaTag, ScriptConfig } from './src/schemas/core.ts';
-export type { Routes, ServerConfig, RouteConfig } from './src/schemas/server.ts';
 export type { ApiContext, ApiHandler, ApiRouteConfig, ApiRoute, ApiMethod } from './src/schemas/api.ts';
 export type { MiddlewareContext } from './src/nitro/middleware-adapter.ts';
 

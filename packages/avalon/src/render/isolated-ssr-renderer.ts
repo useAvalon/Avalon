@@ -45,8 +45,8 @@ export interface IsolatedRenderResult {
  * Isolated SSR Renderer with framework-specific contexts
  */
 export class IsolatedSSRRenderer {
-	private contexts: Map<string, FrameworkSSRContext>;
-	private detector: EnhancedFrameworkDetector;
+	private readonly contexts: Map<string, FrameworkSSRContext>;
+	private readonly detector: EnhancedFrameworkDetector;
 	private config: SSRIsolationConfig;
 	private activeContext: string | null = null;
 
@@ -71,88 +71,74 @@ export class IsolatedSSRRenderer {
 	async renderWithIsolation(request: IsolatedRenderRequest): Promise<IsolatedRenderResult> {
 		const errors: string[] = [];
 		const warnings: string[] = [];
-		let framework = request.framework;
 
 		try {
-			// Detect framework if not provided
-			if (!framework) {
-				const content = await this.getComponentContent(request.componentPath);
-				const detection = this.detector.detectFramework(request.componentPath, content);
-				framework = detection.framework;
-
-				if (detection.confidence === 'low') {
-					warnings.push(`Low confidence framework detection for ${request.componentPath}: ${framework}`);
-				}
-
-				if (this.config.debugLogging) {
-					console.log(`[SSR Isolation] Detected framework: ${framework} for ${request.componentPath}`);
-					console.log(`[SSR Isolation] Evidence: ${detection.evidence.join(', ')}`);
-				}
-			}
-
-			// Get or create framework context
-			const context = this.getFrameworkContext(framework);
-			if (!context) {
-				throw new Error(`No SSR context available for framework: ${framework}`);
-			}
-
-			// Switch to framework context with isolation
-			await this.switchToContext(framework);
-
-			try {
-				// Render component in isolated context
-				const componentResult = request.component();
-				const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
-
-				// Use framework-specific rendering
-				const html = await context.renderFunction(resolvedComponent, request.props || {});
-
-				return {
-					html,
-					framework,
-					success: true,
-					errors,
-					warnings,
-				};
-			} finally {
-				// Always cleanup context after rendering
-				this.cleanupContext(framework);
-			}
+			const framework = await this.resolveFramework(request, warnings);
+			return await this.renderInContext(request, framework, errors, warnings);
 		} catch (error) {
 			errors.push(`SSR rendering failed: ${error instanceof Error ? error.message : String(error)}`);
+			return await this.tryFallbackRender(request, errors, warnings);
+		}
+	}
 
-			if (this.config.errorHandling === 'fallback') {
-				// Try fallback rendering with Preact
-				try {
-					const componentResult = request.component();
-					const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
-					const html = preactRenderToString(resolvedComponent);
+	private async resolveFramework(request: IsolatedRenderRequest, warnings: string[]): Promise<string> {
+		if (request.framework) return request.framework;
 
-					warnings.push('Fell back to Preact rendering due to framework-specific error');
+		try {
+			const content = await this.getComponentContent(request.componentPath);
+			const detection = this.detector.detectFramework(request.componentPath, content);
 
-					return {
-						html,
-						framework: 'preact',
-						success: true,
-						errors,
-						warnings,
-					};
-				} catch (fallbackError) {
-					errors.push(
-						`Fallback rendering also failed: ${
-							fallbackError instanceof Error ? fallbackError.message : String(fallbackError)
-						}`
-					);
-				}
+			if (detection.confidence === 'low') {
+				warnings.push(`Low confidence framework detection for ${request.componentPath}: ${detection.framework}`);
 			}
+			if (this.config.debugLogging) {
+				console.log(`[SSR Isolation] Detected framework: ${detection.framework} for ${request.componentPath}`);
+				console.log(`[SSR Isolation] Evidence: ${detection.evidence.join(', ')}`);
+			}
+			return detection.framework;
+		} catch {
+			// Component path is a virtual/route path — can't read file, default to preact
+			warnings.push(`Could not read component file for framework detection: ${request.componentPath}, defaulting to preact`);
+			return 'preact';
+		}
+	}
 
-			return {
-				html: '',
-				framework: framework || 'unknown',
-				success: false,
-				errors,
-				warnings,
-			};
+	private async renderInContext(
+		request: IsolatedRenderRequest,
+		framework: string,
+		errors: string[],
+		warnings: string[]
+	): Promise<IsolatedRenderResult> {
+		const context = this.getFrameworkContext(framework);
+		if (!context) throw new Error(`No SSR context available for framework: ${framework}`);
+
+		await this.switchToContext(framework);
+		try {
+			const componentResult = request.component();
+			const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
+			const html = await context.renderFunction(resolvedComponent, request.props || {});
+			return { html, framework, success: true, errors, warnings };
+		} finally {
+			this.cleanupContext(framework);
+		}
+	}
+
+	private async tryFallbackRender(
+		request: IsolatedRenderRequest,
+		errors: string[],
+		warnings: string[]
+	): Promise<IsolatedRenderResult> {
+		if (this.config.errorHandling !== 'fallback') {
+			return { html: '', framework: request.framework || 'unknown', success: false, errors, warnings };
+		}
+		try {
+			const resolvedComponent = await request.component();
+			const html = preactRenderToString(resolvedComponent);
+			warnings.push('Fell back to Preact rendering due to framework-specific error');
+			return { html, framework: 'preact', success: true, errors, warnings };
+		} catch (fallbackError) {
+			errors.push(`Fallback rendering also failed: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
+			return { html: '', framework: request.framework || 'unknown', success: false, errors, warnings };
 		}
 	}
 
@@ -292,9 +278,7 @@ export class IsolatedSSRRenderer {
 		// Set up framework-specific environment
 		await this.setupFrameworkEnvironment(framework);
 
-		if (this.config.debugLogging) {
-			console.log(`[SSR Isolation] Switched to ${framework} context`);
-		}
+
 	}
 
 	/**
@@ -317,9 +301,7 @@ export class IsolatedSSRRenderer {
 			this.activeContext = null;
 		}
 
-		if (this.config.debugLogging) {
-			console.log(`[SSR Isolation] Cleaned up ${framework} context`);
-		}
+
 	}
 
 	/**

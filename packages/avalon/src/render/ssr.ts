@@ -7,7 +7,7 @@ import { getUniversalHeadForInjection } from '../islands/universal-head-collecto
 import { analyzeComponentContent, type AnalyzerOptions } from '../core/components/component-analyzer.ts';
 import type { EnhancedLayoutResolver } from '../core/layout/enhanced-layout-resolver.ts';
 import type { LayoutContext, PageModule } from '../types/layout.ts';
-import { IsolatedSSRRenderer, type IsolatedRenderRequest, type SSRIsolationConfig } from './isolated-ssr-renderer.ts';
+import { IsolatedSSRRenderer, type SSRIsolationConfig } from './isolated-ssr-renderer.ts';
 
 export interface RouteConfig {
 	component: () => JSX.Element | Promise<JSX.Element>;
@@ -118,9 +118,8 @@ function detectFrameworks(content: string): FrameworkDetection {
 function validateFrameworkImports(componentPath: string, content: string, detectedFramework: string): string[] {
 	const warnings: string[] = [];
 
-	// Extract import statements
-	const importRegex =
-		/import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+|\w+))*\s+from\s+)?['"]([^'"]+)['"]/g;
+	// Extract import statements — match the quoted module specifier at the end of any import line
+	const importRegex = /^import\s[^'"]*['"]([^'"]+)['"]/gm;
 	const imports: string[] = [];
 
 	let match;
@@ -161,6 +160,18 @@ function validateFrameworkImports(componentPath: string, content: string, detect
 
 
 
+function applyStrategyToTag(fullMatch: string, strategy: RenderStrategy): string {
+	if (strategy.type === 'ssr-only') {
+		return fullMatch
+			.replaceAll(/data-hydrate="[^"]*"\s*/g, '')
+			.replace('>', ` data-render-strategy="${strategy.type}" data-ssr-reason="${strategy.reason}">`);
+	}
+	return fullMatch.replace(
+		'>',
+		` data-render-strategy="${strategy.type}" data-hydrate-reason="${strategy.reason}">`
+	);
+}
+
 /**
  * Analyzes components in rendered content and adds rendering strategy attributes
  * using the intelligent component detection system with import validation
@@ -169,7 +180,6 @@ async function enhanceContentWithRenderingStrategy(
 	content: string,
 	renderOptions: ComponentRenderOptions = {}
 ): Promise<string> {
-	// Find all elements with data-hydrate attributes
 	const hydrateRegex = /(<[^>]*data-hydrate="([^"]*)"[^>]*>)/g;
 	let enhancedContent = content;
 	const matches = Array.from(content.matchAll(hydrateRegex));
@@ -178,34 +188,15 @@ async function enhanceContentWithRenderingStrategy(
 		const [fullMatch, _elementTag, componentPath] = match;
 
 		try {
-			// Skip if already has render strategy
 			if (fullMatch.includes('data-render-strategy')) {
 				continue;
 			}
 
-			// Determine render strategy using intelligent component detection
 			const strategy = await determineRenderStrategy(componentPath, renderOptions);
-
-			// Validate imports for cross-framework contamination
 			await validateComponentImports(componentPath, renderOptions);
 
-			// Skip hydration attribute generation for SSR-only components
-			if (strategy.type === 'ssr-only') {
-				// Remove data-hydrate attribute for SSR-only components
-				const ssrOnlyTag = fullMatch
-					.replace(/data-hydrate="[^"]*"\s*/g, '')
-					.replace('>', ` data-render-strategy="${strategy.type}" data-ssr-reason="${strategy.reason}">`);
-				enhancedContent = enhancedContent.replace(fullMatch, ssrOnlyTag);
-			} else {
-				// Add render strategy attribute while keeping hydration attributes
-				const enhancedTag = fullMatch.replace(
-					'>',
-					` data-render-strategy="${strategy.type}" data-hydrate-reason="${strategy.reason}">`
-				);
-				enhancedContent = enhancedContent.replace(fullMatch, enhancedTag);
-			}
+			enhancedContent = enhancedContent.replace(fullMatch, applyStrategyToTag(fullMatch, strategy));
 
-			// Log the decision for debugging (only when explicitly enabled)
 			if (renderOptions.logDecisions === true) {
 				console.log(`[SSR Strategy] ${componentPath} -> ${strategy.type.toUpperCase()}: ${strategy.reason}`);
 				if (strategy.warnings && strategy.warnings.length > 0 && !renderOptions.suppressWarnings) {
@@ -214,7 +205,6 @@ async function enhanceContentWithRenderingStrategy(
 			}
 		} catch (error) {
 			console.warn(`Failed to analyze component ${componentPath}:`, error);
-			// Default to hydration on error for safety
 			const enhancedTag = fullMatch.replace('>', ` data-render-strategy="hydrate" data-error="analysis-failed">`);
 			enhancedContent = enhancedContent.replace(fullMatch, enhancedTag);
 		}
@@ -453,11 +443,11 @@ function generateHMRScript(isDev: boolean, viteHmrPort?: number): string {
 /** Escape HTML special characters for safe interpolation into HTML */
 function escapeHtml(str: string): string {
 	return str
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&#039;");
+		.replaceAll('&', "&amp;")
+		.replaceAll('<', "&lt;")
+		.replaceAll('>', "&gt;")
+		.replaceAll('"', "&quot;")
+		.replaceAll('\'', "&#039;");
 }
 
 function generateHead(
@@ -517,67 +507,20 @@ export async function renderToHtml(
 		let content: string;
 		let frameworks: FrameworkDetection;
 
-		// Check if we should use isolated rendering
-		if (renderOptions.forceSSROnly !== true) {
-			try {
-				// Try to use isolated rendering for better framework separation
-				const renderer = getIsolatedRenderer();
-
-				// Create render request - we don't have a specific component path here,
-				// so we'll use a generic path and let the renderer handle it
-				const renderRequest: IsolatedRenderRequest = {
-					componentPath: 'route-component',
-					component: routeConfig.component,
-				};
-
-				const isolatedResult = await renderer.renderWithIsolation(renderRequest);
-
-				if (isolatedResult.success) {
-					content = isolatedResult.html;
-
-					// Detect frameworks from the rendered content
-					frameworks = detectFrameworks(content);
-
-					// Log any warnings from isolated rendering
-					if (isolatedResult.warnings.length > 0 && !renderOptions.suppressWarnings) {
-						isolatedResult.warnings.forEach(warning => console.warn(`[SSR Isolation] ${warning}`));
-					}
-				} else {
-					throw new Error(`Isolated rendering failed: ${isolatedResult.errors.join(', ')}`);
-				}
-			} catch (isolatedError) {
-				console.warn('[SSR] Isolated rendering failed, falling back to standard rendering:', isolatedError);
-
-				// Fallback to standard rendering
-				const componentResult = routeConfig.component();
-				const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
-				content = preactRenderToString(resolvedComponent);
-				frameworks = detectFrameworks(content);
-			}
-		} else {
-			// Standard rendering when explicitly requested
+		if (renderOptions.forceSSROnly === true) {
 			const componentResult = routeConfig.component();
 			const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
 			content = preactRenderToString(resolvedComponent);
 			frameworks = detectFrameworks(content);
+		} else {
+			({ content, frameworks } = await renderWithIsolationOrFallback(routeConfig, renderOptions));
 		}
 
-		// Enhance content with intelligent rendering strategy analysis
 		content = await enhanceContentWithRenderingStrategy(content, renderOptions);
-
-		// Merge route options with defaults
 		const options = { ...defaultOptions, ...routeConfig.options };
-
-		// Generate head with framework-specific optimizations
 		const head = generateHead(options, frameworks, viteHmrPort);
 
-		return `<!DOCTYPE html>
-<html lang="en">
-${head}
-<body>
-${content}
-</body>
-</html>`;
+		return `<!DOCTYPE html>\n<html lang="en">\n${head}\n<body>\n${content}\n</body>\n</html>`;
 	} catch (error) {
 		console.error('Error rendering component:', error);
 		throw new Error('Failed to render component');
@@ -586,7 +529,6 @@ ${content}
 
 /**
  * Render to HTML with layout system support
- * Requirements: 8.1, 8.2, 8.3
  */
 export async function renderToHtmlWithLayouts(
 	routeConfig: RouteConfig,
@@ -598,7 +540,6 @@ export async function renderToHtmlWithLayouts(
 	renderOptions: ComponentRenderOptions = {}
 ): Promise<string> {
 	try {
-		// Create page module from route config
 		const routeConfigExtended = routeConfig as RouteConfig & Partial<PageModule>;
 		const pageModule: PageModule = {
 			default: routeConfig.component,
@@ -607,135 +548,19 @@ export async function renderToHtmlWithLayouts(
 			frontmatter: routeConfig.frontmatter,
 		};
 
-		// Resolve layouts using the enhanced layout resolver
 		const resolvedLayout = await layoutResolver.resolveAndRender(routePath, pageModule, layoutContext);
 
-		// If no layouts were resolved, fall back to standard rendering
 		if (resolvedLayout.handlers.length === 0) {
 			return await renderToHtml(routeConfig, defaultOptions, viteHmrPort, renderOptions);
 		}
 
-		let pageContent: string;
-
-		// Use isolated rendering for page component if not explicitly disabled
-		if (renderOptions.forceSSROnly !== true) {
-			try {
-				const renderer = getIsolatedRenderer();
-
-				const renderRequest: IsolatedRenderRequest = {
-					componentPath: routePath,
-					component: routeConfig.component,
-				};
-
-				const isolatedResult = await renderer.renderWithIsolation(renderRequest);
-
-				if (isolatedResult.success) {
-					pageContent = isolatedResult.html;
-
-					// Log any warnings from isolated rendering
-					if (isolatedResult.warnings.length > 0 && !renderOptions.suppressWarnings) {
-						isolatedResult.warnings.forEach(warning => console.warn(`[SSR Isolation] ${warning}`));
-					}
-				} else {
-					throw new Error(`Isolated rendering failed: ${isolatedResult.errors.join(', ')}`);
-				}
-			} catch (isolatedError) {
-				console.warn('[SSR] Isolated page rendering failed, falling back to standard rendering:', isolatedError);
-
-				// Fallback to standard rendering
-				const componentResult = routeConfig.component();
-				const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
-				pageContent = preactRenderToString(resolvedComponent);
-			}
-		} else {
-			// Standard rendering when explicitly requested
-			const componentResult = routeConfig.component();
-			const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
-			pageContent = preactRenderToString(resolvedComponent);
-		}
-
-		// Apply layout chain from innermost to outermost
-		let wrappedContent = pageContent;
-		for (let i = resolvedLayout.handlers.length - 1; i >= 0; i--) {
-			const handler = resolvedLayout.handlers[i];
-			const layoutData = resolvedLayout.dataLoaders[i] ? await resolvedLayout.dataLoaders[i]!(layoutContext) : {};
-
-			// Create layout props
-			const layoutProps = {
-				children: wrappedContent,
-				data: layoutData,
-				frontmatter: pageModule.frontmatter || {},
-				route: {
-					path: routePath,
-					params: layoutContext.params,
-					query: layoutContext.query,
-				},
-			};
-
-			// Render the layout component with isolation if possible
-			try {
-				const renderer = getIsolatedRenderer();
-
-				const layoutRenderRequest: IsolatedRenderRequest = {
-					componentPath: `layout-${i}`,
-					component: () => h(handler.component, layoutProps),
-				};
-
-				const layoutResult = await renderer.renderWithIsolation(layoutRenderRequest);
-
-				if (layoutResult.success) {
-					wrappedContent = layoutResult.html;
-				} else {
-					// Fallback to standard layout rendering
-					const layoutElement = h(handler.component, layoutProps);
-					wrappedContent = preactRenderToString(layoutElement);
-				}
-			} catch {
-				// Fallback to standard layout rendering
-				const layoutElement = h(handler.component, layoutProps);
-				wrappedContent = preactRenderToString(layoutElement);
-			}
-		}
-
-		// Check if the layout already rendered a complete HTML document
-		const isCompleteHtmlDocument =
-			wrappedContent.trim().startsWith('<!DOCTYPE html>') || wrappedContent.trim().startsWith('<html');
-
-		if (isCompleteHtmlDocument) {
-			// Layout rendered a complete HTML document, return it directly
-			// Just enhance it with rendering strategy analysis
-			const enhancedContent = await enhanceContentWithRenderingStrategy(wrappedContent, renderOptions);
-			// Automatically inject client script if not already present
-			return injectClientScript(enhancedContent);
-		}
-
-		// Layout rendered partial content, wrap it with HTML structure
-		// Enhance content with intelligent rendering strategy analysis
+		const pageContent = await renderPageContent(routeConfig, routePath, renderOptions);
+		const wrappedContent = await applyLayoutChain(pageContent, resolvedLayout, pageModule, layoutContext, routePath);
 		const enhancedContent = await enhanceContentWithRenderingStrategy(wrappedContent, renderOptions);
 
-		// Detect frameworks used in the rendered content
-		const frameworks = detectFrameworks(enhancedContent);
-
-		// Merge route options with defaults
-		const options = { ...defaultOptions, ...routeConfig.options };
-
-		// Generate head with framework-specific optimizations
-		const head = generateHead(options, frameworks, viteHmrPort);
-
-		const finalHtml = `<!DOCTYPE html>
-<html lang="en">
-${head}
-<body>
-${enhancedContent}
-</body>
-</html>`;
-
-		// Automatically inject client script if not already present
-		return injectClientScript(finalHtml);
+		return assembleLayoutHtml(enhancedContent, routeConfig, defaultOptions, viteHmrPort);
 	} catch (error) {
 		console.error('Error rendering component with layouts:', error);
-
-		// Try to fall back to standard rendering
 		try {
 			return await renderToHtml(routeConfig, defaultOptions, viteHmrPort, renderOptions);
 		} catch (fallbackError) {
@@ -743,6 +568,22 @@ ${enhancedContent}
 			throw new Error('Failed to render component with layouts and fallback failed');
 		}
 	}
+}
+
+function assembleLayoutHtml(
+	enhancedContent: string,
+	routeConfig: RouteConfig,
+	defaultOptions: Partial<RenderOptions>,
+	viteHmrPort: number | undefined
+): string {
+	const isCompleteDoc = enhancedContent.trim().startsWith('<!DOCTYPE html>') || enhancedContent.trim().startsWith('<html');
+	if (isCompleteDoc) {
+		return injectClientScript(enhancedContent);
+	}
+	const frameworks = detectFrameworks(enhancedContent);
+	const options = { ...defaultOptions, ...routeConfig.options };
+	const head = generateHead(options, frameworks, viteHmrPort);
+	return injectClientScript(`<!DOCTYPE html>\n<html lang="en">\n${head}\n<body>\n${enhancedContent}\n</body>\n</html>`);
 }
 
 
@@ -772,6 +613,89 @@ export interface StreamingRenderOptions extends ComponentRenderOptions {
 }
 
 /**
+ * Renders route component content to an HTML string, using isolated rendering with fallback.
+ */
+async function renderStreamContent(
+	routeConfig: RouteConfig,
+	defaultOptions: Partial<RenderOptions>,
+	viteHmrPort: number | undefined,
+	renderOptions: StreamingRenderOptions
+): Promise<{ head: string; content: string }> {
+	let content: string;
+	let frameworks: FrameworkDetection;
+
+	if (renderOptions.forceSSROnly === true) {
+		const componentResult = routeConfig.component();
+		const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
+		content = preactRenderToString(resolvedComponent);
+		frameworks = detectFrameworks(content);
+	} else {
+		({ content, frameworks } = await renderWithIsolationOrFallback(routeConfig, renderOptions));
+	}
+
+	content = await enhanceContentWithRenderingStrategy(content, renderOptions);
+	const options = { ...defaultOptions, ...routeConfig.options };
+	const head = generateHead(options, frameworks, viteHmrPort);
+	return { head, content };
+}
+
+async function renderWithIsolationOrFallback(
+	routeConfig: RouteConfig,
+	renderOptions: StreamingRenderOptions
+): Promise<{ content: string; frameworks: FrameworkDetection }> {
+	try {
+		const renderer = getIsolatedRenderer();
+		const isolatedResult = await renderer.renderWithIsolation({
+			componentPath: 'route-component',
+			component: routeConfig.component,
+		});
+
+		if (!isolatedResult.success) {
+			throw new Error(`Isolated rendering failed: ${isolatedResult.errors.join(', ')}`);
+		}
+
+		if (isolatedResult.warnings.length > 0 && !renderOptions.suppressWarnings) {
+			isolatedResult.warnings.forEach(w => console.warn(`[SSR Isolation] ${w}`));
+		}
+
+		return { content: isolatedResult.html, frameworks: detectFrameworks(isolatedResult.html) };
+	} catch (isolatedError) {
+		console.warn('[SSR] Isolated rendering failed, falling back to standard rendering:', isolatedError);
+		const componentResult = routeConfig.component();
+		const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
+		const content = preactRenderToString(resolvedComponent);
+		return { content, frameworks: detectFrameworks(content) };
+	}
+}
+
+function handleStreamError(
+	err: Error,
+	shellSent: boolean,
+	controller: ReadableStreamDefaultController<Uint8Array>,
+	encoder: TextEncoder,
+	renderOptions: StreamingRenderOptions,
+	label = 'Streaming Error',
+	componentId = 'route-component'
+): void {
+	console.error(`[${label}]`, { message: err.message, stack: err.stack, shellSent, timestamp: new Date().toISOString() });
+	renderOptions.onError?.(err);
+
+	if (shellSent) {
+		console.log(`[${label}] Mid-stream error detected, injecting error boundary`);
+		try {
+			controller.enqueue(encoder.encode(generateMidStreamErrorBoundary(err, componentId)));
+			controller.enqueue(encoder.encode('\n</body>\n</html>'));
+		} catch (injectError) {
+			console.error(`[${label}] Failed to inject error boundary:`, injectError);
+		}
+	} else {
+		renderOptions.onShellError?.(err);
+		controller.enqueue(encoder.encode(generateErrorPage(err)));
+	}
+	controller.close();
+}
+
+/**
  * Renders a route to a streaming HTML response
  * This is the streaming equivalent of renderToHtml()
  */
@@ -784,159 +708,36 @@ export async function renderToHtmlStream(
 	const encoder = new TextEncoder();
 	let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
 	let shellSent = false;
-	
+
 	const stream = new ReadableStream<Uint8Array>({
 		async start(ctrl) {
 			controller = ctrl;
-			
 			try {
-				// Render the component content first
-				let content: string;
-				let frameworks: FrameworkDetection;
+				const { head, content } = await renderStreamContent(routeConfig, defaultOptions, viteHmrPort, renderOptions);
 
-				// Check if we should use isolated rendering
-				if (renderOptions.forceSSROnly !== true) {
-					try {
-						// Try to use isolated rendering for better framework separation
-						const renderer = getIsolatedRenderer();
-
-						const renderRequest: IsolatedRenderRequest = {
-							componentPath: 'route-component',
-							component: routeConfig.component,
-						};
-
-						const isolatedResult = await renderer.renderWithIsolation(renderRequest);
-
-						if (isolatedResult.success) {
-							content = isolatedResult.html;
-							frameworks = detectFrameworks(content);
-
-							if (isolatedResult.warnings.length > 0 && !renderOptions.suppressWarnings) {
-								isolatedResult.warnings.forEach(warning => console.warn(`[SSR Isolation] ${warning}`));
-							}
-						} else {
-							throw new Error(`Isolated rendering failed: ${isolatedResult.errors.join(', ')}`);
-						}
-					} catch (isolatedError) {
-						console.warn('[SSR] Isolated rendering failed, falling back to standard rendering:', isolatedError);
-
-						const componentResult = routeConfig.component();
-						const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
-						content = preactRenderToString(resolvedComponent);
-						frameworks = detectFrameworks(content);
-					}
-				} else {
-					const componentResult = routeConfig.component();
-					const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
-					content = preactRenderToString(resolvedComponent);
-					frameworks = detectFrameworks(content);
-				}
-
-				// Enhance content with intelligent rendering strategy analysis
-				content = await enhanceContentWithRenderingStrategy(content, renderOptions);
-
-				// Merge route options with defaults
-				const options = { ...defaultOptions, ...routeConfig.options };
-
-				// Generate head with framework-specific optimizations
-				const head = generateHead(options, frameworks, viteHmrPort);
-
-				// Send the shell (DOCTYPE, html, head, body opening)
-				const shell = `<!DOCTYPE html>
-<html lang="en">
-${head}
-<body>
-`;
-				controller.enqueue(encoder.encode(shell));
+				controller.enqueue(encoder.encode(`<!DOCTYPE html>\n<html lang="en">\n${head}\n<body>\n`));
 				shellSent = true;
-				
-				// Notify that shell is ready
-				if (renderOptions.onShellReady) {
-					renderOptions.onShellReady();
-				}
+				renderOptions.onShellReady?.();
 
-				// Send the content
 				controller.enqueue(encoder.encode(content));
-
-				// Send the footer (closing body and html tags)
-				const footer = `
-</body>
-</html>`;
-				controller.enqueue(encoder.encode(footer));
-
-				// Notify that all content is ready
-				if (renderOptions.onAllReady) {
-					renderOptions.onAllReady();
-				}
-
+				controller.enqueue(encoder.encode('\n</body>\n</html>'));
+				renderOptions.onAllReady?.();
 				controller.close();
 			} catch (error) {
-				const err = error instanceof Error ? error : new Error(String(error));
-				
-				// Log error details for debugging
-				console.error('[Streaming Error]', {
-					message: err.message,
-					stack: err.stack,
+				handleStreamError(
+					error instanceof Error ? error : new Error(String(error)),
 					shellSent,
-					timestamp: new Date().toISOString(),
-				});
-				
-				// Call general error callback
-				if (renderOptions.onError) {
-					renderOptions.onError(err);
-				}
-				
-				// If we haven't sent the shell yet, this is a pre-stream error
-				if (!shellSent) {
-					// Call onShellError callback for pre-stream errors
-					if (renderOptions.onShellError) {
-						renderOptions.onShellError(err);
-					}
-					
-					// Send complete error page (HTTP 500 will be set by caller)
-					if (controller) {
-						const errorHtml = generateErrorPage(err);
-						controller.enqueue(encoder.encode(errorHtml));
-						controller.close();
-					}
-				} else {
-					// Mid-stream error - inject error boundary and try to continue
-					console.log('[Streaming] Mid-stream error detected, injecting error boundary');
-					
-					if (controller) {
-						try {
-							// Inject error boundary HTML into the stream
-							const errorBoundary = generateMidStreamErrorBoundary(err, 'route-component');
-							controller.enqueue(encoder.encode(errorBoundary));
-							
-							// Try to close the HTML document gracefully
-							const footer = `
-</body>
-</html>`;
-							controller.enqueue(encoder.encode(footer));
-							
-							console.log('[Streaming] Successfully injected error boundary and closed stream');
-						} catch (injectError) {
-							console.error('[Streaming] Failed to inject error boundary:', injectError);
-						}
-						
-						controller.close();
-					}
-				}
+					controller,
+					encoder,
+					renderOptions
+				);
 			}
 		},
-		
 		cancel() {
-			if (controller) {
-				try {
-					controller.close();
-				} catch {
-					// Already closed
-				}
-			}
-		}
+			try { controller?.close(); } catch { /* already closed */ }
+		},
 	});
-	
+
 	return stream;
 }
 
@@ -956,13 +757,11 @@ export async function renderToHtmlStreamWithLayouts(
 	const encoder = new TextEncoder();
 	let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
 	let shellSent = false;
-	
+
 	const stream = new ReadableStream<Uint8Array>({
 		async start(ctrl) {
 			controller = ctrl;
-			
 			try {
-				// Create page module from route config
 				const routeConfigExtended = routeConfig as RouteConfig & Partial<PageModule>;
 				const pageModule: PageModule = {
 					default: routeConfig.component,
@@ -971,237 +770,130 @@ export async function renderToHtmlStreamWithLayouts(
 					frontmatter: routeConfig.frontmatter,
 				};
 
-				// Resolve layouts using the enhanced layout resolver
 				const resolvedLayout = await layoutResolver.resolveAndRender(routePath, pageModule, layoutContext);
 
-				// If no layouts were resolved, fall back to standard streaming rendering
 				if (resolvedLayout.handlers.length === 0) {
 					const fallbackStream = await renderToHtmlStream(routeConfig, defaultOptions, viteHmrPort, renderOptions);
 					const reader = fallbackStream.getReader();
-					
 					try {
 						while (true) {
 							const { done, value } = await reader.read();
 							if (done) break;
 							controller.enqueue(value);
 						}
-						controller.close();
 					} finally {
 						reader.releaseLock();
 					}
-					return;
-				}
-
-				// Render page content
-				let pageContent: string;
-
-				if (renderOptions.forceSSROnly !== true) {
-					try {
-						const renderer = getIsolatedRenderer();
-
-						const renderRequest: IsolatedRenderRequest = {
-							componentPath: routePath,
-							component: routeConfig.component,
-						};
-
-						const isolatedResult = await renderer.renderWithIsolation(renderRequest);
-
-						if (isolatedResult.success) {
-							pageContent = isolatedResult.html;
-
-							if (isolatedResult.warnings.length > 0 && !renderOptions.suppressWarnings) {
-								isolatedResult.warnings.forEach(warning => console.warn(`[SSR Isolation] ${warning}`));
-							}
-						} else {
-							throw new Error(`Isolated rendering failed: ${isolatedResult.errors.join(', ')}`);
-						}
-					} catch (isolatedError) {
-						console.warn('[SSR] Isolated page rendering failed, falling back to standard rendering:', isolatedError);
-
-						const componentResult = routeConfig.component();
-						const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
-						pageContent = preactRenderToString(resolvedComponent);
-					}
-				} else {
-					const componentResult = routeConfig.component();
-					const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
-					pageContent = preactRenderToString(resolvedComponent);
-				}
-
-				// Apply layout chain from innermost to outermost
-				let wrappedContent = pageContent;
-				for (let i = resolvedLayout.handlers.length - 1; i >= 0; i--) {
-					const handler = resolvedLayout.handlers[i];
-					const layoutData = resolvedLayout.dataLoaders[i] ? await resolvedLayout.dataLoaders[i]!(layoutContext) : {};
-
-					const layoutProps = {
-						children: wrappedContent,
-						data: layoutData,
-						frontmatter: pageModule.frontmatter || {},
-						route: {
-							path: routePath,
-							params: layoutContext.params,
-							query: layoutContext.query,
-						},
-					};
-
-					try {
-						const renderer = getIsolatedRenderer();
-
-						const layoutRenderRequest: IsolatedRenderRequest = {
-							componentPath: `layout-${i}`,
-							component: () => h(handler.component, layoutProps),
-						};
-
-						const layoutResult = await renderer.renderWithIsolation(layoutRenderRequest);
-
-						if (layoutResult.success) {
-							wrappedContent = layoutResult.html;
-						} else {
-							const layoutElement = h(handler.component, layoutProps);
-							wrappedContent = preactRenderToString(layoutElement);
-						}
-					} catch {
-						const layoutElement = h(handler.component, layoutProps);
-						wrappedContent = preactRenderToString(layoutElement);
-					}
-				}
-
-				// Check if the layout already rendered a complete HTML document
-				const isCompleteHtmlDocument =
-					wrappedContent.trim().startsWith('<!DOCTYPE html>') || wrappedContent.trim().startsWith('<html');
-
-				if (isCompleteHtmlDocument) {
-					// Layout rendered a complete HTML document
-					const enhancedContent = await enhanceContentWithRenderingStrategy(wrappedContent, renderOptions);
-					const finalHtml = injectClientScript(enhancedContent);
-					
-					controller.enqueue(encoder.encode(finalHtml));
-					shellSent = true;
-					
-					if (renderOptions.onShellReady) {
-						renderOptions.onShellReady();
-					}
-					
-					if (renderOptions.onAllReady) {
-						renderOptions.onAllReady();
-					}
-					
 					controller.close();
 					return;
 				}
 
-				// Layout rendered partial content, wrap it with HTML structure
+				const pageContent = await renderPageContent(routeConfig, routePath, renderOptions);
+				const wrappedContent = await applyLayoutChain(pageContent, resolvedLayout, pageModule, layoutContext, routePath);
 				const enhancedContent = await enhanceContentWithRenderingStrategy(wrappedContent, renderOptions);
 
-				// Detect frameworks used in the rendered content
+				const isCompleteDoc = enhancedContent.trim().startsWith('<!DOCTYPE html>') || enhancedContent.trim().startsWith('<html');
+				if (isCompleteDoc) {
+					const finalHtml = injectClientScript(enhancedContent);
+					controller.enqueue(encoder.encode(finalHtml));
+					shellSent = true;
+					renderOptions.onShellReady?.();
+					renderOptions.onAllReady?.();
+					controller.close();
+					return;
+				}
+
 				const frameworks = detectFrameworks(enhancedContent);
-
-				// Merge route options with defaults
 				const options = { ...defaultOptions, ...routeConfig.options };
-
-				// Generate head with framework-specific optimizations
 				const head = generateHead(options, frameworks, viteHmrPort);
 
-				// Send the shell
-				const shell = `<!DOCTYPE html>
-<html lang="en">
-${head}
-<body>
-`;
-				controller.enqueue(encoder.encode(shell));
+				controller.enqueue(encoder.encode(`<!DOCTYPE html>\n<html lang="en">\n${head}\n<body>\n`));
 				shellSent = true;
-				
-				if (renderOptions.onShellReady) {
-					renderOptions.onShellReady();
-				}
+				renderOptions.onShellReady?.();
 
-				// Send the content
 				controller.enqueue(encoder.encode(enhancedContent));
-
-				// Send the footer
-				const footer = `
-</body>
-</html>`;
-				controller.enqueue(encoder.encode(footer));
-
-				// Inject client script if needed
-				const finalHtml = injectClientScript(`<!DOCTYPE html><html lang="en">${head}<body>${enhancedContent}</body></html>`);
-				
-				if (renderOptions.onAllReady) {
-					renderOptions.onAllReady();
-				}
-
+				controller.enqueue(encoder.encode('\n</body>\n</html>'));
+				renderOptions.onAllReady?.();
 				controller.close();
 			} catch (error) {
-				const err = error instanceof Error ? error : new Error(String(error));
-				
-				// Log error details for debugging
-				console.error('[Streaming Error with Layouts]', {
-					message: err.message,
-					stack: err.stack,
+				handleStreamError(
+					error instanceof Error ? error : new Error(String(error)),
 					shellSent,
-					routePath,
-					timestamp: new Date().toISOString(),
-				});
-				
-				// Call general error callback
-				if (renderOptions.onError) {
-					renderOptions.onError(err);
-				}
-				
-				// If we haven't sent the shell yet, this is a pre-stream error
-				if (!shellSent) {
-					// Call onShellError callback for pre-stream errors
-					if (renderOptions.onShellError) {
-						renderOptions.onShellError(err);
-					}
-					
-					// Send complete error page (HTTP 500 will be set by caller)
-					if (controller) {
-						const errorHtml = generateErrorPage(err);
-						controller.enqueue(encoder.encode(errorHtml));
-						controller.close();
-					}
-				} else {
-					// Mid-stream error - inject error boundary and try to continue
-					console.log('[Streaming with Layouts] Mid-stream error detected, injecting error boundary');
-					
-					if (controller) {
-						try {
-							// Inject error boundary HTML into the stream
-							const errorBoundary = generateMidStreamErrorBoundary(err, `layout-${routePath}`);
-							controller.enqueue(encoder.encode(errorBoundary));
-							
-							// Try to close the HTML document gracefully
-							const footer = `
-</body>
-</html>`;
-							controller.enqueue(encoder.encode(footer));
-							
-							console.log('[Streaming with Layouts] Successfully injected error boundary and closed stream');
-						} catch (injectError) {
-							console.error('[Streaming with Layouts] Failed to inject error boundary:', injectError);
-						}
-						
-						controller.close();
-					}
-				}
+					controller,
+					encoder,
+					renderOptions,
+					'Streaming Error with Layouts',
+					`layout-${routePath}`
+				);
 			}
 		},
-		
 		cancel() {
-			if (controller) {
-				try {
-					controller.close();
-				} catch {
-					// Already closed
-				}
-			}
-		}
+			try { controller?.close(); } catch { /* already closed */ }
+		},
 	});
-	
+
 	return stream;
+}
+
+async function renderPageContent(
+	routeConfig: RouteConfig,
+	routePath: string,
+	renderOptions: StreamingRenderOptions
+): Promise<string> {
+	if (renderOptions.forceSSROnly === true) {
+		const componentResult = routeConfig.component();
+		const resolved = componentResult instanceof Promise ? await componentResult : componentResult;
+		return preactRenderToString(resolved);
+	}
+	try {
+		const renderer = getIsolatedRenderer();
+		const isolatedResult = await renderer.renderWithIsolation({ componentPath: routePath, component: routeConfig.component });
+		if (!isolatedResult.success) throw new Error(`Isolated rendering failed: ${isolatedResult.errors.join(', ')}`);
+		if (isolatedResult.warnings.length > 0 && !renderOptions.suppressWarnings) {
+			isolatedResult.warnings.forEach(w => console.warn(`[SSR Isolation] ${w}`));
+		}
+		return isolatedResult.html;
+	} catch (isolatedError) {
+		console.warn('[SSR] Isolated page rendering failed, falling back to standard rendering:', isolatedError);
+		const componentResult = routeConfig.component();
+		const resolved = componentResult instanceof Promise ? await componentResult : componentResult;
+		return preactRenderToString(resolved);
+	}
+}
+
+async function applyLayoutChain(
+	pageContent: string,
+	resolvedLayout: Awaited<ReturnType<EnhancedLayoutResolver['resolveAndRender']>>,
+	pageModule: PageModule,
+	layoutContext: LayoutContext,
+	routePath: string
+): Promise<string> {
+	let wrappedContent = pageContent;
+	for (let i = resolvedLayout.handlers.length - 1; i >= 0; i--) {
+		const handler = resolvedLayout.handlers[i];
+		const layoutData = resolvedLayout.dataLoaders[i] ? await resolvedLayout.dataLoaders[i](layoutContext) : {};
+		const layoutProps = {
+			children: wrappedContent,
+			data: layoutData,
+			frontmatter: pageModule.frontmatter || {},
+			route: { path: routePath, params: layoutContext.params, query: layoutContext.query },
+		};
+		try {
+			const renderer = getIsolatedRenderer();
+			const layoutResult = await renderer.renderWithIsolation({
+				componentPath: `layout-${i}`,
+				component: () => h(handler.component, layoutProps),
+			});
+			if (layoutResult.success) {
+				wrappedContent = layoutResult.html;
+			} else {
+				wrappedContent = preactRenderToString(h(handler.component, layoutProps));
+			}
+		} catch {
+			wrappedContent = preactRenderToString(h(handler.component, layoutProps));
+		}
+	}
+	return wrappedContent;
 }
 
 /**
@@ -1254,54 +946,26 @@ function generateErrorPage(error: Error): string {
 </html>`;
 }
 
-/**
- * Generates error boundary HTML for mid-stream errors
- * This is injected into the stream when an error occurs after the shell has been sent
- */
 function generateMidStreamErrorBoundary(error: Error, componentId?: string): string {
 	const isDev = process.env.NODE_ENV !== 'production';
-	
+	const componentIdHtml = componentId ? `<p><strong>Component ID:</strong> ${componentId}</p>` : '';
+	const stackHtml = error.stack
+		? `<pre style="background:#f5f5f5;padding:10px;border-radius:4px;overflow-x:auto;font-size:12px;margin-top:10px">${error.stack}</pre>`
+		: '';
+	const devDetails = isDev
+		? `<details style="margin-top:15px"><summary style="cursor:pointer;color:#856404;font-weight:bold">Error Details (Development Mode)</summary><div style="margin-top:10px">${componentIdHtml}<p><strong>Error:</strong> ${error.message}</p>${stackHtml}</div></details>`
+		: '';
+	const componentAttr = componentId ? ` data-component-id="${componentId}"` : '';
+
 	return `
-<div class="streaming-error-boundary" data-error-boundary="true" ${componentId ? `data-component-id="${componentId}"` : ''}>
-  <div class="error-boundary-container" style="
-    background: #fff3cd;
-    border: 2px solid #ffc107;
-    border-radius: 8px;
-    padding: 20px;
-    margin: 20px 0;
-    font-family: system-ui, -apple-system, sans-serif;
-  ">
-    <div class="error-boundary-header" style="
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
-    ">
-      <span style="font-size: 24px;">⚠️</span>
-      <h3 style="margin: 0; color: #856404;">Component Error</h3>
+<div class="streaming-error-boundary" data-error-boundary="true"${componentAttr}>
+  <div class="error-boundary-container" style="background:#fff3cd;border:2px solid #ffc107;border-radius:8px;padding:20px;margin:20px 0;font-family:system-ui,-apple-system,sans-serif">
+    <div class="error-boundary-header" style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="font-size:24px">⚠️</span>
+      <h3 style="margin:0;color:#856404">Component Error</h3>
     </div>
-    <p style="margin: 10px 0; color: #856404;">
-      An error occurred while rendering this component. The rest of the page should work normally.
-    </p>
-    ${isDev ? `
-    <details style="margin-top: 15px;">
-      <summary style="cursor: pointer; color: #856404; font-weight: bold;">
-        Error Details (Development Mode)
-      </summary>
-      <div style="margin-top: 10px;">
-        ${componentId ? `<p><strong>Component ID:</strong> ${componentId}</p>` : ''}
-        <p><strong>Error:</strong> ${error.message}</p>
-        ${error.stack ? `<pre style="
-          background: #f5f5f5;
-          padding: 10px;
-          border-radius: 4px;
-          overflow-x: auto;
-          font-size: 12px;
-          margin-top: 10px;
-        ">${error.stack}</pre>` : ''}
-      </div>
-    </details>
-    ` : ''}
+    <p style="margin:10px 0;color:#856404">An error occurred while rendering this component. The rest of the page should work normally.</p>
+    ${devDetails}
   </div>
 </div>
 `;

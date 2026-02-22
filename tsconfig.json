@@ -12,6 +12,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "types": ["@avalon/avalon/types/island-jsx", "react", "react-dom"]
-  }
+    "types": ["react", "react-dom"]
+  },
+  "include": ["packages/avalon/src/types/island-jsx.d.ts"]
 }

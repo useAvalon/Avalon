@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import { RenderOptionsSchema } from './core.ts';
-import { ServerConfigSchema } from './server.ts';
 import {
 	LayoutContextSchema,
 	LayoutDataSchema,
@@ -18,7 +17,6 @@ import {
 	ResolvedMetadataSchema,
 } from './routing.ts';
 import type { RenderOptions } from './core.ts';
-import type { ServerConfig } from './server.ts';
 import type {
 	LayoutContext,
 	LayoutData,
@@ -103,7 +101,6 @@ export function validate<TOutput>(
 
 export const validators = {
 	renderOptions: (data: unknown): RenderOptions => validate(RenderOptionsSchema, data, 'Invalid render options'),
-	serverConfig: (data: unknown): ServerConfig => validate(ServerConfigSchema, data, 'Invalid server configuration'),
 	layoutContext: (data: unknown): LayoutContext => validate(LayoutContextSchema, data, 'Invalid layout context'),
 	layoutData: (data: unknown): LayoutData => validate(LayoutDataSchema, data, 'Invalid layout data'),
 	layoutHandler: (data: unknown): LayoutHandler => validate(LayoutHandlerSchema, data, 'Invalid layout handler'),
@@ -120,7 +117,6 @@ export const validators = {
 
 export const safeValidators = {
 	renderOptions: (data: unknown): ValidationResult<RenderOptions> => safeValidate(RenderOptionsSchema, data, 'Invalid render options'),
-	serverConfig: (data: unknown): ValidationResult<ServerConfig> => safeValidate(ServerConfigSchema, data, 'Invalid server configuration'),
 	layoutContext: (data: unknown): ValidationResult<LayoutContext> => safeValidate(LayoutContextSchema, data, 'Invalid layout context'),
 	layoutData: (data: unknown): ValidationResult<LayoutData> => safeValidate(LayoutDataSchema, data, 'Invalid layout data'),
 	layoutHandler: (data: unknown): ValidationResult<LayoutHandler> => safeValidate(LayoutHandlerSchema, data, 'Invalid layout handler'),
@@ -144,21 +140,10 @@ export const devValidators = {
 		}
 		return true;
 	},
-	serverConfigSoft: (data: unknown, context = 'unknown'): boolean => {
-		const result = safeValidators.serverConfig(data);
-		if (!result.success) {
-			console.warn(`Server config validation warning in ${context}:`, result.error.getErrorMessage());
-			return false;
-		}
-		return true;
-	},
 } as const;
 
 export function isValidRenderOptions(data: unknown): data is RenderOptions {
 	return safeValidators.renderOptions(data).success;
-}
-export function isValidServerConfig(data: unknown): data is ServerConfig {
-	return safeValidators.serverConfig(data).success;
 }
 export function isValidFileSystemRoute(data: unknown): data is FileSystemRoute {
 	return safeValidators.fileSystemRoute(data).success;

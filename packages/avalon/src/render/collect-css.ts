@@ -114,25 +114,19 @@ async function getCssContent(
  */
 function extractCssFromTransformedModule(code: string): string | null {
 	// Pattern 1: __vite__css = "..."
-	const viteVarMatch = code.match(
-		/const\s+__vite__css\s*=\s*"((?:[^"\\]|\\.)*)"/,
-	);
+	const viteVarMatch = new RegExp(/const\s+__vite__css\s*=\s*"((?:[^"\\]|\\.)*)"/).exec(code);
 	if (viteVarMatch) {
 		return unescapeJsString(viteVarMatch[1]);
 	}
 
 	// Pattern 2: __vite_ssr_exports__.default = "..."
-	const ssrExportMatch = code.match(
-		/__vite_ssr_exports__\.default\s*=\s*"((?:[^"\\]|\\.)*)"/,
-	);
+	const ssrExportMatch = new RegExp(/__vite_ssr_exports__\.default\s*=\s*"((?:[^"\\]|\\.)*)"/).exec(code);
 	if (ssrExportMatch) {
 		return unescapeJsString(ssrExportMatch[1]);
 	}
 
 	// Pattern 3: export default "..."
-	const exportDefaultMatch = code.match(
-		/export\s+default\s+"((?:[^"\\]|\\.)*)"/,
-	);
+	const exportDefaultMatch = new RegExp(/export\s+default\s+"((?:[^"\\]|\\.)*)"/).exec(code);
 	if (exportDefaultMatch) {
 		return unescapeJsString(exportDefaultMatch[1]);
 	}
@@ -146,15 +140,15 @@ function extractCssFromTransformedModule(code: string): string | null {
 }
 
 /**
- * Unescape a JS string literal (handle \\n, \\t, etc.)
+ * Unescape a JS string literal
  */
 function unescapeJsString(str: string): string {
 	return str
-		.replace(/\\n/g, "\n")
-		.replace(/\\t/g, "\t")
-		.replace(/\\r/g, "\r")
-		.replace(/\\"/g, '"')
-		.replace(/\\\\/g, "\\");
+		.replaceAll(String.raw`\n`, "\n")
+		.replaceAll(String.raw`\t`, "\t")
+		.replaceAll(String.raw`\r`, "\r")
+		.replaceAll(String.raw`\"`, '"')
+		.replaceAll('\\\\', "\\");
 }
 
 /**
@@ -200,5 +194,5 @@ function sanitizeCssForStyleTag(css: string): string {
 	// Replace </style (case-insensitive) with an escaped version that won't
 	// close the tag. Using a backslash escape: <\/style
 	// Browsers ignore the backslash in CSS context, so styles still work.
-	return css.replace(/<\/style/gi, "<\\/style");
+	return css.replaceAll(/<\/style/gi, String.raw`<\/style`);
 }
