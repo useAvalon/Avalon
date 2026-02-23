@@ -55,7 +55,7 @@ function findIslandImports(
 function resolveIslandSrc(importPath: string): string {
   if (importPath.startsWith('/src/islands/')) return importPath;
   const parts = importPath.split('/');
-  return '/src/islands/' + parts[parts.length - 1];
+  return '/src/islands/' + parts.at(-1);
 }
 
 function detectFramework(src: string): string | undefined {
@@ -71,7 +71,7 @@ function detectFramework(src: string): string | undefined {
  * Escapes special regex characters in a string
  */
 function escapeRegex(str: string): string {
-  return str.replace(/[-\/\\^$*+?.()|[\]{}]/g, function (ch) {
+  return str.replaceAll(/[-/\\^$*+?.()|[\]{}]/g, function (ch) {
     return '\\' + ch;
   });
 }
@@ -84,7 +84,7 @@ function replaceImportBinding(
 ): string {
   const escaped = escapeRegex(importPath);
   const re = new RegExp(
-    'import\\s+' + originalName + "\\s+from\\s+['\"]" + escaped + "['\"]",
+    String.raw`import\s+` + originalName + String.raw`\s+from\s+['"]` + escaped + "['\"]",
     'g',
   );
   return code.replace(re, "import " + newName + " from '" + importPath + "'");
@@ -145,7 +145,7 @@ export function mdxIslandTransform(
         transformed.includes("from '@avalon/avalon'");
 
       if (!hasAvalonImport) {
-        const firstImport = transformed.match(/^(import\s.+?from\s+.+?\n)/m);
+        const firstImport = new RegExp(/^(import\s.+?from\s+.+?\n)/m).exec(transformed);
         if (firstImport) {
           const pos =
             transformed.indexOf(firstImport[0]) + firstImport[0].length;
