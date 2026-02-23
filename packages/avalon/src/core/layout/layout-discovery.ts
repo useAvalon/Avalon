@@ -1,5 +1,12 @@
 import { join, resolve, relative } from 'node:path';
 import { statSync } from 'node:fs';
+
+// URLPattern is available at runtime (Node 22+, Bun, Deno) but may lack type declarations
+declare const URLPattern: new (init: { pathname: string }) => {
+	test(input: URL | string): boolean;
+	exec(input: URL | string): unknown;
+};
+
 import type {
 	ComponentType,
 	LayoutRoute,
@@ -11,8 +18,7 @@ import type {
 	LayoutErrorInfo,
 } from './layout-types.ts';
 
-// Re-export for consumers
-export type { LayoutDiscoveryOptions };
+export type { LayoutDiscoveryOptions } from './layout-types.ts';
 
 interface LayoutFileExport {
 	default: ComponentType<LayoutProps>;
@@ -20,22 +26,57 @@ interface LayoutFileExport {
 }
 
 /**
+ * Converts an absolute file path to a valid ESM import specifier.
+ * Windows absolute paths (C:\...) are converted to file:// URLs.
+ */
+function toImportSpecifier(filePath: string): string {
+	if (/^[A-Za-z]:[\\/]/.test(filePath)) {
+		return `file:///${filePath.replaceAll('\\', '/')}`;
+	}
+	return filePath;
+}
+
+/**
+ * Checks whether a file exists at the given path using statSync.
+ */
+function fileExists(filePath: string): boolean {
+	try {
+		statSync(filePath);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Builds the path hierarchy for a route.
+ * For "/admin/users" returns ['', '/admin', '/admin/users'].
+ */
+function buildPathHierarchy(routePath: string): string[] {
+	const segments = routePath.split('/').filter(Boolean);
+	const paths: string[] = [''];
+	for (let i = 0; i < segments.length; i++) {
+		paths.push('/' + segments.slice(0, i + 1).join('/'));
+	}
+	return paths;
+}
+
+/**
  * Simplified Layout Discovery System
- * 
- * Instead of scanning directories recursively, this simply looks for _layout.tsx
- * files in the path hierarchy from root to the current route.
- * 
+ *
+ * Looks for _layout.tsx files in the path hierarchy from root to the current route.
+ *
  * For route /admin/users/123:
- * - Check /src/pages/_layout.tsx (root layout)
- * - Check /src/pages/admin/_layout.tsx
- * - Check /src/pages/admin/users/_layout.tsx
+ * - Check src/layouts/_layout.tsx (root layout)
+ * - Check src/layouts/admin/_layout.tsx
+ * - Check src/layouts/admin/users/_layout.tsx
  */
 export class LayoutDiscovery {
-	private layoutCache = new Map<string, LayoutHandler>();
-	private routeCache = new Map<string, LayoutRoute[]>();
-	private baseDirectory: string;
-	private filePattern: string;
-	private developmentMode: boolean;
+	private readonly layoutCache = new Map<string, LayoutHandler>();
+	private readonly routeCache = new Map<string, LayoutRoute[]>();
+	private readonly baseDirectory: string;
+	private readonly filePattern: string;
+	private readonly developmentMode: boolean;
 
 	constructor(options: LayoutDiscoveryOptions) {
 		this.baseDirectory = resolve(options.baseDirectory);
@@ -58,28 +99,13 @@ export class LayoutDiscovery {
 		}
 
 		const routes: LayoutRoute[] = [];
+		const pathsToCheck = buildPathHierarchy(routePath);
 
-		// Build path hierarchy: ['', '/admin', '/admin/users']
-		const pathSegments = routePath.split('/').filter(Boolean);
-		const pathsToCheck: string[] = [''];
-
-		for (let i = 0; i < pathSegments.length; i++) {
-			pathsToCheck.push('/' + pathSegments.slice(0, i + 1).join('/'));
-		}
-
-		// Check each path level for a layout file
 		for (const pathToCheck of pathsToCheck) {
 			const fsPath = pathToCheck === '' ? this.baseDirectory : join(this.baseDirectory, pathToCheck);
 			const layoutFilePath = join(fsPath, this.filePattern);
 
-			let layoutExists = false;
-			try {
-				statSync(layoutFilePath);
-				layoutExists = true;
-			} catch {
-				// File doesn't exist
-			}
-			if (layoutExists) {
+			if (fileExists(layoutFilePath)) {
 				const depth = pathToCheck === '' ? 0 : pathToCheck.split('/').filter(Boolean).length;
 				routes.push({
 					pattern: new URLPattern({ pathname: depth === 0 ? '*' : `${pathToCheck}/*` }),
@@ -91,9 +117,7 @@ export class LayoutDiscovery {
 			}
 		}
 
-		// Sort by priority (root layouts first)
 		routes.sort((a, b) => a.priority - b.priority);
-
 		this.routeCache.set(cacheKey, routes);
 		return Promise.resolve(routes);
 	}
@@ -113,7 +137,9 @@ export class LayoutDiscovery {
 				}
 			} catch (error) {
 				if (this.developmentMode) {
-					console.warn(`[Layout] Failed to load ${route.layoutPath}: ${error instanceof Error ? error.message : String(error)}`);
+					console.warn(
+						`[Layout] Failed to load ${route.layoutPath}: ${error instanceof Error ? error.message : String(error)}`,
+					);
 				}
 			}
 		}
@@ -126,25 +152,23 @@ export class LayoutDiscovery {
 	 */
 	async buildLayoutChainWithData(
 		url: URL,
-		context: LayoutContext
+		context: LayoutContext,
 	): Promise<{ handlers: LayoutHandler[]; data: LayoutData[]; errors: LayoutErrorInfo[] }> {
 		const handlers = await this.buildLayoutChain(url);
 		const data: LayoutData[] = [];
 		const errors: LayoutErrorInfo[] = [];
 
-		// Load data for each layout
 		for (const handler of handlers) {
 			if (handler.loader) {
 				try {
 					const layoutData = await handler.loader(context);
 					data.push(layoutData);
-				} catch (_error) {
-					errors.push({
-						layoutPath: handler.path,
-						errorType: 'loader',
-						timestamp: Date.now(),
-					});
-					data.push({}); // Push empty data on error
+				} catch (error) {
+					if (this.developmentMode) {
+						console.warn(`[Layout] Data loader error for ${handler.path}:`, error);
+					}
+					errors.push({ layoutPath: handler.path, errorType: 'loader', timestamp: Date.now() });
+					data.push({});
 				}
 			} else {
 				data.push({});
@@ -158,13 +182,13 @@ export class LayoutDiscovery {
 	 * Loads layout handler from file
 	 */
 	private async loadLayout(filePath: string): Promise<LayoutHandler | null> {
-		// Check cache first
 		if (this.layoutCache.has(filePath)) {
 			return this.layoutCache.get(filePath)!;
 		}
 
 		try {
-			const layoutModule = (await import(/* @vite-ignore */ filePath)) as LayoutFileExport;
+			const importPath = toImportSpecifier(filePath);
+			const layoutModule = (await import(/* @vite-ignore */ importPath)) as LayoutFileExport;
 
 			if (!layoutModule.default || typeof layoutModule.default !== 'function') {
 				if (this.developmentMode) {
@@ -173,7 +197,6 @@ export class LayoutDiscovery {
 				return null;
 			}
 
-			// Calculate priority based on path depth
 			const relativePath = relative(this.baseDirectory, filePath);
 			const pathSegments = relativePath.split('/').filter(Boolean);
 			const priority = Math.max(0, (pathSegments.length - 1) * 10);
@@ -195,25 +218,19 @@ export class LayoutDiscovery {
 		}
 	}
 
-	/**
-	 * Clears all caches
-	 */
+	/** Clears all caches */
 	clearCache(): void {
 		this.layoutCache.clear();
 		this.routeCache.clear();
 	}
 
-	/**
-	 * Clears cache for a specific layout file
-	 */
+	/** Clears cache for a specific layout file */
 	clearLayoutCache(filePath: string): void {
 		this.layoutCache.delete(filePath);
 		this.routeCache.clear();
 	}
 
-	/**
-	 * Gets cache statistics (for debugging)
-	 */
+	/** Gets cache statistics (for debugging) */
 	getCacheStats(): { layoutCount: number; routeCacheCount: number } {
 		return {
 			layoutCount: this.layoutCache.size,
@@ -221,9 +238,7 @@ export class LayoutDiscovery {
 		};
 	}
 
-	/**
-	 * Gets the current discovery options
-	 */
+	/** Gets the current discovery options */
 	getOptions(): LayoutDiscoveryOptions {
 		return {
 			baseDirectory: this.baseDirectory,

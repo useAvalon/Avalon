@@ -1,23 +1,34 @@
 {
-  "name": "avalon-demo",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "bunx vite",
-    "build": "bunx vite build",
-    "preview": "bunx vite preview",
-    "start": "bun run build"
-  },
-  "dependencies": {
-    "@avalon/avalon": "workspace:*",
-    "@avalon/lit": "workspace:*",
-    "@avalon/preact": "workspace:*",
-    "@avalon/react": "workspace:*",
-    "@avalon/core": "workspace:*",
-    "@avalon/solid": "workspace:*",
-    "@avalon/svelte": "workspace:*",
-    "@avalon/vue": "workspace:*",
-    "@tailwindcss/vite": "^4.1.8",
-    "tailwindcss": "^4.1.8"
-  }
+	"name": "avalon-demo",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "bunx vite",
+		"build": "bunx vite build",
+		"preview": "bunx vite preview",
+		"start": "bun run build"
+	},
+	"dependencies": {
+		"@avalon/avalon": "workspace:*",
+		"@avalon/lit": "workspace:*",
+		"@avalon/preact": "workspace:*",
+		"@avalon/react": "workspace:*",
+		"@avalon/core": "workspace:*",
+		"@avalon/solid": "workspace:*",
+		"@avalon/svelte": "workspace:*",
+		"@avalon/vue": "workspace:*",
+		"@lit-labs/ssr": "^3.0.0",
+		"@lit-labs/ssr-client": "^1.0.0",
+		"@lit-labs/ssr-dom-shim": "^1.0.0",
+		"@tailwindcss/vite": "^4.1.8",
+		"lit": "^3.0.0",
+		"preact": "10.26.9",
+		"preact-render-to-string": "6.5.13",
+		"react": "^18.3.0",
+		"react-dom": "^18.3.0",
+		"solid-js": "1.9.8",
+		"svelte": "^5.41.0",
+		"tailwindcss": "^4.1.8",
+		"vue": "3.5.21"
+	}
 }
