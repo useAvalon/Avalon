@@ -56,12 +56,7 @@ export function integrationBundlerPlugin(options: IntegrationBundlerOptions): Pl
 			};
 		},
 
-		generateBundle(_options, bundle) {
-			// Log bundled integrations
-			const integrationChunks = Object.keys(bundle).filter(key => 
-				key.includes('integrations/')
-			);
-		},
+
 	};
 }
 

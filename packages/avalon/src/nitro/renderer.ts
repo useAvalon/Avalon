@@ -129,9 +129,8 @@ export function getRequestURL(event: H3Event): URL {
  */
 export function toRequest(event: H3Event): Request {
 	const url = getRequestURL(event);
-	const method = event.method; // eslint-disable-line deprecation/deprecation
 	return new Request(url, {
-		method,
+		method: event.req.method,
 		headers: getRequestHeaders(event),
 	});
 }
