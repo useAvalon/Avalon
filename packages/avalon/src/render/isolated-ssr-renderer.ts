@@ -10,6 +10,7 @@ import type { JSX } from 'preact';
 import { render as preactRenderToString } from 'preact-render-to-string';
 import { readFile } from 'node:fs/promises';
 import { EnhancedFrameworkDetector } from '../core/components/enhanced-framework-detector.ts';
+import { toImportSpecifier } from '../middleware/executor.ts';
 
 export interface FrameworkSSRContext {
 	framework: string;
@@ -98,7 +99,9 @@ export class IsolatedSSRRenderer {
 			return detection.framework;
 		} catch {
 			// Component path is a virtual/route path — can't read file, default to preact
-			warnings.push(`Could not read component file for framework detection: ${request.componentPath}, defaulting to preact`);
+			warnings.push(
+				`Could not read component file for framework detection: ${request.componentPath}, defaulting to preact`,
+			);
 			return 'preact';
 		}
 	}
@@ -107,7 +110,7 @@ export class IsolatedSSRRenderer {
 		request: IsolatedRenderRequest,
 		framework: string,
 		errors: string[],
-		warnings: string[]
+		warnings: string[],
 	): Promise<IsolatedRenderResult> {
 		const context = this.getFrameworkContext(framework);
 		if (!context) throw new Error(`No SSR context available for framework: ${framework}`);
@@ -126,7 +129,7 @@ export class IsolatedSSRRenderer {
 	private async tryFallbackRender(
 		request: IsolatedRenderRequest,
 		errors: string[],
-		warnings: string[]
+		warnings: string[],
 	): Promise<IsolatedRenderResult> {
 		if (this.config.errorHandling !== 'fallback') {
 			return { html: '', framework: request.framework || 'unknown', success: false, errors, warnings };
@@ -137,7 +140,9 @@ export class IsolatedSSRRenderer {
 			warnings.push('Fell back to Preact rendering due to framework-specific error');
 			return { html, framework: 'preact', success: true, errors, warnings };
 		} catch (fallbackError) {
-			errors.push(`Fallback rendering also failed: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
+			errors.push(
+				`Fallback rendering also failed: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`,
+			);
 			return { html: '', framework: request.framework || 'unknown', success: false, errors, warnings };
 		}
 	}
@@ -190,7 +195,10 @@ export class IsolatedSSRRenderer {
 			renderFunction: async (component: unknown) => {
 				try {
 					// Import Vue SSR modules in isolation
-					const vueServerRenderer = (await this.importFrameworkModule('vue/server-renderer', 'vue')) as Record<string, unknown>;
+					const vueServerRenderer = (await this.importFrameworkModule('vue/server-renderer', 'vue')) as Record<
+						string,
+						unknown
+					>;
 					if (vueServerRenderer && typeof vueServerRenderer.renderToString === 'function') {
 						return await (vueServerRenderer.renderToString as (component: unknown) => Promise<string>)(component);
 					}
@@ -277,8 +285,6 @@ export class IsolatedSSRRenderer {
 
 		// Set up framework-specific environment
 		await this.setupFrameworkEnvironment(framework);
-
-
 	}
 
 	/**
@@ -300,8 +306,6 @@ export class IsolatedSSRRenderer {
 		if (this.activeContext === framework) {
 			this.activeContext = null;
 		}
-
-
 	}
 
 	/**
@@ -350,7 +354,7 @@ export class IsolatedSSRRenderer {
 
 		try {
 			// Import the module
-			const module = await import(/* @vite-ignore */ modulePath);
+			const module = await import(/* @vite-ignore */ toImportSpecifier(modulePath));
 
 			// Store in context-specific imports
 			context.imports.set(modulePath, module);
@@ -364,7 +368,7 @@ export class IsolatedSSRRenderer {
 			throw new Error(
 				`Failed to import ${modulePath} in ${framework} context: ${
 					error instanceof Error ? error.message : String(error)
-				}`
+				}`,
 			);
 		}
 	}
@@ -532,7 +536,7 @@ export class IsolatedSSRRenderer {
 	 */
 	async renderWithFallback(
 		component: () => JSX.Element | Promise<JSX.Element>,
-		preferredFramework: string
+		preferredFramework: string,
 	): Promise<IsolatedRenderResult> {
 		const errors: string[] = [];
 		const warnings: string[] = [];
@@ -554,7 +558,7 @@ export class IsolatedSSRRenderer {
 			warnings.push(...result.warnings);
 		} catch (error) {
 			errors.push(
-				`Preferred framework (${preferredFramework}) failed: ${error instanceof Error ? error.message : String(error)}`
+				`Preferred framework (${preferredFramework}) failed: ${error instanceof Error ? error.message : String(error)}`,
 			);
 		}
 
@@ -585,7 +589,7 @@ export class IsolatedSSRRenderer {
 				errors.push(...result.errors);
 			} catch (error) {
 				errors.push(
-					`Fallback framework (${fallbackFramework}) failed: ${error instanceof Error ? error.message : String(error)}`
+					`Fallback framework (${fallbackFramework}) failed: ${error instanceof Error ? error.message : String(error)}`,
 				);
 			}
 		}

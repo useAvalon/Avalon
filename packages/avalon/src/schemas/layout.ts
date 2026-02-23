@@ -232,9 +232,9 @@ export type LayoutLoader = (ctx: LayoutContext) => Promise<LayoutData>;
 
 /**
  * Layout Matcher Function Type
- * Determines if a layout should be applied based on route information
+ * Determines if a layout should be applied based on route information and optional layout path
  */
-export type LayoutMatcherFunction = (layoutPath: string, route: RouteInfo) => boolean;
+export type LayoutMatcherFunction = (route: RouteInfo, layoutPath?: string) => boolean;
 
 /**
  * Layout Error Handler Function Type

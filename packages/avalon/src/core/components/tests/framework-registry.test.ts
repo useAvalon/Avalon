@@ -14,11 +14,13 @@ describe('FrameworkRegistry - Basic Operations', () => {
 		const registry = new FrameworkRegistry();
 		const frameworks = registry.getAllFrameworks();
 
-		assert(frameworks.has('preact'));
-		assert(frameworks.has('solid'));
-		assert(frameworks.has('vue'));
-		assert(frameworks.has('svelte'));
-		expect(frameworks.size).toEqual(4);
+		expect(frameworks.has('preact')).toBeTruthy();
+		expect(frameworks.has('solid')).toBeTruthy();
+		expect(frameworks.has('vue')).toBeTruthy();
+		expect(frameworks.has('svelte')).toBeTruthy();
+		expect(frameworks.has('react')).toBeTruthy();
+		expect(frameworks.has('lit')).toBeTruthy();
+		expect(frameworks.size).toEqual(6);
 	});
 
 	it('should get framework by name', () => {
@@ -26,9 +28,9 @@ describe('FrameworkRegistry - Basic Operations', () => {
 		const preactConfig = registry.getFramework('preact');
 
 		expect(preactConfig).toBeDefined();
-		expect(preactConfig.name).toEqual('preact');
-		assert(preactConfig.fileExtensions.includes('.tsx'));
-		assert(preactConfig.jsxImportSources.includes('preact'));
+		expect(preactConfig!.name).toEqual('preact');
+		expect(preactConfig!.fileExtensions.includes('.tsx')).toBeTruthy();
+		expect(preactConfig!.jsxImportSources.includes('preact')).toBeTruthy();
 	});
 
 	it('should return undefined for non-existent framework', () => {
@@ -62,7 +64,7 @@ describe('FrameworkRegistry - Framework Registration', () => {
 
 		const registered = registry.getFramework('custom');
 		expect(registered).toBeDefined();
-		expect(registered.name).toEqual('custom');
+		expect(registered!.name).toEqual('custom');
 	});
 
 	it('should reject invalid framework configuration', () => {
@@ -84,8 +86,8 @@ describe('FrameworkRegistry - Framework Registration', () => {
 
 		expect(result.isValid).toEqual(false);
 		expect(result.errors.length > 0).toBeTruthy();
-		assert(result.errors.some(e => e.includes('name is required')));
-		assert(result.errors.some(e => e.includes('file extension is required')));
+		expect(result.errors.some(e => e.includes('name is required'))).toBeTruthy();
+		expect(result.errors.some(e => e.includes('file extension is required'))).toBeTruthy();
 	});
 
 	it('should prevent custom frameworks when disabled', () => {
@@ -106,7 +108,7 @@ describe('FrameworkRegistry - Framework Registration', () => {
 		const result = registry.registerFramework('custom', customConfig);
 
 		expect(result.isValid).toEqual(false);
-		assert(result.errors.some(e => e.includes('Custom framework')));
+		expect(result.errors.some(e => e.includes('Custom framework'))).toBeTruthy();
 	});
 });
 
@@ -122,7 +124,7 @@ describe('FrameworkRegistry - Framework Updates', () => {
 
 		const updated = registry.getFramework('preact');
 		expect(updated).toBeDefined();
-		assert(updated.fileExtensions.includes('.preact'));
+		expect(updated!.fileExtensions.includes('.preact')).toBeTruthy();
 	});
 
 	it('should reject update for non-existent framework', () => {
@@ -133,7 +135,7 @@ describe('FrameworkRegistry - Framework Updates', () => {
 		});
 
 		expect(result.isValid).toEqual(false);
-		assert(result.errors.some(e => e.includes('not found')));
+		expect(result.errors.some(e => e.includes('not found'))).toBeTruthy();
 	});
 
 	it('should validate updates', () => {
@@ -144,7 +146,7 @@ describe('FrameworkRegistry - Framework Updates', () => {
 		});
 
 		expect(result.isValid).toEqual(false);
-		assert(result.errors.some(e => e.includes('file extension is required')));
+		expect(result.errors.some(e => e.includes('file extension is required'))).toBeTruthy();
 	});
 });
 
@@ -181,7 +183,7 @@ describe('FrameworkRegistry - Framework Removal', () => {
 		const removed = registry.unregisterFramework('preact');
 
 		expect(removed).toEqual(false);
-		expect(registry.getFramework('preact').toBeDefined());
+		expect(registry.getFramework('preact')).toBeDefined();
 	});
 });
 
@@ -242,7 +244,7 @@ describe('FrameworkRegistry - Validation', () => {
 		const result = registry.validateFrameworkConfig(invalidConfig);
 
 		expect(result.isValid).toEqual(false);
-		assert(result.errors.some(e => e.includes('must start with a dot')));
+		expect(result.errors.some(e => e.includes('must start with a dot'))).toBeTruthy();
 	});
 
 	it('should warn about potential conflicts', () => {
@@ -267,7 +269,7 @@ describe('FrameworkRegistry - Validation', () => {
 		// Should be valid but with warnings
 		expect(result.isValid).toEqual(true);
 		expect(result.warnings.length > 0).toBeTruthy();
-		assert(result.warnings.some(w => w.includes('overlap')));
+		expect(result.warnings.some(w => w.includes('overlap'))).toBeTruthy();
 	});
 });
 
@@ -277,10 +279,10 @@ describe('FrameworkRegistry - Query Operations', () => {
 
 		const tsxFrameworks = registry.getFrameworksByExtension('.tsx');
 
-		assert(tsxFrameworks.includes('preact'));
-		assert(tsxFrameworks.includes('solid'));
-		assert(!tsxFrameworks.includes('vue'));
-		assert(!tsxFrameworks.includes('svelte'));
+		expect(tsxFrameworks.includes('preact')).toBeTruthy();
+		expect(tsxFrameworks.includes('solid')).toBeTruthy();
+		expect(!tsxFrameworks.includes('vue')).toBeTruthy();
+		expect(!tsxFrameworks.includes('svelte')).toBeTruthy();
 	});
 
 	it('should get frameworks by JSX import source', () => {
@@ -312,7 +314,9 @@ describe('FrameworkRegistry - Configuration Management', () => {
 		expect(config.solid).toBeDefined();
 		expect(config.vue).toBeDefined();
 		expect(config.svelte).toBeDefined();
-		expect(Object.keys(config).length).toEqual(4);
+		expect(config.react).toBeDefined();
+		expect(config.lit).toBeDefined();
+		expect(Object.keys(config).length).toEqual(6);
 	});
 
 	it('should import configuration', () => {
@@ -336,10 +340,10 @@ describe('FrameworkRegistry - Configuration Management', () => {
 		const results = registry.importConfig(customConfig);
 
 		expect(results.length).toEqual(2);
-		assert(results.every(r => r.isValid));
+		expect(results.every(r => r.isValid)).toBeTruthy();
 
-		expect(registry.getFramework('custom1').toBeDefined());
-		expect(registry.getFramework('custom2').toBeDefined());
+		expect(registry.getFramework('custom1')).toBeDefined();
+		expect(registry.getFramework('custom2')).toBeDefined();
 	});
 
 	it('should reset to defaults', () => {
@@ -354,11 +358,11 @@ describe('FrameworkRegistry - Configuration Management', () => {
 		});
 
 		registry.registerFramework('custom', customConfig);
-		expect(registry.getAllFrameworks().size).toEqual(5);
+		expect(registry.getAllFrameworks().size).toEqual(7);
 
 		// Reset
 		registry.reset();
-		expect(registry.getAllFrameworks().size).toEqual(4);
+		expect(registry.getAllFrameworks().size).toEqual(6);
 		expect(registry.getFramework('custom')).toEqual(undefined);
 	});
 });
@@ -369,12 +373,12 @@ describe('FrameworkRegistry - Statistics', () => {
 
 		const stats = registry.getStats();
 
-		expect(stats.totalFrameworks).toEqual(4);
-		expect(stats.defaultFrameworks).toEqual(4);
+		expect(stats.totalFrameworks).toEqual(6);
+		expect(stats.defaultFrameworks).toEqual(6);
 		expect(stats.customFrameworks).toEqual(0);
-		assert(stats.supportedExtensions.includes('.tsx'));
-		assert(stats.supportedExtensions.includes('.vue'));
-		assert(stats.supportedExtensions.includes('.svelte'));
+		expect(stats.supportedExtensions.includes('.tsx')).toBeTruthy();
+		expect(stats.supportedExtensions.includes('.vue')).toBeTruthy();
+		expect(stats.supportedExtensions.includes('.svelte')).toBeTruthy();
 	});
 
 	it('should update statistics after adding custom frameworks', () => {
@@ -391,10 +395,10 @@ describe('FrameworkRegistry - Statistics', () => {
 
 		const stats = registry.getStats();
 
-		expect(stats.totalFrameworks).toEqual(5);
-		expect(stats.defaultFrameworks).toEqual(4);
+		expect(stats.totalFrameworks).toEqual(7);
+		expect(stats.defaultFrameworks).toEqual(6);
 		expect(stats.customFrameworks).toEqual(1);
-		assert(stats.supportedExtensions.includes('.custom'));
+		expect(stats.supportedExtensions.includes('.custom')).toBeTruthy();
 	});
 });
 
@@ -437,7 +441,7 @@ describe('FrameworkRegistry - Default Registry Instance', () => {
 		const preactConfig = defaultFrameworkRegistry.getFramework('preact');
 
 		expect(preactConfig).toBeDefined();
-		expect(preactConfig.name).toEqual('preact');
+		expect(preactConfig!.name).toEqual('preact');
 	});
 
 	it('should allow modifications to default instance', () => {
@@ -451,7 +455,7 @@ describe('FrameworkRegistry - Default Registry Instance', () => {
 		const result = defaultFrameworkRegistry.registerFramework('test-default', customConfig);
 
 		expect(result.isValid).toEqual(true);
-		expect(defaultFrameworkRegistry.getFramework('test-default').toBeDefined());
+		expect(defaultFrameworkRegistry.getFramework('test-default')).toBeDefined();
 
 		// Clean up
 		defaultFrameworkRegistry.unregisterFramework('test-default');

@@ -15,22 +15,22 @@
 
 import { defineMiddleware } from '@avalon/avalon/middleware';
 
-export default defineMiddleware((event) => {
-  // Add request timing to context for performance monitoring
-  event.context.timing = {
-    start: Date.now(),
-  };
+export default defineMiddleware(event => {
+	// Add request timing to context for performance monitoring
+	event.context.timing = {
+		start: Date.now(),
+	};
 
-  // Generate a unique request ID for tracing
-  event.context.requestId = crypto.randomUUID();
+	// Generate a unique request ID for tracing
+	event.context.requestId = crypto.randomUUID();
 
-  // Development-only request logging - disabled to reduce noise
-  // Uncomment for debugging request flow:
-  // if (import.meta.env?.DEV) {
-  //   const method = event.node.req.method || 'GET';
-  //   const url = event.node.req.url || '/';
-  //   console.log(`[page] ${method} ${url} - Request ID: ${event.context.requestId}`);
-  // }
+	// Development-only request logging - disabled to reduce noise
+	// Uncomment for debugging request flow:
+	// if (import.meta.env?.DEV) {
+	//   const method = getMethod(event) || 'GET';
+	//   const url = getRequestURL(event).pathname || '/';
+	//   console.log(`[page] ${method} ${url} - Request ID: ${event.context.requestId}`);
+	// }
 
-  // Return nothing to continue to next middleware/handler
+	// Return nothing to continue to next middleware/handler
 });

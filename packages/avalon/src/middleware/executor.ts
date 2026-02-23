@@ -161,22 +161,41 @@ export async function executeScopedMiddleware(
 }
 
 /**
- * Builds a URL object from an H3 event
+ * Builds a URL object from an H3 event.
+ * Supports both h3 v2 (event.url / event.req.url) and the dev-mode mock shape (event.path).
  */
 function buildUrlFromEvent(event: H3Event): URL {
-	const protocol = 'http';
-	const host = 'localhost';
-	// eslint-disable-next-line deprecation/deprecation -- h3 v2 still supports event.path; used project-wide
-	const path = (event as H3Event & { path: string }).path || '/';
+	const base = 'http://localhost';
 
-	return new URL(path, `${protocol}://${host}`);
+	// h3 v2: event.url is a string
+	if (typeof (event as any).url === 'string') {
+		return new URL((event as any).url, base);
+	}
+
+	// h3 v2: event.req is a Web Request
+	if ((event as any).req?.url) {
+		return new URL((event as any).req.url, base);
+	}
+
+	// Dev-mode mock: event.path
+	if ((event as any).path) {
+		return new URL((event as any).path, base);
+	}
+
+	// Legacy h3 v1: event.node.req.url
+	if ((event as any).node?.req?.url) {
+		return new URL((event as any).node.req.url, base);
+	}
+
+	return new URL('/', base);
 }
 
 /**
  * Converts an absolute file path to a valid ESM import specifier.
  * Windows absolute paths (C:\...) are converted to file:// URLs.
+ * On Unix, the path is returned as-is (no-op).
  */
-function toImportSpecifier(filePath: string): string {
+export function toImportSpecifier(filePath: string): string {
 	if (/^[A-Za-z]:[\\/]/.test(filePath)) {
 		return `file:///${filePath.replaceAll('\\', '/')}`;
 	}

@@ -1,24 +1,40 @@
 // === Core Avalon + Vite Architecture ===
 
 // Vite Plugin - unified configuration API
-export { avalon, getResolvedConfig, getIslandsDir, getPagesDir, getApiDir, getNitroConfig, isNitroEnabled } from './src/vite-plugin/plugin.ts';
-export type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig, MDXConfig, ResolvedMDXConfig, AvalonNitroConfig, CacheOptions, RouteRule, NitroConfigOutput, AvalonRuntimeConfig } from './src/vite-plugin/types.ts';
+export {
+	avalon,
+	getResolvedConfig,
+	getIslandsDir,
+	getPagesDir,
+	getApiDir,
+	getNitroConfig,
+	isNitroEnabled,
+} from './src/vite-plugin/plugin.ts';
+export type {
+	AvalonPluginConfig,
+	IntegrationName,
+	ResolvedAvalonConfig,
+	MDXConfig,
+	ResolvedMDXConfig,
+	AvalonNitroConfig,
+	CacheOptions,
+	RouteRule,
+	NitroConfigOutput,
+	AvalonRuntimeConfig,
+} from './src/vite-plugin/types.ts';
 
 // Nitro Integration - virtual modules and coordination
 export {
-  createNitroIntegration,
-  createNitroCoordinationPlugin,
-  createVirtualModulesPlugin,
-  getViteDevServer,
-  getAvalonConfig,
-  isDevelopmentMode,
-  VIRTUAL_MODULE_IDS,
-  RESOLVED_VIRTUAL_IDS,
+	createNitroIntegration,
+	createNitroCoordinationPlugin,
+	createVirtualModulesPlugin,
+	getViteDevServer,
+	getAvalonConfig,
+	isDevelopmentMode,
+	VIRTUAL_MODULE_IDS,
+	RESOLVED_VIRTUAL_IDS,
 } from './src/vite-plugin/nitro-integration.ts';
-export type {
-  NitroIntegrationResult,
-  NitroCoordinationPluginOptions,
-} from './src/vite-plugin/nitro-integration.ts';
+export type { NitroIntegrationResult, NitroCoordinationPluginOptions } from './src/vite-plugin/nitro-integration.ts';
 
 // Main exports
 export { renderToHtml } from './src/render/ssr.ts';
@@ -27,85 +43,109 @@ export { renderToHtml } from './src/render/ssr.ts';
 export { default as Island, renderIsland, type IslandProps } from './src/islands/island.tsx';
 
 // Island utilities
-export { addSvelteSSRCSS, getSvelteSSRCSS, getSvelteSSRCSSForHead, getSvelteSSRCSSStats, getSvelteComponentCSS, clearSvelteComponentCSS, generateComponentScopeId } from './src/islands/css-utils.ts';
-export { detectFramework, detectFrameworkFromSrc, resolveIslandPath, resolveIslandPathSync } from './src/islands/framework-detection.ts';
+export {
+	addSvelteSSRCSS,
+	getSvelteSSRCSS,
+	getSvelteSSRCSSForHead,
+	getSvelteSSRCSSStats,
+	getSvelteComponentCSS,
+	clearSvelteComponentCSS,
+	generateComponentScopeId,
+} from './src/islands/css-utils.ts';
+export { detectFramework, detectFrameworkFromSrc, resolveIslandPath } from './src/islands/framework-detection.ts';
 export { analyzeComponentFile, renderComponentSSROnly } from './src/islands/component-analysis.ts';
 export type { Framework, RenderParams, SvelteSSRCSSEntry } from './src/islands/types.ts';
 
 // Island render cache utilities
 export {
-  clearCache,
-  clearIslandCache,
-  invalidateCacheForPath,
-  invalidateCacheForFile,
-  getCacheStats,
-  logCacheStats,
-  configureCache,
-  getCacheConfig,
+	clearCache,
+	clearIslandCache,
+	invalidateCacheForPath,
+	invalidateCacheForFile,
+	getCacheStats,
+	logCacheStats,
+	configureCache,
+	getCacheConfig,
 } from './src/islands/render-cache.ts';
 export type { CacheConfig as IslandCacheConfig, CacheStats as IslandCacheStats } from './src/islands/render-cache.ts';
 
 // Island Discovery System
 export {
-  // Scanner functions
-  discoverIslandDirectories,
-  discoverIslandsInDirectory,
-  discoverAllIslands,
-  isIslandsDirectory,
-  getDefaultIslandsPath,
-  hasDefaultIslandsDirectory,
-  getQualifiedIslandName,
-  parseQualifiedIslandName,
-  // Registry
-  IslandRegistry,
-  createIslandRegistry,
-  // Resolver
-  IslandResolver,
-  createIslandResolver,
-  // Validator
-  IslandValidator,
-  createIslandValidator,
-  validateAllIslands,
-  formatValidationError,
-  formatValidationWarning,
-  formatCircularDependency,
-  formatValidationResult,
-  // Watcher
-  IslandWatcher,
-  createIslandWatcher,
-  // Type utilities
-  ISLAND_FILE_EXTENSIONS,
-  DEFAULT_DISCOVERY_CONFIG,
-  isSupportedIslandExtension,
+	// Scanner functions
+	discoverIslandDirectories,
+	discoverIslandsInDirectory,
+	discoverAllIslands,
+	isIslandsDirectory,
+	getDefaultIslandsPath,
+	hasDefaultIslandsDirectory,
+	getQualifiedIslandName,
+	parseQualifiedIslandName,
+	// Registry
+	IslandRegistry,
+	createIslandRegistry,
+	// Resolver
+	IslandResolver,
+	createIslandResolver,
+	// Validator
+	IslandValidator,
+	createIslandValidator,
+	validateAllIslands,
+	formatValidationError,
+	formatValidationWarning,
+	formatCircularDependency,
+	formatValidationResult,
+	// Watcher
+	IslandWatcher,
+	createIslandWatcher,
+	// Type utilities
+	ISLAND_FILE_EXTENSIONS,
+	DEFAULT_DISCOVERY_CONFIG,
+	isSupportedIslandExtension,
 } from './src/islands/discovery/index.ts';
 
 // Island Discovery Types
 export type {
-  IslandDirectory,
-  DiscoveredIsland,
-  IslandCollision,
-  IslandChangeEvent,
-  IslandFileExtension,
-  IslandDiscoveryConfig,
-  ResolutionResult,
-  ImportPathOptions,
-  ValidationResult,
-  ValidationError,
-  ValidationWarning,
-  CircularDependency,
-  IslandChangeCallback,
-  IslandWatcherOptions,
+	IslandDirectory,
+	DiscoveredIsland,
+	IslandCollision,
+	IslandChangeEvent,
+	IslandFileExtension,
+	IslandDiscoveryConfig,
+	ResolutionResult,
+	ImportPathOptions,
+	ValidationResult,
+	ValidationError,
+	ValidationWarning,
+	CircularDependency,
+	IslandChangeCallback,
+	IslandWatcherOptions,
 } from './src/islands/discovery/index.ts';
 
 // Integration system
-export { loadIntegration, detectAndLoadIntegration, preloadIntegrations, detectFrameworksFromPageContent, DEFAULT_PRELOAD_FRAMEWORKS } from './src/islands/integration-loader.ts';
+export {
+	loadIntegration,
+	detectAndLoadIntegration,
+	preloadIntegrations,
+	detectFrameworksFromPageContent,
+	DEFAULT_PRELOAD_FRAMEWORKS,
+} from './src/islands/integration-loader.ts';
 export type { PreloadIntegrationsOptions } from './src/islands/integration-loader.ts';
 export { registry as integrationRegistry } from './src/core/integrations/registry.ts';
-export type { Integration, RenderParams as IntegrationRenderParams, RenderResult, IntegrationConfig } from '@avalon/core';
+export type {
+	Integration,
+	RenderParams as IntegrationRenderParams,
+	RenderResult,
+	IntegrationConfig,
+} from '@avalon/core';
 
 // Build utilities
 export { generateIslandManifest, loadIslandManifest, getIslandBundlePath } from './src/build/island-manifest.ts';
-export type { IslandManifest, IslandEntry, ExtendedIslandManifest, ExtendedIslandEntry } from './src/build/island-manifest.ts';
+export type {
+	IslandManifest,
+	IslandEntry,
+	ExtendedIslandManifest,
+	ExtendedIslandEntry,
+} from './src/build/island-manifest.ts';
 
 // MDX island transform (auto-wraps island imports in MDX with Island() calls)
 export { mdxIslandTransform } from './src/build/mdx-island-transform.ts';
@@ -175,11 +215,7 @@ export type { LayoutDataLoadingResult, LayoutDataLoadingOptions } from './src/co
 export type { EnhancedLayoutResolverOptions } from './src/core/layout/enhanced-layout-resolver.ts';
 
 // Layout cache types (essential only)
-export type {
-	CacheEntry,
-	CacheStats,
-	CacheConfig,
-} from './src/core/layout/layout-cache-manager.ts';
+export type { CacheEntry, CacheStats, CacheConfig } from './src/core/layout/layout-cache-manager.ts';
 
 // Layout system types - comprehensive export
 export type {

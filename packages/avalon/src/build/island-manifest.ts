@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { readFile, readdir } from 'node:fs/promises';
-import { 
+import {
 	getQualifiedIslandName,
 	type IslandDirectory,
 	type IslandCollision,
@@ -67,7 +67,7 @@ export async function generateIslandManifest(): Promise<ExtendedIslandManifest> 
 		for (const island of discoveredIslands) {
 			const qualifiedName = getQualifiedIslandName(island);
 			const src = `/${island.relativePath}`;
-			
+
 			// Read file content for analysis
 			const content = await readFile(island.filePath, 'utf-8');
 			const framework = mapFrameworkType(island.framework);
@@ -75,9 +75,10 @@ export async function generateIslandManifest(): Promise<ExtendedIslandManifest> 
 			const hash = await generateHash(content);
 
 			// Generate bundle path based on qualified name
-			const bundlePath = island.namespace === ''
-				? `/dist/islands/${island.name}.${hash}.js`
-				: `/dist/islands/${qualifiedName}.${hash}.js`;
+			const bundlePath =
+				island.namespace === ''
+					? `/dist/islands/${island.name}.${hash}.js`
+					: `/dist/islands/${qualifiedName}.${hash}.js`;
 
 			islands[qualifiedName] = {
 				src,
@@ -287,7 +288,7 @@ export function getIslandBundlePath(src: string, manifest?: ExtendedIslandManife
 
 	if (isDev) {
 		if (src.startsWith('/islands/')) {
-			return src.replace('/islands/', '/src/islands/');
+			return src.replaceAll('/islands/', '/src/islands/');
 		}
 		if (src.startsWith('/src/')) {
 			return src;
@@ -306,18 +307,18 @@ function extractQualifiedNameFromSrc(src: string): string {
 	let path = src.replace(/^\//, '');
 	path = path.replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
 	path = path.replace(/\.(solid|react|lit|preact)$/, '');
-	
-	const nestedMatch = path.match(/^src\/(.+)\/islands\/([^/]+)$/);
+
+	const nestedMatch = new RegExp(/^src\/(.+)\/islands\/([^/]+)$/).exec(path);
 	if (nestedMatch) {
 		const [, namespace, name] = nestedMatch;
 		return `${namespace}/${name}`;
 	}
-	
-	const defaultMatch = path.match(/^(?:src\/)?islands\/([^/]+)$/);
+
+	const defaultMatch = new RegExp(/^(?:src\/)?islands\/([^/]+)$/).exec(path);
 	if (defaultMatch) {
 		return defaultMatch[1];
 	}
-	
+
 	return path;
 }
 
@@ -325,13 +326,13 @@ function extractQualifiedNameFromSrc(src: string): string {
  * Get island entry by qualified name or simple name
  */
 export function getIslandEntry(
-	nameOrQualified: string, 
-	manifest: ExtendedIslandManifest | IslandManifest
+	nameOrQualified: string,
+	manifest: ExtendedIslandManifest | IslandManifest,
 ): ExtendedIslandEntry | IslandEntry | null {
 	if (manifest.islands[nameOrQualified]) {
 		return manifest.islands[nameOrQualified];
 	}
-	
+
 	const extendedManifest = manifest as ExtendedIslandManifest;
 	if (extendedManifest.directories) {
 		for (const [qualifiedName, entry] of Object.entries(manifest.islands)) {
@@ -341,6 +342,6 @@ export function getIslandEntry(
 			}
 		}
 	}
-	
+
 	return null;
 }

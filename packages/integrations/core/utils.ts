@@ -3,25 +3,23 @@
  * Provides shared functionality for component loading, path resolution, and more.
  */
 
-import type { ComponentLoadOptions, LoadContext } from "./types.ts";
-import type { ViteDevServer } from "vite";
-import { join, resolve } from "node:path";
+import type { ComponentLoadOptions, LoadContext } from './types.ts';
+import type { ViteDevServer } from 'vite';
+import { join, resolve } from 'node:path';
 
 /**
  * Load a component module in development or production
  * @param options - Component load options
  * @returns The loaded component module
  */
-export async function loadComponent(
-  options: ComponentLoadOptions,
-) {
-  const { src, context, target = "ssr" } = options;
+export async function loadComponent(options: ComponentLoadOptions) {
+	const { src, context, target = 'ssr' } = options;
 
-  if (context.isDev && context.viteServer) {
-    return await loadComponentDev(src, context.viteServer);
-  }
+	if (context.isDev && context.viteServer) {
+		return await loadComponentDev(src, context.viteServer);
+	}
 
-  return await loadComponentProd(src, context.buildOutput, target);
+	return await loadComponentProd(src, context.buildOutput, target);
 }
 
 /**
@@ -31,15 +29,12 @@ export async function loadComponent(
  * @returns The loaded component module
  */
 async function loadComponentDev(src: string, viteServer: ViteDevServer) {
-  try {
-    const module = await viteServer.ssrLoadModule(src);
-    return module.default || module;
-  } catch (error) {
-    throw new Error(
-      `Failed to load component in development: ${src}`,
-      { cause: error },
-    );
-  }
+	try {
+		const module = await viteServer.ssrLoadModule(src);
+		return module.default || module;
+	} catch (error) {
+		throw new Error(`Failed to load component in development: ${src}`, { cause: error });
+	}
 }
 
 /**
@@ -49,22 +44,15 @@ async function loadComponentDev(src: string, viteServer: ViteDevServer) {
  * @param target - Whether loading for SSR or client
  * @returns The loaded component module
  */
-async function loadComponentProd(
-  src: string,
-  buildOutput: string | undefined,
-  target: "ssr" | "client",
-) {
-  const outputPath = resolveProductionPath(src, buildOutput, target);
+async function loadComponentProd(src: string, buildOutput: string | undefined, target: 'ssr' | 'client') {
+	const outputPath = resolveProductionPath(src, buildOutput, target);
 
-  try {
-    const module = await import(outputPath);
-    return module.default || module;
-  } catch (error) {
-    throw new Error(
-      `Failed to load component in production: ${outputPath}`,
-      { cause: error },
-    );
-  }
+	try {
+		const module = await import(toImportSpecifier(outputPath));
+		return module.default || module;
+	} catch (error) {
+		throw new Error(`Failed to load component in production: ${outputPath}`, { cause: error });
+	}
 }
 
 /**
@@ -74,21 +62,17 @@ async function loadComponentProd(
  * @param target - Whether loading for SSR or client
  * @returns Resolved path to built component
  */
-export function resolveProductionPath(
-  src: string,
-  buildOutput: string | undefined,
-  target: "ssr" | "client",
-) {
-  const base = buildOutput || "dist";
-  const targetDir = target === "ssr" ? "ssr" : "client";
+export function resolveProductionPath(src: string, buildOutput: string | undefined, target: 'ssr' | 'client') {
+	const base = buildOutput || 'dist';
+	const targetDir = target === 'ssr' ? 'ssr' : 'client';
 
-  // Convert source path to output path
-  // e.g., /islands/Counter.tsx -> /dist/ssr/islands/Counter.js
-  const outputPath = src
-    .replace(/^\//, "") // Remove leading slash
-    .replace(/\.(tsx|jsx|ts|js|vue|svelte)$/, ".js"); // Change extension to .js
+	// Convert source path to output path
+	// e.g., /islands/Counter.tsx -> /dist/ssr/islands/Counter.js
+	const outputPath = src
+		.replace(/^\//, '') // Remove leading slash
+		.replace(/\.(tsx|jsx|ts|js|vue|svelte)$/, '.js'); // Change extension to .js
 
-  return join(base, targetDir, outputPath);
+	return join(base, targetDir, outputPath);
 }
 
 /**
@@ -98,15 +82,15 @@ export function resolveProductionPath(
  * @returns Absolute path
  */
 export function normalizePath(src: string, baseDir?: string) {
-  if (src.startsWith("/") || src.startsWith("file://")) {
-    return src;
-  }
+	if (src.startsWith('/') || src.startsWith('file://')) {
+		return src;
+	}
 
-  if (baseDir) {
-    return resolve(baseDir, src);
-  }
+	if (baseDir) {
+		return resolve(baseDir, src);
+	}
 
-  return resolve(src);
+	return resolve(src);
 }
 
 /**
@@ -115,8 +99,8 @@ export function normalizePath(src: string, baseDir?: string) {
  * @returns File extension (including the dot)
  */
 export function getExtension(path: string) {
-  const match = path.match(/\.[^.]+$/);
-  return match ? match[0] : "";
+	const match = /\.[^.]+$/.exec(path);
+	return match ? match[0] : '';
 }
 
 /**
@@ -126,8 +110,8 @@ export function getExtension(path: string) {
  * @returns True if path matches any extension
  */
 export function hasExtension(path: string, extensions: string[]) {
-  const ext = getExtension(path);
-  return extensions.includes(ext);
+	const ext = getExtension(path);
+	return extensions.includes(ext);
 }
 
 /**
@@ -136,13 +120,13 @@ export function hasExtension(path: string, extensions: string[]) {
  * @returns Unique scope identifier
  */
 export function generateScopeId(src: string) {
-  // Create a simple hash from the path
-  const hash = src
-    .replace(/[^a-zA-Z0-9]/g, "")
-    .toLowerCase()
-    .slice(-8);
+	// Create a simple hash from the path
+	const hash = src
+		.replaceAll(/[^a-zA-Z0-9]/g, '')
+		.toLowerCase()
+		.slice(-8);
 
-  return `data-v-${hash}`;
+	return `data-v-${hash}`;
 }
 
 /**
@@ -151,17 +135,17 @@ export function generateScopeId(src: string) {
  * @returns JSON string safe for HTML attributes
  */
 export function serializeProps(props: Record<string, unknown>) {
-  try {
-    return JSON.stringify(props)
-      .replace(/</g, "\\u003c")
-      .replace(/>/g, "\\u003e")
-      .replace(/&/g, "\\u0026")
-      .replace(/'/g, "\\u0027")
-      .replace(/"/g, "\\u0022");
-  } catch (error) {
-    console.error("Failed to serialize props:", error);
-    return "{}";
-  }
+	try {
+		return JSON.stringify(props)
+			.replaceAll('<', String.raw`\u003c`)
+			.replaceAll('>', String.raw`\u003e`)
+			.replaceAll('&', String.raw`\u0026`)
+			.replaceAll("'", String.raw`\u0027`)
+			.replaceAll('"', String.raw`\u0022`);
+	} catch (error) {
+		console.error('Failed to serialize props:', error);
+		return '{}';
+	}
 }
 
 /**
@@ -170,12 +154,12 @@ export function serializeProps(props: Record<string, unknown>) {
  * @returns Deserialized props object
  */
 export function deserializeProps(propsString: string) {
-  try {
-    return JSON.parse(propsString);
-  } catch (error) {
-    console.error("Failed to deserialize props:", error);
-    return {};
-  }
+	try {
+		return JSON.parse(propsString);
+	} catch (error) {
+		console.error('Failed to deserialize props:', error);
+		return {};
+	}
 }
 
 /**
@@ -184,17 +168,14 @@ export function deserializeProps(propsString: string) {
  * @param buildOutput - Optional build output directory
  * @returns Load context object
  */
-export function createLoadContext(
-  viteServer?: ViteDevServer,
-  buildOutput?: string,
-) {
-  const isDev = process.env.NODE_ENV !== "production";
+export function createLoadContext(viteServer?: ViteDevServer, buildOutput?: string) {
+	const isDev = process.env.NODE_ENV !== 'production';
 
-  return {
-    isDev,
-    viteServer: isDev ? viteServer : undefined,
-    buildOutput: !isDev ? buildOutput : undefined,
-  } satisfies LoadContext;
+	return {
+		isDev,
+		viteServer: isDev ? viteServer : undefined,
+		buildOutput: isDev ? undefined : buildOutput,
+	} satisfies LoadContext;
 }
 
 /**
@@ -203,12 +184,12 @@ export function createLoadContext(
  * @returns Escaped string
  */
 export function escapeHtml(str: string) {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+	return str
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replaceAll('"', '&quot;')
+		.replaceAll("'", '&#39;');
 }
 
 /**
@@ -217,7 +198,7 @@ export function escapeHtml(str: string) {
  * @returns True if module has a default export
  */
 export function hasDefaultExport(module: unknown) {
-  return module !== null && typeof module === "object" && "default" in module;
+	return module !== null && typeof module === 'object' && 'default' in module;
 }
 
 /**
@@ -226,11 +207,28 @@ export function hasDefaultExport(module: unknown) {
  * @returns The component
  */
 export function getComponentFromModule(module: Record<string, unknown>) {
-  if (hasDefaultExport(module)) {
-    return (module as Record<string, unknown>).default;
-  }
+	if (hasDefaultExport(module)) {
+		return (module as Record<string, unknown>).default;
+	}
 
-  // If no default export, return the module itself
-  // (some frameworks export the component directly)
-  return module;
+	// If no default export, return the module itself
+	// (some frameworks export the component directly)
+	return module;
+}
+
+/**
+ * Converts an absolute file path to a valid ESM import specifier.
+ * Windows absolute paths (C:\...) are converted to file:// URLs.
+ * On Unix, the path is returned as-is (no-op).
+ *
+ * This ensures dynamic import() calls work cross-platform.
+ *
+ * @param filePath - Absolute file path to convert
+ * @returns A valid ESM import specifier
+ */
+export function toImportSpecifier(filePath: string): string {
+	if (/^[A-Za-z]:[\\/]/.test(filePath)) {
+		return `file:///${filePath.replaceAll('\\', '/')}`;
+	}
+	return filePath;
 }

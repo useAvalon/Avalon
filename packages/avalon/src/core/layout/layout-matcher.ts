@@ -21,11 +21,13 @@ export class BuiltInLayoutRules {
 	 * Requirements: 4.2
 	 */
 	static readonly MOBILE_LAYOUT_DETECTION: LayoutRule = {
-		matches: (route: RouteInfo): boolean => {
+		matches: (route: RouteInfo, layoutPath?: string): boolean => {
 			const userAgent = route.headers.get('user-agent')?.toLowerCase() || '';
 			const isMobile = /mobile|android|iphone|ipad|phone|tablet/i.test(userAgent);
-			// Skip mobile layouts for non-mobile user agents
-			return !isMobile;
+			const isMobileLayout = layoutPath?.includes('/mobile/') ?? false;
+			// Skip mobile layouts for non-mobile user agents; skip non-mobile layouts for mobile users
+			if (isMobileLayout) return !isMobile;
+			return isMobile;
 		},
 		apply: false,
 		priority: 50,
@@ -49,7 +51,10 @@ export class BuiltInLayoutRules {
 	 * Requirements: 4.3
 	 */
 	static readonly ADMIN_LAYOUT_RESTRICTION: LayoutRule = {
-		matches: (route: RouteInfo): boolean => {
+		matches: (route: RouteInfo, layoutPath?: string): boolean => {
+			// Only restrict admin layouts — if no layoutPath or not an admin layout, don't match
+			if (!layoutPath?.includes('/admin/')) return false;
+			// Admin layout should only apply to admin routes
 			return !route.path.startsWith('/admin/');
 		},
 		apply: false,
@@ -72,7 +77,7 @@ export class BuiltInLayoutRules {
  */
 export class LayoutMatcher {
 	private rules: LayoutRule[] = [];
-	private developmentMode: boolean;
+	private readonly developmentMode: boolean;
 
 	constructor(options: { developmentMode?: boolean } = {}) {
 		this.developmentMode = options.developmentMode || false;
@@ -88,10 +93,10 @@ export class LayoutMatcher {
 			throw new Error('Layout rule must have a valid matches function');
 		}
 		if (typeof rule.apply !== 'boolean') {
-			throw new Error('Layout rule must have a boolean apply property');
+			throw new TypeError('Layout rule must have a boolean apply property');
 		}
 		if (typeof rule.priority !== 'number') {
-			throw new Error('Layout rule must have a numeric priority');
+			throw new TypeError('Layout rule must have a numeric priority');
 		}
 
 		this.rules.push(rule);
@@ -122,7 +127,7 @@ export class LayoutMatcher {
 	 */
 	shouldApplyLayout(layoutPath: string, route: RouteInfo): boolean {
 		try {
-			const matchingRules = this.getMatchingRules(route);
+			const matchingRules = this.getMatchingRules(route, layoutPath);
 
 			if (matchingRules.length === 0) {
 				return true;
@@ -133,7 +138,7 @@ export class LayoutMatcher {
 			if (this.developmentMode) {
 				console.log(
 					`[LayoutMatcher] Layout ${layoutPath} for route ${route.path}: ${result ? 'APPLY' : 'SKIP'} ` +
-						`(${matchingRules.length} rules matched)`
+						`(${matchingRules.length} rules matched)`,
 				);
 			}
 
@@ -143,7 +148,7 @@ export class LayoutMatcher {
 				console.warn(
 					`[LayoutMatcher] Error evaluating rules for layout ${layoutPath}: ${
 						error instanceof Error ? error.message : String(error)
-					}`
+					}`,
 				);
 			}
 			return true;
@@ -175,17 +180,17 @@ export class LayoutMatcher {
 		this.rules.sort((a, b) => b.priority - a.priority);
 	}
 
-	private getMatchingRules(route: RouteInfo): LayoutRule[] {
+	private getMatchingRules(route: RouteInfo, layoutPath?: string): LayoutRule[] {
 		const matchingRules: LayoutRule[] = [];
 		for (const rule of this.rules) {
 			try {
-				if (rule.matches(route)) {
+				if (rule.matches(route, layoutPath)) {
 					matchingRules.push(rule);
 				}
 			} catch (error) {
 				if (this.developmentMode) {
 					console.warn(
-						`[LayoutMatcher] Error in rule evaluation: ${error instanceof Error ? error.message : String(error)}`
+						`[LayoutMatcher] Error in rule evaluation: ${error instanceof Error ? error.message : String(error)}`,
 					);
 				}
 			}
@@ -235,11 +240,7 @@ export class LayoutMatcher {
 	 * Create a custom rule
 	 * Requirements: 4.3
 	 */
-	static createCustomRule(
-		matcher: (route: RouteInfo) => boolean,
-		apply: boolean,
-		priority: number = 10
-	): LayoutRule {
+	static createCustomRule(matcher: (route: RouteInfo) => boolean, apply: boolean, priority: number = 10): LayoutRule {
 		return { matches: matcher, apply, priority };
 	}
 
@@ -255,7 +256,7 @@ export class LayoutMatcher {
 		headerName: string,
 		headerValue: string | RegExp,
 		apply: boolean,
-		priority: number = 10
+		priority: number = 10,
 	): LayoutRule {
 		return {
 			matches: (route: RouteInfo) => {
@@ -269,9 +270,9 @@ export class LayoutMatcher {
 	}
 
 	static createMethodRule(methods: string | string[], apply: boolean, priority: number = 10): LayoutRule {
-		const normalizedMethods = (Array.isArray(methods) ? methods : [methods]).map(m => m.toUpperCase());
+		const normalizedMethods = new Set((Array.isArray(methods) ? methods : [methods]).map(m => m.toUpperCase()));
 		return {
-			matches: (route: RouteInfo) => normalizedMethods.includes(route.method.toUpperCase()),
+			matches: (route: RouteInfo) => normalizedMethods.has(route.method.toUpperCase()),
 			apply,
 			priority,
 		};
@@ -279,14 +280,14 @@ export class LayoutMatcher {
 
 	getDebugInfo(
 		layoutPath: string,
-		route: RouteInfo
+		route: RouteInfo,
 	): {
 		totalRules: number;
 		matchingRules: Array<{ priority: number; apply: boolean }>;
 		finalDecision: boolean;
 		conflictResolution?: string;
 	} {
-		const matchingRules = this.getMatchingRules(route);
+		const matchingRules = this.getMatchingRules(route, layoutPath);
 		const finalDecision = this.shouldApplyLayout(layoutPath, route);
 		return {
 			totalRules: this.rules.length,

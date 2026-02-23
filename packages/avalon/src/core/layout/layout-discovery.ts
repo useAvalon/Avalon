@@ -1,12 +1,6 @@
 import { join, resolve, relative } from 'node:path';
 import { statSync } from 'node:fs';
 
-// URLPattern is available at runtime (Node 22+, Bun, Deno) but may lack type declarations
-declare const URLPattern: new (init: { pathname: string }) => {
-	test(input: URL | string): boolean;
-	exec(input: URL | string): unknown;
-};
-
 import type {
 	ComponentType,
 	LayoutRoute,

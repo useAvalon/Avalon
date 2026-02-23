@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { LayoutMatcher, BuiltInLayoutRules } from '../layout-matcher.ts';
-import type { LayoutRule, RouteInfo } from '../../../schemas/layout.ts';
+import type { LayoutRule, RouteInfo } from '../layout-types.ts';
 
 // Helper function to create mock RouteInfo
 function createMockRoute(path: string, method: string = 'GET', headers: Record<string, string> = {}): RouteInfo {
@@ -281,17 +281,12 @@ describe('LayoutMatcher', () => {
 
 	describe('Custom rule creation helpers', () => {
 		it('should create custom rules', () => {
-			const rule = LayoutMatcher.createCustomRule(
-				'test-rule',
-				(layoutPath, route) => route.path === '/test',
-				false,
-				25
-			);
+			const rule = LayoutMatcher.createCustomRule(route => route.path === '/test', false, 25);
 
 			expect(rule.apply).toEqual(false);
 			expect(rule.priority).toEqual(25);
-			expect(rule.matches('/layout.tsx', createMockRoute('/test'))).toEqual(true);
-			expect(rule.matches('/layout.tsx', createMockRoute('/other'))).toEqual(false);
+			expect(rule.matches(createMockRoute('/test'))).toEqual(true);
+			expect(rule.matches(createMockRoute('/other'))).toEqual(false);
 		});
 
 		it('should create path-based rules with string patterns', () => {
@@ -299,8 +294,8 @@ describe('LayoutMatcher', () => {
 
 			expect(rule.apply).toEqual(false);
 			expect(rule.priority).toEqual(30);
-			expect(rule.matches('/layout.tsx', createMockRoute('/admin/users'))).toEqual(true);
-			expect(rule.matches('/layout.tsx', createMockRoute('/users'))).toEqual(false);
+			expect(rule.matches(createMockRoute('/admin/users'))).toEqual(true);
+			expect(rule.matches(createMockRoute('/users'))).toEqual(false);
 		});
 
 		it('should create path-based rules with regex patterns', () => {
@@ -308,9 +303,9 @@ describe('LayoutMatcher', () => {
 
 			expect(rule.apply).toEqual(false);
 			expect(rule.priority).toEqual(40);
-			expect(rule.matches('/layout.tsx', createMockRoute('/api/v1/users'))).toEqual(true);
-			expect(rule.matches('/layout.tsx', createMockRoute('/api/v2/posts'))).toEqual(true);
-			expect(rule.matches('/layout.tsx', createMockRoute('/api/users'))).toEqual(false);
+			expect(rule.matches(createMockRoute('/api/v1/users'))).toEqual(true);
+			expect(rule.matches(createMockRoute('/api/v2/posts'))).toEqual(true);
+			expect(rule.matches(createMockRoute('/api/users'))).toEqual(false);
 		});
 
 		it('should create header-based rules with string values', () => {
@@ -318,8 +313,8 @@ describe('LayoutMatcher', () => {
 
 			expect(rule.apply).toEqual(true);
 			expect(rule.priority).toEqual(20);
-			expect(rule.matches('/layout.tsx', createMockRoute('/test', 'GET', { 'x-api-version': 'v2' }))).toEqual(true);
-			expect(rule.matches('/layout.tsx', createMockRoute('/test', 'GET', { 'x-api-version': 'v1' }))).toEqual(false);
+			expect(rule.matches(createMockRoute('/test', 'GET', { 'x-api-version': 'v2' }))).toEqual(true);
+			expect(rule.matches(createMockRoute('/test', 'GET', { 'x-api-version': 'v1' }))).toEqual(false);
 		});
 
 		it('should create header-based rules with regex values', () => {
@@ -327,12 +322,8 @@ describe('LayoutMatcher', () => {
 
 			expect(rule.apply).toEqual(true);
 			expect(rule.priority).toEqual(35);
-			expect(
-				rule.matches('/layout.tsx', createMockRoute('/test', 'GET', { authorization: 'Bearer token123' }))
-			).toEqual(true);
-			expect(
-				rule.matches('/layout.tsx', createMockRoute('/test', 'GET', { authorization: 'Basic dXNlcjpwYXNz' }))
-			).toEqual(false);
+			expect(rule.matches(createMockRoute('/test', 'GET', { authorization: 'Bearer token123' }))).toEqual(true);
+			expect(rule.matches(createMockRoute('/test', 'GET', { authorization: 'Basic dXNlcjpwYXNz' }))).toEqual(false);
 		});
 
 		it('should create method-based rules with single method', () => {
@@ -340,8 +331,8 @@ describe('LayoutMatcher', () => {
 
 			expect(rule.apply).toEqual(false);
 			expect(rule.priority).toEqual(15);
-			expect(rule.matches('/layout.tsx', createMockRoute('/test', 'POST'))).toEqual(true);
-			expect(rule.matches('/layout.tsx', createMockRoute('/test', 'GET'))).toEqual(false);
+			expect(rule.matches(createMockRoute('/test', 'POST'))).toEqual(true);
+			expect(rule.matches(createMockRoute('/test', 'GET'))).toEqual(false);
 		});
 
 		it('should create method-based rules with multiple methods', () => {
@@ -349,17 +340,17 @@ describe('LayoutMatcher', () => {
 
 			expect(rule.apply).toEqual(false);
 			expect(rule.priority).toEqual(25);
-			expect(rule.matches('/layout.tsx', createMockRoute('/test', 'POST'))).toEqual(true);
-			expect(rule.matches('/layout.tsx', createMockRoute('/test', 'PUT'))).toEqual(true);
-			expect(rule.matches('/layout.tsx', createMockRoute('/test', 'DELETE'))).toEqual(true);
-			expect(rule.matches('/layout.tsx', createMockRoute('/test', 'GET'))).toEqual(false);
+			expect(rule.matches(createMockRoute('/test', 'POST'))).toEqual(true);
+			expect(rule.matches(createMockRoute('/test', 'PUT'))).toEqual(true);
+			expect(rule.matches(createMockRoute('/test', 'DELETE'))).toEqual(true);
+			expect(rule.matches(createMockRoute('/test', 'GET'))).toEqual(false);
 		});
 
 		it('should handle case-insensitive method matching', () => {
 			const rule = LayoutMatcher.createMethodRule('post', false, 15);
 
-			expect(rule.matches('/layout.tsx', createMockRoute('/test', 'POST'))).toEqual(true);
-			expect(rule.matches('/layout.tsx', createMockRoute('/test', 'post'))).toEqual(true);
+			expect(rule.matches(createMockRoute('/test', 'POST'))).toEqual(true);
+			expect(rule.matches(createMockRoute('/test', 'post'))).toEqual(true);
 		});
 	});
 

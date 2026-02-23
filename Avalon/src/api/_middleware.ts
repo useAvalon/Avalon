@@ -15,59 +15,52 @@
  */
 
 import { defineMiddleware } from '@avalon/avalon/middleware';
-import { setResponseHeader, getMethod } from 'h3';
+import { setResponseHeader, getMethod, getRequestURL } from 'h3';
 
-export default defineMiddleware((event) => {
-  const start = Date.now();
-  const method = getMethod(event);
-  const url = event.node.req.url || '/';
+export default defineMiddleware(event => {
+	const start = Date.now();
+	const method = getMethod(event);
+	const url = getRequestURL(event).pathname || '/';
 
-  // Add timing to context
-  event.context.timing = {
-    start,
-  };
+	// Add timing to context
+	event.context.timing = {
+		start,
+	};
 
-  // Set CORS headers for all API routes
-  setResponseHeader(event, 'Access-Control-Allow-Origin', '*');
-  setResponseHeader(
-    event,
-    'Access-Control-Allow-Methods',
-    'GET, POST, PUT, DELETE, PATCH, OPTIONS'
-  );
-  setResponseHeader(
-    event,
-    'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, X-API-Key'
-  );
-  setResponseHeader(event, 'Access-Control-Max-Age', '86400');
+	// Set CORS headers for all API routes
+	setResponseHeader(event, 'Access-Control-Allow-Origin', '*');
+	setResponseHeader(event, 'Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+	setResponseHeader(event, 'Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+	setResponseHeader(event, 'Access-Control-Max-Age', '86400');
 
-  // Handle OPTIONS preflight requests
-  if (method === 'OPTIONS') {
-    // Return empty response for preflight
-    return new Response(null, {
-      status: 204,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key',
-        'Access-Control-Max-Age': '86400',
-      },
-    });
-  }
+	// Handle OPTIONS preflight requests
+	if (method === 'OPTIONS') {
+		// Return empty response for preflight
+		return new Response(null, {
+			status: 204,
+			headers: {
+				'Access-Control-Allow-Origin': '*',
+				'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+				'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-Key',
+				'Access-Control-Max-Age': '86400',
+			},
+		});
+	}
 
-  // Development-only request logging
-  if (import.meta.env?.DEV) {
-    console.log(`[api] ${method} ${url} - Started`);
+	// Development-only request logging
+	if (import.meta.env?.DEV) {
+		console.log(`[api] ${method} ${url} - Started`);
 
-    // Log completion after response (using event hook if available)
-    // Note: In production, you'd use proper observability tools
-    const originalEnd = event.node.res.end;
-    event.node.res.end = function (...args: Parameters<typeof originalEnd>) {
-      const duration = Date.now() - start;
-      console.log(`[api] ${method} ${url} - Completed in ${duration}ms`);
-      return originalEnd.apply(this, args);
-    };
-  }
+		// Log completion after response (using event hook if available)
+		// Note: In production, you'd use proper observability tools
+		const nodeEvent = event.node;
+		const originalEnd = nodeEvent.res.end;
+		nodeEvent.res.end = function (...args: Parameters<typeof originalEnd>) {
+			const duration = Date.now() - start;
+			console.log(`[api] ${method} ${url} - Completed in ${duration}ms`);
+			return originalEnd.apply(this, args);
+		};
+	}
 
-  // Return nothing to continue to next middleware/handler
+	// Return nothing to continue to next middleware/handler
 });

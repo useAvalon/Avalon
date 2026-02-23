@@ -1,4 +1,5 @@
 /// <reference lib="dom" />
+/// <reference path="./types/urlpattern.d.ts" />
 /**
  * Advanced Layout System - TypeScript Declarations
  *
@@ -64,7 +65,7 @@ export interface RouteInfo {
 }
 
 export interface LayoutRule {
-	matches: (layoutPath: string, route: RouteInfo) => boolean;
+	matches: (route: RouteInfo, layoutPath?: string) => boolean;
 	apply: boolean;
 	priority: number;
 }
@@ -79,7 +80,7 @@ export interface LayoutConfig {
 // === Function Types ===
 
 export type LayoutLoader = (ctx: LayoutContext) => Promise<LayoutData>;
-export type LayoutMatcherFunction = (layoutPath: string, route: RouteInfo) => boolean;
+export type LayoutMatcherFunction = (route: RouteInfo, layoutPath?: string) => boolean;
 export type LayoutErrorHandler = (error: Error, errorInfo: LayoutErrorInfo) => void;
 export type LayoutRetryFunction = () => void;
 export type LayoutFallbackRenderer = (error: Error, retry: LayoutRetryFunction) => ComponentChildren;
@@ -504,7 +505,10 @@ export declare function StreamingLayout(props: StreamingLayoutProps): ComponentC
 export declare function createEnhancedLayoutResolver(options?: LayoutDiscoveryOptions): EnhancedLayoutResolver;
 export declare function createLayoutDataLoader(options?: LayoutDiscoveryOptions): LayoutLoader;
 export declare function createLayoutUtilities(config?: LayoutUtilitiesConfig): LayoutUtilitiesSuite;
-export declare function createPersistentIslandContext(persistentId: string, persistence?: IslandPersistence): PersistentIslandContext;
+export declare function createPersistentIslandContext(
+	persistentId: string,
+	persistence?: IslandPersistence,
+): PersistentIslandContext;
 
 // === Hook Declarations ===
 
@@ -514,10 +518,16 @@ export declare function useStreamingState(): { isReady: boolean; error?: Error }
 // === Utility Functions ===
 
 export declare function validateLayoutConfiguration(config: LayoutConfig): ValidationResult;
-export declare function getLayoutSystemHealthReport(): { healthy: boolean; metrics: LayoutPerformanceMetrics; errors: LayoutErrorInfo[] };
+export declare function getLayoutSystemHealthReport(): {
+	healthy: boolean;
+	metrics: LayoutPerformanceMetrics;
+	errors: LayoutErrorInfo[];
+};
 export declare function withLayoutUtilities<P = Record<string, unknown>>(component: ComponentType<P>): ComponentType<P>;
 export declare function withStreaming<P = Record<string, unknown>>(component: ComponentType<P>): ComponentType<P>;
-export declare function withIslandErrorBoundary<P = Record<string, unknown>>(component: ComponentType<P>): ComponentType<P>;
+export declare function withIslandErrorBoundary<P = Record<string, unknown>>(
+	component: ComponentType<P>,
+): ComponentType<P>;
 
 // === Constants ===
 

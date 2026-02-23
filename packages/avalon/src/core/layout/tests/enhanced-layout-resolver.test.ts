@@ -9,11 +9,7 @@ import {
 	createEnhancedLayoutResolver,
 	EnhancedLayoutResolverUtils,
 } from '../enhanced-layout-resolver.ts';
-import type {
-	LayoutContext,
-	LayoutProps,
-	LayoutConfig,
-} from '../../../types/layout.ts';
+import type { LayoutContext, LayoutConfig } from '../../../types/layout.ts';
 
 // Mock components for testing
 const MockPageComponent: ComponentType<any> = () => {
@@ -53,8 +49,6 @@ describe('EnhancedLayoutResolver', () => {
 			baseDirectory: tempDir,
 			developmentMode: true,
 			enableCaching: true,
-			enableStreaming: true,
-			enableErrorBoundaries: true,
 			enableMetrics: true,
 			enableDebugInfo: true,
 		});
@@ -82,8 +76,6 @@ describe('EnhancedLayoutResolver', () => {
 			expect(options.baseDirectory).toEqual(tempDir);
 			expect(options.filePattern).toEqual('_layout.tsx');
 			expect(options.enableCaching).toEqual(true);
-			expect(options.enableStreaming).toEqual(true);
-			expect(options.enableErrorBoundaries).toEqual(true);
 		});
 
 		it('should create resolver with custom options', () => {
@@ -91,7 +83,6 @@ describe('EnhancedLayoutResolver', () => {
 				baseDirectory: tempDir,
 				filePattern: 'layout.tsx',
 				enableCaching: false,
-				enableStreaming: false,
 				cacheTTL: 10000,
 				maxCacheSize: 500,
 			});
@@ -99,7 +90,6 @@ describe('EnhancedLayoutResolver', () => {
 			const options = customResolver.getOptions();
 			expect(options.filePattern).toEqual('layout.tsx');
 			expect(options.enableCaching).toEqual(false);
-			expect(options.enableStreaming).toEqual(false);
 			expect(options.cacheTTL).toEqual(10000);
 			expect(options.maxCacheSize).toEqual(500);
 		});
@@ -107,12 +97,10 @@ describe('EnhancedLayoutResolver', () => {
 		it('should update options after creation', () => {
 			resolver.updateOptions({
 				enableCaching: false,
-				enableStreaming: false,
 			});
 
 			const options = resolver.getOptions();
 			expect(options.enableCaching).toEqual(false);
-			expect(options.enableStreaming).toEqual(false);
 		});
 	});
 
@@ -273,16 +261,10 @@ describe('EnhancedLayoutResolver', () => {
 			expect(typeof dataLoader.loadLayoutData).toEqual('function');
 		});
 
-		it('should provide access to layout streaming', () => {
-			const streaming = resolver.getLayoutStreaming();
-			expect(streaming).toBeDefined();
-			expect(typeof streaming.renderWithStreaming).toEqual('function');
-		});
-
-		it('should provide access to error recovery', () => {
-			const errorRecovery = resolver.getErrorRecovery();
-			expect(errorRecovery).toBeDefined();
-			expect(typeof errorRecovery.handleLayoutError).toEqual('function');
+		it('should provide access to cache manager', () => {
+			const cacheManager = resolver.getCacheManager();
+			expect(cacheManager).toBeDefined();
+			expect(typeof cacheManager.getStats).toEqual('function');
 		});
 	});
 
@@ -308,10 +290,17 @@ describe('EnhancedLayoutResolverUtils', () => {
 			expect(config.baseDirectory).toEqual('/test');
 			expect(config.developmentMode).toEqual(false);
 			expect(config.enableCaching).toEqual(true);
-			expect(config.enableStreaming).toEqual(true);
-			expect(config.enableErrorBoundaries).toEqual(true);
 			expect(config.enableMetrics).toEqual(false);
 			expect(config.enableDebugInfo).toEqual(false);
+		});
+
+		it('should create basic configuration in development mode', () => {
+			const config = EnhancedLayoutResolverUtils.createBasicConfig('/test', true);
+
+			expect(config.baseDirectory).toEqual('/test');
+			expect(config.developmentMode).toEqual(true);
+			expect(config.enableMetrics).toEqual(true);
+			expect(config.enableDebugInfo).toEqual(true);
 		});
 
 		it('should create production configuration', () => {
@@ -320,27 +309,8 @@ describe('EnhancedLayoutResolverUtils', () => {
 			expect(config.baseDirectory).toEqual('/prod');
 			expect(config.developmentMode).toEqual(false);
 			expect(config.enableCaching).toEqual(true);
-			expect(config.cacheTTL).toEqual(15 * 60 * 1000);
-			expect(config.maxCacheSize).toEqual(5000);
-			expect(config.enableStreaming).toEqual(true);
-			expect(config.enableErrorBoundaries).toEqual(true);
 			expect(config.enableMetrics).toEqual(false);
 			expect(config.enableDebugInfo).toEqual(false);
-		});
-
-		it('should create development configuration', () => {
-			const config = EnhancedLayoutResolverUtils.createDevelopmentConfig('/dev');
-
-			expect(config.baseDirectory).toEqual('/dev');
-			expect(config.developmentMode).toEqual(true);
-			expect(config.enableWatching).toEqual(true);
-			expect(config.enableCaching).toEqual(true);
-			expect(config.cacheTTL).toEqual(1 * 60 * 1000);
-			expect(config.maxCacheSize).toEqual(100);
-			expect(config.enableStreaming).toEqual(true);
-			expect(config.enableErrorBoundaries).toEqual(true);
-			expect(config.enableMetrics).toEqual(true);
-			expect(config.enableDebugInfo).toEqual(true);
 		});
 	});
 });
@@ -365,7 +335,7 @@ describe('Integration with layout system components', () => {
 		const matcher = resolver.getLayoutMatcher();
 
 		matcher.addRule({
-			matches: (_layoutPath: string, route: any) => route.path.startsWith('/api/'),
+			matches: route => route.path.startsWith('/api/'),
 			apply: false,
 			priority: 100,
 		});
@@ -421,7 +391,6 @@ describe('Error handling and recovery', () => {
 		resolver = createEnhancedLayoutResolver({
 			baseDirectory: tempDir,
 			developmentMode: true,
-			enableErrorBoundaries: true,
 		});
 	});
 

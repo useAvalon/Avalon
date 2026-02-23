@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile, rm } from 'node:fs/promises';
 import { LayoutComposer } from '../layout-composer.ts';
-import type { LayoutConfig, LayoutHandler, LayoutDiscoveryOptions } from '../../../schemas/layout.ts';
+import type { LayoutConfig, LayoutDiscoveryOptions } from '../layout-types.ts';
 
 // Test fixtures directory
 const TEST_FIXTURES_DIR = resolve('tests/fixtures/layout-composer');
@@ -18,17 +18,10 @@ interface MockPageModule {
 
 // Helper function to create test layout files
 async function createTestLayouts() {
+	// Plain JS (no JSX) to avoid needing preact/jsx-dev-runtime at test time
 	const rootLayoutContent = `
-export default function RootLayout({ children, data }) {
-	return (
-		<html>
-			<body>
-				<header>Root Header</header>
-				{children}
-				<footer>Root Footer</footer>
-			</body>
-		</html>
-	);
+export default function RootLayout(props) {
+	return props.children;
 }
 
 export async function layoutLoader(ctx) {
@@ -37,13 +30,8 @@ export async function layoutLoader(ctx) {
 `;
 
 	const blogLayoutContent = `
-export default function BlogLayout({ children, data }) {
-	return (
-		<div className="blog-layout">
-			<nav>Blog Navigation</nav>
-			<main>{children}</main>
-		</div>
-	);
+export default function BlogLayout(props) {
+	return props.children;
 }
 
 export async function layoutLoader(ctx) {
@@ -52,13 +40,8 @@ export async function layoutLoader(ctx) {
 `;
 
 	const customLayoutContent = `
-export default function CustomLayout({ children, data }) {
-	return (
-		<div className="custom-layout">
-			<h1>Custom Layout</h1>
-			{children}
-		</div>
-	);
+export default function CustomLayout(props) {
+	return props.children;
 }
 
 export async function layoutLoader(ctx) {
@@ -66,12 +49,12 @@ export async function layoutLoader(ctx) {
 }
 `;
 
-	await writeFile(join(TEST_PAGES_DIR, '_layout.tsx'), rootLayoutContent);
+	await writeFile(join(TEST_PAGES_DIR, '_layout.js'), rootLayoutContent);
 
 	await mkdir(join(TEST_PAGES_DIR, 'blog'), { recursive: true });
-	await writeFile(join(TEST_PAGES_DIR, 'blog', '_layout.tsx'), blogLayoutContent);
+	await writeFile(join(TEST_PAGES_DIR, 'blog', '_layout.js'), blogLayoutContent);
 
-	await writeFile(join(TEST_LAYOUTS_DIR, 'custom.tsx'), customLayoutContent);
+	await writeFile(join(TEST_LAYOUTS_DIR, 'custom.js'), customLayoutContent);
 }
 
 async function setupTestFixtures(): Promise<LayoutComposer> {
@@ -86,7 +69,7 @@ async function setupTestFixtures(): Promise<LayoutComposer> {
 
 	const options: LayoutDiscoveryOptions = {
 		baseDirectory: join(TEST_FIXTURES_DIR, 'src'),
-		filePattern: '_layout.tsx',
+		filePattern: '_layout.js',
 		excludeDirectories: ['node_modules', '.git'],
 		enableWatching: false,
 		developmentMode: true,
@@ -144,7 +127,7 @@ describe('LayoutComposer - replaceLayout Configuration', () => {
 		const composer = await setupTestFixtures();
 
 		try {
-			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.tsx');
+			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.js');
 
 			const pageModule: MockPageModule = {
 				default: () => 'Page Component',
@@ -172,7 +155,7 @@ describe('LayoutComposer - skipLayouts Configuration', () => {
 			const pageModule: MockPageModule = {
 				default: () => 'Page Component',
 				layoutConfig: {
-					skipLayouts: ['_layout.tsx'],
+					skipLayouts: ['_layout.js'],
 				},
 			};
 
@@ -214,13 +197,13 @@ describe('LayoutComposer - onlyLayouts Configuration', () => {
 			const pageModule: MockPageModule = {
 				default: () => 'Page Component',
 				layoutConfig: {
-					onlyLayouts: ['_layout.tsx'],
+					onlyLayouts: ['_layout.js'],
 				},
 			};
 
 			const layouts = await composer.resolveLayouts('/blog/post', pageModule);
 
-			expect(layouts.every(layout => layout.path.includes('_layout.tsx'))).toEqual(true);
+			expect(layouts.every(layout => layout.path.includes('_layout.js'))).toEqual(true);
 		} finally {
 			await cleanupTestFixtures();
 		}
@@ -230,7 +213,7 @@ describe('LayoutComposer - onlyLayouts Configuration', () => {
 		const composer = await setupTestFixtures();
 
 		try {
-			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.tsx');
+			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.js');
 
 			const pageModule: MockPageModule = {
 				default: () => 'Page Component',
@@ -253,7 +236,7 @@ describe('LayoutComposer - customLayout Configuration', () => {
 		const composer = await setupTestFixtures();
 
 		try {
-			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.tsx');
+			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.js');
 
 			const pageModule: MockPageModule = {
 				default: () => 'Page Component',
@@ -277,13 +260,13 @@ describe('LayoutComposer - customLayout Configuration', () => {
 			const pageModule: MockPageModule = {
 				default: () => 'Page Component',
 				layoutConfig: {
-					customLayout: 'src/layouts/custom.tsx',
+					customLayout: 'src/layouts/custom.js',
 				},
 			};
 
 			const layouts = await composer.resolveLayouts('/blog/post', pageModule);
 
-			expect(layouts.some(layout => layout.path.includes('custom.tsx'))).toEqual(true);
+			expect(layouts.some(layout => layout.path.includes('custom.js'))).toEqual(true);
 		} finally {
 			await cleanupTestFixtures();
 		}
@@ -387,7 +370,7 @@ describe('LayoutComposer - Complex Configuration', () => {
 		const composer = await setupTestFixtures();
 
 		try {
-			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.tsx');
+			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.js');
 
 			const pageModule: MockPageModule = {
 				default: () => 'Page Component',
@@ -412,7 +395,7 @@ describe('LayoutComposer - Cache Management', () => {
 		const composer = await setupTestFixtures();
 
 		try {
-			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.tsx');
+			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.js');
 
 			const pageModule: MockPageModule = {
 				default: () => 'Page Component',
@@ -438,7 +421,7 @@ describe('LayoutComposer - Cache Management', () => {
 		const composer = await setupTestFixtures();
 
 		try {
-			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.tsx');
+			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.js');
 
 			const pageModule: MockPageModule = {
 				default: () => 'Page Component',

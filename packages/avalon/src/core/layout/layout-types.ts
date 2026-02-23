@@ -70,7 +70,7 @@ export interface RouteInfo {
 }
 
 export interface LayoutRule {
-	matches: (route: RouteInfo) => boolean;
+	matches: (route: RouteInfo, layoutPath?: string) => boolean;
 	apply: boolean;
 	priority: number;
 }
