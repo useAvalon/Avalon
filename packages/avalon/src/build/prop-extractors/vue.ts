@@ -50,7 +50,7 @@ function extractScriptSetupContent(source: string): string | null {
 	// The 's' flag makes . match newlines
 	const scriptSetupRegex =
 		/<script\b[^>]*\bsetup\b[^>]*>([\s\S]*?)<\/script>/i;
-	const match = source.match(scriptSetupRegex);
+	const match = new RegExp(scriptSetupRegex).exec(source);
 	return match ? match[1] : null;
 }
 

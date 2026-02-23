@@ -37,8 +37,8 @@ function findMonorepoRoot(): string {
  * It provides registration, retrieval, and dynamic loading of integrations.
  */
 export class IntegrationRegistry {
-  private integrations = new Map<string, Integration>();
-  private loadingPromises = new Map<string, Promise<Integration>>();
+  private readonly integrations = new Map<string, Integration>();
+  private readonly loadingPromises = new Map<string, Promise<Integration>>();
 
   /**
    * Register an integration instance
@@ -190,8 +190,6 @@ declare global {
   var __avalonIntegrationRegistry: IntegrationRegistry | undefined;
 }
 
-if (!globalThis.__avalonIntegrationRegistry) {
-  globalThis.__avalonIntegrationRegistry = new IntegrationRegistry();
-}
+globalThis.__avalonIntegrationRegistry ??= new IntegrationRegistry();
 
 export const registry = globalThis.__avalonIntegrationRegistry;

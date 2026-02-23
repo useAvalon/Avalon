@@ -200,7 +200,7 @@ export class EnhancedFrameworkDetector {
 	private parseJSXImportSource(content: string): string | undefined {
 		// Look for @jsxImportSource pragma
 		const jsxImportSourceRegex = /@jsxImportSource\s+([^\s\n]+)/;
-		const match = content.match(jsxImportSourceRegex);
+		const match = new RegExp(jsxImportSourceRegex).exec(content);
 
 		if (match) {
 			return match[1];
@@ -208,7 +208,7 @@ export class EnhancedFrameworkDetector {
 
 		// Look for /** @jsxImportSource ... */ comments
 		const jsxCommentRegex = /\/\*\*?\s*@jsxImportSource\s+([^\s*]+)/;
-		const commentMatch = content.match(jsxCommentRegex);
+		const commentMatch = new RegExp(jsxCommentRegex).exec(content);
 
 		if (commentMatch) {
 			return commentMatch[1];
@@ -260,7 +260,7 @@ export class EnhancedFrameworkDetector {
 		}
 
 		const lastDot = filePath.lastIndexOf('.');
-		return lastDot !== -1 ? filePath.substring(lastDot) : '';
+		return lastDot === -1 ? '' : filePath.substring(lastDot);
 	}
 
 	/**

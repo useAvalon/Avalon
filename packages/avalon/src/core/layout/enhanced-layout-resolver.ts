@@ -242,10 +242,10 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 
 	clearCache(): void {
 		this.cacheManager.clear();
-		(this.cache.resolved as Map<string, ResolvedLayout>).clear();
-		(this.cache.handlers as Map<string, LayoutHandler>).clear();
-		(this.cache.data as Map<string, LayoutData>).clear();
-		(this.cache.ttl as Map<string, number>).clear();
+		(this.cache.resolved).clear();
+		(this.cache.handlers).clear();
+		(this.cache.data).clear();
+		(this.cache.ttl).clear();
 		this.layoutDiscovery.clearCache();
 		this.layoutComposer.clearCache();
 	}

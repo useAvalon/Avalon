@@ -101,7 +101,7 @@ function parsePropertyEntries(block: string): ParsedProp[] {
 		if (/\bstate\s*:\s*true\b/.test(entryBody)) continue;
 
 		// Extract the type constructor
-		const typeMatch = entryBody.match(/\btype\s*:\s*(\w+)/);
+		const typeMatch = new RegExp(/\btype\s*:\s*(\w+)/).exec(entryBody);
 		const litType = typeMatch ? typeMatch[1] : null;
 		const tsType = litType && litType in LIT_TYPE_MAP
 			? LIT_TYPE_MAP[litType]

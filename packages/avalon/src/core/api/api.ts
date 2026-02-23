@@ -145,9 +145,9 @@ export function getQueryParams(url: URL): Record<string, string | string[]> {
 		if (params[key]) {
 			// If key already exists, convert to array or add to existing array
 			if (Array.isArray(params[key])) {
-				(params[key] as string[]).push(value);
+				(params[key]).push(value);
 			} else {
-				params[key] = [params[key] as string, value];
+				params[key] = [params[key], value];
 			}
 		} else {
 			params[key] = value;

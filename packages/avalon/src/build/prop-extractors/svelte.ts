@@ -45,7 +45,7 @@ export function extractSvelteProps(source: string): PropExtractionResult {
  */
 function extractScriptContent(source: string): string | null {
 	const scriptRegex = /<script\b[^>]*>([\s\S]*?)<\/script>/i;
-	const match = source.match(scriptRegex);
+	const match = new RegExp(scriptRegex).exec(source);
 	return match ? match[1] : null;
 }
 
@@ -62,7 +62,7 @@ function extractFromDollarProps(scriptContent: string): string | null {
 	// The binding can be `{ ... }` (destructuring) or a simple identifier
 	const propsCallRegex =
 		/let\s+(?:\{[^}]*\}|\w+)\s*:\s*([\s\S]*?)\s*=\s*\$props\s*\(\s*\)/;
-	const match = scriptContent.match(propsCallRegex);
+	const match = new RegExp(propsCallRegex).exec(scriptContent);
 	if (!match) {
 		return null;
 	}
@@ -98,7 +98,7 @@ function resolveNamedType(
 ): string | null {
 	// Try interface first: `interface TypeName { ... }`
 	const interfaceRegex = new RegExp(
-		`interface\\s+${escapeRegex(typeName)}\\s*\\{`,
+		String.raw`interface\s+${escapeRegex(typeName)}\s*\{`,
 	);
 	const interfaceMatch = interfaceRegex.exec(scriptContent);
 	if (interfaceMatch) {
@@ -111,7 +111,7 @@ function resolveNamedType(
 
 	// Try type alias: `type TypeName = { ... }`
 	const typeAliasRegex = new RegExp(
-		`type\\s+${escapeRegex(typeName)}\\s*=\\s*\\{`,
+		String.raw`type\s+${escapeRegex(typeName)}\s*=\s*\{`,
 	);
 	const typeAliasMatch = typeAliasRegex.exec(scriptContent);
 	if (typeAliasMatch) {
@@ -190,5 +190,5 @@ function areBracesBalanced(str: string): boolean {
 
 /** Escape special regex characters in a string */
 function escapeRegex(str: string): string {
-	return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	return str.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 }

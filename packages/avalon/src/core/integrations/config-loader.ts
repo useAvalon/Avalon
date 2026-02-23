@@ -151,13 +151,13 @@ function validateConfigStructure(config: unknown): {
   
   // Validate integrations array
   if (cfg.integrations !== undefined) {
-    if (!Array.isArray(cfg.integrations)) {
-      errors.push("'integrations' must be an array");
-    } else {
+    if (Array.isArray(cfg.integrations)) {
       cfg.integrations.forEach((entry, index) => {
         const entryErrors = validateIntegrationEntry(entry, index);
         errors.push(...entryErrors);
       });
+    } else {
+      errors.push("'integrations' must be an array");
     }
   }
   

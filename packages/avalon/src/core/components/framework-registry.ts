@@ -23,8 +23,8 @@ export interface FrameworkValidationResult {
  * Centralized framework registry with validation and management
  */
 export class FrameworkRegistry {
-	private frameworks: Map<string, FrameworkConfig>;
-	private config: FrameworkRegistryConfig;
+	private readonly frameworks: Map<string, FrameworkConfig>;
+	private readonly config: FrameworkRegistryConfig;
 
 	constructor(config: Partial<FrameworkRegistryConfig> = {}) {
 		this.frameworks = new Map();
@@ -186,9 +186,7 @@ export class FrameworkRegistry {
 		}
 
 		// Detection patterns validation
-		if (!config.detectionPatterns) {
-			errors.push('Detection patterns are required');
-		} else {
+		if (config.detectionPatterns) {
 			if (!config.detectionPatterns.imports || config.detectionPatterns.imports.length === 0) {
 				errors.push('At least one import pattern is required for detection');
 			}
@@ -200,6 +198,8 @@ export class FrameworkRegistry {
 			if (!config.detectionPatterns.jsxPragmas || config.detectionPatterns.jsxPragmas.length === 0) {
 				warnings.push('No JSX pragmas defined - detection may be less accurate');
 			}
+		} else {
+			errors.push('Detection patterns are required');
 		}
 
 		// Cross-validation checks
@@ -482,8 +482,8 @@ export class FrameworkRegistry {
 		customFrameworks: number;
 		supportedExtensions: string[];
 	} {
-		const defaultFrameworkNames = ['preact', 'solid', 'vue', 'svelte', 'react', 'lit'];
-		const defaultCount = Array.from(this.frameworks.keys()).filter(name => defaultFrameworkNames.includes(name)).length;
+		const defaultFrameworkNames = new Set(['preact', 'solid', 'vue', 'svelte', 'react', 'lit']);
+		const defaultCount = Array.from(this.frameworks.keys()).filter(name => defaultFrameworkNames.has(name)).length;
 
 		const allExtensions = new Set<string>();
 		for (const config of this.frameworks.values()) {
@@ -494,7 +494,7 @@ export class FrameworkRegistry {
 			totalFrameworks: this.frameworks.size,
 			defaultFrameworks: defaultCount,
 			customFrameworks: this.frameworks.size - defaultCount,
-			supportedExtensions: Array.from(allExtensions).sort(),
+			supportedExtensions: Array.from(allExtensions).sort((a, b) => a.localeCompare(b)),
 		};
 	}
 }

@@ -144,7 +144,7 @@ export async function listIntegrations(startDir?: string): Promise<IntegrationIn
   
   // Add any loaded integrations not in config
   for (const integration of registry.getAll()) {
-    if (!integrations.find(i => i.name === integration.name)) {
+    if (!integrations.some(i => i.name === integration.name)) {
       integrations.push({
         name: integration.name,
         loaded: true,
@@ -275,12 +275,7 @@ export function formatIntegrationList(integrations: IntegrationInfo[]): string {
   }
   
   const lines: string[] = [];
-  lines.push("Available Integrations:");
-  lines.push("");
-  
-  // Header
-  lines.push("Name       | Status  | Version | Enabled");
-  lines.push("-----------|---------|---------|--------");
+  lines.push("Available Integrations:", "", "Name       | Status  | Version | Enabled", "-----------|---------|---------|--------");
   
   // Rows
   integrations.forEach(info => {

@@ -65,11 +65,11 @@ export function PersistentIslandProvider({
 	persistentId,
 	children,
 	persistence = defaultIslandPersistence,
-}: {
+}: Readonly<{
 	persistentId: string;
 	children: ComponentChildren;
 	persistence?: typeof defaultIslandPersistence;
-}) {
+}>) {
 	const contextValue = createPersistentIslandContext(persistentId, persistence);
 
 	return (

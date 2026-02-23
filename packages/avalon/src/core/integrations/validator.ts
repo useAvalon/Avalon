@@ -114,9 +114,7 @@ export function validateIntegrationConfig(config: unknown): ValidationResult {
   }
 
   if (cfg.detectionPatterns !== undefined) {
-    if (typeof cfg.detectionPatterns !== "object") {
-      errors.push("'detectionPatterns' must be an object if provided");
-    } else {
+    if (typeof cfg.detectionPatterns === "object") {
       const patterns = cfg.detectionPatterns;
       
       if (patterns.imports !== undefined && !Array.isArray(patterns.imports)) {
@@ -143,6 +141,8 @@ export function validateIntegrationConfig(config: unknown): ValidationResult {
           }
         });
       }
+    } else {
+      errors.push("'detectionPatterns' must be an object if provided");
     }
   }
 

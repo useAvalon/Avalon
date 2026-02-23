@@ -102,7 +102,7 @@ export class IslandStateSerializer {
 			const result: Record<string, unknown> = {};
 			const record = obj as Record<string, unknown>;
 			for (const key in record) {
-				if (Object.prototype.hasOwnProperty.call(record, key)) {
+				if (Object.hasOwn(record, key)) {
 					result[key] = IslandStateSerializer.transformForSerialization(record[key]);
 				}
 			}

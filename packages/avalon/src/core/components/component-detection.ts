@@ -266,7 +266,7 @@ export function extractSolidScript(content: string): string {
 	const scriptLines = lines.filter(line => {
 		const trimmed = line.trim();
 		// Skip JSX return statements and pure HTML-like content
-		return !trimmed.startsWith('<') && !trimmed.startsWith('</') && !trimmed.match(/^\s*return\s*\(/);
+		return !trimmed.startsWith('<') && !trimmed.startsWith('</') && !new RegExp(/^\s*return\s*\(/).exec(trimmed);
 	});
 	return scriptLines.join('\n');
 }
@@ -294,7 +294,7 @@ export function extractReactScript(content: string): string {
 	const scriptLines = lines.filter(line => {
 		const trimmed = line.trim();
 		// Skip JSX return statements and pure HTML-like content
-		return !trimmed.startsWith('<') && !trimmed.startsWith('</') && !trimmed.match(/^\s*return\s*\(/);
+		return !trimmed.startsWith('<') && !trimmed.startsWith('</') && !new RegExp(/^\s*return\s*\(/).exec(trimmed);
 	});
 	return scriptLines.join('\n');
 }
@@ -310,10 +310,7 @@ export function analyzeComponent(filePath: string, content: string): ComponentAn
 	// Determine recommended strategy with framework-specific logic
 	let recommendedStrategy: ComponentAnalysis['recommendedStrategy'];
 
-	if (!hasScript) {
-		// No script = pure template component = SSR-only
-		recommendedStrategy = 'ssr-only';
-	} else {
+	if (hasScript) {
 		// Framework-specific hydration strategy decisions
 		switch (framework) {
 			case 'svelte':
@@ -339,6 +336,9 @@ export function analyzeComponent(filePath: string, content: string): ComponentAn
 				recommendedStrategy = hasHydrate ? 'hydrate' : 'ssr-only';
 				break;
 		}
+	} else {
+		// No script = pure template component = SSR-only
+		recommendedStrategy = 'ssr-only';
 	}
 
 	return {

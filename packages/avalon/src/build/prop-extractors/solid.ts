@@ -89,7 +89,7 @@ function extractPropsType(source: string, startIdx: number): string | null {
 
 	// Otherwise it's a type reference — read until `)` or `,`
 	const remaining = source.slice(i);
-	const refMatch = remaining.match(/^([A-Za-z_$][\w$]*(?:<[^>]*>)?)/);
+	const refMatch = new RegExp(/^([A-Za-z_$][\w$]*(?:<[^>]*>)?)/).exec(remaining);
 	if (refMatch) {
 		return refMatch[1].trim();
 	}

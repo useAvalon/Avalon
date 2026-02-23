@@ -27,11 +27,11 @@ export interface CacheConfig {
 }
 
 export class LayoutCacheManager {
-	private resolvedLayouts = new Map<string, CacheEntry<ResolvedLayout>>();
-	private layoutHandlers = new Map<string, CacheEntry<LayoutHandler>>();
-	private layoutData = new Map<string, CacheEntry<LayoutData>>();
-	private dependencyGraph = new Map<string, Set<string>>(); // Track cache dependencies
-	private accessOrder = new Map<string, number>(); // LRU tracking
+	private readonly resolvedLayouts = new Map<string, CacheEntry<ResolvedLayout>>();
+	private readonly layoutHandlers = new Map<string, CacheEntry<LayoutHandler>>();
+	private readonly layoutData = new Map<string, CacheEntry<LayoutData>>();
+	private readonly dependencyGraph = new Map<string, Set<string>>(); // Track cache dependencies
+	private readonly accessOrder = new Map<string, number>(); // LRU tracking
 	private accessCounter = 0;
 	private stats: CacheStats = {
 		hits: 0,
@@ -42,7 +42,7 @@ export class LayoutCacheManager {
 	};
 	private cleanupTimer?: number;
 
-	constructor(private config: CacheConfig) {
+	constructor(private readonly config: CacheConfig) {
 		// Don't start cleanup timer in test environment
 		if (process.env.NODE_ENV !== 'test') {
 			this.startCleanupTimer();
@@ -309,7 +309,7 @@ export class LayoutCacheManager {
 	}
 
 	private normalizePath(filePath: string): string {
-		return filePath.replace(/\\/g, '/').toLowerCase();
+		return filePath.replaceAll('\\', '/').toLowerCase();
 	}
 
 	private isKeyAffectedByPath(key: string, filePath: string): boolean {
@@ -345,7 +345,7 @@ export class LayoutCacheManager {
 			size += 64; // Entry metadata overhead
 		}
 
-		for (const [key, entry] of this.layoutHandlers) {
+		for (const [key] of this.layoutHandlers) {
 			size += key.length * 2;
 			size += 256; // Estimated handler size
 			size += 64; // Entry metadata overhead

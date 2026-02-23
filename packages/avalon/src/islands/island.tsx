@@ -74,7 +74,7 @@ export default function Island({
 
   // Generate deterministic ID for the island (SSR-safe)
   // Use src path to ensure server and client generate the same ID
-  const islandId = `island-${src.replace(/[^a-zA-Z0-9]/g, "-")}`;
+  const islandId = `island-${src.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
 
   // Determine if this should be SSR-only based on explicit flag or render options
   const shouldSkipHydration = ssrOnly || renderOptions.forceSSROnly;
@@ -200,7 +200,7 @@ function renderErrorPlaceholder(
   error: unknown
 ): JSX.Element {
   const errorMessage = error instanceof Error ? error.message : String(error);
-  const islandId = `island-${src.replace(/[^a-zA-Z0-9]/g, "-")}`;
+  const islandId = `island-${src.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
   
   // Log error details in dev mode
   devError(`🚨 Island SSR failed for ${src}:`, error);
