@@ -29,7 +29,7 @@ export type SourcemapOption = boolean | "inline" | "hidden";
 /**
  * Minify option type
  */
-export type MinifyOption = boolean | "esbuild" | "terser";
+export type MinifyOption = boolean | "oxc" | "esbuild" | "terser";
 
 /**
  * Preset-specific build output configuration
@@ -89,7 +89,7 @@ export const DEFAULT_BUILD_CONFIG: AvalonBuildConfig = {
   clientOutDir: "dist/client",
   serverOutDir: "dist/server",
   sourcemap: true,
-  minify: "esbuild",
+  minify: "oxc",
   target: "es2020",
   ssr: true,
   preset: "node_server",
@@ -213,19 +213,26 @@ export function createClientBuildConfig(
     sourcemap: config.sourcemap,
     minify: config.minify,
     target: config.target,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        // Use content hashes for cache busting
         entryFileNames: "[name].[hash].js",
         chunkFileNames: "chunks/[name].[hash].js",
         assetFileNames: "assets/[name].[hash].[ext]",
-        // Optimize chunk splitting
-        manualChunks: createManualChunks(),
+        codeSplitting: {
+          groups: [
+            { name: "vendor-react", test: /node_modules\/(react|react-dom)/ },
+            { name: "vendor-vue", test: /node_modules\/(vue|@vue)/ },
+            { name: "vendor-svelte", test: /node_modules\/svelte/ },
+            { name: "vendor-preact", test: /node_modules\/preact/ },
+            { name: "vendor-solid", test: /node_modules\/solid-js/ },
+            { name: "vendor-lit", test: /node_modules\/(lit|@lit)/ },
+            { name: "vendor", test: /node_modules/ },
+            { name: "islands", test: /\/islands\// },
+          ],
+        },
       },
     },
-    // Report compressed size for production builds
     reportCompressedSize: !avalonConfig.isDev,
-    // CSS code splitting
     cssCodeSplit: true,
   };
 }
@@ -254,67 +261,20 @@ export function createServerBuildConfig(
     minify: config.minify,
     target: config.target,
     ssr: true,
-    rollupOptions: {
+    rolldownOptions: {
       input: {
-        // Server entry point
         index: "./server/index.ts",
       },
       output: {
         format: "esm",
         entryFileNames: "[name].mjs",
         chunkFileNames: "chunks/[name].[hash].mjs",
-        // Preserve module structure for better debugging
         preserveModules: !presetConfig.bundleDependencies,
       },
-      // External dependencies based on preset
       external: presetConfig.bundleDependencies
         ? []
         : getServerExternals(preset),
     },
-  };
-}
-
-/**
- * Creates manual chunk configuration for optimal code splitting
- *
- * @returns Manual chunks configuration function
- */
-function createManualChunks(): (id: string) => string | undefined {
-  return (id: string) => {
-    // Vendor chunks for framework dependencies
-    if (id.includes("node_modules")) {
-      // React ecosystem
-      if (id.includes("react") || id.includes("react-dom")) {
-        return "vendor-react";
-      }
-      // Vue ecosystem
-      if (id.includes("vue") || id.includes("@vue")) {
-        return "vendor-vue";
-      }
-      // Svelte ecosystem
-      if (id.includes("svelte")) {
-        return "vendor-svelte";
-      }
-      // Preact ecosystem
-      if (id.includes("preact")) {
-        return "vendor-preact";
-      }
-      // Solid ecosystem
-      if (id.includes("solid-js")) {
-        return "vendor-solid";
-      }
-      // Lit ecosystem
-      if (id.includes("lit") || id.includes("@lit")) {
-        return "vendor-lit";
-      }
-      // Other vendor code
-      return "vendor";
-    }
-    // Island components
-    if (id.includes("/islands/")) {
-      return "islands";
-    }
-    return undefined;
   };
 }
 
@@ -326,28 +286,22 @@ function createManualChunks(): (id: string) => string | undefined {
  */
 function getServerExternals(preset: string): (string | RegExp)[] {
   const baseExternals: (string | RegExp)[] = [
-    // Node.js built-ins
     /^node:/,
-    // Deno built-ins
     /^deno:/,
   ];
 
-  // Preset-specific externals
   switch (preset) {
     case "deno_deploy":
     case "deno_server":
-      // Deno handles its own dependencies
       return [...baseExternals];
 
     case "node_server":
-      // Node.js can load from node_modules
       return [
         ...baseExternals,
-        /^[a-z@]/i, // All npm packages
+        /^[a-z@]/i,
       ];
 
     default:
-      // Edge/serverless presets bundle everything
       return baseExternals;
   }
 }
@@ -391,17 +345,13 @@ export function createCombinedBuildConfig(
 
   return {
     build: {
-      // Use client build config as base
       ...createClientBuildConfig(avalonConfig, buildConfig),
-      // Override output directory based on preset
       outDir: presetConfig.outputDir,
     },
-    // Define build-time constants
     define: {
       __DEV__: false,
       __PROD__: true,
       "process.env.NODE_ENV": JSON.stringify("production"),
-      // Preset-specific defines
       ...createPresetDefines(preset, presetConfig),
     },
   };
@@ -409,10 +359,6 @@ export function createCombinedBuildConfig(
 
 /**
  * Creates preset-specific define constants
- *
- * @param preset - Nitro preset name
- * @param presetConfig - Preset output configuration
- * @returns Define constants object
  */
 function createPresetDefines(
   preset: string,
@@ -423,7 +369,6 @@ function createPresetDefines(
     __SUPPORTS_STREAMING__: JSON.stringify(presetConfig.supportsStreaming),
   };
 
-  // Add preset-specific environment variables
   if (presetConfig.env) {
     for (const [key, value] of Object.entries(presetConfig.env)) {
       defines[`process.env.${key}`] = JSON.stringify(value);
@@ -435,10 +380,6 @@ function createPresetDefines(
 
 /**
  * Creates a Vite plugin for Nitro build integration
- *
- * @param avalonConfig - Resolved Avalon configuration
- * @param nitroConfig - Nitro configuration
- * @returns Vite plugin for build integration
  */
 export function createNitroBuildPlugin(
   avalonConfig: ResolvedAvalonConfig,
@@ -452,12 +393,10 @@ export function createNitroBuildPlugin(
     enforce: "post",
 
     config(_config: UserConfig, { command }: { command: string }) {
-      // Only apply during build
       if (command !== "build") {
         return;
       }
 
-      // Merge build configuration
       return createCombinedBuildConfig(avalonConfig, nitroConfig, {
         sourcemap: true,
         verbose: avalonConfig.verbose,
@@ -490,16 +429,12 @@ export function createNitroBuildPlugin(
 
 /**
  * Validates build configuration
- *
- * @param config - Build configuration to validate
- * @returns Validation result with any errors
  */
 export function validateBuildConfig(
   config: Partial<AvalonBuildConfig>
 ): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  // Validate preset
   if (config.preset) {
     if (!VALID_V3_PRESETS.includes(config.preset)) {
       errors.push(
@@ -508,12 +443,10 @@ export function validateBuildConfig(
     }
   }
 
-  // Validate mode
   if (config.mode && !["client", "server", "both"].includes(config.mode)) {
     errors.push(`Invalid build mode: ${config.mode}. Must be 'client', 'server', or 'both'`);
   }
 
-  // Validate sourcemap
   if (
     config.sourcemap !== undefined &&
     typeof config.sourcemap !== "boolean" &&
@@ -553,16 +486,11 @@ export const DEFAULT_SOURCEMAP_CONFIG: SourceMapConfig = {
 
 /**
  * Creates source map configuration based on environment and preset
- *
- * @param preset - Nitro preset name
- * @param isDev - Whether in development mode
- * @returns Source map configuration
  */
 export function createSourceMapConfig(
   preset: string,
   isDev: boolean
 ): SourceMapConfig {
-  // Development always uses full source maps
   if (isDev) {
     return {
       enabled: true,
@@ -571,7 +499,6 @@ export function createSourceMapConfig(
     };
   }
 
-  // Edge/serverless presets may have size constraints
   if (
     preset.includes("edge") ||
     preset.includes("cloudflare") ||
@@ -579,12 +506,11 @@ export function createSourceMapConfig(
   ) {
     return {
       enabled: true,
-      type: "hidden", // Generate but don't reference in output
-      includeContent: false, // Reduce size
+      type: "hidden",
+      includeContent: false,
     };
   }
 
-  // Standard presets use full source maps
   return {
     enabled: true,
     type: true,
@@ -594,9 +520,6 @@ export function createSourceMapConfig(
 
 /**
  * Gets the Vite sourcemap option from SourceMapConfig
- *
- * @param config - Source map configuration
- * @returns Vite sourcemap option value
  */
 export function getViteSourceMapOption(
   config: SourceMapConfig
@@ -609,9 +532,6 @@ export function getViteSourceMapOption(
 
 /**
  * Creates a Vite plugin for source map handling
- *
- * @param config - Source map configuration
- * @returns Vite plugin for source map handling
  */
 export function createSourceMapPlugin(config: SourceMapConfig): Plugin {
   return {
@@ -619,7 +539,6 @@ export function createSourceMapPlugin(config: SourceMapConfig): Plugin {
     enforce: "post",
 
     config(_viteConfig: UserConfig, { command }: { command: string }) {
-      // Only apply during build
       if (command !== "build") {
         return;
       }
@@ -628,9 +547,8 @@ export function createSourceMapPlugin(config: SourceMapConfig): Plugin {
         build: {
           sourcemap: getViteSourceMapOption(config),
         },
-        // Rollup-specific source map options
         ...(config.sourceRoot && {
-          rollupOptions: {
+          rolldownOptions: {
             output: {
               sourcemapPathTransform: (relativeSourcePath: string) => {
                 return `${config.sourceRoot}/${relativeSourcePath}`;
@@ -646,7 +564,6 @@ export function createSourceMapPlugin(config: SourceMapConfig): Plugin {
         return;
       }
 
-      // Count source map files
       const sourceMapCount = Object.keys(bundle).filter(
         (key) => key.endsWith(".map")
       ).length;

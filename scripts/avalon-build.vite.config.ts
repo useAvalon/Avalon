@@ -22,7 +22,7 @@ export default defineConfig((): UserConfig => {
 				},
 				formats: ['es'],
 			},
-			rollupOptions: {
+			rolldownOptions: {
 				output: {
 					entryFileNames: '[name].js',
 					chunkFileNames: '[name].[hash].js',
@@ -31,7 +31,7 @@ export default defineConfig((): UserConfig => {
 				external: [],
 			},
 			target: 'es2020',
-			minify: 'esbuild',
+			minify: 'oxc',
 		},
 
 		// Define globals

@@ -258,15 +258,11 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			...frameworkPlugins,
 		],
 
-		esbuild: {
-			jsx: 'automatic',
-		},
-
 		build: {
 			outDir: 'dist',
 			emptyOutDir: true,
 			// Note: Svelte compilation outputs to 'dist' directory, not 'public/dist-svelte-compiled'
-			rollupOptions: {
+			rolldownOptions: {
 				input: {
 					...islandEntries,
 					client: resolve('./src/client/main.js'),
@@ -280,7 +276,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				},
 			},
 			target: 'es2020',
-			minify: 'esbuild',
+			minify: 'oxc',
 		},
 
 		server: {

@@ -10,8 +10,8 @@ import tailwindcss from '@tailwindcss/vite';
 const logger = createLogger();
 const originalWarn = logger.warn.bind(logger);
 logger.warn = (msg, options) => {
-	if (msg.includes('`esbuild` option was specified by')) return;
 	if (msg.includes('optimizeDeps.rollupOptions') || msg.includes('optimizeDeps.esbuildOptions')) return;
+	if (msg.includes('`esbuild` option was specified by')) return;
 	if (msg.includes('recommend switching to `@vitejs/plugin-react-oxc`')) return;
 	if (msg.includes('dynamic import cannot be analyzed by Vite')) return;
 	originalWarn(msg, options);
@@ -24,10 +24,12 @@ const _origConsoleLog = console.log;
 const _suppressPatterns = [
 	'optimizeDeps.rollupOptions',
 	'optimizeDeps.esbuildOptions',
+	'`esbuild` option was specified by',
 	'vite-plugin-svelte',
 	'no Svelte config found',
 	'Invalid input options',
 	'may not be able to be serialized',
+	'validate output options',
 ];
 const _shouldSuppress = (args: unknown[]) =>
 	args.some(a => typeof a === 'string' && _suppressPatterns.some(p => a.includes(p)));
@@ -201,7 +203,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		build: {
 			outDir: 'dist',
 			emptyOutDir: true,
-			rollupOptions: {
+			rolldownOptions: {
 				input: islandEntries,
 				output: {
 					entryFileNames: chunkInfo => chunkInfo.name?.startsWith('islands/') ? 'islands/[name].[hash].js' : '[name].[hash].js',
@@ -210,7 +212,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				},
 			},
 			target: 'es2020',
-			minify: 'esbuild',
+			minify: 'oxc',
 		},
 
 		server: {

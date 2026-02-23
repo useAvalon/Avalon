@@ -41,15 +41,15 @@ export function integrationBundlerPlugin(options: IntegrationBundlerOptions): Pl
 				}
 			}
 
-			// Merge with existing rollup input
-			const existingInput = config.build?.rollupOptions?.input || {};
+			// Merge with existing rolldown input
+			const existingInput = config.build?.rolldownOptions?.input || {};
 			const mergedInput = typeof existingInput === 'string' 
 				? { main: existingInput, ...entries }
 				: { ...existingInput, ...entries };
 
 			return {
 				build: {
-					rollupOptions: {
+					rolldownOptions: {
 						input: mergedInput,
 					},
 				},

@@ -95,23 +95,23 @@ function createLitSSRShimPlugin(): Plugin {
 }
 
 /**
- * Creates a Vite plugin that fixes decorator order issues in Vite 8 / esbuild output.
+ * Creates a Vite plugin that fixes decorator order issues in Vite 8 / Oxc output.
  * 
- * The issue is that esbuild in Vite 8 sometimes outputs "export @decorator class" 
+ * The issue is that Oxc (Vite 8's transformer) sometimes outputs "export @decorator class" 
  * instead of the valid "@decorator export class" syntax.
  * 
  * This plugin uses multiple strategies:
- * 1. Pre-transform: Rewrite decorators BEFORE esbuild processes them
- * 2. Post-transform: Fix any remaining issues after esbuild
+ * 1. Pre-transform: Rewrite decorators BEFORE Oxc processes them
+ * 2. Post-transform: Fix any remaining issues after Oxc
  */
 function createLitDecoratorFixPlugin(): Plugin {
   return {
     name: "avalon:lit-decorator-fix",
-    // Enforce "pre" to run BEFORE esbuild transformation
+    // Enforce "pre" to run BEFORE Oxc transformation
     enforce: "pre",
 
-    // Pre-transform: Convert TypeScript decorators to a format esbuild handles correctly
-    // This runs BEFORE esbuild, so we can rewrite the source to avoid the issue
+    // Pre-transform: Convert TypeScript decorators to a format Oxc handles correctly
+    // This runs BEFORE Oxc, so we can rewrite the source to avoid the issue
     transform(code: string, id: string, _options?: { ssr?: boolean }) {
       // Only process Lit files
       const isLitFile = /\.lit\.(ts|js)$/.test(id);
@@ -125,7 +125,7 @@ function createLitDecoratorFixPlugin(): Plugin {
       }
 
       // Strategy: Convert "@customElement(...) export class" to use a different pattern
-      // that esbuild handles correctly. We'll use a manual customElements.define() call.
+      // that Oxc handles correctly. We'll use a manual customElements.define() call.
       
       // Extract the tag name from @customElement("tag-name")
       const customElementMatch = new RegExp(/@customElement\s*\(\s*["'`]([^"'`]+)["'`]\s*\)/).exec(code);

@@ -100,17 +100,11 @@ export default defineConfig(async (): Promise<UserConfig> => {
 			...frameworkPlugins,
 		],
 
-		esbuild: {
-			//jsx: 'automatic',
-			//jsxDev: false, // Disable dev JSX transform
-			target: 'es2022', // Support decorators and modern JavaScript features
-		},
-
 		build: {
 			outDir: 'dist/ssr',
 			emptyOutDir: true,
 			ssr: true,
-			rollupOptions: {
+			rolldownOptions: {
 				input: {
 					// Island entries for SSR
 					...islandEntries,
