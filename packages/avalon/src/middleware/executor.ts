@@ -7,7 +7,7 @@
  * Key features:
  * - Nitro-style handler signature: return void to continue, return Response to terminate
  * - Middleware caching for performance
- * - Support for legacy middleware format with deprecation warnings
+
  * - Error propagation to Nitro's error handling
  * - Context preservation: event.context modifications persist through the chain
  * - Development logging for context changes
@@ -17,7 +17,6 @@
 
 import type { H3Event } from 'h3';
 import type { MiddlewareHandler, MiddlewareRoute, MiddlewareFileExport, MiddlewareExecutorOptions } from './types.ts';
-import { isLegacyMiddlewareResponse } from './types.ts';
 import { getMatchingMiddleware } from './discovery.ts';
 
 /**
@@ -259,7 +258,7 @@ async function executeWithTimeout<T>(fn: () => T | Promise<T>, timeout: number, 
 
 /**
  * Handles the result of a middleware execution.
- * Supports Nitro-style (void/Response) and legacy format with deprecation warnings.
+ * Supports Nitro-style (void/Response) format.
  */
 function handleMiddlewareResult(result: unknown, filePath: string, devMode: boolean): Response | undefined {
 	if (result === undefined || result === null) {
@@ -270,23 +269,10 @@ function handleMiddlewareResult(result: unknown, filePath: string, devMode: bool
 		return result;
 	}
 
-	if (isLegacyMiddlewareResponse(result)) {
-		if (devMode) {
-			console.warn(
-				`[middleware] DEPRECATED: ${filePath} uses legacy { continue, response } format. ` +
-					`Please migrate to Nitro-style: return void to continue, return Response to terminate.`,
-			);
-		}
-		if (!result.continue || result.response) {
-			return result.response || new Response(null, { status: 500 });
-		}
-		return undefined;
-	}
-
 	if (devMode) {
 		console.warn(
 			`[middleware] ${filePath} returned unexpected value: ${typeof result}. ` +
-				`Expected void, Response, or legacy { continue, response } format.`,
+				`Expected void or Response.`,
 		);
 	}
 

@@ -96,31 +96,4 @@ export interface MiddlewareExecutorOptions {
   timeout?: number;
 }
 
-/**
- * Legacy middleware response format (deprecated)
- *
- * This format is supported for backward compatibility but should not be used
- * for new middleware. Use the Nitro-style return format instead.
- *
- * @deprecated Use Nitro-style return format: return void to continue, return Response to terminate
- */
-export interface LegacyMiddlewareResponse {
-  /** Optional response to return (stops chain if provided) */
-  response?: Response;
-  /** Whether to continue to next middleware */
-  continue: boolean;
-}
 
-/**
- * Type guard to check if a value is a legacy middleware response
- */
-export function isLegacyMiddlewareResponse(
-  value: unknown
-): value is LegacyMiddlewareResponse {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'continue' in value &&
-    typeof (value as LegacyMiddlewareResponse).continue === 'boolean'
-  );
-}

@@ -63,7 +63,7 @@ export async function detectAndLoadIntegration(src: string) {
  */
 export function detectFrameworkFromPath(src: string) {
   // Normalize path separators
-  const normalizedSrc = src.replace(/\\/g, "/");
+  const normalizedSrc = src.replaceAll('\\', "/");
   
   // Vue files (.vue)
   if (normalizedSrc.endsWith(".vue")) {
@@ -125,7 +125,7 @@ export function detectFrameworkFromPath(src: string) {
  * @returns True if the path is in an islands directory
  */
 export function isInIslandsDirectory(path: string): boolean {
-  const normalized = path.replace(/\\/g, "/");
+  const normalized = path.replaceAll('\\', "/");
   
   // Check for /islands/ anywhere in the path
   return normalized.includes("/islands/");
@@ -138,7 +138,7 @@ export function isInIslandsDirectory(path: string): boolean {
  * @returns True if the path is a nested island path
  */
 export function isNestedIslandPath(path: string): boolean {
-  const normalized = path.replace(/\\/g, "/");
+  const normalized = path.replaceAll('\\', "/");
   
   // Check if it contains /islands/ but not at the root level
   if (!normalized.includes("/islands/")) {
@@ -175,10 +175,10 @@ export function isNestedIslandPath(path: string): boolean {
  * @returns The namespace or empty string for default islands
  */
 export function extractNamespaceFromPath(path: string): string {
-  const normalized = path.replace(/\\/g, "/");
+  const normalized = path.replaceAll('\\', "/");
   
   // Match patterns like /src/modules/auth/islands/ or /modules/auth/islands/
-  const match = normalized.match(/(?:\/src)?\/(.+?)\/islands\//);
+  const match = new RegExp(/(?:\/src)?\/(.+?)\/islands\//).exec(normalized);
   if (match) {
     return match[1];
   }
@@ -377,20 +377,17 @@ export interface PreloadIntegrationsOptions {
  * Uses Promise.allSettled to load all integrations concurrently,
  * ensuring that one failed integration doesn't block others.
  * 
- * @param options - Preload options or array of framework names (for backward compatibility)
+ * @param options - Preload options
  * @returns Promise that resolves when all preloading attempts complete
  */
 export async function preloadIntegrations(
-  options?: PreloadIntegrationsOptions | readonly string[]
+  options?: PreloadIntegrationsOptions
 ): Promise<void> {
-  // Handle backward compatibility: if options is an array, treat it as frameworks list
   let frameworks: readonly string[];
   let lazy = false;
   let detectedFrameworks: string[] | undefined;
   
-  if (Array.isArray(options)) {
-    frameworks = options;
-  } else if (options) {
+  if (options) {
     frameworks = options.frameworks ?? DEFAULT_PRELOAD_FRAMEWORKS;
     lazy = options.lazy ?? false;
     detectedFrameworks = options.detectedFrameworks;
@@ -402,7 +399,7 @@ export async function preloadIntegrations(
   if (lazy && detectedFrameworks && detectedFrameworks.length > 0) {
     // Filter to only frameworks that are both in the default list and detected
     const frameworksToLoad = frameworks.filter(fw => 
-      detectedFrameworks!.includes(fw)
+      detectedFrameworks.includes(fw)
     );
     
     if (frameworksToLoad.length === 0) {

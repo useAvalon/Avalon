@@ -173,7 +173,7 @@ export async function build(_options?: Record<string, unknown>) {
 
 // API utilities
 export * from './src/core/api/api.ts';
-export { discoverApiRoutes, handleApiRequest } from './src/functions/api.ts';
+export { handleApiRequest } from './src/functions/api.ts';
 
 // Middleware system (Nitro-aligned)
 export {
@@ -188,7 +188,6 @@ export {
 	getContextValue,
 	setContextValue,
 	getMiddlewareCacheSize,
-	isLegacyMiddlewareResponse,
 } from './src/middleware/index.ts';
 
 export type {
@@ -197,7 +196,6 @@ export type {
 	MiddlewareRoute,
 	MiddlewareDiscoveryOptions,
 	MiddlewareExecutorOptions,
-	LegacyMiddlewareResponse,
 } from './src/middleware/types.ts';
 
 // Layout system - comprehensive export (all layout functionality)

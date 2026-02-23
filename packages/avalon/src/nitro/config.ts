@@ -232,26 +232,6 @@ export const DEFAULT_STATIC_ASSETS_CONFIG: Required<StaticAssetsConfig> = {
 };
 
 /**
- * Mapping from v2 hyphenated preset names to v3 underscore-convention names.
- * Used by resolvePresetName() to transparently migrate legacy configurations.
- */
-export const PRESET_MIGRATION_MAP: Record<string, string> = {
-  "node-server": "node_server",
-  "node-middleware": "node_middleware",
-  "deno-deploy": "deno_deploy",
-  "deno-server": "deno_server",
-  "vercel-edge": "vercel",
-  "cloudflare": "cloudflare_module",
-  "cloudflare-module": "cloudflare_module",
-  "cloudflare-pages": "cloudflare_pages",
-  "netlify-edge": "netlify_edge",
-  "aws-lambda": "aws_lambda",
-  "azure-functions": "azure_swa",
-  "firebase": "firebase_functions",
-  "render-com": "render_com",
-};
-
-/**
  * All valid Nitro v3 preset names (underscore convention).
  */
 export const VALID_V3_PRESETS: string[] = [
@@ -273,17 +253,15 @@ export const VALID_V3_PRESETS: string[] = [
 ];
 
 /**
- * Resolves a preset name, migrating v2 names to v3 equivalents.
- * Returns the v3 preset name or throws if unrecognized.
+ * Validates a preset name against the v3 preset list.
+ * Returns the preset name if valid, throws if unrecognized.
  *
- * @param preset - The preset name to resolve (v2 or v3)
- * @returns The resolved v3 preset name
+ * @param preset - The preset name to validate (must be a v3 name)
+ * @returns The validated v3 preset name
  * @throws Error if the preset is not recognized
  */
 export function resolvePresetName(preset: string): string {
   if (VALID_V3_PRESETS.includes(preset)) return preset;
-  const mapped = PRESET_MIGRATION_MAP[preset];
-  if (mapped) return mapped;
   throw new Error(
     `Unknown Nitro preset: "${preset}". Valid presets: ${VALID_V3_PRESETS.join(", ")}`
   );

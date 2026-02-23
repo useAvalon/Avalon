@@ -10,7 +10,6 @@
  * - Route-scoped middleware discovery in src/pages/ and src/api/
  * - Priority-based execution order (parent before child)
  * - Type-safe context augmentation for H3 events
- * - Legacy format support with deprecation warnings
  *
  * @example
  * ```ts
@@ -50,10 +49,7 @@ export type {
   MiddlewareRoute,
   MiddlewareDiscoveryOptions,
   MiddlewareExecutorOptions,
-  LegacyMiddlewareResponse,
 } from './types.ts';
-
-export { isLegacyMiddlewareResponse } from './types.ts';
 
 // =============================================================================
 // Helper Functions

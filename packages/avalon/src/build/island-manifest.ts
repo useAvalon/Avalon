@@ -1,5 +1,4 @@
-import { join } from 'node:path';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import {
 	getQualifiedIslandName,
 	type IslandDirectory,
@@ -112,56 +111,6 @@ export async function generateIslandManifest(): Promise<ExtendedIslandManifest> 
 }
 
 /**
- * Generate island manifest (legacy function for backward compatibility)
- * Uses the old single-directory approach for projects that haven't migrated.
- */
-export async function generateIslandManifestLegacy(): Promise<IslandManifest> {
-	const islands: Record<string, IslandEntry> = {};
-	const islandsDir = 'src/islands';
-
-	try {
-		const entries = await readdir(islandsDir, { withFileTypes: true });
-		for (const dirEntry of entries) {
-			if (
-				dirEntry.isFile() &&
-				(dirEntry.name.endsWith('.tsx') ||
-					dirEntry.name.endsWith('.ts') ||
-					dirEntry.name.endsWith('.vue') ||
-					dirEntry.name.endsWith('.svelte'))
-			) {
-				const name = dirEntry.name.replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
-				const src = `/islands/${dirEntry.name}`;
-				const fullPath = join(islandsDir, dirEntry.name);
-
-				// Analyze the island file to determine framework and dependencies
-				const content = await readFile(fullPath, 'utf-8');
-				const framework = detectFramework(content, dirEntry.name);
-				const deps = extractDependencies(content);
-
-				// Generate hash from content for cache busting
-				const hash = await generateHash(content);
-
-				islands[name] = {
-					src,
-					bundle: `/dist/islands/${name}.${hash}.js`,
-					hash,
-					framework,
-					deps,
-				};
-			}
-		}
-	} catch (error) {
-		console.warn('Failed to read islands directory:', error);
-	}
-
-	return {
-		islands,
-		version: '1.0.0',
-		buildTime: Date.now(),
-	};
-}
-
-/**
  * Map the discovery service framework type to manifest framework type
  */
 function mapFrameworkType(framework: string): ExtendedIslandEntry['framework'] {
@@ -184,41 +133,6 @@ function mapFrameworkType(framework: string): ExtendedIslandEntry['framework'] {
 	}
 }
 
-/**
- * Detect framework based on imports in the island file
- */
-function detectFramework(content: string, filename: string): IslandEntry['framework'] {
-	// Check file extension first
-	if (filename.endsWith('.vue')) {
-		return 'vue';
-	}
-	if (filename.endsWith('.svelte')) {
-		return 'svelte';
-	}
-
-	// Check imports for framework detection
-	if (
-		content.includes('from "preact"') ||
-		content.includes("from 'preact'") ||
-		content.includes('preact/hooks') ||
-		content.includes('preact-render-to-string')
-	) {
-		return 'preact';
-	}
-	if (content.includes('from "solid-js"') || content.includes("from 'solid-js'")) {
-		return 'solid';
-	}
-	if (content.includes('from "vue"') || content.includes("from 'vue'")) {
-		return 'vue';
-	}
-
-	// Default to preact for .tsx files if no specific framework detected
-	if (filename.endsWith('.tsx')) {
-		return 'preact';
-	}
-
-	return 'vanilla';
-}
 
 /**
  * Extract import dependencies from the island file

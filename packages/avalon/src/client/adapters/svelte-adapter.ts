@@ -1,16 +1,16 @@
 /**
  * Svelte HMR Adapter
- * 
+ *
  * Provides Hot Module Replacement support for Svelte 5 components.
  * Integrates with @sveltejs/vite-plugin-svelte for HMR updates.
- * 
+ *
  * IMPORTANT: Svelte 5 HMR Behavior
  * - HMR is controlled via compilerOptions.hmr in the Vite plugin config
  * - Local state is NOT preserved during HMR (by design in Svelte 5)
  * - CSS-only changes DO preserve state (100% preserved)
  * - Store subscriptions are maintained across updates
  * - The component is remounted with fresh state on JS changes
- * 
+ *
  * Requirements: 2.4
  */
 
@@ -27,45 +27,28 @@ interface SvelteComponent {
    * Create a new component instance
    */
   new (options: SvelteComponentOptions): SvelteComponentInstance;
-  
+
   /**
    * Svelte component marker
    */
-  $$render?: unknown;
+  $render?: unknown;
 }
 
 /**
  * Svelte component constructor options
  */
 interface SvelteComponentOptions {
-  /**
-   * Target DOM element
-   */
+  /** Target DOM element */
   target: HTMLElement;
-  
-  /**
-   * Component props
-   */
+  /** Component props */
   props?: Record<string, unknown>;
-  
-  /**
-   * Hydration mode
-   */
+  /** Hydration mode */
   hydrate?: boolean;
-  
-  /**
-   * Intro animations
-   */
+  /** Intro animations */
   intro?: boolean;
-  
-  /**
-   * Anchor element for insertion
-   */
+  /** Anchor element for insertion */
   anchor?: Element | null;
-  
-  /**
-   * Context for component
-   */
+  /** Context for component */
   context?: Map<unknown, unknown>;
 }
 
@@ -73,24 +56,13 @@ interface SvelteComponentOptions {
  * Svelte component instance interface
  */
 interface SvelteComponentInstance {
-  /**
-   * Update component props
-   */
+  /** Update component props */
   $set(props: Record<string, unknown>): void;
-  
-  /**
-   * Destroy component instance
-   */
+  /** Destroy component instance */
   $destroy(): void;
-  
-  /**
-   * Subscribe to component events
-   */
+  /** Subscribe to component events */
   $on?(event: string, handler: (...args: unknown[]) => void): () => void;
-  
-  /**
-   * Access to component state (internal)
-   */
+  /** Access to component state (internal) */
   $$?: {
     ctx?: unknown[];
     props?: Record<string, unknown>;
@@ -100,43 +72,11 @@ interface SvelteComponentInstance {
 
 /**
  * Svelte store interface
- * Svelte stores follow the store contract
  */
 interface SvelteStore<T = unknown> {
   subscribe(subscriber: (value: T) => void): () => void;
   set?(value: T): void;
   update?(updater: (value: T) => T): void;
-}
-
-/**
- * Svelte HMR API provided by @sveltejs/vite-plugin-svelte (Svelte 4)
- * Note: In Svelte 5, HMR is integrated into compilerOptions and doesn't use this API
- * @deprecated This API is for Svelte 4 compatibility only
- */
-interface SvelteHMRAPI {
-  /**
-   * Create HMR record for a component
-   */
-  createRecord(id: string, component: SvelteComponent): void;
-  
-  /**
-   * Reload a component
-   */
-  reload(id: string, component: SvelteComponent): void;
-  
-  /**
-   * Update component options
-   */
-  update(id: string, component: SvelteComponent): void;
-}
-
-/**
- * Global Svelte HMR runtime
- * Note: In Svelte 5, this is typically not used as HMR is handled via compilerOptions
- * @deprecated This global is for Svelte 4 compatibility only
- */
-declare global {
-  var __SVELTE_HMR__: SvelteHMRAPI | undefined;
 }
 
 /**
@@ -200,21 +140,48 @@ export class SvelteHMRAdapter extends BaseFrameworkAdapter {
   /**
    * Store Svelte component instances for each island to enable proper cleanup
    */
-  private instances: WeakMap<HTMLElement, SvelteComponentInstance> = new WeakMap();
+  private readonly instances: WeakMap<HTMLElement, SvelteComponentInstance> = new WeakMap();
   
   /**
    * Store component IDs for tracking
    */
-  private componentIds: WeakMap<HTMLElement, string> = new WeakMap();
+  private readonly componentIds: WeakMap<HTMLElement, string> = new WeakMap();
   
   /**
    * Store active store subscriptions for cleanup
    */
-  private storeSubscriptions: WeakMap<HTMLElement, Array<() => void>> = new WeakMap();
+  private readonly storeSubscriptions: WeakMap<HTMLElement, Array<() => void>> = new WeakMap();
+
+  /**
+   * Check if a function/class has Svelte component markers
+   */
+  private isSvelteFunction(component: Function): boolean {
+    const comp = component as unknown as Record<string, unknown>;
+
+    if (comp.$$render) {
+      return true;
+    }
+
+    const proto = (component as { prototype?: Record<string, unknown> }).prototype;
+    if (proto && ((proto.$set && proto.$destroy) || proto.$$)) {
+      return true;
+    }
+
+    try {
+      const funcStr = component.toString();
+      if (funcStr.includes('$set') || funcStr.includes('$destroy') || funcStr.includes('$$')) {
+        return true;
+      }
+    } catch {
+      // Ignore errors from toString()
+    }
+
+    return false;
+  }
 
   /**
    * Check if a component is a Svelte component
-   * 
+   *
    * Svelte components are compiled to classes with specific markers:
    * - Constructor function
    * - $$render method (SSR marker)
@@ -222,62 +189,22 @@ export class SvelteHMRAdapter extends BaseFrameworkAdapter {
    */
   canHandle(component: unknown): boolean {
     if (!component) return false;
-    
-    // Check if it's a function/class (Svelte components are classes)
+
     if (typeof component === 'function') {
-      const comp = component as unknown as Record<string, unknown>;
-      
-      // Check for Svelte-specific markers
-      // Svelte components have $$render for SSR
-      if (comp.$$render) {
-        return true;
-      }
-      
-      // Check prototype for Svelte component methods
-      const proto = (component as { prototype?: Record<string, unknown> }).prototype;
-      if (proto) {
-        // Svelte components have $set and $destroy methods
-        if (proto.$set && proto.$destroy) {
-          return true;
-        }
-        
-        // Check for $$ internal property
-        if (proto.$$) {
-          return true;
-        }
-      }
-      
-      // Check for Svelte component constructor signature
-      // Svelte components accept { target, props, hydrate } options
-      try {
-        // Try to detect Svelte component by checking if it looks like a Svelte constructor
-        const funcStr = component.toString();
-        if (funcStr.includes('$set') || funcStr.includes('$destroy') || funcStr.includes('$$')) {
-          return true;
-        }
-      } catch {
-        // Ignore errors from toString()
-      }
+      return this.isSvelteFunction(component);
     }
-    
-    // Check if it's a Svelte component object (wrapped or exported)
+
     if (typeof component !== 'object') {
       return false;
     }
 
     const obj = component as Record<string, unknown>;
-    
-    // Check for default export pattern
+
     if (obj.default && typeof obj.default === 'function') {
       return this.canHandle(obj.default);
     }
-    
-    // Check for Svelte component markers
-    if (obj.$$render) {
-      return true;
-    }
-    
-    return false;
+
+    return obj.$$render !== undefined;
   }
 
   /**
@@ -293,11 +220,11 @@ export class SvelteHMRAdapter extends BaseFrameworkAdapter {
       if (!baseSnapshot) return null;
 
       // Get Svelte-specific data
-      const propsAttr = island.getAttribute('data-props');
+      const propsAttr = island.dataset.props;
       const capturedProps = propsAttr ? JSON.parse(propsAttr) : {};
       
       // Try to get component name from the island
-      const src = island.getAttribute('data-src') || '';
+      const src = island.dataset.src || '';
       const componentName = this.extractComponentName(src);
 
       // Note: In Svelte 5, local state is not preserved during HMR
@@ -326,15 +253,78 @@ export class SvelteHMRAdapter extends BaseFrameworkAdapter {
   }
 
   /**
+   * Extract the Svelte component class from a module or function
+   */
+  private extractComponent(newComponent: unknown): SvelteComponent {
+    if (typeof newComponent === 'object' && newComponent !== null) {
+      const obj = newComponent as Record<string, unknown>;
+      if (obj.default && typeof obj.default === 'function') {
+        return obj.default as SvelteComponent;
+      }
+      throw new Error('Svelte component object must have a default export');
+    }
+    if (typeof newComponent === 'function') {
+      return newComponent as SvelteComponent;
+    }
+    throw new TypeError('Invalid Svelte component type');
+  }
+
+  /**
+   * Clean up an existing Svelte component instance
+   */
+  private async cleanupInstance(island: HTMLElement, instance: SvelteComponentInstance): Promise<void> {
+    try {
+      const subscriptions = this.storeSubscriptions.get(island);
+      if (subscriptions) {
+        subscriptions.forEach(unsubscribe => unsubscribe());
+        this.storeSubscriptions.delete(island);
+      }
+
+      const svelteModule = await import('svelte') as Record<string, unknown>;
+      const svelteUnmount = svelteModule.unmount as ((component: unknown) => void) | undefined;
+      if (svelteUnmount) {
+        svelteUnmount(instance);
+      } else if (instance.$destroy) {
+        instance.$destroy();
+      }
+    } catch {
+      if (instance.$destroy) {
+        instance.$destroy();
+      }
+    }
+  }
+
+  /**
+   * Mount a Svelte component, trying Svelte 5 API first then falling back to constructor
+   */
+  private async mountComponent(
+    Component: SvelteComponent,
+    island: HTMLElement,
+    props: Record<string, unknown>
+  ): Promise<SvelteComponentInstance> {
+    try {
+      const svelteModule = await import('svelte') as Record<string, unknown>;
+      const svelteMount = svelteModule.mount as ((component: unknown, options: { target: HTMLElement; props: Record<string, unknown> }) => unknown) | undefined;
+
+      if (svelteMount) {
+        return svelteMount(Component as any, { target: island, props }) as SvelteComponentInstance;
+      }
+
+      return new Component({ target: island, props, hydrate: false, intro: false });
+    } catch (svelte5Error) {
+      console.debug('Svelte 5 API not available, using constructor API:', svelte5Error);
+      return new Component({ target: island, props, hydrate: false, intro: false });
+    }
+  }
+
+  /**
    * Update Svelte component with HMR
-   * 
+   *
    * Svelte 5 HMR Behavior:
    * - HMR is handled by the Svelte compiler via compilerOptions.hmr
    * - Local state is NOT preserved (by design)
    * - CSS-only changes preserve state 100%
    * - We clean up the old instance and mount the new component
-   * 
-   * For Svelte 5, we use the hydrate() and mount() functions.
    */
   async update(
     island: HTMLElement,
@@ -345,107 +335,30 @@ export class SvelteHMRAdapter extends BaseFrameworkAdapter {
       throw new Error('Component is not a valid Svelte component');
     }
 
-    // Extract the actual component class
-    let Component: SvelteComponent;
-    if (typeof newComponent === 'object' && newComponent !== null) {
-      const obj = newComponent as Record<string, unknown>;
-      if (obj.default && typeof obj.default === 'function') {
-        Component = obj.default as SvelteComponent;
-      } else {
-        throw new Error('Svelte component object must have a default export');
-      }
-    } else if (typeof newComponent === 'function') {
-      Component = newComponent as SvelteComponent;
-    } else {
-      throw new Error('Invalid Svelte component type');
-    }
+    const Component = this.extractComponent(newComponent);
 
     try {
-      // Clean up existing instance if present
       const existingInstance = this.instances.get(island);
       if (existingInstance) {
-        try {
-          // Unsubscribe from stores
-          const subscriptions = this.storeSubscriptions.get(island);
-          if (subscriptions) {
-            subscriptions.forEach(unsubscribe => unsubscribe());
-            this.storeSubscriptions.delete(island);
-          }
-          
-          // Try to use Svelte 5's unmount function for proper cleanup
-          try {
-            const svelteModule = await import('svelte') as Record<string, unknown>;
-            const svelteUnmount = svelteModule.unmount as ((component: unknown) => void) | undefined;
-            if (svelteUnmount) {
-              svelteUnmount(existingInstance);
-            } else if (existingInstance.$destroy) {
-              existingInstance.$destroy();
-            }
-          } catch {
-            // Fallback to $destroy for Svelte 4 compatibility
-            if (existingInstance.$destroy) {
-              existingInstance.$destroy();
-            }
-          }
-        } catch (error) {
+        await this.cleanupInstance(island, existingInstance).catch(error => {
           console.warn('Failed to destroy existing Svelte instance:', error);
-        }
-      }
-
-      // Clear the island content for fresh mount
-      // This is necessary because Svelte 5 HMR doesn't preserve state
-      island.innerHTML = '';
-
-      // Mount the new component using Svelte 5 API
-      let instance: SvelteComponentInstance;
-      
-      try {
-        // Use Svelte 5's mount function
-        const svelteModule = await import('svelte') as Record<string, unknown>;
-        const svelteMount = svelteModule.mount as ((component: unknown, options: { target: HTMLElement; props: Record<string, unknown> }) => unknown) | undefined;
-        
-        if (svelteMount) {
-          
-          instance = svelteMount(Component as any, {
-            target: island,
-            props,
-          }) as SvelteComponentInstance;
-        } else {
-          // Fallback to Svelte 3/4 constructor API
-          instance = new Component({
-            target: island,
-            props,
-            hydrate: false, // Fresh mount, not hydration
-            intro: false, // Disable intro animations during HMR
-          });
-        }
-      } catch (svelte5Error) {
-        // Fallback to Svelte 3/4 constructor API
-        console.debug('Svelte 5 API not available, using constructor API:', svelte5Error);
-        
-        instance = new Component({
-          target: island,
-          props,
-          hydrate: false, // Fresh mount, not hydration
-          intro: false, // Disable intro animations during HMR
         });
       }
-      
-      // Store instance for future updates
-      this.instances.set(island, instance);
-      
-      // Generate component ID for tracking
-      const src = island.getAttribute('data-src') || '';
-      const newComponentId = this.generateComponentId(src);
-      this.componentIds.set(island, newComponentId);
 
-      // Mark as hydrated
-      island.setAttribute('data-hydrated', 'true');
-      island.setAttribute('data-hydration-status', 'success');
-      
+      island.innerHTML = '';
+
+      const instance = await this.mountComponent(Component, island, props);
+
+      this.instances.set(island, instance);
+
+      const src = island.dataset.src || '';
+      this.componentIds.set(island, this.generateComponentId(src));
+
+      island.dataset.hydrated = 'true';
+      island.dataset.hydrationStatus = 'success';
     } catch (error) {
       console.error('Svelte HMR update failed:', error);
-      island.setAttribute('data-hydration-status', 'error');
+      island.dataset.hydrationStatus = 'error';
       throw error;
     }
   }
@@ -510,7 +423,7 @@ export class SvelteHMRAdapter extends BaseFrameworkAdapter {
    */
   private extractComponentName(src: string): string {
     const parts = src.split('/');
-    const filename = parts[parts.length - 1];
+    const filename = parts.at(-1) ?? '';
     return filename.replace(/\.svelte$/, '');
   }
 
@@ -524,7 +437,7 @@ export class SvelteHMRAdapter extends BaseFrameworkAdapter {
     // Check if element has any meaningful content
     const hasTextContent = island.textContent && island.textContent.trim().length > 0;
     const hasChildElements = island.children && island.children.length > 0;
-    const hasAttributes = island.hasAttribute('data-ssr-content') || island.hasAttribute('data-svelte-rendered');
+    const hasAttributes = island.dataset.ssrContent !== undefined || island.dataset.svelteRendered !== undefined;
 
     // Consider it SSR content if it has text, child elements, or explicit markers
     return hasTextContent || hasChildElements || hasAttributes;
@@ -536,7 +449,7 @@ export class SvelteHMRAdapter extends BaseFrameworkAdapter {
   private generateComponentId(src: string): string {
     // Use the source path as the component ID
     // This ensures consistency across HMR updates
-    return src.replace(/[^a-zA-Z0-9]/g, '_');
+    return src.replaceAll(/[^a-zA-Z0-9]/g, '_');
   }
 
   /**
@@ -552,7 +465,7 @@ export class SvelteHMRAdapter extends BaseFrameworkAdapter {
       // This is internal API and may change, so we wrap in try-catch
       const internalState = instance.$$;
       
-      if (internalState && internalState.ctx) {
+      if (internalState?.ctx) {
         // ctx is an array of component state values
         // We can't easily map these back to variable names,
         // so we just store the raw values
@@ -595,30 +508,7 @@ export class SvelteHMRAdapter extends BaseFrameworkAdapter {
     const instance = this.instances.get(_island);
     if (instance) {
       try {
-        // Unsubscribe from stores
-        const subscriptions = this.storeSubscriptions.get(_island);
-        if (subscriptions) {
-          subscriptions.forEach(unsubscribe => unsubscribe());
-          this.storeSubscriptions.delete(_island);
-        }
-        
-        // Try to use Svelte 5's unmount function for proper cleanup
-        try {
-          const svelteModule = await import('svelte') as Record<string, unknown>;
-          const svelteUnmount = svelteModule.unmount as ((component: unknown) => void) | undefined;
-          if (svelteUnmount) {
-            svelteUnmount(instance);
-          } else if (instance.$destroy) {
-            instance.$destroy();
-          }
-        } catch {
-          // Fallback to $destroy for Svelte 4 compatibility
-          if (instance.$destroy) {
-            instance.$destroy();
-          }
-        }
-        
-        // Clean up references
+        await this.cleanupInstance(_island, instance);
         this.instances.delete(_island);
         this.componentIds.delete(_island);
       } catch (error) {

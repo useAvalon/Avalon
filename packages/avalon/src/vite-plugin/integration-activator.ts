@@ -10,9 +10,6 @@ import type { IntegrationName, ResolvedAvalonConfig } from "./types.ts";
 import { loadIntegration } from "../islands/integration-loader.ts";
 import { IntegrationError } from "./errors.ts";
 
-// Re-export IntegrationError for backward compatibility
-export { IntegrationError } from "./errors.ts";
-
 /**
  * Valid integration names that can be activated
  * This array is used for validation and error messages
