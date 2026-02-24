@@ -10,5 +10,6 @@
       "$islands/*": ["./src/islands/*"],
       "$api/*": ["./src/api/*"]
     }
-  }
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"]
 }

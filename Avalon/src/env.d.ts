@@ -27,3 +27,8 @@ declare module '*.lit.ts' {
   const component: ComponentType<Record<string, unknown>>;
   export default component;
 }
+
+declare module '*.module.css' {
+  const classes: Record<string, string>;
+  export default classes;
+}
