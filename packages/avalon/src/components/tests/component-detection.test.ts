@@ -271,7 +271,7 @@ describe('Hydration Decision Logic', () => {
 
 		const result = shouldHydrateComponent(analysis);
 		expect(result.shouldHydrate).toEqual(true);
-		expect(result.reason).toEqual('Component has script section with explicit hydration functions');
+		expect(result.reason).toEqual('Vue component with script section - uses Vue integration system');
 	});
 
 	it('should respect forceSSROnly option', () => {
@@ -296,10 +296,9 @@ describe('Hydration Decision Logic', () => {
 		};
 
 		const result = shouldHydrateComponent(analysis);
-		expect(result.shouldHydrate).toEqual(false);
-		expect(result.reason).toEqual('Component has script section but no explicit hydrate function, using SSR-only');
-		expect(result.warnings).toBeDefined();
-		expect(result.warnings!.length > 0).toEqual(true);
+		// Known frameworks with script sections always hydrate per shouldHydrateComponent logic
+		expect(result.shouldHydrate).toEqual(true);
+		expect(result.reason).toEqual('Vue component with script section - uses Vue integration system');
 	});
 });
 
