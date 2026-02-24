@@ -2,6 +2,7 @@ import { defineConfig, createLogger } from 'vite';
 import { resolve } from 'node:path';
 import type { UserConfig, Plugin } from 'vite';
 import { avalon } from '../packages/avalon/src/vite-plugin/plugin.ts';
+import { agentOptimization } from '../packages/agent-optimization/mod.ts';
 import tailwindcss from '@tailwindcss/vite';
 
 // ── Suppress noisy third-party warnings that we can't fix upstream ──
@@ -187,9 +188,21 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		publicDir: 'public',
 		customLogger: logger,
 
-		// Tailwind must come first to process CSS before other plugins
-		// Then Avalon plugins: Lit SSR shim → MDX → Core Avalon → Framework plugins
-		plugins: [tailwindcss() as unknown as Plugin, ...avalonPlugins],
+		// Agent optimization must come before Avalon so its middleware can
+		// intercept res.end() calls made by Avalon's SSR handler.
+		plugins: [
+			tailwindcss() as unknown as Plugin,
+			...agentOptimization({
+				sitemap: {
+					siteUrl: 'http://localhost:8012',
+					changefreq: 'daily',
+					exclude: ['/admin/**', '/login'],
+				},
+				markdown: true,
+				structuredData: true,
+			}),
+			...avalonPlugins,
+		],
 
 		optimizeDeps: {
 			include: [

@@ -9,6 +9,7 @@
 		"start": "bun run build"
 	},
 	"dependencies": {
+		"@avalon/agent-optimization": "workspace:*",
 		"@avalon/avalon": "workspace:*",
 		"@avalon/lit": "workspace:*",
 		"@avalon/preact": "workspace:*",

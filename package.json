@@ -3,6 +3,7 @@
 	"private": true,
 	"workspaces": [
 		"packages/avalon",
+		"packages/agent-optimization",
 		"packages/integrations/*",
 		"Avalon"
 	],

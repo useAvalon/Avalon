@@ -1,0 +1,17 @@
+{
+	"name": "@avalon/agent-optimization",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./mod.ts"
+	},
+	"dependencies": {
+		"@avalon/avalon": "workspace:*",
+		"vite": "8.0.0-beta.15",
+		"zod": "4.3.6"
+	},
+	"devDependencies": {
+		"fast-check": "^3.22.0",
+		"vitest": "^3.0.0"
+	}
+}
