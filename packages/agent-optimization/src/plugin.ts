@@ -8,6 +8,8 @@
  */
 
 import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import type { Plugin, ViteDevServer } from 'vite';
 import { validateConfig } from './config.ts';
 import type { AgentOptimizationConfigInput, SitemapConfig } from './config.ts';
@@ -101,6 +103,41 @@ export function agentOptimization(config: AgentOptimizationConfigInput): Plugin[
           next();
         });
       }
+    },
+
+    async writeBundle(options) {
+      if (!sitemapEnabled || !resolvedSitemapConfig) return;
+
+      let routes: Array<{ pattern: string; type?: string }> = [];
+
+      try {
+        const pagesDir = path.resolve(process.cwd(), 'src/pages');
+        // Resolve @avalon/avalon's main entry (mod.ts), then derive the package root
+        // to locate route-discovery.ts. This avoids requiring a subpath export for
+        // package.json and works regardless of which directory the build runs from.
+        const require = createRequire(import.meta.url);
+        const avalonEntry = require.resolve('@avalon/avalon');
+        const avalonRoot = path.dirname(avalonEntry);
+        const routeDiscoveryPath = path.join(avalonRoot, 'src/nitro/route-discovery.ts');
+        const routeDiscovery = await import(/* @vite-ignore */ routeDiscoveryPath);
+
+        const discoverFn = routeDiscovery?.discoverPageRoutes;
+        if (typeof discoverFn === 'function') {
+          const discovered = await discoverFn(pagesDir);
+          routes = discovered.filter((r: any) => r.type === 'page');
+        }
+      } catch (err) {
+        console.warn('[agent-optimization] Route discovery failed during build, writing empty sitemap:', err);
+      }
+
+      const entries = routesToSitemapEntries(routes, resolvedSitemapConfig);
+      const xml = buildSitemapXml(entries);
+
+      const outDir = options.dir ?? path.resolve(process.cwd(), '.output');
+      await fs.mkdir(outDir, { recursive: true });
+      await fs.writeFile(path.join(outDir, 'sitemap.xml'), xml, 'utf-8');
+
+      console.log(`[agent-optimization] sitemap.xml written to ${outDir}`);
     },
   });
 
