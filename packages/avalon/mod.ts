@@ -171,10 +171,6 @@ export async function build(_options?: Record<string, unknown>) {
 	return buildFn();
 }
 
-// API utilities
-export * from './src/core/api/api.ts';
-export { handleApiRequest } from './src/functions/api.ts';
-
 // Middleware system (Nitro-aligned)
 export {
 	defineMiddleware,

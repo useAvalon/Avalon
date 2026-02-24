@@ -22,28 +22,6 @@ export {
   type StaticAssetsConfig,
 } from "./config.ts";
 
-// Static assets exports
-export {
-  serveStaticAsset,
-  createStaticAssetHandler,
-  createStaticAssetRouteRules,
-  resolveStaticAsset,
-  getMimeType,
-  getExtension,
-  isImmutableAsset,
-  getCacheControl,
-  parseAcceptEncoding,
-  findCompressedFile,
-  generateETag,
-  shouldReturn304,
-  createStaticAssetHeaders,
-  MIME_TYPES,
-  COMPRESSION_ENCODINGS,
-  DEFAULT_STATIC_ASSET_CONFIG,
-  type StaticAssetConfig,
-  type ResolvedStaticAsset,
-} from "./static-assets.ts";
-
 // Type exports
 export {
   // Core types
@@ -101,24 +79,6 @@ export {
   type IslandMarker,
   type NitroCatchAllOptions,
 } from "./renderer.ts";
-
-// API Handler exports
-export {
-  createApiHandler,
-  createApiContext,
-  createApiErrorResponse,
-  handleApiResponse,
-  getAllowedMethods,
-  getRequestURL,
-  getRequestHeaders,
-  toRequest,
-  getRouterParams,
-  getRouterParam,
-  getQuery,
-  isValidApiMethod,
-  clearApiMiddlewareCache,
-  type CreateApiHandlerOptions,
-} from "./api-handler.ts";
 
 // Middleware Adapter exports
 export {
@@ -197,66 +157,18 @@ export {
   type AssetMetadata,
 } from "./island-manifest.ts";
 
-// Runtime Configuration exports
-export {
-  useRuntimeConfig,
-  setRuntimeConfig,
-  resetRuntimeConfig,
-  getRuntimeConfigValue,
-  applyEnvOverrides,
-  envKeyToConfigKey,
-  configKeyToEnvKey,
-  parseEnvValue,
-  setNestedValue,
-  getNestedValue,
-  deepClone,
-  getEnvironmentVariables,
-  createDefaultRuntimeConfig,
-  validateRuntimeConfig,
-  mergeRuntimeConfigs,
-  initializeRuntimeConfig,
-  isRuntimeConfigInitialized,
-  NITRO_ENV_PREFIX,
-  NITRO_PUBLIC_ENV_PREFIX,
-  type RuntimeConfig,
-} from "./runtime-config.ts";
-
-// Caching Utilities exports
-// These utilities help configure Nitro's built-in caching system:
-// - defineCachedEventHandler: Cache HTTP responses
-// - defineCachedFunction: Cache function results
-export {
-  // Cache option types
-  type CachedEventHandlerOptions,
-  type CachedFunctionOptions,
-  // Default configurations
-  DEFAULT_API_CACHE_OPTIONS,
-  DEFAULT_COMPUTATION_CACHE_OPTIONS,
-  // Helper functions for creating cache options
-  createShortLivedCacheOptions,
-  createLongLivedCacheOptions,
-  createParamBasedCacheOptions,
-  createQueryBasedCacheOptions,
-  mergeCacheOptions,
-} from "./caching.ts";
-
 // Error Handler exports
-// Custom error page support for 404, 500, and generic error pages
-// Requirements: 10.1, 10.2, 10.3, 10.4, 10.5
 export {
-  // Error page discovery and rendering
   discoverErrorPages,
   getErrorPageModule,
   renderErrorPage,
   generateDefaultErrorPage,
   createErrorPageProps,
   clearErrorPageCache,
-  // Error handling functions
   handleRenderError,
   handleApiError,
   handleNotFound,
   handleInternalError,
-  // Types
   type ErrorPageProps,
   type ErrorHandlerOptions,
 } from "./error-handler.ts";

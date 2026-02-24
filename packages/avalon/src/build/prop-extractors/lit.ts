@@ -30,7 +30,8 @@ export function extractLitProps(source: string): PropExtractionResult {
 			return { propsType: FALLBACK_PROPS, fallback: true };
 		}
 
-		const propsType = `{ ${props.map((p) => `${p.name}?: ${p.tsType}`).join("; ")} }`;
+		const fields = props.map((p) => p.name + "?: " + p.tsType).join("; ");
+		const propsType = "{ " + fields + " }";
 		return { propsType, fallback: false };
 	} catch {
 		console.warn(

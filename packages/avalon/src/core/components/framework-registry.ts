@@ -157,7 +157,15 @@ export class FrameworkRegistry {
 		const errors: string[] = [];
 		const warnings: string[] = [];
 
-		// Required fields validation
+		this.validateRequiredFields(config, errors, warnings);
+		this.validateDetectionPatterns(config, errors, warnings);
+		this.validateCrossFrameworkConflicts(config, warnings);
+
+		return { isValid: errors.length === 0, errors, warnings };
+	}
+
+	/** Validate required top-level fields on a framework config */
+	private validateRequiredFields(config: FrameworkConfig, errors: string[], warnings: string[]): void {
 		if (!config.name || config.name.trim() === '') {
 			errors.push('Framework name is required and cannot be empty');
 		}
@@ -165,7 +173,6 @@ export class FrameworkRegistry {
 		if (!config.fileExtensions || config.fileExtensions.length === 0) {
 			errors.push('At least one file extension is required');
 		} else {
-			// Validate file extensions format
 			for (const ext of config.fileExtensions) {
 				if (!ext.startsWith('.')) {
 					errors.push(`File extension '${ext}' must start with a dot`);
@@ -184,32 +191,24 @@ export class FrameworkRegistry {
 		if (!config.hydrationModules || config.hydrationModules.length === 0) {
 			errors.push('At least one hydration module is required');
 		}
+	}
 
-		// Detection patterns validation
-		if (config.detectionPatterns) {
-			if (!config.detectionPatterns.imports || config.detectionPatterns.imports.length === 0) {
-				errors.push('At least one import pattern is required for detection');
-			}
-
-			if (!config.detectionPatterns.content || config.detectionPatterns.content.length === 0) {
-				warnings.push('No content patterns defined - detection may be less accurate');
-			}
-
-			if (!config.detectionPatterns.jsxPragmas || config.detectionPatterns.jsxPragmas.length === 0) {
-				warnings.push('No JSX pragmas defined - detection may be less accurate');
-			}
-		} else {
+	/** Validate the detectionPatterns sub-object */
+	private validateDetectionPatterns(config: FrameworkConfig, errors: string[], warnings: string[]): void {
+		if (!config.detectionPatterns) {
 			errors.push('Detection patterns are required');
+			return;
 		}
 
-		// Cross-validation checks
-		this.validateCrossFrameworkConflicts(config, warnings);
-
-		return {
-			isValid: errors.length === 0,
-			errors,
-			warnings,
-		};
+		if (!config.detectionPatterns.imports || config.detectionPatterns.imports.length === 0) {
+			errors.push('At least one import pattern is required for detection');
+		}
+		if (!config.detectionPatterns.content || config.detectionPatterns.content.length === 0) {
+			warnings.push('No content patterns defined - detection may be less accurate');
+		}
+		if (!config.detectionPatterns.jsxPragmas || config.detectionPatterns.jsxPragmas.length === 0) {
+			warnings.push('No JSX pragmas defined - detection may be less accurate');
+		}
 	}
 
 	/**

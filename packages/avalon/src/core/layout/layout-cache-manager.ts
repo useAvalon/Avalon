@@ -40,7 +40,7 @@ export class LayoutCacheManager {
 		totalEntries: 0,
 		memoryUsage: 0,
 	};
-	private cleanupTimer?: number;
+	private cleanupTimer?: ReturnType<typeof setInterval>;
 
 	constructor(private readonly config: CacheConfig) {
 		// Don't start cleanup timer in test environment

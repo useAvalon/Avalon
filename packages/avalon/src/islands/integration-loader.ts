@@ -1,5 +1,4 @@
 import { registry } from "../core/integrations/registry.ts";
-import { getMissingIntegrationError } from "../core/integrations/startup.ts";
 import type { Integration } from "@avalon/core";
 import { devWarn } from "../utils/dev-logger.ts";
 
@@ -38,7 +37,10 @@ export async function loadIntegration(framework: string) {
     frameworkCache.set(framework, integration);
     return integration;
   } catch (error) {
-    throw new Error(getMissingIntegrationError(framework), { cause: error });
+    throw new Error(
+      `Integration '${framework}' could not be loaded. Make sure @avalon/${framework} is installed.`,
+      { cause: error }
+    );
   }
 }
 

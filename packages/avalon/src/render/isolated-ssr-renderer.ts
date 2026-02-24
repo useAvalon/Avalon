@@ -62,7 +62,6 @@ export class IsolatedSSRRenderer {
 			...config,
 		};
 
-		// Initialize framework contexts
 		this.initializeFrameworkContexts();
 	}
 
@@ -159,13 +158,11 @@ export class IsolatedSSRRenderer {
 				return Promise.resolve(preactRenderToString(component as JSX.Element));
 			},
 			cleanup: () => {
-				// Clear Preact-specific globals if any
 				this.clearFrameworkGlobals('preact');
 			},
 			isActive: false,
 		});
 
-		// Solid context
 		this.contexts.set('solid', {
 			framework: 'solid',
 			imports: new Map(),
@@ -182,13 +179,11 @@ export class IsolatedSSRRenderer {
 				}
 			},
 			cleanup: () => {
-				// Clear Solid-specific globals
 				this.clearFrameworkGlobals('solid');
 			},
 			isActive: false,
 		});
 
-		// Vue context
 		this.contexts.set('vue', {
 			framework: 'vue',
 			imports: new Map(),
@@ -208,13 +203,11 @@ export class IsolatedSSRRenderer {
 				}
 			},
 			cleanup: () => {
-				// Clear Vue-specific globals
 				this.clearFrameworkGlobals('vue');
 			},
 			isActive: false,
 		});
 
-		// Svelte context
 		this.contexts.set('svelte', {
 			framework: 'svelte',
 			imports: new Map(),
@@ -231,13 +224,11 @@ export class IsolatedSSRRenderer {
 				}
 			},
 			cleanup: () => {
-				// Clear Svelte-specific globals
 				this.clearFrameworkGlobals('svelte');
 			},
 			isActive: false,
 		});
 
-		// Unknown/fallback context
 		this.contexts.set('unknown', {
 			framework: 'unknown',
 			imports: new Map(),

@@ -37,7 +37,7 @@ export interface FrameworkConfig {
  * Enhanced Framework Detector with multi-evidence analysis
  */
 export class EnhancedFrameworkDetector {
-	private frameworkRegistry: Map<string, FrameworkConfig>;
+	private readonly frameworkRegistry: Map<string, FrameworkConfig>;
 
 	constructor(frameworkConfigs?: Record<string, FrameworkConfig>) {
 		this.frameworkRegistry = new Map();
@@ -198,20 +198,12 @@ export class EnhancedFrameworkDetector {
 	 * Parses JSX import source from content
 	 */
 	private parseJSXImportSource(content: string): string | undefined {
-		// Look for @jsxImportSource pragma
-		const jsxImportSourceRegex = /@jsxImportSource\s+([^\s\n]+)/;
-		const match = new RegExp(jsxImportSourceRegex).exec(content);
+		// Look for @jsxImportSource pragma (handles both // and /** */ comment styles)
+		const jsxImportSourceRegex = /@jsxImportSource\s+([^\s*]+)/;
+		const match = jsxImportSourceRegex.exec(content);
 
 		if (match) {
 			return match[1];
-		}
-
-		// Look for /** @jsxImportSource ... */ comments
-		const jsxCommentRegex = /\/\*\*?\s*@jsxImportSource\s+([^\s*]+)/;
-		const commentMatch = new RegExp(jsxCommentRegex).exec(content);
-
-		if (commentMatch) {
-			return commentMatch[1];
 		}
 
 		return undefined;
@@ -223,17 +215,20 @@ export class EnhancedFrameworkDetector {
 	private extractImportStatements(content: string): string[] {
 		const imports: string[] = [];
 
-		// Match ES6 imports
-		const importRegex =
-			/import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+|\w+))*\s+from\s+)?['"]([^'"]+)['"]/g;
+		// Match ES6 import specifiers: import ... from 'module'
+		const importFromRegex = /from\s+['"]([^'"]+)['"]/g;
+		// Match side-effect imports: import 'module'
+		const sideEffectRegex = /import\s+['"]([^'"]+)['"]/g;
+		// Match require statements: require('module')
+		const requireRegex = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 
 		let match;
-		while ((match = importRegex.exec(content)) !== null) {
+		while ((match = importFromRegex.exec(content)) !== null) {
 			imports.push(match[1]);
 		}
-
-		// Match require statements
-		const requireRegex = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+		while ((match = sideEffectRegex.exec(content)) !== null) {
+			imports.push(match[1]);
+		}
 		while ((match = requireRegex.exec(content)) !== null) {
 			imports.push(match[1]);
 		}

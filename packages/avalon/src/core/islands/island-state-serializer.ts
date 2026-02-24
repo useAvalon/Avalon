@@ -139,7 +139,7 @@ export class IslandStateSerializer {
 						return null;
 
 					default:
-						console.warn(`Unknown special type "${v.__type}" in serialized state`);
+						console.warn(`Unknown special type "${typeof v.__type === 'string' ? v.__type : 'non-string'}" in serialized state`);
 						return v.__value;
 				}
 			}

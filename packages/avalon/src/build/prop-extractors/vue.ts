@@ -54,18 +54,17 @@ function extractScriptSetupContent(source: string): string | null {
 	return match ? match[1] : null;
 }
 
-/**
- * Extract the type argument from `defineProps<TYPE>()` using angle-bracket
- * and brace counting to handle nested generics and object types.
- *
- * Returns the trimmed type string, or `null` if not found.
- */
-/**
- * Extract the type argument from `defineProps<TYPE>()` using angle-bracket
- * and brace counting to handle nested generics and object types.
- *
- * Returns the trimmed type string, or `null` if not found.
- */
+/** Check that `{` and `}` are balanced in a string */
+function hasBracesBalanced(str: string): boolean {
+	let depth = 0;
+	for (const ch of str) {
+		if (ch === "{") depth++;
+		else if (ch === "}") depth--;
+		if (depth < 0) return false;
+	}
+	return depth === 0;
+}
+
 /**
  * Extract the type argument from `defineProps<TYPE>()` using angle-bracket
  * counting to handle nested generics and object types.
@@ -74,7 +73,6 @@ function extractScriptSetupContent(source: string): string | null {
  * Returns the trimmed type string, or `null` if not found.
  */
 function extractDefinePropsType(scriptContent: string): string | null {
-	// Find the start of defineProps<
 	const marker = "defineProps<";
 	const idx = scriptContent.indexOf(marker);
 	if (idx === -1) {
@@ -82,25 +80,18 @@ function extractDefinePropsType(scriptContent: string): string | null {
 	}
 
 	const start = idx + marker.length;
-	let depth = 1; // We're already past the opening <
+	let depth = 1;
 	let i = start;
 
 	while (i < scriptContent.length && depth > 0) {
 		const ch = scriptContent[i];
-		if (ch === "<") {
-			depth++;
-		} else if (ch === ">") {
-			depth--;
-		}
-		if (depth > 0) {
-			i++;
-		}
+		if (ch === "<") depth++;
+		else if (ch === ">") depth--;
+		if (depth > 0) i++;
 	}
 
 	if (depth !== 0) {
-		console.warn(
-			"[avalon] Unbalanced angle brackets in defineProps<...> — falling back",
-		);
+		console.warn("[avalon] Unbalanced angle brackets in defineProps<...> — falling back");
 		return null;
 	}
 
@@ -109,22 +100,8 @@ function extractDefinePropsType(scriptContent: string): string | null {
 		return null;
 	}
 
-	// Validate that braces are balanced in the extracted type
-	let braceDepth = 0;
-	for (const ch of typeStr) {
-		if (ch === "{") braceDepth++;
-		else if (ch === "}") braceDepth--;
-		if (braceDepth < 0) {
-			console.warn(
-				"[avalon] Unbalanced braces in defineProps type — falling back",
-			);
-			return null;
-		}
-	}
-	if (braceDepth !== 0) {
-		console.warn(
-			"[avalon] Unbalanced braces in defineProps type — falling back",
-		);
+	if (!hasBracesBalanced(typeStr)) {
+		console.warn("[avalon] Unbalanced braces in defineProps type — falling back");
 		return null;
 	}
 

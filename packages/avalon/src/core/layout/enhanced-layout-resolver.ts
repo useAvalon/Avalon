@@ -14,10 +14,17 @@ import type {
 	LayoutDiscoveryOptions,
 	ResolvedLayout,
 	LayoutCache,
-	RouteInfo,
 	LayoutErrorInfo,
 	PageModule,
 } from './layout-types.ts';
+
+/**
+ * Call a ComponentType as a plain function regardless of whether
+ * it's a class constructor or a function component.
+ */
+function callComponent<P>(component: ComponentType<P>, props: P): unknown {
+	return (component as (props: P) => unknown)(props);
+}
 
 interface IEnhancedLayoutResolver {
 	resolveAndRender(routePath: string, pageModule: PageModule, context: LayoutContext): Promise<ResolvedLayout>;
@@ -42,13 +49,13 @@ export interface EnhancedLayoutResolverOptions extends LayoutDiscoveryOptions {
  * Handles: discovery → conditional filtering → composition → data loading → rendering
  */
 export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
-	private layoutDiscovery: LayoutDiscovery;
-	private layoutMatcher: LayoutMatcher;
-	private layoutComposer: LayoutComposer;
-	private layoutDataLoader: LayoutDataLoader;
-	private cache: LayoutCache;
-	private cacheManager: LayoutCacheManager;
-	private options: Required<EnhancedLayoutResolverOptions>;
+	private readonly layoutDiscovery: LayoutDiscovery;
+	private readonly layoutMatcher: LayoutMatcher;
+	private readonly layoutComposer: LayoutComposer;
+	private readonly layoutDataLoader: LayoutDataLoader;
+	private readonly cache: LayoutCache;
+	private readonly cacheManager: LayoutCacheManager;
+	private readonly options: Required<EnhancedLayoutResolverOptions>;
 
 	constructor(options: EnhancedLayoutResolverOptions) {
 		this.options = {
@@ -110,20 +117,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 		let handlers: LayoutHandler[] = [];
 
 		try {
-			// Stage 1: Discovery
-			const url = new URL(`http://localhost${routePath}`);
-			handlers = await this.layoutDiscovery.buildLayoutChain(url);
-
-			// Stage 2: Conditional Filtering
-			const routeInfo: RouteInfo = {
-				path: routePath,
-				params: context.params,
-				method: context.request.method,
-				headers: context.request.headers,
-			};
-			handlers = handlers.filter(h => this.layoutMatcher.shouldApplyLayout(h.path, routeInfo));
-
-			// Stage 3: Composition Control
+			// Stage 1–3: Composition Control (subsumes discovery + filtering)
 			handlers = await this.layoutComposer.resolveLayouts(routePath, pageModule);
 
 			// Stage 4: Data Loading
@@ -156,6 +150,9 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 		}
 
 		if (this.options.developmentMode) {
+			if (errors.length > 0) {
+				console.warn(`[EnhancedLayoutResolver] ${errors.length} error(s) during layout resolution for ${routePath}`);
+			}
 			console.log(`[EnhancedLayoutResolver] Resolved ${handlers.length} layouts for ${routePath} in ${totalTime.toFixed(2)}ms`);
 		}
 
@@ -188,15 +185,8 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 		context: LayoutContext,
 		layoutData: LayoutData[] = []
 	): string {
-		// Helper to call a ComponentType as a plain function regardless of whether
-		// it's a class constructor or a function component.
-		function callComponent<P>(component: ComponentType<P>, props: P): unknown {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			return (component as (props: P) => unknown)(props);
-		}
-
 		try {
-			const PageComponent: ComponentType<LayoutProps> = pageModule.default || (() => null);
+			const PageComponent = (pageModule.default ?? (() => null)) as unknown as ComponentType<LayoutProps>;
 			let currentComponent: ComponentType<LayoutProps> = PageComponent;
 
 			for (let i = resolvedLayout.handlers.length - 1; i >= 0; i--) {
