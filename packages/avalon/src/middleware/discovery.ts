@@ -2,13 +2,14 @@
  * Simplified Middleware Discovery
  *
  * This module provides a streamlined middleware discovery system that scans
- * for _middleware.ts files in src/pages/ and src/api/ directories.
+ * for _middleware.ts files in src/pages/ directories.
  *
  * Key features:
  * - Scans src/pages/ for page middleware
- * - Scans src/api/ for API middleware
  * - Calculates priority based on directory depth (parent before child)
  * - Creates URL patterns for route matching
+ *
+ * Note: API middleware is handled natively by Nitro and is not scanned here.
  *
  * Requirements: 3.1, 3.2, 3.3, 3.4
  */
@@ -33,8 +34,6 @@ const DEFAULT_OPTIONS: Required<Omit<MiddlewareDiscoveryOptions, 'baseDir'>> = {
 const PRIORITY_BASE = {
   /** Page middleware base priority */
   pages: 50,
-  /** API middleware base priority */
-  api: 100,
 } as const;
 
 /**
@@ -42,7 +41,8 @@ const PRIORITY_BASE = {
  *
  * Scans for _middleware.ts files in:
  * - src/pages/ directory (and subdirectories) for page routes
- * - src/api/ directory (and subdirectories) for API routes
+ *
+ * API middleware is handled natively by Nitro and is not scanned here.
  *
  * Middleware files are sorted by priority (directory depth), ensuring
  * parent middleware executes before child middleware.
@@ -60,7 +60,6 @@ const PRIORITY_BASE = {
  * // Returns routes like:
  * // [
  * //   { pattern: URLPattern('/blog/*'), filePath: 'src/pages/blog/_middleware.ts', priority: 51, type: 'pages' },
- * //   { pattern: URLPattern('/api/*'), filePath: 'src/api/_middleware.ts', priority: 100, type: 'api' },
  * // ]
  * ```
  */
@@ -81,10 +80,6 @@ export async function discoverScopedMiddleware(
   const pagesDir = join(resolvedBaseDir, 'pages');
   await scanDirectory(pagesDir, 'pages', filePattern, excludeDirs, routes, devMode);
 
-  // Scan api directory for API middleware
-  const apiDir = join(resolvedBaseDir, 'api');
-  await scanDirectory(apiDir, 'api', filePattern, excludeDirs, routes, devMode);
-
   // Sort by priority (lower numbers execute first)
   routes.sort((a, b) => a.priority - b.priority);
 
@@ -102,7 +97,7 @@ export async function discoverScopedMiddleware(
  * Scans a directory recursively for middleware files
  *
  * @param dir - Directory to scan
- * @param type - Middleware type ('pages' or 'api')
+ * @param type - Middleware type ('pages')
  * @param filePattern - File pattern to match
  * @param excludeDirs - Directories to exclude
  * @param routes - Array to collect discovered routes
@@ -110,7 +105,7 @@ export async function discoverScopedMiddleware(
  */
 async function scanDirectory(
   dir: string,
-  type: 'pages' | 'api',
+  type: 'pages',
   filePattern: string,
   excludeDirs: string[],
   routes: MiddlewareRoute[],
@@ -147,7 +142,7 @@ async function scanDirectory(
 async function scanDirectoryRecursive(
   rootDir: string,
   currentDir: string,
-  type: 'pages' | 'api',
+  type: 'pages',
   filePattern: string,
   excludeDirs: string[],
   routes: MiddlewareRoute[],
@@ -184,7 +179,7 @@ async function scanDirectoryRecursive(
  * Creates a middleware route configuration from a file path
  *
  * @param filePath - Absolute path to the middleware file
- * @param relativePath - Path relative to the type directory (pages or api)
+ * @param relativePath - Path relative to the pages directory
  * @param type - Middleware type
  * @returns Middleware route configuration
  *
@@ -193,34 +188,21 @@ async function scanDirectoryRecursive(
  * // For src/pages/blog/_middleware.ts
  * createMiddlewareRoute('/abs/path/src/pages/blog/_middleware.ts', 'blog', 'pages')
  * // Returns: { pattern: URLPattern('/blog/*'), filePath: '...', priority: 51, type: 'pages' }
- *
- * // For src/api/admin/_middleware.ts
- * createMiddlewareRoute('/abs/path/src/api/admin/_middleware.ts', 'admin', 'api')
- * // Returns: { pattern: URLPattern('/api/admin/*'), filePath: '...', priority: 101, type: 'api' }
  * ```
  */
 function createMiddlewareRoute(
   filePath: string,
   relativePath: string,
-  type: 'pages' | 'api'
+  type: 'pages'
 ): MiddlewareRoute {
   // Calculate URL pattern from relative path
-  // relativePath is the directory path relative to pages/ or api/
+  // relativePath is the directory path relative to pages/
   // e.g., 'blog' for src/pages/blog/_middleware.ts
-  // e.g., 'admin/users' for src/api/admin/users/_middleware.ts
   // e.g., '' for src/pages/_middleware.ts (root middleware)
 
-  let urlPattern: string;
-
-  if (type === 'api') {
-    // API middleware: /api/* or /api/admin{/*}?
-    // Use {/*}? to match both /api/admin and /api/admin/anything
-    urlPattern = relativePath ? `/api/${relativePath}{/*}?` : '/api/*';
-  } else {
-    // Page middleware: /* or /blog{/*}?
-    // Use {/*}? to match both /blog and /blog/anything
-    urlPattern = relativePath ? `/${relativePath}{/*}?` : '/*';
-  }
+  // Page middleware: /* or /blog{/*}?
+  // Use {/*}? to match both /blog and /blog/anything
+  const urlPattern = relativePath ? `/${relativePath}{/*}?` : '/*';
 
   // Calculate priority based on directory depth
   // Shallower directories have lower priority (execute first)
@@ -266,11 +248,6 @@ export function getMatchingMiddleware(
 
     // Type isolation: page middleware doesn't run for API routes
     if (route.type === 'pages' && isApiRoute) {
-      return false;
-    }
-
-    // Type isolation: API middleware doesn't run for page routes
-    if (route.type === 'api' && !isApiRoute) {
       return false;
     }
 

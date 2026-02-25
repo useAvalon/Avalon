@@ -22,6 +22,7 @@
 		"@lit-labs/ssr-client": "^1.0.0",
 		"@lit-labs/ssr-dom-shim": "^1.0.0",
 		"@tailwindcss/vite": "^4.1.8",
+		"h3": "^2.0.1-rc.11",
 		"lit": "^3.0.0",
 		"preact": "10.26.9",
 		"preact-render-to-string": "6.5.13",

@@ -69,7 +69,7 @@ export interface MiddlewareRoute {
   /** Execution priority (lower numbers execute first) */
   priority: number;
   /** Middleware type - determines which routes it applies to */
-  type: 'global' | 'pages' | 'api';
+  type: 'global' | 'pages';
 }
 
 /**

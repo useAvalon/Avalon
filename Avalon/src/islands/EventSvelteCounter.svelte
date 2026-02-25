@@ -2,8 +2,8 @@
   interface Props {
     initialCount?: number;
   }
-  let props: Props = $props();
-  let count = $state(props.initialCount ?? 0);
+  let { initialCount = 0 }: Props = $props();
+  let count = $state(initialCount);
 
   function dispatch(next: number) {
     count = next;

@@ -1,29 +1,22 @@
 /**
- * Security Middleware - Nitro Format
+ * Security Middleware (Global)
  *
- * Adds security headers to all responses.
- * Migrated from: Avalon/src/middleware/_middleware.ts
- *
- * Requirements: 6.1, 6.2, 6.4, 6.5
+ * Adds security headers and request logging to all responses.
  */
 
-import { defineEventHandler, getHeader, getRequestURL } from 'h3';
+import { defineMiddleware } from '@avalon/avalon/middleware';
 
-export default defineEventHandler(async event => {
+export default defineMiddleware((event) => {
 	const start = Date.now();
-	const userAgent = getHeader(event, 'user-agent') || 'Unknown';
+	const userAgent = event.req.headers.get('user-agent') || 'Unknown';
 
-	console.log(`🌐 ${event.method} ${getRequestURL(event).pathname} - ${userAgent.split(' ')[0]}`);
+	console.log(`🌐 ${event.req.method} ${event.url.pathname} - ${userAgent.split(' ')[0]}`);
 
-	// Store security headers in event context for later application
 	event.context.securityHeaders = {
 		'X-Frame-Options': 'DENY',
 		'X-Content-Type-Options': 'nosniff',
 		'Referrer-Policy': 'strict-origin-when-cross-origin',
 	};
 
-	// Store start time for logging in response
 	event.context.requestStartTime = start;
-
-	// No return = continue to next middleware/handler
 });

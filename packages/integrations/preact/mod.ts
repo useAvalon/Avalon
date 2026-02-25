@@ -60,13 +60,33 @@ export const preactIntegration: Integration = {
    */
   async vitePlugin(): Promise<Plugin | Plugin[]> {
     const { default: preact } = await import("@preact/preset-vite");
-    return preact({
+    const plugins = preact({
       // Exclude Solid files from Preact processing
       include: [/\.(tsx|jsx)$/],
       exclude: [
         /node_modules/,
         /\.solid\.(tsx|jsx)$/,
       ],
+    });
+
+    // Patch deprecated Vite config options (esbuild → oxc)
+    // from @preact/preset-vite which hasn't fully updated for Vite 8 / Rolldown yet.
+    const pluginArray = Array.isArray(plugins) ? plugins : [plugins];
+    return pluginArray.map((p) => {
+      if (typeof p.config !== "function") return p;
+      const origConfig = p.config;
+      return {
+        ...p,
+        config(...args: Parameters<typeof origConfig>) {
+          const result = (origConfig as Function).apply(this, args) as Record<string, unknown> | undefined;
+          if (!result || typeof result !== "object") return result;
+          if ("esbuild" in result) {
+            const { esbuild, ...rest } = result;
+            return { ...rest, oxc: esbuild };
+          }
+          return result;
+        },
+      } as Plugin;
     });
   },
 };

@@ -9,7 +9,7 @@
  */
 
 import type { MiddlewareContext } from "../nitro/middleware-adapter.ts";
-import type { ApiContext, ApiMethod } from "../schemas/api.ts";
+import type { ApiMethod } from "../schemas/api.ts";
 
 /**
  * ServerRequest type reference from Nitro v3 (`nitro/types`).
@@ -54,12 +54,8 @@ export interface H3Event {
 export interface AvalonRuntimeConfig {
   /** Enable streaming SSR responses */
   streaming: boolean;
-  /** Source directory path relative to project root */
-  srcDir: string;
   /** Pages directory path relative to project root */
   pagesDir: string;
-  /** API directory path relative to project root */
-  apiDir: string;
   /** Islands directory path relative to project root */
   islandsDir: string;
 }
@@ -179,14 +175,6 @@ export interface IslandManifest {
   clientEntry: string;
   /** CSS assets to inject */
   css: string[];
-}
-
-/**
- * Extended API context with H3 event
- */
-export interface NitroApiContext extends ApiContext {
-  /** H3 event for advanced use cases */
-  event: H3Event;
 }
 
 /**

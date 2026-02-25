@@ -72,12 +72,6 @@ export interface AvalonPluginConfig {
   pagesDir?: string;
 
   /**
-   * Directory containing API route handlers
-   * @default "src/api"
-   */
-  apiDir?: string;
-
-  /**
    * Framework integrations to activate
    * Simply list the framework names - the integration packages handle the rest
    * @example ["react", "svelte", "lit"]
@@ -169,7 +163,6 @@ export interface ResolvedMDXConfig {
 export interface ResolvedAvalonConfig {
   islandsDir: string;
   pagesDir: string;
-  apiDir: string;
   integrations: IntegrationName[];
   mdx: ResolvedMDXConfig;
   verbose: boolean;

@@ -48,7 +48,7 @@ async function loadComponentProd(src: string, buildOutput: string | undefined, t
 	const outputPath = resolveProductionPath(src, buildOutput, target);
 
 	try {
-		const module = await import(toImportSpecifier(outputPath));
+		const module = await import(/* @vite-ignore */ toImportSpecifier(outputPath));
 		return module.default || module;
 	} catch (error) {
 		throw new Error(`Failed to load component in production: ${outputPath}`, { cause: error });

@@ -1,34 +1,22 @@
 /**
- * API CORS Middleware - Nitro Format
+ * API CORS Middleware (Global)
  *
- * Adds CORS headers for API routes.
- * Migrated from: Avalon/src/api/_middleware.ts
- *
- * Requirements: 6.1, 6.2, 6.4, 6.5
+ * Adds CORS headers for API routes and handles OPTIONS preflight.
  */
 
-import { defineEventHandler, getRequestURL } from 'h3';
+import { defineMiddleware } from '@avalon/avalon/middleware';
 
-export default defineEventHandler(async event => {
-	// Only apply to API routes
-	if (!getRequestURL(event).pathname.startsWith('/api')) {
-		// No return = continue to next middleware/handler
+export default defineMiddleware((event) => {
+	if (!event.url.pathname.startsWith('/api')) {
 		return;
 	}
 
-	const start = Date.now();
+	event.res.headers.set('Access-Control-Allow-Origin', '*');
+	event.res.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+	event.res.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-API-Key');
+	event.res.headers.set('Access-Control-Max-Age', '86400');
 
-	console.log(`🔌 API ${event.method} ${getRequestURL(event).pathname} - Started`);
-
-	// Store CORS headers in event context for later application
-	event.context.corsHeaders = {
-		'Access-Control-Allow-Origin': '*',
-		'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-		'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-	};
-
-	// Store API start time for logging
-	event.context.apiStartTime = start;
-
-	// No return = continue to next middleware/handler
+	if (event.req.method === 'OPTIONS') {
+		return new Response(null, { status: 204 });
+	}
 });

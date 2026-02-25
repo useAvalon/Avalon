@@ -1,45 +1,42 @@
 /**
- * GitHub Stars API Route - Demonstrates external API caching
- *
- * This route demonstrates using defineCachedFunction to cache
- * external API calls. The GitHub API response is cached for 1 hour.
- *
+ * GitHub Stars API Route
  * GET /api/github/:owner/:repo/stars
- *
- * Requirements: 4.2, 4.5
  */
 
-import { defineEventHandler, getRouterParam, createError } from "h3";
-import { getGitHubStars } from "../../../../server/utils/cached-functions.ts";
+import { defineHandler, getRouterParam, HTTPError } from 'h3';
 
-export default defineEventHandler(async (event) => {
-  const owner = getRouterParam(event, "owner");
-  const repo = getRouterParam(event, "repo");
+export default defineHandler(async (event) => {
+	const owner = getRouterParam(event, 'owner');
+	const repo = getRouterParam(event, 'repo');
 
-  if (!owner || !repo) {
-    throw createError({
-      statusCode: 400,
-      message: "Owner and repo parameters are required",
-    });
-  }
+	if (!owner || !repo) {
+		throw new HTTPError('Owner and repo parameters are required', { status: 400 });
+	}
 
-  try {
-    // This uses defineCachedFunction internally
-    // The result is cached for 1 hour to avoid GitHub rate limits
-    const stars = await getGitHubStars(owner, repo);
+	try {
+		const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+			headers: {
+				Accept: 'application/vnd.github.v3+json',
+				'User-Agent': 'Avalon-Demo',
+			},
+		});
 
-    return {
-      owner,
-      repo,
-      stars,
-      cached: true,
-      message: "Star count is cached for 1 hour",
-      fetchedAt: new Date().toISOString(),
-    };
-  } catch (error) {
-    throw createError({
-      statusCode: 502,
-      message: `Failed to fetch GitHub data: ${error instanceof Error ? error.message : "Unknown error"}`,
-    });
-  }
+		if (!response.ok) {
+			throw new Error(`GitHub API error: ${response.status}`);
+		}
+
+		const data = await response.json();
+
+		return {
+			owner,
+			repo,
+			stars: data.stargazers_count,
+			fetchedAt: new Date().toISOString(),
+		};
+	} catch (error) {
+		throw new HTTPError(
+			`Failed to fetch GitHub data: ${error instanceof Error ? error.message : 'Unknown error'}`,
+			{ status: 502 },
+		);
+	}
 });

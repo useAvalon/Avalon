@@ -30,12 +30,14 @@ export const VIRTUAL_MODULE_IDS = {
 	PAGE_ROUTES: 'virtual:avalon/page-routes',
 	ISLAND_MANIFEST: 'virtual:avalon/island-manifest',
 	RUNTIME_CONFIG: 'virtual:avalon/runtime-config',
+	CONFIG: 'virtual:avalon/config',
 } as const;
 
 export const RESOLVED_VIRTUAL_IDS = {
 	PAGE_ROUTES: '\0' + VIRTUAL_MODULE_IDS.PAGE_ROUTES,
 	ISLAND_MANIFEST: '\0' + VIRTUAL_MODULE_IDS.ISLAND_MANIFEST,
 	RUNTIME_CONFIG: '\0' + VIRTUAL_MODULE_IDS.RUNTIME_CONFIG,
+	CONFIG: '\0' + VIRTUAL_MODULE_IDS.CONFIG,
 } as const;
 
 export interface NitroIntegrationResult {
@@ -73,6 +75,11 @@ export function createNitroIntegration(
 		runtimeConfig: nitroOptions.runtimeConfig,
 		renderer: nitroConfig.renderer === false ? false : nitroOptions.renderer,
 		compatibilityDate: nitroOptions.compatibilityDate,
+		// Tell Nitro where to find API route handlers (file-system routing).
+		// Nitro's scanDirs defaults to [serverDir] which misses root-level api/.
+		// Adding '.' ensures the project root is scanned so Avalon/api/ is found.
+		apiDir: 'api',
+		scanDirs: ['.'],
 	};
 
 	// Only include optional keys if they're defined
@@ -196,7 +203,7 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 				}
 
 				if (url.startsWith('/api/')) {
-					return handleApiMiddleware(server, url, req, res, avalonConfig, verbose);
+					return next();
 				}
 
 				try {
@@ -231,35 +238,6 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 
 import type { ServerResponse, IncomingMessage } from 'node:http';
 
-async function handleApiMiddleware(
-	server: ViteDevServer,
-	url: string,
-	req: IncomingMessage,
-	res: ServerResponse,
-	config: ResolvedAvalonConfig,
-	verbose?: boolean,
-): Promise<void> {
-	try {
-		const apiResponse = await handleApiRequest(server, url, req, config, verbose);
-		if (apiResponse) {
-			res.statusCode = apiResponse.status;
-			for (const [key, value] of Object.entries(apiResponse.headers)) {
-				res.setHeader(key, value);
-			}
-			res.end(apiResponse.body);
-			return;
-		}
-	} catch (error) {
-		console.error('[API Error]', error);
-		res.statusCode = 500;
-		res.setHeader('Content-Type', 'application/json');
-		res.end(JSON.stringify({ error: 'Internal Server Error' }));
-		return;
-	}
-	res.statusCode = 404;
-	res.setHeader('Content-Type', 'application/json');
-	res.end(JSON.stringify({ error: 'Not Found' }));
-}
 
 async function handleScopedMiddleware(
 	server: ViteDevServer,
@@ -410,6 +388,7 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 			if (id === VIRTUAL_MODULE_IDS.PAGE_ROUTES) return RESOLVED_VIRTUAL_IDS.PAGE_ROUTES;
 			if (id === VIRTUAL_MODULE_IDS.ISLAND_MANIFEST) return RESOLVED_VIRTUAL_IDS.ISLAND_MANIFEST;
 			if (id === VIRTUAL_MODULE_IDS.RUNTIME_CONFIG) return RESOLVED_VIRTUAL_IDS.RUNTIME_CONFIG;
+			if (id === VIRTUAL_MODULE_IDS.CONFIG) return RESOLVED_VIRTUAL_IDS.CONFIG;
 			return null;
 		},
 
@@ -417,6 +396,7 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 			if (id === RESOLVED_VIRTUAL_IDS.PAGE_ROUTES) return await generatePageRoutesModule(avalonConfig, verbose);
 			if (id === RESOLVED_VIRTUAL_IDS.ISLAND_MANIFEST) return generateIslandManifestModule();
 			if (id === RESOLVED_VIRTUAL_IDS.RUNTIME_CONFIG) return generateRuntimeConfigModule(avalonConfig, nitroConfig);
+			if (id === RESOLVED_VIRTUAL_IDS.CONFIG) return generateConfigModule(avalonConfig, nitroConfig);
 			return null;
 		},
 
@@ -425,6 +405,11 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 				cachedPageRoutes = null;
 				const mod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
 				if (mod) server.moduleGraph.invalidateModule(mod);
+			}
+			// Invalidate virtual:avalon/config when config-related files change
+			if (file.includes('vite.config') || file.includes('avalon.config') || file.includes('nitro.config')) {
+				const configMod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_IDS.CONFIG);
+				if (configMod) server.moduleGraph.invalidateModule(configMod);
 			}
 			return undefined;
 		},
@@ -489,13 +474,23 @@ function generateRuntimeConfigModule(avalonConfig: ResolvedAvalonConfig, nitroCo
 		avalon: {
 			streaming: nitroConfig.streaming ?? true,
 			pagesDir: avalonConfig.pagesDir,
-			apiDir: avalonConfig.apiDir,
 			islandsDir: avalonConfig.islandsDir,
 			isDev: avalonConfig.isDev,
 		},
 		...nitroConfig.runtimeConfig,
 	};
 	return `export const runtimeConfig = ${JSON.stringify(runtimeConfig, null, 2)};\nexport function useRuntimeConfig() { return runtimeConfig; }\nexport default runtimeConfig;\n`;
+}
+
+export function generateConfigModule(avalonConfig: ResolvedAvalonConfig, nitroConfig: AvalonNitroConfig): string {
+	const config = {
+		streaming: nitroConfig.streaming ?? true,
+		pagesDir: avalonConfig.pagesDir,
+		islandsDir: avalonConfig.islandsDir,
+		isDev: avalonConfig.isDev,
+		...nitroConfig.runtimeConfig,
+	};
+	return `const config = ${JSON.stringify(config, null, 2)};\nexport function useAvalonConfig() { return config; }\nexport default config;\n`;
 }
 
 // ─── Public Accessors ────────────────────────────────────────────────────────
@@ -719,91 +714,6 @@ function escapeHtml(str: string): string {
 		.replaceAll('>', '&gt;')
 		.replaceAll('"', '&quot;')
 		.replaceAll("'", '&#039;');
-}
-
-// ─── API Request Handling ────────────────────────────────────────────────────
-
-interface ApiResponse {
-	status: number;
-	headers: Record<string, string>;
-	body: string;
-}
-
-async function handleApiRequest(
-	server: ViteDevServer,
-	url: string,
-	req: { method?: string },
-	config: ResolvedAvalonConfig,
-	_verbose?: boolean,
-): Promise<ApiResponse | null> {
-	const pathname = url.split('?')[0];
-	const method = req.method || 'GET';
-	const apiFile = await findApiFile(pathname, config.apiDir, server);
-
-	if (!apiFile) return null;
-
-	try {
-		const apiModule = await server.ssrLoadModule(apiFile);
-		const handler = apiModule[method] || apiModule[method.toLowerCase()] || apiModule.default;
-
-		if (!handler || typeof handler !== 'function') {
-			return {
-				status: 405,
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ error: 'Method Not Allowed' }),
-			};
-		}
-
-		const fullUrl = `http://localhost:8012${url}`;
-		const request = new Request(fullUrl, { method, headers: new Headers() });
-		const result = await handler(request);
-
-		if (result instanceof Response) {
-			const body = await result.text();
-			const headers: Record<string, string> = {};
-			result.headers.forEach((value, key) => {
-				headers[key] = value;
-			});
-			return { status: result.status, headers, body };
-		}
-
-		return {
-			status: 200,
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(result),
-		};
-	} catch (error) {
-		console.error(`[API] Error handling ${apiFile}:`, error);
-		throw error;
-	}
-}
-
-async function findApiFile(pathname: string, apiDir: string, server: ViteDevServer): Promise<string | null> {
-	const routePath = pathname.replace(/^\/api/, '') || '/index';
-	const extensions = ['.ts', '.js'];
-	const viteRoot = server.config.root || process.cwd();
-	const possiblePaths: string[] = [];
-
-	for (const ext of extensions) {
-		possiblePaths.push(`${apiDir}${routePath}${ext}`);
-	}
-	if (!routePath.endsWith('/index')) {
-		for (const ext of extensions) {
-			possiblePaths.push(`${apiDir}${routePath}/index${ext}`);
-		}
-	}
-
-	for (const relativePath of possiblePaths) {
-		try {
-			const fullPath = `${viteRoot}/${relativePath}`;
-			const stat = await fsStat(fullPath);
-			if (stat.isFile()) return `/${relativePath}`;
-		} catch {
-			// File doesn't exist
-		}
-	}
-
-	return null;
 }
 
 // ─── Global Type Declarations ────────────────────────────────────────────────

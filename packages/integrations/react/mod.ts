@@ -69,11 +69,38 @@ export const reactIntegration: Integration = {
    */
   async vitePlugin(): Promise<Plugin | Plugin[]> {
     const { default: react } = await import("@vitejs/plugin-react");
-    const plugins = react();
+    const plugins = react({ disableOxcRecommendation: true } as any);
     const pluginArray = Array.isArray(plugins) ? plugins : [plugins];
 
+    // Patch deprecated Vite config options (esbuild → oxc, rollupOptions → rolldownOptions)
+    // from @vitejs/plugin-react which hasn't fully updated for Vite 8 / Rolldown yet.
+    const patchedArray = pluginArray.map((p) => {
+      if (typeof p.config !== "function") return p;
+      const origConfig = p.config;
+      return {
+        ...p,
+        config(...args: Parameters<typeof origConfig>) {
+          const result = (origConfig as Function).apply(this, args) as Record<string, unknown> | undefined;
+          if (!result || typeof result !== "object") return result;
+          const patched = { ...result };
+          // esbuild → oxc
+          if ("esbuild" in patched) {
+            patched.oxc = patched.esbuild;
+            delete patched.esbuild;
+          }
+          // optimizeDeps.rollupOptions → rolldownOptions
+          const od = patched.optimizeDeps as Record<string, unknown> | undefined;
+          if (od && "rollupOptions" in od) {
+            const { rollupOptions, ...odRest } = od;
+            patched.optimizeDeps = { ...odRest, rolldownOptions: rollupOptions };
+          }
+          return patched;
+        },
+      } as Plugin;
+    });
+
     // Find the main React babel plugin and wrap its transform
-    const mainPlugin = pluginArray.find((p) => p.name === "vite:react-babel");
+    const mainPlugin = patchedArray.find((p) => p.name === "vite:react-babel");
     if (mainPlugin?.transform) {
       const originalTransform = mainPlugin.transform;
       const wrappedPlugin: Plugin = {
@@ -115,12 +142,12 @@ export const reactIntegration: Integration = {
       };
 
       // Replace the original plugin with our wrapped version
-      return pluginArray.map((p) =>
+      return patchedArray.map((p) =>
         p.name === "vite:react-babel" ? wrappedPlugin : p
       );
     }
 
-    return pluginArray;
+    return patchedArray;
   },
 };
 

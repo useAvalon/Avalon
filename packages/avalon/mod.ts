@@ -6,7 +6,6 @@ export {
 	getResolvedConfig,
 	getIslandsDir,
 	getPagesDir,
-	getApiDir,
 	getNitroConfig,
 	isNitroEnabled,
 } from './src/vite-plugin/plugin.ts';
@@ -199,7 +198,7 @@ export * from './src/layout-system.ts';
 
 // Core types
 export type { RenderOptions, MetaTag, ScriptConfig } from './src/schemas/core.ts';
-export type { ApiContext, ApiHandler, ApiRouteConfig, ApiRoute, ApiMethod } from './src/schemas/api.ts';
+export type { ApiRoute, ApiMethod } from './src/schemas/api.ts';
 export type { MiddlewareContext } from './src/nitro/middleware-adapter.ts';
 
 // Layout data loading types

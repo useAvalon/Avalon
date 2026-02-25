@@ -32,7 +32,6 @@ export {
   type NitroRouteConfig,
   type SSRRenderOptions,
   type SSRRenderResult,
-  type NitroApiContext,
   type AvalonEventContext,
 
   // Island types

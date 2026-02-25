@@ -43,11 +43,11 @@ export default async function ApiDemoPage() {
 								<div>
 									<strong style={{ color: '#28a745' }}>GET</strong>
 									<code style={{ marginLeft: '10px', background: '#e9ecef', padding: '2px 6px', borderRadius: '4px' }}>
-										/api/hello
+										/api/hello?name=Avalon
 									</code>
 								</div>
 								<a
-									href="/api/hello"
+									href="/api/hello?name=Avalon"
 									target="_blank"
 									style={{
 										padding: '6px 12px',

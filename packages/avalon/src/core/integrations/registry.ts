@@ -109,7 +109,7 @@ export class IntegrationRegistry {
       const fileUrl = `file://${integrationPath}`;
       
       // Dynamic import with file:// URL bypasses Vite's SSR module loader
-      const module = await import(fileUrl);
+      const module = await import(/* @vite-ignore */ fileUrl);
       
       // Look for the integration export (e.g., preactIntegration)
       const integrationKey = `${name}Integration`;

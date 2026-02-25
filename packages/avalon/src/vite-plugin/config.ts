@@ -31,7 +31,6 @@ export const DEFAULT_MDX_CONFIG: ResolvedMDXConfig = {
 export const DEFAULT_CONFIG: Omit<ResolvedAvalonConfig, "isDev"> = {
   islandsDir: "src/islands",
   pagesDir: "src/pages",
-  apiDir: "src/api",
   integrations: [],
   mdx: DEFAULT_MDX_CONFIG,
   verbose: false,
@@ -65,7 +64,6 @@ export function resolveConfig(
   return {
     islandsDir: config.islandsDir ?? DEFAULT_CONFIG.islandsDir,
     pagesDir: config.pagesDir ?? DEFAULT_CONFIG.pagesDir,
-    apiDir: config.apiDir ?? DEFAULT_CONFIG.apiDir,
     integrations: config.integrations ?? DEFAULT_CONFIG.integrations,
     mdx: {
       jsxImportSource:
@@ -99,14 +97,14 @@ export interface DirectoryCheckResult {
   absolutePath: string;
   /** Whether the directory exists */
   exists: boolean;
-  /** The type of directory (islands, pages, api) */
-  type: "islands" | "pages" | "api";
+  /** The type of directory (islands, pages) */
+  type: "islands" | "pages";
 }
 
 /**
  * Check if configured directories exist and log warnings for missing ones
  *
- * This function checks if the configured directories (islandsDir, pagesDir, apiDir)
+ * This function checks if the configured directories (islandsDir, pagesDir)
  * exist on the filesystem. If a directory doesn't exist, it logs a warning but
  * does NOT throw an error, allowing the application to continue.
  *
@@ -128,7 +126,6 @@ export function checkDirectoriesExist(
   const directories: Array<{ path: string; type: DirectoryCheckResult["type"] }> = [
     { path: config.islandsDir, type: "islands" },
     { path: config.pagesDir, type: "pages" },
-    { path: config.apiDir, type: "api" },
   ];
 
   const results: DirectoryCheckResult[] = [];

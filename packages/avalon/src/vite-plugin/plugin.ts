@@ -298,7 +298,6 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
         console.log("🏝️ Avalon plugin initialized");
         console.log(`   Islands directory: ${resolvedConfig.islandsDir}`);
         console.log(`   Pages directory: ${resolvedConfig.pagesDir}`);
-        console.log(`   API directory: ${resolvedConfig.apiDir}`);
         console.log(`   Development mode: ${isDev}`);
         
         logDirectoryCheckSummary(directoryResults, resolvedConfig.verbose);
@@ -360,9 +359,6 @@ export function getPagesDir(): string {
   return globalThis.__avalonConfig?.pagesDir ?? "src/pages";
 }
 
-export function getApiDir(): string {
-  return globalThis.__avalonConfig?.apiDir ?? "src/api";
-}
 
 export function getNitroConfig(): NitroConfigOutput | undefined {
   return globalThis.__nitroConfig;

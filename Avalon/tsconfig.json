@@ -7,9 +7,8 @@
       "$components/*": ["./src/components/*"],
       "$pages/*": ["./src/pages/*"],
       "$layouts/*": ["./src/layouts/*"],
-      "$islands/*": ["./src/islands/*"],
-      "$api/*": ["./src/api/*"]
+      "$islands/*": ["./src/islands/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts", "server/**/*.ts", "server/**/*.d.ts"]
 }

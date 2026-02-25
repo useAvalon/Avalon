@@ -107,11 +107,6 @@ export interface AvalonNitroConfig {
   serverDir?: string;
 
   /**
-   * Directory containing API routes (overrides Avalon config if set)
-   */
-  apiDir?: string;
-
-  /**
    * Directory containing pages (overrides Avalon config if set)
    */
   pagesDir?: string;
@@ -213,8 +208,6 @@ export interface AvalonRuntimeConfig {
   streaming: boolean;
   /** Pages directory path */
   pagesDir: string;
-  /** API directory path */
-  apiDir: string;
   /** Islands directory path */
   islandsDir: string;
 }
@@ -303,14 +296,12 @@ export function createNitroConfig(
 ): NitroConfigOutput {
   // Determine final directory paths (Nitro config overrides Avalon config)
   const pagesDir = avalonNitroConfig.pagesDir ?? resolvedAvalonConfig.pagesDir;
-  const apiDir = avalonNitroConfig.apiDir ?? resolvedAvalonConfig.apiDir;
   const islandsDir = resolvedAvalonConfig.islandsDir;
 
   // Build Avalon runtime config
   const avalonRuntimeConfig: AvalonRuntimeConfig = {
     streaming: avalonNitroConfig.streaming ?? DEFAULT_NITRO_CONFIG.streaming,
     pagesDir,
-    apiDir,
     islandsDir,
   };
 

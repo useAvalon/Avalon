@@ -301,7 +301,7 @@ async function hydrateIsland(island, framework) {
 			await import('/@avalon/lit/client');
 		}
 
-		const componentModule = await import(src);
+		const componentModule = await import(/* @vite-ignore */ src);
 		const Component = resolveComponent(componentModule, src);
 
 		try {
@@ -508,7 +508,7 @@ async function hydrateIslandWithFreshModule(island, framework, freshSrc, origina
 		await import('/@avalon/lit/client');
 	}
 
-	const componentModule = await import(freshSrc);
+	const componentModule = await import(/* @vite-ignore */ freshSrc);
 	const Component = resolveComponent(componentModule, originalSrc);
 
 	const integrationModule = await loadIntegrationModule(framework);
