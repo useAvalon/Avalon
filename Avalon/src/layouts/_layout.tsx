@@ -1,7 +1,7 @@
 import type { LayoutProps } from '@avalon/avalon';
+import { AppProvider } from '../context/AppContext.tsx';
 
-export default function RootLayout({ children, frontmatter }: LayoutProps) {
-	// Use title from frontmatter if available, otherwise use default
+export default function RootLayout({ children, frontmatter }: Readonly<LayoutProps>) {
 	const pageTitle = frontmatter?.title || 'Avalon Demo';
 	return (
 		<html lang="en">
@@ -9,7 +9,7 @@ export default function RootLayout({ children, frontmatter }: LayoutProps) {
 				<meta charset="UTF-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 				<title>{pageTitle}</title>
-				{frontmatter?.description && <meta name="description" content={frontmatter.description} />}
+				{frontmatter?.description && <meta name="description" content={String(frontmatter.description)} />}
 				<link rel="stylesheet" href="/syntax-highlighting.css" />
 				<link
 					rel="stylesheet"
@@ -65,21 +65,24 @@ export default function RootLayout({ children, frontmatter }: LayoutProps) {
         `}</style>
 			</head>
 			<body>
-				<div class="container">
-					<header class="header">
-						<h1>🏔️ Avalon Framework Demo</h1>
-						<p class="subtitle">Showcasing multi-framework SSR with islands architecture</p>
-						<nav class="nav">
-							<a href="/">Home</a>
-							<a href="/frameworks">Frameworks</a>
-							<a href="/islands">Islands</a>
-							<a href="/layouts">Layouts</a>
-							<a href="/api-demo">API Demo</a>
-							<a href="/blog">Blog</a>
-						</nav>
-					</header>
-					<main class="content" dangerouslySetInnerHTML={{ __html: children }}></main>
-				</div>
+				<AppProvider>
+					<div className="container">
+						<header className="header">
+							<h1>🏔️ Avalon Framework Demo</h1>
+							<p className="subtitle">Showcasing multi-framework SSR with islands architecture</p>
+							<nav className="nav">
+								<a href="/">Home</a>
+								<a href="/frameworks">Frameworks</a>
+								<a href="/islands">Islands</a>
+								<a href="/layouts">Layouts</a>
+								<a href="/api-demo">API Demo</a>
+								<a href="/blog">Blog</a>
+								<a href="/server-cache-demo">Cache Demo</a>
+							</nav>
+						</header>
+						<main className="content">{children}</main>
+					</div>
+				</AppProvider>
 			</body>
 		</html>
 	);

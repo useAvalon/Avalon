@@ -156,10 +156,10 @@ export default async function ApiDemoPage() {
 							fontSize: '0.9rem',
 							color: '#495057',
 						}}>
-						<div>📁 src/api/</div>
-						<div style={{ marginLeft: '20px' }}>├── _middleware.ts (Applied to all API routes)</div>
+						<div>📁 routes/api/</div>
 						<div style={{ marginLeft: '20px' }}>├── hello.ts</div>
 						<div style={{ marginLeft: '20px' }}>├── time.ts</div>
+						<div style={{ marginLeft: '20px' }}>├── stats.ts</div>
 						<div style={{ marginLeft: '20px' }}>└── users/</div>
 						<div style={{ marginLeft: '40px' }}>└── [id].ts</div>
 					</div>

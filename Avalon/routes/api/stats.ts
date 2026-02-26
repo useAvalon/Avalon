@@ -3,9 +3,9 @@
  * GET /api/stats?userId=123
  */
 
-import { defineHandler, HTTPError } from 'h3';
+import { defineHandler, HTTPError } from 'nitro/h3';
 
-export default defineHandler((event) => {
+export default defineHandler(event => {
 	const userId = event.url.searchParams.get('userId');
 
 	if (!userId) {

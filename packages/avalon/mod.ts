@@ -171,8 +171,9 @@ export async function build(_options?: Record<string, unknown>) {
 }
 
 // Middleware system (Nitro-aligned)
+// Note: defineMiddleware removed — use defineHandler from 'nitro/h3' directly.
+// Scoped middleware discovery/execution is Avalon's value-add over Nitro.
 export {
-	defineMiddleware,
 	discoverScopedMiddleware,
 	executeScopedMiddleware,
 	clearMiddlewareCache,

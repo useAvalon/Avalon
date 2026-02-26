@@ -5,9 +5,9 @@
  * Adds request timing and a unique request ID.
  */
 
-import { defineMiddleware } from '@avalon/avalon/middleware';
+import { defineHandler } from 'nitro/h3';
 
-export default defineMiddleware((event) => {
+export default defineHandler(event => {
 	event.context.timing = { start: Date.now() };
 	event.context.requestId = crypto.randomUUID();
 });

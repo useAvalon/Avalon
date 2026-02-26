@@ -3,9 +3,9 @@
  * GET /api/github/:owner/:repo/stars
  */
 
-import { defineHandler, getRouterParam, HTTPError } from 'h3';
+import { defineHandler, getRouterParam, HTTPError } from 'nitro/h3';
 
-export default defineHandler(async (event) => {
+export default defineHandler(async event => {
 	const owner = getRouterParam(event, 'owner');
 	const repo = getRouterParam(event, 'repo');
 
@@ -34,9 +34,8 @@ export default defineHandler(async (event) => {
 			fetchedAt: new Date().toISOString(),
 		};
 	} catch (error) {
-		throw new HTTPError(
-			`Failed to fetch GitHub data: ${error instanceof Error ? error.message : 'Unknown error'}`,
-			{ status: 502 },
-		);
+		throw new HTTPError(`Failed to fetch GitHub data: ${error instanceof Error ? error.message : 'Unknown error'}`, {
+			status: 502,
+		});
 	}
 });

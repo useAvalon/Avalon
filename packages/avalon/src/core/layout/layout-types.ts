@@ -22,7 +22,7 @@ export type LayoutData = Record<string, unknown>;
 export type LayoutLoader = (ctx: LayoutContext) => Promise<LayoutData>;
 
 export interface LayoutProps {
-	children: unknown;
+	children: import('preact').ComponentChildren;
 	data: LayoutData;
 	frontmatter?: Record<string, unknown>;
 	route: {

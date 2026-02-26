@@ -11,9 +11,10 @@ Execution order is alphabetical by filename (use numbered prefixes):
 ```
 middleware/
 ├── 01.security.ts    # Security headers + request logging
-├── 02.api-cors.ts    # CORS headers for /api/* routes
-└── 03.logging.ts     # Logging flag
+└── 02.logging.ts     # Logging flag
 ```
+
+CORS for `/api/**` is handled by Nitro's `routeRules` in `vite.config.ts` — no middleware needed.
 
 ## 2. Route-Scoped Middleware (`_middleware.ts`)
 
@@ -29,46 +30,32 @@ src/pages/
     └── index.tsx
 ```
 
-## Handler Signature
+## 3. API Routes (`routes/`)
 
-Both types use the same `defineMiddleware` wrapper:
+API routes use Nitro's native file-system routing:
 
-```typescript
-import { defineMiddleware } from '@avalon/avalon/middleware';
-
-export default defineMiddleware((event) => {
-  // event.req    — standard Request object
-  // event.res    — response headers/status
-  // event.url    — parsed URL
-  // event.context — shared context object
-
-  // Return nothing → continue to next middleware
-  // Return a Response → terminate chain
-  // Throw an error → trigger error handling
-});
+```
+routes/
+└── api/
+    ├── hello.ts                        # GET /api/hello
+    ├── time.ts                         # GET /api/time
+    ├── stats.ts                        # GET /api/stats
+    ├── users/
+    │   ├── [id].ts                     # GET /api/users/:id
+    │   └── [id]/profile.ts             # GET /api/users/:id/profile
+    └── github/[owner]/[repo]/stars.ts  # GET /api/github/:owner/:repo/stars
 ```
 
-## h3 v2 API (non-deprecated)
-
-```typescript
-// Request info
-event.req.method              // instead of getMethod(event)
-event.req.headers.get('name') // instead of getHeader(event, 'name')
-event.url.pathname            // instead of getRequestURL(event).pathname
-
-// Response headers
-event.res.headers.set('name', 'value') // instead of setResponseHeader(event, ...)
-```
+All Nitro features (KV storage, cache, tasks, SQL, etc.) are available in route handlers via `nitro/h3`.
 
 ## Execution Order
 
 For a request to `/admin/dashboard`:
 
 1. `middleware/01.security.ts` (global)
-2. `middleware/02.api-cors.ts` (global, skips non-API)
-3. `middleware/03.logging.ts` (global)
-4. `src/pages/_middleware.ts` (root pages)
-5. `src/pages/admin/_middleware.ts` (admin pages)
-6. `src/pages/admin/dashboard.tsx` (page handler)
+2. `middleware/02.logging.ts` (global)
+3. `src/pages/_middleware.ts` (root pages)
+4. `src/pages/admin/_middleware.ts` (admin pages)
+5. `src/pages/admin/dashboard.tsx` (page handler)
 
 If any middleware returns a Response or throws, the chain stops.

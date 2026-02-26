@@ -26,11 +26,14 @@
 		"lit": "^3.0.0",
 		"preact": "10.26.9",
 		"preact-render-to-string": "6.5.13",
-		"react": "^18.3.0",
-		"react-dom": "^18.3.0",
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4",
 		"solid-js": "1.9.8",
 		"svelte": "^5.41.0",
 		"tailwindcss": "^4.1.8",
 		"vue": "3.5.21"
+	},
+	"devDependencies": {
+		"nitro": "3.0.1-alpha.2"
 	}
 }

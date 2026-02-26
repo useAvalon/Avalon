@@ -4,8 +4,8 @@
  * Enables request logging flag for downstream handlers.
  */
 
-import { defineMiddleware } from '@avalon/avalon/middleware';
+import { defineHandler } from 'nitro/h3';
 
-export default defineMiddleware((event) => {
+export default defineHandler(event => {
 	event.context.loggingEnabled = true;
 });

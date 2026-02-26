@@ -44,39 +44,33 @@
 // =============================================================================
 
 export type {
-  MiddlewareHandler,
-  MiddlewareFileExport,
-  MiddlewareRoute,
-  MiddlewareDiscoveryOptions,
-  MiddlewareExecutorOptions,
+	MiddlewareHandler,
+	MiddlewareFileExport,
+	MiddlewareRoute,
+	MiddlewareDiscoveryOptions,
+	MiddlewareExecutorOptions,
 } from './types.ts';
 
 // =============================================================================
-// Helper Functions
+// Helper Functions (defineMiddleware removed — use defineHandler from 'nitro/h3')
 // =============================================================================
-
-export { defineMiddleware } from './define.ts';
 
 // =============================================================================
 // Discovery Functions
 // =============================================================================
 
-export {
-  discoverScopedMiddleware,
-  getMatchingMiddleware,
-  clearDiscoveryCache,
-} from './discovery.ts';
+export { discoverScopedMiddleware, getMatchingMiddleware, clearDiscoveryCache } from './discovery.ts';
 
 // =============================================================================
 // Executor Functions
 // =============================================================================
 
 export {
-  executeScopedMiddleware,
-  clearMiddlewareCache,
-  invalidateMiddleware,
-  getMiddlewareCacheSize,
-  hasContextValue,
-  getContextValue,
-  setContextValue,
+	executeScopedMiddleware,
+	clearMiddlewareCache,
+	invalidateMiddleware,
+	getMiddlewareCacheSize,
+	hasContextValue,
+	getContextValue,
+	setContextValue,
 } from './executor.ts';

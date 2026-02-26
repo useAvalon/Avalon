@@ -75,10 +75,8 @@ export function createNitroIntegration(
 		runtimeConfig: nitroOptions.runtimeConfig,
 		renderer: nitroConfig.renderer === false ? false : nitroOptions.renderer,
 		compatibilityDate: nitroOptions.compatibilityDate,
-		// Tell Nitro where to find API route handlers (file-system routing).
-		// Nitro's scanDirs defaults to [serverDir] which misses root-level api/.
-		// Adding '.' ensures the project root is scanned so Avalon/api/ is found.
-		apiDir: 'api',
+		// Tell Nitro to scan the project root so it discovers routes/ and middleware/
+		// alongside the serverDir (./server) which contains the catch-all renderer.
 		scanDirs: ['.'],
 	};
 
@@ -237,7 +235,6 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 // ─── Dev Server Middleware Helpers ───────────────────────────────────────────
 
 import type { ServerResponse, IncomingMessage } from 'node:http';
-
 
 async function handleScopedMiddleware(
 	server: ViteDevServer,

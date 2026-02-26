@@ -3,7 +3,7 @@
  * GET /api/users/:id/profile
  */
 
-import { defineHandler, getRouterParam, HTTPError } from 'h3';
+import { defineHandler, getRouterParam, HTTPError } from 'nitro/h3';
 
 const userProfiles: Record<string, { id: string; name: string; email: string; bio: string; joinedAt: string }> = {
 	'123': {
@@ -29,7 +29,7 @@ const userProfiles: Record<string, { id: string; name: string; email: string; bi
 	},
 };
 
-export default defineHandler((event) => {
+export default defineHandler(event => {
 	const userId = getRouterParam(event, 'id');
 
 	if (!userId) {

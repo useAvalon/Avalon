@@ -3,7 +3,7 @@
  * GET /api/users/:id
  */
 
-import { defineHandler, getRouterParam, HTTPError } from 'h3';
+import { defineHandler, getRouterParam, HTTPError } from 'nitro/h3';
 
 const users: Record<string, { id: string; name: string; email: string; role: string }> = {
 	'123': { id: '123', name: 'Alice Johnson', email: 'alice@example.com', role: 'admin' },
@@ -11,7 +11,7 @@ const users: Record<string, { id: string; name: string; email: string; role: str
 	'789': { id: '789', name: 'Carol Davis', email: 'carol@example.com', role: 'moderator' },
 };
 
-export default defineHandler((event) => {
+export default defineHandler(event => {
 	const userId = getRouterParam(event, 'id');
 
 	if (!userId) {

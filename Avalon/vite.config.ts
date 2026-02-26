@@ -6,7 +6,6 @@ import { agentOptimization } from '../packages/agent-optimization/mod.ts';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig(async ({ command }): Promise<UserConfig> => {
-
 	const avalonPlugins = await avalon({
 		islandsDir: 'src/islands',
 		pagesDir: 'src/pages',
@@ -22,6 +21,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		nitro: {
 			preset: 'node_server',
 			streaming: true,
+			compatibilityDate: '2025-06-01',
 			routeRules: {
 				'/api/**': {
 					cors: true,
@@ -79,10 +79,21 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 		optimizeDeps: {
 			include: [
-				'react', 'react/jsx-runtime', 'react/jsx-dev-runtime', 'react-dom', 'react-dom/client',
-				'vue', 'svelte', 'svelte/internal', 'svelte/store',
-				'lit', '@lit-labs/ssr-client', '@lit-labs/ssr-client/lit-element-hydrate-support.js',
-				'preact', 'preact/hooks', 'preact/jsx-runtime',
+				'react',
+				'react/jsx-runtime',
+				'react/jsx-dev-runtime',
+				'react-dom',
+				'react-dom/client',
+				'vue',
+				'svelte',
+				'svelte/internal',
+				'svelte/store',
+				'lit',
+				'@lit-labs/ssr-client',
+				'@lit-labs/ssr-client/lit-element-hydrate-support.js',
+				'preact',
+				'preact/hooks',
+				'preact/jsx-runtime',
 			],
 		},
 
@@ -107,9 +118,17 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		ssr: {
 			target: 'webworker',
 			noExternal: [
-				'vue', '@vue/server-renderer', '@vue/shared',
-				'svelte', 'svelte/internal', 'svelte/store', 'svelte/server',
-				'react', 'react-dom', 'react-dom/client', 'react-dom/server',
+				'vue',
+				'@vue/server-renderer',
+				'@vue/shared',
+				'svelte',
+				'svelte/internal',
+				'svelte/store',
+				'svelte/server',
+				'react',
+				'react-dom',
+				'react-dom/client',
+				'react-dom/server',
 			],
 		},
 

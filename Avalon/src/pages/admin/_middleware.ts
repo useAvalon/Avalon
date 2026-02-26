@@ -10,10 +10,9 @@
  * - demo-user-token: User only (redirects to /admin/forbidden)
  */
 
-import { defineMiddleware } from '@avalon/avalon/middleware';
-import { getCookie } from 'h3';
+import { defineHandler, getCookie } from 'nitro/h3';
 
-export default defineMiddleware(async (event) => {
+export default defineHandler(async event => {
 	const path = event.url.pathname || '';
 
 	// Skip middleware for login and forbidden pages (avoid redirect loops)

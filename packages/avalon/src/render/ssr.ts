@@ -26,7 +26,7 @@ export interface RenderStrategy {
  */
 function injectClientScript(html: string): string {
 	let modifiedHtml = html;
-	
+
 	// Check if there are any islands that need hydration
 	const hasIslands = html.includes('data-framework=') || html.includes('data-src=');
 
@@ -149,7 +149,7 @@ function validateFrameworkImports(componentPath: string, content: string, detect
 		for (const forbiddenPattern of forbidden) {
 			if (importPath.startsWith(forbiddenPattern)) {
 				warnings.push(
-					`Cross-framework import detected: ${actualFramework} component (${componentPath}) importing ${importPath}`
+					`Cross-framework import detected: ${actualFramework} component (${componentPath}) importing ${importPath}`,
 				);
 			}
 		}
@@ -158,18 +158,13 @@ function validateFrameworkImports(componentPath: string, content: string, detect
 	return warnings;
 }
 
-
-
 function applyStrategyToTag(fullMatch: string, strategy: RenderStrategy): string {
 	if (strategy.type === 'ssr-only') {
 		return fullMatch
 			.replaceAll(/data-hydrate="[^"]*"\s*/g, '')
 			.replace('>', ` data-render-strategy="${strategy.type}" data-ssr-reason="${strategy.reason}">`);
 	}
-	return fullMatch.replace(
-		'>',
-		` data-render-strategy="${strategy.type}" data-hydrate-reason="${strategy.reason}">`
-	);
+	return fullMatch.replace('>', ` data-render-strategy="${strategy.type}" data-hydrate-reason="${strategy.reason}">`);
 }
 
 /**
@@ -178,7 +173,7 @@ function applyStrategyToTag(fullMatch: string, strategy: RenderStrategy): string
  */
 async function enhanceContentWithRenderingStrategy(
 	content: string,
-	renderOptions: ComponentRenderOptions = {}
+	renderOptions: ComponentRenderOptions = {},
 ): Promise<string> {
 	const hydrateRegex = /(<[^>]*data-hydrate="([^"]*)"[^>]*>)/g;
 	let enhancedContent = content;
@@ -218,7 +213,7 @@ async function enhanceContentWithRenderingStrategy(
  */
 async function validateComponentImports(
 	componentPath: string,
-	renderOptions: ComponentRenderOptions = {}
+	renderOptions: ComponentRenderOptions = {},
 ): Promise<void> {
 	try {
 		// Try to read and analyze the component file
@@ -258,7 +253,7 @@ async function validateComponentImports(
 		// Detect framework from content patterns
 		const frameworks = detectFrameworks(componentContent);
 		let detectedFramework = 'preact'; // default
-		
+
 		if (frameworks.solid) detectedFramework = 'solid';
 		else if (frameworks.vue) detectedFramework = 'vue';
 		else if (frameworks.svelte) detectedFramework = 'svelte';
@@ -283,7 +278,7 @@ async function validateComponentImports(
  */
 async function determineRenderStrategy(
 	componentPath: string,
-	options: ComponentRenderOptions = {}
+	options: ComponentRenderOptions = {},
 ): Promise<RenderStrategy> {
 	// Handle explicit SSR-only override
 	if (options.forceSSROnly) {
@@ -399,10 +394,10 @@ function generateMetaTags(options: Partial<RenderOptions>): string {
 
 function generateStyleTags(options: Partial<RenderOptions>): string {
 	const styleTags = options.styles?.map(href => `<link rel="stylesheet" href="${href}">`).join('\n    ') || '';
-	
+
 	// Note: CSS from all frameworks (including Svelte) is now handled by the universal CSS collector
 	// which is injected in generateHead() via getUniversalCSSForHead()
-	
+
 	return styleTags;
 }
 
@@ -443,18 +438,14 @@ function generateHMRScript(isDev: boolean, viteHmrPort?: number): string {
 /** Escape HTML special characters for safe interpolation into HTML */
 function escapeHtml(str: string): string {
 	return str
-		.replaceAll('&', "&amp;")
-		.replaceAll('<', "&lt;")
-		.replaceAll('>', "&gt;")
-		.replaceAll('"', "&quot;")
-		.replaceAll('\'', "&#039;");
+		.replaceAll('&', '&amp;')
+		.replaceAll('<', '&lt;')
+		.replaceAll('>', '&gt;')
+		.replaceAll('"', '&quot;')
+		.replaceAll("'", '&#039;');
 }
 
-function generateHead(
-	options: Partial<RenderOptions>,
-	frameworks: FrameworkDetection,
-	viteHmrPort?: number
-): string {
+function generateHead(options: Partial<RenderOptions>, frameworks: FrameworkDetection, viteHmrPort?: number): string {
 	const isDev = process.env.NODE_ENV !== 'production';
 
 	const metaTags = generateMetaTags(options);
@@ -462,13 +453,13 @@ function generateHead(
 	const scriptTags = generateScriptTags(options);
 	const clientScripts = generateClientScripts(isDev, frameworks);
 	const hmrScript = generateHMRScript(isDev, viteHmrPort);
-	
+
 	// Collect CSS from all framework integrations
 	const universalCSS = getUniversalCSSForHead(true); // Clear after collecting
-	
+
 	// Collect head content (hydration scripts, etc.) from all framework integrations
 	const universalHead = getUniversalHeadForInjection(true); // Clear after collecting
-	
+
 	// Generate importmap for browser to resolve integration packages
 	const importMap = `
     <script type="importmap">
@@ -501,7 +492,7 @@ export async function renderToHtml(
 	routeConfig: RouteConfig,
 	defaultOptions: Partial<RenderOptions> = {},
 	viteHmrPort?: number,
-	renderOptions: ComponentRenderOptions = {}
+	renderOptions: ComponentRenderOptions = {},
 ): Promise<string> {
 	try {
 		let content: string;
@@ -537,7 +528,7 @@ export async function renderToHtmlWithLayouts(
 	routePath: string,
 	defaultOptions: Partial<RenderOptions> = {},
 	viteHmrPort?: number,
-	renderOptions: ComponentRenderOptions = {}
+	renderOptions: ComponentRenderOptions = {},
 ): Promise<string> {
 	try {
 		const routeConfigExtended = routeConfig as RouteConfig & Partial<PageModule>;
@@ -574,9 +565,10 @@ function assembleLayoutHtml(
 	enhancedContent: string,
 	routeConfig: RouteConfig,
 	defaultOptions: Partial<RenderOptions>,
-	viteHmrPort: number | undefined
+	viteHmrPort: number | undefined,
 ): string {
-	const isCompleteDoc = enhancedContent.trim().startsWith('<!DOCTYPE html>') || enhancedContent.trim().startsWith('<html');
+	const isCompleteDoc =
+		enhancedContent.trim().startsWith('<!DOCTYPE html>') || enhancedContent.trim().startsWith('<html');
 	if (isCompleteDoc) {
 		return injectClientScript(enhancedContent);
 	}
@@ -586,7 +578,6 @@ function assembleLayoutHtml(
 	return injectClientScript(`<!DOCTYPE html>\n<html lang="en">\n${head}\n<body>\n${enhancedContent}\n</body>\n</html>`);
 }
 
-
 /**
  * Streaming render options
  */
@@ -595,17 +586,17 @@ export interface StreamingRenderOptions extends ComponentRenderOptions {
 	 * Callback when the shell (initial HTML) is ready to stream
 	 */
 	onShellReady?: () => void;
-	
+
 	/**
 	 * Callback when an error occurs before streaming starts
 	 */
 	onShellError?: (error: Error) => void;
-	
+
 	/**
 	 * Callback when all content has been rendered
 	 */
 	onAllReady?: () => void;
-	
+
 	/**
 	 * Callback for any error during rendering
 	 */
@@ -619,7 +610,7 @@ async function renderStreamContent(
 	routeConfig: RouteConfig,
 	defaultOptions: Partial<RenderOptions>,
 	viteHmrPort: number | undefined,
-	renderOptions: StreamingRenderOptions
+	renderOptions: StreamingRenderOptions,
 ): Promise<{ head: string; content: string }> {
 	let content: string;
 	let frameworks: FrameworkDetection;
@@ -641,7 +632,7 @@ async function renderStreamContent(
 
 async function renderWithIsolationOrFallback(
 	routeConfig: RouteConfig,
-	renderOptions: StreamingRenderOptions
+	renderOptions: StreamingRenderOptions,
 ): Promise<{ content: string; frameworks: FrameworkDetection }> {
 	try {
 		const renderer = getIsolatedRenderer();
@@ -675,9 +666,14 @@ function handleStreamError(
 	encoder: TextEncoder,
 	renderOptions: StreamingRenderOptions,
 	label = 'Streaming Error',
-	componentId = 'route-component'
+	componentId = 'route-component',
 ): void {
-	console.error(`[${label}]`, { message: err.message, stack: err.stack, shellSent, timestamp: new Date().toISOString() });
+	console.error(`[${label}]`, {
+		message: err.message,
+		stack: err.stack,
+		shellSent,
+		timestamp: new Date().toISOString(),
+	});
 	renderOptions.onError?.(err);
 
 	if (shellSent) {
@@ -703,7 +699,7 @@ export async function renderToHtmlStream(
 	routeConfig: RouteConfig,
 	defaultOptions: Partial<RenderOptions> = {},
 	viteHmrPort?: number,
-	renderOptions: StreamingRenderOptions = {}
+	renderOptions: StreamingRenderOptions = {},
 ): Promise<ReadableStream<Uint8Array>> {
 	const encoder = new TextEncoder();
 	let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
@@ -729,12 +725,16 @@ export async function renderToHtmlStream(
 					shellSent,
 					controller,
 					encoder,
-					renderOptions
+					renderOptions,
 				);
 			}
 		},
 		cancel() {
-			try { controller?.close(); } catch { /* already closed */ }
+			try {
+				controller?.close();
+			} catch {
+				/* already closed */
+			}
 		},
 	});
 
@@ -752,7 +752,7 @@ export async function renderToHtmlStreamWithLayouts(
 	routePath: string,
 	defaultOptions: Partial<RenderOptions> = {},
 	viteHmrPort?: number,
-	renderOptions: StreamingRenderOptions = {}
+	renderOptions: StreamingRenderOptions = {},
 ): Promise<ReadableStream<Uint8Array>> {
 	const encoder = new TextEncoder();
 	let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
@@ -789,10 +789,17 @@ export async function renderToHtmlStreamWithLayouts(
 				}
 
 				const pageContent = await renderPageContent(routeConfig, routePath, renderOptions);
-				const wrappedContent = await applyLayoutChain(pageContent, resolvedLayout, pageModule, layoutContext, routePath);
+				const wrappedContent = await applyLayoutChain(
+					pageContent,
+					resolvedLayout,
+					pageModule,
+					layoutContext,
+					routePath,
+				);
 				const enhancedContent = await enhanceContentWithRenderingStrategy(wrappedContent, renderOptions);
 
-				const isCompleteDoc = enhancedContent.trim().startsWith('<!DOCTYPE html>') || enhancedContent.trim().startsWith('<html');
+				const isCompleteDoc =
+					enhancedContent.trim().startsWith('<!DOCTYPE html>') || enhancedContent.trim().startsWith('<html');
 				if (isCompleteDoc) {
 					const finalHtml = injectClientScript(enhancedContent);
 					controller.enqueue(encoder.encode(finalHtml));
@@ -823,12 +830,16 @@ export async function renderToHtmlStreamWithLayouts(
 					encoder,
 					renderOptions,
 					'Streaming Error with Layouts',
-					`layout-${routePath}`
+					`layout-${routePath}`,
 				);
 			}
 		},
 		cancel() {
-			try { controller?.close(); } catch { /* already closed */ }
+			try {
+				controller?.close();
+			} catch {
+				/* already closed */
+			}
 		},
 	});
 
@@ -838,7 +849,7 @@ export async function renderToHtmlStreamWithLayouts(
 async function renderPageContent(
 	routeConfig: RouteConfig,
 	routePath: string,
-	renderOptions: StreamingRenderOptions
+	renderOptions: StreamingRenderOptions,
 ): Promise<string> {
 	if (renderOptions.forceSSROnly === true) {
 		const componentResult = routeConfig.component();
@@ -847,7 +858,10 @@ async function renderPageContent(
 	}
 	try {
 		const renderer = getIsolatedRenderer();
-		const isolatedResult = await renderer.renderWithIsolation({ componentPath: routePath, component: routeConfig.component });
+		const isolatedResult = await renderer.renderWithIsolation({
+			componentPath: routePath,
+			component: routeConfig.component,
+		});
 		if (!isolatedResult.success) throw new Error(`Isolated rendering failed: ${isolatedResult.errors.join(', ')}`);
 		if (isolatedResult.warnings.length > 0 && !renderOptions.suppressWarnings) {
 			isolatedResult.warnings.forEach(w => console.warn(`[SSR Isolation] ${w}`));
@@ -866,34 +880,48 @@ async function applyLayoutChain(
 	resolvedLayout: Awaited<ReturnType<EnhancedLayoutResolver['resolveAndRender']>>,
 	pageModule: PageModule,
 	layoutContext: LayoutContext,
-	routePath: string
+	routePath: string,
 ): Promise<string> {
-	let wrappedContent = pageContent;
+	// Build a composed JSX tree: outermost layout wraps inner layouts wraps page content.
+	// The innermost layout receives the page content as actual JSX children,
+	// eliminating the need for dangerouslySetInnerHTML in layout components.
+	//
+	// We start from the innermost layout and work outward, building a nested
+	// JSX element tree. The final tree is rendered to HTML in one pass.
+
+	// Start with the page content as a raw-HTML JSX node.
+	// Preact's `dangerouslySetInnerHTML` is used here at the framework level
+	// so layout authors never need to use it themselves.
+	let tree: JSX.Element = h('avalon-page-content', { dangerouslySetInnerHTML: { __html: pageContent } });
+
+	// Wrap from innermost to outermost layout
 	for (let i = resolvedLayout.handlers.length - 1; i >= 0; i--) {
 		const handler = resolvedLayout.handlers[i];
 		const layoutData = resolvedLayout.dataLoaders[i] ? await resolvedLayout.dataLoaders[i](layoutContext) : {};
 		const layoutProps = {
-			children: wrappedContent,
 			data: layoutData,
 			frontmatter: pageModule.frontmatter || {},
 			route: { path: routePath, params: layoutContext.params, query: layoutContext.query },
-		};
-		try {
-			const renderer = getIsolatedRenderer();
-			const layoutResult = await renderer.renderWithIsolation({
-				componentPath: `layout-${i}`,
-				component: () => h(handler.component, layoutProps),
-			});
-			if (layoutResult.success) {
-				wrappedContent = layoutResult.html;
-			} else {
-				wrappedContent = preactRenderToString(h(handler.component, layoutProps));
-			}
-		} catch {
-			wrappedContent = preactRenderToString(h(handler.component, layoutProps));
-		}
+		} as Record<string, unknown>;
+		// Pass the current tree as JSX children — layout components
+		// receive `children` as renderable JSX, not an HTML string.
+		tree = h(handler.component as any, layoutProps, tree);
 	}
-	return wrappedContent;
+
+	// Render the entire composed tree to HTML in one pass
+	try {
+		const renderer = getIsolatedRenderer();
+		const result = await renderer.renderWithIsolation({
+			componentPath: `layout-chain-${routePath}`,
+			component: () => tree,
+		});
+		if (result.success) {
+			return result.html;
+		}
+	} catch {
+		// Fall through to standard rendering
+	}
+	return preactRenderToString(tree);
 }
 
 /**
@@ -901,7 +929,7 @@ async function applyLayoutChain(
  */
 function generateErrorPage(error: Error): string {
 	const isDev = process.env.NODE_ENV !== 'production';
-	
+
 	return `<!DOCTYPE html>
 <html lang="en">
   <head>

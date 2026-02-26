@@ -4,9 +4,9 @@
  * Adds security headers and request logging to all responses.
  */
 
-import { defineMiddleware } from '@avalon/avalon/middleware';
+import { defineHandler } from 'nitro/h3';
 
-export default defineMiddleware((event) => {
+export default defineHandler(event => {
 	const start = Date.now();
 	const userAgent = event.req.headers.get('user-agent') || 'Unknown';
 
