@@ -3,7 +3,11 @@ import { resolve } from 'node:path';
 import { readdir, readFile } from 'node:fs/promises';
 import type { UserConfig } from 'vite';
 import { createMDXPlugin } from './src/build/mdx-plugin.ts';
-import { integrationDetectionPlugin, detectUsedIntegrations, getRequiredIntegrations } from './src/build/integration-detection-plugin.ts';
+import {
+	integrationDetectionPlugin,
+	detectUsedIntegrations,
+	getRequiredIntegrations,
+} from './src/build/integration-detection-plugin.ts';
 import { integrationResolverPlugin, createIntegrationAliases } from './src/build/integration-resolver-plugin.ts';
 import { integrationBundlerPlugin, getIntegrationOptimizeDeps } from './src/build/integration-bundler-plugin.ts';
 import { discoverAllIslands, getQualifiedIslandName } from './src/islands/discovery/index.ts';
@@ -22,7 +26,7 @@ function isSupportedFile(filename: string): boolean {
  * Discover all island entries using the nested islands discovery service.
  * Scans all islands directories (including nested ones like /src/modules/[module]/islands/)
  * and generates build entries with qualified names for collision handling.
- * 
+ *
  * @returns Record of entry names to file paths for Vite build input
  */
 async function discoverIslandEntries(): Promise<Record<string, string>> {
@@ -38,10 +42,8 @@ async function discoverIslandEntries(): Promise<Record<string, string>> {
 			// For default /src/islands/: "islands/Counter"
 			// For nested /src/modules/auth/islands/: "islands/modules/auth/Counter"
 			const qualifiedName = getQualifiedIslandName(island);
-			const entryName = island.namespace === '' 
-				? `islands/${island.name}`
-				: `islands/${qualifiedName}`;
-			
+			const entryName = island.namespace === '' ? `islands/${island.name}` : `islands/${qualifiedName}`;
+
 			allEntries[entryName] = island.filePath;
 		}
 
@@ -59,7 +61,7 @@ async function discoverIslandEntries(): Promise<Record<string, string>> {
 
 async function hasFilesWithExtension(
 	extension: SupportedExtension,
-	dirs: readonly string[] = FRAMEWORK_DETECTION_DIRS
+	dirs: readonly string[] = FRAMEWORK_DETECTION_DIRS,
 ): Promise<boolean> {
 	const cwd = process.cwd();
 
@@ -168,7 +170,7 @@ async function loadFrameworkPlugins(frameworks: { vue: boolean; solid: boolean; 
 			config: () => ({
 				template: {
 					compilerOptions: {
-						isCustomElement: (tag: string) => tag === 'is-land',
+						isCustomElement: (tag: string) => tag === 'avalon-island',
 						style: 'scoped',
 					},
 				},
@@ -222,11 +224,11 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 	const mdxPlugins = await createMDXPlugin({ development: command === 'serve' });
 
 	const isDev = command === 'serve';
-	
+
 	// Detect which integrations are used for tree-shaking
 	const usedIntegrations = await detectUsedIntegrations();
 	const requiredIntegrations = getRequiredIntegrations(usedIntegrations);
-	
+
 	console.log(`🔧 Configuring build for integrations: ${requiredIntegrations.join(', ') || 'none'}`);
 
 	return {
@@ -293,7 +295,15 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 		ssr: {
 			target: 'webworker',
-			noExternal: ['vue', '@vue/server-renderer', '@vue/shared', 'svelte', 'svelte/internal', 'svelte/store', 'svelte/server'],
+			noExternal: [
+				'vue',
+				'@vue/server-renderer',
+				'@vue/shared',
+				'svelte',
+				'svelte/internal',
+				'svelte/store',
+				'svelte/server',
+			],
 		},
 
 		resolve: {

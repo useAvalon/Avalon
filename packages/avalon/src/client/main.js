@@ -96,7 +96,7 @@ function shouldHydrate(island, condition) {
 function setupIntersectionObserver(island, framework) {
 	try {
 		const observer = new IntersectionObserver(
-			(entries) => {
+			entries => {
 				const entry = entries[0];
 				if (entry.isIntersecting) {
 					hydrateIsland(island, framework);
@@ -106,7 +106,7 @@ function setupIntersectionObserver(island, framework) {
 			{
 				rootMargin: '50px',
 				threshold: 0,
-			}
+			},
 		);
 
 		observer.observe(island);
@@ -160,18 +160,22 @@ function setupIdleCallback(island, framework) {
 				() => {
 					hydrateIsland(island, framework);
 				},
-				{ timeout: 5000 }
+				{ timeout: 5000 },
 			);
 		} else if (document.readyState === 'complete') {
 			setTimeout(() => {
 				hydrateIsland(island, framework);
 			}, 200);
 		} else {
-			globalThis.addEventListener('load', () => {
-				setTimeout(() => {
-					hydrateIsland(island, framework);
-				}, 200);
-			}, { once: true });
+			globalThis.addEventListener(
+				'load',
+				() => {
+					setTimeout(() => {
+						hydrateIsland(island, framework);
+					}, 200);
+				},
+				{ once: true },
+			);
 		}
 	} catch (error) {
 		console.error('Failed to setup idle callback:', error);
@@ -195,7 +199,7 @@ function setupMediaQuery(island, framework, mediaQuery) {
 			return;
 		}
 
-		const handleChange = (event) => {
+		const handleChange = event => {
 			if (event.matches) {
 				hydrateIsland(island, framework);
 				mql.removeEventListener('change', handleChange);
@@ -321,16 +325,18 @@ async function hydrateIsland(island, framework) {
 			island.dataset.hydrationStatus = 'failed';
 			island.dataset.hydrationError = integrationError.message;
 
-			island.dispatchEvent(new CustomEvent('hydration-error', {
-				detail: {
-					framework,
-					src,
-					error: integrationError.message,
-					timestamp: Date.now(),
-					hydrationType: 'integration-level',
-				},
-				bubbles: true,
-			}));
+			island.dispatchEvent(
+				new CustomEvent('hydration-error', {
+					detail: {
+						framework,
+						src,
+						error: integrationError.message,
+						timestamp: Date.now(),
+						hydrationType: 'integration-level',
+					},
+					bubbles: true,
+				}),
+			);
 		}
 	} catch (error) {
 		console.error(`❌ Critical error hydrating ${framework} island ${src}:`, error);
@@ -357,15 +363,17 @@ function handleHydrationError(island, framework, src, error) {
 	island.dataset.renderStrategy = 'ssr-only';
 	island.classList.add('hydration-failed');
 
-	island.dispatchEvent(new CustomEvent('hydration-error', {
-		detail: {
-			framework,
-			src,
-			error: error.message,
-			timestamp: Date.now(),
-		},
-		bubbles: true,
-	}));
+	island.dispatchEvent(
+		new CustomEvent('hydration-error', {
+			detail: {
+				framework,
+				src,
+				error: error.message,
+				timestamp: Date.now(),
+			},
+			bubbles: true,
+		}),
+	);
 
 	if (isDevelopment()) {
 		addErrorIndicator(island, framework, src, error);
@@ -401,7 +409,9 @@ function addErrorIndicator(island, framework, src, error) {
 	indicator.title = `Hydration failed: ${src}\n${error.message}\nClick for details`;
 
 	indicator.addEventListener('click', () => {
-		alert(`Hydration Error\n\nFramework: ${framework}\nComponent: ${src}\n\nError: ${error.message}\n\nStack:\n${error.stack}`);
+		alert(
+			`Hydration Error\n\nFramework: ${framework}\nComponent: ${src}\n\nError: ${error.message}\n\nStack:\n${error.stack}`,
+		);
 	});
 
 	const computedStyle = globalThis.getComputedStyle(island);
@@ -418,10 +428,12 @@ function addErrorIndicator(island, framework, src, error) {
  * @returns {boolean} True if in development
  */
 function isDevelopment() {
-	return import.meta.env?.DEV ||
+	return (
+		import.meta.env?.DEV ||
 		import.meta.env?.MODE === 'development' ||
 		globalThis.location?.hostname === 'localhost' ||
-		globalThis.location?.hostname === '127.0.0.1';
+		globalThis.location?.hostname === '127.0.0.1'
+	);
 }
 
 /**
@@ -590,30 +602,28 @@ function showInlineHMRError(island, framework, src, error) {
 
 // HMR support for development
 if (import.meta.hot) {
-	console.log('🔥 HMR detected, setting up...');
 	import.meta.hot.accept();
 
-	// Initialize HMR coordinator and register adapters
-	Promise.all([
-		import('./hmr-coordinator.ts'),
-		import('./adapters/index.ts')
-	]).then(([{ initializeHMR, getHMRCoordinator }, { reactAdapter, preactAdapter, vueAdapter, svelteAdapter, solidAdapter, litAdapter }]) => {
-		console.log('📦 HMR modules loaded');
+	Promise.all([import('./hmr-coordinator.ts'), import('./adapters/index.ts')])
+		.then(
+			([
+				{ initializeHMR, getHMRCoordinator },
+				{ reactAdapter, preactAdapter, vueAdapter, svelteAdapter, solidAdapter, litAdapter },
+			]) => {
+				initializeHMR();
 
-		initializeHMR();
-
-		const coordinator = getHMRCoordinator();
-		coordinator.registerAdapter('react', reactAdapter);
-		coordinator.registerAdapter('preact', preactAdapter);
-		coordinator.registerAdapter('vue', vueAdapter);
-		coordinator.registerAdapter('svelte', svelteAdapter);
-		coordinator.registerAdapter('solid', solidAdapter);
-		coordinator.registerAdapter('lit', litAdapter);
-
-		console.log('✅ HMR adapters registered');
-	}).catch(error => {
-		console.error('❌ Failed to initialize HMR coordinator:', error);
-	});
+				const coordinator = getHMRCoordinator();
+				coordinator.registerAdapter('react', reactAdapter);
+				coordinator.registerAdapter('preact', preactAdapter);
+				coordinator.registerAdapter('vue', vueAdapter);
+				coordinator.registerAdapter('svelte', svelteAdapter);
+				coordinator.registerAdapter('solid', solidAdapter);
+				coordinator.registerAdapter('lit', litAdapter);
+			},
+		)
+		.catch(error => {
+			console.error('[HMR] Failed to initialize:', error);
+		});
 
 	// Enhanced HMR support for nested islands
 	setupNestedIslandHMR();
@@ -690,9 +700,7 @@ function setupNestedIslandHMR() {
 			}
 
 			const timestamp = Date.now();
-			const freshSrc = src.includes('?')
-				? `${src}&t=${timestamp}`
-				: `${src}?t=${timestamp}`;
+			const freshSrc = src.includes('?') ? `${src}&t=${timestamp}` : `${src}?t=${timestamp}`;
 
 			await hydrateIslandWithFreshModule(island, framework, freshSrc, src);
 
@@ -702,29 +710,31 @@ function setupNestedIslandHMR() {
 				hydratedIslands.delete(src);
 			}
 
-			island.dispatchEvent(new CustomEvent('hmr-update', {
-				detail: {
-					framework,
-					src,
-					timestamp: Date.now(),
-					success: true,
-				},
-				bubbles: true,
-			}));
-
-			console.log(`🔄 HMR: Updated ${framework} island ${src}`);
+			island.dispatchEvent(
+				new CustomEvent('hmr-update', {
+					detail: {
+						framework,
+						src,
+						timestamp: Date.now(),
+						success: true,
+					},
+					bubbles: true,
+				}),
+			);
 		} catch (error) {
-			console.error(`❌ HMR failed for ${framework} island ${src}:`, error);
+			console.error(`[HMR] Failed for ${framework} island ${src}:`, error);
 
-			island.dispatchEvent(new CustomEvent('hmr-error', {
-				detail: {
-					framework,
-					src,
-					error: error.message,
-					timestamp: Date.now(),
-				},
-				bubbles: true,
-			}));
+			island.dispatchEvent(
+				new CustomEvent('hmr-error', {
+					detail: {
+						framework,
+						src,
+						error: error.message,
+						timestamp: Date.now(),
+					},
+					bubbles: true,
+				}),
+			);
 
 			if (isDevelopment()) {
 				showHMRError(island, framework, src, error);
@@ -733,7 +743,7 @@ function setupNestedIslandHMR() {
 	}
 
 	// Listen for Vite HMR events
-	import.meta.hot.on('vite:beforeUpdate', (payload) => {
+	import.meta.hot.on('vite:beforeUpdate', payload => {
 		for (const update of payload.updates || []) {
 			const path = update.path || update.acceptedPath;
 			if (path && (path.includes('/islands/') || path.includes('\\islands\\'))) {

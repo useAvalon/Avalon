@@ -14,21 +14,20 @@ export default defineConfig(async (): Promise<UserConfig> => {
 	// Detect which integrations are used
 	const usedIntegrations = await detectUsedIntegrations();
 	const requiredIntegrations = getRequiredIntegrations(usedIntegrations);
-	
+
 	console.log(`🔧 Configuring SSR build for integrations: ${requiredIntegrations.join(', ') || 'none'}`);
 
 	// Discover island entries for SSR
 	const islandEntries: Record<string, string> = {};
 	const cwd = process.cwd();
-	
+
 	try {
 		const islandsPath = resolve(cwd, 'islands');
 		const dirEntries = await readdir(islandsPath, { withFileTypes: true });
 		for (const dirEntry of dirEntries) {
 			if (dirEntry.isFile()) {
 				const name = dirEntry.name;
-				if (name.endsWith('.tsx') || name.endsWith('.jsx') || 
-				    name.endsWith('.vue') || name.endsWith('.svelte')) {
+				if (name.endsWith('.tsx') || name.endsWith('.jsx') || name.endsWith('.vue') || name.endsWith('.svelte')) {
 					const baseName = name.replace(/\.(tsx|jsx|vue|svelte)$/, '');
 					islandEntries[`islands/${baseName}`] = resolve(islandsPath, name);
 				}
@@ -40,49 +39,55 @@ export default defineConfig(async (): Promise<UserConfig> => {
 
 	// Load framework plugins for SSR
 	const frameworkPlugins = [];
-	
+
 	// Vue SSR plugin
 	if (requiredIntegrations.includes('vue')) {
 		try {
 			const { default: vue } = await import('@vitejs/plugin-vue');
-			frameworkPlugins.push(vue({
-				template: {
-					compilerOptions: {
-						isCustomElement: (tag: string) => tag === 'is-land',
+			frameworkPlugins.push(
+				vue({
+					template: {
+						compilerOptions: {
+							isCustomElement: (tag: string) => tag === 'avalon-island',
+						},
 					},
-				},
-			}));
+				}),
+			);
 		} catch {
 			console.warn('⚠️ Vue plugin not available for SSR build');
 		}
 	}
-	
+
 	// Solid SSR plugin
 	if (requiredIntegrations.includes('solid')) {
 		try {
 			const { default: solid } = await import('vite-plugin-solid');
-			frameworkPlugins.push(solid({ 
-				ssr: true,
-				dev: false, // Disable dev mode to avoid jsx-dev-runtime
-			}));
+			frameworkPlugins.push(
+				solid({
+					ssr: true,
+					dev: false, // Disable dev mode to avoid jsx-dev-runtime
+				}),
+			);
 		} catch {
 			console.warn('⚠️ Solid plugin not available for SSR build');
 		}
 	}
-	
+
 	// Svelte SSR plugin
 	if (requiredIntegrations.includes('svelte')) {
 		try {
 			const { svelte } = await import('@sveltejs/vite-plugin-svelte');
-			frameworkPlugins.push(svelte({
-				compilerOptions: {
-					customElement: false,
-					runes: true,
-					css: 'injected',
-					dev: false, // Explicitly disable dev mode for SSR
-				},
-				hot: false, // Disable hot reload for SSR build
-			}));
+			frameworkPlugins.push(
+				svelte({
+					compilerOptions: {
+						customElement: false,
+						runes: true,
+						css: 'injected',
+						dev: false, // Explicitly disable dev mode for SSR
+					},
+					hot: false, // Disable hot reload for SSR build
+				}),
+			);
 		} catch {
 			console.warn('⚠️ Svelte plugin not available for SSR build');
 		}

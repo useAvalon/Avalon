@@ -121,7 +121,7 @@ export interface Integration {
 	 *   return vue({
 	 *     template: {
 	 *       compilerOptions: {
-	 *         isCustomElement: tag => tag === 'is-land',
+	 *         isCustomElement: tag => tag === 'avalon-island',
 	 *       },
 	 *     },
 	 *   });
