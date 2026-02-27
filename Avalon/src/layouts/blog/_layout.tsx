@@ -1,6 +1,6 @@
 import type { LayoutProps } from '@avalon/avalon';
 
-export default function BlogLayout({ children }: LayoutProps) {
+export default function BlogLayout({ children }: Readonly<LayoutProps>) {
 	return (
 		<div style={{ display: 'flex', gap: '30px' }}>
 			<aside
@@ -48,7 +48,7 @@ export default function BlogLayout({ children }: LayoutProps) {
 					</a>
 				</nav>
 			</aside>
-			<article style={{ flex: 1 }} dangerouslySetInnerHTML={{ __html: children }}></article>
+			<article style={{ flex: 1 }}>{children}</article>
 		</div>
 	);
 }

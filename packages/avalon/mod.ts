@@ -213,19 +213,25 @@ export type { CacheEntry, CacheStats, CacheConfig } from './src/core/layout/layo
 
 // Layout system types - comprehensive export
 export type {
-	// Core layout types
+	// Core layout types (from hand-written interfaces — proper types, no Zod inference)
+	LayoutProps,
 	LayoutContext,
 	LayoutData,
 	LayoutRoute,
 	LayoutHandler,
-	LayoutProps,
 	LayoutDiscoveryOptions,
+	LayoutConfig,
 	RouteInfo,
 	LayoutRule,
-	LayoutConfig,
 	LayoutLoader,
 	ResolvedLayout,
 	LayoutCache,
+	LayoutErrorInfo,
+	PageModule,
+} from './src/core/layout/layout-types.ts';
+
+export type {
+	// Zod-inferred types for schemas that don't have hand-written equivalents
 	EnhancedLayoutContext,
 
 	// Persistent islands types
@@ -237,7 +243,6 @@ export type {
 	IslandStateClearer,
 
 	// Error boundary types
-	LayoutErrorInfo,
 	LayoutErrorBoundaryProps,
 	ErrorRecoveryStrategy,
 	LayoutErrorHandler,
