@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Framework Islands – Bezier Transfer Animation</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/MotionPathPlugin.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0a0a;
+    width: 100vw;
+    height: 100vh;
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+    color: #fff;
+  }
+
+  .scene {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  .scene::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 64px 64px;
+    pointer-events: none;
+  }
+
+  .scene::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 32px 32px;
+    pointer-events: none;
+  }
+
+  /* SVG overlay — same size as scene, no viewBox, uses pixel coords */
+  .curves-svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .bezier-path {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.06);
+    stroke-width: 1.2;
+  }
+
+  .bezier-path-glow {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.02);
+    stroke-width: 5;
+    filter: blur(2px);
+  }
+
+  .active-trail {
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    opacity: 0.5;
+  }
+
+  .endpoint-dot { opacity: 0.5; }
+
+  /* Framework cards — positioned with % */
+  .fw-card {
+    position: absolute;
+    width: 140px;
+    height: 82px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    backdrop-filter: blur(12px);
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: border-color 0.4s, box-shadow 0.4s;
+  }
+
+  .fw-card .fw-icon { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; }
+  .fw-card .fw-icon svg { width: 24px; height: 24px; }
+  .fw-card .fw-name { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.5); letter-spacing: 0.03em; }
+
+  /* Left column */
+  #card-react  { left: 4%;  top: 10%; }
+  #card-preact { left: 3%;  top: 35%; }
+  #card-solid  { left: 4%;  top: 60%; }
+  /* Right column */
+  #card-lit    { right: 4%; top: 10%; }
+  #card-vue    { right: 3%; top: 35%; }
+  #card-svelte { right: 4%; top: 60%; }
+
+  /* Target container */
+  .target-container {
+    position: absolute;
+    left: 50%;
+    top: 46%;
+    transform: translate(-50%, -50%);
+    width: 280px;
+    height: 280px;
+    border-radius: 24px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    backdrop-filter: blur(16px);
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  .target-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 24px;
+    background: radial-gradient(circle at center, rgba(255,255,255,0.03) 0%, transparent 70%);
+  }
+
+  .target-inner { position: relative; z-index: 1; text-align: center; }
+
+  .target-label {
+    font-family: 'Instrument Serif', serif;
+    font-size: 28px;
+    font-style: italic;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 4px;
+  }
+
+  .target-sub {
+    font-size: 11px;
+    color: rgba(255,255,255,0.3);
+    font-weight: 300;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .collected-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 36px);
+    gap: 10px;
+    margin-top: 16px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .collected-slot {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.25;
+    transition: opacity 0.5s, background 0.5s, border-color 0.5s;
+  }
+
+  .collected-slot.active {
+    opacity: 1;
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.1);
+  }
+
+  .collected-slot svg { width: 20px; height: 20px; }
+
+  .target-glow {
+    position: absolute;
+    inset: -2px;
+    border-radius: 26px;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 2;
+  }
+
+  /* Transfer elements */
+  .transfer-el {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    z-index: 10;
+    pointer-events: none;
+    opacity: 0;
+    /* start offscreen so no flash before first animation */
+    left: -100px;
+    top: -100px;
+  }
+
+  .transfer-dot {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .transfer-dot::before {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 16px;
+    border: 1px solid currentColor;
+    opacity: 0.2;
+    animation: pulse-ring 2s ease-in-out infinite;
+  }
+
+  .transfer-dot svg { width: 22px; height: 22px; }
+
+  .fw-react .transfer-dot  { background: rgba(97,218,251,0.15); color: #61DAFB; box-shadow: 0 0 24px rgba(97,218,251,0.2); }
+  .fw-preact .transfer-dot { background: rgba(103,58,184,0.15); color: #673AB8; box-shadow: 0 0 24px rgba(103,58,184,0.2); }
+  .fw-solid .transfer-dot  { background: rgba(79,136,198,0.15); color: #4F88C6; box-shadow: 0 0 24px rgba(79,136,198,0.2); }
+  .fw-lit .transfer-dot    { background: rgba(50,79,255,0.15);  color: #324FFF; box-shadow: 0 0 24px rgba(50,79,255,0.2); }
+  .fw-vue .transfer-dot    { background: rgba(66,184,131,0.15); color: #42B883; box-shadow: 0 0 24px rgba(66,184,131,0.2); }
+  .fw-svelte .transfer-dot { background: rgba(255,62,0,0.15);   color: #FF3E00; box-shadow: 0 0 24px rgba(255,62,0,0.2); }
+
+  /* Bottom heading */
+  .bottom-heading {
+    position: absolute;
+    bottom: 4%;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+    z-index: 5;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 100px;
+    padding: 7px 18px;
+    margin-bottom: 16px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.5);
+    backdrop-filter: blur(10px);
+  }
+
+  .pill .new-tag { color: #6aaa6a; font-weight: 500; font-size: 11px; }
+
+  .heading {
+    font-family: 'Instrument Serif', serif;
+    font-size: 42px;
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    margin-bottom: 10px;
+  }
+
+  .heading em {
+    font-style: italic;
+    background: linear-gradient(90deg, #fff 0%, rgba(255,255,255,0.5) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-decoration: line-through;
+    text-decoration-color: rgba(255,255,255,0.25);
+    text-decoration-thickness: 1px;
+  }
+
+  .subtitle {
+    font-size: 14px;
+    color: rgba(255,255,255,0.35);
+    line-height: 1.6;
+    font-weight: 300;
+  }
+
+  @keyframes pulse-ring {
+    0%, 100% { opacity: 0.2; transform: scale(1); }
+    50% { opacity: 0.05; transform: scale(1.2); }
+  }
+</style>
+</head>
+<body>
+
+<div class="scene" id="scene">
+
+  <!-- SVG — NO viewBox, uses raw pixel coordinates matching the DOM -->
+  <svg class="curves-svg" id="curvesSvg">
+    <defs>
+      <linearGradient id="grad-react"><stop offset="0%" stop-color="rgba(97,218,251,0)"/><stop offset="50%" stop-color="rgba(97,218,251,0.5)"/><stop offset="100%" stop-color="rgba(97,218,251,0)"/></linearGradient>
+      <linearGradient id="grad-preact"><stop offset="0%" stop-color="rgba(103,58,184,0)"/><stop offset="50%" stop-color="rgba(103,58,184,0.5)"/><stop offset="100%" stop-color="rgba(103,58,184,0)"/></linearGradient>
+      <linearGradient id="grad-solid"><stop offset="0%" stop-color="rgba(79,136,198,0)"/><stop offset="50%" stop-color="rgba(79,136,198,0.5)"/><stop offset="100%" stop-color="rgba(79,136,198,0)"/></linearGradient>
+      <linearGradient id="grad-lit"><stop offset="0%" stop-color="rgba(50,79,255,0)"/><stop offset="50%" stop-color="rgba(50,79,255,0.5)"/><stop offset="100%" stop-color="rgba(50,79,255,0)"/></linearGradient>
+      <linearGradient id="grad-vue"><stop offset="0%" stop-color="rgba(66,184,131,0)"/><stop offset="50%" stop-color="rgba(66,184,131,0.5)"/><stop offset="100%" stop-color="rgba(66,184,131,0)"/></linearGradient>
+      <linearGradient id="grad-svelte"><stop offset="0%" stop-color="rgba(255,62,0,0)"/><stop offset="50%" stop-color="rgba(255,62,0,0.5)"/><stop offset="100%" stop-color="rgba(255,62,0,0)"/></linearGradient>
+      <filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+
+    <!-- Paths will be generated dynamically -->
+    <g id="pathGroup"></g>
+    <g id="dotGroup"></g>
+  </svg>
+
+  <!-- FRAMEWORK CARDS -->
+  <div class="fw-card" id="card-react">
+    <div class="fw-icon"><svg viewBox="0 0 24 24" fill="#61DAFB"><circle cx="12" cy="12" r="2.2"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" stroke-width="1"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" stroke-width="1" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" stroke-width="1" transform="rotate(120 12 12)"/></svg></div>
+    <span class="fw-name">React</span>
+  </div>
+
+  <div class="fw-card" id="card-preact">
+    <div class="fw-icon"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="2" fill="#673AB8"/><ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" stroke-width="1" transform="rotate(30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" stroke-width="1" transform="rotate(90 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" stroke-width="1" transform="rotate(150 12 12)"/></svg></div>
+    <span class="fw-name">Preact</span>
+  </div>
+
+  <div class="fw-card" id="card-solid">
+    <div class="fw-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6l8-4 8 4v4l-8 4-8-4V6z" fill="#4F88C6" opacity="0.6"/><path d="M4 10l8 4 8-4v4l-8 4-8-4v-4z" fill="#4F88C6" opacity="0.8"/><path d="M4 14l8 4 8-4v4l-8 4-8-4v-4z" fill="#4F88C6"/></svg></div>
+    <span class="fw-name">Solid</span>
+  </div>
+
+  <div class="fw-card" id="card-lit">
+    <div class="fw-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2L6 8l6 4-6 4 6 6 6-6-6-4 6-4z" fill="#324FFF"/><path d="M12 2l6 6-6 4-6-4z" fill="#324FFF" opacity="0.6"/></svg></div>
+    <span class="fw-name">Lit</span>
+  </div>
+
+  <div class="fw-card" id="card-vue">
+    <div class="fw-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M2 3h4l6 10L18 3h4L12 22z" fill="#42B883"/><path d="M6 3h3.5L12 8l2.5-5H18L12 15z" fill="#35495E"/></svg></div>
+    <span class="fw-name">Vue</span>
+  </div>
+
+  <div class="fw-card" id="card-svelte">
+    <div class="fw-icon"><svg viewBox="0 0 24 24" fill="#FF3E00"><path d="M19.1 3.5C17.1 1 13.5.5 11 2L5.7 5.5C4.5 6.3 3.7 7.5 3.4 8.8c-.2 1.1-.1 2.3.4 3.3-.3.5-.5 1-.6 1.6-.3 1.3-.1 2.7.5 3.9 2 2.5 5.6 3 8.1 1.5l5.3-3.5c1.2-.8 2-2 2.3-3.3.2-1.1.1-2.3-.4-3.3.3-.5.5-1 .6-1.6.3-1.3.1-2.7-.5-3.9z"/><path d="M10.1 18.7c-1.5.4-3.1-.2-4-1.4-.5-.7-.7-1.5-.5-2.3l.1-.4.2-.4.8.5c.6.4 1.2.6 1.8.8l.2.1v.2c0 .3.1.6.3.8.4.4 1 .6 1.6.4h.3l5.3-3.5c.3-.2.5-.5.5-.8 0-.3 0-.7-.3-.9-.4-.4-1-.6-1.6-.4h-.3L12.5 13c-.4.2-.8.4-1.2.5-1.5.4-3.1-.2-4-1.4-.5-.7-.7-1.5-.5-2.3.1-.8.6-1.5 1.2-1.9l5.3-3.5c.4-.2.8-.4 1.2-.5 1.5-.4 3.1.2 4 1.4.5.7.7 1.5.5 2.3l-.1.4-.2.4-.8-.5c-.6-.4-1.2-.6-1.8-.8l-.2-.1V7c0-.3-.1-.6-.3-.8-.4-.4-1-.6-1.6-.4h-.3L8.4 9.3c-.3.2-.5.5-.5.8 0 .3 0 .7.3.9.4.4 1 .6 1.6.4h.3l2.1-1.4c.4-.2.8-.4 1.2-.5" fill="rgba(255,255,255,0.5)"/></svg></div>
+    <span class="fw-name">Svelte</span>
+  </div>
+
+  <!-- TARGET CONTAINER -->
+  <div class="target-container" id="targetContainer">
+    <div class="target-glow" id="targetGlow"></div>
+    <div class="target-inner">
+      <div class="target-label">Islands</div>
+      <div class="target-sub">Universal Renderer</div>
+      <div class="collected-grid">
+        <div class="collected-slot" id="slot-react"><svg viewBox="0 0 24 24" fill="#61DAFB"><circle cx="12" cy="12" r="2.2"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" stroke-width="1"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" stroke-width="1" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" stroke-width="1" transform="rotate(120 12 12)"/></svg></div>
+        <div class="collected-slot" id="slot-preact"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="2" fill="#673AB8"/><ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" stroke-width="1" transform="rotate(30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" stroke-width="1" transform="rotate(90 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" stroke-width="1" transform="rotate(150 12 12)"/></svg></div>
+        <div class="collected-slot" id="slot-solid"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6l8-4 8 4v4l-8 4-8-4V6z" fill="#4F88C6" opacity="0.6"/><path d="M4 10l8 4 8-4v4l-8 4-8-4v-4z" fill="#4F88C6" opacity="0.8"/><path d="M4 14l8 4 8-4v4l-8 4-8-4v-4z" fill="#4F88C6"/></svg></div>
+        <div class="collected-slot" id="slot-lit"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2L6 8l6 4-6 4 6 6 6-6-6-4 6-4z" fill="#324FFF"/><path d="M12 2l6 6-6 4-6-4z" fill="#324FFF" opacity="0.6"/></svg></div>
+        <div class="collected-slot" id="slot-vue"><svg viewBox="0 0 24 24" fill="none"><path d="M2 3h4l6 10L18 3h4L12 22z" fill="#42B883"/><path d="M6 3h3.5L12 8l2.5-5H18L12 15z" fill="#35495E"/></svg></div>
+        <div class="collected-slot" id="slot-svelte"><svg viewBox="0 0 24 24" fill="#FF3E00"><path d="M19.1 3.5C17.1 1 13.5.5 11 2L5.7 5.5C4.5 6.3 3.7 7.5 3.4 8.8c-.2 1.1-.1 2.3.4 3.3-.3.5-.5 1-.6 1.6-.3 1.3-.1 2.7.5 3.9 2 2.5 5.6 3 8.1 1.5l5.3-3.5c1.2-.8 2-2 2.3-3.3.2-1.1.1-2.3-.4-3.3.3-.5.5-1 .6-1.6.3-1.3.1-2.7-.5-3.9z"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TRANSFER ELEMENTS -->
+  <div class="transfer-el fw-react" id="transfer-react"><div class="transfer-dot"><svg viewBox="0 0 24 24" fill="#61DAFB"><circle cx="12" cy="12" r="2.2"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" stroke-width="1"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" stroke-width="1" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" stroke-width="1" transform="rotate(120 12 12)"/></svg></div></div>
+  <div class="transfer-el fw-preact" id="transfer-preact"><div class="transfer-dot"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="2" fill="#673AB8"/><ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" stroke-width="1" transform="rotate(30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" stroke-width="1" transform="rotate(90 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" stroke-width="1" transform="rotate(150 12 12)"/></svg></div></div>
+  <div class="transfer-el fw-solid" id="transfer-solid"><div class="transfer-dot"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6l8-4 8 4v4l-8 4-8-4V6z" fill="#4F88C6" opacity="0.6"/><path d="M4 10l8 4 8-4v4l-8 4-8-4v-4z" fill="#4F88C6" opacity="0.8"/><path d="M4 14l8 4 8-4v4l-8 4-8-4v-4z" fill="#4F88C6"/></svg></div></div>
+  <div class="transfer-el fw-lit" id="transfer-lit"><div class="transfer-dot"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2L6 8l6 4-6 4 6 6 6-6-6-4 6-4z" fill="#324FFF"/><path d="M12 2l6 6-6 4-6-4z" fill="#324FFF" opacity="0.6"/></svg></div></div>
+  <div class="transfer-el fw-vue" id="transfer-vue"><div class="transfer-dot"><svg viewBox="0 0 24 24" fill="none"><path d="M2 3h4l6 10L18 3h4L12 22z" fill="#42B883"/><path d="M6 3h3.5L12 8l2.5-5H18L12 15z" fill="#35495E"/></svg></div></div>
+  <div class="transfer-el fw-svelte" id="transfer-svelte"><div class="transfer-dot"><svg viewBox="0 0 24 24" fill="#FF3E00"><path d="M19.1 3.5C17.1 1 13.5.5 11 2L5.7 5.5C4.5 6.3 3.7 7.5 3.4 8.8c-.2 1.1-.1 2.3.4 3.3-.3.5-.5 1-.6 1.6-.3 1.3-.1 2.7.5 3.9 2 2.5 5.6 3 8.1 1.5l5.3-3.5c1.2-.8 2-2 2.3-3.3.2-1.1.1-2.3-.4-3.3.3-.5.5-1 .6-1.6.3-1.3.1-2.7-.5-3.9z"/></svg></div></div>
+
+  <!-- Bottom heading -->
+  <div class="bottom-heading">
+    <div class="pill">
+      <span class="new-tag">New</span>
+      <span>Multi-framework islands architecture</span>
+    </div>
+    <h1 class="heading">Your <em>creative</em> environment.</h1>
+    <p class="subtitle">Every framework. One unified renderer.</p>
+  </div>
+</div>
+
+<script>
+gsap.registerPlugin(MotionPathPlugin);
+
+const scene = document.getElementById('scene');
+const pathGroup = document.getElementById('pathGroup');
+const dotGroup = document.getElementById('dotGroup');
+const target = document.getElementById('targetContainer');
+
+const frameworks = [
+  { id: 'react',  color: '#61DAFB', side: 'left',  delay: 0 },
+  { id: 'preact', color: '#673AB8', side: 'left',  delay: 0.8 },
+  { id: 'solid',  color: '#4F88C6', side: 'left',  delay: 1.6 },
+  { id: 'lit',    color: '#324FFF', side: 'right', delay: 2.4 },
+  { id: 'vue',    color: '#42B883', side: 'right', delay: 3.2 },
+  { id: 'svelte', color: '#FF3E00', side: 'right', delay: 4.0 },
+];
+
+// ── Get center point of an element relative to scene ──
+function getCenter(el) {
+  const sceneRect = scene.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  return {
+    x: elRect.left - sceneRect.left + elRect.width / 2,
+    y: elRect.top - sceneRect.top + elRect.height / 2,
+  };
+}
+
+// ── Get connection point (edge center facing the target) ──
+function getEdgePoint(el, side) {
+  const sceneRect = scene.getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  const y = elRect.top - sceneRect.top + elRect.height / 2;
+  if (side === 'left') {
+    return { x: elRect.right - sceneRect.left, y };
+  } else {
+    return { x: elRect.left - sceneRect.left, y };
+  }
+}
+
+function getTargetEdge(side) {
+  const sceneRect = scene.getBoundingClientRect();
+  const tRect = target.getBoundingClientRect();
+  const y = tRect.top - sceneRect.top + tRect.height / 2;
+  if (side === 'left') {
+    // Connect to left edge of target
+    return { x: tRect.left - sceneRect.left, y };
+  } else {
+    // Connect to right edge of target
+    return { x: tRect.right - sceneRect.left, y };
+  }
+}
+
+// ── Build bezier "d" string with nice control points ──
+function buildBezier(from, to, side) {
+  const dx = to.x - from.x;
+  const cpOffset = Math.abs(dx) * 0.55;
+  let cp1, cp2;
+
+  if (side === 'left') {
+    cp1 = { x: from.x + cpOffset, y: from.y };
+    cp2 = { x: to.x - cpOffset, y: to.y };
+  } else {
+    cp1 = { x: from.x - cpOffset, y: from.y };
+    cp2 = { x: to.x + cpOffset, y: to.y };
+  }
+
+  return `M ${from.x} ${from.y} C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${to.x} ${to.y}`;
+}
+
+// ── Create/update SVG paths ──
+function createSVGPath(id, cls, d, extra) {
+  let el = document.getElementById(id);
+  if (!el) {
+    el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    el.id = id;
+    el.setAttribute('class', cls);
+    if (extra) Object.entries(extra).forEach(([k, v]) => el.setAttribute(k, v));
+    pathGroup.appendChild(el);
+  }
+  el.setAttribute('d', d);
+  return el;
+}
+
+function createSVGCircle(id, cx, cy, r, fill) {
+  let el = document.getElementById(id);
+  if (!el) {
+    el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    el.id = id;
+    el.setAttribute('class', 'endpoint-dot');
+    el.setAttribute('r', r);
+    el.setAttribute('fill', fill);
+    el.setAttribute('filter', 'url(#glow)');
+    dotGroup.appendChild(el);
+  }
+  el.setAttribute('cx', cx);
+  el.setAttribute('cy', cy);
+  return el;
+}
+
+// ── Stores for GSAP timelines so we can kill & rebuild ──
+let trailTweens = [];
+let transferTimelines = [];
+let floatTweens = [];
+let entrancePlayed = false;
+
+function buildPaths() {
+  frameworks.forEach(fw => {
+    const card = document.getElementById(`card-${fw.id}`);
+    const from = getEdgePoint(card, fw.side);
+    const to = getTargetEdge(fw.side);
+    const d = buildBezier(from, to, fw.side);
+
+    createSVGPath(`pathGlow-${fw.id}`, 'bezier-path-glow', d);
+    createSVGPath(`path-${fw.id}`, 'bezier-path', d);
+    createSVGPath(`trail-${fw.id}`, 'active-trail', d, { stroke: `url(#grad-${fw.id})` });
+
+    createSVGCircle(`dot-src-${fw.id}`, from.x, from.y, 3, fw.color);
+    createSVGCircle(`dot-tgt-${fw.id}`, to.x, to.y, 3, 'rgba(255,255,255,0.2)');
+  });
+}
+
+function startTrails() {
+  trailTweens.forEach(t => t.kill());
+  trailTweens = [];
+
+  frameworks.forEach(fw => {
+    const trail = document.getElementById(`trail-${fw.id}`);
+    const len = trail.getTotalLength();
+    const seg = len * 0.2;
+    trail.style.strokeDasharray = `${seg} ${len - seg}`;
+    trail.style.strokeDashoffset = len;
+
+    const tw = gsap.to(trail, {
+      strokeDashoffset: -len,
+      duration: 4 + Math.random() * 2,
+      ease: 'none',
+      repeat: -1,
+    });
+    trailTweens.push(tw);
+  });
+}
+
+function startTransfers() {
+  transferTimelines.forEach(t => t.kill());
+  transferTimelines = [];
+
+  frameworks.forEach(fw => {
+    const transferEl = `#transfer-${fw.id}`;
+    const pathEl = `#path-${fw.id}`;
+    const slotEl = document.getElementById(`slot-${fw.id}`);
+    const cardEl = document.getElementById(`card-${fw.id}`);
+
+    const tl = gsap.timeline({ repeat: -1, repeatDelay: 3, delay: fw.delay });
+
+    tl
+      .set(transferEl, { opacity: 0, scale: 0.2 })
+      .to(transferEl, { opacity: 1, scale: 1, duration: 0.35, ease: 'back.out(2)' })
+      .to(cardEl, {
+        borderColor: fw.color + '4D',
+        boxShadow: `0 0 20px ${fw.color}22`,
+        duration: 0.3, ease: 'power2.out',
+      }, '<')
+      .to(cardEl, {
+        borderColor: 'rgba(255,255,255,0.06)',
+        boxShadow: 'none',
+        duration: 0.6,
+      })
+      .to(transferEl, {
+        motionPath: {
+          path: pathEl,
+          align: pathEl,
+          alignOrigin: [0.5, 0.5],
+          autoRotate: false,
+        },
+        duration: 2.2,
+        ease: 'power2.inOut',
+      }, '-=0.6')
+      .to(transferEl, { opacity: 0, scale: 0.4, duration: 0.3, ease: 'power2.in' }, '-=0.3')
+      .call(() => {
+        slotEl.classList.add('active');
+        gsap.to('#targetGlow', {
+          opacity: 1,
+          boxShadow: `inset 0 0 40px ${fw.color}15, 0 0 30px ${fw.color}10`,
+          duration: 0.3, ease: 'power2.out',
+        });
+        gsap.to('#targetGlow', { opacity: 0, duration: 0.8, delay: 0.3, ease: 'power2.out' });
+      })
+      .to('#targetContainer', { borderColor: `${fw.color}33`, duration: 0.25, ease: 'power2.out' }, '-=0.3')
+      .to('#targetContainer', { borderColor: 'rgba(255,255,255,0.06)', duration: 0.8 })
+      .call(() => {
+        gsap.delayedCall(1.5, () => slotEl.classList.remove('active'));
+      });
+
+    transferTimelines.push(tl);
+  });
+}
+
+function startFloating() {
+  floatTweens.forEach(t => t.kill());
+  floatTweens = [];
+
+  document.querySelectorAll('.fw-card').forEach((card, i) => {
+    const tw = gsap.to(card, {
+      y: (i % 2 === 0) ? -5 : 5,
+      duration: 3 + i * 0.3,
+      ease: 'sine.inOut',
+      yoyo: true,
+      repeat: -1,
+      delay: i * 0.2,
+    });
+    floatTweens.push(tw);
+  });
+
+  const tw = gsap.to('#targetContainer', {
+    y: -4, duration: 3.5, ease: 'sine.inOut', yoyo: true, repeat: -1,
+  });
+  floatTweens.push(tw);
+}
+
+function playEntrance() {
+  if (entrancePlayed) return;
+  entrancePlayed = true;
+
+  const tl = gsap.timeline();
+  tl
+    .from('.fw-card', {
+      opacity: 0, scale: 0.85, duration: 0.6,
+      stagger: { each: 0.1, from: 'random' },
+      ease: 'power2.out',
+    })
+    .from('#targetContainer', { opacity: 0, scale: 0.9, duration: 0.7, ease: 'power2.out' }, '-=0.3')
+    .from('#pathGroup path, #dotGroup circle', {
+      opacity: 0, duration: 0.8, stagger: 0.04, ease: 'power2.out',
+    }, '-=0.4')
+    .from('.bottom-heading', { opacity: 0, y: 20, duration: 0.6, ease: 'power2.out' }, '-=0.4');
+}
+
+// ── Init & resize handler ──
+function init() {
+  buildPaths();
+  startTrails();
+  startTransfers();
+  startFloating();
+  playEntrance();
+}
+
+let resizeTimeout;
+function handleResize() {
+  clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => {
+    // Kill all running animations
+    trailTweens.forEach(t => t.kill());
+    transferTimelines.forEach(t => t.kill());
+    // Rebuild paths with new positions
+    buildPaths();
+    startTrails();
+    startTransfers();
+  }, 150);
+}
+
+window.addEventListener('resize', handleResize);
+
+// Wait for layout to settle
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    init();
+  });
+});
+</script>
+
+</body>
+</html>

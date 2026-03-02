@@ -1,124 +1,95 @@
 import { LitElement, html, css } from "lit";
 
 export class WebCounter extends LitElement {
-  // Static element name for SSR tag name extraction
-  static elementName = "web-counter";
+	static elementName = "web-counter";
 
-  static styles = css`
-    :host {
-      display: block;
-      font-family: system-ui, sans-serif;
-    }
+	static styles = css`
+		:host {
+			display: block;
+			font-family: 'DM Sans', system-ui, sans-serif;
+		}
 
-    .counter {
-      text-align: center;
-      padding: 20px;
-      background: linear-gradient(135deg, #ff6b6b, #ee5a5a);
-      color: white;
-      border-radius: 10px;
-    }
+		.counter {
+			padding: 24px;
+			background: linear-gradient(135deg, rgba(50,79,255,0.1) 0%, rgba(50,79,255,0.02) 100%);
+			border: 1px solid rgba(50,79,255,0.15);
+			border-radius: 14px;
+			text-align: center;
+		}
 
-    h4 {
-      margin: 0 0 15px 0;
-    }
+		.label {
+			font-size: 14px;
+			font-weight: 600;
+			color: #324FFF;
+			margin-bottom: 16px;
+			letter-spacing: 0.03em;
+			font-family: 'DM Sans', sans-serif;
+		}
 
-    .count {
-      font-size: 2rem;
-      font-weight: bold;
-      margin-bottom: 15px;
-      background: rgba(255, 255, 255, 0.2);
-      padding: 10px;
-      border-radius: 8px;
-    }
+		.count {
+			font-size: 42px;
+			font-weight: 300;
+			color: rgba(255,255,255,0.9);
+			margin-bottom: 20px;
+			font-family: 'DM Sans', sans-serif;
+		}
 
-    .controls {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      margin-bottom: 10px;
-    }
+		.buttons {
+			display: flex;
+			gap: 8px;
+			justify-content: center;
+		}
 
-    button {
-      padding: 8px 16px;
-      background: rgba(255, 255, 255, 0.2);
-      border: none;
-      border-radius: 6px;
-      color: white;
-      cursor: pointer;
-      font-size: 1.2rem;
-      transition: background 0.2s;
-    }
+		button {
+			padding: 10px 20px;
+			font-size: 18px;
+			background: rgba(50,79,255,0.12);
+			color: #fff;
+			border: 1px solid rgba(50,79,255,0.2);
+			border-radius: 8px;
+			cursor: pointer;
+			transition: all 0.2s ease;
+		}
 
-    button:hover {
-      background: rgba(255, 255, 255, 0.3);
-    }
+		button:hover {
+			background: rgba(50,79,255,0.2);
+		}
 
-    .reset {
-      font-size: 0.9rem;
-      padding: 6px 12px;
-    }
+		.sublabel {
+			margin-top: 14px;
+			font-size: 10px;
+			color: rgba(255,255,255,0.3);
+			text-transform: uppercase;
+			letter-spacing: 0.1em;
+			font-family: 'DM Sans', sans-serif;
+		}
+	`;
 
-    .label {
-      margin-top: 10px;
-      font-size: 0.9rem;
-      opacity: 0.8;
-    }
-  `;
+	static properties = {
+		count: { type: Number, attribute: 'initial-count', reflect: true },
+	};
 
-  // Define properties without decorators
-  // `count` is the displayed value, mapped to the `initial-count` attribute for SSR.
-  // On the client, the attribute sets the initial value; clicks mutate `count` directly.
-  static properties = {
-    count: { type: Number, attribute: 'initial-count', reflect: true },
-  };
+	declare count: number;
 
-  // Use declare to avoid class field shadowing Lit's reactive accessor
-  declare count: number;
+	constructor() {
+		super();
+		this.count = 0;
+	}
 
-  constructor() {
-    super();
-    this.count = 0;
-  }
-
-  private increment() {
-    this.count++;
-  }
-
-  private decrement() {
-    this.count--;
-  }
-
-  private reset() {
-    this.count = 0;
-  }
-
-  render() {
-    return html`
-      <div class="counter">
-        <h4>🔥 Lit Counter</h4>
-        <div class="count">${this.count}</div>
-        <div class="controls">
-          <button @click=${this.decrement}>−</button>
-          <button @click=${this.increment}>+</button>
-        </div>
-        <button class="reset" @click=${this.reset}>Reset</button>
-        <p class="label">Powered by Lit Web Components</p>
-      </div>
-    `;
-  }
+	render() {
+		return html`
+			<div class="counter">
+				<div class="label">🔥 Lit</div>
+				<div class="count">${this.count}</div>
+				<div class="buttons">
+					<button @click=${() => this.count--}>−</button>
+					<button @click=${() => this.count++}>+</button>
+				</div>
+				<div class="sublabel">Web Components</div>
+			</div>
+		`;
+	}
 }
 
-// Register custom element without decorator
-if (typeof customElements !== 'undefined' && !customElements.get("web-counter")) {
-  customElements.define("web-counter", WebCounter);
-}
-
-declare global {
-  interface HTMLElementTagNameMap {
-    "web-counter": WebCounter;
-  }
-}
-
-// Default export for use in Preact JSX pages.
-// The Avalon island transform uses the class directly; this export is for TypeScript compatibility.
-export default WebCounter as unknown as (props: { initialCount?: number; island?: import('../../../packages/avalon/src/types/island-prop.d.ts').IslandDirective }) => null;
+customElements.define('web-counter', WebCounter);
+export default WebCounter;

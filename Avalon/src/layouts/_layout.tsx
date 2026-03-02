@@ -2,7 +2,7 @@ import type { LayoutProps } from '@avalon/avalon';
 import { AppProvider } from '../context/AppContext.tsx';
 
 export default function RootLayout({ children, frontmatter }: Readonly<LayoutProps>) {
-	const pageTitle = frontmatter?.title || 'Avalon Demo';
+	const pageTitle = frontmatter?.title || 'Avalon';
 	return (
 		<html lang="en">
 			<head>
@@ -10,77 +10,134 @@ export default function RootLayout({ children, frontmatter }: Readonly<LayoutPro
 				<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 				<title>{pageTitle}</title>
 				{frontmatter?.description && <meta name="description" content={String(frontmatter.description)} />}
-				<link rel="stylesheet" href="/syntax-highlighting.css" />
+				<link rel="preconnect" href="https://fonts.googleapis.com" />
+				<link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
 				<link
+					href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap"
 					rel="stylesheet"
-					href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
 				/>
+				<link rel="stylesheet" href="/syntax-highlighting.css" />
 				<style>{`
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-          }
-          .container { 
-            max-width: 1200px; 
-            margin: 0 auto; 
-            padding: 20px;
-          }
-          .header {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 30px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-          }
-          .nav {
-            display: flex;
-            gap: 20px;
-            margin-top: 15px;
-          }
-          .nav a {
-            color: white;
-            text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
-          }
-          .nav a:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateY(-2px);
-          }
-          .content {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-          }
-          h1 { color: white; font-size: 2.5rem; margin-bottom: 10px; }
-          .subtitle { color: rgba(255, 255, 255, 0.8); font-size: 1.1rem; }
-        `}</style>
+					* { margin: 0; padding: 0; box-sizing: border-box; }
+					
+					body {
+						background: #0a0a0a;
+						min-height: 100vh;
+						font-family: 'DM Sans', system-ui, sans-serif;
+						color: #fff;
+						line-height: 1.6;
+					}
+					
+					.scene {
+						position: relative;
+						min-height: 100vh;
+					}
+					
+					.scene::before {
+						content: '';
+						position: fixed;
+						inset: 0;
+						background-image:
+							linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+							linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+						background-size: 64px 64px;
+						pointer-events: none;
+						z-index: 0;
+					}
+					
+					.scene::after {
+						content: '';
+						position: fixed;
+						inset: 0;
+						background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+						background-size: 32px 32px;
+						pointer-events: none;
+						z-index: 0;
+					}
+					
+					.header {
+						width:75vw;
+						position: fixed;
+						top: 16px;
+						left: 50%;
+						transform: translateX(-50%);
+						z-index: 100;
+						padding: 16px 32px;
+						display: flex;
+						align-items: center;
+						gap: 64px;
+						background: linear-gradient(137deg, rgba(17, 18, 20, .75) 4.87%, rgba(12, 13, 15, .9) 75.88%);
+						backdrop-filter: blur(5px);
+						-webkit-backdrop-filter: blur(20px);
+						border: 1px solid rgba(255,255,255,0.1);
+						border-radius: 16px;
+						box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, .15);					
+						}
+					
+					.logo {
+						font-family: 'Instrument Serif', serif;
+						font-size: 22px;
+						font-style: italic;
+						color: rgba(255,255,255,0.95);
+						text-decoration: none;
+						letter-spacing: -0.02em;
+					}
+					
+					.nav {
+						display: flex;
+						align-items: center;
+						gap: 4px;
+						width:100%;
+						justify-content:end;
+					}
+					
+					.nav-link {
+						color: rgba(255,255,255,0.55);
+						text-decoration: none;
+						padding: 8px 14px;
+						font-size: 14px;
+						font-weight: 500;
+						transition: color 0.15s ease;
+						border-radius: 100px;
+					}
+					
+					.nav-link:hover {
+						color: rgba(255,255,255,0.95);
+						background: rgba(255,255,255,0.08);
+					}
+					
+					.main {
+						position: relative;
+						z-index: 1;
+						padding-top: 80px;
+						min-height: 100vh;
+					}
+					
+					.container {
+						max-width: 1200px;
+						margin: 0 auto;
+						padding: 40px 24px;
+					}
+				`}</style>
 			</head>
 			<body>
 				<AppProvider>
-					<div className="container">
+					<div className="scene">
 						<header className="header">
-							<h1>🏔️ Avalon Framework Demo</h1>
-							<p className="subtitle">Showcasing multi-framework SSR with islands architecture</p>
+							<a href="/" className="logo">Avalon</a>
 							<nav className="nav">
-								<a href="/">Home</a>
-								<a href="/frameworks">Frameworks</a>
-								<a href="/islands">Islands</a>
-								<a href="/layouts">Layouts</a>
-								<a href="/api-demo">API Demo</a>
-								<a href="/blog">Blog</a>
-								<a href="/server-cache-demo">Cache Demo</a>
+								<a href="/frameworks" className="nav-link">Frameworks</a>
+								<a href="/islands" className="nav-link">Islands</a>
+								<a href="/layouts" className="nav-link">Layouts</a>
+								<a href="/api-demo" className="nav-link">API</a>
+								<a href="/blog" className="nav-link">Blog</a>
 							</nav>
 						</header>
-						<main className="content">{children}</main>
+						<main className="main">
+							<div className="container">
+								{children}
+							</div>
+						</main>
 					</div>
 				</AppProvider>
 			</body>

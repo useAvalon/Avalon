@@ -5,57 +5,75 @@ export default function PreactCounter({ initialCount = 0 }: { initialCount?: num
 	const [count, setCount] = useState(initialCount);
 
 	return (
-		<div
-			style={{
-				textAlign: 'center',
-				padding: '20px',
-				background: 'linear-gradient(135deg, #673ab7, #9c27b0)',
-				color: 'white',
-				borderRadius: '10px',
+		<div style={{
+			padding: '24px',
+			background: 'linear-gradient(135deg, rgba(103,58,184,0.1) 0%, rgba(103,58,184,0.02) 100%)',
+			border: '1px solid rgba(103,58,184,0.15)',
+			borderRadius: '14px',
+			textAlign: 'center',
+		}}>
+			<div style={{
+				fontSize: '14px',
+				fontWeight: '600',
+				color: '#9575CD',
+				marginBottom: '16px',
+				letterSpacing: '0.03em',
+				fontFamily: "'DM Sans', sans-serif",
 			}}>
-			<h4 style={{ marginBottom: '15px' }}>⚛️ Preact Counter</h4>
-			<div
-				style={{
-					fontSize: '2rem',
-					fontWeight: 'bold',
-					marginBottom: '15px',
-					background: 'rgba(255,255,255,0.2)',
-					padding: '10px',
-					borderRadius: '8px',
-				}}>
+				⚛️ Preact
+			</div>
+			
+			<div style={{
+				fontSize: '42px',
+				fontWeight: '300',
+				color: 'rgba(255,255,255,0.9)',
+				marginBottom: '20px',
+				fontFamily: "'DM Sans', sans-serif",
+			}}>
 				{count}
 			</div>
-			<div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+			
+			<div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
 				<button
-					onClick={() => setCount(count - 1)}
+					onClick={() => setCount(c => c - 1)}
 					style={{
-						padding: '8px 16px',
-						background: 'rgba(255,255,255,0.2)',
-						border: 'none',
-						borderRadius: '6px',
-						color: 'white',
+						padding: '10px 20px',
+						fontSize: '18px',
+						background: 'rgba(103,58,184,0.12)',
+						color: '#fff',
+						border: '1px solid rgba(103,58,184,0.2)',
+						borderRadius: '8px',
 						cursor: 'pointer',
-						fontSize: '1.2rem',
-					}}>
+					}}
+				>
 					−
 				</button>
 				<button
-					onClick={() => setCount(count + 1)}
+					onClick={() => setCount(c => c + 1)}
 					style={{
-						padding: '8px 16px',
-						background: 'rgba(255,255,255,0.2)',
-						border: 'none',
-						borderRadius: '6px',
-						color: 'white',
+						padding: '10px 20px',
+						fontSize: '18px',
+						background: 'rgba(103,58,184,0.12)',
+						color: '#fff',
+						border: '1px solid rgba(103,58,184,0.2)',
+						borderRadius: '8px',
 						cursor: 'pointer',
-						fontSize: '1.2rem',
-					}}>
+					}}
+				>
 					+
 				</button>
 			</div>
-			<p style={{ marginTop: '10px', fontSize: '0.9rem', opacity: 0.8 }}>Powered by Preact hooks</p>
+			
+			<div style={{
+				marginTop: '14px',
+				fontSize: '10px',
+				color: 'rgba(255,255,255,0.3)',
+				textTransform: 'uppercase',
+				letterSpacing: '0.1em',
+				fontFamily: "'DM Sans', sans-serif",
+			}}>
+				Preact Signals
+			</div>
 		</div>
 	);
 }
-
-

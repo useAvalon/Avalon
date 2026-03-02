@@ -1,179 +1,101 @@
-export default function AdvancedFeaturesPage() {
+/** @jsxImportSource preact */
+
+export default async function AdvancedFeaturesPage() {
 	return (
-		<div>
-			<h1 style={{ color: '#2c3e50', marginBottom: '20px' }}>⚡ Advanced Features Deep Dive</h1>
-
-			<div style={{ color: '#6c757d', marginBottom: '30px' }}>
-				<span>📅 December 10, 2024</span> • <span>⏱️ 8 min read</span>
-			</div>
-
-			<div style={{ lineHeight: '1.8', color: '#495057' }}>
-				<p style={{ marginBottom: '20px', fontSize: '1.1rem' }}>
-					Ready to unlock Avalon's full potential? Let's explore the advanced features that make it a powerful framework
-					for modern web applications.
+		<article>
+			<header style={{ marginBottom: '32px' }}>
+				<div style={{
+					fontSize: '12px',
+					color: 'rgba(255,255,255,0.4)',
+					marginBottom: '8px',
+				}}>
+					January 20, 2024
+				</div>
+				<h1 style={{
+					fontFamily: "'Instrument Serif', serif",
+					fontSize: '32px',
+					fontWeight: '400',
+					color: 'rgba(255,255,255,0.9)',
+					letterSpacing: '-0.02em',
+					marginBottom: '12px',
+				}}>
+					Advanced Features
+				</h1>
+				<p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '16px', lineHeight: '1.6' }}>
+					Explore islands architecture, selective hydration, and nested layouts.
 				</p>
+			</header>
 
-				<h2 style={{ color: '#2c3e50', marginTop: '30px', marginBottom: '15px' }}>🛡️ Middleware System</h2>
-
-				<p style={{ marginBottom: '20px' }}>
-					Avalon's middleware system provides powerful request/response processing capabilities with automatic hierarchy
-					detection.
+			<div style={{ color: 'rgba(255,255,255,0.6)', lineHeight: '1.8' }}>
+				<h2 style={{
+					fontFamily: "'Instrument Serif', serif",
+					fontSize: '24px',
+					color: 'rgba(255,255,255,0.8)',
+					marginTop: '32px',
+					marginBottom: '16px',
+				}}>
+					Hydration Strategies
+				</h2>
+				<p style={{ marginBottom: '16px' }}>
+					Avalon supports multiple hydration strategies to optimize performance:
 				</p>
-
-				<div
-					style={{
-						background: '#f8f9fa',
-						padding: '20px',
-						borderRadius: '8px',
-						fontFamily: 'monospace',
-						fontSize: '0.9rem',
-						marginBottom: '20px',
-					}}>
-					<div>📁 src/</div>
-					<div style={{ marginLeft: '20px' }}>├── _middleware.ts # Global middleware</div>
-					<div style={{ marginLeft: '20px' }}>├── api/</div>
-					<div style={{ marginLeft: '40px' }}>├── _middleware.ts # API-only middleware</div>
-					<div style={{ marginLeft: '40px' }}>└── auth/</div>
-					<div style={{ marginLeft: '60px' }}>├── _middleware.ts # Auth API middleware</div>
-					<div style={{ marginLeft: '60px' }}>└── login.ts</div>
-				</div>
-
-				<div
-					style={{
-						background: '#e8f4fd',
-						padding: '20px',
-						borderRadius: '10px',
-						border: '1px solid #bee5eb',
-						marginBottom: '30px',
-					}}>
-					<h3 style={{ color: '#0c5460', marginBottom: '10px' }}>🔄 Middleware Chain</h3>
-					<p style={{ color: '#0c5460' }}>
-						Middleware executes in order from root to leaf, allowing you to build sophisticated request processing
-						pipelines with authentication, logging, CORS, and more.
-					</p>
-				</div>
-
-				<h2 style={{ color: '#2c3e50', marginTop: '30px', marginBottom: '15px' }}>🎨 Layout Composition</h2>
-
-				<p style={{ marginBottom: '20px' }}>
-					Layouts can be nested and composed to create complex page structures while maintaining code reusability.
-				</p>
-
-				<div style={{ display: 'grid', gap: '15px', marginBottom: '30px' }}>
-					<div
-						style={{
-							background: '#f0f8ff',
-							padding: '15px',
-							borderRadius: '8px',
-							border: '1px solid #b3d9ff',
-						}}>
-						<strong style={{ color: '#0056b3' }}>Root Layout:</strong>
-						<span style={{ color: '#0056b3' }}> HTML structure, global navigation</span>
-					</div>
-					<div
-						style={{
-							background: '#f0f8ff',
-							padding: '15px',
-							borderRadius: '8px',
-							border: '1px solid #b3d9ff',
-							marginLeft: '20px',
-						}}>
-						<strong style={{ color: '#0056b3' }}>Section Layout:</strong>
-						<span style={{ color: '#0056b3' }}> Sidebar, breadcrumbs</span>
-					</div>
-					<div
-						style={{
-							background: '#f0f8ff',
-							padding: '15px',
-							borderRadius: '8px',
-							border: '1px solid #b3d9ff',
-							marginLeft: '40px',
-						}}>
-						<strong style={{ color: '#0056b3' }}>Page Content:</strong>
-						<span style={{ color: '#0056b3' }}> Actual page content</span>
-					</div>
-				</div>
-
-				<h2 style={{ color: '#2c3e50', marginTop: '30px', marginBottom: '15px' }}>🚀 Performance Optimizations</h2>
-
-				<div style={{ display: 'grid', gap: '20px', marginBottom: '30px' }}>
-					<div
-						style={{
-							background: '#e8f5e8',
-							padding: '20px',
-							borderRadius: '10px',
-							border: '1px solid #c3e6c3',
-						}}>
-						<h3 style={{ color: '#2d5a2d', marginBottom: '10px' }}>📦 Code Splitting</h3>
-						<p style={{ color: '#2d5a2d' }}>
-							Each island gets its own bundle, loaded only when needed. Framework code is shared across islands of the
-							same type.
-						</p>
-					</div>
-
-					<div
-						style={{
-							background: '#fff0f0',
-							padding: '20px',
-							borderRadius: '10px',
-							border: '1px solid #ffcccb',
-						}}>
-						<h3 style={{ color: '#8b0000', marginBottom: '10px' }}>⚡ Lazy Loading</h3>
-						<p style={{ color: '#8b0000' }}>
-							Islands can be configured to load only when they enter the viewport, reducing initial page load time
-							significantly.
-						</p>
-					</div>
-
-					<div
-						style={{
-							background: '#f3e5f5',
-							padding: '20px',
-							borderRadius: '10px',
-							border: '1px solid #e1bee7',
-						}}>
-						<h3 style={{ color: '#4a148c', marginBottom: '10px' }}>🎯 Selective Hydration</h3>
-						<p style={{ color: '#4a148c' }}>
-							Only interactive components hydrate on the client. Static content remains as lightweight HTML.
-						</p>
-					</div>
-				</div>
-
-				<h2 style={{ color: '#2c3e50', marginTop: '30px', marginBottom: '15px' }}>🔧 Development Experience</h2>
-
-				<ul style={{ lineHeight: '1.8', paddingLeft: '20px', marginBottom: '30px' }}>
-					<li style={{ marginBottom: '10px' }}>
-						<strong>Hot Module Replacement:</strong> Instant updates during development
-					</li>
-					<li style={{ marginBottom: '10px' }}>
-						<strong>TypeScript Support:</strong> Full type safety across all frameworks
-					</li>
-					<li style={{ marginBottom: '10px' }}>
-						<strong>Error Boundaries:</strong> Graceful error handling for each island
-					</li>
-					<li style={{ marginBottom: '10px' }}>
-						<strong>Dev Tools:</strong> Framework-specific dev tools work seamlessly
-					</li>
+				<ul style={{ paddingLeft: '20px', marginBottom: '24px' }}>
+					<li style={{ marginBottom: '8px' }}><strong style={{ color: 'rgba(255,255,255,0.8)' }}>on:client</strong> — Hydrate immediately on page load</li>
+					<li style={{ marginBottom: '8px' }}><strong style={{ color: 'rgba(255,255,255,0.8)' }}>on:visible</strong> — Hydrate when scrolled into view</li>
+					<li style={{ marginBottom: '8px' }}><strong style={{ color: 'rgba(255,255,255,0.8)' }}>on:interaction</strong> — Hydrate on click or hover</li>
+					<li style={{ marginBottom: '8px' }}><strong style={{ color: 'rgba(255,255,255,0.8)' }}>on:idle</strong> — Hydrate during browser idle time</li>
+					<li><strong style={{ color: 'rgba(255,255,255,0.8)' }}>media:</strong> — Hydrate based on media query</li>
 				</ul>
 
-				<div
-					style={{
-						background: '#fff3cd',
-						padding: '20px',
-						borderRadius: '10px',
-						border: '1px solid #ffeaa7',
-						marginTop: '30px',
-					}}>
-					<h3 style={{ color: '#856404', marginBottom: '10px' }}>🎯 Best Practices</h3>
-					<ul style={{ color: '#856404', paddingLeft: '20px' }}>
-						<li>Keep islands small and focused</li>
-						<li>Use static rendering for non-interactive content</li>
-						<li>Leverage middleware for cross-cutting concerns</li>
-						<li>Design layouts for reusability</li>
-						<li>Monitor bundle sizes and loading performance</li>
-					</ul>
-				</div>
+				<h2 style={{
+					fontFamily: "'Instrument Serif', serif",
+					fontSize: '24px',
+					color: 'rgba(255,255,255,0.8)',
+					marginTop: '32px',
+					marginBottom: '16px',
+				}}>
+					Multi-Framework Support
+				</h2>
+				<p style={{ marginBottom: '16px' }}>
+					Use React, Preact, Vue, Svelte, Solid, or Lit components in the same project. Each framework's islands are bundled separately for optimal code splitting.
+				</p>
+				<pre style={{
+					background: 'rgba(0,0,0,0.3)',
+					border: '1px solid rgba(255,255,255,0.06)',
+					borderRadius: '8px',
+					padding: '16px',
+					color: 'rgba(255,255,255,0.7)',
+					fontSize: '13px',
+					overflow: 'auto',
+					marginBottom: '24px',
+				}}>{`// Mix frameworks in one page
+import ReactCounter from '../islands/ReactCounter.tsx';
+import VueCounter from '../islands/VueCounter.vue';
+import SvelteCounter from '../islands/SvelteCounter.svelte';
+
+export default async function Page() {
+  return (
+    <div>
+      <ReactCounter island={{ condition: 'on:interaction' }} />
+      <VueCounter island={{ condition: 'on:visible' }} />
+      <SvelteCounter island={{ condition: 'on:idle' }} />
+    </div>
+  );
+}`}</pre>
+
+				<h2 style={{
+					fontFamily: "'Instrument Serif', serif",
+					fontSize: '24px',
+					color: 'rgba(255,255,255,0.8)',
+					marginTop: '32px',
+					marginBottom: '16px',
+				}}>
+					Nested Layouts
+				</h2>
+				<p style={{ marginBottom: '16px' }}>
+					Layouts compose automatically based on directory structure. A layout in <code style={{ background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px' }}>src/layouts/blog/_layout.tsx</code> will wrap all pages in <code style={{ background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px' }}>src/pages/blog/</code>.
+				</p>
 			</div>
-		</div>
+		</article>
 	);
 }

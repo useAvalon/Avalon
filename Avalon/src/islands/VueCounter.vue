@@ -1,12 +1,12 @@
 <template>
-	<div class="vue-counter">
-		<h4>💚 Vue Counter</h4>
-		<div class="count-display">{{ count }}</div>
-		<div class="button-group">
-			<button @click="decrement">−</button>
-			<button @click="increment">+</button>
+	<div class="counter">
+		<div class="label">💚 Vue</div>
+		<div class="count">{{ count }}</div>
+		<div class="buttons">
+			<button @click="count--">−</button>
+			<button @click="count++">+</button>
 		</div>
-		<p class="framework-label">Powered by Vue Composition API</p>
+		<div class="sublabel">Composition API</div>
 	</div>
 </template>
 
@@ -15,58 +15,61 @@ import { ref } from 'vue';
 
 const props = defineProps<{ initialCount?: number }>();
 const count = ref(props.initialCount ?? 0);
-
-const increment = () => count.value++;
-const decrement = () => count.value--;
 </script>
 
-
 <style scoped>
-.vue-counter {
+.counter {
+	padding: 24px;
+	background: linear-gradient(135deg, rgba(66,184,131,0.1) 0%, rgba(66,184,131,0.02) 100%);
+	border: 1px solid rgba(66,184,131,0.15);
+	border-radius: 14px;
 	text-align: center;
-	padding: 20px;
-	background: linear-gradient(135deg, #4fc08d, #42b883);
-	color: white;
-	border-radius: 10px;
 }
 
-.vue-counter h4 {
-	margin-bottom: 15px;
+.label {
+	font-size: 14px;
+	font-weight: 600;
+	color: #42B883;
+	margin-bottom: 16px;
+	letter-spacing: 0.03em;
+	font-family: 'DM Sans', sans-serif;
 }
 
-.count-display {
-	font-size: 2rem;
-	font-weight: bold;
-	margin-bottom: 15px;
-	background: rgba(255, 255, 255, 0.2);
-	padding: 10px;
-	border-radius: 8px;
+.count {
+	font-size: 42px;
+	font-weight: 300;
+	color: rgba(255,255,255,0.9);
+	margin-bottom: 20px;
+	font-family: 'DM Sans', sans-serif;
 }
 
-.button-group {
+.buttons {
 	display: flex;
-	gap: 10px;
+	gap: 8px;
 	justify-content: center;
 }
 
-.button-group button {
-	padding: 8px 16px;
-	background: rgba(255, 255, 255, 0.2);
-	border: none;
-	border-radius: 6px;
-	color: white;
+.buttons button {
+	padding: 10px 20px;
+	font-size: 18px;
+	background: rgba(66,184,131,0.12);
+	color: #fff;
+	border: 1px solid rgba(66,184,131,0.2);
+	border-radius: 8px;
 	cursor: pointer;
-	font-size: 1.2rem;
-	transition: background 0.2s;
+	transition: all 0.2s ease;
 }
 
-.button-group button:hover {
-	background: rgba(255, 255, 255, 0.3);
+.buttons button:hover {
+	background: rgba(66,184,131,0.2);
 }
 
-.framework-label {
-	margin-top: 10px;
-	font-size: 0.9rem;
-	opacity: 0.8;
+.sublabel {
+	margin-top: 14px;
+	font-size: 10px;
+	color: rgba(255,255,255,0.3);
+	text-transform: uppercase;
+	letter-spacing: 0.1em;
+	font-family: 'DM Sans', sans-serif;
 }
 </style>
