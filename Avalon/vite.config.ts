@@ -73,6 +73,18 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				},
 				markdown: true,
 				structuredData: true,
+				llms: {
+					siteUrl: 'http://localhost:8012',
+					siteName: 'Avalon',
+					siteDescription: 'A multi-framework islands architecture for building fast, modern websites.',
+					sections: {
+						'Pages': ['/'],
+						'Demos': ['/frameworks', '/islands', '/api-demo', '/lit-demo', '/react-demo', '/multi-framework'],
+						'Blog': ['/blog'],
+					},
+					exclude: ['/admin/**'],
+					full: true,
+				},
 			}),
 			avalonPlugins,
 		],

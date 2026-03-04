@@ -3,6 +3,7 @@ import {
   validateConfig,
   AgentOptimizationConfigSchema,
   SitemapConfigSchema,
+  LlmsConfigSchema,
 } from '../config.ts';
 
 describe('SitemapConfigSchema', () => {
@@ -100,5 +101,59 @@ describe('validateConfig', () => {
     expect(config.sitemap).toBeUndefined();
     expect(config.markdown).toBeUndefined();
     expect(config.structuredData).toBeUndefined();
+    expect(config.llms).toBeUndefined();
+  });
+});
+
+describe('LlmsConfigSchema', () => {
+  it('parses a valid llms config', () => {
+    const result = LlmsConfigSchema.safeParse({
+      siteUrl: 'https://example.com',
+      siteName: 'My Site',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.siteUrl).toBe('https://example.com');
+      expect(result.data.siteName).toBe('My Site');
+      expect(result.data.full).toBe(false);
+    }
+  });
+
+  it('rejects missing siteName', () => {
+    const result = LlmsConfigSchema.safeParse({ siteUrl: 'https://example.com' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid URL', () => {
+    const result = LlmsConfigSchema.safeParse({ siteUrl: 'bad', siteName: 'Test' });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts optional fields', () => {
+    const result = LlmsConfigSchema.safeParse({
+      siteUrl: 'https://example.com',
+      siteName: 'My Site',
+      siteDescription: 'A description',
+      sections: { 'Blog': ['/blog'] },
+      exclude: ['/admin/**'],
+      full: true,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.full).toBe(true);
+      expect(result.data.sections).toEqual({ 'Blog': ['/blog'] });
+    }
+  });
+
+  it('accepts llms as boolean in main config', () => {
+    const result = AgentOptimizationConfigSchema.safeParse({ llms: true });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts llms as config object in main config', () => {
+    const result = AgentOptimizationConfigSchema.safeParse({
+      llms: { siteUrl: 'https://example.com', siteName: 'Test' },
+    });
+    expect(result.success).toBe(true);
   });
 });
