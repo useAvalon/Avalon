@@ -1,6 +1,7 @@
 import type { LayoutProps } from '@avalon/avalon';
 import { AppProvider } from '../context/AppContext.tsx';
 import styles from './_layout.module.css';
+import '../styles/main.css';
 
 export default function RootLayout({ children, frontmatter }: Readonly<LayoutProps>) {
 	const pageTitle = frontmatter?.title || 'Avalon';
