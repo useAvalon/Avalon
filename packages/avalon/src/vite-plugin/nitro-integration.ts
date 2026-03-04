@@ -430,6 +430,11 @@ function setupHMRCoordination(
 			cachedSSRModule = null;
 			cachedLayoutModule = null;
 		}
+		
+		if (file.includes('/layouts/') || file.includes('_layout')) {
+			const resolver = globalThis.__avalonLayoutResolver as { clearCache?: () => void } | undefined;
+			resolver?.clearCache?.();
+		}
 	});
 
 	server.watcher.on('add', file => {
@@ -533,6 +538,19 @@ async function handleSSRRequest(
 		// This captures CSS modules, plain CSS imports, and any transitive CSS deps.
 		const cssContents = await collectCssFromModuleGraph(server, pageFile);
 
+		// Pre-load layout files via ssrLoadModule so their CSS modules enter
+		// Vite's module graph *before* we collect CSS from them.
+		const layoutFiles = await discoverLayoutFiles(pathname, server);
+		for (const layoutFile of layoutFiles) {
+			await server.ssrLoadModule(layoutFile);
+		}
+
+		// Collect CSS from layout files and merge with page CSS
+		for (const layoutFile of layoutFiles) {
+			const layoutCss = await collectCssFromModuleGraph(server, layoutFile);
+			cssContents.push(...layoutCss);
+		}
+
 		let html = await renderPageToHtml(PageComponent, pageModule, pathname, config, server);
 
 		// Inject collected CSS into the HTML so styles are present on first paint
@@ -545,6 +563,44 @@ async function handleSSRRequest(
 		console.error(`[SSR] Error rendering ${pageFile}:`, error);
 		throw error;
 	}
+}
+
+/**
+ * Discover layout files that apply to a given route path.
+ *
+ * Mirrors the path-hierarchy logic in LayoutDiscovery: for route "/blog/post",
+ * checks src/layouts/_layout.tsx, then src/layouts/blog/_layout.tsx.
+ */
+async function discoverLayoutFiles(pathname: string, server: ViteDevServer): Promise<string[]> {
+	const viteRoot = server.config.root || process.cwd();
+	const layoutsDir = `${viteRoot}/src/layouts`;
+	const layoutFileName = '_layout.tsx';
+	const layoutFiles: string[] = [];
+
+	// Build path hierarchy: "/" → [''], "/blog/post" → ['', '/blog', '/blog/post']
+	const segments = pathname.split('/').filter(Boolean);
+	const paths = [''];
+	for (let i = 0; i < segments.length; i++) {
+		paths.push('/' + segments.slice(0, i + 1).join('/'));
+	}
+
+	for (const pathSegment of paths) {
+		const fullPath = pathSegment === ''
+			? `${layoutsDir}/${layoutFileName}`
+			: `${layoutsDir}${pathSegment}/${layoutFileName}`;
+		try {
+			const stat = await fsStat(fullPath);
+			if (stat.isFile()) {
+				// Convert to a root-relative path that Vite's module graph understands
+				const relativePath = fullPath.slice(viteRoot.length);
+				layoutFiles.push(relativePath);
+			}
+		} catch {
+			// Layout file doesn't exist at this level — that's fine
+		}
+	}
+
+	return layoutFiles;
 }
 
 async function findPageFile(pathname: string, pagesDir: string, server: ViteDevServer): Promise<string | null> {
