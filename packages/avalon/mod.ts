@@ -226,8 +226,7 @@ export type {
 	LayoutLoader,
 	ResolvedLayout,
 	LayoutCache,
-	LayoutErrorInfo,
-	PageModule,
+	LayoutErrorInfo
 } from './src/core/layout/layout-types.ts';
 
 export type {
@@ -267,6 +266,7 @@ export {
 	PersistentIslandProvider,
 } from './src/core/islands/persistent-island-context.tsx';
 export { PersistentIsland } from './src/components/PersistentIsland.tsx';
+export { usePersistentState } from './src/core/islands/use-persistent-state.ts';
 
 // Error boundary system
 export { LayoutErrorBoundary } from './src/components/LayoutErrorBoundary.tsx';

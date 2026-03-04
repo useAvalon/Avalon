@@ -2,6 +2,7 @@
 
 import Counter from '../islands/Counter.tsx';
 import PreactCounter from '../islands/PreactCounter.tsx';
+import PersistentCounterDemo from '../islands/PersistentCounterDemo.tsx';
 import styles from './islands.module.css';
 
 export default async function IslandsPage() {
@@ -39,6 +40,14 @@ export default async function IslandsPage() {
 					<p className={styles.demoCardDesc}>Hydrates during browser idle time.</p>
 					<PreactCounter island={{ condition: 'on:idle' }} />
 				</div>
+			</div>
+
+			<div className={styles.demoCard} style={{ marginBottom: '48px' }}>
+				<h2 className={styles.demoCardTitle}>💾 Persistence</h2>
+				<p className={styles.demoCardDesc}>
+					State survives page navigations via sessionStorage. Change the count, navigate away, and come back.
+				</p>
+				<PersistentCounterDemo island={{ condition: 'on:client' }} />
 			</div>
 
 			<div className={styles.infoBox}>

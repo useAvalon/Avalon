@@ -5,6 +5,7 @@
 	"type": "module",
 	"exports": {
 		".": "./mod.ts",
+		"./client": "./src/client/components.ts",
 		"./middleware": "./src/middleware/index.ts",
 		"./nitro/renderer": "./src/nitro/renderer.ts",
 		"./nitro/types": "./src/nitro/types.ts",
