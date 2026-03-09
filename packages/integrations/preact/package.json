@@ -9,8 +9,8 @@
 		"./types": "./types.ts"
 	},
 	"dependencies": {
-		"preact": "10.26.9",
-		"preact-render-to-string": "6.5.13",
+		"preact": "10.28.4",
+		"preact-render-to-string": "6.6.6",
 		"vite": "8.0.0-beta.15",
 		"@preact/preset-vite": "^2.10.1"
 	}

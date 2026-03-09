@@ -9,7 +9,7 @@
 		"./types": "./types.ts"
 	},
 	"dependencies": {
-		"solid-js": "1.9.8",
+		"solid-js": "1.9.11",
 		"vite": "8.0.0-beta.15",
 		"vite-plugin-solid": "^2.11.6"
 	}

@@ -10,7 +10,7 @@
 	},
 	"dependencies": {
 		"lit": "^3.0.0",
-		"@lit-labs/ssr": "^3.0.0",
+		"@lit-labs/ssr": "^4.0.0",
 		"@lit-labs/ssr-client": "^1.0.0",
 		"@lit-labs/ssr-dom-shim": "^1.0.0",
 		"linkedom": "^0.18.0",
