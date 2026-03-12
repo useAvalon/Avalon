@@ -12,8 +12,7 @@ import { nitro as nitroVitePlugin } from 'nitro/vite';
 import { stat as fsStat } from 'node:fs/promises';
 import type { ResolvedAvalonConfig } from './types.ts';
 import { createNitroConfig, type AvalonNitroConfig, type NitroConfigOutput } from '../nitro/config.ts';
-import { discoverPageRoutes } from '../nitro/route-discovery.ts';
-import type { DiscoveredRoute, PageModule } from '../nitro/types.ts';
+import type { PageModule } from '../nitro/types.ts';
 import {
 	createNitroBuildPlugin,
 	createIslandManifestPlugin,
@@ -375,7 +374,6 @@ async function prewarmCoreModules(server: ViteDevServer, verbose?: boolean): Pro
  */
 export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptions): Plugin {
 	const { avalonConfig, nitroConfig, verbose } = options;
-	let cachedPageRoutes: DiscoveredRoute[] | null = null;
 
 	return {
 		name: 'avalon:nitro-virtual-modules',
@@ -399,7 +397,6 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 
 		handleHotUpdate({ file, server }) {
 			if (file.includes(avalonConfig.pagesDir)) {
-				cachedPageRoutes = null;
 				const mod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
 				if (mod) server.moduleGraph.invalidateModule(mod);
 			}
@@ -417,8 +414,8 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 
 function setupHMRCoordination(
 	server: ViteDevServer,
-	config: ResolvedAvalonConfig,
-	verbose?: boolean,
+	_config: ResolvedAvalonConfig,
+	_verbose?: boolean,
 	clearScopedMiddlewareRoutes?: () => void,
 ): void {
 	server.watcher.on('change', file => {
@@ -456,9 +453,24 @@ function setupHMRCoordination(
 
 async function generatePageRoutesModule(config: ResolvedAvalonConfig, verbose?: boolean): Promise<string> {
 	try {
-		const routes = await discoverPageRoutes(config.pagesDir, {
+		const { getAllPageDirs } = await import('./module-discovery.ts');
+		const { discoverPageRoutesFromMultipleDirs } = await import('../nitro/route-discovery.ts');
+		
+		// Get all page directories (traditional + modular)
+		const pageDirs = await getAllPageDirs(
+			config.pagesDir,
+			config.modules,
+			process.cwd()
+		);
+		
+		if (verbose && pageDirs.length > 1) {
+			console.log(`[nitro-integration] Discovering routes from ${pageDirs.length} page directories`);
+		}
+		
+		const routes = await discoverPageRoutesFromMultipleDirs(pageDirs, {
 			developmentMode: config.isDev,
 		});
+		
 		const routesJson = JSON.stringify(routes, null, 2);
 		return `export const pageRoutes = ${routesJson};\nexport default pageRoutes;\n`;
 	} catch (error) {
@@ -476,7 +488,7 @@ function generateRuntimeConfigModule(avalonConfig: ResolvedAvalonConfig, nitroCo
 		avalon: {
 			streaming: nitroConfig.streaming ?? true,
 			pagesDir: avalonConfig.pagesDir,
-			islandsDir: avalonConfig.islandsDir,
+			layoutsDir: avalonConfig.layoutsDir,
 			isDev: avalonConfig.isDev,
 		},
 		...nitroConfig.runtimeConfig,
@@ -488,7 +500,7 @@ export function generateConfigModule(avalonConfig: ResolvedAvalonConfig, nitroCo
 	const config = {
 		streaming: nitroConfig.streaming ?? true,
 		pagesDir: avalonConfig.pagesDir,
-		islandsDir: avalonConfig.islandsDir,
+		layoutsDir: avalonConfig.layoutsDir,
 		isDev: avalonConfig.isDev,
 		...nitroConfig.runtimeConfig,
 	};
@@ -521,7 +533,7 @@ async function handleSSRRequest(
 	config: ResolvedAvalonConfig,
 ): Promise<string | null> {
 	const pathname = url.split('?')[0];
-	const pageFile = await findPageFile(pathname, config.pagesDir, server);
+	const pageFile = await findPageFile(pathname, config, server);
 
 	if (!pageFile) return null;
 
@@ -541,20 +553,53 @@ async function handleSSRRequest(
 		// Pre-load layout files via ssrLoadModule so their CSS modules enter
 		// Vite's module graph *before* we collect CSS from them.
 		const layoutFiles = await discoverLayoutFiles(pathname, server);
+		
+		// Load all layout modules
+		const layoutModules: Array<{ file: string; module: Record<string, unknown> }> = [];
 		for (const layoutFile of layoutFiles) {
-			await server.ssrLoadModule(layoutFile);
+			const layoutModule = await server.ssrLoadModule(layoutFile);
+			layoutModules.push({ file: layoutFile, module: layoutModule });
 		}
 
 		// Collect CSS from layout files and merge with page CSS
 		for (const layoutFile of layoutFiles) {
 			const layoutCss = await collectCssFromModuleGraph(server, layoutFile);
+			if (config.verbose) {
+				console.log(`[SSR] Collected ${layoutCss.length} CSS files from layout: ${layoutFile}`);
+			}
 			cssContents.push(...layoutCss);
 		}
+		
+		if (config.verbose) {
+			console.log(`[SSR] Total CSS files collected: ${cssContents.length}`);
+		}
 
-		let html = await renderPageToHtml(PageComponent, pageModule, pathname, config, server);
+		let html: string;
+		
+		// If we have modular layouts, use manual layout composition
+		if (config.modules && layoutModules.length > 0) {
+			html = await renderPageWithManualLayouts(
+				PageComponent,
+				pageModule,
+				layoutModules,
+				pathname,
+				config,
+				server
+			);
+		} else {
+			html = await renderPageToHtml(PageComponent, pageModule, pathname, config, server);
+		}
 
 		// Inject collected CSS into the HTML so styles are present on first paint
 		if (cssContents.length > 0) {
+			if (config.verbose) {
+				console.log(`[SSR] Injecting ${cssContents.length} CSS files into HTML`);
+				console.log(`[SSR] HTML has </head>: ${html.includes('</head>')}`);
+				// Log first 100 chars of each CSS file
+				cssContents.forEach((css, i) => {
+					console.log(`[SSR] CSS ${i}: ${css.length} chars, starts with: ${css.slice(0, 100).replace(/\n/g, ' ')}`);
+				});
+			}
 			html = injectSsrCss(html, cssContents);
 		}
 
@@ -566,14 +611,215 @@ async function handleSSRRequest(
 }
 
 /**
+ * Render a page with manually composed layouts (for modular architecture)
+ * 
+ * Layout composition order:
+ * 1. Page content is rendered first
+ * 2. Module-specific layouts (e.g., docs/_layout.tsx) wrap the page content
+ * 3. Root/shell layout (shared/_layout.tsx) wraps everything last
+ * 
+ * This ensures that layouts returning `<div>` wrappers are applied before
+ * layouts returning complete `<html>` documents.
+ */
+async function renderPageWithManualLayouts(
+	PageComponent: unknown,
+	pageModule: Record<string, unknown>,
+	layoutModules: Array<{ file: string; module: Record<string, unknown> }>,
+	pathname: string,
+	config: ResolvedAvalonConfig,
+	server: ViteDevServer,
+): Promise<string> {
+	const { render: preactRender } = await server.ssrLoadModule('preact-render-to-string');
+	const { h } = await server.ssrLoadModule('preact');
+	
+	// Check if page wants to skip certain layouts
+	const layoutConfig = pageModule.layoutConfig as { skipLayouts?: string[] } | undefined;
+	const skipLayouts = layoutConfig?.skipLayouts || [];
+	
+	// Filter out skipped layouts
+	const activeLayouts = layoutModules.filter(({ file }) => {
+		const layoutName = file.split('/').pop()?.replace(/\.[^.]+$/, '') || '';
+		return !skipLayouts.includes(layoutName);
+	});
+	
+	// Render page content first
+	let pageContent: string;
+	try {
+		const pageResult = typeof PageComponent === 'function' 
+			? (PageComponent as () => unknown)() 
+			: PageComponent;
+		const resolvedPage = pageResult instanceof Promise ? await pageResult : pageResult;
+		pageContent = preactRender(resolvedPage);
+	} catch (error) {
+		console.error('[SSR] Error rendering page component:', error);
+		pageContent = `<div>Error rendering page</div>`;
+	}
+	
+	// Check if page content is a complete HTML document
+	const isCompleteDoc = pageContent.trim().startsWith('<!DOCTYPE html>') || 
+		pageContent.trim().startsWith('<html');
+	
+	if (isCompleteDoc) {
+		// Page provides its own HTML structure, inject client script and return
+		return injectClientScript(pageContent);
+	}
+	
+	// Separate layouts into shell (returns <html>) and wrapper (returns <div>) layouts
+	// We need to render each layout to determine its type, then apply in correct order
+	// Merge frontmatter and metadata - metadata takes precedence for page-specific values
+	const frontmatter = pageModule.frontmatter as Record<string, unknown> | undefined;
+	const metadata = pageModule.metadata as Record<string, unknown> | undefined;
+	const mergedFrontmatter = { ...frontmatter, ...metadata, currentPath: pathname };
+	
+	const layoutProps = {
+		children: null as unknown, // Will be set per-layout
+		frontmatter: mergedFrontmatter,
+		params: {},
+		url: pathname,
+	};
+	
+	// Categorize layouts by rendering them with placeholder content
+	const shellLayouts: Array<{ module: Record<string, unknown> }> = [];
+	const wrapperLayouts: Array<{ module: Record<string, unknown> }> = [];
+	
+	for (const layout of activeLayouts) {
+		const LayoutComponent = layout.module.default;
+		if (!LayoutComponent || typeof LayoutComponent !== 'function') continue;
+		
+		try {
+			// Render with placeholder to detect if it returns HTML shell
+			const testProps = {
+				...layoutProps,
+				children: h('div', null, 'test'),
+			};
+			const testResult = (LayoutComponent as (props: unknown) => unknown)(testProps);
+			const resolvedTest = testResult instanceof Promise ? await testResult : testResult;
+			const testHtml = preactRender(resolvedTest);
+			
+			if (testHtml.trim().startsWith('<html') || testHtml.includes('<!DOCTYPE')) {
+				shellLayouts.push(layout);
+			} else {
+				wrapperLayouts.push(layout);
+			}
+		} catch {
+			// If we can't determine, treat as wrapper
+			wrapperLayouts.push(layout);
+		}
+	}
+	
+	// Apply wrapper layouts first (innermost to outermost)
+	// These are module-specific layouts that return <div> wrappers
+	let content = pageContent;
+	
+	for (const { module: layoutModule } of wrapperLayouts) {
+		const LayoutComponent = layoutModule.default;
+		if (!LayoutComponent || typeof LayoutComponent !== 'function') continue;
+		
+		try {
+			const props = {
+				...layoutProps,
+				children: h('div', { dangerouslySetInnerHTML: { __html: content } }),
+			};
+			
+			const layoutResult = (LayoutComponent as (props: unknown) => unknown)(props);
+			const resolvedLayout = layoutResult instanceof Promise ? await layoutResult : layoutResult;
+			content = preactRender(resolvedLayout);
+		} catch (error) {
+			console.error('[SSR] Error rendering wrapper layout:', error);
+		}
+	}
+	
+	// Apply shell layout last (the one that provides <html>)
+	// If there are multiple shell layouts, prefer the module-specific one (last in array)
+	// since layouts are discovered in order: shared -> module-specific
+	if (shellLayouts.length > 0) {
+		// Use the last shell layout (module-specific takes precedence over shared)
+		const { module: shellModule } = shellLayouts[shellLayouts.length - 1];
+		const ShellComponent = shellModule.default;
+		
+		if (ShellComponent && typeof ShellComponent === 'function') {
+			try {
+				const props = {
+					...layoutProps,
+					children: h('div', { dangerouslySetInnerHTML: { __html: content } }),
+				};
+				
+				const shellResult = (ShellComponent as (props: unknown) => unknown)(props);
+				const resolvedShell = shellResult instanceof Promise ? await shellResult : shellResult;
+				content = preactRender(resolvedShell);
+			} catch (error) {
+				console.error('[SSR] Error rendering shell layout:', error);
+			}
+		}
+	}
+	
+	// Check if final content is a complete HTML document
+	const isFinalCompleteDoc = content.trim().startsWith('<!DOCTYPE html>') || 
+		content.trim().startsWith('<html');
+	
+	if (isFinalCompleteDoc) {
+		return injectClientScript(content);
+	}
+	
+	// Wrap in basic HTML structure (fallback if no shell layout)
+	const fallbackMetadata = (pageModule.metadata || {}) as { title?: string; description?: string };
+	const title = fallbackMetadata.title || 'Avalon App';
+	const description = fallbackMetadata.description || '';
+	
+	return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>${escapeHtml(title)}</title>
+    ${description ? `<meta name="description" content="${escapeHtml(description)}">` : ''}
+    <script type="module" src="/@vite/client"></script>
+  </head>
+  <body>
+    ${content}
+    <script type="module" src="/src/client/main.js"></script>
+  </body>
+</html>`;
+}
+
+/**
+ * Inject client script into HTML if not already present.
+ * Also ensures DOCTYPE is present for valid HTML5.
+ */
+function injectClientScript(html: string): string {
+	let result = html;
+	
+	// Ensure DOCTYPE is present
+	if (!result.trim().toLowerCase().startsWith('<!doctype')) {
+		result = '<!DOCTYPE html>\n' + result;
+	}
+	
+	// Skip if scripts already present
+	if (result.includes('/src/client/main.js') || result.includes('/@vite/client')) {
+		return result;
+	}
+	
+	// Inject before </body> or at the end
+	const bodyCloseIndex = result.lastIndexOf('</body>');
+	if (bodyCloseIndex !== -1) {
+		return result.slice(0, bodyCloseIndex) + 
+			'\n<script type="module" src="/@vite/client"></script>\n' +
+			'<script type="module" src="/src/client/main.js"></script>\n' +
+			result.slice(bodyCloseIndex);
+	}
+	
+	return result + '\n<script type="module" src="/@vite/client"></script>\n<script type="module" src="/src/client/main.js"></script>';
+}
+
+/**
  * Discover layout files that apply to a given route path.
  *
- * Mirrors the path-hierarchy logic in LayoutDiscovery: for route "/blog/post",
- * checks src/layouts/_layout.tsx, then src/layouts/blog/_layout.tsx.
+ * Supports both traditional layouts (src/layouts/) and modular layouts (app/modules/[module]/layouts/).
+ * For route "/blog/post", checks shared layouts, module layouts, and traditional layouts.
  */
 async function discoverLayoutFiles(pathname: string, server: ViteDevServer): Promise<string[]> {
 	const viteRoot = server.config.root || process.cwd();
-	const layoutsDir = `${viteRoot}/src/layouts`;
+	const config = globalThis.__avalonConfig;
 	const layoutFileName = '_layout.tsx';
 	const layoutFiles: string[] = [];
 
@@ -584,26 +830,60 @@ async function discoverLayoutFiles(pathname: string, server: ViteDevServer): Pro
 		paths.push('/' + segments.slice(0, i + 1).join('/'));
 	}
 
-	for (const pathSegment of paths) {
-		const fullPath = pathSegment === ''
-			? `${layoutsDir}/${layoutFileName}`
-			: `${layoutsDir}${pathSegment}/${layoutFileName}`;
+	// Helper to check and add layout file
+	async function tryAddLayout(fullPath: string): Promise<void> {
 		try {
 			const stat = await fsStat(fullPath);
 			if (stat.isFile()) {
-				// Convert to a root-relative path that Vite's module graph understands
 				const relativePath = fullPath.slice(viteRoot.length);
-				layoutFiles.push(relativePath);
+				if (!layoutFiles.includes(relativePath)) {
+					layoutFiles.push(relativePath);
+				}
 			}
 		} catch {
-			// Layout file doesn't exist at this level — that's fine
+			// Layout file doesn't exist — that's fine
 		}
+	}
+
+	// 1. Check shared layouts directory (root layout)
+	if (config?.layoutsDir) {
+		const sharedLayoutsDir = `${viteRoot}/${config.layoutsDir}`;
+		await tryAddLayout(`${sharedLayoutsDir}/${layoutFileName}`);
+	}
+
+	// 2. Check modular layouts (app/modules/*/layouts/)
+	if (config?.modules) {
+		const modulesDir = `${viteRoot}/${config.modules.dir}`;
+		const layoutsDirName = config.modules.layoutsDirName;
+		
+		// Determine which module this route belongs to
+		const firstSegment = segments[0] || '';
+		const rootModules = ['home', 'root', 'main', 'index'];
+		
+		// For root routes, check the home/root/main/index module
+		if (!firstSegment || rootModules.includes(firstSegment.toLowerCase())) {
+			for (const moduleName of rootModules) {
+				await tryAddLayout(`${modulesDir}/${moduleName}/${layoutsDirName}/${layoutFileName}`);
+			}
+		} else {
+			// For other routes, check the module matching the first segment
+			await tryAddLayout(`${modulesDir}/${firstSegment}/${layoutsDirName}/${layoutFileName}`);
+		}
+	}
+
+	// 3. Check traditional layouts directory (src/layouts/)
+	const traditionalLayoutsDir = `${viteRoot}/src/layouts`;
+	for (const pathSegment of paths) {
+		const fullPath = pathSegment === ''
+			? `${traditionalLayoutsDir}/${layoutFileName}`
+			: `${traditionalLayoutsDir}${pathSegment}/${layoutFileName}`;
+		await tryAddLayout(fullPath);
 	}
 
 	return layoutFiles;
 }
 
-async function findPageFile(pathname: string, pagesDir: string, server: ViteDevServer): Promise<string | null> {
+async function findPageFile(pathname: string, config: ResolvedAvalonConfig, server: ViteDevServer): Promise<string | null> {
 	let normalizedPath = pathname;
 	if (normalizedPath.endsWith('/') && normalizedPath !== '/') {
 		normalizedPath = normalizedPath.slice(0, -1);
@@ -614,24 +894,68 @@ async function findPageFile(pathname: string, pagesDir: string, server: ViteDevS
 
 	const extensions = ['.tsx', '.ts', '.jsx', '.js', '.mdx', '.md'];
 	const viteRoot = server.config.root || process.cwd();
-	const possiblePaths: string[] = [];
-
-	for (const ext of extensions) {
-		possiblePaths.push(`${pagesDir}${normalizedPath}${ext}`);
-	}
-	if (!normalizedPath.endsWith('/index')) {
-		for (const ext of extensions) {
-			possiblePaths.push(`${pagesDir}${normalizedPath}/index${ext}`);
-		}
-	}
-
-	for (const relativePath of possiblePaths) {
+	
+	// Helper to check if a file exists
+	async function tryFile(relativePath: string): Promise<string | null> {
 		try {
 			const fullPath = `${viteRoot}/${relativePath}`;
 			const stat = await fsStat(fullPath);
 			if (stat.isFile()) return `/${relativePath}`;
 		} catch {
 			// File doesn't exist
+		}
+		return null;
+	}
+
+	// 1. Check modular page directories first
+	if (config.modules) {
+		const modulesDir = config.modules.dir;
+		const pagesDirName = config.modules.pagesDirName;
+		const segments = pathname.split('/').filter(Boolean);
+		const firstSegment = segments[0] || '';
+		const rootModules = ['home', 'root', 'main', 'index'];
+		
+		// Determine which module and what the relative path within that module is
+		let moduleName: string;
+		let moduleRelativePath: string;
+		
+		if (!firstSegment || rootModules.includes(firstSegment.toLowerCase())) {
+			// Root route - check home module
+			moduleName = 'home';
+			moduleRelativePath = normalizedPath;
+		} else {
+			// Check if first segment matches a module
+			moduleName = firstSegment;
+			// Remove the module prefix from the path
+			const remainingSegments = segments.slice(1);
+			moduleRelativePath = remainingSegments.length > 0 
+				? '/' + remainingSegments.join('/') 
+				: '/index';
+		}
+		
+		// Try to find the page in the module
+		for (const ext of extensions) {
+			const result = await tryFile(`${modulesDir}/${moduleName}/${pagesDirName}${moduleRelativePath}${ext}`);
+			if (result) return result;
+		}
+		if (!moduleRelativePath.endsWith('/index')) {
+			for (const ext of extensions) {
+				const result = await tryFile(`${modulesDir}/${moduleName}/${pagesDirName}${moduleRelativePath}/index${ext}`);
+				if (result) return result;
+			}
+		}
+	}
+
+	// 2. Check traditional pages directory
+	const pagesDir = config.pagesDir;
+	for (const ext of extensions) {
+		const result = await tryFile(`${pagesDir}${normalizedPath}${ext}`);
+		if (result) return result;
+	}
+	if (!normalizedPath.endsWith('/index')) {
+		for (const ext of extensions) {
+			const result = await tryFile(`${pagesDir}${normalizedPath}/index${ext}`);
+			if (result) return result;
 		}
 	}
 
@@ -681,8 +1005,13 @@ async function renderPageToHtml(
 					const EnhancedLayoutResolver = layoutModule.EnhancedLayoutResolver as new (
 						opts: Record<string, unknown>,
 					) => unknown;
+					
+					// Use the shared layouts directory as the base
+					// The resolver will also check modular layouts via the layout composer
+					const layoutsDir = config.layoutsDir || 'src/layouts';
+					
 					globalThis.__avalonLayoutResolver = new EnhancedLayoutResolver({
-						baseDirectory: `${viteRoot}/src/layouts`,
+						baseDirectory: `${viteRoot}/${layoutsDir}`,
 						filePattern: '_layout.tsx',
 						excludeDirectories: ['node_modules', '.git', 'dist', 'build'],
 						enableWatching: true,
@@ -694,6 +1023,9 @@ async function renderPageToHtml(
 						enableErrorBoundaries: true,
 						enableMetrics: false,
 						enableDebugInfo: false,
+						// Pass modules config for modular layout discovery
+						modulesDir: config.modules ? `${viteRoot}/${config.modules.dir}` : undefined,
+						modulesLayoutsDirName: config.modules?.layoutsDirName,
 					});
 				}
 

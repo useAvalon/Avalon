@@ -9,7 +9,6 @@
 
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
-import { createRequire } from 'node:module';
 import type { Plugin, ViteDevServer } from 'vite';
 import { validateConfig } from './config.ts';
 import type { AgentOptimizationConfigInput, SitemapConfig, LlmsConfig } from './config.ts';
@@ -185,19 +184,84 @@ export function agentOptimization(config: AgentOptimizationConfigInput): Plugin[
 
 async function discoverRoutesForBuild(enabled: boolean): Promise<Array<{ pattern: string; type?: string }>> {
   if (!enabled) return [];
+  
   try {
-    const pagesDir = path.resolve(process.cwd(), 'src/pages');
-    const require = createRequire(import.meta.url);
-    const avalonEntry = require.resolve('@avalon/avalon');
-    const avalonRoot = path.dirname(avalonEntry);
-    const routeDiscoveryPath = path.join(avalonRoot, 'src/nitro/route-discovery.ts');
-    const routeDiscovery = await import(/* @vite-ignore */ routeDiscoveryPath);
-
-    const discoverFn = routeDiscovery?.discoverPageRoutes;
-    if (typeof discoverFn === 'function') {
-      const discovered = await discoverFn(pagesDir);
-      return discovered.filter((r: any) => r.type === 'page');
+    const projectRoot = process.cwd();
+    
+    // Try to import Avalon's route discovery directly using path resolution
+    // In a monorepo, the packages are siblings
+    const avalonPath = path.resolve(projectRoot, 'packages/avalon');
+    let routeDiscoveryPath = path.join(avalonPath, 'src/nitro/route-discovery.ts');
+    let moduleDiscoveryPath = path.join(avalonPath, 'src/vite-plugin/module-discovery.ts');
+    
+    // If not found, try relative to this package (for when running from www/)
+    try {
+      await fs.access(routeDiscoveryPath);
+    } catch {
+      routeDiscoveryPath = path.resolve(projectRoot, '../packages/avalon/src/nitro/route-discovery.ts');
+      moduleDiscoveryPath = path.resolve(projectRoot, '../packages/avalon/src/vite-plugin/module-discovery.ts');
     }
+    
+    const routeDiscovery = await import(/* @vite-ignore */ routeDiscoveryPath) as {
+      discoverPageRoutes: (dir: string, opts?: { developmentMode?: boolean }) => Promise<Array<{ pattern: string; type?: string }>>;
+      discoverPageRoutesFromMultipleDirs?: (dirs: Array<{ dir: string; prefix: string }>, opts?: { developmentMode?: boolean }) => Promise<Array<{ pattern: string; type?: string }>>;
+    };
+    const moduleDiscovery = await import(/* @vite-ignore */ moduleDiscoveryPath) as {
+      getAllPageDirs: (pagesDir: string, modulesConfig: unknown, projectRoot: string) => Promise<Array<{ dir: string; prefix: string }>>;
+    };
+    
+    const pageDirs: Array<{ dir: string; prefix: string }> = [];
+    
+    // Check for modular architecture (app/modules)
+    const modulesDir = path.resolve(projectRoot, 'app/modules');
+    try {
+      const stat = await fs.stat(modulesDir);
+      if (stat.isDirectory()) {
+        // Use modular architecture
+        const modulesConfig = { dir: 'app/modules', pagesDirName: 'pages', layoutsDirName: 'layouts' };
+        const dirs = await moduleDiscovery.getAllPageDirs('src/pages', modulesConfig, projectRoot);
+        pageDirs.push(...dirs);
+      }
+    } catch {
+      // No modular architecture, try traditional
+    }
+    
+    // Fall back to traditional pages directory
+    if (pageDirs.length === 0) {
+      const traditionalPagesDir = path.resolve(projectRoot, 'src/pages');
+      try {
+        const stat = await fs.stat(traditionalPagesDir);
+        if (stat.isDirectory()) {
+          pageDirs.push({ dir: traditionalPagesDir, prefix: '/' });
+        }
+      } catch {
+        // No pages directory found
+      }
+    }
+    
+    if (pageDirs.length === 0) {
+      console.warn('[agent-optimization] No page directories found during build');
+      return [];
+    }
+    
+    // Use multi-dir discovery
+    if (routeDiscovery.discoverPageRoutesFromMultipleDirs) {
+      const discovered = await routeDiscovery.discoverPageRoutesFromMultipleDirs(pageDirs);
+      return discovered.filter((r: { type?: string }) => r.type === 'page');
+    }
+    
+    // Fall back to single-dir discovery
+    const allRoutes: Array<{ pattern: string; type?: string }> = [];
+    for (const { dir, prefix } of pageDirs) {
+      const routes = await routeDiscovery.discoverPageRoutes(dir);
+      for (const route of routes) {
+        if (route.type === 'page') {
+          const pattern = prefix === '/' ? route.pattern : prefix + (route.pattern === '/' ? '' : route.pattern);
+          allRoutes.push({ ...route, pattern });
+        }
+      }
+    }
+    return allRoutes;
   } catch (err) {
     console.warn('[agent-optimization] Route discovery failed during build:', err);
   }
@@ -217,13 +281,13 @@ async function writeLlmsFiles(
 
   if (!generateFull) return;
 
-  const pagesDir = path.resolve(process.cwd(), 'src/pages');
+  const projectRoot = process.cwd();
   const pages: Array<{ route: LlmsRoute; html: string }> = [];
 
   for (const entry of entries) {
     const urlPath = new URL(entry.url).pathname;
     try {
-      const html = await renderPageForLlms(pagesDir, urlPath);
+      const html = await renderPageForLlms(projectRoot, urlPath);
       if (html) {
         pages.push({
           route: { pattern: urlPath, title: entry.name, description: entry.description },
@@ -361,24 +425,7 @@ async function handleSitemap(
   sitemapConfig: ResolvedSitemapConfig,
   res: import('node:http').ServerResponse,
 ): Promise<void> {
-  let routes: Array<{ pattern: string }> = [];
-
-  try {
-    const pagesDir = path.resolve(server.config.root, 'src/pages');
-    const mod = await server.ssrLoadModule('@avalon/avalon');
-    const discoverFn = (mod as any).discoverPageRoutes
-      ?? (await server.ssrLoadModule(
-        path.resolve(server.config.root, '../packages/avalon/src/nitro/route-discovery.ts'),
-      ) as any).discoverPageRoutes;
-
-    if (typeof discoverFn === 'function') {
-      const discovered = await discoverFn(pagesDir, { developmentMode: true });
-      routes = discovered.filter((r: any) => r.type === 'page');
-    }
-  } catch (err) {
-    console.warn('[agent-optimization] Route discovery failed, serving empty sitemap:', err);
-  }
-
+  const routes = await discoverRoutes(server);
   const entries = routesToSitemapEntries(routes, sitemapConfig);
   const xml = buildSitemapXml(entries);
 
@@ -391,18 +438,81 @@ async function handleSitemap(
 // llms.txt Handlers
 // ---------------------------------------------------------------------------
 
+/**
+ * Discover routes from both traditional (src/pages) and modular (app/modules/[module]/pages) architectures.
+ * Uses Avalon's route discovery functions when available.
+ */
 async function discoverRoutes(server: ViteDevServer): Promise<Array<{ pattern: string; type?: string }>> {
   try {
-    const pagesDir = path.resolve(server.config.root, 'src/pages');
-    const mod = await server.ssrLoadModule('@avalon/avalon');
-    const discoverFn = (mod as any).discoverPageRoutes
-      ?? (await server.ssrLoadModule(
-        path.resolve(server.config.root, '../packages/avalon/src/nitro/route-discovery.ts'),
-      ) as any).discoverPageRoutes;
+    const viteRoot = server.config.root;
+    
+    // Try to load Avalon's route discovery and module discovery
+    const routeDiscoveryModule = await server.ssrLoadModule(
+      path.resolve(viteRoot, '../packages/avalon/src/nitro/route-discovery.ts')
+    ) as { 
+      discoverPageRoutes?: (dir: string, opts?: { developmentMode?: boolean }) => Promise<Array<{ pattern: string; type?: string }>>;
+      discoverPageRoutesFromMultipleDirs?: (dirs: Array<{ dir: string; prefix: string }>, opts?: { developmentMode?: boolean }) => Promise<Array<{ pattern: string; type?: string }>>;
+    };
+    
+    const moduleDiscoveryModule = await server.ssrLoadModule(
+      path.resolve(viteRoot, '../packages/avalon/src/vite-plugin/module-discovery.ts')
+    ) as {
+      getAllPageDirs?: (pagesDir: string, modulesConfig: unknown, projectRoot: string) => Promise<Array<{ dir: string; prefix: string }>>;
+    };
 
-    if (typeof discoverFn === 'function') {
-      const discovered = await discoverFn(pagesDir, { developmentMode: true });
-      return discovered.filter((r: any) => r.type === 'page');
+    // Get Avalon config from global (set by nitro-integration)
+    const avalonConfig = (globalThis as any).__avalonConfig as {
+      pagesDir?: string;
+      modules?: { dir: string; pagesDirName: string; layoutsDirName: string };
+    } | undefined;
+
+    // Collect all page directories
+    const pageDirs: Array<{ dir: string; prefix: string }> = [];
+
+    // Check for modular architecture first
+    if (avalonConfig?.modules && moduleDiscoveryModule.getAllPageDirs) {
+      const dirs = await moduleDiscoveryModule.getAllPageDirs(
+        avalonConfig.pagesDir || 'src/pages',
+        avalonConfig.modules,
+        viteRoot
+      );
+      pageDirs.push(...dirs);
+    } else {
+      // Fall back to traditional pages directory
+      const traditionalPagesDir = path.resolve(viteRoot, avalonConfig?.pagesDir || 'src/pages');
+      try {
+        const stat = await fs.stat(traditionalPagesDir);
+        if (stat.isDirectory()) {
+          pageDirs.push({ dir: traditionalPagesDir, prefix: '/' });
+        }
+      } catch {
+        // Directory doesn't exist
+      }
+    }
+
+    if (pageDirs.length === 0) {
+      console.warn('[agent-optimization] No page directories found');
+      return [];
+    }
+
+    // Use multi-dir discovery if available, otherwise fall back to single-dir
+    if (routeDiscoveryModule.discoverPageRoutesFromMultipleDirs && pageDirs.length > 0) {
+      const discovered = await routeDiscoveryModule.discoverPageRoutesFromMultipleDirs(pageDirs, { developmentMode: true });
+      return discovered.filter((r) => r.type === 'page');
+    } else if (routeDiscoveryModule.discoverPageRoutes) {
+      // Fall back to single directory discovery
+      const allRoutes: Array<{ pattern: string; type?: string }> = [];
+      for (const { dir, prefix } of pageDirs) {
+        const routes = await routeDiscoveryModule.discoverPageRoutes(dir, { developmentMode: true });
+        for (const route of routes) {
+          if (route.type === 'page') {
+            // Apply prefix
+            const pattern = prefix === '/' ? route.pattern : prefix + (route.pattern === '/' ? '' : route.pattern);
+            allRoutes.push({ ...route, pattern });
+          }
+        }
+      }
+      return allRoutes;
     }
   } catch (err) {
     console.warn('[agent-optimization] Route discovery failed:', err);
@@ -556,16 +666,52 @@ function escapeForRegex(str: string): string {
  * Render a page at build time by importing the page module and using
  * preact-render-to-string. Falls back to reading the source file as
  * plain text if rendering fails.
+ * 
+ * Supports both traditional (src/pages) and modular (app/modules/[module]/pages) architectures.
  */
-async function renderPageForLlms(pagesDir: string, urlPath: string): Promise<string | null> {
-  // Map URL path to file path
+async function renderPageForLlms(projectRoot: string, urlPath: string): Promise<string | null> {
+  // Map URL path to file path - check both architectures
   const segments = urlPath === '/' ? ['index'] : urlPath.replace(/^\//, '').split('/');
-  const possibleFiles = [
+  
+  // Build possible file paths for both architectures
+  const possibleFiles: string[] = [];
+  
+  // Check modular architecture first
+  // For /docs/intro -> app/modules/docs/pages/intro.tsx
+  // For / -> app/modules/home/pages/index.tsx
+  const modulesDir = path.join(projectRoot, 'app/modules');
+  const rootModules = ['home', 'root', 'main', 'index'];
+  
+  if (segments.length === 1 && segments[0] === 'index') {
+    // Root route - check home module
+    for (const moduleName of rootModules) {
+      possibleFiles.push(
+        path.join(modulesDir, moduleName, 'pages', 'index.tsx'),
+        path.join(modulesDir, moduleName, 'pages', 'index.mdx'),
+      );
+    }
+  } else {
+    // Check if first segment is a module
+    const moduleName = segments[0];
+    const modulePagePath = segments.slice(1);
+    const pageFile = modulePagePath.length === 0 ? 'index' : modulePagePath.join('/');
+    
+    possibleFiles.push(
+      path.join(modulesDir, moduleName, 'pages', pageFile + '.tsx'),
+      path.join(modulesDir, moduleName, 'pages', pageFile, 'index.tsx'),
+      path.join(modulesDir, moduleName, 'pages', pageFile + '.mdx'),
+      path.join(modulesDir, moduleName, 'pages', pageFile, 'index.mdx'),
+    );
+  }
+  
+  // Also check traditional pages directory
+  const pagesDir = path.join(projectRoot, 'src/pages');
+  possibleFiles.push(
     path.join(pagesDir, ...segments) + '.tsx',
     path.join(pagesDir, ...segments, 'index.tsx'),
     path.join(pagesDir, ...segments) + '.mdx',
     path.join(pagesDir, ...segments, 'index.mdx'),
-  ];
+  );
 
   let filePath: string | null = null;
   for (const candidate of possibleFiles) {

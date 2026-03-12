@@ -1,0 +1,128 @@
+---
+title: Deployment
+description: Deploy your Avalon site to any platform using Nitro presets.
+currentPath: /docs/guides/deployment
+prev:
+  title: File Conventions
+  href: /docs/api/file-conventions
+next:
+  title: Performance
+  href: /docs/guides/performance
+---
+
+## Build
+
+Run the production build:
+
+```bash
+bun run build
+```
+
+This outputs a Nitro server bundle to `.output/`. The exact format depends on your preset.
+
+## Presets
+
+Avalon uses [Nitro](https://nitro.build) for the server. Set the `preset` in your `vite.config.ts`:
+
+```ts
+const plugins = await avalon({
+  nitro: {
+    preset: 'node_server', // default
+  },
+});
+```
+
+### Node.js
+
+```ts
+preset: 'node_server'
+```
+
+Start the server:
+
+```bash
+node .output/server/index.mjs
+```
+
+### Bun
+
+```ts
+preset: 'bun'
+```
+
+```bash
+bun .output/server/index.mjs
+```
+
+### Cloudflare Workers
+
+```ts
+preset: 'cloudflare_module'
+```
+
+Deploy with Wrangler:
+
+```bash
+bunx wrangler deploy
+```
+
+### Vercel
+
+```ts
+preset: 'vercel'
+```
+
+Vercel auto-detects the output format. Just push to your connected repo.
+
+
+### Netlify
+
+```ts
+preset: 'netlify'
+```
+
+### Static
+
+For fully static sites with no server-side logic:
+
+```ts
+preset: 'static'
+```
+
+This generates a `dist/` directory of static HTML files.
+
+## Environment variables
+
+Set runtime config in `vite.config.ts`:
+
+```ts
+nitro: {
+  runtimeConfig: {
+    apiSecret: process.env.API_SECRET,
+    public: {
+      apiBase: process.env.PUBLIC_API_BASE,
+    },
+  },
+}
+```
+
+Access in server code:
+
+```ts
+import { useRuntimeConfig } from 'nitro/runtime';
+const config = useRuntimeConfig();
+```
+
+## Static assets
+
+Assets in `public/` are copied to the output directory and served with long-lived cache headers when you configure route rules:
+
+```ts
+nitro: {
+  routeRules: {
+    '/assets/**': {
+      headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
+    },
+  },
+}
+```

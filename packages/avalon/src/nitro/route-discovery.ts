@@ -56,6 +56,44 @@ export interface FilePathPatternResult {
 }
 
 /**
+ * Discovers page routes from multiple directories with route prefixes
+ * 
+ * This supports modular architecture where pages can be in different modules,
+ * each with their own route prefix.
+ *
+ * @param pageDirs - Array of page directories with their route prefixes
+ * @param options - Discovery options
+ * @returns Array of discovered page routes
+ */
+export async function discoverPageRoutesFromMultipleDirs(
+  pageDirs: Array<{ dir: string; prefix: string }>,
+  options?: Pick<PageDiscoveryOptions, "developmentMode" | "excludeDirectories">
+): Promise<DiscoveredRoute[]> {
+  const allRoutes: DiscoveredRoute[] = [];
+
+  for (const { dir, prefix } of pageDirs) {
+    const routes = await discoverPageRoutes(dir, options);
+    
+    // Apply prefix to routes (except for root prefix '/')
+    for (const route of routes) {
+      if (prefix !== '/') {
+        // Combine prefix with pattern
+        // /prefix + /path -> /prefix/path
+        // /prefix + / -> /prefix
+        const combinedPattern = route.pattern === '/' 
+          ? prefix 
+          : prefix + route.pattern;
+        route.pattern = combinedPattern;
+      }
+      allRoutes.push(route);
+    }
+  }
+
+  // Sort all routes by specificity
+  return sortRoutesBySpecificity(allRoutes);
+}
+
+/**
  * Discovers page routes from the pages directory for SSR rendering
  *
  * NOTE: This is specifically for page components that need SSR rendering.

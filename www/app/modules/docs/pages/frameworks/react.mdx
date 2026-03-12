@@ -1,0 +1,100 @@
+---
+title: React
+description: Using React components as islands in Avalon.
+currentPath: /docs/frameworks/react
+prev:
+  title: Layouts
+  href: /docs/layouts
+next:
+  title: Preact
+  href: /docs/frameworks/preact
+---
+
+## Setup
+
+Add `'react'` to the `integrations` array in your `vite.config.ts`:
+
+```ts
+const plugins = await avalon({
+  integrations: ['react'],
+});
+```
+
+Install the peer dependencies if not already present:
+
+```bash
+bun add react react-dom
+```
+
+## JSX pragma
+
+React islands require the `/** @jsxImportSource react */` pragma at the top of each island file. This tells the JSX transform to use React's JSX runtime:
+
+```tsx
+/** @jsxImportSource react */
+import { useState } from 'react';
+```
+
+## Writing a React island
+
+```tsx
+/** @jsxImportSource react */
+// src/islands/Counter.tsx
+import { useState } from 'react';
+
+export default function Counter({ initialCount = 0 }: { initialCount?: number }) {
+  const [count, setCount] = useState(initialCount);
+  return (
+    <button onClick={() => setCount(c => c + 1)}>
+      Count: {count}
+    </button>
+  );
+}
+```
+
+
+## Using the island
+
+```tsx
+import Counter from '../islands/Counter.tsx';
+
+export default function Page() {
+  return (
+    <div>
+      <Counter initialCount={5} island={{ condition: 'on:interaction' }} />
+    </div>
+  );
+}
+```
+
+## Server rendering
+
+React islands are server-rendered to HTML by default using `react-dom/server`. The client bundle only loads when the hydration condition is met.
+
+## Hooks and context
+
+All React hooks work inside islands. Context providers must live inside the island itself — they cannot span across multiple islands.
+
+```tsx
+/** @jsxImportSource react */
+import { createContext, useContext, useState } from 'react';
+
+const ThemeContext = createContext('light');
+
+export default function ThemedApp() {
+  const [theme, setTheme] = useState('light');
+  return (
+    <ThemeContext.Provider value={theme}>
+      <button onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}>
+        Toggle theme
+      </button>
+    </ThemeContext.Provider>
+  );
+}
+```
+
+## Caveats
+
+- **Hooks work** — `useState`, `useEffect`, `useRef`, `useMemo`, and all other React hooks work as expected inside islands.
+- **No signals** — React does not have a signals primitive. Use `useState` or `useReducer` for local state, and `useContext` for shared state within an island tree.
+- **Context cannot span islands** — A `Context.Provider` in one island cannot provide values to a different island. Each island is an independent React tree. If you need shared state across islands, use a global store (e.g. Zustand) or URL state.

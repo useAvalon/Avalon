@@ -56,8 +56,8 @@ export interface AvalonRuntimeConfig {
   streaming: boolean;
   /** Pages directory path relative to project root */
   pagesDir: string;
-  /** Islands directory path relative to project root */
-  islandsDir: string;
+  /** Layouts directory path relative to project root */
+  layoutsDir: string;
 }
 
 /**

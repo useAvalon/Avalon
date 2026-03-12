@@ -1,0 +1,32 @@
+.codeBlock {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  font-family: var(--font-mono);
+}
+
+.codeHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  height: 36px;
+  border-bottom: 1px solid var(--surface-border);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.codePre {
+  margin: 0;
+  padding: var(--space-4) var(--space-6);
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--avalon-mist);
+}
+
+.codePre :global(code.hljs),
+.codePre :global(.hljs) {
+  background: transparent;
+  padding: 0;
+}

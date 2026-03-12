@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OSE Engineering - Footer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --teal-dark: #0a2229;
+    --teal-mid: #0e3039;
+    --accent: #5cff7e;
+    --navy: #0c1e24;
+    --footer-bg: #e8eef0;
+    --footer-card: rgba(200, 215, 222, 0.35);
+    --text-dark: #1a3540;
+    --text-mid: #4a6a75;
+    --text-light: #7a9aa5;
+  }
+
+  body {
+    margin: 0;
+    background: var(--footer-bg);
+    font-family: 'JetBrains Mono', monospace;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ==============================================
+     EVERYTHING IS ONE SEAMLESS FLOW
+     Dark teal → arc glow → light footer
+     ============================================== */
+
+  /* ----- DARK TEAL CTA ZONE ----- */
+  .cta-zone {
+    position: relative;
+    background: linear-gradient(180deg,
+      var(--teal-dark) 0%,
+      #0b2730 30%,
+      #0d2e38 50%,
+      #0f3642 70%,
+      #114050 85%,
+      #144a5a 100%
+    );
+    padding: 130px 24px 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  /* Vertical line decoration */
+  .cta-zone::before {
+    content: '';
+    display: block;
+    width: 1px;
+    height: 50px;
+    background: linear-gradient(180deg, transparent, rgba(92,255,126,0.25));
+    margin-bottom: 40px;
+  }
+
+  /* Subtle grid/scan lines overlay */
+  .cta-zone::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      repeating-linear-gradient(90deg, transparent, transparent 299px, rgba(92,255,126,0.03) 299px, rgba(92,255,126,0.03) 300px),
+      repeating-linear-gradient(0deg, transparent, transparent 299px, rgba(92,255,126,0.03) 299px, rgba(92,255,126,0.03) 300px);
+    pointer-events: none;
+  }
+
+  .cta-heading {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    max-width: 800px;
+    margin-bottom: 44px;
+    color: #e8f4f8;
+    position: relative;
+    z-index: 2;
+  }
+
+  .cta-heading .hi { color: var(--accent); }
+  .cta-heading .blink {
+    color: var(--accent);
+    animation: blink 1s step-end infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .cta-btn {
+    position: relative;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 28px;
+    background: var(--accent);
+    color: var(--navy);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-decoration: none;
+    border: 1px solid rgba(92,255,126,0.6);
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .cta-btn:hover {
+    background: #78ffa0;
+    box-shadow: 0 6px 40px rgba(92,255,126,0.2);
+    transform: translateY(-1px);
+  }
+
+  /* ----- THE ARC HORIZON ----- 
+     This sits between CTA and footer.
+     It's THE key visual: a curved bright white glow
+     that looks like a planet's atmosphere edge.
+     Dark above, light below.
+  */
+  .arc-horizon {
+    position: relative;
+    height: 380px;
+    background: linear-gradient(180deg,
+      #144a5a 0%,
+      #186878 10%,
+      #208a9e 20%,
+      #38a8be 30%,
+      #60c4d8 38%,
+      #90dce8 44%,
+      #b8ecf2 49%,
+      #d8f4f8 53%,
+      #ecfafb 56%,
+      #f6fdfe 59%,
+      #fcffff 62%,
+      #ffffff 65%,
+      #f8fcfd 68%,
+      #f2f7f8 72%,
+      #edf2f4 78%,
+      #e9eff1 85%,
+      var(--footer-bg) 100%
+    );
+    overflow: hidden;
+  }
+
+  /* The curved elliptical glow — creates the actual arc shape */
+  .arc-horizon .ellipse {
+    position: absolute;
+    top: 15%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 250vw;
+    height: 800px;
+    border-radius: 50% 50% 0 0;
+    background: radial-gradient(
+      ellipse 40% 50% at 50% 100%,
+      rgba(255,255,255,1) 0%,
+      rgba(240,252,255,0.9) 15%,
+      rgba(200,240,248,0.6) 35%,
+      rgba(120,210,230,0.3) 55%,
+      rgba(40,140,170,0.1) 70%,
+      transparent 85%
+    );
+  }
+
+  /* Bright horizon line bloom */
+  .arc-horizon .bloom {
+    position: absolute;
+    top: 52%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200vw;
+    height: 60px;
+    background: radial-gradient(
+      ellipse 45% 100% at 50% 50%,
+      rgba(255,255,255,0.9) 0%,
+      rgba(220,248,255,0.4) 40%,
+      transparent 100%
+    );
+    filter: blur(15px);
+  }
+
+  /* Atmospheric haze above the arc */
+  .arc-horizon .haze {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 45%;
+    background: linear-gradient(180deg,
+      #144a5a 0%,
+      rgba(20,74,90,0.4) 60%,
+      transparent 100%
+    );
+  }
+
+  .coords {
+    position: absolute;
+    bottom: 55%;
+    left: 28px;
+    font-size: 0.6rem;
+    color: rgba(92,255,126,0.4);
+    letter-spacing: 0.04em;
+    line-height: 1.6;
+    z-index: 3;
+  }
+
+  /* ----- LIGHT FOOTER ZONE ----- */
+  .footer-zone {
+    background: var(--footer-bg);
+    position: relative;
+  }
+
+  /* Background watermark logo */
+  .footer-zone::before {
+    content: '';
+    position: absolute;
+    top: -40px;
+    right: 4%;
+    width: 350px;
+    height: 350px;
+    background: radial-gradient(circle, rgba(180,200,210,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  /* Ghost cards */
+  .ghost-cards {
+    position: relative;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 0 40px;
+    transform: translateY(-60px);
+  }
+
+  .ghost-card {
+    height: 120px;
+    background: rgba(255,255,255,0.35);
+    border: 1px solid rgba(255,255,255,0.5);
+    position: relative;
+    overflow: hidden;
+    backdrop-filter: blur(6px);
+  }
+
+  /* Decorative chevron shapes inside cards */
+  .ghost-card::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 60%;
+    width: 80%;
+    height: 160%;
+    transform: translate(-50%, -50%) rotate(-10deg);
+    border: 1px solid rgba(180,200,210,0.3);
+  }
+
+  .ghost-card::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    right: -15%;
+    width: 65%;
+    height: 130%;
+    transform: translateY(-50%) rotate(8deg);
+    border: 1px solid rgba(180,200,210,0.2);
+  }
+
+  /* Footer content */
+  .footer-content {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 20px 40px 60px;
+    display: grid;
+    grid-template-columns: 1.3fr 1fr 1.3fr 0.8fr;
+    gap: 40px;
+    align-items: start;
+  }
+
+  /* Col 1: Logo */
+  .f-col-logo { display: flex; flex-direction: column; gap: 10px; }
+
+  .f-logo { display: flex; align-items: flex-end; gap: 4px; }
+
+  .f-logo-text {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    letter-spacing: -1px;
+    color: var(--text-dark);
+    line-height: 1;
+  }
+
+  .f-cursor {
+    width: 22px;
+    height: 3px;
+    background: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  .f-tagline {
+    font-size: 0.68rem;
+    color: var(--text-light);
+    line-height: 1.8;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  /* Col 2: Motto */
+  .f-motto {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.8;
+    padding-top: 8px;
+  }
+
+  /* Col 3: Activities */
+  .f-activities h4,
+  .f-contact h4 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dark);
+    margin-bottom: 16px;
+  }
+
+  .f-activities ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .f-activities li a {
+    font-size: 0.7rem;
+    color: var(--text-mid);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    transition: color 0.2s;
+  }
+  .f-activities li a:hover { color: var(--text-dark); }
+
+  .f-sep {
+    width: 100%;
+    height: 1px;
+    background: rgba(0,0,0,0.08);
+    margin: 16px 0;
+  }
+
+  .f-secondary a {
+    display: block;
+    font-size: 0.62rem;
+    color: var(--text-light);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+    transition: color 0.2s;
+  }
+  .f-secondary a:hover { color: var(--text-dark); }
+  .f-secondary a.bold {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--text-dark);
+    letter-spacing: 0.08em;
+  }
+
+  /* Col 4: Contact */
+  .f-contact { display: flex; flex-direction: column; gap: 12px; }
+
+  .f-ext {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    color: var(--text-mid);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    transition: color 0.2s;
+  }
+  .f-ext:hover { color: var(--text-dark); }
+
+  .f-lang {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: auto;
+    padding-top: 30px;
+  }
+  .f-lang a { text-decoration: none; transition: color 0.2s; }
+  .f-lang a.dim { color: var(--text-light); }
+  .f-lang a.dim:hover { color: var(--text-dark); }
+  .f-lang a.on { color: var(--text-dark); font-weight: 600; }
+  .f-lang span { color: var(--text-light); }
+
+  /* Cookie bar */
+  .cookie-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 14px 24px;
+    background: var(--navy);
+    font-size: 0.7rem;
+    color: #e0eef2;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .cookie-bar .blink-c {
+    color: var(--accent);
+    animation: blink 1s step-end infinite;
+  }
+
+  .cookie-btn {
+    background: none;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #e0eef2;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .cookie-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ==============================================
+     RESPONSIVE
+     ============================================== */
+  @media (max-width: 1024px) {
+    .ghost-cards { grid-template-columns: repeat(2, 1fr); }
+    .footer-content { grid-template-columns: 1fr 1fr; gap: 36px 28px; }
+  }
+
+  @media (max-width: 640px) {
+    .cta-zone { padding: 100px 20px 160px; }
+    .arc-horizon { height: 280px; }
+    .ghost-cards {
+      grid-template-columns: 1fr 1fr;
+      padding: 0 20px;
+      transform: translateY(-40px);
+    }
+    .ghost-card { height: 90px; }
+    .footer-content {
+      grid-template-columns: 1fr;
+      padding: 10px 20px 50px;
+      gap: 30px;
+    }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ============================================
+       DARK TEAL CTA
+       ============================================ -->
+  <section class="cta-zone">
+    <h2 class="cta-heading">
+      A single <span class="hi">conversation</span> can spark innovation<span class="blink">_</span>
+    </h2>
+    <a href="#" class="cta-btn">Let's talk <span>&#9654;</span></a>
+  </section>
+
+  <!-- ============================================
+       ARC HORIZON — the curved atmospheric glow
+       Dark teal fades into bright white arc,
+       then settles into light footer bg
+       ============================================ -->
+  <div class="arc-horizon">
+    <div class="haze"></div>
+    <div class="ellipse"></div>
+    <div class="bloom"></div>
+    <div class="coords">H: 11PX<br>V: 631PX</div>
+  </div>
+
+  <!-- ============================================
+       LIGHT FOOTER
+       ============================================ -->
+  <div class="footer-zone">
+
+    <!-- Ghost cards -->
+    <div class="ghost-cards">
+      <div class="ghost-card"></div>
+      <div class="ghost-card"></div>
+      <div class="ghost-card"></div>
+      <div class="ghost-card"></div>
+    </div>
+
+    <!-- Footer grid -->
+    <div class="footer-content">
+
+      <div class="f-col-logo">
+        <div class="f-logo">
+          <span class="f-logo-text">OSE</span>
+          <div class="f-cursor"></div>
+        </div>
+        <p class="f-tagline">Accelerated engineering<br>through digital technology.</p>
+      </div>
+
+      <div>
+        <p class="f-motto">Invent the futur,<br>together.</p>
+      </div>
+
+      <div class="f-activities">
+        <h4>Our Activities</h4>
+        <ul>
+          <li><a href="#">Maritime</a></li>
+          <li><a href="#">Automobile</a></li>
+          <li><a href="#">Energy</a></li>
+          <li><a href="#">Robotics</a></li>
+          <li><a href="#">Railway</a></li>
+          <li><a href="#">Industrial Optimization</a></li>
+        </ul>
+        <div class="f-sep"></div>
+        <div class="f-secondary">
+          <a href="#">Legal Notices</a>
+          <a href="#" class="bold">Our Approach</a>
+        </div>
+      </div>
+
+      <div class="f-contact">
+        <h4>Contact Us</h4>
+        <a href="#" class="f-ext"><span>&#8599;</span> LinkedIn</a>
+        <div class="f-lang">
+          <a href="#" class="dim">FR</a>
+          <span>/</span>
+          <a href="#" class="on">EN</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Cookie bar -->
+  <div class="cookie-bar">
+    <span>Ce site utilise des cookies<span class="blink-c">_</span></span>
+    <button class="cookie-btn">[tout accepter]</button>
+    <button class="cookie-btn">[technique uniquement]</button>
+  </div>
+
+</body>
+</html>

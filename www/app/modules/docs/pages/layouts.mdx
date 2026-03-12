@@ -1,0 +1,104 @@
+---
+title: Layouts
+description: How Avalon's layout system works, including nested layouts and skipLayouts.
+currentPath: /docs/layouts
+prev:
+  title: File-System Routing
+  href: /docs/file-system-routing
+next:
+  title: React
+  href: /docs/frameworks/react
+---
+
+## What is a layout?
+
+A layout is a wrapper component that wraps one or more pages. Layouts live in `src/layouts/` and are automatically applied based on directory structure.
+
+## Root layout
+
+`src/layouts/_layout.tsx` wraps every page in your app:
+
+```tsx
+import type { LayoutProps } from '@avalon/avalon';
+
+export default function RootLayout({ children, frontmatter }: LayoutProps) {
+  return (
+    <html lang="en">
+      <head>
+        <title>{frontmatter?.title ?? 'My Site'}</title>
+      </head>
+      <body>
+        <header>...</header>
+        <main>{children}</main>
+      </body>
+    </html>
+  );
+}
+```
+
+## Nested layouts
+
+Layouts nest based on directory structure. A layout at `src/layouts/blog/_layout.tsx` wraps all pages under `src/pages/blog/`:
+
+```
+src/layouts/
+  _layout.tsx          ← wraps everything
+  blog/
+    _layout.tsx        ← wraps src/pages/blog/* (nested inside root)
+  docs/
+    _layout.tsx        ← wraps src/pages/docs/* (nested inside root)
+```
+
+The nesting is automatic — the blog layout renders inside the root layout's `{children}`.
+
+
+## Skipping layouts
+
+To bypass the root layout for a specific page, export a `layoutConfig` object:
+
+```tsx
+export const layoutConfig = {
+  skipLayouts: ['_layout'],
+};
+
+export default function LandingPage() {
+  return (
+    <html>
+      {/* Full custom HTML — no layout wrapper */}
+    </html>
+  );
+}
+```
+
+This is useful for landing pages that need complete control over the HTML structure, including their own `<html>`, `<head>`, and navigation.
+
+## Frontmatter
+
+Layouts receive a `frontmatter` prop containing metadata from the page. For MDX pages, this comes from the YAML front matter block:
+
+```mdx
+---
+title: My Page
+description: A description for SEO
+currentPath: /docs/my-page
+---
+```
+
+For `.tsx` pages, export a `frontmatter` object:
+
+```tsx
+export const frontmatter = {
+  title: 'My Page',
+  description: 'A description for SEO',
+};
+```
+
+## Layout props type
+
+```ts
+import type { LayoutProps } from '@avalon/avalon';
+
+export default function MyLayout({ children, frontmatter }: LayoutProps) {
+  // frontmatter is Record<string, unknown>
+}
+```

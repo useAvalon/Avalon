@@ -1,0 +1,87 @@
+---
+title: layoutConfig
+description: Reference for the layoutConfig export used to control layout wrapping.
+currentPath: /docs/api/layout-config
+prev:
+  title: island prop
+  href: /docs/api/island-prop
+next:
+  title: File Conventions
+  href: /docs/api/file-conventions
+---
+
+## Overview
+
+`layoutConfig` is an optional named export from any page file. It controls how Avalon applies layout wrappers to that page.
+
+```tsx
+export const layoutConfig = {
+  skipLayouts: ['_layout'],
+};
+```
+
+## Type definition
+
+```ts
+interface LayoutConfig {
+  skipLayouts?: string[];
+}
+```
+
+## `skipLayouts`
+
+An array of layout names to skip for this page. Layout names correspond to the filename of the layout file without the `.tsx` extension.
+
+```tsx
+// Skip the root layout
+export const layoutConfig = {
+  skipLayouts: ['_layout'],
+};
+
+// Skip both root and blog layouts
+export const layoutConfig = {
+  skipLayouts: ['_layout', 'blog/_layout'],
+};
+```
+
+## When to use it
+
+The most common use case is a landing page or marketing page that needs full control over its own `<html>`, `<head>`, and navigation — bypassing the shared root layout entirely:
+
+```tsx
+export const layoutConfig = {
+  skipLayouts: ['_layout'],
+};
+
+export default function LandingPage() {
+  return (
+    <html lang="en">
+      <head>
+        <title>My Landing Page</title>
+      </head>
+      <body>
+        {/* Custom nav, hero, etc. */}
+      </body>
+    </html>
+  );
+}
+```
+
+
+## Default behavior
+
+If `layoutConfig` is not exported, all applicable layouts are applied in order from outermost to innermost based on directory structure.
+
+## Frontmatter
+
+Pages can also export a `frontmatter` object to pass metadata to layouts:
+
+```tsx
+export const frontmatter = {
+  title: 'My Page',
+  description: 'Page description for SEO',
+  currentPath: '/my-page',
+};
+```
+
+For MDX pages, frontmatter comes from the YAML block at the top of the file.

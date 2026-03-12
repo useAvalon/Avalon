@@ -1,52 +1,48 @@
 /**
  * Page Island Transform Plugin
  *
- * Transforms island component imports in TSX/JSX page files so that developers
- * can use island components as regular JSX elements with an `island` prop to
- * control hydration behavior, instead of manually calling renderIsland().
+ * Transforms components with an `island` prop in TSX/JSX page files so that developers
+ * can use any component as an island by simply adding the `island` prop.
  *
  * Before (manual):
  *   import { renderIsland } from '@avalon/avalon';
- *   {await renderIsland({ src: '/src/islands/Counter.tsx', condition: 'on:interaction', framework: 'preact' })}
+ *   {await renderIsland({ src: '/src/components/Counter.tsx', condition: 'on:interaction', framework: 'preact' })}
  *
  * After (auto-wrapped):
- *   import Counter from '../islands/Counter.tsx';
+ *   import Counter from '../components/Counter.tsx';
  *   <Counter island={{ condition: 'on:interaction' }} someProp={42} />
  *
  * How it works:
  *   The plugin rewrites each `<Component island={opts} ...props />` JSX usage
  *   into an `{await renderIsland({...})}` expression inline in the JSX.
- *   This works because page components are async functions whose return value
- *   is awaited by the SSR renderer.
+ *   Any component can be an island - no special directory required.
  *
  *   Preact's renderToString does NOT support async child components in the JSX
  *   tree, so we cannot use async wrapper functions. Instead we directly replace
  *   the JSX element with an await expression.
  *
- * Only applies to files inside the configured pages directory.
+ * Only applies to files inside the configured pages or layouts directories.
  */
 
 import type { Plugin } from 'vite';
+import { dirname } from 'node:path';
 
 export interface PageIslandTransformOptions {
-  /** Glob patterns for page files (default: src/pages/) */
+  /** Directory containing page files (default: src/pages/) */
   pagesDir?: string;
-  /** Patterns to match island import paths */
-  islandPathPatterns?: RegExp[];
+  /** Directory containing layout files (default: src/layouts/) */
+  layoutsDir?: string;
+  /** Modules configuration for modular architecture */
+  modules?: {
+    dir: string;
+    pagesDirName: string;
+    layoutsDirName: string;
+  } | null;
   /** Whether to enable verbose logging */
   verbose?: boolean;
 }
 
-const DEFAULT_ISLAND_PATTERNS = [
-  /['"]\.\.\/islands\//,
-  /['"]\.\/islands\//,
-  /['"]\.\.\/\.\.\/islands\//,
-  /['"]\$islands\//,
-  /['"]@\/islands\//,
-  /['"]\/src\/islands\//,
-];
-
-interface IslandImport {
+interface ComponentImport {
   localName: string;
   importPath: string;
   fullMatch: string;
@@ -66,26 +62,80 @@ interface ParsedAttribute {
 
 // ─── Import Discovery ────────────────────────────────────────────────
 
-function findIslandImports(code: string, patterns: RegExp[]): IslandImport[] {
-  const imports: IslandImport[] = [];
-  const re = /^[ \t]*import\s+(\w+)\s+from\s+(['"][^'"]+['"])/gm;
+/**
+ * Find all default imports in the code (any component import, not filtered by path)
+ */
+function findAllDefaultImports(code: string): ComponentImport[] {
+  const imports: ComponentImport[] = [];
+  const re = /^[ \t]*import\s+([A-Z]\w*)\s+from\s+(['"][^'"]+['"])/gm;
   let m;
   while ((m = re.exec(code)) !== null) {
-    const quotedPath = m[2];
-    if (patterns.some((p) => p.test(quotedPath))) {
-      imports.push({
-        localName: m[1],
-        importPath: quotedPath.slice(1, -1),
-        fullMatch: m[0].trimStart(),
-      });
-    }
+    imports.push({
+      localName: m[1],
+      importPath: m[2].slice(1, -1),
+      fullMatch: m[0].trimStart(),
+    });
   }
   return imports;
 }
 
-function resolveIslandSrc(importPath: string): string {
-  if (importPath.startsWith('/src/islands/')) return importPath;
-  return '/src/islands/' + importPath.split('/').at(-1);
+/**
+ * Resolve an import path to an absolute src path for renderIsland
+ */
+function resolveIslandSrc(importPath: string, fileId: string): string {
+  // Already absolute
+  if (importPath.startsWith('/src/')) return importPath;
+  if (importPath.startsWith('/app/')) return importPath;
+  if (importPath.startsWith('/')) return importPath;
+  
+  // Handle aliases - convert to absolute paths
+  if (importPath.startsWith('@/')) {
+    return '/app/' + importPath.slice(2);
+  }
+  if (importPath.startsWith('@shared/')) {
+    return '/app/shared/' + importPath.slice(8);
+  }
+  if (importPath.startsWith('@modules/')) {
+    return '/app/modules/' + importPath.slice(9);
+  }
+  if (importPath.startsWith('$components/')) {
+    return '/src/components/' + importPath.slice(12);
+  }
+  if (importPath.startsWith('$islands/')) {
+    return '/src/islands/' + importPath.slice(9);
+  }
+  if (importPath.startsWith('~/')) {
+    return '/src/' + importPath.slice(2);
+  }
+  
+  // Relative import - resolve relative to the file
+  if (importPath.startsWith('.')) {
+    const normalized = fileId.replaceAll('\\', '/');
+    
+    // Try to find /app/ or /src/ in the path
+    let baseIndex = normalized.indexOf('/app/');
+    if (baseIndex === -1) baseIndex = normalized.indexOf('/src/');
+    
+    if (baseIndex !== -1) {
+      const fileDir = dirname(normalized.slice(baseIndex));
+      // Simple path resolution
+      const parts = fileDir.split('/');
+      const importParts = importPath.split('/');
+      
+      for (const part of importParts) {
+        if (part === '..') {
+          parts.pop();
+        } else if (part !== '.') {
+          parts.push(part);
+        }
+      }
+      
+      return parts.join('/');
+    }
+  }
+  
+  // Fallback: return as-is with /src/ prefix
+  return '/src/' + importPath.split('/').pop();
 }
 
 function detectFramework(src: string): string | undefined {
@@ -96,33 +146,75 @@ function detectFramework(src: string): string | undefined {
   return undefined;
 }
 
-function isPageFile(id: string, pagesDir: string): boolean {
+function isPageFile(id: string, pagesDir: string, modules?: PageIslandTransformOptions['modules']): boolean {
   const normalized = id.replaceAll('\\', '/');
+  
+  // Check traditional pages directory
   const dir = pagesDir.replace(/^\//, '');
-  const isInDir = normalized.includes('/' + dir + '/');
-  return isInDir && /\.(tsx|jsx)$/.test(normalized);
+  if (normalized.includes('/' + dir + '/') && /\.(tsx|jsx)$/.test(normalized)) {
+    return true;
+  }
+  
+  // Check modular pages directories
+  if (modules) {
+    const modulesDir = modules.dir.replace(/^\//, '');
+    // Pattern: /modules/*/pages/
+    const modulePagePattern = new RegExp('/' + modulesDir + '/[^/]+/' + modules.pagesDirName + '/');
+    if (modulePagePattern.test(normalized) && /\.(tsx|jsx)$/.test(normalized)) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
-function hasIslandPropUsage(code: string, islandNames: string[]): boolean {
-  return islandNames.some((name) => {
+/** Check whether a file is inside the layouts directory */
+function isLayoutFile(id: string, layoutsDir: string, modules?: PageIslandTransformOptions['modules']): boolean {
+  const normalized = id.replaceAll('\\', '/');
+  
+  // Check traditional layouts directory
+  const dir = layoutsDir.replace(/^\//, '');
+  if (normalized.includes('/' + dir + '/') && /\.(tsx|jsx)$/.test(normalized)) {
+    return true;
+  }
+  
+  // Check modular layouts directories
+  if (modules) {
+    const modulesDir = modules.dir.replace(/^\//, '');
+    // Pattern: /modules/*/layouts/
+    const moduleLayoutPattern = new RegExp('/' + modulesDir + '/[^/]+/' + modules.layoutsDirName + '/');
+    if (moduleLayoutPattern.test(normalized) && /\.(tsx|jsx)$/.test(normalized)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+function hasIslandPropUsage(code: string, componentNames: string[]): boolean {
+  return componentNames.some((name) => {
     const pattern = new RegExp('<' + name + String.raw`[\s][^>]*island[\s]*[={]`);
     return pattern.test(code);
   });
 }
 
+/**
+ * Build metadata for components that are used with island prop
+ */
 function buildIslandMeta(
   code: string,
-  islandImports: IslandImport[],
+  imports: ComponentImport[],
+  fileId: string,
 ): Map<string, { srcPath: string; framework: string | undefined; importPath: string }> {
   const meta = new Map<string, { srcPath: string; framework: string | undefined; importPath: string }>();
-  for (const island of islandImports) {
-    const pattern = new RegExp('<' + island.localName + String.raw`[\s][^>]*island[\s]*[={]`);
+  for (const imp of imports) {
+    const pattern = new RegExp('<' + imp.localName + String.raw`[\s][^>]*island[\s]*[={]`);
     if (pattern.test(code)) {
-      const srcPath = resolveIslandSrc(island.importPath);
-      meta.set(island.localName, {
+      const srcPath = resolveIslandSrc(imp.importPath, fileId);
+      meta.set(imp.localName, {
         srcPath,
         framework: detectFramework(srcPath),
-        importPath: island.importPath,
+        importPath: imp.importPath,
       });
     }
   }
@@ -372,7 +464,8 @@ export function pageIslandTransform(
 ): Plugin {
   const {
     pagesDir = 'src/pages',
-    islandPathPatterns = DEFAULT_ISLAND_PATTERNS,
+    layoutsDir = 'src/layouts',
+    modules = null,
     verbose = false,
   } = options;
 
@@ -381,23 +474,26 @@ export function pageIslandTransform(
     enforce: 'pre',
 
     transform(code: string, id: string) {
-      if (!isPageFile(id, pagesDir)) return null;
+      const isLayout = isLayoutFile(id, layoutsDir, modules);
+      if (!isPageFile(id, pagesDir, modules) && !isLayout) return null;
 
-      const islandImports = findIslandImports(code, islandPathPatterns);
-      if (islandImports.length === 0) return null;
+      // Find all component imports (PascalCase default imports)
+      const componentImports = findAllDefaultImports(code);
+      if (componentImports.length === 0) return null;
 
-      const islandNames = islandImports.map((i) => i.localName);
-      if (!hasIslandPropUsage(code, islandNames)) return null;
+      const componentNames = componentImports.map((i) => i.localName);
+      if (!hasIslandPropUsage(code, componentNames)) return null;
+
+      // Build metadata only for components actually used with island prop
+      const islandMeta = buildIslandMeta(code, componentImports, id);
+      if (islandMeta.size === 0) return null;
 
       if (verbose) {
         console.log(
           '[page-island-transform] Transforming ' +
-            islandImports.length + ' island component(s) in ' + id,
+            islandMeta.size + ' island component(s) in ' + id,
         );
       }
-
-      const islandMeta = buildIslandMeta(code, islandImports);
-      if (islandMeta.size === 0) return null;
 
       let transformed =
         "import { renderIsland as __pageRenderIsland } from '@avalon/avalon';\n" + code;
@@ -406,12 +502,23 @@ export function pageIslandTransform(
         transformed = replaceIslandJSX(transformed, name, meta.srcPath, meta.framework);
       }
 
-      for (const island of islandImports) {
-        if (islandMeta.has(island.localName)) {
-          transformed = transformed.replace(
-            island.fullMatch,
-            '// [page-island-transform] removed: ' + island.localName,
-          );
+      // Update imports for components used as islands
+      for (const imp of componentImports) {
+        if (islandMeta.has(imp.localName)) {
+          if (isLayout) {
+            // In layouts, keep the import as a side-effect-only import so the
+            // island module (and its CSS) stays in Vite's module graph for CSS
+            // collection. Only the default binding is removed.
+            transformed = transformed.replace(
+              imp.fullMatch,
+              "import '" + imp.importPath + "'; // [page-island-transform] kept for CSS graph: " + imp.localName,
+            );
+          } else {
+            transformed = transformed.replace(
+              imp.fullMatch,
+              '// [page-island-transform] removed: ' + imp.localName,
+            );
+          }
         }
       }
 

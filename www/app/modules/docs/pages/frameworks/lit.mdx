@@ -1,0 +1,88 @@
+---
+title: Lit
+description: Using Lit web components as islands in Avalon.
+currentPath: /docs/frameworks/lit
+prev:
+  title: Solid
+  href: /docs/frameworks/solid
+next:
+  title: island prop
+  href: /docs/api/island-prop
+---
+
+## Setup
+
+Add `'lit'` to the `integrations` array:
+
+```ts
+const plugins = await avalon({
+  integrations: ['lit'],
+});
+```
+
+Install Lit:
+
+```bash
+bun add lit
+```
+
+## Writing a Lit island
+
+Lit islands use the `.lit.ts` extension so Avalon knows to use the Lit integration. They are standard custom elements extending `LitElement`:
+
+```ts
+// src/islands/my-counter.lit.ts
+import { LitElement, html, css } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
+
+@customElement('my-counter')
+export class MyCounter extends LitElement {
+  static styles = css`
+    button { padding: 8px 16px; cursor: pointer; }
+  `;
+
+  @state() count = 0;
+
+  render() {
+    return html`
+      <button @click=${() => this.count++}>
+        Count: ${this.count}
+      </button>
+    `;
+  }
+}
+```
+
+## Using the island
+
+Lit islands are referenced by their custom element tag name:
+
+```tsx
+import '../islands/my-counter.lit.ts';
+
+export default function Page() {
+  return (
+    <div>
+      {/* @ts-ignore — custom element */}
+      <my-counter island={{ condition: 'on:client' }} />
+    </div>
+  );
+}
+```
+
+
+## SSR with Lit
+
+Avalon uses `@lit-labs/ssr` to server-render Lit components. Ensure you have the SSR packages installed:
+
+```bash
+bun add @lit-labs/ssr @lit-labs/ssr-client @lit-labs/ssr-dom-shim
+```
+
+## Declarative Shadow DOM
+
+Lit's SSR output uses Declarative Shadow DOM, which is supported in all modern browsers. The client-side hydration attaches to the existing shadow root without re-rendering.
+
+## Properties vs attributes
+
+Pass data to Lit islands using attributes (strings) or properties (any type via the `.prop` binding syntax in templates). When using Avalon's island prop, pass serializable values only.

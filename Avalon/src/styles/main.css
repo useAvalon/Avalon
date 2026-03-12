@@ -1,7 +1,0 @@
-@import "tailwindcss";
-
-/* Tell Tailwind where to scan for class names */
-@source "../pages";
-@source "../islands";
-@source "../components";
-@source "../layouts";

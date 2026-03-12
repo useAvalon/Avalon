@@ -1,0 +1,113 @@
+---
+title: Vue
+description: Using Vue 3 components as islands in Avalon.
+currentPath: /docs/frameworks/vue
+prev:
+  title: Preact
+  href: /docs/frameworks/preact
+next:
+  title: Svelte
+  href: /docs/frameworks/svelte
+---
+
+## Setup
+
+Add `'vue'` to the `integrations` array:
+
+```ts
+const plugins = await avalon({
+  integrations: ['vue'],
+});
+```
+
+Install Vue:
+
+```bash
+bun add vue
+```
+
+## Writing a Vue island
+
+Vue islands are standard `.vue` single-file components. Use the Composition API with `<script setup>` just like you normally would:
+
+```html
+<!-- src/islands/Counter.vue -->
+<script setup lang="ts">
+import { ref } from 'vue';
+
+const props = defineProps<{ initialCount?: number }>();
+const count = ref(props.initialCount ?? 0);
+</script>
+
+<template>
+  <button @click="count++">
+    Count: {{ count }}
+  </button>
+</template>
+```
+
+## Using the island
+
+```tsx
+import Counter from '../islands/Counter.vue';
+
+export default function Page() {
+  return (
+    <div>
+      <Counter initialCount={5} island={{ condition: 'on:visible' }} />
+    </div>
+  );
+}
+```
+
+
+## Composables
+
+Vue composables work inside islands as expected:
+
+```html
+<!-- src/islands/PersistedCounter.vue -->
+<script setup lang="ts">
+import { useLocalStorage } from '@vueuse/core';
+
+const count = useLocalStorage('count', 0);
+</script>
+
+<template>
+  <button @click="count++">
+    Count: {{ count }}
+  </button>
+</template>
+```
+
+## Scoped styles
+
+Vue scoped styles work out of the box. The integration extracts and applies scoped CSS during SSR:
+
+```html
+import { ref } from 'vue';
+const count = ref(0);
+</script>
+
+<template>
+  <button class="counter" @click="count++">
+    Count: {{ count }}
+  </button>
+</template>
+
+<style scoped>
+.counter {
+  background: #42b883;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+</style>
+```
+
+## Caveats
+
+- **Stores are scoped to the island instance** — Pinia stores or `reactive` objects created inside an island are not shared with other islands on the page. Each island is an independent Vue app. For shared state across islands, use a module-level singleton or localStorage.
+- **No SSR prop drilling via provide/inject** — `provide`/`inject` only works within a single island's component tree. Pass initial data as props on the island component instead.

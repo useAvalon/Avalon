@@ -9,6 +9,8 @@ import type {
   AvalonPluginConfig,
   ResolvedAvalonConfig,
   ResolvedMDXConfig,
+  ResolvedModulesConfig,
+  ModulesConfig,
 } from "./types.ts";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -29,8 +31,9 @@ export const DEFAULT_MDX_CONFIG: ResolvedMDXConfig = {
  * These are used when the user doesn't provide specific values
  */
 export const DEFAULT_CONFIG: Omit<ResolvedAvalonConfig, "isDev"> = {
-  islandsDir: "src/islands",
   pagesDir: "src/pages",
+  layoutsDir: "src/layouts",
+  modules: null,
   integrations: [],
   mdx: DEFAULT_MDX_CONFIG,
   verbose: false,
@@ -39,6 +42,37 @@ export const DEFAULT_CONFIG: Omit<ResolvedAvalonConfig, "isDev"> = {
   showWarnings: true,
   lazyIntegrations: true,
 };
+
+/**
+ * Default modules configuration values
+ */
+export const DEFAULT_MODULES_CONFIG = {
+  pagesDirName: "pages",
+  layoutsDirName: "layouts",
+};
+
+/**
+ * Resolves the modules configuration
+ */
+function resolveModulesConfig(
+  modules: string | ModulesConfig | undefined
+): ResolvedModulesConfig | null {
+  if (!modules) return null;
+
+  if (typeof modules === "string") {
+    return {
+      dir: modules,
+      pagesDirName: DEFAULT_MODULES_CONFIG.pagesDirName,
+      layoutsDirName: DEFAULT_MODULES_CONFIG.layoutsDirName,
+    };
+  }
+
+  return {
+    dir: modules.dir,
+    pagesDirName: modules.pagesDirName ?? DEFAULT_MODULES_CONFIG.pagesDirName,
+    layoutsDirName: modules.layoutsDirName ?? DEFAULT_MODULES_CONFIG.layoutsDirName,
+  };
+}
 
 /**
  * Resolves user configuration by merging with defaults
@@ -50,7 +84,7 @@ export const DEFAULT_CONFIG: Omit<ResolvedAvalonConfig, "isDev"> = {
  * @example
  * ```ts
  * const resolved = resolveConfig({ integrations: ["react"] }, true);
- * // resolved.islandsDir === "src/islands" (default)
+ * // resolved.pagesDir === "src/pages" (default)
  * // resolved.integrations === ["react"] (user provided)
  * // resolved.isDev === true
  * ```
@@ -60,10 +94,12 @@ export function resolveConfig(
   isDev: boolean
 ): ResolvedAvalonConfig {
   const config = userConfig ?? {};
+  const modules = resolveModulesConfig(config.modules);
 
   return {
-    islandsDir: config.islandsDir ?? DEFAULT_CONFIG.islandsDir,
     pagesDir: config.pagesDir ?? DEFAULT_CONFIG.pagesDir,
+    layoutsDir: config.layoutsDir ?? DEFAULT_CONFIG.layoutsDir,
+    modules,
     integrations: config.integrations ?? DEFAULT_CONFIG.integrations,
     mdx: {
       jsxImportSource:
@@ -97,14 +133,14 @@ export interface DirectoryCheckResult {
   absolutePath: string;
   /** Whether the directory exists */
   exists: boolean;
-  /** The type of directory (islands, pages) */
-  type: "islands" | "pages";
+  /** The type of directory (pages, layouts) */
+  type: "pages" | "layouts";
 }
 
 /**
  * Check if configured directories exist and log warnings for missing ones
  *
- * This function checks if the configured directories (islandsDir, pagesDir)
+ * This function checks if the configured directories (pagesDir, layoutsDir)
  * exist on the filesystem. If a directory doesn't exist, it logs a warning but
  * does NOT throw an error, allowing the application to continue.
  *
@@ -123,10 +159,18 @@ export function checkDirectoriesExist(
   config: ResolvedAvalonConfig,
   projectRoot: string = process.cwd()
 ): DirectoryCheckResult[] {
-  const directories: Array<{ path: string; type: DirectoryCheckResult["type"] }> = [
-    { path: config.islandsDir, type: "islands" },
-    { path: config.pagesDir, type: "pages" },
-  ];
+  const directories: Array<{ path: string; type: DirectoryCheckResult["type"] }> = [];
+  
+  // Only check pagesDir if modules is not configured (traditional architecture)
+  // When using modular architecture, pages are discovered from modules
+  if (!config.modules && config.pagesDir) {
+    directories.push({ path: config.pagesDir, type: "pages" });
+  }
+  
+  // Always check layoutsDir if it's set
+  if (config.layoutsDir) {
+    directories.push({ path: config.layoutsDir, type: "layouts" });
+  }
 
   const results: DirectoryCheckResult[] = [];
 

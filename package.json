@@ -5,7 +5,7 @@
 		"packages/avalon",
 		"packages/agent-optimization",
 		"packages/integrations/*",
-		"Avalon"
+		"www"
 	],
 	"scripts": {
 		"dev": "bun run --filter avalon-demo dev",

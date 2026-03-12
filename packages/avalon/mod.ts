@@ -4,8 +4,8 @@
 export {
 	avalon,
 	getResolvedConfig,
-	getIslandsDir,
 	getPagesDir,
+	getLayoutsDir,
 	getNitroConfig,
 	isNitroEnabled,
 } from './src/vite-plugin/plugin.ts';
@@ -68,7 +68,9 @@ export {
 } from './src/islands/render-cache.ts';
 export type { CacheConfig as IslandCacheConfig, CacheStats as IslandCacheStats } from './src/islands/render-cache.ts';
 
-// Island Discovery System
+// Island Discovery Utilities (optional - for advanced use cases)
+// Note: Islands are detected by usage (island prop), not by directory.
+// These utilities are provided for tooling that needs to scan component files.
 export {
 	// Scanner functions
 	discoverIslandDirectories,

@@ -1,0 +1,53 @@
+---
+title: Introduction
+description: What is Avalon and why does it exist?
+currentPath: /docs/introduction
+next:
+  title: Installation
+  href: /docs/installation
+---
+
+## Summary
+
+Avalon is a multi-framework islands architecture framework. Pages are static HTML by default; interactive components ("islands") hydrate selectively on the client.
+
+**Core primitives:**
+- `island` prop — added to any component to make it an island; accepts a `condition` field controlling when hydration occurs
+- Hydration conditions: `on:client` (immediate), `on:visible` (IntersectionObserver), `on:interaction` (first click/hover), `on:idle` (requestIdleCallback), `media:<query>` (CSS media query)
+- File-system routing — files in `src/pages/` become routes automatically; no configuration needed
+
+**Supported frameworks:** React, Preact, Vue, Svelte, Solid, Lit (all usable in the same project)
+
+**Runtime:** Nitro server (Node, Bun, Deno, Cloudflare Workers, Vercel)
+
+---
+
+## What is Avalon?
+
+Avalon is a multi-framework islands architecture for building fast, modern websites. It lets you use React, Preact, Vue, Svelte, Solid, or Lit — all in the same project — while shipping zero JavaScript by default.
+
+The core idea is simple: most of your page is static HTML. Only the parts that need interactivity become "islands" that hydrate on the client. Everything else stays as pure HTML and CSS, making your pages fast by default.
+
+## Core Philosophy
+
+**Zero JS by default.** Pages render as pure HTML on the server. No JavaScript is sent to the browser unless you explicitly mark a component as an island.
+
+**Selective hydration.** You control exactly when each island becomes interactive — on page load, when it scrolls into view, on first interaction, or when the browser is idle.
+
+**Multi-framework.** Use the framework that fits the job. A data visualization in React, a form in Svelte, a counter in Preact — all on the same page, each bundled independently.
+
+**File-system routing.** Drop a file in `src/pages/` and it becomes a route. No configuration needed.
+
+**Edge-ready.** Powered by [Nitro](https://nitro.build), Avalon deploys to Node, Deno, Bun, Cloudflare Workers, Vercel, and more.
+
+## How it compares
+
+Avalon is most similar to Astro in its islands-first approach, but differs in a few key ways:
+
+- **Preact-native SSR** — the server renderer is built around Preact, giving you a familiar JSX authoring experience for pages and layouts
+- **Multi-framework islands** — React, Vue, Svelte, Solid, and Lit islands work out of the box with no extra adapters
+- **Nitro backend** — full server capabilities including API routes, middleware, and edge deployment
+
+## Next steps
+
+Ready to try it? Head to [Installation](/docs/installation) to create your first project.

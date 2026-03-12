@@ -1,0 +1,124 @@
+---
+title: Solid
+description: Using SolidJS components as islands in Avalon.
+currentPath: /docs/frameworks/solid
+prev:
+  title: Svelte
+  href: /docs/frameworks/svelte
+next:
+  title: Lit
+  href: /docs/frameworks/lit
+---
+
+## Setup
+
+Add `'solid'` to the `integrations` array:
+
+```ts
+const plugins = await avalon({
+  integrations: ['solid'],
+});
+```
+
+Install SolidJS:
+
+```bash
+bun add solid-js
+```
+
+## JSX pragma
+
+Solid islands require the `/** @jsxImportSource solid-js */` pragma at the top of each island file:
+
+```tsx
+/** @jsxImportSource solid-js */
+import { createSignal } from 'solid-js';
+```
+
+## Writing a Solid island
+
+Solid islands use the `.solid.tsx` extension so Avalon knows to use the Solid integration. Add the `/** @jsxImportSource solid-js */` pragma at the top:
+
+```tsx
+/** @jsxImportSource solid-js */
+// src/islands/Counter.solid.tsx
+import { createSignal } from 'solid-js';
+
+export default function Counter() {
+  const [count, setCount] = createSignal(0);
+  return (
+    <button onClick={() => setCount(c => c + 1)}>
+      Count: {count()}
+    </button>
+  );
+}
+```
+
+## Using the island
+
+```tsx
+import Counter from '../islands/Counter.solid.tsx';
+
+export default function Page() {
+  return (
+    <div>
+      <Counter island={{ condition: 'on:client' }} />
+    </div>
+  );
+}
+```
+
+
+## Reactive primitives
+
+All SolidJS primitives work inside islands:
+
+```tsx
+/** @jsxImportSource solid-js */
+import { createSignal, createMemo, createEffect } from 'solid-js';
+
+export default function App() {
+  const [count, setCount] = createSignal(0);
+  const doubled = createMemo(() => count() * 2);
+
+  createEffect(() => {
+    console.log('count changed:', count());
+  });
+
+  return (
+    <div>
+      <button onClick={() => setCount(c => c + 1)}>Increment</button>
+      <p>Doubled: {doubled()}</p>
+    </div>
+  );
+}
+```
+
+## Stores
+
+SolidJS stores provide fine-grained reactivity for objects:
+
+```tsx
+/** @jsxImportSource solid-js */
+import { createStore } from 'solid-js/store';
+
+export default function TodoList() {
+  const [todos, setTodos] = createStore<{ text: string; done: boolean }[]>([]);
+  return (
+    <ul>
+      {todos.map((todo, i) => (
+        <li onClick={() => setTodos(i, 'done', d => !d)}
+          style={{ 'text-decoration': todo.done ? 'line-through' : 'none' }}>
+          {todo.text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## Caveats
+
+- **No VDOM** — Solid does not use a virtual DOM. Updates are fine-grained: only the exact DOM nodes that depend on a changed signal are updated. This makes Solid islands very efficient but means React patterns like returning new JSX trees on every render don't apply.
+- **Signals are functions** — Call `count()` to read a signal's value. Accessing `count` without calling it gives you the signal function itself, not the value. Write with `setCount(newValue)` or `setCount(prev => prev + 1)`.
+- **Use `createSignal` not `useState`** — Solid's reactivity system is incompatible with React hooks. Use `createSignal`, `createMemo`, and `createEffect` instead of `useState`, `useMemo`, and `useEffect`.

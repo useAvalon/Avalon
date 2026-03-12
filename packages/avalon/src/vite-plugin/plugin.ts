@@ -5,10 +5,9 @@
  * for the Avalon framework. It handles configuration resolution, integration activation,
  * Nitro server integration, and wires up all the necessary Vite hooks.
  * 
- * PERFORMANCE OPTIMIZATION:
- * Integration loading uses lazy discovery - only integrations that are actually used
- * in the islands directory are loaded. This reduces cold start time when not all
- * configured frameworks are used.
+ * ISLAND DETECTION:
+ * Islands are detected by usage - any component used with an `island` prop in pages
+ * or layouts is automatically treated as an island. No fixed islands directory required.
  */
 
 import type { Plugin, ResolvedConfig, ViteDevServer } from "vite";
@@ -19,7 +18,7 @@ import type {
 } from "./types.ts";
 import { resolveConfig, checkDirectoriesExist, logDirectoryCheckSummary } from "./config.ts";
 import { activateIntegrations, activateSingleIntegration } from "./integration-activator.ts";
-import { discoverIntegrationsFromFiles } from "./auto-discover.ts";
+import { discoverIntegrationsFromIslandUsage } from "./auto-discover.ts";
 import { validateActiveIntegrations, formatValidationResults } from "./validation.ts";
 import { createMDXPlugin } from "../build/mdx-plugin.ts";
 import { mdxIslandTransform } from "../build/mdx-island-transform.ts";
@@ -91,7 +90,7 @@ async function loadPluginsForIntegration(name: IntegrationName, verbose: boolean
 }
 
 /**
- * Discovers which integrations are actually needed by scanning the islands directory.
+ * Discovers which integrations are actually needed by scanning pages/layouts for island prop usage.
  * This enables lazy loading - only load Vite plugins for frameworks that are actually used.
  * 
  * @param config - The resolved Avalon configuration
@@ -105,9 +104,10 @@ async function discoverNeededIntegrations(
   const needed = new Set<IntegrationName>();
   
   try {
-    // Use the auto-discover module to scan the islands directory
-    const discovered = await discoverIntegrationsFromFiles(
-      config.islandsDir,
+    // Scan pages and layouts for components used with island prop
+    const discovered = await discoverIntegrationsFromIslandUsage(
+      config.pagesDir,
+      config.layoutsDir,
       projectRoot
     );
     
@@ -191,10 +191,14 @@ async function runAutoDiscovery(
   activeIntegrations: Set<IntegrationName>
 ): Promise<void> {
   if (!resolvedConfig.autoDiscoverIntegrations) return;
-  if (resolvedConfig.verbose) console.log("   Auto-discovering integrations from islands directory...");
+  if (resolvedConfig.verbose) console.log("   Auto-discovering integrations from island usage...");
 
   try {
-    const discovered = await discoverIntegrationsFromFiles(resolvedConfig.islandsDir, viteRoot);
+    const discovered = await discoverIntegrationsFromIslandUsage(
+      resolvedConfig.pagesDir,
+      resolvedConfig.layoutsDir,
+      viteRoot
+    );
     for (const name of discovered) {
       if (activeIntegrations.has(name)) continue;
       try {
@@ -274,9 +278,8 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
     nitroPlugins = plugins;
   }
 
-  // Island sidecar generation plugin
+  // Sidecar plugin for Vue/Svelte/Solid type declarations
   const sidecarPlugin = islandSidecarPlugin({
-    islandsDir: preResolvedConfig.islandsDir,
     verbose: preResolvedConfig.verbose,
   });
 
@@ -296,8 +299,13 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
       
       if (resolvedConfig.verbose) {
         console.log("🏝️ Avalon plugin initialized");
-        console.log(`   Islands directory: ${resolvedConfig.islandsDir}`);
         console.log(`   Pages directory: ${resolvedConfig.pagesDir}`);
+        console.log(`   Layouts directory: ${resolvedConfig.layoutsDir}`);
+        if (resolvedConfig.modules) {
+          console.log(`   Modules directory: ${resolvedConfig.modules.dir}`);
+          console.log(`   Module pages folder: ${resolvedConfig.modules.pagesDirName}`);
+          console.log(`   Module layouts folder: ${resolvedConfig.modules.layoutsDirName}`);
+        }
         console.log(`   Development mode: ${isDev}`);
         
         logDirectoryCheckSummary(directoryResults, resolvedConfig.verbose);
@@ -330,9 +338,11 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
   const litPlugins = integrationPlugins.filter(p => p.name?.includes("lit"));
   const otherIntegrationPlugins = integrationPlugins.filter(p => !p.name?.includes("lit"));
 
-  // Page island transform: auto-wraps island imports in TSX pages when using `island` prop
+  // Page island transform: auto-wraps components with `island` prop
   const pageTransformPlugin = pageIslandTransform({
     pagesDir: preResolvedConfig.pagesDir,
+    layoutsDir: preResolvedConfig.layoutsDir,
+    modules: preResolvedConfig.modules,
     verbose: preResolvedConfig.verbose,
   });
 
@@ -351,12 +361,12 @@ export function getResolvedConfig(): ResolvedAvalonConfig | undefined {
   return globalThis.__avalonConfig;
 }
 
-export function getIslandsDir(): string {
-  return globalThis.__avalonConfig?.islandsDir ?? "src/islands";
-}
-
 export function getPagesDir(): string {
   return globalThis.__avalonConfig?.pagesDir ?? "src/pages";
+}
+
+export function getLayoutsDir(): string {
+  return globalThis.__avalonConfig?.layoutsDir ?? "src/layouts";
 }
 
 

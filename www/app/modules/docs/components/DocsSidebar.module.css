@@ -1,0 +1,93 @@
+.wrapper { width: 100%; }
+
+.mobileToggle {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--surface-1);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  color: var(--avalon-mist);
+  font-size: var(--text-small);
+  font-weight: 500;
+  cursor: pointer;
+  margin-bottom: var(--space-4);
+  font-family: var(--font-sans);
+}
+.mobileToggle:focus-visible { outline: 2px solid var(--avalon-blue); outline-offset: 3px; }
+.toggleIcon { font-size: 14px; }
+
+.sidebar { display: flex; flex-direction: column; gap: var(--space-2); }
+.category { display: flex; flex-direction: column; }
+
+.categoryBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+  font-family: var(--font-sans);
+}
+.categoryBtn:hover { background: var(--surface-1); }
+.categoryBtn:focus-visible { outline: 2px solid var(--avalon-blue); outline-offset: 3px; }
+
+.categoryLabel {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--avalon-slate);
+  flex: 1;
+}
+
+.chevron {
+  font-size: 16px;
+  color: var(--avalon-storm);
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+.chevronOpen { transform: rotate(90deg); }
+
+.itemList {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-1) 0 var(--space-2) calc(14px + var(--space-2) + var(--space-2));
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-left: 1px solid var(--surface-border);
+}
+
+.item {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-small);
+  color: var(--avalon-slate);
+  text-decoration: none;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-left: 2px solid transparent;
+  margin-left: -1px;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.item:hover { color: var(--avalon-mist); background: var(--surface-1); }
+.item:focus-visible { outline: 2px solid var(--avalon-blue); outline-offset: 3px; }
+
+.itemActive {
+  color: var(--avalon-blue);
+  border-left-color: var(--avalon-blue);
+  background: rgba(31, 106, 211, 0.08);
+}
+.itemActive:hover { color: var(--avalon-blue); }
+
+@media (max-width: 768px) {
+  .mobileToggle { display: flex; }
+  .sidebar { display: none; }
+  .sidebarOpen { display: flex; }
+}

@@ -10,7 +10,13 @@
 		"./nitro/renderer": "./src/nitro/renderer.ts",
 		"./nitro/types": "./src/nitro/types.ts",
 		"./nitro/config": "./src/nitro/config.ts",
-		"./types/island-jsx": "./src/types/island-jsx.d.ts"
+		"./types/island-jsx": "./src/types/island-jsx.d.ts",
+		"./types": "./src/types/index.d.ts"
+	},
+	"typesVersions": {
+		"*": {
+			"types": ["./src/types/index.d.ts"]
+		}
 	},
 	"devDependencies": {
 		"@types/mime-types": "^3.0.1"

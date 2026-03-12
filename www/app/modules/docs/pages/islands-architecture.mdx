@@ -1,0 +1,104 @@
+---
+title: Islands Architecture
+description: Learn how Avalon's islands system works and how to control hydration.
+currentPath: /docs/islands-architecture
+prev:
+  title: Quick Start
+  href: /docs/quick-start
+next:
+  title: Hydration Strategies
+  href: /docs/hydration-strategies
+---
+
+## What is an island?
+
+An island is an interactive component that hydrates on the client. Everything outside an island is static HTML — no JavaScript, no hydration overhead.
+
+The term comes from the "islands architecture" pattern: a sea of static HTML with interactive islands scattered throughout.
+
+## The `island` prop
+
+To make a component an island, import it and add the `island` prop:
+
+```tsx
+import Counter from '../islands/Counter.tsx';
+
+export default function Page() {
+  return (
+    <div>
+      <Counter island={{ condition: 'on:client' }} />
+    </div>
+  );
+}
+```
+
+The `condition` field controls when the island hydrates.
+
+
+## Hydration conditions
+
+### `on:client`
+
+Hydrates immediately when the page loads. Use this for components that need to be interactive right away.
+
+```tsx
+<Counter island={{ condition: 'on:client' }} />
+```
+
+### `on:visible`
+
+Hydrates when the island scrolls into the viewport. Uses `IntersectionObserver` under the hood. Ideal for below-the-fold content.
+
+```tsx
+<Chart island={{ condition: 'on:visible' }} />
+```
+
+### `on:interaction`
+
+Hydrates on the first user interaction (click or hover). The component renders its SSR HTML immediately, then becomes interactive on demand. Great for forms, dropdowns, and other UI that doesn't need to be interactive until the user engages.
+
+```tsx
+<Dropdown island={{ condition: 'on:interaction' }} />
+```
+
+### `on:idle`
+
+Hydrates when the browser is idle using `requestIdleCallback`. Use this for low-priority widgets that shouldn't compete with critical rendering.
+
+```tsx
+<Analytics island={{ condition: 'on:idle' }} />
+```
+
+### `media:`
+
+Hydrates only when a CSS media query matches. Useful for components that only exist at certain breakpoints.
+
+```tsx
+<MobileMenu island={{ condition: 'media:(max-width: 768px)' }} />
+```
+
+## Island placement
+
+Islands must live in `src/islands/` and use the `/** @jsxImportSource preact */` pragma (or the appropriate pragma for their framework).
+
+```tsx
+/** @jsxImportSource preact */
+import { useState } from 'preact/hooks';
+
+export default function Counter() {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(c => c + 1)}>{count}</button>;
+}
+```
+
+## Known workaround
+
+When an island is the only child returned from a page or layout, wrap it in a container element:
+
+```tsx
+// ✅ Works
+return <div><MyIsland island={{ condition: 'on:client' }} /></div>;
+
+// ❌ May break
+return <MyIsland island={{ condition: 'on:client' }} />;
+```

@@ -207,6 +207,14 @@ export function getIslandBundlePath(src: string, manifest?: ExtendedIslandManife
 		if (src.startsWith('/src/')) {
 			return src;
 		}
+		if (src.startsWith('/app/')) {
+			return src;
+		}
+		// For paths that don't start with /src/ or /app/, prefix with /src/
+		// but avoid double slashes
+		if (src.startsWith('/')) {
+			return src;
+		}
 		return `/src/${src}`;
 	}
 

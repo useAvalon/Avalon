@@ -1,0 +1,103 @@
+---
+title: File Conventions
+description: Special filenames and directory conventions in an Avalon project.
+currentPath: /docs/api/file-conventions
+prev:
+  title: layoutConfig
+  href: /docs/api/layout-config
+next:
+  title: Deployment
+  href: /docs/guides/deployment
+---
+
+## Pages directory
+
+Files in `src/pages/` become routes automatically.
+
+| Convention | Purpose |
+|---|---|
+| `index.tsx` | Index route for the directory (`/`, `/blog`) |
+| `[param].tsx` | Dynamic route segment |
+| `[...slug].tsx` | Catch-all route |
+| `404.tsx` | Custom 404 page |
+| `_error.tsx` | Error boundary page |
+| `_middleware.ts` | Route middleware |
+
+## Special files
+
+| File | Purpose |
+|---|---|
+| `_layout.tsx` | Layout wrapper — wraps all pages in the same directory and subdirectories |
+| `_error.tsx` | Error boundary — renders when a page throws an error |
+| `_middleware.ts` | Route middleware — runs before page handlers in the same directory |
+| `index.tsx` | Index route — maps to the directory path (e.g. `src/pages/blog/index.tsx` → `/blog`) |
+
+## Layouts directory
+
+Files in `src/layouts/` wrap pages automatically based on directory structure.
+
+| File | Wraps |
+|---|---|
+| `src/layouts/_layout.tsx` | All pages |
+| `src/layouts/blog/_layout.tsx` | All pages under `src/pages/blog/` |
+| `src/layouts/docs/_layout.tsx` | All pages under `src/pages/docs/` |
+
+
+## Islands
+
+Any component can be used as an island by adding the `island` prop when using it in a page or layout. There's no requirement to place islands in a specific directory.
+
+```tsx
+// src/pages/index.tsx
+import Counter from '../components/Counter.tsx';
+
+export default function Home() {
+  return (
+    <div>
+      <h1>Welcome</h1>
+      {/* This Counter will be hydrated on the client */}
+      <Counter island={{ condition: 'on:visible' }} initialCount={0} />
+    </div>
+  );
+}
+```
+
+The framework is auto-detected from the component file extension and content:
+- `.vue` → Vue
+- `.svelte` → Svelte  
+- `.solid.tsx` → Solid
+- `.tsx` with `@jsxImportSource react` → React
+- `.tsx` (default) → Preact
+
+## API routes
+
+API routes live outside `src/pages/` in a `routes/` directory:
+
+| File | Route |
+|---|---|
+| `routes/api/hello.ts` | `GET /api/hello` |
+| `routes/api/users/[id].ts` | `GET /api/users/:id` |
+
+```ts
+// routes/api/hello.ts
+import { defineEventHandler } from 'h3';
+
+export default defineEventHandler(() => {
+  return { message: 'Hello' };
+});
+```
+
+## Config files
+
+| File | Purpose |
+|---|---|
+| `vite.config.ts` | Vite + Avalon configuration |
+| `tsconfig.json` | TypeScript configuration |
+
+## Public directory
+
+Static files in `public/` are served at the root path. `public/logo.svg` is available at `/logo.svg`.
+
+## Output directory
+
+`bun run build` outputs to `.output/` by default (configurable via Nitro's `buildDir`).

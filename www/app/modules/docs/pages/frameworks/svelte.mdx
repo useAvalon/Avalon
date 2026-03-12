@@ -1,0 +1,91 @@
+---
+title: Svelte
+description: Using Svelte 5 components as islands in Avalon.
+currentPath: /docs/frameworks/svelte
+prev:
+  title: Vue
+  href: /docs/frameworks/vue
+next:
+  title: Solid
+  href: /docs/frameworks/solid
+---
+
+## Setup
+
+Add `'svelte'` to the `integrations` array:
+
+```ts
+const plugins = await avalon({
+  integrations: ['svelte'],
+});
+```
+
+Install Svelte:
+
+```bash
+bun add svelte
+```
+
+## Writing a Svelte island
+
+Svelte islands are standard `.svelte` files using Svelte 5 runes syntax:
+
+```html
+<!-- src/islands/Counter.svelte -->
+<script lang="ts">
+  let count = $state(0);
+</script>
+
+<button onclick={() => count++}>
+  Count: {count}
+</button>
+```
+
+## Using the island
+
+```tsx
+import Counter from '../islands/Counter.svelte';
+
+export default function Page() {
+  return (
+    <div>
+      <Counter island={{ condition: 'on:interaction' }} />
+    </div>
+  );
+}
+```
+
+## Passing props
+
+Props are declared with `$props()` in Svelte 5:
+
+```html
+<script lang="ts">
+  let { initialCount = 0 }: { initialCount?: number } = $props();
+  let count = $state(initialCount);
+</script>
+```
+
+```tsx
+<Counter initialCount={5} island={{ condition: 'on:visible' }} />
+```
+
+
+## Stores
+
+Svelte stores work inside islands. Note that stores are scoped to the island — they don't share state across separate island instances on the same page.
+
+```html
+<script>
+  import { writable } from 'svelte/store';
+  const count = writable(0);
+</script>
+
+<button on:click={() => $count++}>Count: {$count}</button>
+```
+
+## Caveats
+
+- **Stores are scoped to the island instance** — A Svelte store created inside an island is not shared with other islands on the page. Each island is an independent component tree. If you need shared state across islands, use a global singleton (e.g. a module-level store) or URL/localStorage.
+- **No SSR props drilling** — You cannot pass data from the server into an island via Svelte stores. Pass initial data as props directly on the island component instead. Stores are only useful for client-side state within the island.
+- **Svelte 5 runes** — Avalon's Svelte integration targets Svelte 5. Use `$state`, `$derived`, and `$props` runes rather than the legacy `let`/`$:` reactive syntax.

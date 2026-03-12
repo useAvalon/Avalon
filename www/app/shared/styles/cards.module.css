@@ -1,0 +1,22 @@
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.cardHover {
+  composes: card;
+  cursor: pointer;
+}
+
+.cardHover:hover {
+  border-color: var(--surface-border-hover);
+  background: var(--surface-2);
+}
+
+.cardHover:focus-visible {
+  outline: 2px solid var(--avalon-blue);
+  outline-offset: 3px;
+}

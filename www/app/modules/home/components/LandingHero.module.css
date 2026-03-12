@@ -1,0 +1,325 @@
+/* Landing Hero - Flora-inspired bezier animation */
+
+.scene {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 80px);
+  overflow: hidden;
+  opacity: 0;
+}
+
+/* SVG curves overlay */
+.curvesSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.bezierPath {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 1.2;
+}
+
+.bezierPathGlow {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.03);
+  stroke-width: 4;
+}
+
+.activeTrail {
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  opacity: 0.5;
+}
+
+.endpointDot {
+  opacity: 0.5;
+}
+
+/* Framework cards */
+.fwCard {
+  position: absolute;
+  width: 140px;
+  height: 82px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: border-color 0.4s, box-shadow 0.4s;
+  will-change: transform;
+}
+
+.fwIcon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fwIcon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.fwName {
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.5);
+  letter-spacing: 0.03em;
+}
+
+/* Card positions */
+.cardReact { left: 4%; top: 10%; }
+.cardPreact { left: 3%; top: 35%; }
+.cardSolid { left: 4%; top: 60%; }
+.cardLit { right: 4%; top: 10%; }
+.cardVue { right: 3%; top: 35%; }
+.cardSvelte { right: 4%; top: 60%; }
+
+/* Target container */
+.targetContainer {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  transform: translate(-50%, -50%);
+  width: 280px;
+  height: 280px;
+  border-radius: 24px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.targetContainer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 24px;
+  background: radial-gradient(circle at center, rgba(255,255,255,0.03) 0%, transparent 70%);
+}
+
+.targetInner {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.targetLabel {
+  font-family: 'Instrument Serif', serif;
+  font-size: 28px;
+  font-style: italic;
+  color: rgba(255,255,255,0.8);
+  margin-bottom: 4px;
+}
+
+.targetSub {
+  font-size: 11px;
+  color: rgba(255,255,255,0.3);
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.collectedGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 36px);
+  gap: 10px;
+  margin-top: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.collectedSlot {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.25;
+  transition: opacity 0.5s, background 0.5s, border-color 0.5s;
+}
+
+.collectedSlot svg {
+  width: 20px;
+  height: 20px;
+}
+
+.slotActive {
+  opacity: 1;
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.1);
+}
+
+.targetGlow {
+  position: absolute;
+  inset: -2px;
+  border-radius: 26px;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 2;
+}
+
+/* Transfer elements */
+.transferEl {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0;
+  left: -100px;
+  top: -100px;
+}
+
+.transferDot {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.transferDot::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 16px;
+  border: 1px solid currentColor;
+  opacity: 0.2;
+}
+
+.transferDot svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Framework-specific transfer colors */
+.fwReact .transferDot { background: rgba(97,218,251,0.15); color: #61DAFB; box-shadow: 0 0 24px rgba(97,218,251,0.2); }
+.fwPreact .transferDot { background: rgba(103,58,184,0.15); color: #673AB8; box-shadow: 0 0 24px rgba(103,58,184,0.2); }
+.fwSolid .transferDot { background: rgba(79,136,198,0.15); color: #4F88C6; box-shadow: 0 0 24px rgba(79,136,198,0.2); }
+.fwLit .transferDot { background: rgba(50,79,255,0.15); color: #324FFF; box-shadow: 0 0 24px rgba(50,79,255,0.2); }
+.fwVue .transferDot { background: rgba(66,184,131,0.15); color: #42B883; box-shadow: 0 0 24px rgba(66,184,131,0.2); }
+.fwSvelte .transferDot { background: rgba(255,62,0,0.15); color: #FF3E00; box-shadow: 0 0 24px rgba(255,62,0,0.2); }
+
+/* Bottom heading */
+.bottomHeading {
+  position: absolute;
+  bottom: 6%;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  z-index: 5;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 100px;
+  padding: 7px 18px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+}
+
+.newTag {
+  color: #6aaa6a;
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.heading {
+  font-family: 'Instrument Serif', serif;
+  font-size: 42px;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 10px;
+  color: #fff;
+}
+
+.headingEm {
+  font-style: italic;
+  background: linear-gradient(90deg, #fff 0%, rgba(255,255,255,0.5) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  padding: 0 4px;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: rgba(255,255,255,0.35);
+  line-height: 1.6;
+  font-weight: 300;
+}
+
+/* CTA buttons */
+.ctaRow {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 20px;
+  pointer-events: auto;
+}
+
+.ctaButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.ctaPrimary {
+  background: rgba(255,255,255,0.9);
+  color: #0a0a0a;
+  border: 1px solid transparent;
+}
+
+.ctaPrimary:hover {
+  background: #fff;
+}
+
+.ctaSecondary {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.8);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.ctaSecondary:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.15);
+  color: #fff;
+}

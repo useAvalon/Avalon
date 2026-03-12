@@ -894,6 +894,10 @@ async function applyLayoutChain(
 	// so layout authors never need to use it themselves.
 	let tree: JSX.Element = h('avalon-page-content', { dangerouslySetInnerHTML: { __html: pageContent } });
 
+	// Track whether the final output was already rendered to HTML by an async
+	// layout (e.g. the root layout that produces a full <html> document).
+	let preRenderedHtml: string | null = null;
+
 	// Wrap from innermost to outermost layout
 	for (let i = resolvedLayout.handlers.length - 1; i >= 0; i--) {
 		const handler = resolvedLayout.handlers[i];
@@ -903,9 +907,35 @@ async function applyLayoutChain(
 			frontmatter: pageModule.frontmatter || {},
 			route: { path: routePath, params: layoutContext.params, query: layoutContext.query },
 		} as Record<string, unknown>;
-		// Pass the current tree as JSX children — layout components
-		// receive `children` as renderable JSX, not an HTML string.
-		tree = h(handler.component as any, layoutProps, tree);
+
+		// Layout components may be async when they contain island transforms
+		// (the page-island-transform plugin injects `await renderIsland(...)` calls).
+		// Preact's renderToString doesn't support async components, so we
+		// pre-resolve async layouts here before composing the JSX tree.
+		const component = handler.component as any;
+		const result = component({ ...layoutProps, children: tree });
+		if (result instanceof Promise) {
+			const resolved = await result;
+			const html = preactRenderToString(resolved);
+			// If this is the outermost layout (i === 0) or it produced a full
+			// HTML document, keep the rendered string directly so downstream
+			// code (assembleLayoutHtml) can detect the <html> tag and preserve
+			// the layout's own <head> (which may contain stylesheet links like
+			// syntax-highlighting.css).
+			if (i === 0) {
+				preRenderedHtml = html;
+			} else {
+				tree = h('avalon-layout-fragment', { dangerouslySetInnerHTML: { __html: html } });
+			}
+		} else {
+			// Synchronous layout — use standard Preact composition
+			tree = h(component, layoutProps, tree);
+		}
+	}
+
+	// If the outermost layout was async and already rendered, return directly.
+	if (preRenderedHtml !== null) {
+		return preRenderedHtml;
 	}
 
 	// Render the entire composed tree to HTML in one pass

@@ -1,7 +1,6 @@
 import type { Plugin } from "vite";
 import { readFile, access } from "node:fs/promises";
 import path from "node:path";
-import { discoverAllIslands } from "../islands/discovery/scanner.ts";
 import { detectFrameworkFromPath } from "../islands/integration-loader.ts";
 import { EXTRACTOR_MAP } from "../build/prop-extractors/index.ts";
 import { renderSidecarContent } from "../build/sidecar-renderer.ts";
@@ -13,8 +12,6 @@ import {
 } from "../build/sidecar-file-manager.ts";
 
 export interface SidecarPluginOptions {
-	/** Islands directory path (e.g., "src/islands") */
-	islandsDir: string;
 	/** Whether to log verbose output */
 	verbose?: boolean;
 }
@@ -41,9 +38,7 @@ export async function checkTsConfigForArbitraryExtensions(
 			);
 		}
 	} catch {
-		console.warn(
-			'[avalon] tsconfig.json is missing "allowArbitraryExtensions: true" — sidecar .d.[ext].ts files require this setting',
-		);
+		// tsconfig doesn't exist or can't be parsed - skip warning
 	}
 }
 
@@ -57,10 +52,10 @@ function isSidecarFile(filePath: string): boolean {
 }
 
 /**
- * Check if a file path looks like a supported island file (non-React/Preact).
+ * Check if a file path looks like a supported component file that needs a sidecar.
  * Excludes files that are already sidecar declaration files.
  */
-function isIslandFile(filePath: string): boolean {
+function needsSidecar(filePath: string): boolean {
 	if (isSidecarFile(filePath)) {
 		return false;
 	}
@@ -68,10 +63,10 @@ function isIslandFile(filePath: string): boolean {
 }
 
 /**
- * Generate a sidecar for a single island file.
+ * Generate a sidecar for a single component file.
  * Returns true if a sidecar was written/updated, false otherwise.
  */
-async function generateSidecarForFile(filePath: string): Promise<boolean> {
+async function generateSidecarForFile(filePath: string, verbose?: boolean): Promise<boolean> {
 	try {
 		const framework = detectFrameworkFromPath(filePath);
 		if (SKIP_FRAMEWORKS.has(framework)) {
@@ -89,20 +84,26 @@ async function generateSidecarForFile(filePath: string): Promise<boolean> {
 		const sidecarPath = getSidecarPath(filePath);
 		return await writeSidecarIfChanged(sidecarPath, content);
 	} catch (err) {
-		console.warn(
-			`[avalon] Failed to generate sidecar for ${filePath}:`,
-			err instanceof Error ? err.message : err,
-		);
+		if (verbose) {
+			console.warn(
+				`[avalon] Failed to generate sidecar for ${filePath}:`,
+				err instanceof Error ? err.message : err,
+			);
+		}
 		return false;
 	}
 }
 
 /**
  * Vite plugin that auto-generates `.d.[ext].ts` sidecar declaration files
- * for non-React/Preact island components.
+ * for non-React/Preact components when they are used as islands.
+ * 
+ * Sidecars are generated on-demand when component files are loaded,
+ * rather than scanning a fixed directory at startup.
  */
-export function islandSidecarPlugin(options: SidecarPluginOptions): Plugin {
+export function islandSidecarPlugin(options: SidecarPluginOptions = {}): Plugin {
 	let projectRoot: string;
+	const processedFiles = new Set<string>();
 
 	return {
 		name: "avalon:island-sidecar",
@@ -113,64 +114,35 @@ export function islandSidecarPlugin(options: SidecarPluginOptions): Plugin {
 
 		async buildStart() {
 			await checkTsConfigForArbitraryExtensions(projectRoot);
+			processedFiles.clear();
+		},
 
-			let islands;
-			try {
-				islands = await discoverAllIslands(projectRoot);
-			} catch (err) {
-				console.warn(
-					"[avalon] Failed to discover islands for sidecar generation:",
-					err instanceof Error ? err.message : err,
-				);
-				return;
+		// Generate sidecar when a component file is loaded
+		async load(id) {
+			if (!needsSidecar(id) || processedFiles.has(id)) {
+				return null;
 			}
 
-			const qualifying = islands.filter(
-				(island) => !SKIP_FRAMEWORKS.has(island.framework) && !isSidecarFile(island.filePath),
-			);
+			processedFiles.add(id);
 
-			const results = await Promise.all(
-				qualifying.map(async (island) => {
-					try {
-						const extractor = EXTRACTOR_MAP[island.framework];
-						if (!extractor) {
-							return "skipped" as const;
-						}
-
-						// Fast path: skip if sidecar is newer than source
-						const sidecarPath = getSidecarPath(island.filePath);
-						if (await isSidecarFresh(island.filePath, sidecarPath)) {
-							return "skipped" as const;
-						}
-
-						const source = await readFile(island.filePath, "utf-8");
-						const result = extractor(source);
-						const content = renderSidecarContent(result.propsType);
-						const wrote = await writeSidecarIfChanged(sidecarPath, content);
-						return wrote ? ("generated" as const) : ("skipped" as const);
-					} catch (err) {
-						console.warn(
-							`[avalon] Failed to generate sidecar for ${island.name}:`,
-							err instanceof Error ? err.message : err,
-						);
-						return "skipped" as const;
-					}
-				}),
-			);
-
-			if (options.verbose) {
-				const generated = results.filter((r) => r === "generated").length;
-				const skipped = results.filter((r) => r === "skipped").length;
-				console.log(
-					`[avalon] Sidecar generation: ${generated} written, ${skipped} up-to-date, ${islands.length - qualifying.length} skipped (React/Preact)`,
-				);
+			// Check if sidecar needs regeneration
+			const sidecarPath = getSidecarPath(id);
+			if (await isSidecarFresh(id, sidecarPath)) {
+				return null;
 			}
+
+			const wrote = await generateSidecarForFile(id, options.verbose);
+			if (wrote && options.verbose) {
+				console.log(`[avalon] Generated sidecar for: ${id}`);
+			}
+
+			return null; // Let Vite handle the actual file loading
 		},
 
 		async handleHotUpdate(ctx) {
 			const filePath = ctx.file;
 
-			if (!isIslandFile(filePath)) {
+			if (!needsSidecar(filePath)) {
 				return;
 			}
 
@@ -187,13 +159,15 @@ export function islandSidecarPlugin(options: SidecarPluginOptions): Plugin {
 				const sidecarPath = getSidecarPath(filePath);
 				const deleted = await deleteSidecar(sidecarPath);
 				if (deleted && options.verbose) {
-					console.log(`[avalon] Deleted sidecar for removed island: ${filePath}`);
+					console.log(`[avalon] Deleted sidecar for removed file: ${filePath}`);
 				}
+				processedFiles.delete(filePath);
 				return;
 			}
 
-			// File was added or changed — regenerate sidecar
-			const wrote = await generateSidecarForFile(filePath);
+			// File was changed — regenerate sidecar
+			processedFiles.delete(filePath); // Allow re-processing
+			const wrote = await generateSidecarForFile(filePath, options.verbose);
 			if (wrote && options.verbose) {
 				console.log(`[avalon] Updated sidecar for: ${filePath}`);
 			}

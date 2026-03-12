@@ -1,0 +1,24 @@
+.navLink {
+  color: var(--avalon-slate);
+  text-decoration: none;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-body);
+  font-weight: 500;
+  border-radius: var(--radius-pill);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.navLink:hover {
+  color: var(--avalon-mist);
+  background: var(--surface-1);
+}
+
+.navLink:focus-visible {
+  outline: 2px solid var(--avalon-blue);
+  outline-offset: 3px;
+}
+
+.navLinkActive {
+  composes: navLink;
+  color: var(--avalon-mist);
+}

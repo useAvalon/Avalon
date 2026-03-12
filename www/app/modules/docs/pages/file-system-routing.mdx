@@ -1,0 +1,92 @@
+---
+title: File-System Routing
+description: How Avalon maps files in src/pages/ to URL routes.
+currentPath: /docs/file-system-routing
+prev:
+  title: Hydration Strategies
+  href: /docs/hydration-strategies
+next:
+  title: Layouts
+  href: /docs/layouts
+---
+
+## How routing works
+
+Avalon automatically generates routes from files in `src/pages/`. The file path maps directly to the URL path — no configuration needed.
+
+## Static routes
+
+| File | URL |
+|---|---|
+| `src/pages/index.tsx` | `/` |
+| `src/pages/about.tsx` | `/about` |
+| `src/pages/blog/index.tsx` | `/blog` |
+| `src/pages/blog/getting-started.tsx` | `/blog/getting-started` |
+| `src/pages/docs/introduction.mdx` | `/docs/introduction` |
+
+## Dynamic routes
+
+Wrap a segment in square brackets to create a dynamic route:
+
+| File | URL | Param |
+|---|---|---|
+| `src/pages/blog/[slug].tsx` | `/blog/:slug` | `slug` |
+| `src/pages/users/[id]/profile.tsx` | `/users/:id/profile` | `id` |
+
+Access the param via the `event` object in your page:
+
+```tsx
+export default function BlogPost({ event }: { event: H3Event }) {
+  const slug = event.context.params?.slug;
+  return <article><h1>{slug}</h1></article>;
+}
+```
+
+
+## Catch-all routes
+
+Use `[...slug]` to match any number of segments:
+
+```
+src/pages/docs/[...slug].tsx  →  /docs/anything/nested/here
+```
+
+## Special files
+
+| File | Purpose |
+|---|---|
+| `src/pages/_layout.tsx` | Root layout wrapper |
+| `src/pages/_middleware.ts` | Route middleware |
+| `src/pages/_error.tsx` | Error boundary |
+| `src/pages/404.tsx` | Custom 404 page |
+
+## API routes
+
+API routes live in `routes/api/` (not `src/pages/`):
+
+```
+routes/api/hello.ts          →  GET /api/hello
+routes/api/users/[id].ts     →  GET /api/users/:id
+```
+
+```ts
+// routes/api/hello.ts
+export default defineEventHandler(() => {
+  return { message: 'Hello from the API' };
+});
+```
+
+## MDX pages
+
+`.mdx` files work as pages too. They use the same frontmatter-based layout system:
+
+```mdx
+---
+title: My Doc
+currentPath: /docs/my-doc
+---
+
+# My Doc
+
+Content here.
+```

@@ -2,13 +2,14 @@
  * Auto-Discovery for Avalon Vite Plugin
  *
  * This module handles automatic discovery of framework integrations
- * based on component file extensions, naming conventions, and file content
- * in the islands directory.
+ * based on island prop usage in pages and layouts. It scans for components
+ * used with the `island` prop and detects their framework from file extensions
+ * and content.
  */
 
 import type { IntegrationName } from "./types.ts";
 import { resolve } from "node:path";
-import { stat as fsStat, readdir } from "node:fs/promises";
+import { stat as fsStat, readdir, readFile } from "node:fs/promises";
 import { openSync, readSync, closeSync } from "node:fs";
 
 /**
@@ -288,4 +289,237 @@ export function isSupportedExtension(extension: string): boolean {
  */
 export function getSupportedExtensions(): readonly string[] {
   return SUPPORTED_EXTENSIONS;
+}
+
+/**
+ * Discover integrations by scanning pages and layouts for island prop usage.
+ * 
+ * This function scans page and layout files for components used with the `island` prop,
+ * then resolves the import paths to detect which frameworks are needed.
+ * 
+ * @param pagesDir - Path to the pages directory
+ * @param layoutsDir - Path to the layouts directory
+ * @param projectRoot - Optional project root for resolving relative paths
+ * @returns Set of discovered integration names
+ */
+export async function discoverIntegrationsFromIslandUsage(
+  pagesDir: string,
+  layoutsDir: string,
+  projectRoot?: string
+): Promise<Set<IntegrationName>> {
+  const discovered = new Set<IntegrationName>();
+  const root = projectRoot ?? process.cwd();
+  
+  // Scan both pages and layouts directories
+  const dirsToScan = [
+    resolve(root, pagesDir),
+    resolve(root, layoutsDir),
+  ];
+  
+  for (const dir of dirsToScan) {
+    try {
+      const statResult = await fsStat(dir);
+      if (statResult.isDirectory()) {
+        await scanForIslandUsage(dir, root, discovered);
+      }
+    } catch {
+      // Directory doesn't exist, skip
+    }
+  }
+  
+  return discovered;
+}
+
+/**
+ * Recursively scan a directory for files that use the island prop
+ */
+async function scanForIslandUsage(
+  dirPath: string,
+  projectRoot: string,
+  discovered: Set<IntegrationName>
+): Promise<void> {
+  try {
+    const entries = await readdir(dirPath, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      const fullPath = resolve(dirPath, entry.name);
+      
+      if (entry.isDirectory()) {
+        await scanForIslandUsage(fullPath, projectRoot, discovered);
+      } else if (entry.isFile() && isPageOrLayoutFile(entry.name)) {
+        await extractIslandIntegrations(fullPath, projectRoot, discovered);
+      }
+    }
+  } catch (error) {
+    // Log but don't fail
+    if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'EACCES') {
+      // Silently skip inaccessible directories
+    }
+  }
+}
+
+/**
+ * Check if a file is a page or layout file that might contain island usage
+ */
+function isPageOrLayoutFile(fileName: string): boolean {
+  const lower = fileName.toLowerCase();
+  return (
+    lower.endsWith('.tsx') ||
+    lower.endsWith('.jsx') ||
+    lower.endsWith('.mdx')
+  );
+}
+
+/**
+ * Extract integrations from a file by finding island prop usage and resolving imports
+ */
+async function extractIslandIntegrations(
+  filePath: string,
+  projectRoot: string,
+  discovered: Set<IntegrationName>
+): Promise<void> {
+  try {
+    const content = await readFile(filePath, 'utf-8');
+    
+    // Find all imports
+    const importMap = parseImports(content);
+    
+    // Find components used with island prop
+    const islandComponents = findIslandPropUsage(content);
+    
+    // For each island component, resolve its import and detect framework
+    for (const componentName of islandComponents) {
+      const importPath = importMap.get(componentName);
+      if (!importPath) continue;
+      
+      // Resolve the import path to an actual file
+      const resolvedPath = resolveImportPath(importPath, filePath, projectRoot);
+      if (!resolvedPath) continue;
+      
+      // Detect framework from the resolved file
+      const integration = await detectIntegrationFromResolvedPath(resolvedPath);
+      if (integration) {
+        discovered.add(integration);
+      }
+    }
+  } catch {
+    // Skip files that can't be read
+  }
+}
+
+/**
+ * Parse import statements from file content
+ * Returns a map of component name -> import path
+ */
+function parseImports(content: string): Map<string, string> {
+  const imports = new Map<string, string>();
+  
+  // Match: import ComponentName from 'path'
+  const defaultImportRe = /import\s+(\w+)\s+from\s+['"]([^'"]+)['"]/g;
+  let match;
+  
+  while ((match = defaultImportRe.exec(content)) !== null) {
+    imports.set(match[1], match[2]);
+  }
+  
+  // Match: import { ComponentName } from 'path' or import { ComponentName as Alias } from 'path'
+  const namedImportRe = /import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g;
+  
+  while ((match = namedImportRe.exec(content)) !== null) {
+    const names = match[1].split(',').map(n => n.trim());
+    const importPath = match[2];
+    
+    for (const name of names) {
+      // Handle "Name as Alias" syntax
+      const asMatch = name.match(/(\w+)\s+as\s+(\w+)/);
+      if (asMatch) {
+        imports.set(asMatch[2], importPath); // Use alias as key
+      } else if (name) {
+        imports.set(name, importPath);
+      }
+    }
+  }
+  
+  return imports;
+}
+
+/**
+ * Find component names that are used with the island prop
+ */
+function findIslandPropUsage(content: string): Set<string> {
+  const components = new Set<string>();
+  
+  // Match: <ComponentName ... island={...} or <ComponentName ... island ...
+  // This regex finds JSX elements with an island prop
+  const islandUsageRe = /<([A-Z]\w*)\s+[^>]*\bisland\b/g;
+  let match;
+  
+  while ((match = islandUsageRe.exec(content)) !== null) {
+    components.add(match[1]);
+  }
+  
+  return components;
+}
+
+/**
+ * Resolve an import path to an actual file path
+ */
+function resolveImportPath(
+  importPath: string,
+  fromFile: string,
+  projectRoot: string
+): string | null {
+  // Handle relative imports
+  if (importPath.startsWith('.')) {
+    const dir = resolve(fromFile, '..');
+    return resolve(dir, importPath);
+  }
+  
+  // Handle alias imports (common patterns)
+  const aliasPatterns: Array<{ prefix: string; replacement: string }> = [
+    { prefix: '@/', replacement: 'src/' },
+    { prefix: '$components/', replacement: 'src/components/' },
+    { prefix: '$islands/', replacement: 'src/islands/' },
+    { prefix: '~/', replacement: 'src/' },
+  ];
+  
+  for (const { prefix, replacement } of aliasPatterns) {
+    if (importPath.startsWith(prefix)) {
+      const relativePath = importPath.slice(prefix.length);
+      return resolve(projectRoot, replacement, relativePath);
+    }
+  }
+  
+  // Handle absolute imports from src
+  if (importPath.startsWith('/src/')) {
+    return resolve(projectRoot, importPath.slice(1));
+  }
+  
+  // Can't resolve - might be a node_modules import
+  return null;
+}
+
+/**
+ * Detect integration from a resolved file path
+ */
+async function detectIntegrationFromResolvedPath(
+  filePath: string
+): Promise<IntegrationName | null> {
+  // Try with common extensions if no extension provided
+  const extensions = ['', '.tsx', '.jsx', '.ts', '.js', '.vue', '.svelte'];
+  
+  for (const ext of extensions) {
+    const fullPath = filePath + ext;
+    try {
+      const statResult = await fsStat(fullPath);
+      if (statResult.isFile()) {
+        const fileName = fullPath.split('/').pop() || '';
+        return detectIntegrationFromFile(fullPath, fileName);
+      }
+    } catch {
+      // Try next extension
+    }
+  }
+  
+  return null;
 }

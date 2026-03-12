@@ -1,0 +1,304 @@
+---
+title: Page Metadata
+description: How to define SEO metadata, Open Graph tags, Twitter Cards, and JSON-LD structured data in Avalon.
+---
+
+## Overview
+
+Avalon provides a simple way to define page metadata for SEO, social sharing, and structured data. Metadata is defined as an export in your page file and automatically passed to layouts.
+
+## Basic Usage
+
+Export a `metadata` object from your page:
+
+```tsx
+// app/modules/blog/pages/hello-world.tsx
+
+export const metadata = {
+  title: 'Hello World',
+  description: 'My first blog post about Avalon.',
+};
+
+export default function HelloWorldPage() {
+  return (
+    <article>
+      <h1>Hello World</h1>
+      <p>Welcome to my blog!</p>
+    </article>
+  );
+}
+```
+
+The metadata is automatically merged with frontmatter and passed to your layout via the `frontmatter` prop.
+
+## Metadata Properties
+
+```ts
+interface PageMetadata {
+  /** Page title - used in <title> tag */
+  title?: string;
+  
+  /** Page description - used in meta description */
+  description?: string;
+  
+  /** Open Graph metadata for social sharing */
+  openGraph?: {
+    title?: string;
+    description?: string;
+    image?: string;
+  };
+  
+  /** Additional head elements */
+  head?: Array<{
+    tag: string;
+    attrs?: Record<string, string>;
+    content?: string;
+  }>;
+}
+```
+
+## Open Graph Tags
+
+For social media sharing on Facebook, LinkedIn, and other platforms:
+
+```tsx
+export const metadata = {
+  title: 'Avalon Framework',
+  description: 'Multi-framework islands architecture.',
+  openGraph: {
+    title: 'Avalon — Islands Architecture for the Modern Web',
+    description: 'Ship interactive components with any framework.',
+    image: '/og-image.png',
+  },
+};
+```
+
+Your layout renders these as meta tags:
+
+```tsx
+{frontmatter?.openGraph?.title && (
+  <meta property="og:title" content={String(frontmatter.openGraph.title)} />
+)}
+{frontmatter?.openGraph?.description && (
+  <meta property="og:description" content={String(frontmatter.openGraph.description)} />
+)}
+{frontmatter?.openGraph?.image && (
+  <meta property="og:image" content={String(frontmatter.openGraph.image)} />
+)}
+```
+
+## Twitter Cards
+
+Twitter (X) still uses the `twitter:` meta tags for card previews. Add them via the `head` array:
+
+```tsx
+export const metadata = {
+  title: 'My Article',
+  description: 'A great article about web development.',
+  openGraph: {
+    image: '/social.png',
+  },
+  head: [
+    { tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
+    { tag: 'meta', attrs: { name: 'twitter:site', content: '@avalon_js' } },
+    { tag: 'meta', attrs: { name: 'twitter:creator', content: '@yourhandle' } },
+  ],
+};
+```
+
+Or render them directly in your layout:
+
+```tsx
+export default function Layout({ children, frontmatter }: LayoutProps) {
+  return (
+    <html>
+      <head>
+        {/* Twitter Card tags */}
+        <meta name="twitter:card" content="summary_large_image" />
+        {frontmatter?.title && (
+          <meta name="twitter:title" content={String(frontmatter.title)} />
+        )}
+        {frontmatter?.description && (
+          <meta name="twitter:description" content={String(frontmatter.description)} />
+        )}
+        {frontmatter?.openGraph?.image && (
+          <meta name="twitter:image" content={String(frontmatter.openGraph.image)} />
+        )}
+      </head>
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+## JSON-LD Structured Data
+
+Avalon's [`@avalon/agent-optimization`](/docs/plugins/agent-optimization) plugin automatically injects JSON-LD structured data for pages with title or description metadata. This helps search engines understand your content.
+
+### Automatic Injection
+
+When using the agent-optimization plugin, Schema.org WebPage JSON-LD is automatically generated:
+
+```json
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "url": "https://example.com/blog/hello-world",
+  "name": "Hello World",
+  "description": "My first blog post about Avalon.",
+  "image": "/og-image.png"
+}
+```
+
+### Manual JSON-LD
+
+For custom structured data (articles, products, organizations), add it via the `head` array or directly in your layout:
+
+```tsx
+export const metadata = {
+  title: 'How to Build Islands',
+  description: 'A guide to building interactive islands in Avalon.',
+  head: [
+    {
+      tag: 'script',
+      attrs: { type: 'application/ld+json' },
+      content: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Article',
+        headline: 'How to Build Islands',
+        author: { '@type': 'Person', name: 'Jane Developer' },
+        datePublished: '2024-01-15',
+      }),
+    },
+  ],
+};
+```
+
+Or use the helper functions directly:
+
+```tsx
+import { buildWebPageJsonLd, injectJsonLd } from '@avalon/agent-optimization';
+
+// Build JSON-LD object
+const jsonLd = buildWebPageJsonLd(
+  { title: 'My Page', description: 'Page description' },
+  'https://example.com/my-page'
+);
+
+// Inject into HTML string
+const htmlWithJsonLd = injectJsonLd(html, jsonLd);
+```
+
+## Accessing Metadata in Layouts
+
+Layouts receive metadata via the `frontmatter` prop:
+
+```tsx
+// app/shared/layouts/_layout.tsx
+
+import type { LayoutProps } from '@avalon/avalon';
+
+export default function RootLayout({ children, frontmatter }: LayoutProps) {
+  const title = frontmatter?.title 
+    ? `${frontmatter.title} — My Site` 
+    : 'My Site';
+  
+  return (
+    <html lang="en">
+      <head>
+        <title>{title}</title>
+        {frontmatter?.description && (
+          <meta name="description" content={String(frontmatter.description)} />
+        )}
+        
+        {/* Open Graph */}
+        <meta property="og:type" content="website" />
+        {frontmatter?.openGraph?.title && (
+          <meta property="og:title" content={String(frontmatter.openGraph.title)} />
+        )}
+        
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        
+        {/* Render custom head elements */}
+        {frontmatter?.head?.map((el, i) => {
+          if (el.tag === 'script') {
+            return <script key={i} {...el.attrs}>{el.content}</script>;
+          }
+          return <meta key={i} {...el.attrs} />;
+        })}
+      </head>
+      <body>
+        {children}
+      </body>
+    </html>
+  );
+}
+```
+
+## MDX Frontmatter
+
+For MDX pages, you can use YAML frontmatter:
+
+```mdx
+---
+title: Getting Started
+description: Learn how to set up Avalon in your project.
+---
+
+## Installation
+
+Run the following command...
+```
+
+Both frontmatter and metadata exports are merged, with `metadata` taking precedence.
+
+## Type Safety
+
+Import the `PageMetadata` type for full TypeScript support:
+
+```tsx
+import type { PageMetadata } from '@avalon/avalon';
+
+export const metadata: PageMetadata = {
+  title: 'My Page',
+  description: 'A well-typed page.',
+  openGraph: {
+    image: '/social.png',
+  },
+};
+```
+
+## Best Practices
+
+1. **Always include title and description** — Essential for SEO.
+
+2. **Keep titles under 60 characters** — Search engines truncate longer titles.
+
+3. **Keep descriptions under 160 characters** — Optimal for search snippets.
+
+4. **Use unique metadata per page** — Avoid duplicate titles and descriptions.
+
+5. **Include Open Graph images** — Social shares with images get more engagement. Recommended size: 1200×630 pixels.
+
+6. **Add Twitter Card tags** — Even though the platform is now X, the `twitter:` meta tags are still used.
+
+7. **Use JSON-LD for rich results** — Structured data can enable rich snippets in search results.
+
+```tsx
+// Complete metadata example
+export const metadata: PageMetadata = {
+  title: 'Quick Start Guide',
+  description: 'Get up and running with Avalon in under 5 minutes.',
+  openGraph: {
+    title: 'Avalon Quick Start — Build Your First Island',
+    description: 'Learn to build interactive islands with any framework.',
+    image: '/og/quick-start.png',
+  },
+  head: [
+    { tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
+    { tag: 'meta', attrs: { name: 'twitter:site', content: '@avalon_js' } },
+    { tag: 'link', attrs: { rel: 'canonical', href: 'https://avalon.dev/docs/quick-start' } },
+  ],
+};
+```

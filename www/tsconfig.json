@@ -1,0 +1,24 @@
+{
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"allowArbitraryExtensions": true,
+		"baseUrl": ".",
+		"paths": {
+			"@shared/*": ["./app/shared/*"],
+			"@modules/*": ["./app/modules/*"],
+			"#imports": ["./.nitro/types/nitro-imports.d.ts"]
+		},
+		"types": ["nitro/types"]
+	},
+	"include": [
+		"app/**/*.ts",
+		"app/**/*.tsx",
+		"app/**/*.d.ts",
+		"server/**/*.ts",
+		"server/**/*.d.ts",
+		"routes/**/*.ts",
+		"middleware/**/*.ts",
+		"nitro.config.ts",
+		"../packages/avalon/src/types/island-jsx.d.ts"
+	]
+}

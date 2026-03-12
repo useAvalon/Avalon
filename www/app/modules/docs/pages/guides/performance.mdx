@@ -1,0 +1,89 @@
+---
+title: Performance
+description: Tips and patterns for keeping your Avalon site fast.
+currentPath: /docs/guides/performance
+prev:
+  title: Deployment
+  href: /docs/guides/deployment
+---
+
+## Zero JS by default
+
+The biggest performance win is already built in: pages ship no JavaScript unless you add an island. A page with no islands is pure HTML and CSS — no hydration, no runtime overhead.
+
+## Choose the right hydration condition
+
+Each hydration condition has a different impact on page load:
+
+| Condition | JS on initial load | Best for |
+|---|---|---|
+| `on:client` | Yes — blocks critical path | Hero animations, auth-gated UI |
+| `on:visible` | Deferred until scroll | Below-the-fold content |
+| `on:interaction` | Deferred until click/hover | Forms, menus, dropdowns |
+| `on:idle` | Background, lowest priority | Analytics, chat widgets |
+| `media:` | Only if query matches | Responsive-only components |
+
+Prefer `on:interaction` or `on:idle` for anything that doesn't need to be interactive immediately.
+
+## Lazy integrations
+
+Enable `lazyIntegrations` to avoid loading unused framework adapters:
+
+```ts
+const plugins = await avalon({
+  integrations: ['react', 'vue', 'svelte'],
+  lazyIntegrations: true,
+});
+```
+
+With lazy integrations, the adapter for each framework is only loaded when a page actually uses an island from that framework.
+
+
+## Image optimization
+
+Serve images from `public/` with appropriate dimensions. Use modern formats (WebP, AVIF) and add `width`/`height` attributes to prevent layout shift:
+
+```tsx
+<img src="/hero.webp" width={1200} height={600} alt="Hero" loading="lazy" />
+```
+
+## Cache headers
+
+Configure long-lived cache headers for immutable assets:
+
+```ts
+nitro: {
+  routeRules: {
+    '/assets/**': {
+      headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
+    },
+    '/islands/**': {
+      headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
+    },
+  },
+}
+```
+
+## Bundle analysis
+
+Inspect your island bundles with Vite's built-in rollup visualizer:
+
+```bash
+bun add -d rollup-plugin-visualizer
+```
+
+```ts
+import { visualizer } from 'rollup-plugin-visualizer';
+
+export default defineConfig({
+  plugins: [visualizer({ open: true })],
+});
+```
+
+## Preloading critical islands
+
+For `on:client` islands that are above the fold, add a `<link rel="modulepreload">` in your layout's `<head>` to start fetching the bundle earlier.
+
+## Measuring
+
+Use [PageSpeed Insights](https://pagespeed.web.dev) or Lighthouse to measure real-world performance. The key metrics to watch are LCP (Largest Contentful Paint) and TBT (Total Blocking Time) — both improve significantly when you defer or eliminate unnecessary JavaScript.

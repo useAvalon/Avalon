@@ -5,7 +5,11 @@ export default defineConfig({
     include: ["zod"],
   },
   test: {
-    include: ["packages/avalon/src/**/tests/**/*.test.ts"],
+    include: [
+      "packages/avalon/src/**/tests/**/*.test.ts",
+      "www/src/tests/**/*.test.ts",
+      "www/src/__tests__/**/*.test.ts",
+    ],
     exclude: ["node_modules", "dist", ".output"],
     server: {
       deps: {

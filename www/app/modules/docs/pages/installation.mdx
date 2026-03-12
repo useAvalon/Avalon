@@ -1,0 +1,74 @@
+---
+title: Installation
+description: Create a new Avalon project and get up and running in minutes.
+currentPath: /docs/installation
+prev:
+  title: Introduction
+  href: /docs/introduction
+next:
+  title: Quick Start
+  href: /docs/quick-start
+---
+
+## Requirements
+
+- [Bun](https://bun.sh) 1.0 or later
+- Node.js 18+ (if not using Bun)
+
+## Create a new project
+
+The fastest way to get started is with the `create avalon` scaffolder:
+
+```bash
+bun create avalon my-app
+```
+
+This creates a new directory `my-app/` with a minimal project structure.
+
+## Project setup
+
+```bash
+cd my-app
+bun install
+bun run dev
+```
+
+Your site is now running at `http://localhost:3000`.
+
+## Project structure
+
+```
+my-app/
+├── src/
+│   ├── islands/        # Interactive components (hydrated on client)
+│   ├── layouts/        # Layout wrappers
+│   └── pages/          # File-system routes
+├── public/             # Static assets
+├── routes/             # API routes
+├── nitro.config.ts
+└── vite.config.ts
+```
+
+## Manual installation
+
+If you prefer to set up manually, install the core package:
+
+```bash
+bun add @avalon/avalon
+bun add -d vite nitro
+```
+
+Then create a `vite.config.ts`:
+
+```ts
+import { defineConfig } from 'vite';
+import { avalon } from '@avalon/avalon/vite';
+
+export default defineConfig(async () => {
+  const plugins = await avalon({
+    pagesDir: 'src/pages',
+    integrations: ['preact'],
+  });
+  return { plugins };
+});
+```

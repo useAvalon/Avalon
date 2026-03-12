@@ -1,0 +1,122 @@
+---
+title: Quick Start
+description: Build your first Avalon page with an interactive island in under 5 minutes.
+currentPath: /docs/quick-start
+prev:
+  title: Installation
+  href: /docs/installation
+next:
+  title: Islands Architecture
+  href: /docs/islands-architecture
+---
+
+import InteractiveExample from '@shared/components/InteractiveExample.tsx';
+
+## Scaffold a new project
+
+The fastest way to get started is with the Avalon CLI:
+
+```bash
+npx avalon my-app
+```
+
+For Bun users:
+
+```bash
+bunx avalon my-app
+```
+
+> **Coming soon:** The `npx avalon` CLI scaffolder is not yet available. In the meantime, follow the [manual installation guide](/docs/installation) to set up your project.
+
+## Install dependencies
+
+```bash
+cd my-app
+npm install
+```
+
+Or with Bun:
+
+```bash
+cd my-app
+bun install
+```
+
+## Start the dev server
+
+```bash
+npm run dev
+```
+
+Open `http://localhost:3000` in your browser. You should see the Avalon welcome page.
+
+## Create a page
+
+Pages live in `src/pages/`. Create `src/pages/hello.tsx`:
+
+```tsx
+export default function HelloPage() {
+  return (
+    <div>
+      <h1>Hello, Avalon</h1>
+      <p>This page ships zero JavaScript.</p>
+    </div>
+  );
+}
+```
+
+Visit `http://localhost:3000/hello` — you'll see your page rendered as pure HTML with no client-side JavaScript.
+
+## Add an island
+
+Islands are interactive components that hydrate on the client. Create `src/islands/Counter.tsx`:
+
+```tsx
+/** @jsxImportSource preact */
+import { useState } from 'preact/hooks';
+
+export default function Counter() {
+  const [count, setCount] = useState(0);
+  return (
+    <button onClick={() => setCount(c => c + 1)}>
+      Count: {count}
+    </button>
+  );
+}
+```
+
+Then use it in your page with the `island` prop to control when it hydrates:
+
+```tsx
+import Counter from '../islands/Counter.tsx';
+
+export default function HelloPage() {
+  return (
+    <div>
+      <h1>Hello, Avalon</h1>
+      {/* Hydrates only when the user first interacts with it */}
+      <div>
+        <Counter island={{ condition: 'on:interaction' }} />
+      </div>
+    </div>
+  );
+}
+```
+
+> **Note:** Wrap islands in a container `<div>` — this is a known workaround for the island transform when an island is the sole child of a return statement.
+
+## Build for production
+
+```bash
+npm run build
+```
+
+Avalon builds a Nitro server bundle in `.output/`. Deploy it to Node, Bun, Cloudflare Workers, Vercel, or any Nitro-compatible target.
+
+## Try it live
+
+Here's a live example of an island component — it starts in a static state and becomes interactive on your first interaction:
+
+<div>
+  <InteractiveExample island={{ condition: 'on:interaction' }} />
+</div>

@@ -1,0 +1,82 @@
+---
+title: Preact
+description: Using Preact components as islands in Avalon.
+currentPath: /docs/frameworks/preact
+prev:
+  title: React
+  href: /docs/frameworks/react
+next:
+  title: Vue
+  href: /docs/frameworks/vue
+---
+
+## Setup
+
+Preact is Avalon's default SSR renderer and is always available. No extra configuration needed.
+
+```ts
+const plugins = await avalon({
+  integrations: ['preact'], // optional — included by default
+});
+```
+
+## Writing a Preact island
+
+Use the `/** @jsxImportSource preact */` pragma at the top of your file:
+
+```tsx
+/** @jsxImportSource preact */
+import { useState } from 'preact/hooks';
+
+export default function Counter() {
+  const [count, setCount] = useState(0);
+  return (
+    <button onClick={() => setCount(c => c + 1)}>
+      Count: {count}
+    </button>
+  );
+}
+```
+
+## Using the island
+
+```tsx
+import Counter from '../islands/Counter.tsx';
+
+export default function Page() {
+  return (
+    <div>
+      <Counter island={{ condition: 'on:client' }} />
+    </div>
+  );
+}
+```
+
+## Signals
+
+Preact Signals work inside islands for fine-grained reactivity:
+
+```tsx
+/** @jsxImportSource preact */
+import { signal } from '@preact/signals';
+
+const count = signal(0);
+
+export default function Counter() {
+  return (
+    <button onClick={() => count.value++}>
+      Count: {count}
+    </button>
+  );
+}
+```
+
+Install signals with:
+
+```bash
+bun add @preact/signals
+```
+
+## Why Preact for pages?
+
+Avalon uses Preact for page and layout rendering (not just islands) because it's lightweight and fast on the server. Pages and layouts don't need a pragma — they use Preact's JSX transform automatically.

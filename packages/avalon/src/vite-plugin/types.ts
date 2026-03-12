@@ -56,20 +56,64 @@ export interface MDXConfig {
 }
 
 /**
+ * Modular architecture configuration
+ * Enables co-located pages/layouts within feature modules
+ */
+export interface ModulesConfig {
+  /**
+   * Directory containing feature modules
+   * @example "app/modules"
+   */
+  dir: string;
+
+  /**
+   * Name of the pages directory within each module
+   * @default "pages"
+   */
+  pagesDirName?: string;
+
+  /**
+   * Name of the layouts directory within each module
+   * @default "layouts"
+   */
+  layoutsDirName?: string;
+}
+
+/**
  * Configuration options for the Avalon Vite plugin
  */
 export interface AvalonPluginConfig {
-  /**
-   * Directory containing island components
-   * @default "src/islands"
-   */
-  islandsDir?: string;
-
   /**
    * Directory containing page components for file-system routing
    * @default "src/pages"
    */
   pagesDir?: string;
+
+  /**
+   * Directory containing layout components
+   * @default "src/layouts"
+   */
+  layoutsDir?: string;
+
+  /**
+   * Modular architecture configuration
+   * When set, discovers pages and layouts within feature modules
+   * Can be a string (just the dir) or full config object
+   * 
+   * @example
+   * ```ts
+   * // Simple - uses default 'pages' and 'layouts' folder names
+   * modules: 'app/modules'
+   * 
+   * // Full config - customize folder names
+   * modules: {
+   *   dir: 'app/modules',
+   *   pagesDirName: 'views',
+   *   layoutsDirName: 'layouts',
+   * }
+   * ```
+   */
+  modules?: string | ModulesConfig;
 
   /**
    * Framework integrations to activate
@@ -158,11 +202,21 @@ export interface ResolvedMDXConfig {
 }
 
 /**
+ * Resolved modular architecture configuration
+ */
+export interface ResolvedModulesConfig {
+  dir: string;
+  pagesDirName: string;
+  layoutsDirName: string;
+}
+
+/**
  * Fully resolved configuration with defaults applied
  */
 export interface ResolvedAvalonConfig {
-  islandsDir: string;
   pagesDir: string;
+  layoutsDir: string;
+  modules: ResolvedModulesConfig | null;
   integrations: IntegrationName[];
   mdx: ResolvedMDXConfig;
   verbose: boolean;

@@ -1,0 +1,94 @@
+---
+title: Hydration Strategies
+description: Compare all hydration conditions and choose the right one for each use case.
+currentPath: /docs/hydration-strategies
+prev:
+  title: Islands Architecture
+  href: /docs/islands-architecture
+next:
+  title: File-System Routing
+  href: /docs/file-system-routing
+---
+
+## Choosing a strategy
+
+The right hydration strategy depends on how critical the interactivity is and when the user needs it.
+
+| Condition | When it hydrates | Best for | JS cost |
+|---|---|---|---|
+| `on:client` | Immediately on page load | Critical interactive UI | Highest |
+| `on:visible` | When scrolled into view | Below-the-fold content | Medium |
+| `on:interaction` | On first click or hover | Forms, dropdowns, menus | Low |
+| `on:idle` | During browser idle time | Analytics, low-priority widgets | Lowest |
+| `media:` | When media query matches | Responsive-only components | Conditional |
+
+## `on:client` — Immediate
+
+The island hydrates as soon as the page loads. The JavaScript bundle is fetched and executed immediately.
+
+**Use when:** The component must be interactive before the user scrolls or interacts — e.g. a hero animation, an autoplaying carousel, or a sticky header with state.
+
+```tsx
+<HeroAnimation island={{ condition: 'on:client' }} />
+```
+
+**Performance note:** Every `on:client` island adds to the critical path. Use sparingly.
+
+
+## `on:visible` — Viewport-triggered
+
+The island hydrates when it enters the viewport. Uses `IntersectionObserver` with a small threshold.
+
+**Use when:** The component is below the fold and doesn't need to be interactive until the user scrolls to it.
+
+```tsx
+<PricingTable island={{ condition: 'on:visible' }} />
+```
+
+## `on:interaction` — Demand-triggered
+
+The island renders its SSR HTML immediately (so it looks correct), but only loads and executes JavaScript when the user first clicks or hovers over it.
+
+**Use when:** The component has a meaningful static appearance and only needs interactivity on demand — forms, accordions, tabs, dropdowns.
+
+```tsx
+<ContactForm island={{ condition: 'on:interaction' }} />
+```
+
+## `on:idle` — Background loading
+
+The island hydrates during browser idle time via `requestIdleCallback` (with a `setTimeout` fallback).
+
+**Use when:** The component is non-critical and should not compete with more important rendering work.
+
+```tsx
+<ChatWidget island={{ condition: 'on:idle' }} />
+```
+
+## `media:` — Responsive
+
+The island only hydrates when the specified CSS media query matches. If the query never matches (e.g. a mobile-only component on desktop), no JavaScript is loaded at all.
+
+**Use when:** A component only exists at certain breakpoints.
+
+```tsx
+<MobileDrawer island={{ condition: 'media:(max-width: 768px)' }} />
+<DesktopSidebar island={{ condition: 'media:(min-width: 769px)' }} />
+```
+
+## Combining strategies
+
+Each island gets its own strategy. Mix freely across a page:
+
+```tsx
+export default function Page() {
+  return (
+    <div>
+      <HeroAnimation island={{ condition: 'on:client' }} />
+      <div><DataChart island={{ condition: 'on:visible' }} /></div>
+      <div><ContactForm island={{ condition: 'on:interaction' }} /></div>
+      <div><Analytics island={{ condition: 'on:idle' }} /></div>
+    </div>
+  );
+}
+```

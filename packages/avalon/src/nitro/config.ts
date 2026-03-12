@@ -208,8 +208,8 @@ export interface AvalonRuntimeConfig {
   streaming: boolean;
   /** Pages directory path */
   pagesDir: string;
-  /** Islands directory path */
-  islandsDir: string;
+  /** Layouts directory path */
+  layoutsDir: string;
 }
 
 /**
@@ -296,13 +296,13 @@ export function createNitroConfig(
 ): NitroConfigOutput {
   // Determine final directory paths (Nitro config overrides Avalon config)
   const pagesDir = avalonNitroConfig.pagesDir ?? resolvedAvalonConfig.pagesDir;
-  const islandsDir = resolvedAvalonConfig.islandsDir;
+  const layoutsDir = resolvedAvalonConfig.layoutsDir;
 
   // Build Avalon runtime config
   const avalonRuntimeConfig: AvalonRuntimeConfig = {
     streaming: avalonNitroConfig.streaming ?? DEFAULT_NITRO_CONFIG.streaming,
     pagesDir,
-    islandsDir,
+    layoutsDir,
   };
 
   // Validate that runtimeConfig does not contain a 'nitro' key (reserved in v3)
