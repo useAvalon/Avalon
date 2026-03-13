@@ -143,6 +143,7 @@ function detectFramework(src: string): string | undefined {
   if (src.endsWith('.svelte')) return 'svelte';
   if (src.includes('.solid.')) return 'solid';
   if (src.includes('.lit.')) return 'lit';
+  if (src.includes('.qwik.')) return 'qwik';
   return undefined;
 }
 

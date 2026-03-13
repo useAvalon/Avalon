@@ -12,6 +12,7 @@ export type Framework =
   | "preact"
   | "react"
   | "lit"
+  | "qwik"
   | "unknown";
 
 /**
@@ -35,7 +36,7 @@ export interface IslandProps {
   /** Whether to render server-side (default: true unless condition is 'on:client') */
   ssr?: boolean;
   /** Framework hint for client hydration */
-  framework?: "solid" | "vue" | "preact" | "react" | "svelte" | "lit";
+  framework?: "solid" | "vue" | "preact" | "react" | "svelte" | "lit" | "qwik";
   /** Force SSR-only rendering without hydration */
   ssrOnly?: boolean;
   /** Component render options for intelligent detection */

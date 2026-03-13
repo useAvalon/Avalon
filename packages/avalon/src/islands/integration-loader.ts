@@ -82,6 +82,11 @@ export function detectFrameworkFromPath(src: string) {
     return "solid";
   }
   
+  // Qwik files (convention: .qwik.tsx or .qwik.jsx)
+  if (normalizedSrc.includes(".qwik.")) {
+    return "qwik";
+  }
+  
   // React files (convention: .react.tsx or .react.jsx)
   if (normalizedSrc.includes(".react.")) {
     return "react";

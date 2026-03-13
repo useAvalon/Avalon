@@ -85,6 +85,21 @@ const FRAMEWORK_MODULE_CONFIGS: Record<string, FrameworkModuleConfig> = {
 			return path;
 		},
 	},
+	qwik: {
+		extensions: ['.tsx', '.jsx'],
+		hydrationExtension: '.js',
+		mimeType: 'application/javascript',
+		transformPath: (path: string, mode: 'development' | 'production') => {
+			// Qwik components are compiled to .js via the Qwik optimizer
+			if (path.endsWith('.tsx')) {
+				return path.replace(/\.tsx$/, '.js');
+			}
+			if (path.endsWith('.jsx')) {
+				return path.replace(/\.jsx$/, '.js');
+			}
+			return path;
+		},
+	},
 };
 
 export class FrameworkModuleResolver {

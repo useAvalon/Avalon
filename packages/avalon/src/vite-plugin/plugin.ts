@@ -16,7 +16,7 @@ import type {
   IntegrationName,
   ResolvedAvalonConfig,
 } from "./types.ts";
-import { resolveConfig, checkDirectoriesExist, logDirectoryCheckSummary } from "./config.ts";
+import { resolveConfig, checkDirectoriesExist } from "./config.ts";
 import { activateIntegrations, activateSingleIntegration } from "./integration-activator.ts";
 import { discoverIntegrationsFromIslandUsage } from "./auto-discover.ts";
 import { validateActiveIntegrations, formatValidationResults } from "./validation.ts";
@@ -69,16 +69,15 @@ export async function collectIntegrationPlugins(
 
 async function loadPluginsForIntegration(name: IntegrationName, _verbose: boolean): Promise<Plugin[]> {
   const integration = registry.get(name);
-  if (!integration) {
-    return [];
-  }
+  if (!integration) return [];
   if (typeof integration.vitePlugin !== "function") return [];
 
   try {
     const result = await integration.vitePlugin();
     const pluginArray = Array.isArray(result) ? result : [result];
     return pluginArray.filter((p): p is Plugin => p != null);
-  } catch {
+  } catch (error) {
+    console.warn(`[avalon] Failed to load vite plugin for ${name}:`, error instanceof Error ? error.message : error);
     return [];
   }
 }
@@ -98,11 +97,12 @@ async function discoverNeededIntegrations(
   const needed = new Set<IntegrationName>();
   
   try {
-    // Scan pages and layouts for components used with island prop
+    // Scan pages, layouts, and modules for components used with island prop
     const discovered = await discoverIntegrationsFromIslandUsage(
       config.pagesDir,
       config.layoutsDir,
-      projectRoot
+      projectRoot,
+      config.modules?.dir
     );
     
     // Only include integrations that are both discovered AND configured
@@ -176,7 +176,8 @@ async function runAutoDiscovery(
     const discovered = await discoverIntegrationsFromIslandUsage(
       resolvedConfig.pagesDir,
       resolvedConfig.layoutsDir,
-      viteRoot
+      viteRoot,
+      resolvedConfig.modules?.dir
     );
     for (const name of discovered) {
       if (activeIntegrations.has(name)) continue;

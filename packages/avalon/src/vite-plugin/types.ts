@@ -26,7 +26,8 @@ export type IntegrationName =
   | "vue"
   | "svelte"
   | "solid"
-  | "lit";
+  | "lit"
+  | "qwik";
 
 /**
  * MDX configuration options

@@ -20,7 +20,8 @@ describe('FrameworkRegistry - Basic Operations', () => {
 		expect(frameworks.has('svelte')).toBeTruthy();
 		expect(frameworks.has('react')).toBeTruthy();
 		expect(frameworks.has('lit')).toBeTruthy();
-		expect(frameworks.size).toEqual(6);
+		expect(frameworks.has('qwik')).toBeTruthy();
+		expect(frameworks.size).toEqual(7);
 	});
 
 	it('should get framework by name', () => {
@@ -316,7 +317,8 @@ describe('FrameworkRegistry - Configuration Management', () => {
 		expect(config.svelte).toBeDefined();
 		expect(config.react).toBeDefined();
 		expect(config.lit).toBeDefined();
-		expect(Object.keys(config).length).toEqual(6);
+		expect(config.qwik).toBeDefined();
+		expect(Object.keys(config).length).toEqual(7);
 	});
 
 	it('should import configuration', () => {
@@ -358,11 +360,11 @@ describe('FrameworkRegistry - Configuration Management', () => {
 		});
 
 		registry.registerFramework('custom', customConfig);
-		expect(registry.getAllFrameworks().size).toEqual(7);
+		expect(registry.getAllFrameworks().size).toEqual(8);
 
 		// Reset
 		registry.reset();
-		expect(registry.getAllFrameworks().size).toEqual(6);
+		expect(registry.getAllFrameworks().size).toEqual(7);
 		expect(registry.getFramework('custom')).toEqual(undefined);
 	});
 });
@@ -373,8 +375,8 @@ describe('FrameworkRegistry - Statistics', () => {
 
 		const stats = registry.getStats();
 
-		expect(stats.totalFrameworks).toEqual(6);
-		expect(stats.defaultFrameworks).toEqual(6);
+		expect(stats.totalFrameworks).toEqual(7);
+		expect(stats.defaultFrameworks).toEqual(7);
 		expect(stats.customFrameworks).toEqual(0);
 		expect(stats.supportedExtensions.includes('.tsx')).toBeTruthy();
 		expect(stats.supportedExtensions.includes('.vue')).toBeTruthy();
@@ -395,8 +397,8 @@ describe('FrameworkRegistry - Statistics', () => {
 
 		const stats = registry.getStats();
 
-		expect(stats.totalFrameworks).toEqual(7);
-		expect(stats.defaultFrameworks).toEqual(6);
+		expect(stats.totalFrameworks).toEqual(8);
+		expect(stats.defaultFrameworks).toEqual(7);
 		expect(stats.customFrameworks).toEqual(1);
 		expect(stats.supportedExtensions.includes('.custom')).toBeTruthy();
 	});

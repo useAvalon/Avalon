@@ -334,6 +334,7 @@ function detectFrameworkFromFileName(fileName: string): Framework {
   if (normalizedName.includes(".react.")) return "react";
   if (normalizedName.includes(".lit.")) return "lit";
   if (normalizedName.includes(".preact.")) return "preact";
+  if (normalizedName.includes(".qwik.")) return "qwik";
   
   // Check file extensions
   if (fileName.endsWith(".vue")) return "vue";

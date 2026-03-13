@@ -251,7 +251,7 @@ export class FrameworkRegistry {
 	 * Checks if a framework is a default framework
 	 */
 	private isDefaultFramework(name: string): boolean {
-		return ['preact', 'solid', 'vue', 'svelte', 'react', 'lit'].includes(name);
+		return ['preact', 'solid', 'vue', 'svelte', 'react', 'lit', 'qwik'].includes(name);
 	}
 
 	/**
@@ -434,6 +434,34 @@ export class FrameworkRegistry {
 					jsxPragmas: ['@jsxImportSource lit'],
 				},
 			},
+			qwik: {
+				name: 'qwik',
+				fileExtensions: ['.tsx', '.jsx'],
+				jsxImportSources: ['@builder.io/qwik'],
+				ssrModules: ['@builder.io/qwik/server'],
+				hydrationModules: ['@builder.io/qwik'],
+				detectionPatterns: {
+					imports: [
+						/^@builder\.io\/qwik$/,
+						/^@builder\.io\/qwik\//,
+						/from\s+['"]@builder\.io\/qwik['"]/,
+						/from\s+['"]@builder\.io\/qwik\/[^'"]+['"]/,
+					],
+					content: [
+						/\bcomponent\$/,
+						/\buseSignal\b/,
+						/\buseStore\b/,
+						/\buseTask\$/,
+						/\buseVisibleTask\$/,
+						/\buseResource\$/,
+						/\buseContext\b/,
+						/\$\(\s*\(/,
+						/from\s+['"]@builder\.io\/qwik['"]/,
+						/import\s+.*\s+from\s+['"]@builder\.io\/qwik['"]/,
+					],
+					jsxPragmas: ['@jsxImportSource @builder.io/qwik'],
+				},
+			},
 		};
 	}
 
@@ -481,7 +509,7 @@ export class FrameworkRegistry {
 		customFrameworks: number;
 		supportedExtensions: string[];
 	} {
-		const defaultFrameworkNames = new Set(['preact', 'solid', 'vue', 'svelte', 'react', 'lit']);
+		const defaultFrameworkNames = new Set(['preact', 'solid', 'vue', 'svelte', 'react', 'lit', 'qwik']);
 		const defaultCount = Array.from(this.frameworks.keys()).filter(name => defaultFrameworkNames.has(name)).length;
 
 		const allExtensions = new Set<string>();

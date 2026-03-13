@@ -10,3 +10,4 @@ export { VueHMRAdapter, vueAdapter } from './vue-adapter.ts';
 export { SvelteHMRAdapter, svelteAdapter } from './svelte-adapter.ts';
 export { SolidHMRAdapter, solidAdapter } from './solid-adapter.ts';
 export { LitHMRAdapter, litAdapter } from './lit-adapter.ts';
+export { QwikHMRAdapter, qwikAdapter } from './qwik-adapter.ts';

@@ -51,6 +51,11 @@ export function detectFrameworkFromPath(src: string): string {
     return "solid";
   }
   
+  // Qwik files (convention: .qwik.tsx or .qwik.jsx)
+  if (src.includes(".qwik.")) {
+    return "qwik";
+  }
+  
   // Default to Preact for .tsx and .jsx files
   return "preact";
 }
@@ -73,6 +78,10 @@ export function detectFrameworkFromContent(
   // For .tsx/.jsx files, analyze content to distinguish between Preact and Solid
   if (content.includes("solid-js")) {
     return "solid";
+  }
+  
+  if (content.includes("@builder.io/qwik")) {
+    return "qwik";
   }
   
   if (content.includes("preact")) {

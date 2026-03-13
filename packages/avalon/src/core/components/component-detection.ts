@@ -8,7 +8,7 @@
 export interface ComponentAnalysis {
 	hasScript: boolean;
 	hasHydrateFunction: boolean;
-	framework: 'vue' | 'svelte' | 'solid' | 'preact' | 'react' | 'lit' | 'unknown';
+	framework: 'vue' | 'svelte' | 'solid' | 'preact' | 'react' | 'lit' | 'qwik' | 'unknown';
 	recommendedStrategy: 'hydrate' | 'ssr-only';
 }
 
@@ -20,7 +20,7 @@ export interface DetectionResult {
 
 export interface ComponentMetadata {
 	path: string;
-	framework: 'vue' | 'svelte' | 'solid' | 'preact' | 'react' | 'lit';
+	framework: 'vue' | 'svelte' | 'solid' | 'preact' | 'react' | 'lit' | 'qwik';
 	hasScript: boolean;
 	hasHydrateFunction: boolean;
 	renderStrategy: 'hydrate' | 'ssr-only';
@@ -65,6 +65,12 @@ const FRAMEWORK_PATTERNS = {
 		hydratePatterns: ['LitElement', 'customElement', '@customElement'],
 		imports: ['lit', 'lit-element', 'lit/'],
 	},
+	qwik: {
+		fileExtensions: ['.tsx', '.jsx', '.qwik.tsx', '.qwik.jsx'],
+		scriptTags: [], // Qwik uses JSX with component$
+		hydratePatterns: ['component$', 'useSignal', 'useStore', 'useTask$', 'useVisibleTask$'],
+		imports: ['@builder.io/qwik', '@builder.io/qwik/'],
+	},
 } as const;
 
 /** Detect framework from explicit naming conventions in the file path */
@@ -72,6 +78,7 @@ function detectByNamingConvention(filePath: string): ComponentAnalysis['framewor
 	if (filePath.includes('.solid.')) return 'solid';
 	if (filePath.includes('.preact.')) return 'preact';
 	if (filePath.includes('.react.')) return 'react';
+	if (filePath.includes('.qwik.')) return 'qwik';
 	return null;
 }
 
@@ -97,6 +104,9 @@ function detectByExtension(filePath: string, content: string): ComponentAnalysis
 function detectJSXFramework(content: string): ComponentAnalysis['framework'] {
 	if (content.includes('solid-js') || content.includes('from "solid-js"') || content.includes("from 'solid-js'")) {
 		return 'solid';
+	}
+	if (content.includes('@builder.io/qwik') || content.includes('from "@builder.io/qwik"') || content.includes("from '@builder.io/qwik'")) {
+		return 'qwik';
 	}
 	if (content.includes('preact') || content.includes('from "preact"') || content.includes("from 'preact'")) {
 		return 'preact';
@@ -150,6 +160,7 @@ export function hasScriptSection(content: string, framework: ComponentAnalysis['
 		case 'solid':
 		case 'preact':
 		case 'react':
+		case 'qwik':
 			// JSX frameworks inherently have script content
 			return (
 				content.includes('function') || content.includes('=>') || content.includes('const') || content.includes('let')
@@ -229,6 +240,13 @@ export function hasHydrateFunction(content: string, framework: ComponentAnalysis
 				(content.includes('render') && content.includes('react-dom'))
 			);
 
+		case 'qwik':
+			// Qwik uses resumability instead of hydration — component$ is the marker
+			return (
+				content.includes('component$') ||
+				content.includes('@builder.io/qwik')
+			);
+
 		default:
 			return false;
 	}
@@ -286,6 +304,10 @@ export function extractPreactScript(content: string): string {
 	return extractJSXScript(content);
 }
 
+function extractQwikScript(content: string): string {
+	return extractJSXScript(content);
+}
+
 /**
  * Extracts script content from React components (JSX)
  */
@@ -317,6 +339,11 @@ export function analyzeComponent(filePath: string, content: string): ComponentAn
 			case 'preact':
 			case 'react':
 				// JSX frameworks typically need hydration if they have script content
+				recommendedStrategy = 'hydrate';
+				break;
+			
+			case 'qwik':
+				// Qwik uses resumability — components with component$ always resume on client
 				recommendedStrategy = 'hydrate';
 				break;
 			
@@ -409,6 +436,7 @@ const FRAMEWORK_HYDRATION_REASONS: Record<string, string> = {
 	svelte: 'Svelte component with script section - uses Svelte hydration system',
 	vue: 'Vue component with script section - uses Vue integration system',
 	lit: 'Lit component detected - Web Components require client-side registration',
+	qwik: 'Qwik component detected - uses resumability instead of hydration',
 };
 
 /**

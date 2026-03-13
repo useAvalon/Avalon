@@ -20,7 +20,7 @@ export interface SidecarPluginOptions {
 const SKIP_FRAMEWORKS = new Set(["react", "preact"]);
 
 /** File extensions that qualify as island source files for HMR */
-const ISLAND_EXTENSIONS = [".vue", ".svelte", ".lit.ts", ".solid.tsx"];
+const ISLAND_EXTENSIONS = [".vue", ".svelte", ".lit.ts", ".solid.tsx", ".qwik.tsx"];
 
 /**
  * Check tsconfig.json for `allowArbitraryExtensions` and warn if missing.

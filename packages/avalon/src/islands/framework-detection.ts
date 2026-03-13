@@ -5,7 +5,7 @@ import { getCachedPath, setCachedPath } from './render-cache.ts';
 import { stat as fsStat, readFile } from 'node:fs/promises';
 
 /** Known synchronous framework types (excludes 'unknown') */
-type SyncFramework = 'solid' | 'vue' | 'svelte' | 'preact' | 'react' | 'lit';
+type SyncFramework = 'solid' | 'vue' | 'svelte' | 'preact' | 'react' | 'lit' | 'qwik';
 
 /**
  * Resolve an island path using the island registry.
@@ -305,6 +305,9 @@ function detectFrameworkFromFallback(normalizedSrc: string): SyncFramework {
 	if (normalizedSrc.includes('.solid.') || normalizedSrc.toLowerCase().includes('solid')) {
 		return 'solid';
 	}
+	if (normalizedSrc.includes('.qwik.') || normalizedSrc.toLowerCase().includes('qwik')) {
+		return 'qwik';
+	}
 	if (normalizedSrc.includes('react') || normalizedSrc.toLowerCase().includes('react')) {
 		return 'react';
 	}
@@ -345,6 +348,7 @@ function detectFrameworkFromContent(
 function detectFrameworkFromContentFallback(fileContent: string): Framework {
 	const checks = [
 		{ pattern: /solid-js|@jsxImportSource solid-js/, framework: 'solid' as const },
+		{ pattern: /@builder\.io\/qwik|@jsxImportSource @builder\.io\/qwik/, framework: 'qwik' as const },
 		{ pattern: /vue|Vue/, framework: 'vue' as const },
 		{ pattern: /svelte/, framework: 'svelte' as const },
 		{ pattern: /react/, framework: 'react' as const },

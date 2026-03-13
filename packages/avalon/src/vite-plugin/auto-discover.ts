@@ -35,6 +35,7 @@ const FRAMEWORK_NAMING_PATTERNS: Array<{
   { pattern: /\.react\.(tsx|jsx)$/, integration: "react" },
   { pattern: /\.lit\.(ts|js)$/, integration: "lit" },
   { pattern: /\.preact\.(tsx|jsx)$/, integration: "preact" },
+  { pattern: /\.qwik\.(tsx|jsx)$/, integration: "qwik" },
 ];
 
 /**
@@ -54,6 +55,9 @@ const CONTENT_DETECTION_PATTERNS: Array<{
   // Preact detection: imports from 'preact' or @jsxImportSource preact
   { pattern: /from\s+['"]preact['"]/, integration: "preact" },
   { pattern: /@jsxImportSource\s+preact/, integration: "preact" },
+  // Qwik detection: imports from '@builder.io/qwik' or @jsxImportSource @builder.io/qwik
+  { pattern: /from\s+['"]@builder\.io\/qwik['"]/, integration: "qwik" },
+  { pattern: /@jsxImportSource\s+@builder\.io\/qwik/, integration: "qwik" },
 ];
 
 /**
@@ -300,12 +304,14 @@ export function getSupportedExtensions(): readonly string[] {
  * @param pagesDir - Path to the pages directory
  * @param layoutsDir - Path to the layouts directory
  * @param projectRoot - Optional project root for resolving relative paths
+ * @param modulesDir - Optional modules directory for modular architecture
  * @returns Set of discovered integration names
  */
 export async function discoverIntegrationsFromIslandUsage(
   pagesDir: string,
   layoutsDir: string,
-  projectRoot?: string
+  projectRoot?: string,
+  modulesDir?: string
 ): Promise<Set<IntegrationName>> {
   const discovered = new Set<IntegrationName>();
   const root = projectRoot ?? process.cwd();
@@ -315,6 +321,11 @@ export async function discoverIntegrationsFromIslandUsage(
     resolve(root, pagesDir),
     resolve(root, layoutsDir),
   ];
+  
+  // Also scan modules directory if provided (modular architecture)
+  if (modulesDir) {
+    dirsToScan.push(resolve(root, modulesDir));
+  }
   
   for (const dir of dirsToScan) {
     try {

@@ -21,6 +21,7 @@ export const VALID_INTEGRATION_NAMES: readonly IntegrationName[] = [
   "svelte",
   "solid",
   "lit",
+  "qwik",
 ] as const;
 
 /**

@@ -7,7 +7,7 @@
  */
 
 export interface FrameworkDetectionResult {
-	framework: 'preact' | 'solid' | 'vue' | 'svelte' | 'react' | 'lit' | 'unknown';
+	framework: 'preact' | 'solid' | 'vue' | 'svelte' | 'react' | 'lit' | 'qwik' | 'unknown';
 	confidence: 'high' | 'medium' | 'low';
 	evidence: string[];
 	warnings: string[];
@@ -92,6 +92,16 @@ export class EnhancedFrameworkDetector {
 			evidence.push('Explicit Lit naming convention (.lit.ts/.lit.js)');
 			return {
 				framework: 'lit',
+				confidence: 'high',
+				evidence,
+				warnings,
+			};
+		}
+
+		if (filePath.includes('.qwik.')) {
+			evidence.push('Explicit Qwik naming convention (.qwik.tsx/.qwik.jsx)');
+			return {
+				framework: 'qwik',
 				confidence: 'high',
 				evidence,
 				warnings,
@@ -411,6 +421,35 @@ export class EnhancedFrameworkDetector {
 						/import\s+.*\s+from\s+['"]lit['"]/,
 					],
 					jsxPragmas: ['@jsxImportSource lit'],
+				},
+			},
+			qwik: {
+				name: 'qwik',
+				fileExtensions: ['.tsx', '.jsx', '.qwik.tsx', '.qwik.jsx'],
+				jsxImportSources: ['@builder.io/qwik'],
+				ssrModules: ['@builder.io/qwik/server'],
+				hydrationModules: ['@builder.io/qwik'],
+				detectionPatterns: {
+					imports: [
+						/^@builder\.io\/qwik$/,
+						/^@builder\.io\/qwik\//,
+						/from\s+['"]@builder\.io\/qwik['"]/,
+						/from\s+['"]@builder\.io\/qwik\/[^'"]+['"]/,
+					],
+					content: [
+						/\bcomponent\$/,
+						/\buseSignal\b/,
+						/\buseStore\b/,
+						/\buseTask\$/,
+						/\buseVisibleTask\$/,
+						/\buseResource\$/,
+						/\buseContext\b/,
+						/\buseContextProvider\b/,
+						/\$\(\s*\(/,
+						/from\s+['"]@builder\.io\/qwik['"]/,
+						/import\s+.*\s+from\s+['"]@builder\.io\/qwik['"]/,
+					],
+					jsxPragmas: ['@jsxImportSource @builder.io/qwik'],
 				},
 			},
 		};

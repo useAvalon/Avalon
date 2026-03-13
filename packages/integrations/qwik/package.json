@@ -1,0 +1,15 @@
+{
+	"name": "@avalon/qwik",
+	"version": "0.1.0",
+	"type": "module",
+	"exports": {
+		".": "./mod.ts",
+		"./server": "./server/renderer.ts",
+		"./client": "./client/index.ts",
+		"./types": "./types.ts"
+	},
+	"dependencies": {
+		"@builder.io/qwik": "^1.19.0",
+		"vite": "8.0.0"
+	}
+}

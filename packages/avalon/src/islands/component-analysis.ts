@@ -198,7 +198,7 @@ export async function renderComponentSSROnly({
 			props,
 			children: renderResult.html, // Pass rendered HTML as children
 			ssr: true,
-			framework: framework as 'solid' | 'vue' | 'preact' | 'react' | 'svelte' | 'lit',
+			framework: framework as 'solid' | 'vue' | 'preact' | 'react' | 'svelte' | 'lit' | 'qwik',
 			ssrOnly: true,
 			renderOptions,
 			hydrationData: undefined, // No hydration data for SSR-only components

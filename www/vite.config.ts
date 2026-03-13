@@ -11,7 +11,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		// Shared layouts directory (root layout lives here)
 		layoutsDir: 'app/shared/layouts',
 
-		integrations: ['react', 'preact', 'vue', 'svelte'],
+		integrations: ['react', 'preact', 'vue', 'svelte', 'qwik'],
 		lazyIntegrations: true,
 
 		mdx: {
@@ -98,6 +98,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				'preact',
 				'preact/hooks',
 				'preact/jsx-runtime',
+				'@builder.io/qwik',
 			],
 		},
 
@@ -135,6 +136,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				'react-dom',
 				'react-dom/client',
 				'react-dom/server',
+				'@builder.io/qwik',
+				'@builder.io/qwik/server',
 			],
 		},
 
@@ -150,6 +153,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				{ find: '/@avalon/svelte/client', replacement: resolve('../packages/integrations/svelte/client/index.ts') },
 				{ find: '/@avalon/solid/client', replacement: resolve('../packages/integrations/solid/client/index.ts') },
 				{ find: '/@avalon/lit/client', replacement: resolve('../packages/integrations/lit/client/index.ts') },
+				{ find: '/@avalon/qwik/client', replacement: resolve('../packages/integrations/qwik/client/index.ts') },
 			],
 		},
 

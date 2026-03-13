@@ -239,6 +239,9 @@ async function loadIntegrationModule(framework) {
 		case 'lit':
 			// @ts-ignore - Vite resolves this at runtime
 			return import('/@avalon/lit/client');
+		case 'qwik':
+			// @ts-ignore - Vite resolves this at runtime
+			return import('/@avalon/qwik/client');
 		default:
 			throw new Error(`Unknown framework: ${framework}`);
 	}
