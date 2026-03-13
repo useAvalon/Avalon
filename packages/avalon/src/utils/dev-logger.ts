@@ -84,7 +84,7 @@ const DEFAULT_SLOW_RENDER_THRESHOLD = 100;
 
 /**
  * Log render timing information for an island component
- * Only logs in development mode
+ * Only logs in development mode AND when AVALON_VERBOSE=1 is set
  * Warns when render time exceeds the threshold
  * 
  * @param src - The island source path
@@ -96,11 +96,11 @@ export function logRenderTiming(
   durationMs: number, 
   threshold: number = DEFAULT_SLOW_RENDER_THRESHOLD
 ): void {
-  if (!isDev()) return;
+  if (!isDev() || !isVerbose()) return;
   
   if (durationMs > threshold) {
     console.warn(`⚠️ Slow island render: ${src} took ${durationMs.toFixed(2)}ms`);
-  } else if (isVerbose()) {
+  } else {
     console.log(`🏝️ ${src} rendered in ${durationMs.toFixed(2)}ms`);
   }
 }

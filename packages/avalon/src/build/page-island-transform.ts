@@ -466,7 +466,6 @@ export function pageIslandTransform(
     pagesDir = 'src/pages',
     layoutsDir = 'src/layouts',
     modules = null,
-    verbose = false,
   } = options;
 
   return {
@@ -487,13 +486,6 @@ export function pageIslandTransform(
       // Build metadata only for components actually used with island prop
       const islandMeta = buildIslandMeta(code, componentImports, id);
       if (islandMeta.size === 0) return null;
-
-      if (verbose) {
-        console.log(
-          '[page-island-transform] Transforming ' +
-            islandMeta.size + ' island component(s) in ' + id,
-        );
-      }
 
       let transformed =
         "import { renderIsland as __pageRenderIsland } from '@avalon/avalon';\n" + code;
@@ -520,10 +512,6 @@ export function pageIslandTransform(
             );
           }
         }
-      }
-
-      if (verbose) {
-        console.log('[page-island-transform] Transformed ' + id);
       }
 
       return { code: transformed, map: null };

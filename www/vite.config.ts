@@ -1,6 +1,5 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type UserConfig } from 'vite';
 import { resolve } from 'node:path';
-import type { UserConfig } from 'vite';
 import { avalon } from '../packages/avalon/src/vite-plugin/plugin.ts';
 import { agentOptimization } from '../packages/agent-optimization/mod.ts';
 
@@ -47,7 +46,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		},
 
 		autoDiscoverIntegrations: true,
-		verbose: true,
+		verbose: false,
 		showWarnings: false,
 	});
 
@@ -78,7 +77,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				},
 			}),
 			avalonPlugins,
-		],
+		].flat(),
 
 		optimizeDeps: {
 			include: [

@@ -54,7 +54,7 @@ export async function activateIntegrations(
   config: ResolvedAvalonConfig,
   activeIntegrations: Set<IntegrationName>
 ): Promise<void> {
-  const { integrations, verbose } = config;
+  const { integrations } = config;
 
   // Load explicitly specified integrations
   for (const name of integrations) {
@@ -68,18 +68,12 @@ export async function activateIntegrations(
 
     // Skip if already activated
     if (activeIntegrations.has(name)) {
-      if (verbose) {
-        console.log(`⏭️  Integration already active: ${name}`);
-      }
       continue;
     }
 
     try {
       await loadIntegration(name);
       activeIntegrations.add(name);
-      if (verbose) {
-        console.log(`✅ Activated integration: ${name}`);
-      }
     } catch (error) {
       throw new IntegrationError(
         `Failed to activate integration. Is @avalon/${name} installed?`,
@@ -102,7 +96,7 @@ export async function activateIntegrations(
 export async function activateSingleIntegration(
   name: string,
   activeIntegrations: Set<IntegrationName>,
-  verbose: boolean = false
+  _verbose: boolean = false
 ): Promise<boolean> {
   // Validate integration name
   if (!isValidIntegrationName(name)) {
@@ -114,18 +108,12 @@ export async function activateSingleIntegration(
 
   // Skip if already activated
   if (activeIntegrations.has(name)) {
-    if (verbose) {
-      console.log(`⏭️  Integration already active: ${name}`);
-    }
     return false;
   }
 
   try {
     await loadIntegration(name);
     activeIntegrations.add(name);
-    if (verbose) {
-      console.log(`✅ Activated integration: ${name}`);
-    }
     return true;
   } catch (error) {
     throw new IntegrationError(

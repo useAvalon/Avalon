@@ -156,7 +156,7 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 					const viteRoot = server.config.root || process.cwd();
 					scopedMiddlewareRoutes = await discoverScopedMiddleware({
 						baseDir: `${viteRoot}/src`,
-						devMode: verbose,
+						devMode: false,
 					});
 				}
 				return scopedMiddlewareRoutes;
@@ -266,7 +266,7 @@ async function handleScopedMiddleware(
 		context: {} as Record<string, unknown>,
 	} as unknown as H3Event;
 
-	const middlewareResponse = await executeScopedMiddleware(h3Event, middlewareRoutes, { devMode: verbose });
+	const middlewareResponse = await executeScopedMiddleware(h3Event, middlewareRoutes, { devMode: false });
 
 	const middlewareTime = performance.now() - middlewareStart;
 	if (middlewareTime > 100) {
@@ -358,13 +358,9 @@ async function prewarmCoreModules(server: ViteDevServer, verbose?: boolean): Pro
 	);
 
 	const succeeded = results.filter(r => r.status === 'fulfilled').length;
-	const failed = results.map((r, i) => (r.status === 'rejected' ? coreModules[i].path : null)).filter(Boolean);
 	const totalTime = performance.now() - prewarmStart;
 
-	if (failed.length > 0) {
-		console.warn(`⚠️ Failed to prewarm: ${failed.join(', ')}`);
-	}
-	if (verbose) {
+	if (verbose && succeeded > 0) {
 		console.log(`🔥 SSR ready in ${totalTime.toFixed(0)}ms (${succeeded}/${coreModules.length} core modules)`);
 	}
 }
@@ -451,7 +447,7 @@ function setupHMRCoordination(
 
 // ─── Virtual Module Generators ───────────────────────────────────────────────
 
-async function generatePageRoutesModule(config: ResolvedAvalonConfig, verbose?: boolean): Promise<string> {
+async function generatePageRoutesModule(config: ResolvedAvalonConfig, _verbose?: boolean): Promise<string> {
 	try {
 		const { getAllPageDirs } = await import('./module-discovery.ts');
 		const { discoverPageRoutesFromMultipleDirs } = await import('../nitro/route-discovery.ts');
@@ -463,18 +459,13 @@ async function generatePageRoutesModule(config: ResolvedAvalonConfig, verbose?: 
 			process.cwd()
 		);
 		
-		if (verbose && pageDirs.length > 1) {
-			console.log(`[nitro-integration] Discovering routes from ${pageDirs.length} page directories`);
-		}
-		
 		const routes = await discoverPageRoutesFromMultipleDirs(pageDirs, {
 			developmentMode: config.isDev,
 		});
 		
 		const routesJson = JSON.stringify(routes, null, 2);
 		return `export const pageRoutes = ${routesJson};\nexport default pageRoutes;\n`;
-	} catch (error) {
-		console.warn('[nitro-integration] Failed to discover page routes:', error);
+	} catch {
 		return `export const pageRoutes = [];\nexport default pageRoutes;\n`;
 	}
 }
@@ -564,14 +555,7 @@ async function handleSSRRequest(
 		// Collect CSS from layout files and merge with page CSS
 		for (const layoutFile of layoutFiles) {
 			const layoutCss = await collectCssFromModuleGraph(server, layoutFile);
-			if (config.verbose) {
-				console.log(`[SSR] Collected ${layoutCss.length} CSS files from layout: ${layoutFile}`);
-			}
 			cssContents.push(...layoutCss);
-		}
-		
-		if (config.verbose) {
-			console.log(`[SSR] Total CSS files collected: ${cssContents.length}`);
 		}
 
 		let html: string;
@@ -592,14 +576,6 @@ async function handleSSRRequest(
 
 		// Inject collected CSS into the HTML so styles are present on first paint
 		if (cssContents.length > 0) {
-			if (config.verbose) {
-				console.log(`[SSR] Injecting ${cssContents.length} CSS files into HTML`);
-				console.log(`[SSR] HTML has </head>: ${html.includes('</head>')}`);
-				// Log first 100 chars of each CSS file
-				cssContents.forEach((css, i) => {
-					console.log(`[SSR] CSS ${i}: ${css.length} chars, starts with: ${css.slice(0, 100).replace(/\n/g, ' ')}`);
-				});
-			}
 			html = injectSsrCss(html, cssContents);
 		}
 

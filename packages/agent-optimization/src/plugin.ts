@@ -9,7 +9,7 @@
 
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
-import type { Plugin, ViteDevServer } from 'vite';
+import type { Plugin, PluginOption, ViteDevServer } from 'vite';
 import { validateConfig } from './config.ts';
 import type { AgentOptimizationConfigInput, SitemapConfig, LlmsConfig } from './config.ts';
 import { routesToSitemapEntries, buildSitemapXml } from './sitemap.ts';
@@ -22,8 +22,11 @@ import type { ResolvedLlmsConfig, LlmsRoute } from './llms.ts';
 
 /**
  * Create the AI agent optimization Vite plugin array.
+ * 
+ * Returns PluginOption[] to avoid TypeScript's excessive stack depth issues
+ * when comparing Plugin<any> arrays in Vite 8's complex type system.
  */
-export function agentOptimization(config: AgentOptimizationConfigInput): Plugin[] {
+export function agentOptimization(config: AgentOptimizationConfigInput): PluginOption[] {
   const validatedConfig = validateConfig(config);
   const plugins: Plugin[] = [];
 
@@ -174,7 +177,7 @@ export function agentOptimization(config: AgentOptimizationConfigInput): Plugin[
     },
   });
 
-  return plugins;
+  return plugins as PluginOption[];
 }
 
 

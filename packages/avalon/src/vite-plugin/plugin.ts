@@ -10,7 +10,7 @@
  * or layouts is automatically treated as an island. No fixed islands directory required.
  */
 
-import type { Plugin, ResolvedConfig, ViteDevServer } from "vite";
+import type { Plugin, PluginOption, ResolvedConfig, ViteDevServer } from "vite";
 import type {
   AvalonPluginConfig,
   IntegrationName,
@@ -67,10 +67,9 @@ export async function collectIntegrationPlugins(
   return [...litPlugins, ...plugins];
 }
 
-async function loadPluginsForIntegration(name: IntegrationName, verbose: boolean): Promise<Plugin[]> {
+async function loadPluginsForIntegration(name: IntegrationName, _verbose: boolean): Promise<Plugin[]> {
   const integration = registry.get(name);
   if (!integration) {
-    console.warn(`⚠️ Integration '${name}' not found in registry`);
     return [];
   }
   if (typeof integration.vitePlugin !== "function") return [];
@@ -78,13 +77,8 @@ async function loadPluginsForIntegration(name: IntegrationName, verbose: boolean
   try {
     const result = await integration.vitePlugin();
     const pluginArray = Array.isArray(result) ? result : [result];
-    const validPlugins = pluginArray.filter((p): p is Plugin => p != null);
-    if (verbose && validPlugins.length > 0) {
-      console.log(`   📦 Collected ${validPlugins.length} Vite plugin(s) from ${name}`);
-    }
-    return validPlugins;
-  } catch (error) {
-    console.warn(`   ⚠️ Could not load Vite plugins from ${name}:`, error);
+    return pluginArray.filter((p): p is Plugin => p != null);
+  } catch {
     return [];
   }
 }
@@ -117,9 +111,8 @@ async function discoverNeededIntegrations(
         needed.add(integration);
       }
     }
-  } catch (error) {
+  } catch {
     // If discovery fails, fall back to all configured integrations
-    console.warn("⚠️ Could not discover integrations, using all configured:", error);
     for (const integration of config.integrations) {
       needed.add(integration);
     }
@@ -137,17 +130,10 @@ async function resolveIntegrationsToLoad(
 
   const needed = await discoverNeededIntegrations(preResolvedConfig);
   if (needed.size === 0) {
-    if (preResolvedConfig.verbose) console.log(`   No integrations discovered, loading all configured`);
     return [...preResolvedConfig.integrations];
   }
 
-  const integrationsToLoad = Array.from(needed);
-  if (preResolvedConfig.verbose) {
-    console.log(`   Lazy mode: Loading ${integrationsToLoad.length} needed integration(s): ${integrationsToLoad.join(", ")}`);
-    const skipped = preResolvedConfig.integrations.filter(i => !needed.has(i));
-    if (skipped.length > 0) console.log(`   Skipping ${skipped.length} unused integration(s): ${skipped.join(", ")}`);
-  }
-  return integrationsToLoad;
+  return Array.from(needed);
 }
 
 async function setupMDXPlugins(preResolvedConfig: ResolvedAvalonConfig): Promise<Plugin[]> {
@@ -160,13 +146,11 @@ async function setupMDXPlugins(preResolvedConfig: ResolvedAvalonConfig): Promise
       development: true,
     });
     mdxPlugins.push(mdxIslandTransform({ verbose: preResolvedConfig.verbose }));
-    if (preResolvedConfig.verbose) {
-      console.log(`   JSX import source: ${preResolvedConfig.mdx.jsxImportSource}`);
-      console.log(`   Syntax highlighting: ${preResolvedConfig.mdx.syntaxHighlighting}`);
-    }
     return mdxPlugins;
   } catch (error) {
-    console.warn("⚠️ Could not configure MDX plugin:", error);
+    if (preResolvedConfig.showWarnings) {
+      console.warn("⚠️ Could not configure MDX plugin:", error);
+    }
     return [];
   }
 }
@@ -174,12 +158,8 @@ async function setupMDXPlugins(preResolvedConfig: ResolvedAvalonConfig): Promise
 function setupNitroPlugins(
   preResolvedConfig: ResolvedAvalonConfig,
   nitroConfig: NonNullable<AvalonPluginConfig["nitro"]>,
-  verbose?: boolean
+  _verbose?: boolean
 ): { plugins: Plugin[]; options: NitroConfigOutput } {
-  if (verbose) {
-    console.log("🚀 Avalon Nitro integration enabled");
-    console.log(`   Preset: ${nitroConfig.preset ?? "node-server"}`);
-  }
   const { plugins, nitroOptions } = createNitroIntegration(preResolvedConfig, nitroConfig);
   globalThis.__nitroConfig = nitroOptions;
   return { plugins, options: nitroOptions };
@@ -191,7 +171,6 @@ async function runAutoDiscovery(
   activeIntegrations: Set<IntegrationName>
 ): Promise<void> {
   if (!resolvedConfig.autoDiscoverIntegrations) return;
-  if (resolvedConfig.verbose) console.log("   Auto-discovering integrations from island usage...");
 
   try {
     const discovered = await discoverIntegrationsFromIslandUsage(
@@ -203,7 +182,6 @@ async function runAutoDiscovery(
       if (activeIntegrations.has(name)) continue;
       try {
         await activateSingleIntegration(name, activeIntegrations, resolvedConfig.verbose);
-        if (resolvedConfig.verbose) console.log(`   ✅ Auto-discovered integration: ${name}`);
       } catch (error) {
         if (resolvedConfig.showWarnings) console.warn(`   ⚠️ Could not auto-load integration: ${name}`, error);
       }
@@ -223,8 +201,6 @@ function runValidation(
   if (!validationSummary.allValid) {
     console.error(formatValidationResults(validationSummary));
     if (resolvedConfig.showWarnings) console.warn("   ⚠️ Some integrations have validation issues.");
-  } else if (resolvedConfig.verbose) {
-    console.log(`   ✅ All ${activeIntegrations.size} integration(s) validated successfully`);
   }
 }
 
@@ -232,9 +208,11 @@ function runValidation(
  * Creates the Avalon Vite plugin array
  *
  * @param config - Avalon configuration options
- * @returns A promise that resolves to an array of Vite plugins that handle all Avalon functionality
+ * @returns A promise that resolves to an array of Vite plugins that handle all Avalon functionality.
+ *          Returns PluginOption[] to avoid TypeScript's excessive stack depth issues
+ *          when comparing Plugin<any> arrays in Vite 8's complex type system.
  */
-export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
+export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[]> {
   // Resolved configuration with defaults applied
   let resolvedConfig: ResolvedAvalonConfig;
 
@@ -248,28 +226,16 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
   // We use isDev=true as a default; the actual value will be set in configResolved
   const preResolvedConfig = resolveConfig(config, true);
 
-  if (preResolvedConfig.verbose) {
-    console.log("🏝️ Avalon plugin initializing...");
-    console.log(`   Configured integrations: ${preResolvedConfig.integrations.join(", ") || "(none)"}`);
-  }
-
   const integrationsToLoad = await resolveIntegrationsToLoad(preResolvedConfig);
 
   if (integrationsToLoad.length > 0) {
-    if (preResolvedConfig.verbose) console.log("🏝️ Activating integrations...");
     await activateIntegrations({ ...preResolvedConfig, integrations: integrationsToLoad }, activeIntegrations);
   }
-
-  if (preResolvedConfig.verbose) console.log("🏝️ Avalon MDX configuration:");
   const mdxPlugins = await setupMDXPlugins(preResolvedConfig);
 
   let integrationPlugins: Plugin[] = [];
   if (activeIntegrations.size > 0) {
-    if (preResolvedConfig.verbose) console.log("🏝️ Collecting Vite plugins from integrations...");
     integrationPlugins = await collectIntegrationPlugins(activeIntegrations, preResolvedConfig.verbose);
-    if (preResolvedConfig.verbose && integrationPlugins.length > 0) {
-      console.log(`   Total integration plugins collected: ${integrationPlugins.length}`);
-    }
   }
 
   let nitroPlugins: Plugin[] = [];
@@ -295,42 +261,17 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
 
       globalThis.__avalonConfig = resolvedConfig;
 
-      const directoryResults = checkDirectoriesExist(resolvedConfig, resolvedViteConfig.root);
-      
-      if (resolvedConfig.verbose) {
-        console.log("🏝️ Avalon plugin initialized");
-        console.log(`   Pages directory: ${resolvedConfig.pagesDir}`);
-        console.log(`   Layouts directory: ${resolvedConfig.layoutsDir}`);
-        if (resolvedConfig.modules) {
-          console.log(`   Modules directory: ${resolvedConfig.modules.dir}`);
-          console.log(`   Module pages folder: ${resolvedConfig.modules.pagesDirName}`);
-          console.log(`   Module layouts folder: ${resolvedConfig.modules.layoutsDirName}`);
-        }
-        console.log(`   Development mode: ${isDev}`);
-        
-        logDirectoryCheckSummary(directoryResults, resolvedConfig.verbose);
-      }
+      checkDirectoriesExist(resolvedConfig, resolvedViteConfig.root);
     },
 
     async buildStart() {
-      if (resolvedConfig.verbose) console.log("🏝️ Avalon build starting...");
-
       await runAutoDiscovery(resolvedConfig, viteConfig?.root, activeIntegrations);
       runValidation(resolvedConfig, activeIntegrations);
-
-      if (resolvedConfig.verbose) {
-        console.log(`🏝️ Avalon ready with ${activeIntegrations.size} active integration(s)`);
-      }
     },
 
     configureServer(server: ViteDevServer) {
       
       (globalThis as any).__viteDevServer = server;
-
-      if (resolvedConfig.verbose) {
-        console.log("🏝️ Avalon dev server configured");
-        console.log("   Vite dev server reference stored for SSR");
-      }
     },
   };
 
@@ -354,7 +295,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<Plugin[]> {
     sidecarPlugin,
     ...nitroPlugins,
     ...otherIntegrationPlugins,
-  ];
+  ] as PluginOption[];
 }
 
 export function getResolvedConfig(): ResolvedAvalonConfig | undefined {

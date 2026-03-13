@@ -9,6 +9,6 @@
 		"./base": "./base-integration.ts"
 	},
 	"dependencies": {
-		"vite": "8.0.0-beta.15"
+		"vite": "8.0.0"
 	}
 }

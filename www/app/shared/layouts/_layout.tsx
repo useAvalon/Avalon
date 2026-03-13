@@ -5,7 +5,9 @@ import navStyles from '../styles/nav.module.css';
 import '../styles/main.css';
 
 export default async function RootLayout({ children, frontmatter }: Readonly<LayoutProps>) {
-	const pageTitle = frontmatter?.title ? `${frontmatter.title} — Avalon` : 'Avalon';
+	const title = typeof frontmatter?.title === 'string' ? frontmatter.title : null;
+	const description = typeof frontmatter?.description === 'string' ? frontmatter.description : null;
+	const pageTitle = title ? `${title} — Avalon` : 'Avalon';
 	const currentPath = (frontmatter as Record<string, unknown>)?.currentPath as string | undefined;
 
 	function isActive(href: string) {
@@ -19,7 +21,8 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 				<meta charset="UTF-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 				<title>{pageTitle}</title>
-				{frontmatter?.description && <meta name="description" content={String(frontmatter.description)} />}
+				<link rel="icon" href="/favicon.ico" />
+				{description && <meta name="description" content={description} />}
 				<link rel="preconnect" href="https://fonts.googleapis.com" />
 				<link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
 				<link

@@ -70,7 +70,7 @@
 		"unenv": "^2.0.0-rc.24",
 		"unified": "^11.0.0",
 		"unstorage": "^2.0.0-alpha.5",
-		"vite": "8.0.0-beta.15",
+		"vite": "8.0.0",
 		"xml2js": "^0.6.2",
 		"youch": "^4.1.0-beta.13",
 		"youch-core": "^0.3.3",
