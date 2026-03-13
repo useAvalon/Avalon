@@ -79,7 +79,7 @@ Hydrates only when a CSS media query matches. Useful for components that only ex
 
 ## Island placement
 
-Islands must live in `src/islands/` and use the `/** @jsxImportSource preact */` pragma (or the appropriate pragma for their framework).
+Islands are auto-discovered — any component can become an island by adding the `island` prop. JSX components require the appropriate pragma for their renderer:
 
 ```tsx
 /** @jsxImportSource preact */
