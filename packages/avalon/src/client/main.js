@@ -607,23 +607,43 @@ function showInlineHMRError(island, framework, src, error) {
 if (import.meta.hot) {
 	import.meta.hot.accept();
 
-	Promise.all([import('./hmr-coordinator.ts'), import('./adapters/index.ts')])
-		.then(
-			([
-				{ initializeHMR, getHMRCoordinator },
-				{ reactAdapter, preactAdapter, vueAdapter, svelteAdapter, solidAdapter, litAdapter },
-			]) => {
-				initializeHMR();
+	// Lazy HMR adapter registration - only load adapters for frameworks used on the page
+	import('./hmr-coordinator.ts')
+		.then(async ({ initializeHMR, getHMRCoordinator }) => {
+			initializeHMR();
 
-				const coordinator = getHMRCoordinator();
-				coordinator.registerAdapter('react', reactAdapter);
-				coordinator.registerAdapter('preact', preactAdapter);
-				coordinator.registerAdapter('vue', vueAdapter);
-				coordinator.registerAdapter('svelte', svelteAdapter);
-				coordinator.registerAdapter('solid', solidAdapter);
-				coordinator.registerAdapter('lit', litAdapter);
-			},
-		)
+			const coordinator = getHMRCoordinator();
+			
+			// Discover which frameworks are actually used on this page
+			const usedFrameworks = new Set();
+			document.querySelectorAll('[data-framework]').forEach(island => {
+				const framework = island.dataset.framework;
+				if (framework) usedFrameworks.add(framework);
+			});
+
+			// Only register adapters for frameworks that are used
+			const adapterLoaders = {
+				react: () => import('./adapters/react-adapter.ts').then(m => m.reactAdapter),
+				preact: () => import('./adapters/preact-adapter.ts').then(m => m.preactAdapter),
+				vue: () => import('./adapters/vue-adapter.ts').then(m => m.vueAdapter),
+				svelte: () => import('./adapters/svelte-adapter.ts').then(m => m.svelteAdapter),
+				solid: () => import('./adapters/solid-adapter.ts').then(m => m.solidAdapter),
+				lit: () => import('./adapters/lit-adapter.ts').then(m => m.litAdapter),
+				qwik: () => import('./adapters/qwik-adapter.ts').then(m => m.qwikAdapter),
+			};
+
+			for (const framework of usedFrameworks) {
+				const loader = adapterLoaders[framework];
+				if (loader) {
+					try {
+						const adapter = await loader();
+						coordinator.registerAdapter(framework, adapter);
+					} catch (error) {
+						console.warn(`[HMR] Failed to load adapter for ${framework}:`, error);
+					}
+				}
+			}
+		})
 		.catch(error => {
 			console.error('[HMR] Failed to initialize:', error);
 		});

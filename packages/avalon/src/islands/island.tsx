@@ -92,6 +92,12 @@ function classifyHeadContent(headContent: string): 'script' | 'meta' | 'link' | 
 	return 'other';
 }
 
+/** Extract CSS content from a <style> tag */
+function extractCSSFromStyleTag(styleTag: string): string | null {
+	const match = styleTag.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+	return match ? match[1].trim() : null;
+}
+
 /** Collect CSS and head content produced by an integration render */
 function collectRenderAssets(
 	renderResult: { css?: string; head?: string; scopeId?: string },
@@ -106,7 +112,12 @@ function collectRenderAssets(
 		const headContent = renderResult.head.trim();
 		const contentType = classifyHeadContent(headContent);
 		if (contentType === 'style') {
-			devWarn(`${logPrefix} Skipping <style> tag in head content`);
+			// Extract CSS from <style> tag and add to universal CSS collector
+			const cssContent = extractCSSFromStyleTag(headContent);
+			if (cssContent) {
+				devLog(`${logPrefix} Extracting CSS from head <style> tag`);
+				addUniversalCSS(cssContent, src, framework, (renderResult as { scopeId?: string }).scopeId);
+			}
 			return;
 		}
 		addUniversalHead(renderResult.head, src, framework, contentType);
@@ -286,7 +297,7 @@ async function renderWithExplicitFramework({
 		integration = await loadIntegration(framework);
 	} catch (error) {
 		devError(`${logPrefix} Failed to load ${framework} integration:`, error);
-		return Island({ src, condition, props, ssr: false, framework, renderOptions });
+		return Island({ src, condition, props, ssr: false, framework, ssrOnly, renderOptions });
 	}
 
 	try {
@@ -315,7 +326,7 @@ async function renderWithExplicitFramework({
 		});
 	} catch (error) {
 		devError(`${logPrefix} Fast path SSR failed:`, error);
-		return Island({ src, condition, props, ssr: false, framework, renderOptions });
+		return Island({ src, condition, props, ssr: false, framework, ssrOnly, renderOptions });
 	}
 }
 

@@ -192,9 +192,29 @@ function isLayoutFile(id: string, layoutsDir: string, modules?: PageIslandTransf
   return false;
 }
 
+/** Frameworks that are auto-wrapped as islands without requiring the `island` prop.
+ *  Qwik is resumable — it gets SSR'd with ssrOnly:true and the Qwikloader handles the rest. */
+const AUTO_ISLAND_FRAMEWORKS = new Set(['qwik']);
+
+/** Check if a component import is for an auto-island framework */
+function isAutoIslandImport(importPath: string): boolean {
+  const src = importPath; // raw import path, not resolved
+  const framework = detectFramework(src);
+  return framework !== undefined && AUTO_ISLAND_FRAMEWORKS.has(framework);
+}
+
 function hasIslandPropUsage(code: string, componentNames: string[]): boolean {
   return componentNames.some((name) => {
     const pattern = new RegExp('<' + name + String.raw`[\s][^>]*island[\s]*[={]`);
+    return pattern.test(code);
+  });
+}
+
+/** Check if any auto-island components are used as JSX elements */
+function hasAutoIslandUsage(code: string, imports: ComponentImport[]): boolean {
+  return imports.some((imp) => {
+    if (!isAutoIslandImport(imp.importPath)) return false;
+    const pattern = new RegExp('<' + imp.localName + String.raw`[\s/>]`);
     return pattern.test(code);
   });
 }
@@ -206,17 +226,25 @@ function buildIslandMeta(
   code: string,
   imports: ComponentImport[],
   fileId: string,
-): Map<string, { srcPath: string; framework: string | undefined; importPath: string }> {
-  const meta = new Map<string, { srcPath: string; framework: string | undefined; importPath: string }>();
+): Map<string, { srcPath: string; framework: string | undefined; importPath: string; autoIsland: boolean }> {
+  const meta = new Map<string, { srcPath: string; framework: string | undefined; importPath: string; autoIsland: boolean }>();
   for (const imp of imports) {
-    const pattern = new RegExp('<' + imp.localName + String.raw`[\s][^>]*island[\s]*[={]`);
-    if (pattern.test(code)) {
-      const srcPath = resolveIslandSrc(imp.importPath, fileId);
-      meta.set(imp.localName, {
-        srcPath,
-        framework: detectFramework(srcPath),
-        importPath: imp.importPath,
-      });
+    const srcPath = resolveIslandSrc(imp.importPath, fileId);
+    const framework = detectFramework(srcPath);
+
+    // Check for explicit island prop usage
+    const islandPattern = new RegExp('<' + imp.localName + String.raw`[\s][^>]*island[\s]*[={]`);
+    if (islandPattern.test(code)) {
+      meta.set(imp.localName, { srcPath, framework, importPath: imp.importPath, autoIsland: false });
+      continue;
+    }
+
+    // Check for auto-island frameworks (e.g. Qwik) used as JSX without island prop
+    if (framework && AUTO_ISLAND_FRAMEWORKS.has(framework)) {
+      const usagePattern = new RegExp('<' + imp.localName + String.raw`[\s/>]`);
+      if (usagePattern.test(code)) {
+        meta.set(imp.localName, { srcPath, framework, importPath: imp.importPath, autoIsland: true });
+      }
     }
   }
   return meta;
@@ -392,16 +420,30 @@ function buildRenderCall(
   parsed: ParsedJSXElement,
   srcPath: string,
   framework: string | undefined,
+  autoIsland: boolean,
 ): string {
-  const islandValue = parsed.islandProp!;
   const fwArg = framework ? ', framework: "' + framework + '"' : '';
   const propsArg = parsed.otherProps.length > 0
     ? ', props: { ' + parsed.otherProps.join(', ') + ' }'
     : '';
 
+  if (autoIsland) {
+    // Auto-island (e.g. Qwik): SSR-only, no client hydration needed
+    return '{await __pageRenderIsland({ src: "' + srcPath + '"' + fwArg
+      + propsArg
+      + ', ssr: true, ssrOnly: true'
+      + ' })}';
+  }
+
+  const islandValue = parsed.islandProp!;
+  // Qwik is resumable — SSR the HTML but skip client hydration.
+  // The Qwikloader handles resumption automatically.
+  const ssrOnlyArg = framework === 'qwik' ? ', ssrOnly: true' : '';
+
   return '{await __pageRenderIsland({ src: "' + srcPath + '"' + fwArg
     + ', ...(' + islandValue + ')'
     + propsArg
+    + ssrOnlyArg
     + ', ssr: (' + islandValue + ').ssr !== undefined ? (' + islandValue + ').ssr : true'
     + ' })}';
 }
@@ -421,6 +463,7 @@ function replaceIslandJSX(
   componentName: string,
   srcPath: string,
   framework: string | undefined,
+  autoIsland: boolean,
 ): string {
   const tag = '<' + componentName;
   let result = '';
@@ -435,6 +478,40 @@ function replaceIslandJSX(
       continue;
     }
 
+    // Skip JSX comments: {/* ... */}
+    // When we see '{' followed by '/*', skip until '*/' then '}'
+    if (code[i] === '{' && code[i + 1] === '/' && code[i + 2] === '*') {
+      const commentEnd = code.indexOf('*/', i + 3);
+      if (commentEnd !== -1) {
+        // Find the closing '}' after '*/'
+        let afterComment = commentEnd + 2;
+        while (afterComment < code.length && /\s/.test(code[afterComment])) afterComment++;
+        if (afterComment < code.length && code[afterComment] === '}') {
+          result += code.slice(i, afterComment + 1);
+          i = afterComment + 1;
+          continue;
+        }
+      }
+    }
+
+    // Skip single-line comments
+    if (code[i] === '/' && code[i + 1] === '/') {
+      const lineEnd = code.indexOf('\n', i);
+      const end = lineEnd === -1 ? code.length : lineEnd + 1;
+      result += code.slice(i, end);
+      i = end;
+      continue;
+    }
+
+    // Skip block comments
+    if (code[i] === '/' && code[i + 1] === '*') {
+      const commentEnd = code.indexOf('*/', i + 2);
+      const end = commentEnd === -1 ? code.length : commentEnd + 2;
+      result += code.slice(i, end);
+      i = end;
+      continue;
+    }
+
     // Check for component tag
     if (!isComponentTagStart(code, i, tag)) {
       result += code[i];
@@ -443,15 +520,15 @@ function replaceIslandJSX(
     }
 
     const parsed = parseJSXElement(code, i, componentName);
-    if (!parsed?.islandProp) {
-      // Not parseable or no island prop — emit as-is
+    if (!parsed || (!parsed.islandProp && !autoIsland)) {
+      // Not parseable, or no island prop and not an auto-island — emit as-is
       const end = parsed ? parsed.endIdx : i + 1;
       result += code.slice(i, end);
       i = end;
       continue;
     }
 
-    result += buildRenderCall(parsed, srcPath, framework);
+    result += buildRenderCall(parsed, srcPath, framework, autoIsland && !parsed.islandProp);
     i = parsed.endIdx;
   }
 
@@ -482,7 +559,7 @@ export function pageIslandTransform(
       if (componentImports.length === 0) return null;
 
       const componentNames = componentImports.map((i) => i.localName);
-      if (!hasIslandPropUsage(code, componentNames)) return null;
+      if (!hasIslandPropUsage(code, componentNames) && !hasAutoIslandUsage(code, componentImports)) return null;
 
       // Build metadata only for components actually used with island prop
       const islandMeta = buildIslandMeta(code, componentImports, id);
@@ -492,7 +569,7 @@ export function pageIslandTransform(
         "import { renderIsland as __pageRenderIsland } from '@avalon/avalon';\n" + code;
 
       for (const [name, meta] of islandMeta) {
-        transformed = replaceIslandJSX(transformed, name, meta.srcPath, meta.framework);
+        transformed = replaceIslandJSX(transformed, name, meta.srcPath, meta.framework, meta.autoIsland);
       }
 
       // Update imports for components used as islands

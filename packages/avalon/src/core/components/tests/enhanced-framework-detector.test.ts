@@ -5,7 +5,7 @@
  * including edge cases, performance tests, and confidence scoring validation.
  */
 
-import { describe, it, expect, assert } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
 	EnhancedFrameworkDetector,
 	type FrameworkDetectionResult,
@@ -29,8 +29,8 @@ export default function Counter() {
 
 		expect(result.framework).toEqual('preact');
 		expect(result.confidence).toEqual('high');
-		assert(result.evidence.some(e => e.includes('JSX import source')));
-		assert(result.evidence.some(e => e.includes('preact')));
+		expect(result.evidence.some(e => e.includes('JSX import source'))).toBeTruthy();
+		expect(result.evidence.some(e => e.includes('preact'))).toBeTruthy();
 	});
 
 	it('should detect Preact with import statements', () => {
@@ -52,7 +52,7 @@ export default function App() {
 
 		expect(result.framework).toEqual('preact');
 		expect(result.confidence === 'high' || result.confidence === 'medium').toBeTruthy();
-		assert(result.evidence.some(e => e.includes('Framework import')));
+		expect(result.evidence.some(e => e.includes('Framework import'))).toBeTruthy();
 	});
 
 	it('should detect Preact with content patterns', () => {
@@ -89,8 +89,8 @@ export default function Counter() {
 
 		expect(result.framework).toEqual('solid');
 		expect(result.confidence).toEqual('high');
-		assert(result.evidence.some(e => e.includes('JSX import source')));
-		assert(result.evidence.some(e => e.includes('solid-js')));
+		expect(result.evidence.some(e => e.includes('JSX import source'))).toBeTruthy();
+		expect(result.evidence.some(e => e.includes('solid-js'))).toBeTruthy();
 	});
 
 	it('should detect Solid with import statements', () => {
@@ -112,7 +112,7 @@ export default function App() {
 
 		expect(result.framework).toEqual('solid');
 		expect(result.confidence === 'high' || result.confidence === 'medium').toBeTruthy();
-		assert(result.evidence.some(e => e.includes('Framework import')));
+		expect(result.evidence.some(e => e.includes('Framework import'))).toBeTruthy();
 	});
 
 	it('should detect Solid with content patterns', () => {
@@ -131,7 +131,7 @@ export default function Component() {
 		const result = detector.detectFramework('Component.tsx', content);
 
 		expect(result.framework).toEqual('solid');
-		assert(result.evidence.some(e => e.includes('content pattern')));
+		expect(result.evidence.some(e => e.includes('content pattern'))).toBeTruthy();
 	});
 });
 
@@ -168,8 +168,8 @@ export default {
 
 		expect(result.framework).toEqual('vue');
 		expect(result.confidence).toEqual('high');
-		assert(result.evidence.some(e => e.includes('File extension')));
-		assert(result.evidence.some(e => e.includes('content pattern')));
+		expect(result.evidence.some(e => e.includes('File extension'))).toBeTruthy();
+		expect(result.evidence.some(e => e.includes('content pattern'))).toBeTruthy();
 	});
 
 	it('should detect Vue with composition API', () => {
@@ -192,7 +192,7 @@ watchEffect(() => {
 		const result = detector.detectFramework('Component.vue', content);
 
 		expect(result.framework).toEqual('vue');
-		assert(result.evidence.some(e => e.includes('Framework import')));
+		expect(result.evidence.some(e => e.includes('Framework import'))).toBeTruthy();
 	});
 });
 
@@ -231,8 +231,8 @@ describe('EnhancedFrameworkDetector - Svelte Detection', () => {
 
 		expect(result.framework).toEqual('svelte');
 		expect(result.confidence).toEqual('high');
-		assert(result.evidence.some(e => e.includes('File extension')));
-		assert(result.evidence.some(e => e.includes('content pattern')));
+		expect(result.evidence.some(e => e.includes('File extension'))).toBeTruthy();
+		expect(result.evidence.some(e => e.includes('content pattern'))).toBeTruthy();
 	});
 
 	it('should detect Svelte with stores', () => {
@@ -254,7 +254,7 @@ describe('EnhancedFrameworkDetector - Svelte Detection', () => {
 		const result = detector.detectFramework('Component.svelte', content);
 
 		expect(result.framework).toEqual('svelte');
-		assert(result.evidence.some(e => e.includes('Framework import')));
+		expect(result.evidence.some(e => e.includes('Framework import'))).toBeTruthy();
 	});
 });
 
@@ -272,7 +272,7 @@ export default function Component() {
 		// Should still attempt detection based on other evidence
 		expect(result.framework).toBeDefined();
 		expect(result.warnings.length > 0).toBeTruthy();
-		assert(result.warnings.some(w => w.includes('low confidence')));
+		expect(result.warnings.some(w => w.includes('low confidence'))).toBeTruthy();
 	});
 
 	it('should handle ambiguous content', () => {
@@ -492,7 +492,7 @@ export default function Component() {
 		const result = detector.detectFramework('Component.tsx', content);
 
 		expect(result.framework).toEqual('preact');
-		assert(result.evidence.some(e => e.includes('JSX import source: @jsxImportSource preact')));
+		expect(result.evidence.some(e => e.includes('JSX import source: @jsxImportSource preact'))).toBeTruthy();
 	});
 
 	it('should parse JSX import source from single-line comment', () => {

@@ -24,6 +24,8 @@ import type { MiddlewareRoute } from '../middleware/types.ts';
 import type { H3Event } from 'h3';
 import { generateErrorPage, generateFallback404 } from '../render/error-pages.ts';
 import { collectCssFromModuleGraph, injectSsrCss } from '../render/collect-css.ts';
+import { getUniversalCSSForHead } from '../islands/universal-css-collector.ts';
+import { getUniversalHeadForInjection } from '../islands/universal-head-collector.ts';
 
 export const VIRTUAL_MODULE_IDS = {
 	PAGE_ROUTES: 'virtual:avalon/page-routes',
@@ -768,6 +770,20 @@ function injectClientScript(html: string): string {
 	// Ensure DOCTYPE is present
 	if (!result.trim().toLowerCase().startsWith('<!doctype')) {
 		result = '<!DOCTYPE html>\n' + result;
+	}
+	
+	// Inject universal CSS from island framework renderers (Svelte scoped, Vue scoped, Solid CSS, etc.)
+	if (!result.includes('data-universal-ssr="true"')) {
+		const universalCSS = getUniversalCSSForHead(true);
+		if (universalCSS && result.includes('</head>')) {
+			result = result.replace('</head>', `${universalCSS}\n</head>`);
+		}
+	}
+	
+	// Inject universal head content (hydration scripts from frameworks like Solid)
+	const universalHead = getUniversalHeadForInjection(true);
+	if (universalHead && result.includes('</head>')) {
+		result = result.replace('</head>', `${universalHead}\n</head>`);
 	}
 	
 	// Skip if scripts already present

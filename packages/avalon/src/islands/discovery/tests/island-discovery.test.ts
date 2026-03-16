@@ -5,7 +5,7 @@ import { mkdir, writeFile, rm } from 'node:fs/promises';
  * Verifies the core discovery functionality for nested islands support.
  */
 
-import { describe, it, expect, assert } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { join, resolve } from 'node:path';
 
 import {
@@ -401,7 +401,7 @@ describe('Island Resolver - generates import paths', () => {
       expect(result).toBeDefined();
 
       // Import path should be relative
-      assert(result!.importPath.includes("Counter.tsx"));
+      expect(result!.importPath.includes("Counter.tsx")).toBeTruthy();
     } finally {
       await cleanupTestDirectory();
     }
@@ -421,8 +421,8 @@ describe('Island Resolver - suggests qualified names for disambiguation', () => 
       const suggestions = resolver.suggestQualifiedNames("Counter");
 
       expect(suggestions.length).toEqual(2);
-      assert(suggestions.includes("Counter"));
-      assert(suggestions.includes("modules/auth/Counter"));
+      expect(suggestions.includes("Counter")).toBeTruthy();
+      expect(suggestions.includes("modules/auth/Counter")).toBeTruthy();
     } finally {
       await cleanupTestDirectory();
     }
@@ -439,7 +439,7 @@ describe('Island Resolver - provides resolution order documentation', () => {
       const order = resolver.getResolutionOrder();
 
       expect(order.length > 0).toBeTruthy();
-      assert(order.some(line => line.includes("default")));
+      expect(order.some(line => line.includes("default"))).toBeTruthy();
     } finally {
       await cleanupTestDirectory();
     }
@@ -639,7 +639,7 @@ describe('Island Validator - warns on lowercase component name', () => {
       expect(result.valid).toEqual(true);
       expect(result.warnings.length).toEqual(1);
       expect(result.warnings[0].type).toEqual("deprecated-pattern");
-      assert(result.warnings[0].message.includes("PascalCase"));
+      expect(result.warnings[0].message.includes("PascalCase")).toBeTruthy();
     } finally {
       await cleanupTestDirectory();
     }
@@ -794,9 +794,9 @@ describe('Island Validator - formatValidationError includes file path', () => {
 
     const formatted = formatValidationError(error, "/project");
 
-    assert(formatted.includes("src/islands/Counter.tsx"));
-    assert(formatted.includes("No default export"));
-    assert(formatted.includes("Add export default"));
+    expect(formatted.includes("src/islands/Counter.tsx")).toBeTruthy();
+    expect(formatted.includes("No default export")).toBeTruthy();
+    expect(formatted.includes("Add export default")).toBeTruthy();
   });
 });
 
@@ -811,8 +811,8 @@ describe('Island Validator - formatValidationWarning includes suggestion', () =>
 
     const formatted = formatValidationWarning(warning, "/project");
 
-    assert(formatted.includes("Use PascalCase"));
-    assert(formatted.includes("Rename to Counter"));
+    expect(formatted.includes("Use PascalCase")).toBeTruthy();
+    expect(formatted.includes("Rename to Counter")).toBeTruthy();
   });
 });
 
@@ -825,9 +825,9 @@ describe('Island Validator - formatCircularDependency shows chain', () => {
 
     const formatted = formatCircularDependency(circular, "/project");
 
-    assert(formatted.includes("src/A.tsx"));
-    assert(formatted.includes("src/B.tsx"));
-    assert(formatted.includes("Circular dependency"));
+    expect(formatted.includes("src/A.tsx")).toBeTruthy();
+    expect(formatted.includes("src/B.tsx")).toBeTruthy();
+    expect(formatted.includes("Circular dependency")).toBeTruthy();
   });
 });
 
@@ -848,9 +848,9 @@ describe('Island Validator - formatValidationResult shows summary', () => {
 
     const formatted = formatValidationResult(result, "/project");
 
-    assert(formatted.includes("1 error"));
-    assert(formatted.includes("1 warning"));
-    assert(formatted.includes("Validation failed"));
+    expect(formatted.includes("1 error")).toBeTruthy();
+    expect(formatted.includes("1 warning")).toBeTruthy();
+    expect(formatted.includes("Validation failed")).toBeTruthy();
   });
 });
 

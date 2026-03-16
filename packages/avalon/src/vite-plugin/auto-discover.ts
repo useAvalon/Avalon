@@ -384,6 +384,11 @@ function isPageOrLayoutFile(fileName: string): boolean {
 /**
  * Extract integrations from a file by finding island prop usage and resolving imports
  */
+/** Import paths that indicate an auto-island framework (no `island` prop needed). */
+const AUTO_ISLAND_IMPORT_PATTERNS: Array<{ pattern: RegExp; integration: IntegrationName }> = [
+  { pattern: /\.qwik\./, integration: 'qwik' },
+];
+
 async function extractIslandIntegrations(
   filePath: string,
   projectRoot: string,
@@ -411,6 +416,16 @@ async function extractIslandIntegrations(
       const integration = await detectIntegrationFromResolvedPath(resolvedPath);
       if (integration) {
         discovered.add(integration);
+      }
+    }
+
+    // Also detect auto-island frameworks by import path alone (e.g. .qwik.tsx).
+    // These don't require the `island` prop so findIslandPropUsage won't find them.
+    for (const [, importPath] of importMap) {
+      for (const { pattern, integration } of AUTO_ISLAND_IMPORT_PATTERNS) {
+        if (pattern.test(importPath)) {
+          discovered.add(integration);
+        }
       }
     }
   } catch {

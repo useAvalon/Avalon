@@ -4,8 +4,25 @@ import { readFile, writeFile, unlink, stat } from "node:fs/promises";
 /**
  * Supported compound extensions for island files, ordered longest-first
  * so that `.solid.tsx` matches before `.tsx`.
+ *
+ * Sidecar naming strategy per extension type:
+ * - `.vue`, `.svelte`  → `Name.d.vue.ts`, `Name.d.svelte.ts`
+ *   (foreign extensions — allowArbitraryExtensions picks these up)
+ * - `.lit.ts`          → `Name.lit.d.ts`
+ *   (TypeScript declaration file lookup: for `Name.lit.ts` TS looks for `Name.lit.d.ts`)
+ * - `.solid.tsx`       → `Name.solid.d.ts`
+ *   (TypeScript declaration file lookup: for `Name.solid.tsx` TS looks for `Name.solid.d.ts`)
+ * - `.qwik.tsx`        → `Name.qwik.d.ts`
+ *   (same as solid.tsx)
  */
-const COMPOUND_EXTENSIONS = [".solid.tsx", ".lit.ts", ".svelte", ".vue"];
+const COMPOUND_EXTENSIONS = [".solid.tsx", ".qwik.tsx", ".lit.ts", ".svelte", ".vue"];
+
+/**
+ * Extensions where TypeScript's native `.d.ts` declaration lookup applies.
+ * For `Name.lit.ts`, TS looks for `Name.lit.d.ts`.
+ * For `Name.solid.tsx` / `Name.qwik.tsx`, TS looks for `Name.solid.d.ts` / `Name.qwik.d.ts`.
+ */
+const NATIVE_DECL_EXTENSIONS = new Set([".lit.ts", ".solid.tsx", ".qwik.tsx"]);
 
 /**
  * Compute the sidecar declaration file path for a given island file path.
@@ -21,17 +38,18 @@ export function getSidecarPath(islandFilePath: string): string {
 	for (const ext of COMPOUND_EXTENSIONS) {
 		if (basename.endsWith(ext)) {
 			const name = basename.slice(0, -ext.length);
-			// For .lit.ts the sidecar IS .d.lit.ts (replaces .lit.ts)
-			// For .vue/.svelte we append .ts: .d.vue.ts, .d.svelte.ts
-			// For .solid.tsx we append .ts: .d.solid.tsx.ts
-			const sidecarSuffix = ext.endsWith(".ts")
-				? `.d${ext}`
-				: `.d${ext}.ts`;
-			return path.join(dir, `${name}${sidecarSuffix}`);
+			if (NATIVE_DECL_EXTENSIONS.has(ext)) {
+				// For .lit.ts → Name.lit.d.ts  (TS declaration file lookup)
+				// For .solid.tsx / .qwik.tsx → Name.solid.d.ts / Name.qwik.d.ts
+				const innerExt = ext.endsWith(".ts") ? ext.slice(0, -3) : ext.slice(0, -4); // strip .ts or .tsx
+				return path.join(dir, `${name}${innerExt}.d.ts`);
+			}
+			// For .vue/.svelte → Name.d.vue.ts / Name.d.svelte.ts (allowArbitraryExtensions)
+			return path.join(dir, `${name}.d${ext}.ts`);
 		}
 	}
 
-	// Fallback for unknown extensions — shouldn't happen with supported islands
+	// Fallback
 	const ext = path.extname(islandFilePath);
 	const name = basename.slice(0, -ext.length);
 	return path.join(dir, `${name}.d${ext}.ts`);

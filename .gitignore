@@ -24,10 +24,13 @@ build/
 */.vite/
 
 # Auto-generated island sidecar declarations
+# Foreign-extension sidecars (allowArbitraryExtensions)
 *.d.vue.ts
 *.d.svelte.ts
-*.d.lit.ts
-*.d.solid.tsx.ts
+# Native TS declaration sidecars (.lit.ts → .lit.d.ts, .solid.tsx → .solid.d.ts, etc.)
+*.lit.d.ts
+*.solid.d.ts
+*.qwik.d.ts
 
 # OS files
 .DS_Store
