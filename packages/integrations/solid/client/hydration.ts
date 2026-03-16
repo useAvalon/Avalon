@@ -33,15 +33,12 @@ export function hydrate(
       throw new Error(`Invalid Solid component: expected function, got ${typeof Component}`);
     }
     
-    //  check element.hasAttribute('ssr') and use element.dataset.solidRenderId
     const element = container as HTMLElement;
     const hasSSRContent = element.children.length > 0;
-    const isHydrate = hasSSRContent; //  const isHydrate = client !== 'only'
     
-    // Get renderId from dataset ( element.dataset.solidRenderId)
+    // Get renderId from dataset
     const renderId = element.dataset.solidRenderId || element.dataset.renderId;
     
-    // Import Solid's functions ( imports createComponent, hydrate, render, Suspense)
     Promise.all([
       import("solid-js/web"),
       import("solid-js")
@@ -49,11 +46,8 @@ export function hydrate(
       const { hydrate: solidHydrate, render: solidRender, createComponent } = solidWeb;
       
       try {
-        //  const bootstrap = isHydrate ? hydrate : render
-        const bootstrap = isHydrate ? solidHydrate : solidRender;
+        const bootstrap = hasSSRContent ? solidHydrate : solidRender;
         
-        // Don't wrap in Suspense - it changes the structure and causes hydration mismatch
-        // Just hydrate the component directly
         bootstrap(
           () => createComponent(Component, props),
           element,
@@ -62,11 +56,9 @@ export function hydrate(
           }
         );
       } catch (error) {
-        // Graceful degradation - component remains as static HTML
         element.dataset.hydrationStatus = 'failed';
         const errorMsg = error instanceof Error ? error.message : String(error);
         element.dataset.hydrationError = errorMsg;
-        // Only log in dev
         if (process.env.NODE_ENV !== "production") {
           console.error(`Solid hydration failed:`, error);
         }
@@ -74,7 +66,6 @@ export function hydrate(
     }).catch((importError) => {
       element.dataset.hydrationStatus = 'failed';
       element.dataset.hydrationError = 'Failed to load Solid hydration module';
-      // Only log in dev
       if (process.env.NODE_ENV !== "production") {
         console.error(`Failed to import solid-js/web:`, importError);
       }

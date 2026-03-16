@@ -33,7 +33,9 @@ export async function loadComponent(src: string) {
  */
 async function loadComponentDev(src: string) {
 	const viteServer = (
-		globalThis as { __viteDevServer?: { ssrLoadModule: (path: string) => Promise<Record<string, unknown>> } }
+		globalThis as { __viteDevServer?: { 
+			ssrLoadModule: (path: string) => Promise<Record<string, unknown>>;
+		} }
 	).__viteDevServer;
 
 	if (viteServer) {
