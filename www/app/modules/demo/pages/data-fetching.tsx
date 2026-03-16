@@ -1,7 +1,7 @@
 /** @jsxImportSource preact */
 
 export const metadata = {
-	title: 'Data Fetching Demo — Avalon',
+	title: 'Data Fetching Demo',
 	description: 'Demo showing async data fetching in server-rendered pages',
 };
 

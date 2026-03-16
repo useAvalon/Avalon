@@ -209,6 +209,11 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 					const middlewareHandled = await handleScopedMiddleware(server, url, req, res, getScopedMiddleware, verbose);
 					if (middlewareHandled) return;
 
+					// Try streaming SSR first (streams shell before page data resolves)
+					const streamed = await handleStreamingSSRRequest(server, url, avalonConfig, res);
+					if (streamed) return;
+
+					// Fallback to buffered SSR for non-modular pages
 					const html = await handleSSRRequest(server, url, avalonConfig);
 					if (html) {
 						res.statusCode = 200;
@@ -516,9 +521,237 @@ export function isDevelopmentMode(): boolean {
 
 // ─── SSR Request Handling ────────────────────────────────────────────────────
 
+const STREAM_MARKER = '<!--AVALON_STREAM_BOUNDARY-->';
+
 let cachedSSRModule: unknown = null;
 
 let cachedLayoutModule: unknown = null;
+
+/**
+ * Streaming SSR handler — flushes the layout shell to the browser before
+ * the page component's async data fetching resolves.
+ *
+ * Flow:
+ * 1. Load page module + layout modules, collect CSS
+ * 2. Render shell layout with a marker placeholder as children
+ * 3. Split HTML on the marker → shellBefore / shellAfter
+ * 4. res.write(shellBefore) — browser starts parsing <html><head>... immediately
+ * 5. Render page content (awaits data fetches)
+ * 6. Render wrapper layouts around page content
+ * 7. res.write(wrappedContent + shellAfter)
+ * 8. res.end()
+ *
+ * Falls back to null (caller uses buffered path) when:
+ * - No modular layouts configured
+ * - Page not found
+ * - No shell layout detected
+ * - Page provides its own complete HTML document
+ */
+async function handleStreamingSSRRequest(
+	server: ViteDevServer,
+	url: string,
+	config: ResolvedAvalonConfig,
+	res: ServerResponse,
+): Promise<boolean> {
+	// Streaming only works with modular layouts (need shell + wrapper separation)
+	if (!config.modules) return false;
+
+	const pathname = url.split('?')[0];
+	const pageFile = await findPageFile(pathname, config, server);
+	if (!pageFile) return false;
+
+	try {
+		const pageModule = await server.ssrLoadModule(pageFile);
+		const PageComponent = pageModule.default;
+		if (!PageComponent) return false;
+
+		// Check if page wants to skip layouts entirely (provides own HTML)
+		const layoutConfig = pageModule.layoutConfig as { skipLayouts?: string[] } | undefined;
+
+		// Collect CSS
+		const cssContents = await collectCssFromModuleGraph(server, pageFile);
+		const layoutFiles = await discoverLayoutFiles(pathname, server);
+
+		const layoutModules: Array<{ file: string; module: Record<string, unknown> }> = [];
+		for (const layoutFile of layoutFiles) {
+			const layoutModule = await server.ssrLoadModule(layoutFile);
+			layoutModules.push({ file: layoutFile, module: layoutModule });
+		}
+		for (const layoutFile of layoutFiles) {
+			const layoutCss = await collectCssFromModuleGraph(server, layoutFile);
+			cssContents.push(...layoutCss);
+		}
+
+		if (layoutModules.length === 0) return false;
+
+		const { render: preactRender } = await server.ssrLoadModule('preact-render-to-string');
+		const { h } = await server.ssrLoadModule('preact');
+
+		const skipLayouts = layoutConfig?.skipLayouts || [];
+		const activeLayouts = layoutModules.filter(({ file }) => {
+			const layoutName = file.split('/').pop()?.replace(/\.[^.]+$/, '') || '';
+			return !skipLayouts.includes(layoutName);
+		});
+
+		const frontmatter = pageModule.frontmatter as Record<string, unknown> | undefined;
+		const metadata = pageModule.metadata as Record<string, unknown> | undefined;
+		const mergedFrontmatter = { ...frontmatter, ...metadata, currentPath: pathname };
+		const layoutProps = {
+			children: null as unknown,
+			frontmatter: mergedFrontmatter,
+			params: {},
+			url: pathname,
+		};
+
+		// Categorize layouts into shell vs wrapper
+		const shellLayouts: Array<{ module: Record<string, unknown> }> = [];
+		const wrapperLayouts: Array<{ module: Record<string, unknown> }> = [];
+
+		for (const layout of activeLayouts) {
+			const LayoutComponent = layout.module.default;
+			if (!LayoutComponent || typeof LayoutComponent !== 'function') continue;
+			try {
+				const testProps = { ...layoutProps, children: h('div', null, 'test') };
+				const testResult = (LayoutComponent as (props: unknown) => unknown)(testProps);
+				const resolvedTest = testResult instanceof Promise ? await testResult : testResult;
+				const testHtml = preactRender(resolvedTest);
+				if (testHtml.trim().startsWith('<html') || testHtml.includes('<!DOCTYPE')) {
+					shellLayouts.push(layout);
+				} else {
+					wrapperLayouts.push(layout);
+				}
+			} catch {
+				wrapperLayouts.push(layout);
+			}
+		}
+
+		// Need a shell layout to stream
+		if (shellLayouts.length === 0) return false;
+
+		// Render shell layout with stream marker as children
+		const { module: shellModule } = shellLayouts[shellLayouts.length - 1];
+		const ShellComponent = shellModule.default;
+		if (!ShellComponent || typeof ShellComponent !== 'function') return false;
+
+		let shellHtml: string;
+		try {
+			const shellProps = {
+				...layoutProps,
+				children: h('div', { dangerouslySetInnerHTML: { __html: STREAM_MARKER } }),
+			};
+			const shellResult = (ShellComponent as (props: unknown) => unknown)(shellProps);
+			const resolvedShell = shellResult instanceof Promise ? await shellResult : shellResult;
+			shellHtml = preactRender(resolvedShell);
+		} catch {
+			return false;
+		}
+
+		// Split on marker
+		const markerIndex = shellHtml.indexOf(STREAM_MARKER);
+		if (markerIndex === -1) return false;
+
+		let shellBefore = shellHtml.slice(0, markerIndex);
+		const shellAfter = shellHtml.slice(markerIndex + STREAM_MARKER.length);
+
+		// Inject CSS into the shell's <head>
+		let shellBeforeWithCss = shellBefore;
+		if (cssContents.length > 0) {
+			const cssTag = `<style data-avalon-ssr-css>${cssContents.join('\n')}</style>`;
+			if (shellBefore.includes('</head>')) {
+				shellBeforeWithCss = shellBefore.replace('</head>', `${cssTag}\n</head>`);
+			} else {
+				shellBeforeWithCss = shellBefore + cssTag;
+			}
+		}
+
+		// Ensure DOCTYPE
+		if (!shellBeforeWithCss.trim().toLowerCase().startsWith('<!doctype')) {
+			shellBeforeWithCss = '<!DOCTYPE html>\n' + shellBeforeWithCss;
+		}
+
+		// Inject universal CSS and head content
+		const universalCSS = getUniversalCSSForHead(true);
+		if (universalCSS && shellBeforeWithCss.includes('</head>')) {
+			shellBeforeWithCss = shellBeforeWithCss.replace('</head>', `${universalCSS}\n</head>`);
+		}
+		const universalHead = getUniversalHeadForInjection(true);
+		if (universalHead && shellBeforeWithCss.includes('</head>')) {
+			shellBeforeWithCss = shellBeforeWithCss.replace('</head>', `${universalHead}\n</head>`);
+		}
+
+		// ── FLUSH SHELL ──
+		res.statusCode = 200;
+		res.setHeader('Content-Type', 'text/html; charset=utf-8');
+		res.setHeader('Transfer-Encoding', 'chunked');
+		res.setHeader('X-Avalon-Streaming', '1');
+		res.flushHeaders();
+		res.write(shellBeforeWithCss);
+
+		// ── RENDER PAGE CONTENT (this is where data fetching happens) ──
+		let pageContent: string;
+		try {
+			const pageResult = typeof PageComponent === 'function'
+				? (PageComponent as () => unknown)()
+				: PageComponent;
+			const resolvedPage = pageResult instanceof Promise ? await pageResult : pageResult;
+			pageContent = preactRender(resolvedPage);
+		} catch (error) {
+			console.error('[SSR Streaming] Error rendering page component:', error);
+			pageContent = `<div>Error rendering page</div>`;
+		}
+
+		// Check if page returned a complete HTML doc (shouldn't happen with layouts, but safety check)
+		const isCompleteDoc = pageContent.trim().startsWith('<!DOCTYPE html>') ||
+			pageContent.trim().startsWith('<html');
+		if (isCompleteDoc) {
+			// Can't stream this — just send it and close
+			res.end(pageContent);
+			return true;
+		}
+
+		// Apply wrapper layouts around page content
+		let content = pageContent;
+		for (const { module: layoutModule } of wrapperLayouts) {
+			const LayoutComponent = layoutModule.default;
+			if (!LayoutComponent || typeof LayoutComponent !== 'function') continue;
+			try {
+				const props = {
+					...layoutProps,
+					children: h('div', { dangerouslySetInnerHTML: { __html: content } }),
+				};
+				const layoutResult = (LayoutComponent as (props: unknown) => unknown)(props);
+				const resolvedLayout = layoutResult instanceof Promise ? await layoutResult : layoutResult;
+				content = preactRender(resolvedLayout);
+			} catch (error) {
+				console.error('[SSR Streaming] Error rendering wrapper layout:', error);
+			}
+		}
+
+		// ── FLUSH PAGE CONTENT + SHELL TAIL ──
+		// Inject client scripts before closing </body>
+		let tail = content + shellAfter;
+		if (!tail.includes('/src/client/main.js') && !tail.includes('/@vite/client')) {
+			const bodyCloseIndex = tail.lastIndexOf('</body>');
+			if (bodyCloseIndex !== -1) {
+				tail = tail.slice(0, bodyCloseIndex) +
+					'\n<script type="module" src="/@vite/client"></script>\n' +
+					'<script type="module" src="/src/client/main.js"></script>\n' +
+					tail.slice(bodyCloseIndex);
+			}
+		}
+
+		res.end(tail);
+		return true;
+	} catch (error) {
+		// If we already started writing, we can't change status code
+		if (res.headersSent) {
+			res.end(`<div>Streaming SSR error: ${(error as Error).message}</div></body></html>`);
+			return true;
+		}
+		return false;
+	}
+}
+
 
 async function handleSSRRequest(
 	server: ViteDevServer,

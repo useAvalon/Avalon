@@ -1,0 +1,160 @@
+---
+title: Middleware
+description: Run server-side logic before pages render — auth checks, redirects, request logging, and more.
+---
+
+Middleware runs on the server before a page renders. Use it for authentication, redirects, logging, or injecting data into the request context. Avalon supports two kinds: global middleware that runs on every request, and scoped middleware that targets specific routes.
+
+## Global middleware
+
+Global middleware runs on every incoming request. Place files in the `middleware/` directory at your project root:
+
+```
+middleware/
+  logging.ts       ← runs on every request
+  cors.ts          ← runs on every request
+```
+
+These are standard Nitro middleware files. Use `defineEventHandler` from `h3`:
+
+```ts
+// middleware/logging.ts
+import { defineEventHandler } from 'h3';
+
+export default defineEventHandler((event) => {
+  console.log(`${event.method} ${event.path}`);
+  // Return nothing to continue to the next handler
+});
+```
+
+Nitro auto-discovers files in `middleware/` — no configuration needed. They run in alphabetical order, before any page or API route handler.
+
+## CORS example
+
+```ts
+// middleware/cors.ts
+import { defineEventHandler, setResponseHeaders } from 'h3';
+
+export default defineEventHandler((event) => {
+  setResponseHeaders(event, {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
+  });
+});
+```
+
+## Scoped middleware
+
+Scoped middleware runs only for routes within a specific directory. Create a `_middleware.ts` file in any pages directory:
+
+```
+app/modules/
+  admin/
+    pages/
+      _middleware.ts    ← runs for /admin/*
+      index.tsx
+      settings.tsx
+  blog/
+    pages/
+      _middleware.ts    ← runs for /blog/*
+      index.tsx
+      [slug].tsx
+```
+
+Export a default function that receives an H3 event. Return nothing to continue, or return a `Response` to stop the chain:
+
+```ts
+// app/modules/admin/pages/_middleware.ts
+import type { H3Event } from 'h3';
+
+export default async (event: H3Event) => {
+  const token = event.req.headers.get('Authorization');
+
+  if (!token) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  event.context.user = await validateToken(token);
+};
+```
+
+## Execution order
+
+Global middleware runs first (alphabetical), then scoped middleware runs parent-first by directory depth:
+
+```
+middleware/logging.ts                              ← 1st (global)
+middleware/cors.ts                                 ← 2nd (global, alphabetical)
+app/modules/admin/pages/_middleware.ts             ← 3rd (scoped, depth 0)
+app/modules/admin/pages/settings/_middleware.ts    ← 4th (scoped, depth 1)
+```
+
+## Passing data to pages
+
+Use `event.context` to pass data from middleware to downstream handlers:
+
+```ts
+// _middleware.ts
+export default async (event: H3Event) => {
+  event.context.locale = detectLocale(event.req.headers.get('Accept-Language'));
+};
+```
+
+## Redirects
+
+Return a `Response` with a redirect status:
+
+```ts
+export default async (event: H3Event) => {
+  const url = new URL(event.req.url);
+
+  if (url.pathname === '/old-page') {
+    return Response.redirect(new URL('/new-page', url.origin), 301);
+  }
+};
+```
+
+## Global vs scoped — when to use which
+
+| | Global (`middleware/`) | Scoped (`_middleware.ts`) |
+|---|---|---|
+| Runs on | Every request | Matching routes only |
+| Applies to | Pages + API routes | Pages only |
+| Location | Project root `middleware/` | Inside module `pages/` dirs |
+| Use for | Logging, CORS, security headers | Auth guards, locale detection, redirects |
+
+## Using other server frameworks
+
+Avalon uses Nitro as its server layer, and Nitro supports plugging in other web frameworks as the router. If you prefer Hono, Elysia, or another framework over h3, you can use them for your API routes and middleware.
+
+Create a `routes/_app.ts` file to mount a framework as the route handler:
+
+```ts
+// routes/_app.ts — using Hono
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+
+const app = new Hono();
+
+app.use('/*', cors());
+
+app.get('/api/hello', (c) => c.json({ message: 'Hello from Hono' }));
+
+export default app;
+```
+
+```ts
+// routes/_app.ts — using Elysia
+import { Elysia } from 'elysia';
+
+const app = new Elysia()
+  .get('/api/hello', () => ({ message: 'Hello from Elysia' }));
+
+export default app;
+```
+
+This works because Nitro v3 supports any framework that exports a Web API-compatible handler. The scoped `_middleware.ts` files still use h3 events since they're part of Avalon's page rendering pipeline.
+
+## Performance
+
+Scoped middleware is cached in production and reloaded via Vite in development so changes apply immediately. If any middleware takes longer than 100ms, Avalon logs a warning. The default timeout is 30 seconds.

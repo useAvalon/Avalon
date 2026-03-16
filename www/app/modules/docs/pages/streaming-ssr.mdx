@@ -1,0 +1,70 @@
+---
+title: Streaming SSR
+description: Avalon streams the layout shell to the browser before page data resolves, so users see content instantly.
+---
+
+Avalon renders HTML in two phases. The layout shell — head, CSS, navigation — is flushed to the browser immediately. The page content renders in the background while the browser is already painting. No configuration, no special APIs.
+
+```tsx
+export default async function BlogIndex() {
+  // The shell is already in the browser by the time this fetch starts
+  const posts = await fetch('https://api.example.com/posts').then(r => r.json());
+
+  return (
+    <ul>
+      {posts.map((post: any) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+## The first chunk
+
+The browser receives everything from the shell layout before the page component even starts executing:
+
+- `<!DOCTYPE html>` and `<html>`
+- The entire `<head>` — meta tags, stylesheets, font links, preload hints
+- Navigation, header, sidebar — anything the shell layout renders before `{children}`
+- All collected CSS from CSS Modules and global imports
+
+This means fonts and stylesheets start downloading while the server is still waiting on your API calls.
+
+## Enabled by default
+
+If your page has a shell layout (one that returns `<html>`), Avalon streams it. There's nothing to turn on.
+
+## Verifying in DevTools
+
+Streamed responses include these headers:
+
+```
+Transfer-Encoding: chunked
+X-Avalon-Streaming: 1
+```
+
+`X-Avalon-Streaming: 1` is the Avalon-specific signal. `Transfer-Encoding: chunked` alone doesn't prove streaming — proxies and CDNs add that too.
+
+You can also check the Network tab's waterfall: if sub-resources (CSS, fonts, scripts) start downloading before the document finishes, the shell was flushed early.
+
+## Fallback to buffered rendering
+
+Avalon sends the full HTML in one shot when:
+
+- No shell layout exists (no layout returns `<html>`)
+- The page skips all layouts via `layoutConfig.skipLayouts`
+- The page returns a complete HTML document itself
+- The page is outside the modular layout system
+
+Buffered pages still render on the server — they just don't get the two-phase flush.
+
+## Impact on Core Web Vitals
+
+| Metric | Without streaming | With streaming |
+|---|---|---|
+| FCP | Blocked until data resolves | Near-instant (shell only) |
+| LCP | Depends on data | Same — content still waits for data |
+| TTFB | After full render | After shell render |
+
+Streaming improves FCP and TTFB. LCP stays the same because the largest element (usually the page body) still depends on the data fetch. But the perceived performance is dramatically better — layout instead of a blank screen.

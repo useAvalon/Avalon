@@ -51,6 +51,10 @@ import { Image } from '@avalon/avalon/client';
 
 The component converts images to modern formats (WebP, AVIF), generates multiple sizes for responsive layouts, and adds `width`/`height` attributes to prevent layout shift. See the full [Image Optimization](/docs/image-optimization) guide for configuration options.
 
+## Streaming SSR
+
+Avalon streams the layout shell to the browser before page data resolves. This dramatically improves FCP on pages with async data fetching — the user sees the navigation and layout instantly while the server waits on API calls. Streaming is automatic for all pages using the modular layout system. See [Streaming SSR](/docs/streaming-ssr) for details.
+
 ## Cache headers
 
 Configure long-lived cache headers for immutable assets:

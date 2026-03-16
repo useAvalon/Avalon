@@ -109,6 +109,10 @@ export default async function BlogPost({ event }: { event: any }) {
 }
 ```
 
+## Streaming
+
+When your page fetches data, Avalon streams the layout shell (head, CSS, navigation) to the browser before the data resolves. The user sees the page layout instantly while the server waits on your API call. This happens automatically — no configuration or special APIs needed. See [Streaming SSR](/docs/streaming-ssr) for details.
+
 ## Caching
 
 For data that doesn't change often, use Nitro's route rules to cache the entire response:
