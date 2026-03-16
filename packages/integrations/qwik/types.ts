@@ -50,6 +50,6 @@ export interface QwikResumabilityOptions {
  */
 export function isQwikComponent(value: unknown): value is QwikComponent {
   if (typeof value !== "function") return false;
-  const comp = value as Record<string, unknown>;
+  const comp = value as unknown as Record<string, unknown>;
   return !!(comp.__brand === "QwikComponent" || comp.__qrl);
 }

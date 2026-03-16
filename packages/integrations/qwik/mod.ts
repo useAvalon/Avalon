@@ -68,12 +68,17 @@ export const qwikIntegration: Integration = {
    * 1. Transform .qwik.tsx/.qwik.jsx files using the Qwik optimizer
    * 2. Provide a virtual @qwik-client-manifest module for SSR
    * 
-   * Uses 'inline' entry strategy to keep components self-contained without
-   * chunk splitting, which works better for islands architecture.
+   * Uses 'hoist' entry strategy so QRL handlers are hoisted to the top
+   * level of the module as named exports while staying in the same file.
+   * A middleware intercepts Qwikloader ?qrl= requests and serves the
+   * transformed module so QRL handlers resolve correctly.
    */
   async vitePlugin(): Promise<Plugin | Plugin[]> {
     const { createOptimizer } = await import("@builder.io/qwik/optimizer");
     
+    // Resolved project root — set by configResolved, used by the transform
+    let projectRoot = process.cwd();
+
     // Virtual module plugin to provide @qwik-client-manifest for SSR
     // Qwik's server module requires this manifest, but we don't use Qwik's full build system
     const qwikManifestPlugin: Plugin = {
@@ -92,36 +97,67 @@ export const qwikIntegration: Integration = {
       },
     };
 
-    // Transform plugin for .qwik.tsx/.qwik.jsx files
-    // Uses the Qwik optimizer with 'inline' entry strategy
+    // Transform plugin for .qwik.tsx/.qwik.jsx files.
+    // Uses the Qwik optimizer with 'hoist' entry strategy — QRL handlers
+    // are hoisted to the top level as named exports in the same module.
     const qwikTransformPlugin: Plugin = {
       name: "avalon:qwik-transform",
       enforce: "pre",
 
+      configResolved(config) {
+        projectRoot = config.root;
+      },
+
       async transform(code, id, options) {
-        if (!id.includes(".qwik.")) return null;
+        const bareId = id.split("?")[0];
+        if (!bareId.includes(".qwik.")) return null;
 
         const isSSR = options?.ssr === true;
 
         try {
           const optimizer = await createOptimizer();
           const result = await optimizer.transformModules({
-            srcDir: process.cwd(),
-            input: [{ path: id, code }],
+            srcDir: projectRoot,
+            input: [{ path: bareId, code }],
             sourceMaps: true,
             transpileTs: true,
             transpileJsx: true,
-            // Use 'inline' strategy which keeps everything in one file with proper exports
-            // This works better for islands architecture than 'hook' which splits into chunks
-            entryStrategy: { type: "inline" },
+            entryStrategy: { type: "hoist" },
             mode: "dev",
             isServer: isSSR,
           });
 
           if (result.modules.length > 0) {
             const mainModule = result.modules.find((m) => !m.segment) || result.modules[0];
+            let outputCode = mainModule.code;
+
+            // With 'hoist' strategy, QRL handlers are hoisted to the top
+            // level as const declarations but NOT exported. The Qwikloader
+            // needs them as named exports. Extract symbol names from
+            // inlinedQrlDEV() calls and append an export statement.
+            if (!isSSR) {
+              const symbolNames = new Set<string>();
+              const qrlPattern = /inlinedQrlDEV\(\s*(\w+)\s*,\s*"(\w+)"/g;
+              let match;
+              while ((match = qrlPattern.exec(outputCode)) !== null) {
+                symbolNames.add(match[2]);
+              }
+
+              if (symbolNames.size > 0) {
+                outputCode += `\nexport { ${[...symbolNames].join(", ")} };\n`;
+              }
+
+              // Qwik's SSR wraps useVisibleTask$/useTask$ handlers with
+              // _hW (a core task-handler wrapper). The Qwikloader fetches
+              // the component module and looks for _hW as a named export.
+              // Re-export it from @builder.io/qwik so the runtime finds it.
+              if (code.includes("useVisibleTask$") || code.includes("useTask$")) {
+                outputCode += `export { _hW } from "@builder.io/qwik";\n`;
+              }
+            }
+
             return {
-              code: mainModule.code,
+              code: outputCode,
               map: mainModule.map,
             };
           }
@@ -132,7 +168,46 @@ export const qwikIntegration: Integration = {
       },
     };
 
-    return [qwikManifestPlugin, qwikTransformPlugin];
+    // QRL middleware plugin for dev mode.
+    // The Qwikloader fetches QRL handlers via URLs like:
+    //   /app/components/Counter.qwik.tsx?qrl=symbolName
+    // Vite's dev server doesn't run the transform pipeline for URLs
+    // with unknown query parameters. This plugin adds middleware that
+    // intercepts ?qrl= requests and serves the transformed base module
+    // (which contains all QRL handlers as named exports with hoist strategy).
+    const qwikQrlPlugin: Plugin = {
+      name: "avalon:qwik-qrl",
+      enforce: "pre",
+
+      configureServer(server) {
+        server.middlewares.use(async (req, res, next) => {
+          const url = req.url;
+          if (!url || !url.includes("?qrl=")) return next();
+
+          // Strip the ?qrl= query to get the base URL
+          const baseUrl = url.split("?")[0];
+
+          try {
+            // Use Vite's transformRequest to get the already-transformed module.
+            // This returns the same transformed code as the base URL, which
+            // with 'hoist' strategy contains all QRL handlers as named exports.
+            const result = await server.transformRequest(baseUrl);
+            if (result) {
+              res.setHeader("Content-Type", "application/javascript");
+              res.setHeader("Cache-Control", "no-cache");
+              res.end(result.code);
+              return;
+            }
+          } catch {
+            // Transform failed — fall through to default handling
+          }
+
+          next();
+        });
+      },
+    };
+
+    return [qwikManifestPlugin, qwikQrlPlugin, qwikTransformPlugin];
   },
 };
 

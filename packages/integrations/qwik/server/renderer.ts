@@ -34,7 +34,7 @@ export async function render(params: RenderParams): Promise<RenderResult> {
     // Qwik's renderToString signature: (rootNode, opts?) => Promise<RenderToStringResult>
     let renderToString: (
       rootNode: unknown,
-      opts?: { containerTagName?: string; containerAttributes?: Record<string, string> }
+      opts?: Record<string, unknown>
     ) => Promise<{ html: string }>;
 
     // Use Vite's ssrLoadModule if available (during dev), otherwise dynamic import
@@ -61,17 +61,19 @@ export async function render(params: RenderParams): Promise<RenderResult> {
     const qwikCore = await viteServer?.ssrLoadModule?.("@builder.io/qwik") || 
                      await import(/* @vite-ignore */ "@builder.io/qwik");
 
-    // With 'inline' entry strategy, component$ returns a QRL-wrapped component
+    // With 'segment' entry strategy, component$ returns a QRL-wrapped component
     // We use jsx() to create the element, which handles QRLs properly
     const jsxElement = qwikCore.jsx(Component, props || {});
 
     // Qwik's renderToString takes (rootNode, opts) - rootNode is the first argument
     // The q:container attribute marks the resumable boundary
+    // Set base to "/" so QRL URLs resolve from the web root in dev mode
     const result = await renderToString(jsxElement, {
       containerTagName: "div",
       containerAttributes: {
         "data-island-id": containerId,
       },
+      base: "/",
     });
 
     const html = typeof result === "string" ? result : result.html;
@@ -80,8 +82,20 @@ export async function render(params: RenderParams): Promise<RenderResult> {
       throw new Error(`renderToString returned invalid result: ${typeof html}`);
     }
 
+    // Post-process: replace absolute filesystem QRL paths with web-relative paths.
+    // The optimizer embeds the file's absolute path in QRL references during SSR.
+    // We strip the project root prefix so the Qwikloader can fetch them via Vite.
+    // e.g. /Users/.../www/app/components/Counter.qwik.tsx → /app/components/Counter.qwik.tsx
+    let processedHtml = html;
+    if (viteServer) {
+      const root = (viteServer as any).config?.root || process.cwd();
+      if (root && processedHtml.includes(root)) {
+        processedHtml = processedHtml.replaceAll(root, "");
+      }
+    }
+
     return {
-      html,
+      html: processedHtml,
       hydrationData: { src, props, framework: "qwik", condition, containerId, ssrOnly },
     };
   } catch (error) {
