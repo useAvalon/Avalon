@@ -4,60 +4,18 @@ import { gsap } from 'gsap';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 import styles from './LandingHero.module.css';
 
-// Framework icons as components
-const ReactIcon = () => (
-	<svg viewBox="0 0 24 24" width="24" height="24" fill="#61DAFB">
-		<circle cx="12" cy="12" r="2.2"/>
-		<ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" strokeWidth="1"/>
-		<ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" strokeWidth="1" transform="rotate(60 12 12)"/>
-		<ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" strokeWidth="1" transform="rotate(120 12 12)"/>
-	</svg>
-);
-
-const PreactIcon = () => (
-	<svg viewBox="0 0 24 24" width="24" height="24" fill="none">
-		<circle cx="12" cy="12" r="2" fill="#673AB8"/>
-		<ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" strokeWidth="1" transform="rotate(30 12 12)"/>
-		<ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" strokeWidth="1" transform="rotate(90 12 12)"/>
-		<ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" strokeWidth="1" transform="rotate(150 12 12)"/>
-	</svg>
-);
-
-const SolidIcon = () => (
-	<svg viewBox="0 0 24 24" width="24" height="24" fill="none">
-		<path d="M4 6l8-4 8 4v4l-8 4-8-4V6z" fill="#4F88C6" opacity="0.6"/>
-		<path d="M4 10l8 4 8-4v4l-8 4-8-4v-4z" fill="#4F88C6" opacity="0.8"/>
-		<path d="M4 14l8 4 8-4v4l-8 4-8-4v-4z" fill="#4F88C6"/>
-	</svg>
-);
-
-const LitIcon = () => (
-	<svg viewBox="0 0 24 24" width="24" height="24" fill="none">
-		<path d="M12 2L6 8l6 4-6 4 6 6 6-6-6-4 6-4z" fill="#324FFF"/>
-		<path d="M12 2l6 6-6 4-6-4z" fill="#324FFF" opacity="0.6"/>
-	</svg>
-);
-
-const VueIcon = () => (
-	<svg viewBox="0 0 24 24" width="24" height="24" fill="none">
-		<path d="M2 3h4l6 10L18 3h4L12 22z" fill="#42B883"/>
-		<path d="M6 3h3.5L12 8l2.5-5H18L12 15z" fill="#35495E"/>
-	</svg>
-);
-
-const SvelteIcon = () => (
-	<svg viewBox="0 0 24 24" width="24" height="24" fill="#FF3E00">
-		<path d="M19.1 3.5C17.1 1 13.5.5 11 2L5.7 5.5C4.5 6.3 3.7 7.5 3.4 8.8c-.2 1.1-.1 2.3.4 3.3-.3.5-.5 1-.6 1.6-.3 1.3-.1 2.7.5 3.9 2 2.5 5.6 3 8.1 1.5l5.3-3.5c1.2-.8 2-2 2.3-3.3.2-1.1.1-2.3-.4-3.3.3-.5.5-1 .6-1.6.3-1.3.1-2.7-.5-3.9z"/>
-	</svg>
+// Framework icon component using external SVG files
+const FwImg = ({ name, alt }: { name: string; alt: string }) => (
+	<img src={`/frameworks/${name}.svg`} alt={alt} width="24" height="24" loading="lazy" />
 );
 
 const frameworks = [
-	{ id: 'react', name: 'React', color: '#61DAFB', side: 'left', delay: 0, Icon: ReactIcon, posClass: styles.cardReact },
-	{ id: 'preact', name: 'Preact', color: '#673AB8', side: 'left', delay: 0.8, Icon: PreactIcon, posClass: styles.cardPreact },
-	{ id: 'solid', name: 'Solid', color: '#4F88C6', side: 'left', delay: 1.6, Icon: SolidIcon, posClass: styles.cardSolid },
-	{ id: 'lit', name: 'Lit', color: '#324FFF', side: 'right', delay: 2.4, Icon: LitIcon, posClass: styles.cardLit },
-	{ id: 'vue', name: 'Vue', color: '#42B883', side: 'right', delay: 3.2, Icon: VueIcon, posClass: styles.cardVue },
-	{ id: 'svelte', name: 'Svelte', color: '#FF3E00', side: 'right', delay: 4, Icon: SvelteIcon, posClass: styles.cardSvelte },
+	{ id: 'react', name: 'React', color: '#61DAFB', side: 'left', delay: 0, icon: 'react', posClass: styles.cardReact },
+	{ id: 'preact', name: 'Preact', color: '#673AB8', side: 'left', delay: 0.8, icon: 'preact', posClass: styles.cardPreact },
+	{ id: 'solid', name: 'Solid', color: '#4F88C6', side: 'left', delay: 1.6, icon: 'solid', posClass: styles.cardSolid },
+	{ id: 'qwik', name: 'Qwik', color: '#009dfd', side: 'right', delay: 2.4, icon: 'qwik', posClass: styles.cardQwik },
+	{ id: 'vue', name: 'Vue', color: '#42B883', side: 'right', delay: 3.2, icon: 'vue', posClass: styles.cardVue },
+	{ id: 'svelte', name: 'Svelte', color: '#FF3E00', side: 'right', delay: 4, icon: 'svelte', posClass: styles.cardSvelte },
 ];
 
 export default function LandingHero() {
@@ -290,6 +248,12 @@ export default function LandingHero() {
 
 	return (
 		<div className={styles.scene} ref={sceneRef}>
+			<div className={styles.topHeading}>
+				<p className={styles.sectionLabel}>Universal Rendering</p>
+				<h2 className={styles.heading}>One renderer. <span className={styles.headingEm}>Every</span> framework.</h2>
+				<p className={styles.subtitle}>Write components in any framework. Avalon compiles them into lightweight islands through a single pipeline.</p>
+			</div>
+
 			<svg className={styles.curvesSvg}>
 				<defs>
 					{frameworks.map(fw => (
@@ -306,7 +270,7 @@ export default function LandingHero() {
 
 			{frameworks.map(fw => (
 				<div key={fw.id} className={`${styles.fwCard} ${fw.posClass}`} ref={el => { cardRefs.current[fw.id] = el; }}>
-					<div className={styles.fwIcon}><fw.Icon /></div>
+					<div className={styles.fwIcon}><FwImg name={fw.icon} alt={fw.name} /></div>
 					<span className={styles.fwName}>{fw.name}</span>
 				</div>
 			))}
@@ -314,12 +278,12 @@ export default function LandingHero() {
 			<div className={styles.targetContainer} ref={targetRef}>
 				<div className={styles.targetGlow} ref={targetGlowRef}/>
 				<div className={styles.targetInner}>
-					<div className={styles.targetLabel}>Islands</div>
+					<div className={styles.targetLabel}>Avalon</div>
 					<div className={styles.targetSub}>Universal Renderer</div>
 					<div className={styles.collectedGrid}>
 						{frameworks.map(fw => (
 							<div key={fw.id} className={styles.collectedSlot} ref={el => { slotRefs.current[fw.id] = el; }}>
-								<fw.Icon />
+								<FwImg name={fw.icon} alt={fw.name} />
 							</div>
 						))}
 					</div>
@@ -330,23 +294,10 @@ export default function LandingHero() {
 				const fwClass = styles[`fw${fw.name}`] || '';
 				return (
 					<div key={fw.id} className={`${styles.transferEl} ${fwClass}`} ref={el => { transferRefs.current[fw.id] = el; }}>
-						<div className={styles.transferDot}><fw.Icon /></div>
+						<div className={styles.transferDot}><FwImg name={fw.icon} alt={fw.name} /></div>
 					</div>
 				);
 			})}
-
-			<div className={styles.bottomHeading}>
-				<div className={styles.pill}>
-					<span className={styles.newTag}>v0.1</span>
-					<span>Islands Architecture · Zero JS by default</span>
-				</div>
-				<h1 className={styles.heading}>Every framework. <span className={styles.headingEm}>One</span> architecture.</h1>
-				<p className={styles.subtitle}>Ship islands of interactivity with any framework. Zero JavaScript by default.</p>
-				<div className={styles.ctaRow}>
-					<a href="/docs/introduction" className={`${styles.ctaButton} ${styles.ctaPrimary}`}>Get Started</a>
-					<a href="https://github.com/useAvalon/Avalon" className={`${styles.ctaButton} ${styles.ctaSecondary}`} target="_blank" rel="noopener noreferrer">GitHub</a>
-				</div>
-			</div>
 		</div>
 	);
 }

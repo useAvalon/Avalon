@@ -1,4 +1,6 @@
+import PatternHero from '../components/PatternHero.tsx';
 import LandingHero from '../components/LandingHero.tsx';
+import FooterBrand from '../components/FooterBrand.tsx';
 import styles from './index.module.css';
 import btnStyles from '@shared/styles/buttons.module.css';
 import cardStyles from '@shared/styles/cards.module.css';
@@ -16,17 +18,20 @@ export const metadata = {
 export default async function HomePage() {
 	return (
 		<>
-			{/* Hero */}
+			{/* Pattern Hero */}
+			<PatternHero />
+
+			{/* Why Avalon */}
+			<WhyAvalonSection cardStyles={cardStyles} styles={styles} />
+
+			{/* Animated Hero — below the fold */}
 			<section className={styles.hero}>
 				<div className={styles.heroAurora} />
 				<div className={styles.heroGlow} />
 				<div className={styles.heroIsland}>
-					<LandingHero island={{ condition: 'on:client' }} />
+					<LandingHero island={{ condition: 'on:visible' }} />
 				</div>
 			</section>
-
-			{/* Why Avalon */}
-			<WhyAvalonSection cardStyles={cardStyles} styles={styles} />
 
 			{/* Frameworks */}
 			<FrameworksSection styles={styles} badgeStyles={badgeStyles} />
@@ -40,8 +45,57 @@ export default async function HomePage() {
 			{/* CTA */}
 			<CTASection styles={styles} btnStyles={btnStyles} />
 
+			{/* Arc horizon */}
+			<div className={styles.arcHorizon} aria-hidden="true">
+				<div className={styles.arcHaze} />
+				<div className={styles.arcEllipse} />
+				<div className={styles.arcBloom} />
+			</div>
+
 			{/* Footer */}
-			<Footer styles={styles} />
+			<footer className={styles.footerZone}>
+				<div className={styles.brandFloat} aria-hidden="true" data-brand-wrap>
+					<FooterBrand island={{ condition: 'on:visible' }} />
+				</div>
+				<div className={styles.footerInner}>
+					<div className={styles.footerGrid}>
+						<div>
+							<div className={styles.footerLogo}>
+								<img src="/logo.svg" alt="" className={styles.footerLogoImg} />
+								Avalon
+							</div>
+							<p className={styles.footerTagline}>Multi-framework islands architecture for the modern web.</p>
+						</div>
+						<div>
+							<h4 className={styles.footerHeading}>Docs</h4>
+							<nav className={styles.footerNav} aria-label="Docs navigation">
+								<a href="/docs/introduction" className={styles.footerLink}>Introduction</a>
+								<a href="/docs/installation" className={styles.footerLink}>Installation</a>
+								<a href="/docs/quick-start" className={styles.footerLink}>Quick Start</a>
+								<a href="/docs/islands-architecture" className={styles.footerLink}>Islands</a>
+							</nav>
+						</div>
+						<div>
+							<h4 className={styles.footerHeading}>Community</h4>
+							<nav className={styles.footerNav} aria-label="Community navigation">
+								<a href="https://github.com/useAvalon/Avalon" className={styles.footerLink} target="_blank" rel="noopener noreferrer">GitHub</a>
+								<a href="https://discord.gg/avalon" className={styles.footerLink} target="_blank" rel="noopener noreferrer">Discord</a>
+							</nav>
+						</div>
+						<div>
+							<h4 className={styles.footerHeading}>Resources</h4>
+							<nav className={styles.footerNav} aria-label="Resources navigation">
+								<a href="/blog" className={styles.footerLink}>Blog</a>
+								<a href="/blog/getting-started" className={styles.footerLink}>Getting Started</a>
+								<a href="/blog/advanced-features" className={styles.footerLink}>Advanced Features</a>
+							</nav>
+						</div>
+					</div>
+					<div className={styles.footerBottom}>
+						<p className={styles.footerCopyright}>Avalon © 2026</p>
+					</div>
+				</div>
+			</footer>
 		</>
 	);
 }
@@ -81,25 +135,26 @@ function WhyAvalonSection({ cardStyles, styles }: { cardStyles: Record<string, s
 
 function FrameworksSection({ styles, badgeStyles }: { styles: Record<string, string>; badgeStyles: Record<string, string> }) {
 	const frameworks = [
-		{ name: 'React', svg: <svg viewBox="0 0 24 24" width="40" height="40" fill="#61DAFB"><circle cx="12" cy="12" r="2.2"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" strokeWidth="1"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" strokeWidth="1" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4" fill="none" stroke="#61DAFB" strokeWidth="1" transform="rotate(120 12 12)"/></svg> },
-		{ name: 'Preact', svg: <svg viewBox="0 0 24 24" width="40" height="40" fill="none"><circle cx="12" cy="12" r="2" fill="#673AB8"/><ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" strokeWidth="1" transform="rotate(30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" strokeWidth="1" transform="rotate(90 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4.5" stroke="#673AB8" strokeWidth="1" transform="rotate(150 12 12)"/></svg> },
-		{ name: 'Vue', svg: <svg viewBox="0 0 24 24" width="40" height="40" fill="none"><path d="M2 3h4l6 10L18 3h4L12 22z" fill="#42B883"/><path d="M6 3h3.5L12 8l2.5-5H18L12 15z" fill="#35495E"/></svg> },
-		{ name: 'Svelte', svg: <svg viewBox="0 0 24 24" width="40" height="40" fill="#FF3E00"><path d="M19.1 3.5C17.1 1 13.5.5 11 2L5.7 5.5C4.5 6.3 3.7 7.5 3.4 8.8c-.2 1.1-.1 2.3.4 3.3-.3.5-.5 1-.6 1.6-.3 1.3-.1 2.7.5 3.9 2 2.5 5.6 3 8.1 1.5l5.3-3.5c1.2-.8 2-2 2.3-3.3.2-1.1.1-2.3-.4-3.3.3-.5.5-1 .6-1.6.3-1.3.1-2.7-.5-3.9z"/></svg> },
-		{ name: 'Solid', svg: <svg viewBox="0 0 24 24" width="40" height="40" fill="none"><path d="M4 6l8-4 8 4v4l-8 4-8-4V6z" fill="#4F88C6" opacity="0.6"/><path d="M4 10l8 4 8-4v4l-8 4-8-4v-4z" fill="#4F88C6" opacity="0.8"/><path d="M4 14l8 4 8-4v4l-8 4-8-4v-4z" fill="#4F88C6"/></svg> },
-		{ name: 'Lit', svg: <svg viewBox="0 0 24 24" width="40" height="40" fill="none"><path d="M12 2L6 8l6 4-6 4 6 6 6-6-6-4 6-4z" fill="#324FFF"/><path d="M12 2l6 6-6 4-6-4z" fill="#324FFF" opacity="0.6"/></svg> },
+		{ name: 'React', icon: 'react' },
+		{ name: 'Preact', icon: 'preact' },
+		{ name: 'Vue', icon: 'vue' },
+		{ name: 'Svelte', icon: 'svelte' },
+		{ name: 'Solid', icon: 'solid' },
+		{ name: 'Qwik', icon: 'qwik' },
+		{ name: 'Lit', icon: 'lit' },
 	];
 	return (
 		<section className={styles.section}>
 			<div className={styles.sectionInner}>
 				<div className={styles.sectionHeader}>
-					<span className={badgeStyles.pill}>Supported Frameworks</span>
-					<h2 className={styles.sectionTitle}>Use any framework</h2>
-					<p className={styles.sectionSubtitle}>Mix and match frameworks in the same project. Each island is bundled independently.</p>
+					<span className={badgeStyles.pill}>Ecosystem</span>
+					<h2 className={styles.sectionTitle}>First-class integrations</h2>
+					<p className={styles.sectionSubtitle}>Official adapters for seven frameworks with SSR, hydration, and HMR.</p>
 				</div>
 				<div className={styles.frameworksRow}>
 					{frameworks.map(fw => (
 						<div key={fw.name} className={styles.frameworkItem}>
-							{fw.svg}
+							<img src={`/frameworks/${fw.icon}.svg`} alt={fw.name} width="40" height="40" loading="lazy" />
 							<span className={styles.frameworkName}>{fw.name}</span>
 						</div>
 					))}
@@ -176,60 +231,3 @@ function CTASection({ styles, btnStyles }: { styles: Record<string, string>; btn
 	);
 }
 
-function Footer({ styles }: { styles: Record<string, string> }) {
-	return (
-		<>
-			{/* Arc horizon */}
-			<div className={styles.arcHorizon} aria-hidden="true">
-				<div className={styles.arcHaze} />
-				<div className={styles.arcEllipse} />
-				<div className={styles.arcBloom} />
-			</div>
-
-			{/* Light footer zone */}
-			<footer className={styles.footerZone}>
-				<div className={styles.brandFloat} aria-hidden="true">
-					<span className={styles.footerBrandText} data-footer-brand>Avalon</span>
-				</div>
-				<div className={styles.footerInner}>
-					<div className={styles.footerGrid}>
-						<div>
-							<div className={styles.footerLogo}>
-								<img src="/logo.svg" alt="" className={styles.footerLogoImg} />
-								Avalon
-							</div>
-							<p className={styles.footerTagline}>Multi-framework islands architecture for the modern web.</p>
-						</div>
-						<div>
-							<h4 className={styles.footerHeading}>Docs</h4>
-							<nav className={styles.footerNav} aria-label="Docs navigation">
-								<a href="/docs/introduction" className={styles.footerLink}>Introduction</a>
-								<a href="/docs/installation" className={styles.footerLink}>Installation</a>
-								<a href="/docs/quick-start" className={styles.footerLink}>Quick Start</a>
-								<a href="/docs/islands-architecture" className={styles.footerLink}>Islands</a>
-							</nav>
-						</div>
-						<div>
-							<h4 className={styles.footerHeading}>Community</h4>
-							<nav className={styles.footerNav} aria-label="Community navigation">
-								<a href="https://github.com/useAvalon/Avalon" className={styles.footerLink} target="_blank" rel="noopener noreferrer">GitHub</a>
-								<a href="https://discord.gg/avalon" className={styles.footerLink} target="_blank" rel="noopener noreferrer">Discord</a>
-							</nav>
-						</div>
-						<div>
-							<h4 className={styles.footerHeading}>Resources</h4>
-							<nav className={styles.footerNav} aria-label="Resources navigation">
-								<a href="/blog" className={styles.footerLink}>Blog</a>
-								<a href="/blog/getting-started" className={styles.footerLink}>Getting Started</a>
-								<a href="/blog/advanced-features" className={styles.footerLink}>Advanced Features</a>
-							</nav>
-						</div>
-					</div>
-					<div className={styles.footerBottom}>
-						<p className={styles.footerCopyright}>Avalon © 2026</p>
-					</div>
-				</div>
-			</footer>
-		</>
-	);
-}

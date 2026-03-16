@@ -1,7 +1,7 @@
 :root {
   /* Core */
   --avalon-blue: #1F6AD3;
-  --avalon-deep: #0F0F35;
+  --avalon-deep: #0A0E1A;
   --avalon-black: #050510;
   --avalon-white: #FFFFFF;
 
@@ -18,11 +18,26 @@
   --avalon-abyss: #1E293B;
 
   /* Gradients */
-  --avalon-gradient-horizon: linear-gradient(to top, #DFDFC3 0%, #5FB2B6 15%, #2CA1B3 25%, #0C85A4 35%, #163C6D 55%, #0F0F35 75%, #050510 100%);
-  --avalon-gradient-aurora: radial-gradient(ellipse 120% 40% at 50% 100%, #2CA1B3 0%, #1F6AD3 30%, #163C6D 55%, #0F0F35 75%, #050510 100%);
+  --avalon-gradient-horizon: linear-gradient(to top, #DFDFC3 0%, #5FB2B6 12%, #2CA1B3 22%, #0C85A4 32%, #163C6D 50%, #0A0E1A 75%);
+  --avalon-gradient-aurora: radial-gradient(ellipse 130% 50% at 50% 110%, #2CA1B3 0%, #1F6AD3 25%, #163C6D 45%, #0A0E1A 70%);
   --avalon-gradient-brand: linear-gradient(135deg, #1F6AD3, #2CA1B3);
-  --avalon-gradient-surface: linear-gradient(180deg, #1E293B, #0F0F35);
+  --avalon-gradient-surface: linear-gradient(180deg, #1E293B, #0A0E1A);
   --avalon-gradient-glow: radial-gradient(ellipse 100% 35% at 50% 105%, rgba(31,106,211,0.4) 0%, rgba(44,161,179,0.15) 40%, transparent 70%);
+  --avalon-gradient-mesh:
+    radial-gradient(ellipse 80% 60% at 20% 80%, rgba(31, 106, 211, 0.15) 0%, transparent 60%),
+    radial-gradient(ellipse 80% 60% at 80% 20%, rgba(44, 161, 179, 0.12) 0%, transparent 60%);
+
+  /* Patterns (encoded SVG) */
+  --pattern-grid: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M 48 0 L 0 0 0 48' fill='none' stroke='%231F6AD3' stroke-width='0.5' opacity='0.08'/%3E%3C/svg%3E");
+  --pattern-grid-white: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M 48 0 L 0 0 0 48' fill='none' stroke='%23ffffff' stroke-width='0.5' opacity='0.05'/%3E%3C/svg%3E");
+  --pattern-grid-sm: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M 24 0 L 0 0 0 24' fill='none' stroke='%231F6AD3' stroke-width='0.5' opacity='0.06'/%3E%3C/svg%3E");
+  --pattern-dots: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='1' fill='%231F6AD3' opacity='0.15'/%3E%3C/svg%3E");
+  --pattern-dots-cyan: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Ccircle cx='10' cy='10' r='1' fill='%232CA1B3' opacity='0.2'/%3E%3C/svg%3E");
+  --pattern-dots-white: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='8' cy='8' r='0.8' fill='%23ffffff' opacity='0.12'/%3E%3C/svg%3E");
+  --pattern-crosshatch: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Cpath d='M 0 0 L 20 20 M 20 0 L 0 20' fill='none' stroke='%231F6AD3' stroke-width='0.5' opacity='0.06'/%3E%3C/svg%3E");
+  --pattern-diamond: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Cpath d='M 16 0 L 32 16 L 16 32 L 0 16 Z' fill='none' stroke='%231F6AD3' stroke-width='0.5' opacity='0.08'/%3E%3C/svg%3E");
+  --pattern-diagonal: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Cpath d='M 0 16 L 16 0' fill='none' stroke='%231F6AD3' stroke-width='0.5' opacity='0.07'/%3E%3C/svg%3E");
+  --pattern-plus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Cpath d='M 16 10 L 16 22 M 10 16 L 22 16' fill='none' stroke='%231F6AD3' stroke-width='0.5' opacity='0.08'/%3E%3C/svg%3E");
 
   /* Typography */
   --font-sans: 'Instrument Sans', system-ui, sans-serif;
