@@ -1,0 +1,96 @@
+---
+title: Modules
+description: Organize your app into feature modules with co-located pages, layouts, and components.
+---
+
+Avalon uses a modular architecture where pages, layouts, and components are co-located by feature. Each module is a self-contained directory with its own pages, layouts, and components:
+
+```
+app/
+  modules/
+    home/
+      pages/index.tsx
+      layouts/_layout.tsx
+      components/Hero.tsx
+    blog/
+      pages/index.tsx
+      layouts/_layout.tsx
+      components/PostCard.tsx
+    docs/
+      pages/introduction.mdx
+      layouts/_layout.tsx
+      components/Sidebar.tsx
+  shared/
+    layouts/_layout.tsx
+    components/MobileNav.tsx
+    styles/main.css
+```
+
+## Configuration
+
+Point Avalon at your modules directory in the Vite config:
+
+```ts
+const avalonPlugins = await avalon({
+  modules: 'app/modules',
+  layoutsDir: 'app/shared/layouts',
+});
+```
+
+Or with full configuration:
+
+```ts
+const avalonPlugins = await avalon({
+  modules: {
+    dir: 'app/modules',
+    pagesDirName: 'pages',     // default
+    layoutsDirName: 'layouts', // default
+  },
+  layoutsDir: 'app/shared/layouts',
+});
+```
+
+## Route mapping
+
+Module names map to URL prefixes. A module named `blog` serves pages under `/blog`:
+
+| Module | File | URL |
+|--------|------|-----|
+| `home` | `pages/index.tsx` | `/` |
+| `blog` | `pages/index.tsx` | `/blog` |
+| `blog` | `pages/[slug].tsx` | `/blog/:slug` |
+| `docs` | `pages/introduction.mdx` | `/docs/introduction` |
+
+The `home`, `root`, `main`, and `index` module names are special — they map to `/` instead of `/home`.
+
+## Shared layouts
+
+The `layoutsDir` option points to shared layouts that wrap all modules. A root layout at `app/shared/layouts/_layout.tsx` wraps every page, while module-specific layouts nest inside it.
+
+Module layouts can skip shared layouts using `layoutConfig`:
+
+```tsx
+export const layoutConfig = {
+  skipLayouts: ['_layout'],
+};
+```
+
+## Shared code
+
+Put components, styles, and utilities used across modules in a `shared/` directory. Use path aliases for clean imports:
+
+```ts
+// vite.config.ts
+resolve: {
+  alias: [
+    { find: '@shared', replacement: resolve('app/shared') },
+    { find: '@modules', replacement: resolve('app/modules') },
+  ],
+}
+```
+
+```tsx
+// In any module
+import MobileNav from '@shared/components/MobileNav.tsx';
+import '@shared/styles/main.css';
+```

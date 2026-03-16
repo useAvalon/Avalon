@@ -27,7 +27,12 @@ export const SIDEBAR: SidebarCategory[] = [
 			{ title: 'MDX & Markdown', href: '/docs/mdx' },
 			{ title: 'Page Metadata', href: '/docs/metadata' },
 			{ title: 'Image Optimization', href: '/docs/image-optimization' },
+			{ title: 'Built-in Components', href: '/docs/built-in-components' },
+			{ title: 'Styling', href: '/docs/styling' },
+			{ title: 'Error Handling', href: '/docs/error-handling' },
+			{ title: 'Modules', href: '/docs/modules' },
 			{ title: 'Client-Side Scripts', href: '/docs/client-scripts' },
+			{ title: 'API Routes', href: '/docs/api-routes' },
 		],
 	},
 	{
@@ -53,6 +58,10 @@ export const SIDEBAR: SidebarCategory[] = [
 	{
 		label: 'GUIDES',
 		items: [
+			{ title: 'Data Loading', href: '/docs/guides/data-loading' },
+			{ title: 'Integrations', href: '/docs/guides/integrations' },
+			{ title: 'TypeScript', href: '/docs/guides/typescript' },
+			{ title: 'Environment Variables', href: '/docs/guides/environment-variables' },
 			{ title: 'Deployment', href: '/docs/guides/deployment' },
 			{ title: 'Performance', href: '/docs/guides/performance' },
 		],

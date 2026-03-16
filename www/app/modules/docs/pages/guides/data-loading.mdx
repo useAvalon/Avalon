@@ -1,0 +1,142 @@
+---
+title: Data Loading
+description: Fetching data in layouts and pages during server-side rendering.
+---
+
+Avalon pages and layouts are async server components. You can fetch data directly in the component function — no special loader API needed.
+
+## Fetching in pages
+
+Since pages render on the server, you can use `fetch`, database queries, or any async operation directly:
+
+```tsx
+export default async function BlogIndex() {
+  const posts = await fetch('https://api.example.com/posts').then(r => r.json());
+
+  return (
+    <ul>
+      {posts.map((post: any) => (
+        <li key={post.id}>
+          <a href={`/blog/${post.slug}`}>{post.title}</a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+This runs entirely on the server. The client receives pure HTML with zero JavaScript.
+
+## Fetching in layouts
+
+Layouts are also async. Use this for data that's shared across multiple pages, like navigation items or user session info:
+
+```tsx
+import type { LayoutProps } from '@avalon/avalon';
+
+export default async function DocsLayout({ children, frontmatter }: LayoutProps) {
+  const nav = await fetch('https://api.example.com/docs-nav').then(r => r.json());
+
+  return (
+    <div class="docs-layout">
+      <aside>
+        {nav.map((item: any) => (
+          <a href={item.href}>{item.title}</a>
+        ))}
+      </aside>
+      <main>{children}</main>
+    </div>
+  );
+}
+```
+
+## Using route parameters
+
+Access dynamic route parameters via the `event` prop:
+
+```tsx
+// pages/blog/[slug].tsx
+export default async function BlogPost({ event }: { event: any }) {
+  const slug = event.context.params?.slug;
+  const post = await fetch(`https://api.example.com/posts/${slug}`).then(r => r.json());
+
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <div dangerouslySetInnerHTML={{ __html: post.content }} />
+    </article>
+  );
+}
+```
+
+## Passing data to islands
+
+Islands hydrate on the client, so they can't call server-side APIs directly. Pass fetched data as serializable props:
+
+```tsx
+export default async function Dashboard() {
+  const stats = await fetch('https://api.example.com/stats').then(r => r.json());
+
+  return (
+    <div>
+      <h1>Dashboard</h1>
+      <StatsChart island={{ condition: 'on:visible' }} data={stats} />
+    </div>
+  );
+}
+```
+
+The `data` prop is serialized to JSON and sent to the client for hydration. Keep props small — avoid passing entire database records when you only need a few fields.
+
+## Error handling
+
+Wrap data fetching in try/catch to handle failures gracefully:
+
+```tsx
+export default async function BlogPost({ event }: { event: any }) {
+  const slug = event.context.params?.slug;
+
+  try {
+    const post = await fetch(`https://api.example.com/posts/${slug}`).then(r => {
+      if (!r.ok) throw new Error(`Post not found: ${slug}`);
+      return r.json();
+    });
+
+    return <article><h1>{post.title}</h1></article>;
+  } catch {
+    return <div><h1>Post not found</h1><a href="/blog">Back to blog</a></div>;
+  }
+}
+```
+
+## Caching
+
+For data that doesn't change often, use Nitro's route rules to cache the entire response:
+
+```ts
+// vite.config.ts
+nitro: {
+  routeRules: {
+    '/blog/**': {
+      cache: { maxAge: 300 }, // 5 minutes
+    },
+  },
+}
+```
+
+## Static data
+
+For data known at build time (like a sidebar config or feature flags), import it directly — no fetch needed:
+
+```tsx
+import { SIDEBAR } from '../utils/sidebar';
+
+export default function DocsLayout({ children }: LayoutProps) {
+  return (
+    <div>
+      <nav>{SIDEBAR.map(item => <a href={item.href}>{item.title}</a>)}</nav>
+      <main>{children}</main>
+    </div>
+  );
+}
+```

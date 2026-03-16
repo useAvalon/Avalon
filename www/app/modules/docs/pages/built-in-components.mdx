@@ -1,0 +1,189 @@
+---
+title: Built-in Components
+description: Avalon ships a set of components for images, error handling, streaming, and state persistence — all available from @avalon/avalon/client.
+---
+
+Avalon provides several built-in components that handle common patterns like image optimization, error isolation, streaming SSR, and persistent island state. All are importable from `@avalon/avalon/client`:
+
+```tsx
+import { Image, IslandErrorBoundary, PersistentIsland, StreamingLayout } from '@avalon/avalon/client';
+```
+
+## Overview
+
+| Component | Purpose |
+|-----------|---------|
+| `Image` | Responsive images with automatic format conversion and srcset |
+| `IslandErrorBoundary` | Catches errors inside islands without breaking the page |
+| `LayoutErrorBoundary` | Catches errors in layout rendering with retry support |
+| `LayoutDataErrorBoundary` | Handles data loader failures with retry and fallback data |
+| `StreamingErrorBoundary` | Error isolation for streaming SSR / Suspense boundaries |
+| `PersistentIsland` | Persists island state across navigations via sessionStorage |
+| `StreamingLayout` | Suspense-like loading states with timeout and priority |
+
+## Image
+
+Optimized responsive images powered by [vite-imagetools](https://github.com/JonasKruckenberg/imagetools). Accepts a regular URL, a srcset string from `?as=srcset`, or a metadata object. Adds `loading="lazy"` and `decoding="async"` by default.
+
+```tsx
+import { Image } from '@avalon/avalon/client';
+import heroSrc from './hero.jpg?w=400;800;1200&format=webp&as=srcset';
+
+<Image
+  src={heroSrc}
+  alt="Hero image"
+  sizes="(max-width: 600px) 400px, (max-width: 1200px) 800px, 1200px"
+/>
+```
+
+See the full [Image Optimization](/docs/image-optimization) guide for configuration and format options.
+
+## Error Boundaries
+
+Avalon includes several error boundaries that prevent a single failure from taking down the entire page. Each targets a different layer of the rendering pipeline.
+
+### IslandErrorBoundary
+
+Wraps an individual island. When the island throws, the rest of the page keeps working. In development mode it shows the error details and offers "Reload Island" / "Remove Island" buttons.
+
+```tsx
+import { IslandErrorBoundary } from '@avalon/avalon/client';
+
+<IslandErrorBoundary
+  islandId="my-counter"
+  isolateError={true}
+  fallback={(error, id) => <p>Island "{id}" failed: {error.message}</p>}
+>
+  <MyCounter island={{ condition: 'on:client' }} />
+</IslandErrorBoundary>
+```
+
+You can also use the `withIslandErrorBoundary` HOC:
+
+```tsx
+import { withIslandErrorBoundary } from '@avalon/avalon/client';
+
+const SafeCounter = withIslandErrorBoundary(MyCounter, 'my-counter', {
+  isolateError: true,
+});
+```
+
+### LayoutErrorBoundary
+
+Catches errors during layout rendering. Provides a retry mechanism (up to 3 attempts) and accepts a custom `fallback` render function.
+
+```tsx
+import { LayoutErrorBoundary } from '@avalon/avalon/client';
+
+<LayoutErrorBoundary
+  layoutPath="/app/layouts/_layout"
+  fallback={(error, retry) => (
+    <div>
+      <p>Layout failed: {error.message}</p>
+      <button onClick={retry}>Retry</button>
+    </div>
+  )}
+>
+  {children}
+</LayoutErrorBoundary>
+```
+
+### LayoutDataErrorBoundary
+
+Specifically for data loader failures. Supports automatic retries (up to 3), a `retryLoader` callback to re-fetch data, and `fallbackData` to render cached content while the loader recovers.
+
+```tsx
+import { LayoutDataErrorBoundary } from '@avalon/avalon/client';
+
+<LayoutDataErrorBoundary
+  layoutPath="/app/layouts/_layout"
+  context={layoutContext}
+  fallbackData={cachedData}
+  retryLoader={() => fetchLayoutData()}
+>
+  {children}
+</LayoutDataErrorBoundary>
+```
+
+### StreamingErrorBoundary
+
+Error isolation for components inside streaming SSR / Suspense boundaries. Set `isolateError={true}` to prevent the error from propagating to parent boundaries.
+
+```tsx
+import { StreamingErrorBoundary } from '@avalon/avalon/client';
+
+<StreamingErrorBoundary componentId="sidebar" isolateError={true}>
+  <Sidebar />
+</StreamingErrorBoundary>
+```
+
+## PersistentIsland
+
+Wraps an island with a persistence context backed by sessionStorage. The island's state survives client-side navigations without re-fetching or resetting.
+
+```tsx
+import { PersistentIsland } from '@avalon/avalon/client';
+
+<PersistentIsland persistentId="my-counter" island={{ condition: 'on:client' }}>
+  <MyCounter />
+</PersistentIsland>
+```
+
+Inside the island, use the `usePersistentIslandContext` hook to read and write persisted state:
+
+```tsx
+import { usePersistentIslandContext } from '@avalon/avalon/client';
+
+function MyCounter() {
+  const { saveState, loadState, clearState } = usePersistentIslandContext();
+
+  const initial = loadState() ?? { count: 0 };
+  const [count, setCount] = useState(initial.count);
+
+  const increment = () => {
+    const next = count + 1;
+    setCount(next);
+    saveState({ count: next });
+  };
+
+  return <button onClick={increment}>Count: {count}</button>;
+}
+```
+
+There's also a `usePersistentState` convenience hook that combines `useState` with automatic persistence:
+
+```tsx
+import { usePersistentState } from '@avalon/avalon/client';
+
+function MyCounter() {
+  const [count, setCount] = usePersistentState('counter', 0);
+  return <button onClick={() => setCount(c => c + 1)}>Count: {count}</button>;
+}
+```
+
+## StreamingLayout
+
+A Suspense-like component for streaming SSR. Shows a loading skeleton while waiting for a component to become ready, with configurable timeout and priority levels.
+
+```tsx
+import { StreamingLayout } from '@avalon/avalon/client';
+
+<StreamingLayout
+  component={HeavyDashboard}
+  componentProps={{ userId: '123' }}
+  fallback={<p>Loading dashboard...</p>}
+  priority="high"
+  timeout={5000}
+  isReady={() => fetchDashboardData().then(() => true)}
+/>
+```
+
+Priority levels (`high`, `medium`, `low`) control visual styling of the loading skeleton. The `StreamingSuspense` wrapper provides a simpler API when you just need a fallback boundary around children:
+
+```tsx
+import { StreamingSuspense } from '@avalon/avalon/client';
+
+<StreamingSuspense fallback={<p>Loading...</p>} priority="medium" timeout={3000}>
+  <SlowComponent />
+</StreamingSuspense>
+```

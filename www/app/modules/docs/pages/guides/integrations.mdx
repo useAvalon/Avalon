@@ -1,0 +1,90 @@
+---
+title: Integrations
+description: How Avalon's integration system loads and manages framework adapters.
+---
+
+Avalon's integration system is how framework support (React, Vue, Svelte, etc.) gets wired into the build and runtime. Each framework has an integration package that handles SSR rendering, client hydration, and Vite plugin configuration.
+
+## Configuring integrations
+
+List the frameworks you use in your Vite config:
+
+```ts
+const avalonPlugins = await avalon({
+  integrations: ['react', 'preact', 'vue', 'svelte', 'solid', 'lit', 'qwik'],
+});
+```
+
+Only list frameworks you actually use. Each integration adds Vite plugins and SSR handling for that framework.
+
+## Auto-discovery
+
+With `autoDiscoverIntegrations: true` (the default), Avalon detects which frameworks you use based on file extensions and imports:
+
+- `.vue` files → Vue integration
+- `.svelte` files → Svelte integration
+- `.solid.tsx` files → Solid integration
+- `.qwik.tsx` files → Qwik integration
+- `.tsx` with `/** @jsxImportSource react */` → React integration
+
+This means you can often skip the `integrations` array entirely — Avalon figures it out.
+
+## Lazy loading
+
+With `lazyIntegrations: true` (the default), Avalon only loads Vite plugins for frameworks that are actually used in your project:
+
+```ts
+const avalonPlugins = await avalon({
+  integrations: ['react', 'vue', 'svelte'],
+  lazyIntegrations: true, // default
+});
+```
+
+On startup, Avalon scans your components to see which frameworks are in use and only loads those plugins. If a new framework is encountered later (e.g., you add a `.vue` file), its plugin is loaded on demand.
+
+This significantly improves cold start time when you have many integrations configured but only use a few on any given page.
+
+## How integrations work
+
+Each integration package (`packages/integrations/<framework>/`) exports:
+
+- A server renderer that converts components to HTML during SSR
+- A client hydration script that attaches interactivity in the browser
+- Optional Vite plugins for framework-specific transforms (e.g., Vue SFC compilation, Svelte compilation)
+
+The integration registry manages loading and caching:
+
+```ts
+// Internal — you don't need to call this directly
+import { loadIntegration } from '@avalon/avalon';
+
+const vue = await loadIntegration('vue');
+const html = await vue.render(component, props);
+```
+
+## Available integrations
+
+| Framework | Package | File extensions |
+|-----------|---------|-----------------|
+| Preact | Built-in (default) | `.tsx`, `.jsx` |
+| React | `@avalon/react` | `.tsx` + pragma |
+| Vue | `@avalon/vue` | `.vue` |
+| Svelte | `@avalon/svelte` | `.svelte` |
+| Solid | `@avalon/solid` | `.solid.tsx` |
+| Lit | `@avalon/lit` | `.ts` (LitElement) |
+| Qwik | `@avalon/qwik` | `.qwik.tsx` |
+
+See the [Frameworks](/docs/frameworks/react) section for detailed setup guides for each framework.
+
+## Disabling auto-discovery
+
+If you want full control over which integrations load, disable auto-discovery:
+
+```ts
+const avalonPlugins = await avalon({
+  integrations: ['preact', 'vue'],
+  autoDiscoverIntegrations: false,
+});
+```
+
+Only Preact and Vue will be available — using a React or Svelte component will fail.

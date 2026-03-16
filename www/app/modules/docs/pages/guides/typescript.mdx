@@ -1,0 +1,134 @@
+---
+title: TypeScript
+description: TypeScript setup, JSX pragmas, and type imports in Avalon.
+---
+
+Avalon is built with TypeScript and provides types for all its APIs. Pages, layouts, and islands are all `.tsx` or `.ts` files by default.
+
+## Type imports
+
+The main types come from `@avalon/avalon`:
+
+```ts
+import type { LayoutProps } from '@avalon/avalon';
+```
+
+Client-side component types come from `@avalon/avalon/client`:
+
+```ts
+import type { ImageProps } from '@avalon/avalon/client';
+```
+
+## JSX pragmas
+
+Avalon uses Preact as the default JSX runtime for pages and layouts. For islands using other frameworks, add a JSX pragma at the top of the file:
+
+```tsx
+// React island
+/** @jsxImportSource react */
+import { useState } from 'react';
+
+export default function Counter() {
+  const [count, setCount] = useState(0);
+  return <button onClick={() => setCount(c => c + 1)}>Count: {count}</button>;
+}
+```
+
+```tsx
+// Solid island
+/** @jsxImportSource solid-js */
+import { createSignal } from 'solid-js';
+
+export default function Counter() {
+  const [count, setCount] = createSignal(0);
+  return <button onClick={() => setCount(c => c + 1)}>Count: {count()}</button>;
+}
+```
+
+Preact islands don't need a pragma since it's the default `jsxImportSource`.
+
+## Framework-specific file extensions
+
+Some frameworks use their own file extensions instead of JSX pragmas:
+
+| Framework | Extension | Pragma needed? |
+|-----------|-----------|----------------|
+| Preact | `.tsx` | No (default) |
+| React | `.tsx` | Yes: `/** @jsxImportSource react */` |
+| Solid | `.solid.tsx` | Convention-based, or use pragma |
+| Vue | `.vue` | No |
+| Svelte | `.svelte` | No |
+| Lit | `.ts` | No (uses decorators, not JSX) |
+| Qwik | `.qwik.tsx` | Convention-based |
+
+## tsconfig
+
+A minimal `tsconfig.json` for an Avalon project:
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "strict": true,
+    "skipLibCheck": true,
+    "paths": {
+      "@shared/*": ["./app/shared/*"],
+      "@modules/*": ["./app/modules/*"]
+    }
+  },
+  "include": ["app/**/*"]
+}
+```
+
+The `paths` should match the `resolve.alias` entries in your Vite config.
+
+## Typing page props
+
+Pages that use dynamic routes receive an `event` prop:
+
+```tsx
+interface PageProps {
+  event: {
+    context: {
+      params?: Record<string, string>;
+    };
+  };
+}
+
+export default async function BlogPost({ event }: PageProps) {
+  const slug = event.context.params?.slug;
+  // ...
+}
+```
+
+## Typing layout props
+
+```tsx
+import type { LayoutProps } from '@avalon/avalon';
+
+export default function MyLayout({ children, frontmatter }: LayoutProps) {
+  const title = frontmatter?.title as string | undefined;
+  // children: ComponentChildren
+  // frontmatter: Record<string, unknown>
+}
+```
+
+## Typing island props
+
+Island props must be serializable (no functions, no class instances). TypeScript helps enforce this:
+
+```tsx
+interface ChartProps {
+  data: number[];
+  label: string;
+  color?: string;
+}
+
+export default function Chart({ data, label, color = '#1F6AD3' }: ChartProps) {
+  // ...
+}
+```

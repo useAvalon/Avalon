@@ -1,0 +1,127 @@
+---
+title: Styling
+description: CSS Modules, global styles, and design tokens in Avalon.
+---
+
+Avalon uses standard CSS with no special runtime. Styles are processed by Vite, so you get CSS Modules, PostCSS, and hot module replacement out of the box.
+
+## CSS Modules
+
+Any file ending in `.module.css` is scoped to the component that imports it. Class names are hashed at build time to avoid collisions:
+
+```tsx
+import styles from './Button.module.css';
+
+export default function Button() {
+  return <button className={styles.button}>Click me</button>;
+}
+```
+
+```css
+/* Button.module.css */
+.button {
+  background: var(--avalon-blue);
+  color: var(--avalon-white);
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+}
+```
+
+CSS Modules work in islands too — the scoped styles are extracted and included in the page regardless of hydration state.
+
+## Global styles
+
+Import a plain `.css` file (without `.module`) to add global styles. Typically you do this in your root layout:
+
+```tsx
+// layouts/_layout.tsx
+import '../styles/main.css';
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+A common pattern is a `main.css` that imports a reset and design tokens:
+
+```css
+/* styles/main.css */
+@import './reset.css';
+@import './tokens.css';
+```
+
+## Design tokens
+
+Define your design system as CSS custom properties in a `tokens.css` file:
+
+```css
+:root {
+  /* Colors */
+  --color-primary: #3b82f6;
+  --color-surface: #0f172a;
+  --color-text: #e2e8f0;
+  --color-muted: #64748b;
+
+  /* Typography */
+  --font-sans: system-ui, sans-serif;
+  --font-mono: 'Fira Code', monospace;
+
+  /* Spacing (4px base) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-4: 1rem;
+  --space-8: 2rem;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+}
+```
+
+Reference tokens in both global CSS and CSS Modules:
+
+```css
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+```
+
+## Styling islands
+
+Islands are server-rendered first, so their styles must work before JavaScript loads. CSS Modules handle this naturally — the styles are in the initial HTML.
+
+Avoid CSS-in-JS libraries that require a runtime (styled-components, Emotion) since they won't produce styles during SSR. Stick with CSS Modules or plain CSS.
+
+## Conditional styles
+
+Use `className` concatenation for conditional classes:
+
+```tsx
+import styles from './Nav.module.css';
+
+function NavLink({ href, isActive }: { href: string; isActive: boolean }) {
+  const cls = isActive
+    ? `${styles.link} ${styles.linkActive}`
+    : styles.link;
+
+  return <a href={href} className={cls}>...</a>;
+}
+```
+
+## Syntax highlighting
+
+Avalon includes built-in syntax highlighting for code blocks in MDX. Add the stylesheet in your root layout:
+
+```tsx
+<link rel="stylesheet" href="/syntax-highlighting.css" />
+```
+
+This is already included in the default root layout.

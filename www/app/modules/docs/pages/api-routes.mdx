@@ -1,0 +1,141 @@
+---
+title: API Routes
+description: Server-side API endpoints with file-based routing powered by Nitro.
+---
+
+Avalon uses [Nitro](https://nitro.build) for server-side API routes. Routes are defined as files in the `routes/` directory and automatically mapped to endpoints.
+
+## Basic route
+
+Create a file in `routes/api/` and export a default event handler:
+
+```ts
+// routes/api/hello.ts
+export default defineEventHandler(() => {
+  return { message: 'Hello from the API' };
+});
+```
+
+This creates a `GET /api/hello` endpoint that returns JSON.
+
+## Route mapping
+
+| File | URL |
+|------|-----|
+| `routes/api/hello.ts` | `/api/hello` |
+| `routes/api/users/index.ts` | `/api/users` |
+| `routes/api/users/[id].ts` | `/api/users/:id` |
+| `routes/api/posts/[...slug].ts` | `/api/posts/*` |
+
+## Dynamic parameters
+
+Access route parameters via `event.context.params`:
+
+```ts
+// routes/api/users/[id].ts
+export default defineEventHandler((event) => {
+  const id = event.context.params?.id;
+  return { userId: id };
+});
+```
+
+## HTTP methods
+
+Handle specific methods by exporting named handlers:
+
+```ts
+// routes/api/users.ts
+export default defineEventHandler(async (event) => {
+  const method = event.method;
+
+  if (method === 'GET') {
+    return { users: [] };
+  }
+
+  if (method === 'POST') {
+    const body = await readBody(event);
+    return { created: body };
+  }
+});
+```
+
+## Reading request data
+
+Nitro provides utilities for reading request data:
+
+```ts
+export default defineEventHandler(async (event) => {
+  // JSON body
+  const body = await readBody(event);
+
+  // Query parameters (?page=1&limit=10)
+  const query = getQuery(event);
+
+  // Headers
+  const auth = getHeader(event, 'authorization');
+
+  // Cookies
+  const session = getCookie(event, 'session');
+
+  return { body, query };
+});
+```
+
+## Setting response headers
+
+```ts
+export default defineEventHandler((event) => {
+  setHeader(event, 'Cache-Control', 'public, max-age=3600');
+  setResponseStatus(event, 201);
+
+  return { created: true };
+});
+```
+
+## Error responses
+
+Use `createError` to return HTTP errors:
+
+```ts
+export default defineEventHandler((event) => {
+  const id = event.context.params?.id;
+
+  if (!id) {
+    throw createError({
+      statusCode: 400,
+      message: 'Missing user ID',
+    });
+  }
+
+  return { userId: id };
+});
+```
+
+## Route rules
+
+Configure caching and other behavior per-route in your Vite config:
+
+```ts
+nitro: {
+  routeRules: {
+    '/api/**': {
+      headers: { 'Access-Control-Allow-Origin': '*' },
+    },
+    '/api/static-data': {
+      cache: { maxAge: 3600 },
+    },
+  },
+}
+```
+
+## Middleware
+
+Create server middleware that runs before route handlers:
+
+```ts
+// routes/_middleware.ts
+export default defineEventHandler((event) => {
+  // Runs before every route in this directory
+  console.log(`${event.method} ${event.path}`);
+});
+```

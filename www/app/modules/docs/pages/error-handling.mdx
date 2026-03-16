@@ -1,0 +1,104 @@
+---
+title: Error Handling
+description: Error pages, error boundaries, and how Avalon handles failures gracefully.
+---
+
+Avalon provides error handling at two levels: page-level error pages for HTTP errors, and component-level error boundaries for runtime failures.
+
+## Error pages
+
+Create a `_error.tsx` file in your pages directory to catch errors for that route segment:
+
+```tsx
+// pages/_error.tsx
+export interface ErrorPageProps {
+  statusCode: number;
+  message: string;
+  error?: Error;
+  stack?: string;
+  url?: string;
+}
+
+export default function ErrorPage({ statusCode, message, stack }: ErrorPageProps) {
+  const isDev = typeof window !== 'undefined'
+    ? window.location.hostname === 'localhost'
+    : false;
+
+  return (
+    <div>
+      <h1>{statusCode}</h1>
+      <p>{message}</p>
+      {isDev && stack && (
+        <details>
+          <summary>Stack trace</summary>
+          <pre>{stack}</pre>
+        </details>
+      )}
+      <a href="/">Go home</a>
+    </div>
+  );
+}
+```
+
+The error page receives the HTTP status code, a message, and in development mode the full stack trace.
+
+## 404 pages
+
+Create a `404.tsx` for a custom not-found page:
+
+```tsx
+// pages/404.tsx
+export default function NotFound() {
+  return (
+    <div>
+      <h1>404</h1>
+      <p>This page doesn't exist.</p>
+      <a href="/">Back to home</a>
+    </div>
+  );
+}
+```
+
+## Error boundaries
+
+For runtime errors inside components, Avalon ships several [built-in error boundaries](/docs/built-in-components):
+
+- `IslandErrorBoundary` — isolates errors in individual islands so the rest of the page keeps working
+- `LayoutErrorBoundary` — catches layout rendering failures with retry support
+- `LayoutDataErrorBoundary` — handles data loader failures with retry and fallback data
+- `StreamingErrorBoundary` — error isolation for streaming SSR boundaries
+
+```tsx
+import { IslandErrorBoundary } from '@avalon/avalon/client';
+
+<IslandErrorBoundary islandId="my-widget" isolateError={true}>
+  <MyWidget island={{ condition: 'on:client' }} />
+</IslandErrorBoundary>
+```
+
+With `isolateError={true}`, a failing island shows a fallback UI instead of crashing the page. In development mode, the fallback includes error details and "Reload Island" / "Remove Island" buttons.
+
+## Error handling in layouts
+
+Wrap layout children with `LayoutErrorBoundary` to prevent a page error from breaking the entire shell:
+
+```tsx
+import { LayoutErrorBoundary } from '@avalon/avalon/client';
+
+export default function RootLayout({ children }: LayoutProps) {
+  return (
+    <html lang="en">
+      <body>
+        <header>...</header>
+        <LayoutErrorBoundary layoutPath="root">
+          <main>{children}</main>
+        </LayoutErrorBoundary>
+      </body>
+    </html>
+  );
+}
+```
+
+## Development vs production
+
+In development, error pages and boundaries show full stack traces and component stacks. In production, they show user-friendly messages without exposing internals.

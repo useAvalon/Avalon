@@ -1,0 +1,101 @@
+---
+title: Environment Variables
+description: Using environment variables in server and client code.
+---
+
+Avalon runs on Vite, so environment variables follow Vite's conventions.
+
+## Server-side variables
+
+Any environment variable is available in server code (pages, layouts, API routes) via `process.env`:
+
+```tsx
+export default async function Dashboard() {
+  const apiKey = process.env.API_KEY;
+  const data = await fetch('https://api.example.com/data', {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  }).then(r => r.json());
+
+  return <div>{data.title}</div>;
+}
+```
+
+Server-side variables are never sent to the client. Use them for API keys, database URLs, and other secrets.
+
+## Client-side variables
+
+Variables prefixed with `VITE_` are exposed to client-side code via `import.meta.env`:
+
+```tsx
+// Available in islands and client scripts
+const apiUrl = import.meta.env.VITE_API_URL;
+```
+
+Only `VITE_`-prefixed variables are included in the client bundle. Never put secrets in `VITE_` variables.
+
+## .env files
+
+Create `.env` files in your project root:
+
+```bash
+# .env — loaded in all environments
+VITE_API_URL=https://api.example.com
+
+# .env.local — local overrides (gitignored)
+API_KEY=sk-secret-key
+
+# .env.production — production only
+VITE_API_URL=https://api.prod.example.com
+```
+
+Vite loads these automatically based on the current mode (`development` or `production`).
+
+## Nitro runtime config
+
+For server-side configuration that needs to be available at runtime (not just build time), use Nitro's `runtimeConfig`:
+
+```ts
+// vite.config.ts
+nitro: {
+  runtimeConfig: {
+    appName: 'My App',
+    appVersion: '1.0.0',
+  },
+}
+```
+
+Access it in API routes:
+
+```ts
+export default defineEventHandler((event) => {
+  const config = useRuntimeConfig(event);
+  return { app: config.appName };
+});
+```
+
+## Define constants
+
+Use Vite's `define` option for compile-time constants:
+
+```ts
+// vite.config.ts
+define: {
+  __DEV__: command === 'serve',
+  __PROD__: command === 'build',
+}
+```
+
+These are replaced at build time — no runtime cost:
+
+```tsx
+if (__DEV__) {
+  console.log('Development mode');
+}
+```
+
+## Best practices
+
+- Never put secrets in `VITE_` variables — they end up in the client bundle
+- Use `.env.local` for developer-specific overrides and add it to `.gitignore`
+- Use Nitro `runtimeConfig` for values that might change between deployments without rebuilding
+- Use `define` for compile-time flags that should be tree-shaken in production

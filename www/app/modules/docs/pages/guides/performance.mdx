@@ -41,11 +41,15 @@ With lazy integrations, the adapter for each framework is only loaded when a pag
 
 ## Image optimization
 
-Serve images from `public/` with appropriate dimensions. Use modern formats (WebP, AVIF) and add `width`/`height` attributes to prevent layout shift:
+Avalon includes a built-in `<Image>` component that handles format conversion, responsive srcset generation, and lazy loading automatically:
 
 ```tsx
-<img src="/hero.webp" width={1200} height={600} alt="Hero" loading="lazy" />
+import { Image } from '@avalon/avalon/client';
+
+<Image src="/hero.jpg" alt="Hero" width={1200} height={600} />
 ```
+
+The component converts images to modern formats (WebP, AVIF), generates multiple sizes for responsive layouts, and adds `width`/`height` attributes to prevent layout shift. See the full [Image Optimization](/docs/image-optimization) guide for configuration options.
 
 ## Cache headers
 
