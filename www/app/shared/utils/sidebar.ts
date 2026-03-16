@@ -27,6 +27,7 @@ export const SIDEBAR: SidebarCategory[] = [
 			{ title: 'MDX & Markdown', href: '/docs/mdx' },
 			{ title: 'Page Metadata', href: '/docs/metadata' },
 			{ title: 'Image Optimization', href: '/docs/image-optimization' },
+			{ title: 'Client-Side Scripts', href: '/docs/client-scripts' },
 		],
 	},
 	{

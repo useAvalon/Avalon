@@ -3,6 +3,17 @@ import styles from './PatternHero.module.css';
 export default function PatternHero() {
 	return (
 		<section className={styles.hero}>
+			<canvas
+				id="grid-pulse-canvas"
+				style={{
+					position: 'absolute',
+					inset: 0,
+					zIndex: 1,
+					pointerEvents: 'none',
+					width: '100%',
+					height: '100%',
+				}}
+			/>
 			<div className={styles.fade} />
 			<div className={styles.content}>
 				<p className={styles.label}>The JavaScript Meta-Framework</p>
@@ -18,6 +29,7 @@ export default function PatternHero() {
 					<a href="/docs/installation" className={styles.cliBtn}>npx create-avalon</a>
 				</div>
 			</div>
+			<script src="/grid-pulse.js" defer />
 		</section>
 	);
 }

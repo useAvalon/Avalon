@@ -1,0 +1,121 @@
+---
+title: Client-Side Scripts
+description: Adding vanilla JavaScript to Avalon pages without framework overhead using script tags.
+---
+
+Avalon pages are server-rendered by default and ship zero JavaScript. When you need client-side behavior without a full island, you can use standard `<script>` tags directly in your components.
+
+## When to Use Scripts
+
+Scripts are for global or third-party JavaScript that lives outside the component model. For interactive UI components, always use [islands](/docs/islands-architecture) — they SSR, hydrate selectively, and are the recommended approach.
+
+| Use case | Approach |
+|----------|----------|
+| Analytics (Google Tag Manager, Plausible, etc.) | `<script>` tag |
+| Third-party embeds (chat widgets, maps) | `<script>` tag |
+| Global event listeners (scroll, resize) | `<script>` tag |
+| Interactive UI with state | Island component |
+| Anything that re-renders based on data | Island component |
+
+## External Scripts
+
+Place your script in the `public/` directory and reference it with a `src` attribute:
+
+```tsx
+// public/animation.js — vanilla JS file
+
+// components/Hero.tsx
+export default function Hero() {
+  return (
+    <section>
+      <canvas id="my-canvas" />
+      <h1>Hello World</h1>
+      <script src="/animation.js" defer />
+    </section>
+  );
+}
+```
+
+The `defer` attribute ensures the script runs after the DOM is parsed. The browser caches external scripts, so repeat visits won't re-download them.
+
+## Inline Scripts
+
+For small scripts, use `dangerouslySetInnerHTML` to embed JavaScript directly:
+
+```tsx
+const SCROLL_SCRIPT = `
+  document.querySelector('.hero').addEventListener('scroll', function() {
+    // handle scroll
+  });
+`;
+
+export default function Hero() {
+  return (
+    <section class="hero">
+      <h1>Hello</h1>
+      <script dangerouslySetInnerHTML={{ __html: SCROLL_SCRIPT }} />
+    </section>
+  );
+}
+```
+
+Keep inline scripts small. For anything over a few lines, use an external file.
+
+## Layout Scripts
+
+Scripts in layout components run on every page that uses that layout. A common use case is adding analytics like Google Tag Manager:
+
+```tsx
+// layouts/_layout.tsx
+const GTM_SCRIPT = `
+  (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+  new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+  j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+  'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+  })(window,document,'script','dataLayer','GTM-XXXXXX');
+`;
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: GTM_SCRIPT }} />
+      </head>
+      <body>
+        {children}
+      </body>
+    </html>
+  );
+}
+```
+
+This ensures the tracking script loads on every page without duplicating it in each page component.
+
+## Accessing Server Data
+
+Since scripts run on the client, they can't access server-side variables directly. Use `data-*` attributes to pass data from the server to your script:
+
+```tsx
+export default function Greeting({ name }: { name: string }) {
+  return (
+    <div data-name={name}>
+      <button id="greet-btn">Say Hello</button>
+      <script dangerouslySetInnerHTML={{ __html: `
+        document.getElementById('greet-btn').addEventListener('click', function() {
+          var name = this.closest('[data-name]').dataset.name;
+          alert('Hello, ' + name);
+        });
+      `}} />
+    </div>
+  );
+}
+```
+
+## Best Practices
+
+- Use `defer` on external scripts so they don't block rendering
+- Keep inline scripts minimal — extract larger logic to external files
+- Use `data-*` attributes to bridge server and client data
+- For interactive UI, always reach for an [island](/docs/islands-architecture) — they SSR, hydrate selectively, and ship less JS than you'd think
+- Reserve scripts for global concerns: analytics, third-party embeds, and page-level listeners
+- Respect `prefers-reduced-motion` in animation scripts
