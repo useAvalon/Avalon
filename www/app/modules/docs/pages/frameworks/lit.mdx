@@ -6,8 +6,8 @@ prev:
   title: Solid
   href: /docs/frameworks/solid
 next:
-  title: island prop
-  href: /docs/api/island-prop
+  title: Qwik
+  href: /docs/frameworks/qwik
 ---
 
 ## Setup
@@ -26,14 +26,29 @@ Install Lit:
 bun add lit
 ```
 
+### TypeScript configuration
+
+Lit's decorators use the legacy/experimental decorator spec. Add `experimentalDecorators` to your `tsconfig.json` so TypeScript understands the decorator types correctly:
+
+```json
+{
+  "compilerOptions": {
+    "experimentalDecorators": true
+  }
+}
+```
+
+Without this, you'll see type errors like "Unable to resolve signature of property decorator" on `@state()` and `@property()`. The setting only affects type-checking — at build time, Avalon's Lit integration uses Babel to compile decorators regardless of this flag.
+
 ## Writing a Lit island
 
-Lit islands use the `.lit.ts` extension so Avalon knows to use the Lit integration. They are standard custom elements extending `LitElement`:
+Lit islands use the `.lit.ts` extension so Avalon knows to use the Lit integration. Use Lit's decorator syntax for a clean, idiomatic API:
 
 ```ts
 // src/islands/my-counter.lit.ts
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { defineLitIsland } from '@avalon/lit/island';
 
 @customElement('my-counter')
 export class MyCounter extends LitElement {
@@ -51,25 +66,42 @@ export class MyCounter extends LitElement {
     `;
   }
 }
+
+export default defineLitIsland(MyCounter);
 ```
+
+The `defineLitIsland` wrapper is a zero-cost identity function — it returns the class unchanged at runtime but provides Preact-compatible types so TypeScript accepts `<MyCounter />` in page files. See [Type Compatibility](/docs/islands-architecture#type-compatibility) for why this is needed.
+
+### Available decorators
+
+Avalon supports all Lit decorators out of the box:
+
+- `@customElement('tag-name')` — registers the custom element
+- `@property()` — reactive property (reflected to attribute)
+- `@state()` — internal reactive state (not reflected)
+- `@query('selector')` — shorthand for `this.renderRoot.querySelector()`
+- `@queryAll('selector')` — shorthand for `querySelectorAll()`
+- `@eventOptions({ ... })` — event listener options
+
+### How decorators work under the hood
+
+Vite 8's default transformer (Oxc) doesn't support lowering TC39 standard decorators, and Lit's decorators use the legacy spec. Avalon's Lit integration automatically runs Babel with `@babel/plugin-proposal-decorators` (legacy mode) on any `.lit.ts` or `.lit.js` file that imports from `lit/decorators`. Non-decorator Lit files skip Babel entirely.
 
 ## Using the island
 
-Lit islands are referenced by their custom element tag name:
+Import the component and use it like any other island:
 
 ```tsx
-import '../islands/my-counter.lit.ts';
+import MyCounter from '../islands/my-counter.lit.ts';
 
 export default function Page() {
   return (
     <div>
-      {/* @ts-ignore — custom element */}
-      <my-counter island={{ condition: 'on:client' }} />
+      <MyCounter island={{ condition: 'on:interaction' }} />
     </div>
   );
 }
 ```
-
 
 ## SSR with Lit
 

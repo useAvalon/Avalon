@@ -30,22 +30,18 @@
   padding: 2px var(--space-2);
 }
 
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 .demo {
   padding: var(--space-6) var(--space-4);
-  min-height: 100px;
-}
-
-.preHydration {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  height: 100%;
-}
-
-.hint {
-  color: var(--avalon-storm);
-  font-size: var(--text-small);
-  font-style: italic;
+  gap: var(--space-3);
 }
 
 .counter {
@@ -68,11 +64,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, opacity 0.15s ease;
 }
 
-.btn:hover {
+.btn:hover:not(:disabled) {
   background: var(--surface-2);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .count {
@@ -82,4 +83,10 @@
   min-width: 3rem;
   text-align: center;
   font-family: var(--font-mono);
+}
+
+.hint {
+  color: var(--avalon-storm);
+  font-size: var(--text-caption);
+  font-style: italic;
 }

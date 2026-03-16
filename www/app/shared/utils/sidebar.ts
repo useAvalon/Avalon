@@ -36,6 +36,7 @@ export const SIDEBAR: SidebarCategory[] = [
 			{ title: 'Svelte', href: '/docs/frameworks/svelte' },
 			{ title: 'Solid', href: '/docs/frameworks/solid' },
 			{ title: 'Lit', href: '/docs/frameworks/lit' },
+			{ title: 'Qwik', href: '/docs/frameworks/qwik' },
 		],
 	},
 	{

@@ -11,7 +11,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		// Shared layouts directory (root layout lives here)
 		layoutsDir: 'app/shared/layouts',
 
-		integrations: ['react', 'preact', 'vue', 'svelte', 'qwik'],
+		integrations: ['react', 'preact', 'vue', 'svelte', 'qwik', 'solid', 'lit'],
 		lazyIntegrations: true,
 
 		mdx: {
@@ -90,8 +90,6 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				'svelte',
 				'svelte/internal',
 				'svelte/store',
-				'solid-js',
-				'solid-js/web',
 				'lit',
 				'@lit-labs/ssr-client',
 				'@lit-labs/ssr-client/lit-element-hydrate-support.js',
@@ -122,6 +120,12 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 		ssr: {
 			target: 'webworker',
+			resolve: {
+				// 'node' condition ensures solid-js/web resolves to server.js (SSR build)
+				// instead of dev.js (client DOM build). Vue's CJS issue from its "node"
+				// condition is handled by the resolve.alias for vue below.
+				conditions: ['node'],
+			},
 			noExternal: [
 				'vue',
 				'@vue/server-renderer',
@@ -130,8 +134,6 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				'svelte/internal',
 				'svelte/store',
 				'svelte/server',
-				'solid-js',
-				'solid-js/web',
 				'react',
 				'react-dom',
 				'react-dom/client',
@@ -139,6 +141,11 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				'@builder.io/qwik',
 				'@builder.io/qwik/server',
 			],
+			// solid-js and solid-js/web are intentionally NOT in noExternal.
+			// They must load as native ESM so the renderer and component share
+			// the same module instance (and thus the same sharedConfig).
+			// The resolveId hook in avalon:solid-oxc-exclude already ensures
+			// they resolve to server.js in SSR and dev.js on the client.
 		},
 
 		resolve: {
@@ -154,6 +161,16 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				{ find: '/@avalon/solid/client', replacement: resolve('../packages/integrations/solid/client/index.ts') },
 				{ find: '/@avalon/lit/client', replacement: resolve('../packages/integrations/lit/client/index.ts') },
 				{ find: '/@avalon/qwik/client', replacement: resolve('../packages/integrations/qwik/client/index.ts') },
+				// Vue's index.mjs re-exports from index.js (CJS with module.exports)
+				// which breaks under ssr.target: 'webworker' + conditions: ['node'].
+				// All @vue/* packages have a "node" export condition pointing to CJS.
+				// Alias them to their ESM bundler builds directly.
+				{ find: /^vue$/, replacement: 'vue/dist/vue.esm-bundler.js' },
+				{ find: /^@vue\/shared$/, replacement: '@vue/shared/dist/shared.esm-bundler.js' },
+				{ find: /^@vue\/runtime-core$/, replacement: '@vue/runtime-core/dist/runtime-core.esm-bundler.js' },
+				{ find: /^@vue\/runtime-dom$/, replacement: '@vue/runtime-dom/dist/runtime-dom.esm-bundler.js' },
+				{ find: /^@vue\/reactivity$/, replacement: '@vue/reactivity/dist/reactivity.esm-bundler.js' },
+				{ find: /^@vue\/server-renderer$/, replacement: '@vue/server-renderer/dist/server-renderer.esm-bundler.js' },
 			],
 		},
 

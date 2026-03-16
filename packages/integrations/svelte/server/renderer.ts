@@ -22,7 +22,7 @@ async function loadComponent(src: string) {
 	return module.default || module;
 }
 
-async function extractCSS(src: string, scopeId: string) {
+async function extractCSS(src: string, scopeId: string | null) {
 	try {
 		const resolved = await resolveIslandPath(src);
 		const filePath = resolved.startsWith('/') ? resolved.slice(1) : resolved;
@@ -31,8 +31,13 @@ async function extractCSS(src: string, scopeId: string) {
 
 		if (styleMatch) {
 			const rawCSS = styleMatch[1].trim();
-			const scopedCSS = rawCSS.replaceAll(/(\.[a-zA-Z_-][a-zA-Z0-9_-]*)/g, match => match + '.' + scopeId);
-			return scopedCSS;
+			// If we have a scopeId, apply scoping to class selectors
+			if (scopeId) {
+				const scopedCSS = rawCSS.replaceAll(/(\.[a-zA-Z_-][a-zA-Z0-9_-]*)/g, match => match + '.' + scopeId);
+				return scopedCSS;
+			}
+			// Return raw CSS if no scopeId (Svelte 5 handles scoping differently)
+			return rawCSS;
 		}
 	} catch (e) {
 		console.error('CSS extraction failed:', e);
@@ -58,10 +63,8 @@ export async function render(params: RenderParams): Promise<RenderResult> {
 		const scopeMatch = ssrHtml.match(/class="[^"]*\b(svelte-[a-z0-9]+)\b/);
 		const scopeId = scopeMatch ? scopeMatch[1] : null;
 
-		let css: string | undefined;
-		if (scopeId) {
-			css = await extractCSS(src, scopeId);
-		}
+		// Always try to extract CSS, even without a scopeId (Svelte 5 may not add scope classes)
+		const css = await extractCSS(src, scopeId);
 
 		return {
 			html: ssrHtml,

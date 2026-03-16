@@ -1,0 +1,136 @@
+---
+title: Qwik
+description: Using Qwik components as resumable islands in Avalon.
+currentPath: /docs/frameworks/qwik
+prev:
+  title: Lit
+  href: /docs/frameworks/lit
+next:
+  title: island prop
+  href: /docs/api/island-prop
+---
+
+## Setup
+
+Add `'qwik'` to the `integrations` array:
+
+```ts
+const plugins = await avalon({
+  integrations: ['qwik'],
+});
+```
+
+Install Qwik:
+
+```bash
+bun add @builder.io/qwik
+```
+
+## How Qwik differs
+
+Qwik doesn't hydrate — it resumes. The server serializes component state directly into the HTML, and the Qwikloader (~1KB inline script) lazily loads handlers only when events fire. There's no re-execution of component code on the client.
+
+Because of this, Qwik islands don't use the `island` prop. They're always resumable by default.
+
+## JSX pragma
+
+Qwik islands require the `/** @jsxImportSource @builder.io/qwik */` pragma:
+
+```tsx
+/** @jsxImportSource @builder.io/qwik */
+import { component$ } from '@builder.io/qwik';
+```
+
+## Writing a Qwik island
+
+Qwik islands use the `.qwik.tsx` extension. Use `component$` to define them:
+
+```tsx
+/** @jsxImportSource @builder.io/qwik */
+// src/islands/Counter.qwik.tsx
+import { component$, useSignal } from '@builder.io/qwik';
+import { defineQwikIsland } from '@avalon/qwik/island';
+
+const Counter = component$(() => {
+  const count = useSignal(0);
+
+  return (
+    <button onClick$={() => count.value++}>
+      Count: {count.value}
+    </button>
+  );
+});
+
+export default defineQwikIsland(Counter);
+```
+
+The `defineQwikIsland` wrapper is a zero-cost identity function — it returns the component unchanged at runtime but provides Preact-compatible types so TypeScript accepts `<Counter />` in page files. See [Type Compatibility](/docs/islands-architecture#type-compatibility) for why this is needed.
+
+## Using the island
+
+```tsx
+import Counter from '../islands/Counter.qwik.tsx';
+
+export default function Page() {
+  return (
+    <div>
+      <Counter />
+    </div>
+  );
+}
+```
+
+No `island` prop needed — Qwik handles resumability on its own.
+
+## Reactive primitives
+
+Qwik uses signals for fine-grained reactivity:
+
+```tsx
+/** @jsxImportSource @builder.io/qwik */
+import { component$, useSignal, useComputed$ } from '@builder.io/qwik';
+import { defineQwikIsland } from '@avalon/qwik/island';
+
+const DoubleCounter = component$(() => {
+  const count = useSignal(0);
+  const doubled = useComputed$(() => count.value * 2);
+
+  return (
+    <div>
+      <button onClick$={() => count.value++}>Increment</button>
+      <p>Doubled: {doubled.value}</p>
+    </div>
+  );
+});
+
+export default defineQwikIsland(DoubleCounter);
+```
+
+## Visible tasks
+
+Use `useVisibleTask$` for code that should run when the component becomes visible in the viewport:
+
+```tsx
+/** @jsxImportSource @builder.io/qwik */
+import { component$, useSignal, useVisibleTask$ } from '@builder.io/qwik';
+import { defineQwikIsland } from '@avalon/qwik/island';
+
+const Timer = component$(() => {
+  const elapsed = useSignal(0);
+
+  useVisibleTask$(() => {
+    const id = setInterval(() => elapsed.value++, 1000);
+    return () => clearInterval(id);
+  });
+
+  return <p>Elapsed: {elapsed.value}s</p>;
+});
+
+export default defineQwikIsland(Timer);
+```
+
+## Caveats
+
+- **No `island` prop** — Qwik manages its own resumability. Adding `island={{ condition: '...' }}` has no effect.
+- **`$` boundaries matter** — Code after a `$` (like `onClick$`, `useVisibleTask$`) is lazy-loaded. Keep expensive logic behind `$` boundaries for optimal performance.
+- **Signals are objects** — Access values with `.value`. Writing `count` instead of `count.value` gives you the signal object, not the number.

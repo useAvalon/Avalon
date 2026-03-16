@@ -102,3 +102,33 @@ return <div><MyIsland island={{ condition: 'on:client' }} /></div>;
 // ❌ May break
 return <MyIsland island={{ condition: 'on:client' }} />;
 ```
+
+## Sidecar type declarations
+
+Avalon pages use Preact JSX, but islands can be written in any supported framework. To make TypeScript happy when you use a Vue or Svelte component in a Preact page, Avalon auto-generates sidecar `.d.ts` files next to each island component.
+
+For example, when you import `Counter.vue` in a page file, TypeScript can't parse `.vue` files — so it looks for `Counter.d.vue.ts` instead. Avalon generates this file automatically with a Preact-compatible type signature, including the `island` prop.
+
+This works transparently for Vue and Svelte because TypeScript has no built-in understanding of `.vue` or `.svelte` files and falls back to the sidecar.
+
+Your `tsconfig.json` needs `allowArbitraryExtensions: true` for this to work.
+
+## Type compatibility
+
+For frameworks that use `.ts` or `.tsx` files (Lit and Qwik), sidecars don't help — TypeScript can parse these files natively, so it reads the source directly and ignores any sidecar declaration file.
+
+The problem is that these frameworks export types incompatible with Preact JSX. Qwik's `component$()` returns a function with a different signature than Preact expects, and Lit components are classes, not functions.
+
+Each of these integrations provides a `defineXxxIsland()` wrapper — a zero-cost identity function that returns the component unchanged at runtime but provides Preact-compatible types:
+
+```tsx
+// Qwik
+import { defineQwikIsland } from '@avalon/qwik/island';
+export default defineQwikIsland(MyQwikComponent);
+
+// Lit
+import { defineLitIsland } from '@avalon/lit/island';
+export default defineLitIsland(MyLitComponent);
+```
+
+These wrappers live in a separate `island.ts` file (not `mod.ts`) to avoid pulling server-only code into the browser. See the [Lit](/docs/frameworks/lit) and [Qwik](/docs/frameworks/qwik) framework pages for full examples.
