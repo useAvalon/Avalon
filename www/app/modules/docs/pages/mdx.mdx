@@ -1,0 +1,186 @@
+---
+title: MDX & Markdown
+description: Using MDX files as pages in Avalon with frontmatter, syntax highlighting, and interactive islands.
+---
+
+Avalon has built-in MDX support. Any `.mdx` file in your pages directory becomes a route, just like `.tsx` files. You get the full power of Markdown with JSX components, frontmatter, and syntax highlighting out of the box.
+
+## Built-in Plugins
+
+Avalon uses [@mdx-js/rollup](https://mdxjs.com/) with these plugins pre-configured:
+
+| Plugin | Purpose |
+|--------|---------|
+| `remark-frontmatter` | Parses YAML frontmatter blocks |
+| `remark-mdx-frontmatter` | Exports frontmatter as named exports |
+| `remark-gfm` | GitHub Flavored Markdown (tables, strikethrough, autolinks) |
+| `rehype-highlight` | Syntax highlighting for code blocks |
+
+## Basic MDX Page
+
+Create a `.mdx` file in your pages directory:
+
+```mdx
+---
+title: My Page
+description: A page written in MDX.
+---
+
+# Hello World
+
+This is a paragraph with **bold** and *italic* text.
+```
+
+This becomes a route based on the file path, just like any other page.
+
+## Frontmatter
+
+Use YAML frontmatter at the top of your MDX file to define metadata:
+
+```mdx
+---
+title: Getting Started
+description: Learn how to set up Avalon.
+---
+
+# Getting Started
+
+Content goes here...
+```
+
+Frontmatter fields are exported as a `frontmatter` object and automatically passed to your layout. This integrates with Avalon's [metadata system](/docs/metadata) for SEO.
+
+## Using Components in MDX
+
+Import and use any component directly in your MDX:
+
+```mdx
+---
+title: Interactive Demo
+---
+
+import Counter from '../components/Counter.tsx';
+
+# Interactive Demo
+
+Here's a counter component inline:
+
+<Counter island={{ condition: 'on:visible' }} />
+```
+
+Components used with the `island` prop are automatically wrapped as islands, just like in `.tsx` pages.
+
+## Syntax Highlighting
+
+Code blocks get syntax highlighting automatically via `rehype-highlight`. Use fenced code blocks with a language identifier:
+
+````mdx
+```tsx
+function Hello() {
+  return <h1>Hello World</h1>;
+}
+```
+````
+
+Avalon includes a `syntax-highlighting.css` stylesheet. Make sure it's linked in your root layout or HTML template.
+
+### Supported Languages
+
+All languages supported by [highlight.js](https://highlightjs.org/download) work out of the box, including TypeScript, JavaScript, JSX, CSS, HTML, JSON, Bash, and many more.
+
+## GitHub Flavored Markdown
+
+GFM features are enabled by default via `remark-gfm`.
+
+import GfmDemo from '../components/GfmDemo.tsx';
+
+### Tables
+
+<GfmDemo island={{ condition: 'on:visible' }} source={`| Feature       | Status |\n|---------------|--------|\n| Tables        | ✅     |\n| Strikethrough | ✅     |\n| Autolinks     | ✅     |\n| Task lists    | ✅     |`} html={`<table><thead><tr><th>Feature</th><th>Status</th></tr></thead><tbody><tr><td>Tables</td><td>✅</td></tr><tr><td>Strikethrough</td><td>✅</td></tr><tr><td>Autolinks</td><td>✅</td></tr><tr><td>Task lists</td><td>✅</td></tr></tbody></table>`} />
+
+### Task Lists
+
+<GfmDemo island={{ condition: 'on:visible' }} source={`- [x] Setup project\n- [x] Add MDX support\n- [ ] Write docs`} html={`<ul style="list-style: none; padding-left: 0;"><li><input type="checkbox" checked disabled /> Setup project</li><li><input type="checkbox" checked disabled /> Add MDX support</li><li><input type="checkbox" disabled /> Write docs</li></ul>`} />
+
+### Strikethrough
+
+<GfmDemo island={{ condition: 'on:visible' }} source={`~~deleted text~~`} html={`<p><del>deleted text</del> renders with a line through it.</p>`} />
+
+## Configuration
+
+Customize MDX processing in your Vite config:
+
+```ts
+// vite.config.ts
+export default defineConfig({
+  plugins: [
+    avalon({
+      mdx: {
+        // JSX runtime for MDX files (default: 'preact')
+        jsxImportSource: 'preact',
+
+        // Enable syntax highlighting (default: true)
+        syntaxHighlighting: true,
+
+        // Add custom remark plugins
+        remarkPlugins: [],
+
+        // Add custom rehype plugins
+        rehypePlugins: [],
+      },
+    }),
+  ],
+});
+```
+
+### JSX Import Source
+
+By default, MDX files use Preact's JSX runtime. If you want MDX content to use React instead:
+
+```ts
+mdx: {
+  jsxImportSource: 'react',
+}
+```
+
+### Custom Plugins
+
+Add your own remark or rehype plugins:
+
+```ts
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+
+avalon({
+  mdx: {
+    remarkPlugins: [remarkMath],
+    rehypePlugins: [rehypeKatex],
+  },
+})
+```
+
+## MDX vs TSX Pages
+
+Both `.mdx` and `.tsx` files work as pages. Use whichever fits:
+
+| | MDX | TSX |
+|---|---|---|
+| Best for | Content-heavy pages, docs, blog posts | Dynamic pages, complex layouts |
+| Frontmatter | YAML `---` block | `export const metadata` object |
+| Components | Import and use inline | Standard JSX |
+| Islands | `island` prop works the same | `island` prop works the same |
+| Markdown | Native | Not available |
+| Data fetching | Not supported | `async` page functions |
+
+## File Conventions
+
+MDX files follow the same routing conventions as TSX:
+
+```
+app/modules/docs/pages/
+├── index.mdx          → /docs
+├── introduction.mdx   → /docs/introduction
+├── guides/
+│   ├── deployment.mdx → /docs/guides/deployment
+│   └── performance.mdx→ /docs/guides/performance
+```

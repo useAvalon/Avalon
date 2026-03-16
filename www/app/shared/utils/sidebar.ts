@@ -24,6 +24,7 @@ export const SIDEBAR: SidebarCategory[] = [
 			{ title: 'Hydration Strategies', href: '/docs/hydration-strategies' },
 			{ title: 'File-System Routing', href: '/docs/file-system-routing' },
 			{ title: 'Layouts', href: '/docs/layouts' },
+			{ title: 'MDX & Markdown', href: '/docs/mdx' },
 			{ title: 'Page Metadata', href: '/docs/metadata' },
 			{ title: 'Image Optimization', href: '/docs/image-optimization' },
 		],
