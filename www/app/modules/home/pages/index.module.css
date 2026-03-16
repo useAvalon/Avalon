@@ -267,11 +267,64 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.5s ease, box-shadow 0.5s ease, background 0.5s ease;
+}
+
+/* Subtle dot pattern overlay on cards */
+.featureCard::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--pattern-dots);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.featureCard:hover {
+  border-color: rgba(44, 161, 179, 0.10);
+  box-shadow: 0 0 20px rgba(44, 161, 179, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  background: linear-gradient(
+    165deg,
+    rgba(31, 106, 211, 0.06) 0%,
+    rgba(44, 161, 179, 0.04) 40%,
+    transparent 70%
+  ), var(--surface-1);
+}
+
+.featureCard:hover::after {
+  opacity: 1;
 }
 
 .featureIcon {
   color: rgba(255,255,255,0.4);
   margin-bottom: 16px;
+  transition: color 0.5s ease;
+}
+
+.featureCard:hover .featureIcon {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Fill icon on hover for non-rotatable cards */
+.featureIconFill svg {
+  transition: fill 0.5s ease, stroke 0.5s ease;
+}
+
+.featureCard:hover .featureIconFill svg {
+  fill: rgba(44, 161, 179, 0.15);
+}
+
+/* Rotate icon on hover for cards with rotatable shapes */
+.featureIconRotate svg {
+  transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.featureCard:hover .featureIconRotate svg {
+  transform: rotate(90deg);
 }
 
 .featureTitle {
