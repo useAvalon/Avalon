@@ -131,6 +131,30 @@ export async function extractTagNameFromSource(src: string): Promise<string | nu
 			if (match?.[1]) return match[1];
 		}
 
+		// Try customElements.define() call
+		const definePatterns = [
+			/customElements\.define\s*\(\s*"([^"]+)"/,
+			/customElements\.define\s*\(\s*'([^']+)'/,
+			/customElements\.define\s*\(\s*`([^`]+)`/,
+		];
+
+		for (const pattern of definePatterns) {
+			const match = new RegExp(pattern).exec(content);
+			if (match?.[1]) return match[1];
+		}
+
+		// Try exported tagName constant
+		const tagNamePatterns = [
+			/export\s+const\s+tagName\s*=\s*"([^"]+)"/,
+			/export\s+const\s+tagName\s*=\s*'([^']+)'/,
+			/export\s+const\s+tagName\s*=\s*`([^`]+)`/,
+		];
+
+		for (const pattern of tagNamePatterns) {
+			const match = new RegExp(pattern).exec(content);
+			if (match?.[1]) return match[1];
+		}
+
 		return null;
 	} catch {
 		return null;

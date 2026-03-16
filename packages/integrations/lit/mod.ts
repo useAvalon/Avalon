@@ -95,74 +95,91 @@ function createLitSSRShimPlugin(): Plugin {
 }
 
 /**
- * Creates a Vite plugin that fixes decorator order issues in Vite 8 / Oxc output.
- * 
- * The issue is that Oxc (Vite 8's transformer) sometimes outputs "export @decorator class" 
- * instead of the valid "@decorator export class" syntax.
- * 
- * This plugin uses multiple strategies:
- * 1. Pre-transform: Rewrite decorators BEFORE Oxc processes them
- * 2. Post-transform: Fix any remaining issues after Oxc
+ * Creates a Vite plugin that transforms Lit decorators using Babel.
+ *
+ * Oxc (Vite 8's transformer) does not support lowering TC39 standard decorators.
+ * Node.js also can't evaluate them, so SSR fails with SyntaxError.
+ *
+ * Following Vite 8's official recommendation, we use @rolldown/plugin-babel with
+ * @babel/plugin-proposal-decorators to properly compile decorators. This handles
+ * all Lit decorators (@customElement, @state, @property, @query, @queryAll, etc.)
+ * correctly and avoids the class-field-shadowing problem that breaks Lit reactivity.
+ *
+ * Only runs on .lit.ts / .lit.js files that contain decorator syntax.
  */
-function createLitDecoratorFixPlugin(): Plugin {
+function createLitDecoratorPlugin(): Plugin {
   return {
-    name: "avalon:lit-decorator-fix",
-    // Enforce "pre" to run BEFORE Oxc transformation
+    name: "avalon:lit-decorator-babel",
     enforce: "pre",
 
-    // Pre-transform: Convert TypeScript decorators to a format Oxc handles correctly
-    // This runs BEFORE Oxc, so we can rewrite the source to avoid the issue
-    transform(code: string, id: string, _options?: { ssr?: boolean }) {
-      // Only process Lit files
+    async transform(code: string, id: string) {
       const isLitFile = /\.lit\.(ts|js)$/.test(id);
       if (!isLitFile || id.includes("node_modules")) {
         return null;
       }
 
-      // Check if this file uses @customElement decorator
-      if (!code.includes("@customElement")) {
+      // Only run Babel on files that actually import Lit decorators
+      if (!code.includes("lit/decorators")) {
         return null;
       }
 
-      // Strategy: Convert "@customElement(...) export class" to use a different pattern
-      // that Oxc handles correctly. We'll use a manual customElements.define() call.
-      
-      // Extract the tag name from @customElement("tag-name")
-      const customElementMatch = new RegExp(/@customElement\s*\(\s*["'`]([^"'`]+)["'`]\s*\)/).exec(code);
-      if (!customElementMatch) {
+      // Lazy-import babel to avoid loading it when no decorators are used
+      const babel = await import("@babel/core");
+
+      // Strip TypeScript type annotations first so Babel can parse the file.
+      // We use Babel's own TS plugin for this.
+      const result = await babel.transformAsync(code, {
+        filename: id,
+        babelrc: false,
+        configFile: false,
+        sourceMaps: true,
+        // Use simple assignment for class fields instead of Object.defineProperty.
+        // This is equivalent to useDefineForClassFields:false in tsconfig and is
+        // required so that decorated fields don't shadow Lit's reactive accessors.
+        assumptions: {
+          setPublicClassFields: true,
+        },
+        plugins: [
+          // Must come before decorators so TS syntax is removed first
+          ["@babel/plugin-transform-typescript", { isTSX: false, allowDeclareFields: true }],
+          // Legacy mode matches Lit's recommended experimentalDecorators behavior:
+          // - no accessor keyword needed
+          // - produces minimal output (no decorator runtime polyfill)
+          ["@babel/plugin-proposal-decorators", { legacy: true }],
+          // Transform class properties with simple assignment
+          ["@babel/plugin-transform-class-properties"],
+        ],
+      });
+
+      if (!result?.code) {
         return null;
       }
-      
-      const tagName = customElementMatch[1];
-      
-      // Remove the @customElement decorator and add manual registration at the end
-      let modifiedCode = code.replaceAll(
-        /@customElement\s*\(\s*["'`][^"'`]+["'`]\s*\)\s*\n?\s*(export\s+class\s+(\w+))/g,
-        '$1'
-      );
-      
-      // Extract the class name
-      const classNameMatch = new RegExp(/@customElement\s*\(\s*["'`][^"'`]+["'`]\s*\)\s*\n?\s*export\s+class\s+(\w+)/).exec(code);
-      if (classNameMatch) {
-        const className = classNameMatch[1];
-        
-        // Add manual customElements.define() at the end of the file
-        // This avoids the decorator syntax issue entirely
-        modifiedCode += `\n\n// Auto-generated: Register custom element (decorator removed for Vite 8 compatibility)\nif (typeof customElements !== 'undefined' && !customElements.get("${tagName}")) {\n  customElements.define("${tagName}", ${className});\n}\n`;
-        
-        // Also add a static property for SSR to find the tag name
-        modifiedCode = modifiedCode.replace(
-          new RegExp(String.raw`(export\s+class\s+${className}\s+extends\s+\w+\s*\{)`),
-          `$1\n  static elementName = "${tagName}";`
-        );
-        
-        return {
-          code: modifiedCode,
-          map: null,
-        };
+
+      // Babel's legacy decorator transform uses _initializerDefineProperty which calls
+      // Object.defineProperty — this creates own data properties that shadow Lit's
+      // reactive accessors. We patch the helper to use simple assignment instead.
+      // The helper is always emitted as a single-line function at the top of the file.
+      let output = result.code;
+      const helperStart = output.indexOf('function _initializerDefineProperty(');
+      if (helperStart !== -1) {
+        // Find the matching closing brace by counting braces
+        let braceCount = 0;
+        let i = output.indexOf('{', helperStart);
+        for (; i < output.length; i++) {
+          if (output[i] === '{') braceCount++;
+          else if (output[i] === '}') {
+            braceCount--;
+            if (braceCount === 0) break;
+          }
+        }
+        const replacement = 'function _initializerDefineProperty(e, i, r, l) { e[i] = r && r.initializer ? r.initializer.call(l) : void 0; }';
+        output = output.slice(0, helperStart) + replacement + output.slice(i + 1);
       }
 
-      return null;
+      return {
+        code: output,
+        map: result.map,
+      };
     },
   };
 }
@@ -196,7 +213,7 @@ export const litIntegration: Integration = {
    * Also includes a decorator fix plugin for Vite 8 compatibility.
    */
   async vitePlugin(): Promise<Plugin | Plugin[]> {
-    return [createLitSSRShimPlugin(), createLitDecoratorFixPlugin()];
+    return [createLitSSRShimPlugin(), createLitDecoratorPlugin()];
   },
 };
 
