@@ -17,6 +17,66 @@
 import type { AvalonNitroConfig } from "../nitro/config.ts";
 
 /**
+ * Image optimization configuration
+ */
+export interface ImageConfig {
+  /**
+   * Enable image optimization via vite-imagetools
+   * @default true
+   */
+  enabled?: boolean;
+
+  /**
+   * Default image format for optimized images
+   * @default "webp"
+   */
+  defaultFormat?: "webp" | "avif" | "jpg" | "png";
+
+  /**
+   * Default image quality (1-100)
+   * @default 80
+   */
+  quality?: number;
+
+  /**
+   * Breakpoint widths for srcset generation
+   * @default [200, 400, 600, 800, 1200]
+   */
+  widths?: number[];
+
+  /**
+   * Whether to strip EXIF and other metadata from images
+   * @default true
+   */
+  removeMetadata?: boolean;
+
+  /**
+   * File patterns to include for image processing
+   * @default /^[^?]+\.(heif|avif|jpeg|jpg|png|tiff|webp|gif)(\?.*)?$/
+   */
+  include?: string | RegExp | (string | RegExp)[];
+
+  /**
+   * File patterns to exclude from image processing
+   * @default "public/**\/*"
+   */
+  exclude?: string | RegExp | (string | RegExp)[];
+}
+
+/**
+ * Resolved image optimization configuration
+ */
+export interface ResolvedImageConfig {
+  enabled: boolean;
+  defaultFormat: "webp" | "avif" | "jpg" | "png";
+  quality: number;
+  widths: number[];
+  removeMetadata: boolean;
+  include: string | RegExp | (string | RegExp)[];
+  exclude: string | RegExp | (string | RegExp)[];
+}
+
+/**
  * Supported integration names
  * These correspond to the @avalon/* packages
  */
@@ -129,6 +189,31 @@ export interface AvalonPluginConfig {
   mdx?: MDXConfig;
 
   /**
+   * Image optimization configuration
+   * When enabled, Avalon auto-injects vite-imagetools with sensible defaults.
+   * Set to `false` to disable, or pass an object to customize.
+   * 
+   * @default { enabled: true }
+   * 
+   * @example
+   * ```ts
+   * // Use defaults (webp, quality 80, standard breakpoints)
+   * image: true
+   * 
+   * // Customize
+   * image: {
+   *   defaultFormat: 'avif',
+   *   quality: 90,
+   *   widths: [320, 640, 1024, 1920],
+   * }
+   * 
+   * // Disable
+   * image: false
+   * ```
+   */
+  image?: boolean | ImageConfig;
+
+  /**
    * Nitro server runtime configuration
    * When provided, enables Nitro integration for universal deployment
    * 
@@ -220,6 +305,7 @@ export interface ResolvedAvalonConfig {
   modules: ResolvedModulesConfig | null;
   integrations: IntegrationName[];
   mdx: ResolvedMDXConfig;
+  image: ResolvedImageConfig;
   verbose: boolean;
   autoDiscoverIntegrations: boolean;
   validateIntegrations: boolean;

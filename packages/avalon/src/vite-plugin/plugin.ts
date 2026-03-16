@@ -26,6 +26,7 @@ import { pageIslandTransform } from "../build/page-island-transform.ts";
 import { registry } from "../core/integrations/registry.ts";
 import { createNitroIntegration } from "./nitro-integration.ts";
 import { islandSidecarPlugin } from "./island-sidecar-plugin.ts";
+import { createImagePlugin } from "./image-optimization.ts";
 import type { NitroConfigOutput } from "../nitro/config.ts";
 declare global {
   var __avalonConfig: ResolvedAvalonConfig | undefined;
@@ -234,6 +235,9 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
   }
   const mdxPlugins = await setupMDXPlugins(preResolvedConfig);
 
+  // Image optimization plugins (vite-imagetools wrapper)
+  const imagePlugins = await createImagePlugin(preResolvedConfig.image, preResolvedConfig.verbose);
+
   let integrationPlugins: Plugin[] = [];
   if (activeIntegrations.size > 0) {
     integrationPlugins = await collectIntegrationPlugins(activeIntegrations, preResolvedConfig.verbose);
@@ -290,6 +294,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 
   return [
     pageTransformPlugin,
+    ...imagePlugins,
     ...litPlugins,
     ...mdxPlugins,
     avalonPlugin,
@@ -320,5 +325,5 @@ export function isNitroEnabled(): boolean {
   return globalThis.__nitroConfig !== undefined;
 }
 
-export type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig } from "./types.ts";
+export type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig, ImageConfig, ResolvedImageConfig } from "./types.ts";
 export type { AvalonNitroConfig, NitroConfigOutput } from "../nitro/config.ts";

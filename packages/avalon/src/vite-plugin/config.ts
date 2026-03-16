@@ -10,7 +10,9 @@ import type {
   ResolvedAvalonConfig,
   ResolvedMDXConfig,
   ResolvedModulesConfig,
+  ResolvedImageConfig,
   ModulesConfig,
+  ImageConfig,
 } from "./types.ts";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -27,6 +29,19 @@ export const DEFAULT_MDX_CONFIG: ResolvedMDXConfig = {
 };
 
 /**
+ * Default image optimization configuration values
+ */
+export const DEFAULT_IMAGE_CONFIG: ResolvedImageConfig = {
+  enabled: true,
+  defaultFormat: "webp",
+  quality: 80,
+  widths: [200, 400, 600, 800, 1200],
+  removeMetadata: true,
+  include: /^[^?]+\.(heif|avif|jpeg|jpg|png|tiff|webp|gif)(\?.*)?$/,
+  exclude: "public/**/*",
+};
+
+/**
  * Default configuration values for the Avalon plugin
  * These are used when the user doesn't provide specific values
  */
@@ -36,6 +51,7 @@ export const DEFAULT_CONFIG: Omit<ResolvedAvalonConfig, "isDev"> = {
   modules: null,
   integrations: [],
   mdx: DEFAULT_MDX_CONFIG,
+  image: DEFAULT_IMAGE_CONFIG,
   verbose: false,
   autoDiscoverIntegrations: true,
   validateIntegrations: true,
@@ -75,6 +91,34 @@ function resolveModulesConfig(
 }
 
 /**
+ * Resolves the image optimization configuration
+ */
+function resolveImageConfig(
+  image: boolean | ImageConfig | undefined
+): ResolvedImageConfig {
+  // Explicitly disabled
+  if (image === false) {
+    return { ...DEFAULT_IMAGE_CONFIG, enabled: false };
+  }
+
+  // Default or explicitly enabled with no options
+  if (image === undefined || image === true) {
+    return DEFAULT_IMAGE_CONFIG;
+  }
+
+  // Custom config object
+  return {
+    enabled: image.enabled ?? DEFAULT_IMAGE_CONFIG.enabled,
+    defaultFormat: image.defaultFormat ?? DEFAULT_IMAGE_CONFIG.defaultFormat,
+    quality: image.quality ?? DEFAULT_IMAGE_CONFIG.quality,
+    widths: image.widths ?? DEFAULT_IMAGE_CONFIG.widths,
+    removeMetadata: image.removeMetadata ?? DEFAULT_IMAGE_CONFIG.removeMetadata,
+    include: image.include ?? DEFAULT_IMAGE_CONFIG.include,
+    exclude: image.exclude ?? DEFAULT_IMAGE_CONFIG.exclude,
+  };
+}
+
+/**
  * Resolves user configuration by merging with defaults
  *
  * @param userConfig - Partial configuration provided by the user
@@ -95,6 +139,7 @@ export function resolveConfig(
 ): ResolvedAvalonConfig {
   const config = userConfig ?? {};
   const modules = resolveModulesConfig(config.modules);
+  const image = resolveImageConfig(config.image);
 
   return {
     pagesDir: config.pagesDir ?? DEFAULT_CONFIG.pagesDir,
@@ -111,6 +156,7 @@ export function resolveConfig(
       rehypePlugins:
         config.mdx?.rehypePlugins ?? DEFAULT_MDX_CONFIG.rehypePlugins,
     },
+    image,
     verbose: config.verbose ?? DEFAULT_CONFIG.verbose,
     autoDiscoverIntegrations:
       config.autoDiscoverIntegrations ?? DEFAULT_CONFIG.autoDiscoverIntegrations,

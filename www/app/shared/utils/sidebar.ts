@@ -25,6 +25,7 @@ export const SIDEBAR: SidebarCategory[] = [
 			{ title: 'File-System Routing', href: '/docs/file-system-routing' },
 			{ title: 'Layouts', href: '/docs/layouts' },
 			{ title: 'Page Metadata', href: '/docs/metadata' },
+			{ title: 'Image Optimization', href: '/docs/image-optimization' },
 		],
 	},
 	{

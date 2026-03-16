@@ -27,5 +27,9 @@ export { StreamingErrorBoundary, withStreamingErrorBoundary } from '../component
 // Streaming
 export { StreamingLayout, StreamingSuspense, withStreaming, useStreamingState } from '../components/StreamingLayout.tsx';
 
+// Image optimization
+export { Image } from '../components/Image.tsx';
+export type { ImageProps } from '../components/Image.tsx';
+
 // Types
 export type { IslandState } from '../schemas/layout.ts';

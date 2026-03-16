@@ -1,0 +1,193 @@
+---
+title: Image Optimization
+description: Automatic image optimization with responsive srcset generation, modern formats, and lazy loading.
+---
+
+# Image Optimization
+
+Avalon includes built-in image optimization powered by [vite-imagetools](https://github.com/JonasKruckenberg/imagetools). Images are automatically converted to modern formats, resized for responsive layouts, and optimized for performance.
+
+## Features
+
+- **Modern formats** - Automatic WebP/AVIF conversion
+- **Responsive srcset** - Generate multiple sizes for different viewports
+- **Lazy loading** - Images load on-demand by default
+- **Metadata stripping** - Remove EXIF data for privacy
+- **Zero runtime** - All optimization happens at build time
+
+## The Image Component
+
+Avalon provides an `Image` component that handles all the complexity for you:
+
+```tsx
+import { Image } from '@avalon/avalon/client';
+import hero from './hero.jpg?w=400;800;1200&format=webp&as=srcset';
+
+export function Hero() {
+  return (
+    <Image
+      src={hero}
+      sizes="(max-width: 600px) 400px, (max-width: 1000px) 800px, 1200px"
+      alt="Hero image"
+    />
+  );
+}
+```
+
+The component automatically:
+- Sets `loading="lazy"` and `decoding="async"` for performance
+- Detects srcset strings and extracts a fallback `src`
+- Handles both single URLs and responsive srcsets
+
+## Basic Usage
+
+### Single Optimized Image
+
+```tsx
+import { Image } from '@avalon/avalon/client';
+import thumbnail from './photo.png?w=200&format=webp';
+
+export function Card() {
+  return <Image src={thumbnail} alt="Thumbnail" width={200} />;
+}
+```
+
+### Responsive Images with srcset
+
+For responsive images, use multiple widths with `&as=srcset`:
+
+```tsx
+import { Image } from '@avalon/avalon/client';
+import hero from './hero.jpg?w=400;800;1200&format=webp&as=srcset';
+
+export function Hero() {
+  return (
+    <Image
+      src={hero}
+      sizes="(max-width: 600px) 400px, (max-width: 1000px) 800px, 1200px"
+      alt="Hero image"
+    />
+  );
+}
+```
+
+This generates a srcset like:
+```
+/@imagetools/abc123 400w, /@imagetools/def456 800w, /@imagetools/ghi789 1200w
+```
+
+## Available Directives
+
+### Size
+
+| Directive | Example | Description |
+|-----------|---------|-------------|
+| `w` | `?w=800` | Set width in pixels |
+| `h` | `?h=600` | Set height in pixels |
+| `w` (multiple) | `?w=400;800;1200` | Generate multiple sizes |
+
+### Format
+
+| Directive | Example | Description |
+|-----------|---------|-------------|
+| `format` | `?format=webp` | Convert to format (webp, avif, jpg, png) |
+| `quality` | `?quality=80` | Set quality (1-100) |
+
+### Output
+
+| Directive | Example | Description |
+|-----------|---------|-------------|
+| `as=srcset` | `?w=400;800&as=srcset` | Return srcset string |
+| `as=metadata` | `?as=metadata` | Return image metadata object |
+
+## Image Component Props
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `src` | `string` | required | Image URL or srcset string |
+| `alt` | `string` | required | Alt text for accessibility |
+| `sizes` | `string` | - | Sizes attribute for srcset |
+| `loading` | `'lazy' \| 'eager'` | `'lazy'` | Loading strategy |
+| `decoding` | `'async' \| 'sync' \| 'auto'` | `'async'` | Decoding hint |
+| `width` | `number \| string` | - | Image width |
+| `height` | `number \| string` | - | Image height |
+| `className` | `string` | - | CSS class |
+| `style` | `object` | - | Inline styles |
+
+## Configuration
+
+Image optimization is enabled by default. Customize it in your Vite config:
+
+```ts
+// vite.config.ts
+import { avalon } from '@avalon/avalon';
+
+export default defineConfig({
+  plugins: [
+    avalon({
+      image: {
+        // Default format for optimized images
+        defaultFormat: 'webp', // 'webp' | 'avif' | 'jpg' | 'png'
+        
+        // Default quality (1-100)
+        quality: 80,
+        
+        // Breakpoint widths for srcset
+        widths: [200, 400, 600, 800, 1200],
+        
+        // Strip EXIF metadata
+        removeMetadata: true,
+      },
+    }),
+  ],
+});
+```
+
+### Disabling Image Optimization
+
+```ts
+avalon({
+  image: false, // Disable entirely
+})
+```
+
+## TypeScript Support
+
+Add the image type declarations to your `tsconfig.json`:
+
+```json
+{
+  "include": [
+    "node_modules/@avalon/avalon/src/types/image.d.ts"
+  ]
+}
+```
+
+## Best Practices
+
+1. **Use the Image component** - It handles srcset detection and sets performance defaults
+2. **Use WebP** - Widely supported with great compression
+3. **Specify sizes** - Always include the `sizes` attribute with srcset
+4. **Set dimensions** - Include `width` and `height` to prevent layout shift
+5. **Use appropriate widths** - Match your breakpoints (e.g., 400, 800, 1200)
+
+## Example: Full Responsive Image
+
+```tsx
+import { Image } from '@avalon/avalon/client';
+import hero from './hero.jpg?w=400;800;1200;1920&format=webp&as=srcset';
+
+export function HeroSection() {
+  return (
+    <Image
+      src={hero}
+      sizes="(max-width: 400px) 400px, (max-width: 800px) 800px, (max-width: 1200px) 1200px, 1920px"
+      alt="Hero"
+      width={1920}
+      height={1080}
+      loading="eager" // Above the fold - load immediately
+      style={{ width: '100%', height: 'auto' }}
+    />
+  );
+}
+```
