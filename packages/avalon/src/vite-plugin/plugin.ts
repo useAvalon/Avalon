@@ -282,19 +282,15 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
     enforce: "pre",
 
     config() {
-      // @useavalon packages ship raw .ts source.
-      // - noExternal: Vite processes them through the transform pipeline (SSR)
-      // - oxc.exclude: Prevent Vite's built-in OXC from processing them.
-      //   Integration plugins (react, preact, etc.) set jsx: 'automatic' which
-      //   OXC then applies to ALL files including plain .ts — causing
-      //   "Invalid jsx option: automatic" errors. Our transform hook below
-      //   strips TypeScript without applying any JSX config.
+      // @useavalon packages ship raw .ts source for SSR (handled by our
+      // transform hook below) and pre-compiled .js for client-side code.
+      // Client .js files are excluded from OXC by default (/\.js$/), so
+      // integration plugins' jsx: 'automatic' config doesn't affect them.
+      // noExternal ensures Vite processes @useavalon packages through the
+      // SSR transform pipeline instead of treating them as external CJS.
       return {
         ssr: {
           noExternal: [/^@useavalon\//],
-        },
-        oxc: {
-          exclude: [/node_modules\/@useavalon\//],
         },
       };
     },
@@ -325,11 +321,17 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
     },
 
     async transform(code: string, id: string) {
-      // Strip TypeScript from @useavalon packages in node_modules.
-      // We exclude these from Vite's OXC (via oxc.exclude) because integration
-      // plugins set jsx: 'automatic' which OXC applies to all files, breaking
-      // plain .ts files. We handle TS stripping ourselves with no JSX config.
-      if (id.includes('node_modules/@useavalon/') && /\.tsx?$/.test(id)) {
+      // For SSR: strip TypeScript from @useavalon packages ourselves.
+      // Integration plugins (react, preact) set jsx: 'automatic' which Vite's
+      // OXC applies to all files — causing "Invalid jsx option" errors on
+      // plain .ts files during SSR. We intercept and strip TS without JSX config.
+      // For client-side: main.js imports pre-compiled .js files that OXC
+      // skips entirely (default exclude: /\.js$/), avoiding the jsx conflict.
+      if (
+        this.environment?.config?.consumer === 'server' &&
+        id.includes('@useavalon/') &&
+        /\.tsx?$/.test(id)
+      ) {
         const { transform: oxcTransform } = await import('oxc-transform');
         const result = await oxcTransform(id, code, {
           sourcemap: true,

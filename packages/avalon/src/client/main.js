@@ -608,7 +608,7 @@ if (import.meta.hot) {
 	import.meta.hot.accept();
 
 	// Lazy HMR adapter registration - only load adapters for frameworks used on the page
-	import('./hmr-coordinator.ts')
+	import('./hmr-coordinator.js')
 		.then(async ({ initializeHMR, getHMRCoordinator }) => {
 			initializeHMR();
 
@@ -623,13 +623,13 @@ if (import.meta.hot) {
 
 			// Only register adapters for frameworks that are used
 			const adapterLoaders = {
-				react: () => import('./adapters/react-adapter.ts').then(m => m.reactAdapter),
-				preact: () => import('./adapters/preact-adapter.ts').then(m => m.preactAdapter),
-				vue: () => import('./adapters/vue-adapter.ts').then(m => m.vueAdapter),
-				svelte: () => import('./adapters/svelte-adapter.ts').then(m => m.svelteAdapter),
-				solid: () => import('./adapters/solid-adapter.ts').then(m => m.solidAdapter),
-				lit: () => import('./adapters/lit-adapter.ts').then(m => m.litAdapter),
-				qwik: () => import('./adapters/qwik-adapter.ts').then(m => m.qwikAdapter),
+				react: () => import('./adapters/react-adapter.js').then(m => m.reactAdapter),
+				preact: () => import('./adapters/preact-adapter.js').then(m => m.preactAdapter),
+				vue: () => import('./adapters/vue-adapter.js').then(m => m.vueAdapter),
+				svelte: () => import('./adapters/svelte-adapter.js').then(m => m.svelteAdapter),
+				solid: () => import('./adapters/solid-adapter.js').then(m => m.solidAdapter),
+				lit: () => import('./adapters/lit-adapter.js').then(m => m.litAdapter),
+				qwik: () => import('./adapters/qwik-adapter.js').then(m => m.qwikAdapter),
 			};
 
 			for (const framework of usedFrameworks) {

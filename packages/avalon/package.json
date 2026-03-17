@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/avalon",
-	"version": "0.1.9",
+	"version": "0.1.10",
 	"description": "Multi-framework islands architecture for the modern web",
 	"license": "MIT",
 	"type": "module",
@@ -11,6 +11,10 @@
 	},
 	"homepage": "https://useavalon.dev",
 	"keywords": ["avalon", "islands", "ssr", "vite", "preact", "multi-framework", "hydration"],
+	"scripts": {
+		"build:client": "bun run scripts/build-client.ts",
+		"prepublishOnly": "bun run build:client"
+	},
 	"exports": {
 		".": "./mod.ts",
 		"./client": "./src/client/components.ts",
