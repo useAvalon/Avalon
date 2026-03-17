@@ -6,7 +6,7 @@
 	"type": "module",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/useAvalon/Avalon.git",
+		"url": "git+https://github.com/useAvalon/Avalon.git",
 		"directory": "packages/avalon"
 	},
 	"homepage": "https://useavalon.dev",
