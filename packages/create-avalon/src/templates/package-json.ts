@@ -31,6 +31,7 @@ export function generatePackageJson(config: ProjectConfig): string {
     vite: 'latest',
     typescript: 'latest',
     nitro: 'latest',
+    'vite-imagetools': 'latest',
   };
 
   switch (config.styling) {

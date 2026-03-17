@@ -3,22 +3,22 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "bunx vite",
-		"build": "bunx vite build",
-		"preview": "bunx vite preview",
+		"dev": "bunx --bun vite",
+		"build": "bunx --bun vite build",
+		"preview": "bunx --bun vite preview",
 		"start": "bun run build"
 	},
 	"dependencies": {
-		"@useavalon/agent-optimization": "0.1.1",
-		"@useavalon/avalon": "0.1.6",
-		"@useavalon/core": "0.1.1",
-		"@useavalon/lit": "0.1.1",
-		"@useavalon/preact": "0.1.1",
-		"@useavalon/react": "0.1.1",
-		"@useavalon/solid": "0.1.1",
-		"@useavalon/svelte": "0.1.1",
-		"@useavalon/qwik": "0.1.1",
-		"@useavalon/vue": "0.1.1",
+		"@useavalon/agent-optimization": "workspace:^",
+		"@useavalon/avalon": "workspace:^",
+		"@useavalon/core": "workspace:^",
+		"@useavalon/lit": "workspace:^",
+		"@useavalon/preact": "workspace:^",
+		"@useavalon/react": "workspace:^",
+		"@useavalon/solid": "workspace:^",
+		"@useavalon/svelte": "workspace:^",
+		"@useavalon/qwik": "workspace:^",
+		"@useavalon/vue": "workspace:^",
 		"@builder.io/qwik": "^1.19.0",
 		"@lit-labs/ssr": "^4.0.0",
 		"@lit-labs/ssr-client": "^1.0.0",
@@ -37,6 +37,8 @@
 		"vue": "3.5.30"
 	},
 	"devDependencies": {
-		"nitro": "3.0.1-alpha.2"
+		"nitro": "3.0.1-alpha.2",
+		"vite": "8.0.0",
+		"vite-imagetools": "^7.0.5"
 	}
 }

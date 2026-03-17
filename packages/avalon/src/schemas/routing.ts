@@ -362,7 +362,7 @@ export type {
 	ValidRoutePattern,
 	ValidRouteExtension,
 	PageComponentProps,
-} from '../types/routing';
+} from '../types/routing.ts';
 
 export {
 	isValidRouteParams,
@@ -373,4 +373,4 @@ export {
 	createTypedMetadataGenerator,
 	createTypedPageLoader,
 	createTypedApiHandler,
-} from '../types/routing';
+} from '../types/routing.ts';

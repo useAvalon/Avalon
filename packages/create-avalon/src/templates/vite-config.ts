@@ -53,6 +53,7 @@ export function generateViteConfig(config: ProjectConfig): string {
     `    integrations: [${integrationsList}],`,
     `    modules: 'app/modules',`,
     `    layoutsDir: 'app/shared/layouts',`,
+    `    image: true,`,
     `    nitro: {`,
     `      preset: 'node_server',`,
     `      streaming: true,`,

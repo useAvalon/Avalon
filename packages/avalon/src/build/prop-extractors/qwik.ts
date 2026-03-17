@@ -1,5 +1,5 @@
-import type { PropExtractionResult } from "./vue";
-import { FALLBACK_PROPS } from "./vue";
+import type { PropExtractionResult } from "./vue.ts";
+import { FALLBACK_PROPS } from "./vue.ts";
 
 /**
  * Extract props type from a Qwik component file.

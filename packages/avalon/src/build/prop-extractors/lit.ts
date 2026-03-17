@@ -1,4 +1,4 @@
-import { FALLBACK_PROPS, type PropExtractionResult } from "./vue";
+import { FALLBACK_PROPS, type PropExtractionResult } from "./vue.ts";
 
 /** Mapping from Lit type constructors to TypeScript type strings */
 const LIT_TYPE_MAP: Record<string, string> = {

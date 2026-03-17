@@ -269,14 +269,12 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
   }
 
   // Resolve /@useavalon/*/client virtual imports used by main.js
-  const integrationClientMap: Record<string, string | null> = {};
-  for (const name of ['preact', 'react', 'vue', 'svelte', 'solid', 'lit', 'qwik']) {
-    try {
-      integrationClientMap[`/@useavalon/${name}/client`] = require.resolve(`@useavalon/${name}/client`);
-    } catch {
-      integrationClientMap[`/@useavalon/${name}/client`] = null;
-    }
-  }
+  // These are resolved dynamically in the resolveId hook using Vite's resolver
+  const integrationClientIds = new Set(
+    ['preact', 'react', 'vue', 'svelte', 'solid', 'lit', 'qwik'].map(
+      name => `/@useavalon/${name}/client`
+    )
+  );
 
   // The main Avalon plugin
   const avalonPlugin: Plugin = {
@@ -309,27 +307,33 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
       checkDirectoriesExist(resolvedConfig, resolvedViteConfig.root);
     },
 
-    resolveId(id: string) {
+    async resolveId(id: string) {
       if (id === "/src/client/main.js" && clientMainResolved) {
         return clientMainResolved;
       }
-      if (id in integrationClientMap && integrationClientMap[id]) {
-        return integrationClientMap[id];
+      // /@useavalon/*/client — resolve through Vite's pipeline so it finds
+      // workspace-linked or npm-installed integration packages from the
+      // consuming project's node_modules, not from avalon's own context.
+      if (integrationClientIds.has(id)) {
+        const packageId = id.slice(1); // strip leading /
+        const resolved = await this.resolve(packageId);
+        return resolved?.id ?? null;
       }
       return null;
     },
 
     async transform(code: string, id: string) {
-      // Vite 8's OXC transform applies the project's jsx config to ALL .ts files,
-      // including those in node_modules/@useavalon. OXC rejects jsx options for
-      // plain .ts files. Strip TypeScript ourselves for @useavalon packages so
-      // Vite's built-in OXC doesn't need to touch them.
+      // Vite 8's built-in OXC plugin returns { moduleType: "js" } so the dev
+      // server knows the output is JavaScript. Because we exclude @useavalon
+      // packages from that plugin (via oxc.exclude), we must strip TypeScript
+      // ourselves AND set moduleType so the browser receives valid JS.
       if (id.includes('node_modules/@useavalon/') && /\.tsx?$/.test(id)) {
         const { transform: oxcTransform } = await import('oxc-transform');
         const result = await oxcTransform(id, code, {
+          sourcemap: true,
           typescript: { onlyRemoveTypeImports: false },
         });
-        return { code: result.code, map: result.map };
+        return { code: result.code, map: result.map, moduleType: 'js' };
       }
     },
 

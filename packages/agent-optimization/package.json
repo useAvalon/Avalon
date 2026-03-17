@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/agent-optimization",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "AI agent and SEO optimization plugin for Avalon — JSON-LD, llms.txt, markdown negotiation, sitemaps",
 	"license": "MIT",
 	"type": "module",

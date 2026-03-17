@@ -43,7 +43,7 @@ function resolveAvalonPackagePath(relativePath: string): string {
  * Resolves the absolute path to a file inside an @useavalon/<name> integration package.
  */
 function resolveIntegrationPackagePath(name: string, relativePath: string): string {
-	const require = createRequire(import.meta.url);
+	const require = createRequire(join(process.cwd(), 'package.json'));
 	const modEntry = require.resolve(`@useavalon/${name}`);
 	const pkgRoot = dirname(modEntry);
 	return join(pkgRoot, relativePath);

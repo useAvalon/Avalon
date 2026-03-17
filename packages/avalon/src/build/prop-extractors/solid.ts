@@ -1,4 +1,4 @@
-import { FALLBACK_PROPS, type PropExtractionResult } from "./vue";
+import { FALLBACK_PROPS, type PropExtractionResult } from "./vue.ts";
 
 /**
  * Extract props from a Solid component source string.

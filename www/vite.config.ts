@@ -48,6 +48,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		autoDiscoverIntegrations: true,
 		verbose: false,
 		showWarnings: false,
+		image: true,
 	});
 
 	return {
