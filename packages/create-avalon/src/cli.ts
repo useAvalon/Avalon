@@ -93,3 +93,5 @@ export async function main(): Promise<void> {
   printSummary(config);
   process.exit(0);
 }
+
+main();
