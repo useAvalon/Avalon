@@ -11,8 +11,6 @@ describe('generateRootLayout', () => {
     middleware: 'h3',
   };
 
-  // --- HTML shell ---
-
   it('generates an HTML shell with <html>, <head>, and <body>', () => {
     const result = generateRootLayout(baseConfig);
     expect(result).toContain('<html lang="en">');
@@ -59,41 +57,10 @@ describe('generateRootLayout', () => {
     expect(result).toContain('Readonly<LayoutProps>');
   });
 
-  // --- CSS Modules ---
-
-  it('imports .module.css when styling is css-modules', () => {
+  it('sets body margin to 0 via inline style', () => {
     const result = generateRootLayout(baseConfig);
-    expect(result).toContain("import styles from './_layout.module.css'");
+    expect(result).toContain('style={{ margin: 0 }}');
   });
-
-  it('applies styles.layout className on body when styling is css-modules', () => {
-    const result = generateRootLayout(baseConfig);
-    expect(result).toContain('className={styles.layout}');
-  });
-
-  // --- Tailwind ---
-
-  it('does not import .module.css when styling is tailwind', () => {
-    const config: ProjectConfig = { ...baseConfig, styling: 'tailwind' };
-    const result = generateRootLayout(config);
-    expect(result).not.toContain('.module.css');
-  });
-
-  it('does not apply styles.layout className when styling is tailwind', () => {
-    const config: ProjectConfig = { ...baseConfig, styling: 'tailwind' };
-    const result = generateRootLayout(config);
-    expect(result).not.toContain('className={styles.layout}');
-  });
-
-  // --- shadcn ---
-
-  it('does not import .module.css when styling is shadcn', () => {
-    const config: ProjectConfig = { ...baseConfig, styling: 'shadcn' };
-    const result = generateRootLayout(config);
-    expect(result).not.toContain('.module.css');
-  });
-
-  // --- common across all styling options ---
 
   it('always imports main.css regardless of styling option', () => {
     for (const styling of ['css-modules', 'tailwind', 'shadcn'] as const) {
@@ -118,9 +85,7 @@ describe('generateHomeLayout', () => {
     middleware: 'h3',
   };
 
-  // --- Basic structure ---
-
-  it('generates a wrapper with a {children} slot', () => {
+  it('includes a {children} slot', () => {
     const result = generateHomeLayout(baseConfig);
     expect(result).toContain('{children}');
   });
@@ -136,51 +101,22 @@ describe('generateHomeLayout', () => {
     expect(result).toContain('Readonly<LayoutProps>');
   });
 
-  it('wraps children in a div', () => {
+  it('is a passthrough fragment layout', () => {
     const result = generateHomeLayout(baseConfig);
-    expect(result).toContain('<div');
-    expect(result).toContain('</div>');
+    expect(result).toContain('<>{children}</>');
   });
-
-  // --- CSS Modules ---
-
-  it('imports .module.css when styling is css-modules', () => {
-    const result = generateHomeLayout(baseConfig);
-    expect(result).toContain("import styles from './_layout.module.css'");
-  });
-
-  it('applies styles.layout className when styling is css-modules', () => {
-    const result = generateHomeLayout(baseConfig);
-    expect(result).toContain('className={styles.layout}');
-  });
-
-  // --- Tailwind ---
-
-  it('does not import .module.css when styling is tailwind', () => {
-    const config: ProjectConfig = { ...baseConfig, styling: 'tailwind' };
-    const result = generateHomeLayout(config);
-    expect(result).not.toContain('.module.css');
-  });
-
-  it('does not apply styles.layout className when styling is tailwind', () => {
-    const config: ProjectConfig = { ...baseConfig, styling: 'tailwind' };
-    const result = generateHomeLayout(config);
-    expect(result).not.toContain('className={styles.layout}');
-  });
-
-  // --- shadcn ---
-
-  it('does not import .module.css when styling is shadcn', () => {
-    const config: ProjectConfig = { ...baseConfig, styling: 'shadcn' };
-    const result = generateHomeLayout(config);
-    expect(result).not.toContain('.module.css');
-  });
-
-  // --- Does NOT include full HTML shell ---
 
   it('does not include <html> or <head> tags', () => {
     const result = generateHomeLayout(baseConfig);
     expect(result).not.toContain('<html');
     expect(result).not.toContain('<head');
+  });
+
+  it('does not import CSS modules regardless of styling', () => {
+    for (const styling of ['css-modules', 'tailwind', 'shadcn'] as const) {
+      const config: ProjectConfig = { ...baseConfig, styling };
+      const result = generateHomeLayout(config);
+      expect(result).not.toContain('.module.css');
+    }
   });
 });

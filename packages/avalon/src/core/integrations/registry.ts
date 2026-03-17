@@ -94,56 +94,36 @@ export class IntegrationRegistry {
     }
   }
 
-  /**
-   * Internal method to load integration module
-   * Note: In development mode, integrations should be pre-loaded via preloader.ts
-   * before Vite's SSR context starts. This method is a fallback for production
-   * or when integrations weren't pre-loaded.
-   */
   private async loadIntegration(name: string): Promise<Integration> {
+    const integrationKey = `${name}Integration`;
+
+    // 1. Try loading from the installed npm package first (@useavalon/<name>)
     try {
-      // Use absolute file:// URL to bypass Vite's module resolution
-      // This ensures we use Deno's native import which handles npm: specifiers correctly
+      const packageName = `@useavalon/${name}`;
+      const module = await import(/* @vite-ignore */ packageName);
+      const integration = module[integrationKey] || module.default;
+      if (integration) return integration as Integration;
+    } catch {
+      // Package not installed or import failed — try monorepo path
+    }
+
+    // 2. Monorepo fallback: resolve via packages/integrations/<name>/mod.ts
+    try {
       const monorepoRoot = findMonorepoRoot();
       const integrationPath = join(monorepoRoot, "packages", "integrations", name, "mod.ts");
       const fileUrl = `file://${integrationPath}`;
-      
-      // Dynamic import with file:// URL bypasses Vite's SSR module loader
       const module = await import(/* @vite-ignore */ fileUrl);
-      
-      // Look for the integration export (e.g., preactIntegration)
-      const integrationKey = `${name}Integration`;
       const integration = module[integrationKey] || module.default;
-
-      if (!integration) {
-        throw new Error(
-          `Integration module '${name}' does not export '${integrationKey}' or a default export`
-        );
-      }
-
-      return integration as Integration;
-    } catch (error) {
-      // Check if this is a Vite SSR context issue
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const isViteIssue = errorMessage.includes('ERR_UNSUPPORTED_ESM_URL_SCHEME') ||
-                          errorMessage.includes('Only file and data URLs are supported');
-      
-      if (isViteIssue) {
-        throw new Error(
-          `Integration '${name}' could not be loaded within Vite's SSR context. ` +
-          `This usually means the integration wasn't pre-loaded at server startup. ` +
-          `Make sure preloadIntegrationsNative() is called before Vite server starts.`,
-          { cause: error }
-        );
-      }
-      
-      throw new Error(
-        `Failed to load integration for framework '${name}'. ` +
-        `Make sure @useavalon/${name} is installed.\n` +
-        `Install it with: bun add @useavalon/${name}`,
-        { cause: error }
-      );
+      if (integration) return integration as Integration;
+    } catch {
+      // Monorepo path also failed
     }
+
+    throw new Error(
+      `Failed to load integration for framework '${name}'. ` +
+      `Make sure @useavalon/${name} is installed.\n` +
+      `Install it with: bun add @useavalon/${name}`,
+    );
   }
 
   /**

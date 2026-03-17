@@ -16,6 +16,8 @@ import type {
   IntegrationName,
   ResolvedAvalonConfig,
 } from "./types.ts";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { resolveConfig, checkDirectoriesExist } from "./config.ts";
 import { activateIntegrations, activateSingleIntegration } from "./integration-activator.ts";
 import { discoverIntegrationsFromIslandUsage } from "./auto-discover.ts";
@@ -254,6 +256,18 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
     verbose: preResolvedConfig.verbose,
   });
 
+  // Resolve the path to @useavalon/avalon's client entry for the /src/client/main.js alias.
+  // In the monorepo www/ project this is handled by a manual resolve.alias; for standalone
+  // projects the plugin must do it automatically.
+  let clientMainResolved: string | null = null;
+  try {
+    const require = createRequire(import.meta.url);
+    const clientEntry = require.resolve("@useavalon/avalon/client");
+    clientMainResolved = join(dirname(clientEntry), "main.js");
+  } catch {
+    // Inside the monorepo www/ project — it sets its own alias in vite.config.ts
+  }
+
   // The main Avalon plugin
   const avalonPlugin: Plugin = {
     name: "avalon",
@@ -267,6 +281,16 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
       globalThis.__avalonConfig = resolvedConfig;
 
       checkDirectoriesExist(resolvedConfig, resolvedViteConfig.root);
+    },
+
+    resolveId(id: string) {
+      // Resolve /src/client/main.js to the actual file inside @useavalon/avalon.
+      // The SSR renderer injects <script src="/src/client/main.js"> into HTML.
+      // Without this alias, standalone projects get a 404.
+      if (id === "/src/client/main.js" && clientMainResolved) {
+        return clientMainResolved;
+      }
+      return null;
     },
 
     async buildStart() {

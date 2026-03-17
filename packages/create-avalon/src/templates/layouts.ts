@@ -6,9 +6,10 @@ export function generateRootLayout(config: ProjectConfig): string {
   imports.push(`import type { LayoutProps } from '@useavalon/avalon';`);
 
   if (config.styling === 'css-modules') {
-    imports.push(`import styles from './_layout.module.css';`);
+    imports.push(`import '../styles/main.css';`);
+  } else {
+    imports.push(`import '../styles/main.css';`);
   }
-  imports.push(`import '../styles/main.css';`);
 
   return `${imports.join('\n')}
 
@@ -21,10 +22,8 @@ export default async function RootLayout({ children }: Readonly<LayoutProps>) {
         <title>${config.projectName}</title>
         <link rel="icon" href="/favicon.ico" />
       </head>
-      <body${config.styling === 'css-modules' ? ' className={styles.layout}' : ''}>
-        <main>
-          {children}
-        </main>
+      <body style={{ margin: 0 }}>
+        {children}
       </body>
     </html>
   );
@@ -33,24 +32,10 @@ export default async function RootLayout({ children }: Readonly<LayoutProps>) {
 }
 
 export function generateHomeLayout(config: ProjectConfig): string {
-  const imports: string[] = [`import type { LayoutProps } from '@useavalon/avalon';`];
-
-  if (config.styling === 'css-modules') {
-    imports.push(`import styles from './_layout.module.css';`);
-  }
-
-  const openTag = config.styling === 'css-modules'
-    ? `<div className={styles.layout}>`
-    : `<div>`;
-
-  return `${imports.join('\n')}
+  return `import type { LayoutProps } from '@useavalon/avalon';
 
 export default async function HomeLayout({ children }: Readonly<LayoutProps>) {
-  return (
-    ${openTag}
-      {children}
-    </div>
-  );
+  return <>{children}</>;
 }
 `;
 }

@@ -34,6 +34,13 @@ describe('generateViteConfig', () => {
     expect(result).toContain(`layoutsDir: 'app/shared/layouts'`);
   });
 
+  it('includes nitro config with preset and streaming', () => {
+    const result = generateViteConfig(baseConfig);
+    expect(result).toContain(`nitro: {`);
+    expect(result).toContain(`preset: 'node_server'`);
+    expect(result).toContain(`streaming: true`);
+  });
+
   it('includes selected integrations as strings in the integrations array', () => {
     const config: ProjectConfig = {
       ...baseConfig,

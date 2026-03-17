@@ -10,6 +10,8 @@
 import type { Plugin, ViteDevServer } from 'vite';
 import { nitro as nitroVitePlugin } from 'nitro/vite';
 import { stat as fsStat } from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 import type { ResolvedAvalonConfig } from './types.ts';
 import { createNitroConfig, type AvalonNitroConfig, type NitroConfigOutput } from '../nitro/config.ts';
 import type { PageModule } from '../nitro/types.ts';
@@ -26,6 +28,26 @@ import { generateErrorPage, generateFallback404 } from '../render/error-pages.ts
 import { collectCssFromModuleGraph, injectSsrCss } from '../render/collect-css.ts';
 import { getUniversalCSSForHead } from '../islands/universal-css-collector.ts';
 import { getUniversalHeadForInjection } from '../islands/universal-head-collector.ts';
+
+/**
+ * Resolves the absolute path to a file inside @useavalon/avalon's source tree.
+ */
+function resolveAvalonPackagePath(relativePath: string): string {
+	const require = createRequire(import.meta.url);
+	const modEntry = require.resolve('@useavalon/avalon');
+	const pkgRoot = dirname(modEntry);
+	return join(pkgRoot, relativePath);
+}
+
+/**
+ * Resolves the absolute path to a file inside an @useavalon/<name> integration package.
+ */
+function resolveIntegrationPackagePath(name: string, relativePath: string): string {
+	const require = createRequire(import.meta.url);
+	const modEntry = require.resolve(`@useavalon/${name}`);
+	const pkgRoot = dirname(modEntry);
+	return join(pkgRoot, relativePath);
+}
 
 export const VIRTUAL_MODULE_IDS = {
 	PAGE_ROUTES: 'virtual:avalon/page-routes',
@@ -342,18 +364,16 @@ async function handle404(
 async function prewarmCoreModules(server: ViteDevServer, verbose?: boolean): Promise<void> {
 	const prewarmStart = performance.now();
 
+	const frameworkNames = ['react', 'vue', 'solid', 'svelte', 'lit', 'preact'] as const;
+
 	const coreModules = [
-		// SSR infrastructure
-		{ path: '../packages/avalon/src/render/ssr.ts', assignTo: 'ssr' },
-		{ path: '../packages/avalon/src/core/layout/enhanced-layout-resolver.ts', assignTo: 'layout' },
-		{ path: '../packages/avalon/src/middleware/index.ts', assignTo: null },
-		// Framework renderers — prewarm so first island render is fast
-		{ path: '../packages/integrations/react/server/renderer.ts', assignTo: null },
-		{ path: '../packages/integrations/vue/server/renderer.ts', assignTo: null },
-		{ path: '../packages/integrations/solid/server/renderer.ts', assignTo: null },
-		{ path: '../packages/integrations/svelte/server/renderer.ts', assignTo: null },
-		{ path: '../packages/integrations/lit/server/renderer.ts', assignTo: null },
-		{ path: '../packages/integrations/preact/server/renderer.ts', assignTo: null },
+		{ path: resolveAvalonPackagePath('src/render/ssr.ts'), assignTo: 'ssr' as string | null },
+		{ path: resolveAvalonPackagePath('src/core/layout/enhanced-layout-resolver.ts'), assignTo: 'layout' as string | null },
+		{ path: resolveAvalonPackagePath('src/middleware/index.ts'), assignTo: null as string | null },
+		...frameworkNames.map(name => ({
+			path: resolveIntegrationPackagePath(name, 'server/renderer.ts'),
+			assignTo: null as string | null,
+		})),
 	];
 
 	const results = await Promise.allSettled(
@@ -1198,14 +1218,14 @@ async function renderPageToHtml(
 
 	try {
 		if (!cachedSSRModule) {
-			cachedSSRModule = await server.ssrLoadModule('../packages/avalon/src/render/ssr.ts');
+			cachedSSRModule = await server.ssrLoadModule(resolveAvalonPackagePath('src/render/ssr.ts'));
 		}
 		// cachedSSRModule is the dynamically-loaded render/ssr.ts module;
 		// expected exports: renderToHtml, renderToHtmlWithLayouts
 		const ssrModule = cachedSSRModule as Record<string, unknown>;
 
 		if (!cachedLayoutModule) {
-			cachedLayoutModule = await server.ssrLoadModule('../packages/avalon/src/core/layout/enhanced-layout-resolver.ts');
+			cachedLayoutModule = await server.ssrLoadModule(resolveAvalonPackagePath('src/core/layout/enhanced-layout-resolver.ts'));
 		}
 		// cachedLayoutModule is the dynamically-loaded enhanced-layout-resolver.ts module;
 		// expected exports: EnhancedLayoutResolver, EnhancedLayoutResolverUtils

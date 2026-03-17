@@ -132,12 +132,17 @@ describe('scaffoldProject', () => {
     expect(await exists(join(target, 'components.json'))).toBe(true);
   });
 
-  it('creates empty favicon.ico placeholder', async () => {
+  it('creates favicon.ico with Avalon icon', async () => {
     const target = join(tempDir, 'out');
     await scaffoldProject(baseConfig, target);
 
-    const content = await read('public/favicon.ico');
-    expect(content).toBe('');
+    const buf = await readFile(join(target, 'public/favicon.ico'));
+    expect(buf.length).toBeGreaterThan(0);
+    // ICO magic bytes: 00 00 01 00
+    expect(buf[0]).toBe(0);
+    expect(buf[1]).toBe(0);
+    expect(buf[2]).toBe(1);
+    expect(buf[3]).toBe(0);
   });
 
   it('creates server/env.d.ts with nitro reference', async () => {
@@ -146,6 +151,15 @@ describe('scaffoldProject', () => {
 
     const content = await read('server/env.d.ts');
     expect(content).toContain('/// <reference types="nitro" />');
+  });
+
+  it('creates server/renderer.ts with Nitro SSR handler', async () => {
+    const target = join(tempDir, 'out');
+    await scaffoldProject(baseConfig, target);
+
+    const content = await read('server/renderer.ts');
+    expect(content).toContain('createNitroRenderer');
+    expect(content).toContain('virtual:avalon/config');
   });
 
   it('uses hono patterns when middleware is hono', async () => {

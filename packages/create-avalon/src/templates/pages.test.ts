@@ -11,84 +11,69 @@ describe('generateHomePage', () => {
     middleware: 'h3',
   };
 
-  // --- Basic structure ---
-
   it('exports a default async function', () => {
     const result = generateHomePage(baseConfig);
     expect(result).toContain('export default async function HomePage');
   });
 
-  it('includes a welcome heading with the project name', () => {
+  it('includes the project name in the heading', () => {
     const result = generateHomePage(baseConfig);
-    expect(result).toContain('Welcome to my-app');
+    expect(result).toContain('<h1');
+    expect(result).toContain('my-app');
   });
 
-  it('uses the provided project name in the heading', () => {
+  it('uses the provided project name', () => {
     const config: ProjectConfig = { ...baseConfig, projectName: 'cool-project' };
     const result = generateHomePage(config);
-    expect(result).toContain('Welcome to cool-project');
+    expect(result).toContain('cool-project');
   });
 
-  it('includes a get-started paragraph', () => {
+  it('includes metadata export with project name', () => {
     const result = generateHomePage(baseConfig);
-    expect(result).toContain('Get started by editing this page');
+    expect(result).toContain('export const metadata');
+    expect(result).toContain("title: 'my-app");
   });
 
-  // --- CSS Modules ---
-
-  it('imports .module.css when styling is css-modules', () => {
+  it('includes documentation link to useavalon.dev', () => {
     const result = generateHomePage(baseConfig);
-    expect(result).toContain("import styles from './index.module.css'");
+    expect(result).toContain('https://useavalon.dev/docs/introduction');
+    expect(result).toContain('Documentation');
   });
 
-  it('applies styles.page className when styling is css-modules', () => {
+  it('includes GitHub link', () => {
     const result = generateHomePage(baseConfig);
-    expect(result).toContain('className={styles.page}');
+    expect(result).toContain('https://github.com/useAvalon/Avalon');
+    expect(result).toContain('GitHub');
   });
 
-  it('applies styles.title className when styling is css-modules', () => {
+  it('includes get-started hint to edit the page', () => {
     const result = generateHomePage(baseConfig);
-    expect(result).toContain('className={styles.title}');
+    expect(result).toContain('Edit app/modules/home/pages/index.tsx');
   });
 
-  // --- Tailwind ---
-
-  it('does not import .module.css when styling is tailwind', () => {
-    const config: ProjectConfig = { ...baseConfig, styling: 'tailwind' };
-    const result = generateHomePage(config);
-    expect(result).not.toContain('.module.css');
+  it('includes Powered by Avalon footer', () => {
+    const result = generateHomePage(baseConfig);
+    expect(result).toContain('Powered by');
+    expect(result).toContain('https://useavalon.dev');
   });
 
-  it('uses Tailwind utility classes when styling is tailwind', () => {
-    const config: ProjectConfig = { ...baseConfig, styling: 'tailwind' };
-    const result = generateHomePage(config);
-    expect(result).toContain('className="max-w-3xl');
-    expect(result).toContain('className="text-4xl');
-  });
-
-  // --- shadcn ---
-
-  it('does not import .module.css when styling is shadcn', () => {
-    const config: ProjectConfig = { ...baseConfig, styling: 'shadcn' };
-    const result = generateHomePage(config);
-    expect(result).not.toContain('.module.css');
-  });
-
-  it('uses Tailwind utility classes when styling is shadcn', () => {
-    const config: ProjectConfig = { ...baseConfig, styling: 'shadcn' };
-    const result = generateHomePage(config);
-    expect(result).toContain('className="max-w-3xl');
-    expect(result).toContain('className="text-4xl');
-  });
-
-  // --- common ---
-
-  it('always includes a welcome heading regardless of styling', () => {
+  it('uses inline styles regardless of styling option', () => {
     for (const styling of ['css-modules', 'tailwind', 'shadcn'] as const) {
       const config: ProjectConfig = { ...baseConfig, styling };
       const result = generateHomePage(config);
-      expect(result).toContain('<h1');
-      expect(result).toContain('Welcome to my-app');
+      expect(result).toContain('style={{');
+      expect(result).not.toContain('.module.css');
+      expect(result).not.toContain('className={styles.');
     }
+  });
+
+  it('does not import any CSS modules', () => {
+    const result = generateHomePage(baseConfig);
+    expect(result).not.toContain('import styles');
+  });
+
+  it('includes Islands Architecture label', () => {
+    const result = generateHomePage(baseConfig);
+    expect(result).toContain('Islands Architecture');
   });
 });

@@ -10,6 +10,7 @@ import { generateHomePage } from './templates/pages';
 import { generateSampleMiddleware } from './templates/middleware';
 import { generateHelloRoute } from './templates/api-routes';
 import { generateStylingFiles } from './templates/styling';
+import { getFaviconBuffer } from './templates/favicon';
 
 export async function scaffoldProject(config: ProjectConfig, targetDir: string): Promise<void> {
   // Create the target directory
@@ -40,12 +41,27 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
     await writeFile(join(targetDir, filePath), content);
   }
 
-  // Write empty favicon placeholder
-  await writeFile(join(targetDir, 'public/favicon.ico'), '');
+  // Write Avalon favicon
+  await writeFile(join(targetDir, 'public/favicon.ico'), getFaviconBuffer());
 
   // Write server env.d.ts
   await writeFile(
     join(targetDir, 'server/env.d.ts'),
     `/// <reference types="nitro" />\n`,
+  );
+
+  // Write server/renderer.ts — Nitro SSR catch-all handler
+  await writeFile(
+    join(targetDir, 'server/renderer.ts'),
+    [
+      `import { createNitroRenderer } from '@useavalon/avalon/nitro/renderer';`,
+      `import avalonConfig from 'virtual:avalon/config';`,
+      ``,
+      `export default createNitroRenderer({`,
+      `  avalonConfig,`,
+      `  isDev: avalonConfig.isDev,`,
+      `});`,
+      ``,
+    ].join('\n'),
   );
 }
