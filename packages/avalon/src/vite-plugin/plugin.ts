@@ -282,13 +282,21 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
     enforce: "pre",
 
     config() {
-      // @useavalon packages ship raw .ts source for SSR (handled by our
-      // transform hook below) and pre-compiled .js for client-side code.
-      // Client .js files are excluded from OXC by default (/\.js$/), so
-      // integration plugins' jsx: 'automatic' config doesn't affect them.
-      // noExternal ensures Vite processes @useavalon packages through the
-      // SSR transform pipeline instead of treating them as external CJS.
+      // @useavalon packages ship raw .ts source for SSR and pre-compiled
+      // .js for client-side code.
+      //
+      // oxc.exclude: Prevents Vite's built-in OXC from processing @useavalon
+      //   .ts files. Without this, OXC applies integration plugins' global
+      //   jsx: 'automatic' config to plain .ts files, causing errors.
+      //   Our transform hook below handles TS stripping for SSR instead.
+      //   Client-side loads .js files which OXC skips by default (/\.js$/).
+      //
+      // ssr.noExternal: Ensures Vite processes @useavalon packages through
+      //   the SSR transform pipeline instead of treating them as external CJS.
       return {
+        oxc: {
+          exclude: [/node_modules\/@useavalon\/.*\.tsx?$/],
+        },
         ssr: {
           noExternal: [/^@useavalon\//],
         },
