@@ -1,73 +1,39 @@
-# @avalon/react
+# @useavalon/react
 
-React integration for the Avalon framework, providing support for React components as islands with React Server Components (RSC) support.
+React integration for [Avalon](https://useavalon.dev). Server-side rendering and client-side hydration for React components as islands.
 
-## Status
+## Features
 
-🚧 **Under Development** - This integration is currently being implemented.
-
-## Features (Planned)
-
-- ✅ React 18+ support with concurrent features
-- ✅ Server-side rendering with `renderToString`
-- ✅ Client-side hydration with `hydrateRoot`
-- ✅ React Server Components (RSC) support
-- ✅ All React hooks (useState, useEffect, useContext, etc.)
-- ✅ Error boundaries in islands
-- ✅ Multiple hydration strategies (on:client, on:visible, on:idle, on:interaction)
-
-## Installation
-
-```bash
-# This integration will be included with Avalon
-# No separate installation required
-```
+- React 19 with concurrent features
+- Server-side rendering via `renderToString`
+- Client-side hydration via `hydrateRoot`
+- All hydration strategies (`on:client`, `on:visible`, `on:idle`, `on:interaction`)
 
 ## Usage
 
-Documentation will be added as implementation progresses.
-
-### Basic Example
-
 ```tsx
-// Avalon/src/islands/Counter.tsx
+// components/Counter.react.tsx
 import { useState } from "react";
 
 export default function Counter() {
   const [count, setCount] = useState(0);
-  
-  return (
-    <div>
-      <p>Count: {count}</p>
-      <button onClick={() => setCount(count + 1)}>Increment</button>
-    </div>
-  );
+  return <button onClick={() => setCount(c => c + 1)}>Count: {count}</button>;
 }
 ```
-
-### React Server Components
 
 ```tsx
-// Server Component (no "use client" directive)
-async function ServerComponent() {
-  const data = await fetchData();
-  return <div>{data}</div>;
-}
+// pages/index.tsx
+import Counter from '../components/Counter.react.tsx';
 
-// Client Component (with "use client" directive)
-"use client";
-
-import { useState } from "react";
-
-export default function ClientComponent() {
-  const [state, setState] = useState(0);
-  return <button onClick={() => setState(state + 1)}>{state}</button>;
+export default function Home() {
+  return <Counter island={{ condition: 'on:visible' }} />;
 }
 ```
 
-## API Reference
+## Links
 
-Documentation will be added as implementation progresses.
+- [Documentation](https://useavalon.dev/docs/frameworks/react)
+- [GitHub](https://github.com/useAvalon/Avalon)
 
 ## License
 
