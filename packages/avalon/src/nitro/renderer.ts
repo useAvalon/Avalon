@@ -44,6 +44,8 @@ import {
 	discoverErrorPages,
 	type ErrorHandlerOptions,
 } from './error-handler.ts';
+import { h } from 'preact';
+import preactRenderToString from 'preact-render-to-string';
 
 /**
  * Resolved page route information
@@ -626,17 +628,27 @@ async function renderPageComponent(
 	context: NitroRenderContext,
 	_options: SSRRenderOptions,
 ): Promise<string> {
-	// This would integrate with the existing renderToHtml function
-	// For now, return a basic structure showing the integration point
-
-	// In the real implementation, this would:
-	// 1. Import and use renderToHtml from '../render/ssr.ts'
-	// 2. Create a RouteConfig from the pageModule
-	// 3. Apply layouts using the layout resolver
-	// 4. Return the fully rendered HTML
-
-	const componentName = (pageModule.default as { name?: string })?.name || 'Page';
+	const Component = pageModule.default as (props?: Record<string, unknown>) => unknown;
 	const metadata = pageModule.metadata || {};
+
+	// Call the page component (supports async components)
+	let vnode: unknown;
+	try {
+		const result = Component(pageProps);
+		vnode = result instanceof Promise ? await result : result;
+	} catch (err) {
+		console.error('[renderer] Error calling page component:', err);
+		vnode = h('div', null, 'Error rendering page');
+	}
+
+	// Render the vnode to HTML string using Preact SSR
+	let pageHtml: string;
+	try {
+		pageHtml = preactRenderToString(vnode as any);
+	} catch (err) {
+		console.error('[renderer] Error in preactRenderToString:', err);
+		pageHtml = '<div>Error rendering page</div>';
+	}
 
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -647,9 +659,10 @@ async function renderPageComponent(
     ${metadata.description ? `<meta name="description" content="${escapeHtml(String(metadata.description))}">` : ''}
   </head>
   <body>
-    <div id="app" data-page="${escapeHtml(String(componentName))}" data-props='${escapeHtml(JSON.stringify(pageProps))}'>
-      <!-- Page content rendered by Avalon SSR pipeline -->
+    <div id="app">
+      ${pageHtml}
     </div>
+    <script type="module" src="/src/client/main.js"></script>
   </body>
 </html>`;
 }
