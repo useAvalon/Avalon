@@ -3,8 +3,8 @@
 import type { ComponentType } from 'react';
 import type { ComponentMetadata } from '../types.ts';
 import { join } from 'node:path';
-import { toImportSpecifier } from '../../core/utils.ts';
-import { resolveIslandPath } from '../../../avalon/src/islands/framework-detection.ts';
+import { toImportSpecifier } from '@useavalon/core/utils';
+import { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection';
 
 /**
  * Load a React component from file path

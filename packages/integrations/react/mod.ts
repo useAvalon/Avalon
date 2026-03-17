@@ -7,7 +7,7 @@
  */
 
 import type { Plugin } from "vite";
-import type { Integration, IntegrationConfig } from "../core/types.ts";
+import type { Integration, IntegrationConfig } from '@useavalon/core/types';
 import { render } from "./server/renderer.ts";
 import { getHydrationScript } from "./client/hydration.ts";
 
@@ -181,7 +181,7 @@ export type {
   RenderResult,
   HydrationData,
 } from "./types.ts";
-export type { Integration, IntegrationConfig } from "../core/types.ts";
+export type { Integration, IntegrationConfig } from '@useavalon/core/types';
 
 // Default export
 export default reactIntegration;

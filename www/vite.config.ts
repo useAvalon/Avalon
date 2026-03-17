@@ -1,7 +1,7 @@
 import { defineConfig, type UserConfig } from 'vite';
 import { resolve } from 'node:path';
-import { avalon } from '../packages/avalon/src/vite-plugin/plugin.ts';
-import { agentOptimization } from '../packages/agent-optimization/mod.ts';
+import { avalon } from '@useavalon/avalon';
+import { agentOptimization } from '@useavalon/agent-optimization';
 
 export default defineConfig(async ({ command }): Promise<UserConfig> => {
 	const avalonPlugins = await avalon({
@@ -111,11 +111,6 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			port: 8012,
 			strictPort: false,
 			hmr: { port: 8013 },
-			fs: {
-				// Needed during monorepo development — framework packages are in parent dir.
-				// Remove when importing from published packages.
-				allow: ['..'],
-			},
 		},
 
 		ssr: {
@@ -153,18 +148,6 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				{ find: '@shared', replacement: resolve('app/shared') },
 				{ find: '@modules', replacement: resolve('app/modules') },
 				{ find: '@/', replacement: resolve('app') + '/' },
-				{ find: '/src/client/main.js', replacement: resolve('../packages/avalon/src/client/main.js') },
-				{ find: '/@useavalon/preact/client', replacement: resolve('../packages/integrations/preact/client/index.ts') },
-				{ find: '/@useavalon/react/client', replacement: resolve('../packages/integrations/react/client/index.ts') },
-				{ find: '/@useavalon/vue/client', replacement: resolve('../packages/integrations/vue/client/index.ts') },
-				{ find: '/@useavalon/svelte/client', replacement: resolve('../packages/integrations/svelte/client/index.ts') },
-				{ find: '/@useavalon/solid/client', replacement: resolve('../packages/integrations/solid/client/index.ts') },
-				{ find: '/@useavalon/lit/client', replacement: resolve('../packages/integrations/lit/client/index.ts') },
-				{ find: '/@useavalon/qwik/client', replacement: resolve('../packages/integrations/qwik/client/index.ts') },
-				// Vue's index.mjs re-exports from index.js (CJS with module.exports)
-				// which breaks under ssr.target: 'webworker' + conditions: ['node'].
-				// All @vue/* packages have a "node" export condition pointing to CJS.
-				// Alias them to their ESM bundler builds directly.
 				{ find: /^vue$/, replacement: 'vue/dist/vue.esm-bundler.js' },
 				{ find: /^@vue\/shared$/, replacement: '@vue/shared/dist/shared.esm-bundler.js' },
 				{ find: /^@vue\/runtime-core$/, replacement: '@vue/runtime-core/dist/runtime-core.esm-bundler.js' },

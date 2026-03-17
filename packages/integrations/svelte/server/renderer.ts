@@ -1,9 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { render as svelteRender } from 'svelte/server';
-import type { RenderParams, RenderResult } from '../../core/types.ts';
+import type { RenderParams, RenderResult } from '@useavalon/core/types';
 import type { SvelteSsrRenderResult } from '../types.ts';
-import { toImportSpecifier } from '../../core/utils.ts';
-import { resolveIslandPath } from '../../../avalon/src/islands/framework-detection.ts';
+import { toImportSpecifier } from '@useavalon/core/utils';
+import { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection';
 
 async function loadComponent(src: string) {
 	const isDev = process.env.NODE_ENV !== 'production';

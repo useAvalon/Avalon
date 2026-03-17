@@ -1,6 +1,6 @@
 import type { PreactComponent, PreactComponentModule } from '../types.ts';
-import { toImportSpecifier } from '../../core/utils.ts';
-import { resolveIslandPath } from '../../../avalon/src/islands/framework-detection.ts';
+import { toImportSpecifier } from '@useavalon/core/utils';
+import { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection';
 
 /**
  * Load a Preact component from a file path

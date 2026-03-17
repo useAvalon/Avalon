@@ -6,7 +6,7 @@
  * enabling resumability on the client without a hydration step.
  */
 
-import type { RenderParams, RenderResult } from "../../core/types.ts";
+import type { RenderParams, RenderResult } from "@useavalon/core/types";
 import { loadComponent } from "./utils.ts";
 
 /**

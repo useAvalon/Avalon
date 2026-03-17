@@ -1,6 +1,6 @@
 import { h } from "preact";
 import { renderToString } from "preact-render-to-string";
-import type { RenderParams, RenderResult } from "../../core/types.ts";
+import type { RenderParams, RenderResult } from "@useavalon/core/types";
 import type { PreactRenderParams, PreactRenderResult } from "../types.ts";
 import { loadComponent, normalizeProps } from "./utils.ts";
 

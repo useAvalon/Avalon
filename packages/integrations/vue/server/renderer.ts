@@ -9,10 +9,10 @@
 
 import { createSSRApp } from 'vue';
 import { renderToString as vueRenderToString } from 'vue/server-renderer';
-import type { RenderParams, RenderResult } from '../../core/types.ts';
+import type { RenderParams, RenderResult } from '@useavalon/core/types';
 import { extractCSS, generateScopeId, applyScopeToHTML } from './css-extractor.ts';
-import { toImportSpecifier } from '../../core/utils.ts';
-import { resolveIslandPath } from '../../../avalon/src/islands/framework-detection.ts';
+import { toImportSpecifier } from '@useavalon/core/utils';
+import { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection';
 
 /**
  * Render a Vue component to HTML string with SSR

@@ -5,9 +5,9 @@
  * Migrated from src/islands/renderers/solid-renderer.ts
  */
 
-import type { RenderParams, RenderResult } from "../../core/types.ts";
+import type { RenderParams, RenderResult } from "@useavalon/core/types";
 import { loadComponent } from "./utils.ts";
-import { resolveIslandPath } from "../../../avalon/src/islands/framework-detection.ts";
+import { resolveIslandPath } from "@useavalon/avalon/islands/framework-detection";
 import { readFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 

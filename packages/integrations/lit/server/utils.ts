@@ -8,8 +8,8 @@ import './dom-shim.ts';
 import type { LitElement, CSSResult } from 'lit';
 import { join } from 'node:path';
 import { readFile } from 'node:fs/promises';
-import { toImportSpecifier } from '../../core/utils.ts';
-import { resolveIslandPath } from '../../../avalon/src/islands/framework-detection.ts';
+import { toImportSpecifier } from '@useavalon/core/utils';
+import { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection';
 
 /**
  * Extract custom element tag name from a Lit component

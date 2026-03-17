@@ -1,5 +1,5 @@
 import type { ComponentType, VNode } from "preact";
-import type { RenderParams, RenderResult } from "../core/types.ts";
+import type { RenderParams, RenderResult } from '@useavalon/core/types';
 
 /**
  * Preact-specific component type
