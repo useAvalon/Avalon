@@ -1,10 +1,20 @@
 {
 	"name": "@useavalon/agent-optimization",
 	"version": "0.1.0",
+	"description": "AI agent and SEO optimization plugin for Avalon — JSON-LD, llms.txt, markdown negotiation, sitemaps",
+	"license": "MIT",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/useAvalon/Avalon.git",
+		"directory": "packages/agent-optimization"
+	},
+	"homepage": "https://useavalon.dev/docs/plugins/agent-optimization",
+	"keywords": ["avalon", "seo", "json-ld", "llms-txt", "sitemap", "ai-agents", "structured-data"],
 	"exports": {
 		".": "./mod.ts"
 	},
+	"files": ["mod.ts", "src/**/*.ts", "README.md"],
 	"dependencies": {
 		"@useavalon/avalon": "workspace:*",
 		"vite": "8.0.0",

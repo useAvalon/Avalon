@@ -1,7 +1,16 @@
 {
 	"name": "@useavalon/lit",
 	"version": "0.1.0",
+	"description": "Lit integration for Avalon islands architecture",
+	"license": "MIT",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/useAvalon/Avalon.git",
+		"directory": "packages/integrations/lit"
+	},
+	"homepage": "https://useavalon.dev/docs/frameworks/lit",
+	"keywords": ["avalon", "islands", "lit", "web-components", "ssr", "hydration"],
 	"exports": {
 		".": "./mod.ts",
 		"./island": "./island.ts",
@@ -9,6 +18,7 @@
 		"./client": "./client/index.ts",
 		"./types": "./types.ts"
 	},
+	"files": ["**/*.ts", "**/*.tsx", "README.md"],
 	"dependencies": {
 		"lit": "^3.0.0",
 		"@lit-labs/ssr": "^4.0.0",

@@ -1,13 +1,23 @@
 {
 	"name": "@useavalon/core",
 	"version": "0.1.0",
+	"description": "Core types and utilities for Avalon framework integrations",
+	"license": "MIT",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/useAvalon/Avalon.git",
+		"directory": "packages/integrations/core"
+	},
+	"homepage": "https://useavalon.dev",
+	"keywords": ["avalon", "islands", "framework", "core"],
 	"exports": {
 		".": "./types.ts",
 		"./types": "./types.ts",
 		"./utils": "./utils.ts",
 		"./base": "./base-integration.ts"
 	},
+	"files": ["*.ts", "README.md"],
 	"dependencies": {
 		"vite": "8.0.0"
 	}

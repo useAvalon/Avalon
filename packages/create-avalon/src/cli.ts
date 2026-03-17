@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';

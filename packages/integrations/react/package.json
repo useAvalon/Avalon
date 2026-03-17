@@ -1,13 +1,23 @@
 {
 	"name": "@useavalon/react",
 	"version": "0.1.0",
+	"description": "React integration for Avalon islands architecture",
+	"license": "MIT",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/useAvalon/Avalon.git",
+		"directory": "packages/integrations/react"
+	},
+	"homepage": "https://useavalon.dev/docs/frameworks/react",
+	"keywords": ["avalon", "islands", "react", "ssr", "hydration"],
 	"exports": {
 		".": "./mod.ts",
 		"./server": "./server/renderer.ts",
 		"./client": "./client/index.ts",
 		"./types": "./types.ts"
 	},
+	"files": ["**/*.ts", "**/*.tsx", "README.md"],
 	"dependencies": {
 		"react": "^19.2.4",
 		"react-dom": "^19.2.4",

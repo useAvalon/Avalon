@@ -1,12 +1,23 @@
 {
 	"name": "create-avalon",
 	"version": "0.1.0",
+	"description": "Scaffold a new Avalon project with multi-framework islands architecture",
+	"license": "MIT",
 	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/useAvalon/Avalon.git",
+		"directory": "packages/create-avalon"
+	},
+	"homepage": "https://useavalon.dev",
+	"keywords": ["avalon", "create", "scaffold", "cli", "islands", "vite"],
 	"bin": {
 		"create-avalon": "dist/cli.js"
 	},
-	"exports": {
-		".": "./src/cli.ts"
+	"files": ["dist", "README.md"],
+	"scripts": {
+		"build": "bun build src/cli.ts --outdir dist --target node --format esm",
+		"prepublishOnly": "bun run build"
 	},
 	"dependencies": {
 		"@clack/prompts": "^0.10.0"
