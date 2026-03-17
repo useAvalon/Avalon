@@ -1,0 +1,174 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtemp, rm, readFile, stat } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { scaffoldProject } from './scaffold';
+import { BASE_DIRS } from './types';
+import type { ProjectConfig } from './types';
+
+describe('scaffoldProject', () => {
+  let tempDir: string;
+
+  const baseConfig: ProjectConfig = {
+    projectName: 'test-project',
+    integrations: ['react'],
+    styling: 'css-modules',
+    plugins: [],
+    middleware: 'h3',
+  };
+
+  beforeEach(async () => {
+    tempDir = await mkdtemp(join(tmpdir(), 'scaffold-test-'));
+  });
+
+  afterEach(async () => {
+    await rm(tempDir, { recursive: true, force: true });
+  });
+
+  async function exists(path: string): Promise<boolean> {
+    try {
+      await stat(path);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function read(relativePath: string): Promise<string> {
+    return readFile(join(tempDir, 'out', relativePath), 'utf-8');
+  }
+
+  it('creates all BASE_DIRS inside the target directory', async () => {
+    const target = join(tempDir, 'out');
+    await scaffoldProject(baseConfig, target);
+
+    for (const dir of BASE_DIRS) {
+      const dirStat = await stat(join(target, dir));
+      expect(dirStat.isDirectory(), `${dir} should be a directory`).toBe(true);
+    }
+  });
+
+  it('generates package.json with correct project name', async () => {
+    const target = join(tempDir, 'out');
+    await scaffoldProject(baseConfig, target);
+
+    const pkg = JSON.parse(await read('package.json'));
+    expect(pkg.name).toBe('test-project');
+    expect(pkg.type).toBe('module');
+    expect(pkg.private).toBe(true);
+  });
+
+  it('generates tsconfig.json with path aliases', async () => {
+    const target = join(tempDir, 'out');
+    await scaffoldProject(baseConfig, target);
+
+    const tsconfig = JSON.parse(await read('tsconfig.json'));
+    expect(tsconfig.compilerOptions.paths['@shared/*']).toEqual(['./app/shared/*']);
+    expect(tsconfig.compilerOptions.paths['@modules/*']).toEqual(['./app/modules/*']);
+  });
+
+  it('generates vite.config.ts', async () => {
+    const target = join(tempDir, 'out');
+    await scaffoldProject(baseConfig, target);
+
+    const content = await read('vite.config.ts');
+    expect(content).toContain("import { avalon } from '@avalon/avalon'");
+    expect(content).toContain("modules: 'app/modules'");
+  });
+
+  it('generates root layout, home layout, and home page', async () => {
+    const target = join(tempDir, 'out');
+    await scaffoldProject(baseConfig, target);
+
+    const rootLayout = await read('app/shared/layouts/_layout.tsx');
+    expect(rootLayout).toContain('RootLayout');
+
+    const homeLayout = await read('app/modules/home/layouts/_layout.tsx');
+    expect(homeLayout).toContain('HomeLayout');
+
+    const homePage = await read('app/modules/home/pages/index.tsx');
+    expect(homePage).toContain('HomePage');
+  });
+
+  it('generates middleware and API route', async () => {
+    const target = join(tempDir, 'out');
+    await scaffoldProject(baseConfig, target);
+
+    const middleware = await read('middleware/01.logger.ts');
+    expect(middleware).toContain('defineHandler');
+
+    const apiRoute = await read('routes/api/hello.ts');
+    expect(apiRoute).toContain('Hello from Avalon!');
+  });
+
+  it('generates styling files for css-modules', async () => {
+    const target = join(tempDir, 'out');
+    await scaffoldProject(baseConfig, target);
+
+    expect(await exists(join(target, 'app/shared/styles/main.css'))).toBe(true);
+    expect(await exists(join(target, 'app/shared/styles/reset.css'))).toBe(true);
+    expect(await exists(join(target, 'app/shared/styles/tokens.css'))).toBe(true);
+    expect(await exists(join(target, 'app/shared/layouts/_layout.module.css'))).toBe(true);
+    expect(await exists(join(target, 'app/modules/home/pages/index.module.css'))).toBe(true);
+  });
+
+  it('generates tailwind files when styling is tailwind', async () => {
+    const config: ProjectConfig = { ...baseConfig, styling: 'tailwind' };
+    const target = join(tempDir, 'out');
+    await scaffoldProject(config, target);
+
+    expect(await exists(join(target, 'tailwind.config.js'))).toBe(true);
+    expect(await exists(join(target, 'app/shared/styles/global.css'))).toBe(true);
+    // Should NOT have css-modules files
+    expect(await exists(join(target, 'app/shared/styles/tokens.css'))).toBe(false);
+  });
+
+  it('generates shadcn files including components.json', async () => {
+    const config: ProjectConfig = { ...baseConfig, styling: 'shadcn' };
+    const target = join(tempDir, 'out');
+    await scaffoldProject(config, target);
+
+    expect(await exists(join(target, 'tailwind.config.js'))).toBe(true);
+    expect(await exists(join(target, 'components.json'))).toBe(true);
+  });
+
+  it('creates empty favicon.ico placeholder', async () => {
+    const target = join(tempDir, 'out');
+    await scaffoldProject(baseConfig, target);
+
+    const content = await read('public/favicon.ico');
+    expect(content).toBe('');
+  });
+
+  it('creates server/env.d.ts with nitro reference', async () => {
+    const target = join(tempDir, 'out');
+    await scaffoldProject(baseConfig, target);
+
+    const content = await read('server/env.d.ts');
+    expect(content).toContain('/// <reference types="nitro" />');
+  });
+
+  it('uses hono patterns when middleware is hono', async () => {
+    const config: ProjectConfig = { ...baseConfig, middleware: 'hono' };
+    const target = join(tempDir, 'out');
+    await scaffoldProject(config, target);
+
+    const middleware = await read('middleware/01.logger.ts');
+    expect(middleware).toContain('Hono');
+
+    const apiRoute = await read('routes/api/hello.ts');
+    expect(apiRoute).toContain('Hono');
+  });
+
+  it('uses elysia patterns when middleware is elysia', async () => {
+    const config: ProjectConfig = { ...baseConfig, middleware: 'elysia' };
+    const target = join(tempDir, 'out');
+    await scaffoldProject(config, target);
+
+    const middleware = await read('middleware/01.logger.ts');
+    expect(middleware).toContain('Elysia');
+
+    const apiRoute = await read('routes/api/hello.ts');
+    expect(apiRoute).toContain('Elysia');
+  });
+});

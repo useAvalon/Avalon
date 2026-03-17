@@ -4,6 +4,7 @@
 	"workspaces": [
 		"packages/avalon",
 		"packages/agent-optimization",
+		"packages/create-avalon",
 		"packages/integrations/*",
 		"www"
 	],
