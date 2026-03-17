@@ -164,12 +164,13 @@ export { asIsland } from './src/types/as-island.ts';
 export { generateIslandTypes, watchAndGenerateTypes } from './src/build/island-types-generator.ts';
 export type { IslandTypeGeneratorOptions, TypeGenerationResult } from './src/build/island-types-generator.ts';
 
-// Build command (batteries included)
-// Note: This is exported as a function that dynamically imports the build module
-// to avoid top-level await issues when SSR loading modules that import from @useavalon/avalon
+// Build command
+// Note: The build function is only available in the monorepo development environment.
+// End users should use the CLI or Vite build commands directly.
 export async function build(_options?: Record<string, unknown>) {
-	const { build: buildFn } = await import('../../scripts/build.ts');
-	return buildFn();
+	throw new Error(
+		'avalon build() is not available in the published package. Use `vite build` or the Avalon CLI instead.',
+	);
 }
 
 // Middleware system (Nitro-aligned)

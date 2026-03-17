@@ -13,13 +13,19 @@ describe('generateViteConfig', () => {
 
   it('imports defineConfig from vite and avalon from @useavalon/avalon', () => {
     const result = generateViteConfig(baseConfig);
-    expect(result).toContain(`import { defineConfig } from 'vite';`);
+    expect(result).toContain(`import { defineConfig, type UserConfig } from 'vite';`);
     expect(result).toContain(`import { avalon } from '@useavalon/avalon';`);
   });
 
-  it('exports a defineConfig call', () => {
+  it('exports an async defineConfig call', () => {
     const result = generateViteConfig(baseConfig);
-    expect(result).toContain('export default defineConfig({');
+    expect(result).toContain('export default defineConfig(async ()');
+  });
+
+  it('calls avalon() as async and spreads the result into plugins', () => {
+    const result = generateViteConfig(baseConfig);
+    expect(result).toContain('const avalonPlugins = await avalon({');
+    expect(result).toContain('...avalonPlugins,');
   });
 
   it('configures modules and layoutsDir in avalon plugin', () => {
@@ -28,21 +34,23 @@ describe('generateViteConfig', () => {
     expect(result).toContain(`layoutsDir: 'app/shared/layouts'`);
   });
 
-  it('includes selected integrations as imports and in the integrations array', () => {
+  it('includes selected integrations as strings in the integrations array', () => {
     const config: ProjectConfig = {
       ...baseConfig,
       integrations: ['react', 'vue'],
     };
     const result = generateViteConfig(config);
-    expect(result).toContain(`import { react } from '@useavalon/react';`);
-    expect(result).toContain(`import { vue } from '@useavalon/vue';`);
-    expect(result).toContain('react()');
-    expect(result).toContain('vue()');
+    // Integrations are strings, not function calls
+    expect(result).toContain(`'react'`);
+    expect(result).toContain(`'vue'`);
+    // Should NOT import integration packages
+    expect(result).not.toContain(`from '@useavalon/react'`);
+    expect(result).not.toContain(`from '@useavalon/vue'`);
   });
 
   it('always includes preact in integrations array when none selected', () => {
     const result = generateViteConfig(baseConfig);
-    expect(result).toContain('integrations: [preact()]');
+    expect(result).toContain(`integrations: ['preact']`);
   });
 
   it('includes tailwindcss plugin when styling is tailwind', () => {
@@ -65,37 +73,22 @@ describe('generateViteConfig', () => {
     expect(result).not.toContain('@tailwindcss/vite');
   });
 
-  it('includes agentOptimization plugin when agent-optimization is selected', () => {
+  it('includes agentOptimization plugin with config when agent-optimization is selected', () => {
     const config: ProjectConfig = {
       ...baseConfig,
       plugins: ['agent-optimization'],
     };
     const result = generateViteConfig(config);
     expect(result).toContain(`import { agentOptimization } from '@useavalon/agent-optimization';`);
-    expect(result).toContain('agentOptimization()');
+    expect(result).toContain('agentOptimization({');
+    expect(result).toContain('sitemap:');
+    expect(result).toContain('markdown: true');
   });
 
   it('does not include agentOptimization when plugin not selected', () => {
     const result = generateViteConfig(baseConfig);
     expect(result).not.toContain('agentOptimization');
     expect(result).not.toContain('@useavalon/agent-optimization');
-  });
-
-  it('configures nitro middleware with h3', () => {
-    const result = generateViteConfig(baseConfig);
-    expect(result).toContain(`middleware: 'h3'`);
-  });
-
-  it('configures nitro middleware with hono', () => {
-    const config: ProjectConfig = { ...baseConfig, middleware: 'hono' };
-    const result = generateViteConfig(config);
-    expect(result).toContain(`middleware: 'hono'`);
-  });
-
-  it('configures nitro middleware with elysia', () => {
-    const config: ProjectConfig = { ...baseConfig, middleware: 'elysia' };
-    const result = generateViteConfig(config);
-    expect(result).toContain(`middleware: 'elysia'`);
   });
 
   it('generates a full config with all options selected', () => {
@@ -108,21 +101,23 @@ describe('generateViteConfig', () => {
     };
     const result = generateViteConfig(config);
 
-    // Imports
-    expect(result).toContain(`import { react } from '@useavalon/react';`);
-    expect(result).toContain(`import { svelte } from '@useavalon/svelte';`);
-    expect(result).toContain(`import { qwik } from '@useavalon/qwik';`);
+    // Imports — only avalon, tailwind, and agent-optimization (no integration imports)
+    expect(result).toContain(`import { avalon } from '@useavalon/avalon';`);
     expect(result).toContain(`import tailwindcss from '@tailwindcss/vite';`);
     expect(result).toContain(`import { agentOptimization } from '@useavalon/agent-optimization';`);
 
+    // Integrations as strings
+    expect(result).toContain(`'preact'`);
+    expect(result).toContain(`'react'`);
+    expect(result).toContain(`'svelte'`);
+    expect(result).toContain(`'qwik'`);
+
     // Plugins
-    expect(result).toContain('react(), svelte(), qwik()');
     expect(result).toContain('tailwindcss()');
-    expect(result).toContain('agentOptimization()');
+    expect(result).toContain('agentOptimization({');
 
     // Config
     expect(result).toContain(`modules: 'app/modules'`);
     expect(result).toContain(`layoutsDir: 'app/shared/layouts'`);
-    expect(result).toContain(`middleware: 'hono'`);
   });
 });
