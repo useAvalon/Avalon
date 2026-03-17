@@ -16,7 +16,7 @@ export default async function HomePage() {
         <p style={{ fontSize: '0.8rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#818cf8', marginBottom: '1.5rem', fontWeight: 500 }}>Islands Architecture</p>
 
         <h1 style={{ fontSize: 'clamp(2.5rem, 6vw, 4rem)', fontWeight: 700, lineHeight: 1.1, margin: '0 0 1.5rem', background: 'linear-gradient(135deg, #f8fafc 0%, #94a3b8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          ${config.projectName}
+          Avalon
         </h1>
 
         <p style={{ fontSize: '1.15rem', lineHeight: 1.7, color: '#94a3b8', marginBottom: '2.5rem', maxWidth: '480px', marginLeft: 'auto', marginRight: 'auto' }}>

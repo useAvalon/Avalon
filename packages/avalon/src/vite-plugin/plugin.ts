@@ -256,22 +256,44 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
     verbose: preResolvedConfig.verbose,
   });
 
-  // Resolve the path to @useavalon/avalon's client entry for the /src/client/main.js alias.
-  // In the monorepo www/ project this is handled by a manual resolve.alias; for standalone
-  // projects the plugin must do it automatically.
+  // Pre-resolve paths for standalone projects.
+  // In the monorepo www/ project these are handled by manual resolve.alias.
+  const require = createRequire(import.meta.url);
+
   let clientMainResolved: string | null = null;
   try {
-    const require = createRequire(import.meta.url);
     const clientEntry = require.resolve("@useavalon/avalon/client");
     clientMainResolved = join(dirname(clientEntry), "main.js");
   } catch {
-    // Inside the monorepo www/ project — it sets its own alias in vite.config.ts
+    // Monorepo — www/ sets its own alias
+  }
+
+  // Resolve /@useavalon/*/client virtual imports used by main.js
+  const integrationClientMap: Record<string, string | null> = {};
+  for (const name of ['preact', 'react', 'vue', 'svelte', 'solid', 'lit', 'qwik']) {
+    try {
+      integrationClientMap[`/@useavalon/${name}/client`] = require.resolve(`@useavalon/${name}/client`);
+    } catch {
+      integrationClientMap[`/@useavalon/${name}/client`] = null;
+    }
   }
 
   // The main Avalon plugin
   const avalonPlugin: Plugin = {
     name: "avalon",
     enforce: "pre",
+
+    config() {
+      // Vite 8 uses OXC for TS/JSX transform. When the project tsconfig sets
+      // jsx: "react-jsx", Vite passes jsx options to OXC for ALL .ts files
+      // including those in node_modules/@useavalon. OXC rejects this for plain
+      // .ts files that don't contain JSX. Exclude @useavalon packages from OXC.
+      return {
+        oxc: {
+          exclude: [/node_modules\/@useavalon\//],
+        },
+      };
+    },
 
     configResolved(resolvedViteConfig: ResolvedConfig) {
       viteConfig = resolvedViteConfig;
@@ -284,11 +306,11 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
     },
 
     resolveId(id: string) {
-      // Resolve /src/client/main.js to the actual file inside @useavalon/avalon.
-      // The SSR renderer injects <script src="/src/client/main.js"> into HTML.
-      // Without this alias, standalone projects get a 404.
       if (id === "/src/client/main.js" && clientMainResolved) {
         return clientMainResolved;
+      }
+      if (id in integrationClientMap && integrationClientMap[id]) {
+        return integrationClientMap[id];
       }
       return null;
     },
