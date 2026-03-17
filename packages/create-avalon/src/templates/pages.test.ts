@@ -16,22 +16,22 @@ describe('generateHomePage', () => {
     expect(result).toContain('export default async function HomePage');
   });
 
-  it('includes the project name in the heading', () => {
+  it('includes Avalon in the heading', () => {
     const result = generateHomePage(baseConfig);
     expect(result).toContain('<h1');
-    expect(result).toContain('my-app');
+    expect(result).toContain('Avalon');
   });
 
-  it('uses the provided project name', () => {
+  it('does not include the folder name in the heading', () => {
     const config: ProjectConfig = { ...baseConfig, projectName: 'cool-project' };
     const result = generateHomePage(config);
-    expect(result).toContain('cool-project');
+    expect(result).not.toContain('cool-project');
   });
 
-  it('includes metadata export with project name', () => {
+  it('includes metadata export with Avalon title', () => {
     const result = generateHomePage(baseConfig);
     expect(result).toContain('export const metadata');
-    expect(result).toContain("title: 'my-app");
+    expect(result).toContain("title: 'Avalon");
   });
 
   it('includes documentation link to useavalon.dev', () => {

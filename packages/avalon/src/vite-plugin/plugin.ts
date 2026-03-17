@@ -284,11 +284,15 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
     enforce: "pre",
 
     config() {
-      // Vite 8 uses OXC for TS/JSX transform. When the project tsconfig sets
-      // jsx: "react-jsx", Vite passes jsx options to OXC for ALL .ts files
-      // including those in node_modules/@useavalon. OXC rejects this for plain
-      // .ts files that don't contain JSX. Exclude @useavalon packages from OXC.
+      // @useavalon packages ship raw .ts source. Mark them as noExternal so
+      // Vite processes them through the transform pipeline. Also exclude them
+      // from Vite's built-in OXC transform (which applies the project's jsx
+      // config and fails on plain .ts files). Our own transform hook below
+      // handles TS stripping for these files instead.
       return {
+        ssr: {
+          noExternal: [/^@useavalon\//],
+        },
         oxc: {
           exclude: [/node_modules\/@useavalon\//],
         },
@@ -313,6 +317,20 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
         return integrationClientMap[id];
       }
       return null;
+    },
+
+    async transform(code: string, id: string) {
+      // Vite 8's OXC transform applies the project's jsx config to ALL .ts files,
+      // including those in node_modules/@useavalon. OXC rejects jsx options for
+      // plain .ts files. Strip TypeScript ourselves for @useavalon packages so
+      // Vite's built-in OXC doesn't need to touch them.
+      if (id.includes('node_modules/@useavalon/') && /\.tsx?$/.test(id)) {
+        const { transform: oxcTransform } = await import('oxc-transform');
+        const result = await oxcTransform(id, code, {
+          typescript: { onlyRemoveTypeImports: false },
+        });
+        return { code: result.code, map: result.map };
+      }
     },
 
     async buildStart() {

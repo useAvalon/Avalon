@@ -2,7 +2,7 @@ import type { ProjectConfig } from '../types';
 
 export function generateHomePage(config: ProjectConfig): string {
   return `export const metadata = {
-  title: '${config.projectName} — Built with Avalon',
+  title: 'Avalon — Islands Architecture',
   description: 'A multi-framework islands architecture project powered by Avalon.',
 };
 
