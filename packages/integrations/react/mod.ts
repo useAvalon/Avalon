@@ -1,5 +1,5 @@
 /**
- * @avalon/react
+ * @useavalon/react
  * 
  * React integration for Avalon framework
  * Provides server-side rendering and client-side hydration for React components,

@@ -54,7 +54,7 @@ my-app/
 If you prefer to set up manually, install the core package:
 
 ```bash
-bun add @avalon/avalon
+bun add @useavalon/avalon
 bun add -d vite nitro
 ```
 
@@ -62,7 +62,7 @@ Then create a `vite.config.ts`:
 
 ```ts
 import { defineConfig } from 'vite';
-import { avalon } from '@avalon/avalon/vite';
+import { avalon } from '@useavalon/avalon/vite';
 
 export default defineConfig(async () => {
   const plugins = await avalon({

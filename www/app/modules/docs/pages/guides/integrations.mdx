@@ -56,7 +56,7 @@ The integration registry manages loading and caching:
 
 ```ts
 // Internal — you don't need to call this directly
-import { loadIntegration } from '@avalon/avalon';
+import { loadIntegration } from '@useavalon/avalon';
 
 const vue = await loadIntegration('vue');
 const html = await vue.render(component, props);
@@ -67,12 +67,12 @@ const html = await vue.render(component, props);
 | Framework | Package | File extensions |
 |-----------|---------|-----------------|
 | Preact | Built-in (default) | `.tsx`, `.jsx` |
-| React | `@avalon/react` | `.tsx` + pragma |
-| Vue | `@avalon/vue` | `.vue` |
-| Svelte | `@avalon/svelte` | `.svelte` |
-| Solid | `@avalon/solid` | `.solid.tsx` |
-| Lit | `@avalon/lit` | `.ts` (LitElement) |
-| Qwik | `@avalon/qwik` | `.qwik.tsx` |
+| React | `@useavalon/react` | `.tsx` + pragma |
+| Vue | `@useavalon/vue` | `.vue` |
+| Svelte | `@useavalon/svelte` | `.svelte` |
+| Solid | `@useavalon/solid` | `.solid.tsx` |
+| Lit | `@useavalon/lit` | `.ts` (LitElement) |
+| Qwik | `@useavalon/qwik` | `.qwik.tsx` |
 
 See the [Frameworks](/docs/frameworks/react) section for detailed setup guides for each framework.
 

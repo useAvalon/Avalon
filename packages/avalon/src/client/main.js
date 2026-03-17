@@ -1,7 +1,7 @@
 // Main client entry point for Vite
 // Integration-based island hydration system
 //
-// NOTE: This file contains imports to Vite virtual modules (/@avalon/*/client)
+// NOTE: This file contains imports to Vite virtual modules (/@useavalon/*/client)
 // that will show as errors in the IDE. These are resolved by Vite at runtime
 // and work correctly in the browser. The errors can be safely ignored.
 
@@ -223,25 +223,25 @@ async function loadIntegrationModule(framework) {
 	switch (framework) {
 		case 'preact':
 			// @ts-ignore - Vite resolves this at runtime
-			return import('/@avalon/preact/client');
+			return import('/@useavalon/preact/client');
 		case 'react':
 			// @ts-ignore - Vite resolves this at runtime
-			return import('/@avalon/react/client');
+			return import('/@useavalon/react/client');
 		case 'vue':
 			// @ts-ignore - Vite resolves this at runtime
-			return import('/@avalon/vue/client');
+			return import('/@useavalon/vue/client');
 		case 'svelte':
 			// @ts-ignore - Vite resolves this at runtime
-			return import('/@avalon/svelte/client');
+			return import('/@useavalon/svelte/client');
 		case 'solid':
 			// @ts-ignore - Vite resolves this at runtime
-			return import('/@avalon/solid/client');
+			return import('/@useavalon/solid/client');
 		case 'lit':
 			// @ts-ignore - Vite resolves this at runtime
-			return import('/@avalon/lit/client');
+			return import('/@useavalon/lit/client');
 		case 'qwik':
 			// @ts-ignore - Vite resolves this at runtime
-			return import('/@avalon/qwik/client');
+			return import('/@useavalon/qwik/client');
 		default:
 			throw new Error(`Unknown framework: ${framework}`);
 	}
@@ -305,7 +305,7 @@ async function hydrateIsland(island, framework) {
 		// This ensures our patch is applied before @customElement decorator runs
 		if (framework === 'lit') {
 			// @ts-ignore - Vite resolves this virtual module at runtime
-			await import('/@avalon/lit/client');
+			await import('/@useavalon/lit/client');
 		}
 
 		const componentModule = await import(/* @vite-ignore */ src);
@@ -520,7 +520,7 @@ async function hydrateIslandWithFreshModule(island, framework, freshSrc, origina
 
 	if (framework === 'lit') {
 		// @ts-ignore - Vite resolves this at runtime
-		await import('/@avalon/lit/client');
+		await import('/@useavalon/lit/client');
 	}
 
 	const componentModule = await import(/* @vite-ignore */ freshSrc);

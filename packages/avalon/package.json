@@ -1,5 +1,5 @@
 {
-	"name": "@avalon/avalon",
+	"name": "@useavalon/avalon",
 	"version": "0.1.1",
 	"license": "MIT",
 	"type": "module",
@@ -22,7 +22,7 @@
 		"@types/mime-types": "^3.0.1"
 	},
 	"dependencies": {
-		"@avalon/core": "workspace:*",
+		"@useavalon/core": "workspace:*",
 		"@mdx-js/react": "^3.0.0",
 		"@mdx-js/rollup": "^3.0.0",
 		"@types/mdx": "^2.0.0",

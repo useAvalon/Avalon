@@ -1,4 +1,4 @@
-import type { Integration } from "@avalon/core";
+import type { Integration } from "@useavalon/core";
 import { dirname, join } from "node:path";
 import { statSync } from "node:fs";
 
@@ -139,8 +139,8 @@ export class IntegrationRegistry {
       
       throw new Error(
         `Failed to load integration for framework '${name}'. ` +
-        `Make sure @avalon/${name} is installed.\n` +
-        `Install it with: bun add @avalon/${name}`,
+        `Make sure @useavalon/${name} is installed.\n` +
+        `Install it with: bun add @useavalon/${name}`,
         { cause: error }
       );
     }

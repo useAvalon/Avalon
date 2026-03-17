@@ -1,4 +1,4 @@
-// @avalon/agent-optimization — Public API
+// @useavalon/agent-optimization — Public API
 
 // Plugin entry point
 export { agentOptimization } from './src/plugin.ts';

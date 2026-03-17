@@ -1,5 +1,5 @@
 {
-	"name": "@avalon/preact",
+	"name": "@useavalon/preact",
 	"version": "0.1.0",
 	"type": "module",
 	"exports": {

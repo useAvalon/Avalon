@@ -1,4 +1,4 @@
-import { build } from '@avalon/avalon';
+import { build } from '@useavalon/avalon';
 
 await build({
 	pagesDir: './src/pages',

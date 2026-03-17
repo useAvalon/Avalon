@@ -1,6 +1,6 @@
 /** @jsxImportSource @builder.io/qwik */
 import { component$, useSignal, useVisibleTask$ } from '@builder.io/qwik';
-import { defineQwikIsland } from '@avalon/qwik/island';
+import { defineQwikIsland } from '@useavalon/qwik/island';
 
 const QwikCounter = component$(() => {
 	const count = useSignal(0);

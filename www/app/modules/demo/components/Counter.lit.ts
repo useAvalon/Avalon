@@ -1,6 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { defineLitIsland } from '@avalon/lit/island';
+import { defineLitIsland } from '@useavalon/lit/island';
 
 @customElement('lit-counter')
 export class LitCounter extends LitElement {

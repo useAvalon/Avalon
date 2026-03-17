@@ -72,7 +72,7 @@ describe('scaffoldProject', () => {
     await scaffoldProject(baseConfig, target);
 
     const content = await read('vite.config.ts');
-    expect(content).toContain("import { avalon } from '@avalon/avalon'");
+    expect(content).toContain("import { avalon } from '@useavalon/avalon'");
     expect(content).toContain("modules: 'app/modules'");
   });
 

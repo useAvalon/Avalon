@@ -27,8 +27,8 @@ export function integrationDetectionPlugin(): Plugin {
 
 		resolveId(id: string) {
 			// Handle integration imports
-			if (id.startsWith('@avalon/integration-')) {
-				const framework = id.replace('@avalon/integration-', '').split('/')[0];
+			if (id.startsWith('@useavalon/integration-')) {
+				const framework = id.replace('@useavalon/integration-', '').split('/')[0];
 				
 				// Check if this integration is used
 				if (detectedIntegrations && !detectedIntegrations[framework as keyof IntegrationDetectionResult]) {

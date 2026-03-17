@@ -1,5 +1,5 @@
 /**
- * @avalon/solid
+ * @useavalon/solid
  * 
  * Solid integration for Avalon framework
  * Provides server-side rendering and client-side hydration for Solid components

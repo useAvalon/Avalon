@@ -49,7 +49,7 @@ Qwik islands use the `.qwik.tsx` extension. Use `component$` to define them:
 /** @jsxImportSource @builder.io/qwik */
 
 import { component$, useSignal } from '@builder.io/qwik';
-import { defineQwikIsland } from '@avalon/qwik/island';
+import { defineQwikIsland } from '@useavalon/qwik/island';
 
 const Counter = component$(() => {
   const count = useSignal(0);
@@ -89,7 +89,7 @@ Qwik uses signals for fine-grained reactivity:
 ```tsx
 /** @jsxImportSource @builder.io/qwik */
 import { component$, useSignal, useComputed$ } from '@builder.io/qwik';
-import { defineQwikIsland } from '@avalon/qwik/island';
+import { defineQwikIsland } from '@useavalon/qwik/island';
 
 const DoubleCounter = component$(() => {
   const count = useSignal(0);
@@ -113,7 +113,7 @@ Use `useVisibleTask$` for code that should run when the component becomes visibl
 ```tsx
 /** @jsxImportSource @builder.io/qwik */
 import { component$, useSignal, useVisibleTask$ } from '@builder.io/qwik';
-import { defineQwikIsland } from '@avalon/qwik/island';
+import { defineQwikIsland } from '@useavalon/qwik/island';
 
 const Timer = component$(() => {
   const elapsed = useSignal(0);

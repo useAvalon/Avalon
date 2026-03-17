@@ -1,4 +1,4 @@
-import type { LayoutProps } from '@avalon/avalon';
+import type { LayoutProps } from '@useavalon/avalon';
 import styles from './_layout.module.css';
 
 interface BlogFrontmatter {

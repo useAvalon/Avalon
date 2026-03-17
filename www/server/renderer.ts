@@ -6,7 +6,7 @@
  * or static files are rendered here as pages.
  */
 
-import { createNitroRenderer } from '@avalon/avalon/nitro/renderer';
+import { createNitroRenderer } from '@useavalon/avalon/nitro/renderer';
 import avalonConfig from 'virtual:avalon/config';
 
 export default createNitroRenderer({

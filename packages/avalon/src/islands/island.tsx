@@ -418,8 +418,8 @@ async function loadIntegrationOrThrow(framework: string, logPrefix: string): Pro
 		devError(`${logPrefix} Failed to load ${framework} integration:`, error);
 		throw new Error(
 			`Failed to load integration for framework '${framework}'. ` +
-				`Make sure @avalon/${framework} is installed.\n` +
-				`Install it with: deno add @avalon/${framework}`,
+				`Make sure @useavalon/${framework} is installed.\n` +
+				`Install it with: deno add @useavalon/${framework}`,
 			{ cause: error },
 		);
 	}

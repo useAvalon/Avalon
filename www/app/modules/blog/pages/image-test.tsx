@@ -1,4 +1,4 @@
-import { Image } from '@avalon/avalon/client';
+import { Image } from '@useavalon/avalon/client';
 import styles from './index.module.css';
 
 // With &as=srcset - returns a srcset string (recommended for responsive images)
@@ -46,7 +46,7 @@ export default function ImageTestPage() {
 			<section>
 				<h2>Usage</h2>
 				<code style={{ display: 'block', background: '#1a1a2e', padding: '1rem', borderRadius: '4px', whiteSpace: 'pre' }}>
-{`import { Image } from '@avalon/avalon/client';
+{`import { Image } from '@useavalon/avalon/client';
 
 // Single optimized image
 import thumb from './photo.png?w=200&format=webp';

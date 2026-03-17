@@ -7,16 +7,16 @@ Avalon is built with TypeScript and provides types for all its APIs. Pages, layo
 
 ## Type imports
 
-The main types come from `@avalon/avalon`:
+The main types come from `@useavalon/avalon`:
 
 ```ts
-import type { LayoutProps } from '@avalon/avalon';
+import type { LayoutProps } from '@useavalon/avalon';
 ```
 
-Client-side component types come from `@avalon/avalon/client`:
+Client-side component types come from `@useavalon/avalon/client`:
 
 ```ts
-import type { ImageProps } from '@avalon/avalon/client';
+import type { ImageProps } from '@useavalon/avalon/client';
 ```
 
 ## JSX pragmas
@@ -108,7 +108,7 @@ export default async function BlogPost({ event }: PageProps) {
 ## Typing layout props
 
 ```tsx
-import type { LayoutProps } from '@avalon/avalon';
+import type { LayoutProps } from '@useavalon/avalon';
 
 export default function MyLayout({ children, frontmatter }: LayoutProps) {
   const title = frontmatter?.title as string | undefined;

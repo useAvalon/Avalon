@@ -1,5 +1,5 @@
 /**
- * @avalon/qwik
+ * @useavalon/qwik
  *
  * Qwik integration for Avalon framework
  * Provides server-side rendering and client-side resumability for Qwik components

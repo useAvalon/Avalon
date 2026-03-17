@@ -11,7 +11,7 @@
  * so TypeScript accepts `<MyComponent />` in Preact JSX pages.
  *
  * ```ts
- * import { defineLitIsland } from '@avalon/lit/island';
+ * import { defineLitIsland } from '@useavalon/lit/island';
  * class MyCounter extends LitElement { ... }
  * customElements.define('my-counter', MyCounter);
  * export default defineLitIsland(MyCounter);

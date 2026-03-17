@@ -78,7 +78,7 @@ export interface ResolvedImageConfig {
 
 /**
  * Supported integration names
- * These correspond to the @avalon/* packages
+ * These correspond to the @useavalon/* packages
  */
 export type IntegrationName =
   | "react"

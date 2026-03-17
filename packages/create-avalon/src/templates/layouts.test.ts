@@ -53,9 +53,9 @@ describe('generateRootLayout', () => {
     expect(result).toContain('export default async function RootLayout');
   });
 
-  it('imports LayoutProps from @avalon/avalon and uses Readonly<LayoutProps>', () => {
+  it('imports LayoutProps from @useavalon/avalon and uses Readonly<LayoutProps>', () => {
     const result = generateRootLayout(baseConfig);
-    expect(result).toContain("import type { LayoutProps } from '@avalon/avalon'");
+    expect(result).toContain("import type { LayoutProps } from '@useavalon/avalon'");
     expect(result).toContain('Readonly<LayoutProps>');
   });
 
@@ -130,9 +130,9 @@ describe('generateHomeLayout', () => {
     expect(result).toContain('export default async function HomeLayout');
   });
 
-  it('imports LayoutProps from @avalon/avalon and uses Readonly<LayoutProps>', () => {
+  it('imports LayoutProps from @useavalon/avalon and uses Readonly<LayoutProps>', () => {
     const result = generateHomeLayout(baseConfig);
-    expect(result).toContain("import type { LayoutProps } from '@avalon/avalon'");
+    expect(result).toContain("import type { LayoutProps } from '@useavalon/avalon'");
     expect(result).toContain('Readonly<LayoutProps>');
   });
 

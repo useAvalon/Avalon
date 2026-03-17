@@ -32,7 +32,7 @@ This runs entirely on the server. The client receives pure HTML with zero JavaSc
 Layouts are also async. Use this for data that's shared across multiple pages, like navigation items or user session info:
 
 ```tsx
-import type { LayoutProps } from '@avalon/avalon';
+import type { LayoutProps } from '@useavalon/avalon';
 
 export default async function DocsLayout({ children, frontmatter }: LayoutProps) {
   const nav = await fetch('https://api.example.com/docs-nav').then(r => r.json());

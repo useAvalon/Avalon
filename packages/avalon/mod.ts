@@ -137,7 +137,7 @@ export type {
 	RenderParams as IntegrationRenderParams,
 	RenderResult,
 	IntegrationConfig,
-} from '@avalon/core';
+} from '@useavalon/core';
 
 // Build utilities
 export { generateIslandManifest, loadIslandManifest, getIslandBundlePath } from './src/build/island-manifest.ts';
@@ -166,7 +166,7 @@ export type { IslandTypeGeneratorOptions, TypeGenerationResult } from './src/bui
 
 // Build command (batteries included)
 // Note: This is exported as a function that dynamically imports the build module
-// to avoid top-level await issues when SSR loading modules that import from @avalon/avalon
+// to avoid top-level await issues when SSR loading modules that import from @useavalon/avalon
 export async function build(_options?: Record<string, unknown>) {
 	const { build: buildFn } = await import('../../scripts/build.ts');
 	return buildFn();

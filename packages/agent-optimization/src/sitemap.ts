@@ -7,7 +7,7 @@
 
 // ---------------------------------------------------------------------------
 // Local types — kept self-contained so the module is testable without
-// importing from @avalon/avalon.
+// importing from @useavalon/avalon.
 // ---------------------------------------------------------------------------
 
 /** Minimal route shape needed by the sitemap generator. */

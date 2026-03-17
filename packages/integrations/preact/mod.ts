@@ -1,5 +1,5 @@
 /**
- * @avalon/preact
+ * @useavalon/preact
  * 
  * Preact integration for Avalon framework
  * Provides server-side rendering and client-side hydration for Preact components

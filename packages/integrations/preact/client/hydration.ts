@@ -27,7 +27,7 @@ export function hydrate(
  */
 export function getHydrationScript(): string {
   const script = [
-    "import { hydrate } from '@avalon/preact/client';",
+    "import { hydrate } from '@useavalon/preact/client';",
     "",
     "document.querySelectorAll('[data-framework=\"preact\"]').forEach(async (el) => {",
     "  const src = el.getAttribute('data-src');",

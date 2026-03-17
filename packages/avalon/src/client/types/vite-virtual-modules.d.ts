@@ -5,7 +5,7 @@
  * They don't exist as actual files but are provided by Vite's plugin system.
  */
 
-declare module '/@avalon/preact/client' {
+declare module '/@useavalon/preact/client' {
   export function hydrate(
     container: Element,
     component: unknown,
@@ -14,7 +14,7 @@ declare module '/@avalon/preact/client' {
   export function getHydrationScript(): string;
 }
 
-declare module '/@avalon/react/client' {
+declare module '/@useavalon/react/client' {
   export function hydrate(
     container: Element,
     component: unknown,
@@ -23,7 +23,7 @@ declare module '/@avalon/react/client' {
   export function getHydrationScript(): string;
 }
 
-declare module '/@avalon/vue/client' {
+declare module '/@useavalon/vue/client' {
   export function hydrate(
     container: Element,
     component: unknown,
@@ -32,7 +32,7 @@ declare module '/@avalon/vue/client' {
   export function getHydrationScript(): string;
 }
 
-declare module '/@avalon/svelte/client' {
+declare module '/@useavalon/svelte/client' {
   export function hydrate(
     container: Element,
     component: unknown,
@@ -41,7 +41,7 @@ declare module '/@avalon/svelte/client' {
   export function getHydrationScript(): string;
 }
 
-declare module '/@avalon/solid/client' {
+declare module '/@useavalon/solid/client' {
   export function hydrate(
     container: Element,
     component: unknown,
@@ -50,7 +50,7 @@ declare module '/@avalon/solid/client' {
   export function getHydrationScript(): string;
 }
 
-declare module '/@avalon/lit/client' {
+declare module '/@useavalon/lit/client' {
   export function hydrate(
     container: Element,
     component: unknown,

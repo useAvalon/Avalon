@@ -19,7 +19,7 @@ A layout is a wrapper component that wraps one or more pages. Layouts live in `s
 `src/layouts/_layout.tsx` wraps every page in your app:
 
 ```tsx
-import type { LayoutProps } from '@avalon/avalon';
+import type { LayoutProps } from '@useavalon/avalon';
 
 export default function RootLayout({ children, frontmatter }: LayoutProps) {
   return (
@@ -96,7 +96,7 @@ export const frontmatter = {
 ## Layout props type
 
 ```ts
-import type { LayoutProps } from '@avalon/avalon';
+import type { LayoutProps } from '@useavalon/avalon';
 
 export default function MyLayout({ children, frontmatter }: LayoutProps) {
   // frontmatter is Record<string, unknown>

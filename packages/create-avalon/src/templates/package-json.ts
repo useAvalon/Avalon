@@ -3,7 +3,7 @@ import { INTEGRATION_PACKAGES, DEFAULT_INTEGRATION_PACKAGE } from '../types';
 
 export function generatePackageJson(config: ProjectConfig): string {
   const dependencies: Record<string, string> = {
-    '@avalon/avalon': 'latest',
+    '@useavalon/avalon': 'latest',
     [DEFAULT_INTEGRATION_PACKAGE]: 'latest',
   };
 
@@ -12,7 +12,7 @@ export function generatePackageJson(config: ProjectConfig): string {
   }
 
   if (config.plugins.includes('agent-optimization')) {
-    dependencies['@avalon/agent-optimization'] = 'latest';
+    dependencies['@useavalon/agent-optimization'] = 'latest';
   }
 
   // Middleware dependencies

@@ -1,5 +1,5 @@
 /**
- * @avalon/lit
+ * @useavalon/lit
  * 
  * Lit integration for Avalon framework
  * Provides server-side rendering and client-side hydration for Lit web components

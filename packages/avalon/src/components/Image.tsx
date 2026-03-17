@@ -6,7 +6,7 @@
  *
  * Usage:
  * ```tsx
- * import { Image } from '@avalon/avalon/client';
+ * import { Image } from '@useavalon/avalon/client';
  * import heroSrc from './hero.jpg?w=400;800;1200&format=webp&as=srcset';
  *
  * <Image

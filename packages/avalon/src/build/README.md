@@ -22,13 +22,13 @@ const required = getRequiredIntegrations(detected);
 
 ### Integration Resolver (`integration-resolver-plugin.ts`)
 
-Resolves `@avalon/integration-*` imports to actual file paths:
+Resolves `@useavalon/integration-*` imports to actual file paths:
 
 ```typescript
 // Import resolution
-'@avalon/integration-preact' → 'src/integrations/preact/mod.ts'
-'@avalon/integration-preact/server' → 'src/integrations/preact/server/renderer.ts'
-'@avalon/integration-preact/client' → 'src/integrations/preact/client/index.ts'
+'@useavalon/integration-preact' → 'src/integrations/preact/mod.ts'
+'@useavalon/integration-preact/server' → 'src/integrations/preact/server/renderer.ts'
+'@useavalon/integration-preact/client' → 'src/integrations/preact/client/index.ts'
 ```
 
 **Usage:**
@@ -261,7 +261,7 @@ To add support for a new framework:
    export function createIntegrationAliases() {
      return {
        // ...
-       '@avalon/integration-myframework': resolve(cwd, 'src/integrations/myframework/mod.ts'),
+       '@useavalon/integration-myframework': resolve(cwd, 'src/integrations/myframework/mod.ts'),
      };
    }
    ```

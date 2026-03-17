@@ -5,7 +5,7 @@ description: Optimize your Avalon site for AI agents, search engines, and social
 
 ## Overview
 
-The `@avalon/agent-optimization` plugin enhances your Avalon site for AI agents and search engines by providing:
+The `@useavalon/agent-optimization` plugin enhances your Avalon site for AI agents and search engines by providing:
 
 - **JSON-LD Structured Data** — Automatic Schema.org WebPage injection
 - **llms.txt Generation** — Machine-readable site index for AI crawlers
@@ -19,8 +19,8 @@ The plugin is included in the Avalon monorepo. Add it to your Vite config:
 ```ts
 // vite.config.ts
 import { defineConfig } from 'vite';
-import { avalon } from '@avalon/avalon';
-import { agentOptimization } from '@avalon/agent-optimization';
+import { avalon } from '@useavalon/avalon';
+import { agentOptimization } from '@useavalon/agent-optimization';
 
 export default defineConfig({
   plugins: [
@@ -93,7 +93,7 @@ import {
   buildWebPageJsonLd, 
   buildWebSiteJsonLd, 
   injectJsonLd 
-} from '@avalon/agent-optimization';
+} from '@useavalon/agent-optimization';
 
 // WebPage JSON-LD
 const pageJsonLd = buildWebPageJsonLd(
@@ -175,7 +175,7 @@ Welcome to Avalon! This guide will help you...
 Run the following command:
 
 \`\`\`bash
-npm install @avalon/avalon
+npm install @useavalon/avalon
 \`\`\`
 ```
 
@@ -215,19 +215,19 @@ The plugin generates `/sitemap.xml` for search engines:
 
 ```ts
 // Plugin
-export { agentOptimization } from '@avalon/agent-optimization';
+export { agentOptimization } from '@useavalon/agent-optimization';
 
 // JSON-LD helpers
-export { buildWebPageJsonLd, buildWebSiteJsonLd, injectJsonLd } from '@avalon/agent-optimization';
+export { buildWebPageJsonLd, buildWebSiteJsonLd, injectJsonLd } from '@useavalon/agent-optimization';
 
 // Markdown conversion
-export { htmlToMarkdown, buildFrontMatter, shouldServeMarkdown } from '@avalon/agent-optimization';
+export { htmlToMarkdown, buildFrontMatter, shouldServeMarkdown } from '@useavalon/agent-optimization';
 
 // llms.txt generation
-export { buildLlmsTxt, buildLlmsFullTxt } from '@avalon/agent-optimization';
+export { buildLlmsTxt, buildLlmsFullTxt } from '@useavalon/agent-optimization';
 
 // Types
-export type { PageMetadata, AgentOptimizationConfig } from '@avalon/agent-optimization';
+export type { PageMetadata, AgentOptimizationConfig } from '@useavalon/agent-optimization';
 ```
 
 ### buildWebPageJsonLd

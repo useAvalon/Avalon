@@ -27,7 +27,7 @@ interface PersistentIslandProps {
  *
  * Usage inside the island:
  * ```tsx
- * import { usePersistentIslandContext } from '@avalon/avalon';
+ * import { usePersistentIslandContext } from '@useavalon/avalon';
  *
  * function MyCounter() {
  *   const { saveState, loadState, clearState } = usePersistentIslandContext();

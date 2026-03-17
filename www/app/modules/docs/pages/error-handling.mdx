@@ -69,7 +69,7 @@ For runtime errors inside components, Avalon ships several [built-in error bound
 - `StreamingErrorBoundary` — error isolation for streaming SSR boundaries
 
 ```tsx
-import { IslandErrorBoundary } from '@avalon/avalon/client';
+import { IslandErrorBoundary } from '@useavalon/avalon/client';
 
 <IslandErrorBoundary islandId="my-widget" isolateError={true}>
   <MyWidget island={{ condition: 'on:client' }} />
@@ -83,7 +83,7 @@ With `isolateError={true}`, a failing island shows a fallback UI instead of cras
 Wrap layout children with `LayoutErrorBoundary` to prevent a page error from breaking the entire shell:
 
 ```tsx
-import { LayoutErrorBoundary } from '@avalon/avalon/client';
+import { LayoutErrorBoundary } from '@useavalon/avalon/client';
 
 export default function RootLayout({ children }: LayoutProps) {
   return (

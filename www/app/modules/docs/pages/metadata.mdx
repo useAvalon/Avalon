@@ -100,7 +100,7 @@ export const metadata = {
   },
   head: [
     { tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
-    { tag: 'meta', attrs: { name: 'twitter:site', content: '@avalon_js' } },
+    { tag: 'meta', attrs: { name: 'twitter:site', content: '@useavalon' } },
     { tag: 'meta', attrs: { name: 'twitter:creator', content: '@yourhandle' } },
   ],
 };
@@ -133,7 +133,7 @@ export default function Layout({ children, frontmatter }: LayoutProps) {
 
 ## JSON-LD Structured Data
 
-Avalon's [`@avalon/agent-optimization`](/docs/plugins/agent-optimization) plugin automatically injects JSON-LD structured data for pages with title or description metadata. This helps search engines understand your content.
+Avalon's [`@useavalon/agent-optimization`](/docs/plugins/agent-optimization) plugin automatically injects JSON-LD structured data for pages with title or description metadata. This helps search engines understand your content.
 
 ### Automatic Injection
 
@@ -177,7 +177,7 @@ export const metadata = {
 Or use the helper functions directly:
 
 ```tsx
-import { buildWebPageJsonLd, injectJsonLd } from '@avalon/agent-optimization';
+import { buildWebPageJsonLd, injectJsonLd } from '@useavalon/agent-optimization';
 
 // Build JSON-LD object
 const jsonLd = buildWebPageJsonLd(
@@ -196,7 +196,7 @@ Layouts receive metadata via the `frontmatter` prop:
 ```tsx
 // app/shared/layouts/_layout.tsx
 
-import type { LayoutProps } from '@avalon/avalon';
+import type { LayoutProps } from '@useavalon/avalon';
 
 export default function RootLayout({ children, frontmatter }: LayoutProps) {
   const title = frontmatter?.title 
@@ -258,7 +258,7 @@ Both frontmatter and metadata exports are merged, with `metadata` taking precede
 Import the `PageMetadata` type for full TypeScript support:
 
 ```tsx
-import type { PageMetadata } from '@avalon/avalon';
+import type { PageMetadata } from '@useavalon/avalon';
 
 export const metadata: PageMetadata = {
   title: 'My Page',
@@ -297,8 +297,8 @@ export const metadata: PageMetadata = {
   },
   head: [
     { tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } },
-    { tag: 'meta', attrs: { name: 'twitter:site', content: '@avalon_js' } },
-    { tag: 'link', attrs: { rel: 'canonical', href: 'https://avalon.dev/docs/quick-start' } },
+    { tag: 'meta', attrs: { name: 'twitter:site', content: '@useavalon' } },
+    { tag: 'link', attrs: { rel: 'canonical', href: 'https://useavalon.dev/docs/quick-start' } },
   ],
 };
 ```

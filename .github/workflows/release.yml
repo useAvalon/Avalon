@@ -4,8 +4,8 @@ name: Release
 # Supports releasing individual packages or everything at once.
 #
 # Examples:
-#   package=core,  channel=beta,  bump=minor → @avalon/avalon@0.2.0-beta.1
-#   package=lit,   channel=stable, bump=patch → @avalon/lit@0.1.1
+#   package=core,  channel=beta,  bump=minor → @useavalon/avalon@0.2.0-beta.1
+#   package=lit,   channel=stable, bump=patch → @useavalon/lit@0.1.1
 #   package=all,   channel=stable, bump=major → all packages to 1.0.0
 
 on:

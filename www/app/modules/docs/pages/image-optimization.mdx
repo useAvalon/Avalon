@@ -18,7 +18,7 @@ Avalon includes built-in image optimization powered by [vite-imagetools](https:/
 Avalon provides an `Image` component that handles all the complexity for you:
 
 ```tsx
-import { Image } from '@avalon/avalon/client';
+import { Image } from '@useavalon/avalon/client';
 import hero from './hero.jpg?w=400;800;1200&format=webp&as=srcset';
 
 export function Hero() {
@@ -42,7 +42,7 @@ The component automatically:
 ### Single Optimized Image
 
 ```tsx
-import { Image } from '@avalon/avalon/client';
+import { Image } from '@useavalon/avalon/client';
 import thumbnail from './photo.png?w=200&format=webp';
 
 export function Card() {
@@ -55,7 +55,7 @@ export function Card() {
 For responsive images, use multiple widths with `&as=srcset`:
 
 ```tsx
-import { Image } from '@avalon/avalon/client';
+import { Image } from '@useavalon/avalon/client';
 import hero from './hero.jpg?w=400;800;1200&format=webp&as=srcset';
 
 export function Hero() {
@@ -118,7 +118,7 @@ Image optimization is enabled by default. Customize it in your Vite config:
 
 ```ts
 // vite.config.ts
-import { avalon } from '@avalon/avalon';
+import { avalon } from '@useavalon/avalon';
 
 export default defineConfig({
   plugins: [
@@ -156,7 +156,7 @@ Add the image type declarations to your `tsconfig.json`:
 ```json
 {
   "include": [
-    "node_modules/@avalon/avalon/src/types/image.d.ts"
+    "node_modules/@useavalon/avalon/src/types/image.d.ts"
   ]
 }
 ```
@@ -172,7 +172,7 @@ Add the image type declarations to your `tsconfig.json`:
 ## Example: Full Responsive Image
 
 ```tsx
-import { Image } from '@avalon/avalon/client';
+import { Image } from '@useavalon/avalon/client';
 import hero from './hero.jpg?w=400;800;1200;1920&format=webp&as=srcset';
 
 export function HeroSection() {

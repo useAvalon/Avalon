@@ -18,9 +18,9 @@ describe('generatePackageJson', () => {
     expect(pkg.private).toBe(true);
   });
 
-  it('always includes @avalon/avalon as dependency', () => {
+  it('always includes @useavalon/avalon as dependency', () => {
     const pkg = JSON.parse(generatePackageJson(baseConfig));
-    expect(pkg.dependencies['@avalon/avalon']).toBe('latest');
+    expect(pkg.dependencies['@useavalon/avalon']).toBe('latest');
   });
 
   it('includes dev, build, preview scripts', () => {
@@ -77,31 +77,31 @@ describe('generatePackageJson', () => {
     expect(pkg.dependencies['@shadcn/ui']).toBeUndefined();
   });
 
-  it('maps selected integrations to @avalon/* packages', () => {
+  it('maps selected integrations to @useavalon/* packages', () => {
     const config: ProjectConfig = {
       ...baseConfig,
       integrations: ['react', 'vue'],
     };
     const pkg = JSON.parse(generatePackageJson(config));
-    expect(pkg.dependencies['@avalon/react']).toBe('latest');
-    expect(pkg.dependencies['@avalon/vue']).toBe('latest');
-    // Runtime deps (react, vue) are peer deps of @avalon/* packages, not listed directly
+    expect(pkg.dependencies['@useavalon/react']).toBe('latest');
+    expect(pkg.dependencies['@useavalon/vue']).toBe('latest');
+    // Runtime deps (react, vue) are peer deps of @useavalon/* packages, not listed directly
     expect(pkg.dependencies['react']).toBeUndefined();
     expect(pkg.dependencies['vue']).toBeUndefined();
   });
 
-  it('includes @avalon/agent-optimization when plugin selected', () => {
+  it('includes @useavalon/agent-optimization when plugin selected', () => {
     const config: ProjectConfig = {
       ...baseConfig,
       plugins: ['agent-optimization'],
     };
     const pkg = JSON.parse(generatePackageJson(config));
-    expect(pkg.dependencies['@avalon/agent-optimization']).toBe('latest');
+    expect(pkg.dependencies['@useavalon/agent-optimization']).toBe('latest');
   });
 
-  it('does not include @avalon/agent-optimization when plugin not selected', () => {
+  it('does not include @useavalon/agent-optimization when plugin not selected', () => {
     const pkg = JSON.parse(generatePackageJson(baseConfig));
-    expect(pkg.dependencies['@avalon/agent-optimization']).toBeUndefined();
+    expect(pkg.dependencies['@useavalon/agent-optimization']).toBeUndefined();
   });
 
   it('returns valid JSON with 2-space indent', () => {

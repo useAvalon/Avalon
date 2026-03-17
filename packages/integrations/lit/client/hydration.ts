@@ -84,7 +84,7 @@ function performHydration(
  */
 export function getHydrationScript(): string {
   return `
-    import { hydrate } from '@avalon/lit/client';
+    import { hydrate } from '@useavalon/lit/client';
     
     document.querySelectorAll('[data-framework="lit"]').forEach(async (el) => {
       const src = el.getAttribute('data-src');

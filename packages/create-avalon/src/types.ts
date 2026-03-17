@@ -2,7 +2,7 @@ export type Integration = 'react' | 'vue' | 'svelte' | 'solid' | 'lit' | 'qwik';
 
 /** Preact is always included as the core rendering framework */
 export const DEFAULT_INTEGRATION = 'preact' as const;
-export const DEFAULT_INTEGRATION_PACKAGE = '@avalon/preact';
+export const DEFAULT_INTEGRATION_PACKAGE = '@useavalon/preact';
 
 export type StylingOption = 'css-modules' | 'tailwind' | 'shadcn';
 
@@ -19,12 +19,12 @@ export interface ProjectConfig {
 }
 
 export const INTEGRATION_PACKAGES: Record<Integration, string> = {
-  react:   '@avalon/react',
-  vue:     '@avalon/vue',
-  svelte:  '@avalon/svelte',
-  solid:   '@avalon/solid',
-  lit:     '@avalon/lit',
-  qwik:    '@avalon/qwik',
+  react:   '@useavalon/react',
+  vue:     '@useavalon/vue',
+  svelte:  '@useavalon/svelte',
+  solid:   '@useavalon/solid',
+  lit:     '@useavalon/lit',
+  qwik:    '@useavalon/qwik',
 };
 
 export const BASE_DIRS = [

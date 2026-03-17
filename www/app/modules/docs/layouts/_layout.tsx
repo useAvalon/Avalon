@@ -1,4 +1,4 @@
-import type { LayoutProps } from '@avalon/avalon';
+import type { LayoutProps } from '@useavalon/avalon';
 import DocsSidebar from '../components/DocsSidebar.tsx';
 import TableOfContents from '../components/TableOfContents.tsx';
 import { getPrevNext } from '@shared/utils/sidebar.ts';

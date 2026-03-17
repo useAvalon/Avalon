@@ -3,13 +3,13 @@ import type { ProjectConfig } from '../types';
 export function generateViteConfig(config: ProjectConfig): string {
   const imports: string[] = [
     `import { defineConfig } from 'vite';`,
-    `import { avalon } from '@avalon/avalon';`,
-    `import { preact } from '@avalon/preact';`,
+    `import { avalon } from '@useavalon/avalon';`,
+    `import { preact } from '@useavalon/preact';`,
   ];
 
   // Additional integration imports
   for (const integration of config.integrations) {
-    imports.push(`import { ${integration} } from '@avalon/${integration}';`);
+    imports.push(`import { ${integration} } from '@useavalon/${integration}';`);
   }
 
   // Tailwind import
@@ -21,7 +21,7 @@ export function generateViteConfig(config: ProjectConfig): string {
   // Agent optimization import
   const hasAgentOptimization = config.plugins.includes('agent-optimization');
   if (hasAgentOptimization) {
-    imports.push(`import { agentOptimization } from '@avalon/agent-optimization';`);
+    imports.push(`import { agentOptimization } from '@useavalon/agent-optimization';`);
   }
 
   // Build integrations array — preact is always first

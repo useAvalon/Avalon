@@ -3,7 +3,7 @@ import type { ProjectConfig } from '../types';
 export function generateRootLayout(config: ProjectConfig): string {
   const imports: string[] = [];
 
-  imports.push(`import type { LayoutProps } from '@avalon/avalon';`);
+  imports.push(`import type { LayoutProps } from '@useavalon/avalon';`);
 
   if (config.styling === 'css-modules') {
     imports.push(`import styles from './_layout.module.css';`);
@@ -33,7 +33,7 @@ export default async function RootLayout({ children }: Readonly<LayoutProps>) {
 }
 
 export function generateHomeLayout(config: ProjectConfig): string {
-  const imports: string[] = [`import type { LayoutProps } from '@avalon/avalon';`];
+  const imports: string[] = [`import type { LayoutProps } from '@useavalon/avalon';`];
 
   if (config.styling === 'css-modules') {
     imports.push(`import styles from './_layout.module.css';`);

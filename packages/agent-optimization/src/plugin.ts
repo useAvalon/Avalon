@@ -1,5 +1,5 @@
 /**
- * Vite plugin entry point for @avalon/agent-optimization.
+ * Vite plugin entry point for @useavalon/agent-optimization.
  *
  * Middleware strategy — ALL middleware is registered as pre-middleware (directly
  * in configureServer, not in a returned function). This is critical because

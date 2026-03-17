@@ -1,5 +1,5 @@
 import { registry } from "../core/integrations/registry.ts";
-import type { Integration } from "@avalon/core";
+import type { Integration } from "@useavalon/core";
 import { devWarn } from "../utils/dev-logger.ts";
 
 /**
@@ -38,7 +38,7 @@ export async function loadIntegration(framework: string) {
     return integration;
   } catch (error) {
     throw new Error(
-      `Integration '${framework}' could not be loaded. Make sure @avalon/${framework} is installed.`,
+      `Integration '${framework}' could not be loaded. Make sure @useavalon/${framework} is installed.`,
       { cause: error }
     );
   }

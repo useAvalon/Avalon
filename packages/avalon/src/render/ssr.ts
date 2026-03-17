@@ -465,11 +465,11 @@ function generateHead(options: Partial<RenderOptions>, frameworks: FrameworkDete
     <script type="importmap">
     {
       "imports": {
-        "@avalon/preact/client": "/packages/integrations/preact/client/index.ts",
-        "@avalon/vue/client": "/packages/integrations/vue/client/index.ts",
-        "@avalon/solid/client": "/packages/integrations/solid/client/index.ts",
-        "@avalon/svelte/client": "/packages/integrations/svelte/client/index.ts",
-        "@avalon/shared": "/packages/integrations/core/types.ts"
+        "@useavalon/preact/client": "/packages/integrations/preact/client/index.ts",
+        "@useavalon/vue/client": "/packages/integrations/vue/client/index.ts",
+        "@useavalon/solid/client": "/packages/integrations/solid/client/index.ts",
+        "@useavalon/svelte/client": "/packages/integrations/svelte/client/index.ts",
+        "@useavalon/shared": "/packages/integrations/core/types.ts"
       }
     }
     </script>`;

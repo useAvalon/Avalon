@@ -12,13 +12,13 @@
  *   bun run scripts/bump-version.ts --bump=major --channel=beta --package=all
  *
  * Package targets:
- *   core     — @avalon/avalon + @avalon/core
- *   lit      — @avalon/lit
- *   react    — @avalon/react
- *   preact   — @avalon/preact
- *   svelte   — @avalon/svelte
- *   solid    — @avalon/solid
- *   vue      — @avalon/vue
+ *   core     — @useavalon/avalon + @useavalon/core
+ *   lit      — @useavalon/lit
+ *   react    — @useavalon/react
+ *   preact   — @useavalon/preact
+ *   svelte   — @useavalon/svelte
+ *   solid    — @useavalon/solid
+ *   vue      — @useavalon/vue
  *   all      — everything (use for breaking shared changes)
  */
 

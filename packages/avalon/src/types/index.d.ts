@@ -6,7 +6,7 @@
  * ```json
  * {
  *   "compilerOptions": {
- *     "types": ["@avalon/avalon/types"]
+ *     "types": ["@useavalon/avalon/types"]
  *   }
  * }
  * ```

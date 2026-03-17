@@ -11,7 +11,7 @@
  * so TypeScript accepts `<MyComponent />` in Preact JSX pages.
  *
  * ```tsx
- * import { defineQwikIsland } from '@avalon/qwik/island';
+ * import { defineQwikIsland } from '@useavalon/qwik/island';
  * const Counter = component$(() => { ... });
  * export default defineQwikIsland(Counter);
  * ```

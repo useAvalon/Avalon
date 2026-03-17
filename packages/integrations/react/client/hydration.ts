@@ -44,7 +44,7 @@ export function hydrate(
  */
 export function getHydrationScript(): string {
   const script = [
-    "import { hydrate } from '@avalon/react/client';",
+    "import { hydrate } from '@useavalon/react/client';",
     "",
     "// Helper to hydrate a single island",
     "async function hydrateIsland(el) {",

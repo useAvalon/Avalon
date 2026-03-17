@@ -1298,7 +1298,7 @@ export interface NitroCatchAllOptions {
  *
  * Usage in Nitro routes/[...slug].ts:
  * ```ts
- * import { createNitroCatchAllRenderer } from '@avalon/nitro/renderer';
+ * import { createNitroCatchAllRenderer } from '@useavalon/nitro/renderer';
  *
  * export default createNitroCatchAllRenderer({
  *   avalonConfig: useRuntimeConfig().avalon,

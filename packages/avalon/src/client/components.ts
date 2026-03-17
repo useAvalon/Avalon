@@ -1,7 +1,7 @@
 /**
  * Client-safe component exports for use in island components.
  *
- * Import from '@avalon/avalon/client' instead of '@avalon/avalon' when
+ * Import from '@useavalon/avalon/client' instead of '@useavalon/avalon' when
  * you need framework components inside islands. The main entry point
  * re-exports server-only code (nitro, h3, vite plugins) that can't
  * be bundled for the browser.

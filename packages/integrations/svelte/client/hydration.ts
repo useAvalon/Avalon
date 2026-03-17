@@ -117,7 +117,7 @@ function detectSSRContent(element: HTMLElement) {
  */
 export function getHydrationScript(): string {
   return `
-    import { hydrate } from '@avalon/svelte/client';
+    import { hydrate } from '@useavalon/svelte/client';
     
     // Auto-hydrate all Svelte islands
     document.querySelectorAll('[data-framework="svelte"]').forEach(async (el) => {

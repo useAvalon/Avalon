@@ -11,10 +11,10 @@ describe('generateViteConfig', () => {
     middleware: 'h3',
   };
 
-  it('imports defineConfig from vite and avalon from @avalon/avalon', () => {
+  it('imports defineConfig from vite and avalon from @useavalon/avalon', () => {
     const result = generateViteConfig(baseConfig);
     expect(result).toContain(`import { defineConfig } from 'vite';`);
-    expect(result).toContain(`import { avalon } from '@avalon/avalon';`);
+    expect(result).toContain(`import { avalon } from '@useavalon/avalon';`);
   });
 
   it('exports a defineConfig call', () => {
@@ -34,8 +34,8 @@ describe('generateViteConfig', () => {
       integrations: ['react', 'vue'],
     };
     const result = generateViteConfig(config);
-    expect(result).toContain(`import { react } from '@avalon/react';`);
-    expect(result).toContain(`import { vue } from '@avalon/vue';`);
+    expect(result).toContain(`import { react } from '@useavalon/react';`);
+    expect(result).toContain(`import { vue } from '@useavalon/vue';`);
     expect(result).toContain('react()');
     expect(result).toContain('vue()');
   });
@@ -71,14 +71,14 @@ describe('generateViteConfig', () => {
       plugins: ['agent-optimization'],
     };
     const result = generateViteConfig(config);
-    expect(result).toContain(`import { agentOptimization } from '@avalon/agent-optimization';`);
+    expect(result).toContain(`import { agentOptimization } from '@useavalon/agent-optimization';`);
     expect(result).toContain('agentOptimization()');
   });
 
   it('does not include agentOptimization when plugin not selected', () => {
     const result = generateViteConfig(baseConfig);
     expect(result).not.toContain('agentOptimization');
-    expect(result).not.toContain('@avalon/agent-optimization');
+    expect(result).not.toContain('@useavalon/agent-optimization');
   });
 
   it('configures nitro middleware with h3', () => {
@@ -109,11 +109,11 @@ describe('generateViteConfig', () => {
     const result = generateViteConfig(config);
 
     // Imports
-    expect(result).toContain(`import { react } from '@avalon/react';`);
-    expect(result).toContain(`import { svelte } from '@avalon/svelte';`);
-    expect(result).toContain(`import { qwik } from '@avalon/qwik';`);
+    expect(result).toContain(`import { react } from '@useavalon/react';`);
+    expect(result).toContain(`import { svelte } from '@useavalon/svelte';`);
+    expect(result).toContain(`import { qwik } from '@useavalon/qwik';`);
     expect(result).toContain(`import tailwindcss from '@tailwindcss/vite';`);
-    expect(result).toContain(`import { agentOptimization } from '@avalon/agent-optimization';`);
+    expect(result).toContain(`import { agentOptimization } from '@useavalon/agent-optimization';`);
 
     // Plugins
     expect(result).toContain('react(), svelte(), qwik()');

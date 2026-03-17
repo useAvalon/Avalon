@@ -407,13 +407,13 @@ export function mdxIslandTransform(options: MDXIslandTransformOptions = {}): Plu
 
 			// Add the renderIsland import for async SSR
 			const hasAvalonImport =
-				transformed.includes('from "@avalon/avalon"') || transformed.includes("from '@avalon/avalon'");
+				transformed.includes('from "@useavalon/avalon"') || transformed.includes("from '@useavalon/avalon'");
 
 			if (!hasAvalonImport) {
 				const firstImport = /^(import\s.+?from\s+.+?\n)/m.exec(transformed);
 				if (firstImport) {
 					const pos = transformed.indexOf(firstImport[0]) + firstImport[0].length;
-					const line = 'import { renderIsland as __AvalonRenderIsland } from "@avalon/avalon";\n';
+					const line = 'import { renderIsland as __AvalonRenderIsland } from "@useavalon/avalon";\n';
 					transformed = transformed.slice(0, pos) + line + transformed.slice(pos);
 				}
 			}

@@ -1,4 +1,4 @@
-import type { LayoutProps } from '@avalon/avalon';
+import type { LayoutProps } from '@useavalon/avalon';
 import MobileNav from '../components/MobileNav.tsx';
 import styles from './_layout.module.css';
 import navStyles from '../styles/nav.module.css';

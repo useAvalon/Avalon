@@ -5,7 +5,7 @@
  * can use any component as an island by simply adding the `island` prop.
  *
  * Before (manual):
- *   import { renderIsland } from '@avalon/avalon';
+ *   import { renderIsland } from '@useavalon/avalon';
  *   {await renderIsland({ src: '/src/components/Counter.tsx', condition: 'on:interaction', framework: 'preact' })}
  *
  * After (auto-wrapped):
@@ -566,7 +566,7 @@ export function pageIslandTransform(
       if (islandMeta.size === 0) return null;
 
       let transformed =
-        "import { renderIsland as __pageRenderIsland } from '@avalon/avalon';\n" + code;
+        "import { renderIsland as __pageRenderIsland } from '@useavalon/avalon';\n" + code;
 
       for (const [name, meta] of islandMeta) {
         transformed = replaceIslandJSX(transformed, name, meta.srcPath, meta.framework, meta.autoIsland);

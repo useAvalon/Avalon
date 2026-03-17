@@ -147,7 +147,7 @@ export function getHydrationScript(): string {
             continue;
           }
 
-          const { hydrate } = await import('@avalon/qwik/client');
+          const { hydrate } = await import('@useavalon/qwik/client');
           const module = await import(src);
           const Component = module.default || module;
 

@@ -1,4 +1,4 @@
-/// <reference types="@avalon/avalon/types/island-jsx" />
+/// <reference types="@useavalon/avalon/types/island-jsx" />
 
 // Treat cross-framework island files as Preact-compatible function components.
 // The Avalon Vite transform handles these at build time — these declarations
