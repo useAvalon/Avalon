@@ -283,16 +283,12 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 
     config() {
       // @useavalon packages ship raw .ts source. Mark them as noExternal so
-      // Vite processes them through the transform pipeline. Also exclude them
-      // from Vite's built-in OXC transform (which applies the project's jsx
-      // config and fails on plain .ts files). Our own transform hook below
-      // handles TS stripping for these files instead.
+      // Vite processes them through the transform pipeline (SSR).
+      // For client-side, Vite's built-in OXC plugin handles .ts stripping
+      // and sets moduleType: 'js' automatically.
       return {
         ssr: {
           noExternal: [/^@useavalon\//],
-        },
-        oxc: {
-          exclude: [/node_modules\/@useavalon\//],
         },
       };
     },
@@ -320,21 +316,6 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
         return resolved?.id ?? null;
       }
       return null;
-    },
-
-    async transform(code: string, id: string) {
-      // Vite 8's built-in OXC plugin returns { moduleType: "js" } so the dev
-      // server knows the output is JavaScript. Because we exclude @useavalon
-      // packages from that plugin (via oxc.exclude), we must strip TypeScript
-      // ourselves AND set moduleType so the browser receives valid JS.
-      if (id.includes('node_modules/@useavalon/') && /\.tsx?$/.test(id)) {
-        const { transform: oxcTransform } = await import('oxc-transform');
-        const result = await oxcTransform(id, code, {
-          sourcemap: true,
-          typescript: { onlyRemoveTypeImports: false },
-        });
-        return { code: result.code, map: result.map, moduleType: 'js' };
-      }
     },
 
     async buildStart() {

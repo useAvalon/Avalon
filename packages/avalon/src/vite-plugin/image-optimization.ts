@@ -26,6 +26,8 @@
 
 import type { Plugin } from "vite";
 import type { ResolvedImageConfig } from "./types.ts";
+import { createRequire } from "node:module";
+import { join } from "node:path";
 
 /**
  * Creates the vite-imagetools plugin with Avalon's configuration
@@ -42,8 +44,11 @@ export async function createImagePlugin(
   }
 
   try {
-    // Dynamic import to avoid hard dependency if user disables images
-    const { imagetools } = await import("vite-imagetools");
+    // Dynamic import to avoid hard dependency if user disables images.
+    // Use createRequire from the project root so we resolve the package
+    // from the consuming project's node_modules, not avalon's own context.
+    const require = createRequire(join(process.cwd(), 'package.json'));
+    const { imagetools } = require("vite-imagetools");
 
     if (verbose) {
       console.log("   🖼️  Image optimization enabled");
