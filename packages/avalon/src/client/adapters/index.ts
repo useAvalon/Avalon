@@ -1,13 +1,21 @@
 /**
  * Framework HMR Adapters
- * 
- * Exports all framework-specific HMR adapters for easy registration
+ *
+ * HMR adapters have been moved to their respective integration packages:
+ * - @useavalon/react/client/hmr
+ * - @useavalon/preact/client/hmr
+ * - @useavalon/vue/client/hmr
+ * - @useavalon/svelte/client/hmr
+ * - @useavalon/solid/client/hmr
+ * - @useavalon/lit/client/hmr
+ * - @useavalon/qwik/client/hmr
+ *
+ * This barrel re-exports from the base framework adapter for backward compatibility.
  */
 
-export { ReactHMRAdapter, reactAdapter } from './react-adapter.ts';
-export { PreactHMRAdapter, preactAdapter } from './preact-adapter.ts';
-export { VueHMRAdapter, vueAdapter } from './vue-adapter.ts';
-export { SvelteHMRAdapter, svelteAdapter } from './svelte-adapter.ts';
-export { SolidHMRAdapter, solidAdapter } from './solid-adapter.ts';
-export { LitHMRAdapter, litAdapter } from './lit-adapter.ts';
-export { QwikHMRAdapter, qwikAdapter } from './qwik-adapter.ts';
+export {
+	BaseFrameworkAdapter,
+	AdapterRegistry,
+	type FrameworkHMRAdapter,
+	type StateSnapshot,
+} from '../framework-adapter.ts';

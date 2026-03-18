@@ -11,8 +11,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { QwikHMRAdapter } from '../adapters/qwik-adapter.ts';
-import type { StateSnapshot } from '../framework-adapter.ts';
+import { QwikHMRAdapter } from '../client/hmr-adapter.ts';
+import type { StateSnapshot } from '@useavalon/avalon/client/hmr';
 
 // Mock HTMLElement for testing
 class MockHTMLElement {
@@ -334,7 +334,7 @@ describe('QwikHMRAdapter - unmount', () => {
 
 describe('QwikHMRAdapter - singleton instance', () => {
   it('should export singleton', async () => {
-    const { qwikAdapter } = await import('../adapters/qwik-adapter.ts');
+    const { qwikAdapter } = await import('../client/hmr-adapter.ts');
 
     expect(qwikAdapter).toBeDefined();
     expect(qwikAdapter.name).toBe('qwik');

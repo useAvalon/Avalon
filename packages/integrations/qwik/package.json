@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/qwik",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "Qwik integration for Avalon islands architecture",
 	"license": "MIT",
 	"type": "module",
@@ -10,15 +10,29 @@
 		"directory": "packages/integrations/qwik"
 	},
 	"homepage": "https://useavalon.dev/docs/frameworks/qwik",
-	"keywords": ["avalon", "islands", "qwik", "resumable", "ssr"],
+	"keywords": [
+		"avalon",
+		"islands",
+		"qwik",
+		"resumable",
+		"ssr"
+	],
 	"exports": {
 		".": "./mod.ts",
 		"./island": "./island.ts",
 		"./server": "./server/renderer.ts",
 		"./client": "./client/index.ts",
+		"./client/hmr": "./client/hmr-adapter.ts",
 		"./types": "./types.ts"
 	},
-	"files": ["**/*.ts", "**/*.tsx", "!**/__tests__/**", "!**/*.test.ts", "README.md"],
+	"files": [
+		"**/*.ts",
+		"**/*.tsx",
+		"!**/__tests__/**",
+		"!**/*.test.ts",
+		"!vitest.config.ts",
+		"README.md"
+	],
 	"dependencies": {
 		"@useavalon/avalon": "workspace:^",
 		"@useavalon/core": "workspace:^"

@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/react",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "React integration for Avalon islands architecture",
 	"license": "MIT",
 	"type": "module",
@@ -10,14 +10,28 @@
 		"directory": "packages/integrations/react"
 	},
 	"homepage": "https://useavalon.dev/docs/frameworks/react",
-	"keywords": ["avalon", "islands", "react", "ssr", "hydration"],
+	"keywords": [
+		"avalon",
+		"islands",
+		"react",
+		"ssr",
+		"hydration"
+	],
 	"exports": {
 		".": "./mod.ts",
 		"./server": "./server/renderer.ts",
 		"./client": "./client/index.ts",
+		"./client/hmr": "./client/hmr-adapter.ts",
 		"./types": "./types.ts"
 	},
-	"files": ["**/*.ts", "**/*.tsx", "!**/__tests__/**", "!**/*.test.ts", "README.md"],
+	"files": [
+		"**/*.ts",
+		"**/*.tsx",
+		"!**/__tests__/**",
+		"!**/*.test.ts",
+		"!vitest.config.ts",
+		"README.md"
+	],
 	"dependencies": {
 		"@useavalon/avalon": "workspace:^",
 		"@useavalon/core": "workspace:^",

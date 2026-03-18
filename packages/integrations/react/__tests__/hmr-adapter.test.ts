@@ -1,18 +1,18 @@
 /**
- * Tests for Vue HMR Adapter
+ * Tests for React HMR Adapter
  * 
- * Verifies Vue-specific HMR functionality including:
+ * Verifies React-specific HMR functionality including:
  * - Component detection
  * - State preservation
- * - Vue HMR runtime integration
+ * - Fast Refresh integration
  * - Error handling
  * 
- * Requirements: 2.3
+ * Requirements: 2.1
  */
 
 import { describe, it, expect } from 'vitest';
-import { VueHMRAdapter } from '../adapters/vue-adapter.ts';
-import type { StateSnapshot } from '../framework-adapter.ts';
+import { ReactHMRAdapter } from '../client/hmr-adapter.ts';
+import type { StateSnapshot } from '@useavalon/avalon/client/hmr';
 
 // Mock HTMLElement for testing
 class MockHTMLElement {
@@ -63,151 +63,82 @@ class MockHTMLElement {
   }
 }
 
-// Mock Vue components for testing
-const MockVueOptionsComponent = {
-  name: 'TestComponent',
-  props: ['count'],
-  data() {
-    return {
-      internalState: 0,
-    };
-  },
-  template: '<div>{{ count }}</div>',
-};
-
-const MockVueSetupComponent = {
-  name: 'SetupComponent',
-  setup(props: Record<string, unknown>) {
-    return () => null;
-  },
-};
-
-function MockVueSetupFunction(props: Record<string, unknown>) {
-  return () => null;
+// Mock React components for testing
+function MockFunctionComponent(props: Record<string, unknown>) {
+  return null;
 }
 
-const MockVueSFCComponent = {
-  __vccOpts: {
-    name: 'SFCComponent',
-  },
+class MockClassComponent {
+  isReactComponent = true;
+  
   render() {
     return null;
-  },
+  }
+}
+
+const MockReactElement = {
+  $typeof: Symbol.for('react.element'),
+  type: MockFunctionComponent,
+  props: {},
 };
 
-const MockVueComputedComponent = {
-  name: 'ComputedComponent',
-  computed: {
-    doubled() {
-      return 2;
-    },
-  },
-};
-
-const MockVueMethodsComponent = {
-  name: 'MethodsComponent',
-  methods: {
-    handleClick() {
-      console.log('clicked');
-    },
-  },
-};
-
-describe('VueHMRAdapter - initialization', () => {
+describe('ReactHMRAdapter - initialization', () => {
   it('should create adapter with correct name', () => {
-    const adapter = new VueHMRAdapter();
+    const adapter = new ReactHMRAdapter();
     
     expect(adapter).toBeDefined();
-    expect(adapter.name).toBe('vue');
+    expect(adapter.name).toBe('react');
   });
 });
 
-describe('VueHMRAdapter - canHandle', () => {
-  it('should handle options component', () => {
-    const adapter = new VueHMRAdapter();
+describe('ReactHMRAdapter - canHandle', () => {
+  it('should handle function component', () => {
+    const adapter = new ReactHMRAdapter();
     
-    const result = adapter.canHandle(MockVueOptionsComponent);
+    const result = adapter.canHandle(MockFunctionComponent);
     expect(result).toBe(true);
   });
 
-  it('should handle setup component', () => {
-    const adapter = new VueHMRAdapter();
+  it('should handle class component', () => {
+    const adapter = new ReactHMRAdapter();
     
-    const result = adapter.canHandle(MockVueSetupComponent);
+    const result = adapter.canHandle(MockClassComponent);
     expect(result).toBe(true);
   });
 
-  it('should handle setup function', () => {
-    const adapter = new VueHMRAdapter();
+  it('should handle React element', () => {
+    const adapter = new ReactHMRAdapter();
     
-    const result = adapter.canHandle(MockVueSetupFunction);
+    const result = adapter.canHandle(MockReactElement);
     expect(result).toBe(true);
   });
 
-  it('should handle SFC component', () => {
-    const adapter = new VueHMRAdapter();
+  it('should handle arrow function', () => {
+    const adapter = new ReactHMRAdapter();
+    const ArrowComponent = () => null;
     
-    const result = adapter.canHandle(MockVueSFCComponent);
+    const result = adapter.canHandle(ArrowComponent);
     expect(result).toBe(true);
   });
 
-  it('should handle computed component', () => {
-    const adapter = new VueHMRAdapter();
-    
-    const result = adapter.canHandle(MockVueComputedComponent);
-    expect(result).toBe(true);
-  });
-
-  it('should handle methods component', () => {
-    const adapter = new VueHMRAdapter();
-    
-    const result = adapter.canHandle(MockVueMethodsComponent);
-    expect(result).toBe(true);
-  });
-
-  it('should handle component with lifecycle hooks', () => {
-    const adapter = new VueHMRAdapter();
-    
-    const componentWithHooks = {
-      mounted() {
-        console.log('mounted');
-      },
-    };
-    
-    const result = adapter.canHandle(componentWithHooks);
-    expect(result).toBe(true);
-  });
-
-  it('should handle component with emits', () => {
-    const adapter = new VueHMRAdapter();
-    
-    const componentWithEmits = {
-      emits: ['update', 'change'],
-    };
-    
-    const result = adapter.canHandle(componentWithEmits);
-    expect(result).toBe(true);
-  });
-
-  it('should not handle non-Vue component', () => {
-    const adapter = new VueHMRAdapter();
+  it('should not handle non-React component', () => {
+    const adapter = new ReactHMRAdapter();
     
     expect(adapter.canHandle(null)).toBe(false);
     expect(adapter.canHandle(undefined)).toBe(false);
     expect(adapter.canHandle('string')).toBe(false);
     expect(adapter.canHandle(123)).toBe(false);
     expect(adapter.canHandle({})).toBe(false);
-    expect(adapter.canHandle([])).toBe(false);
   });
 });
 
-describe('VueHMRAdapter - preserveState', () => {
+describe('ReactHMRAdapter - preserveState', () => {
   it('should return valid snapshot', () => {
-    const adapter = new VueHMRAdapter();
+    const adapter = new ReactHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
     // Set up mock island attributes
-    mockIsland.setAttribute('data-src', '/islands/TestComponent.vue');
+    mockIsland.setAttribute('data-src', '/islands/TestComponent.tsx');
     mockIsland.setAttribute('data-props', JSON.stringify({ count: 5 }));
     
     const snapshot = adapter.preserveState(mockIsland);
@@ -215,7 +146,7 @@ describe('VueHMRAdapter - preserveState', () => {
     // In test environment without DOM, preserveState returns null
     // This is expected behavior - the adapter gracefully handles missing DOM
     if (snapshot) {
-      expect(snapshot.framework).toBe('vue');
+      expect(snapshot.framework).toBe('react');
       expect(typeof snapshot.timestamp).toBe('number');
       expect(snapshot.data).toBeDefined();
     } else {
@@ -225,10 +156,10 @@ describe('VueHMRAdapter - preserveState', () => {
   });
 
   it('should capture component name', () => {
-    const adapter = new VueHMRAdapter();
+    const adapter = new ReactHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    mockIsland.setAttribute('data-src', '/islands/Counter.vue');
+    mockIsland.setAttribute('data-src', '/islands/Counter.tsx');
     mockIsland.setAttribute('data-props', '{}');
     
     const snapshot = adapter.preserveState(mockIsland);
@@ -243,11 +174,11 @@ describe('VueHMRAdapter - preserveState', () => {
   });
 
   it('should capture props', () => {
-    const adapter = new VueHMRAdapter();
+    const adapter = new ReactHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
     const props = { count: 10, name: 'test' };
-    mockIsland.setAttribute('data-src', '/islands/TestComponent.vue');
+    mockIsland.setAttribute('data-src', '/islands/TestComponent.tsx');
     mockIsland.setAttribute('data-props', JSON.stringify(props));
     
     const snapshot = adapter.preserveState(mockIsland);
@@ -263,10 +194,10 @@ describe('VueHMRAdapter - preserveState', () => {
   });
 
   it('should handle missing props', () => {
-    const adapter = new VueHMRAdapter();
+    const adapter = new ReactHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    mockIsland.setAttribute('data-src', '/islands/TestComponent.vue');
+    mockIsland.setAttribute('data-src', '/islands/TestComponent.tsx');
     // No data-props attribute
     
     const snapshot = adapter.preserveState(mockIsland);
@@ -282,10 +213,10 @@ describe('VueHMRAdapter - preserveState', () => {
   });
 
   it('should handle invalid JSON props', () => {
-    const adapter = new VueHMRAdapter();
+    const adapter = new ReactHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    mockIsland.setAttribute('data-src', '/islands/TestComponent.vue');
+    mockIsland.setAttribute('data-src', '/islands/TestComponent.tsx');
     mockIsland.setAttribute('data-props', 'invalid json');
     
     const snapshot = adapter.preserveState(mockIsland);
@@ -295,13 +226,13 @@ describe('VueHMRAdapter - preserveState', () => {
   });
 });
 
-describe('VueHMRAdapter - restoreState', () => {
+describe('ReactHMRAdapter - restoreState', () => {
   it('should call base implementation', () => {
-    const adapter = new VueHMRAdapter();
+    const adapter = new ReactHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
     const snapshot: StateSnapshot = {
-      framework: 'vue',
+      framework: 'react',
       timestamp: Date.now(),
       data: {},
       dom: {
@@ -318,12 +249,12 @@ describe('VueHMRAdapter - restoreState', () => {
   });
 });
 
-describe('VueHMRAdapter - handleError', () => {
-  it('should add Vue-specific error info', () => {
-    const adapter = new VueHMRAdapter();
+describe('ReactHMRAdapter - handleError', () => {
+  it('should add React-specific error info', () => {
+    const adapter = new ReactHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    const error = new Error('Invalid reactive usage');
+    const error = new Error('Invalid hook call');
     
     // In test environment without DOM, handleError may fail
     // This is expected - the adapter requires DOM APIs
@@ -332,7 +263,7 @@ describe('VueHMRAdapter - handleError', () => {
       
       // If it succeeds, verify error attributes were set
       expect(mockIsland.getAttribute('data-hmr-error')).toBe('true');
-      expect(mockIsland.getAttribute('data-hmr-error-message')).toBe('Invalid reactive usage');
+      expect(mockIsland.getAttribute('data-hmr-error-message')).toBe('Invalid hook call');
     } catch (e) {
       // Expected in test environment without DOM
       // The adapter gracefully handles missing DOM APIs
@@ -340,13 +271,13 @@ describe('VueHMRAdapter - handleError', () => {
     }
   });
 
-  it('should provide reactive hint', () => {
-    const adapter = new VueHMRAdapter();
+  it('should provide hooks hint', () => {
+    const adapter = new ReactHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    const error = new Error('ref must be accessed with .value');
+    const error = new Error('Hooks can only be called inside the body of a function component');
     
-    // The adapter should recognize reactive-related errors and provide helpful hints
+    // The adapter should recognize hooks-related errors and provide helpful hints
     // This is tested indirectly through the error message
     try {
       adapter.handleError(mockIsland, error);
@@ -359,49 +290,28 @@ describe('VueHMRAdapter - handleError', () => {
   });
 });
 
-describe('VueHMRAdapter - extractComponentName', () => {
+describe('ReactHMRAdapter - extractComponentName', () => {
   it('should extract from various paths', () => {
-    const adapter = new VueHMRAdapter();
+    const adapter = new ReactHMRAdapter();
     
     // Access private method through type assertion for testing
     const extractName = (adapter as any).extractComponentName.bind(adapter);
     
-    expect(extractName('/islands/Counter.vue')).toBe('Counter');
-    expect(extractName('/islands/Button.tsx')).toBe('Button');
-    expect(extractName('/src/components/Card.jsx')).toBe('Card');
-    expect(extractName('/nested/path/Component.ts')).toBe('Component');
-    expect(extractName('SimpleComponent.vue')).toBe('SimpleComponent');
+    expect(extractName('/islands/Counter.tsx')).toBe('Counter');
+    expect(extractName('/islands/Button.jsx')).toBe('Button');
+    expect(extractName('/src/components/Card.ts')).toBe('Card');
+    expect(extractName('/nested/path/Component.js')).toBe('Component');
+    expect(extractName('SimpleComponent.tsx')).toBe('SimpleComponent');
   });
 });
 
-describe('VueHMRAdapter - generateComponentId', () => {
-  it('should create valid ID', () => {
-    const adapter = new VueHMRAdapter();
-    
-    // Access private method through type assertion for testing
-    const generateId = (adapter as any).generateComponentId.bind(adapter);
-    
-    const id1 = generateId('/islands/Counter.vue');
-    const id2 = generateId('/islands/Button.tsx');
-    const id3 = generateId('/src/components/Card.jsx');
-    
-    // IDs should be valid (no special characters)
-    expect(id1.match(/^[a-zA-Z0-9_]+$/) !== null).toBe(true);
-    expect(id2.match(/^[a-zA-Z0-9_]+$/) !== null).toBe(true);
-    expect(id3.match(/^[a-zA-Z0-9_]+$/) !== null).toBe(true);
-    
-    // Same path should generate same ID
-    expect(generateId('/islands/Counter.vue')).toBe(id1);
-  });
-});
-
-describe('VueHMRAdapter - singleton instance', () => {
+describe('ReactHMRAdapter - singleton instance', () => {
   it('should export singleton', async () => {
     // Import the singleton
-    const { vueAdapter } = await import('../adapters/vue-adapter.ts');
+    const { reactAdapter } = await import('../client/hmr-adapter.ts');
     
-    expect(vueAdapter).toBeDefined();
-    expect(vueAdapter.name).toBe('vue');
-    expect(vueAdapter instanceof VueHMRAdapter).toBe(true);
+    expect(reactAdapter).toBeDefined();
+    expect(reactAdapter.name).toBe('react');
+    expect(reactAdapter instanceof ReactHMRAdapter).toBe(true);
   });
 });

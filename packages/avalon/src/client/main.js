@@ -613,7 +613,7 @@ if (import.meta.hot) {
 			initializeHMR();
 
 			const coordinator = getHMRCoordinator();
-			
+
 			// Discover which frameworks are actually used on this page
 			const usedFrameworks = new Set();
 			document.querySelectorAll('[data-framework]').forEach(island => {
@@ -622,14 +622,22 @@ if (import.meta.hot) {
 			});
 
 			// Only register adapters for frameworks that are used
+			// Adapters are loaded from their respective integration packages
 			const adapterLoaders = {
-				react: () => import('./adapters/react-adapter.js').then(m => m.reactAdapter),
-				preact: () => import('./adapters/preact-adapter.js').then(m => m.preactAdapter),
-				vue: () => import('./adapters/vue-adapter.js').then(m => m.vueAdapter),
-				svelte: () => import('./adapters/svelte-adapter.js').then(m => m.svelteAdapter),
-				solid: () => import('./adapters/solid-adapter.js').then(m => m.solidAdapter),
-				lit: () => import('./adapters/lit-adapter.js').then(m => m.litAdapter),
-				qwik: () => import('./adapters/qwik-adapter.js').then(m => m.qwikAdapter),
+				// @ts-ignore - Vite resolves these virtual modules at runtime
+				react: () => import('/@useavalon/react/client/hmr').then(m => m.reactAdapter),
+				// @ts-ignore - Vite resolves these virtual modules at runtime
+				preact: () => import('/@useavalon/preact/client/hmr').then(m => m.preactAdapter),
+				// @ts-ignore - Vite resolves these virtual modules at runtime
+				vue: () => import('/@useavalon/vue/client/hmr').then(m => m.vueAdapter),
+				// @ts-ignore - Vite resolves these virtual modules at runtime
+				svelte: () => import('/@useavalon/svelte/client/hmr').then(m => m.svelteAdapter),
+				// @ts-ignore - Vite resolves these virtual modules at runtime
+				solid: () => import('/@useavalon/solid/client/hmr').then(m => m.solidAdapter),
+				// @ts-ignore - Vite resolves these virtual modules at runtime
+				lit: () => import('/@useavalon/lit/client/hmr').then(m => m.litAdapter),
+				// @ts-ignore - Vite resolves these virtual modules at runtime
+				qwik: () => import('/@useavalon/qwik/client/hmr').then(m => m.qwikAdapter),
 			};
 
 			for (const framework of usedFrameworks) {

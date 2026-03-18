@@ -1,18 +1,18 @@
 /**
- * Tests for Preact HMR Adapter
+ * Tests for Svelte HMR Adapter
  * 
- * Verifies Preact-specific HMR functionality including:
+ * Verifies Svelte-specific HMR functionality including:
  * - Component detection
  * - State preservation
- * - HMR integration
+ * - Svelte HMR runtime integration
  * - Error handling
  * 
- * Requirements: 2.2
+ * Requirements: 2.4
  */
 
 import { describe, it, expect } from 'vitest';
-import { PreactHMRAdapter } from '../adapters/preact-adapter.ts';
-import type { StateSnapshot } from '../framework-adapter.ts';
+import { SvelteHMRAdapter } from '../client/hmr-adapter.ts';
+import type { StateSnapshot } from '@useavalon/avalon/client/hmr';
 
 // Mock HTMLElement for testing
 class MockHTMLElement {
@@ -61,92 +61,119 @@ class MockHTMLElement {
   dispatchEvent(event: any): boolean {
     return true;
   }
-  
-  get innerHTML(): string {
-    return '';
-  }
-  
-  set innerHTML(value: string) {
-    // Mock implementation
-  }
 }
 
-// Mock Preact components for testing
-function MockFunctionComponent(props: Record<string, unknown>) {
-  return null;
-}
-
-class MockClassComponent {
-  isReactComponent = true; // Preact uses same marker as React for compatibility
-  
-  render() {
-    return null;
+// Mock Svelte components for testing
+class MockSvelteComponent {
+  constructor(options: any) {
+    // Mock constructor
   }
+  
+  $set(props: Record<string, unknown>): void {
+    // Mock $set
+  }
+  
+  $destroy(): void {
+    // Mock $destroy
+  }
+  
+  $on(event: string, handler: (...args: unknown[]) => void): () => void {
+    return () => {};
+  }
+  
+  static $render = true; // Svelte SSR marker
 }
 
-const MockPreactVNode = {
-  $typeof: Symbol.for('react.element'), // Preact uses React's symbol for compatibility
-  type: MockFunctionComponent,
-  props: {},
+// Mock Svelte component with prototype methods
+function MockSvelteComponentFunction() {
+  // Mock component
+}
+MockSvelteComponentFunction.prototype.$set = function() {};
+MockSvelteComponentFunction.prototype.$destroy = function() {};
+MockSvelteComponentFunction.prototype.$ = {};
+
+// Mock Svelte component with $$render (SSR marker)
+const MockSvelteSSRComponent = {
+  $$render: true,
 };
 
-describe('PreactHMRAdapter - initialization', () => {
+// Mock Svelte component with internal marker
+const MockSvelteInternalComponent = function() {};
+MockSvelteInternalComponent.toString = () => 'function() { $set(); $destroy(); }';
+
+// Mock default export pattern
+const MockSvelteDefaultExport = {
+  default: MockSvelteComponent,
+};
+
+describe('SvelteHMRAdapter - initialization', () => {
   it('should create adapter with correct name', () => {
-    const adapter = new PreactHMRAdapter();
+    const adapter = new SvelteHMRAdapter();
     
     expect(adapter).toBeDefined();
-    expect(adapter.name).toBe('preact');
+    expect(adapter.name).toBe('svelte');
   });
 });
 
-describe('PreactHMRAdapter - canHandle', () => {
-  it('should handle function component', () => {
-    const adapter = new PreactHMRAdapter();
+describe('SvelteHMRAdapter - canHandle', () => {
+  it('should handle Svelte component class', () => {
+    const adapter = new SvelteHMRAdapter();
     
-    const result = adapter.canHandle(MockFunctionComponent);
+    const result = adapter.canHandle(MockSvelteComponent);
     expect(result).toBe(true);
   });
 
-  it('should handle class component', () => {
-    const adapter = new PreactHMRAdapter();
+  it('should handle component with prototype methods', () => {
+    const adapter = new SvelteHMRAdapter();
     
-    const result = adapter.canHandle(MockClassComponent);
+    const result = adapter.canHandle(MockSvelteComponentFunction);
     expect(result).toBe(true);
   });
 
-  it('should handle Preact VNode', () => {
-    const adapter = new PreactHMRAdapter();
+  it('should handle SSR component', () => {
+    const adapter = new SvelteHMRAdapter();
     
-    const result = adapter.canHandle(MockPreactVNode);
+    const result = adapter.canHandle(MockSvelteSSRComponent);
     expect(result).toBe(true);
   });
 
-  it('should handle arrow function', () => {
-    const adapter = new PreactHMRAdapter();
-    const ArrowComponent = () => null;
+  it('should handle component with internal markers', () => {
+    const adapter = new SvelteHMRAdapter();
     
-    const result = adapter.canHandle(ArrowComponent);
+    const result = adapter.canHandle(MockSvelteInternalComponent);
     expect(result).toBe(true);
   });
 
-  it('should not handle non-Preact component', () => {
-    const adapter = new PreactHMRAdapter();
+  it('should handle default export', () => {
+    const adapter = new SvelteHMRAdapter();
+    
+    const result = adapter.canHandle(MockSvelteDefaultExport);
+    expect(result).toBe(true);
+  });
+
+  it('should not handle non-Svelte component', () => {
+    const adapter = new SvelteHMRAdapter();
     
     expect(adapter.canHandle(null)).toBe(false);
     expect(adapter.canHandle(undefined)).toBe(false);
     expect(adapter.canHandle('string')).toBe(false);
     expect(adapter.canHandle(123)).toBe(false);
     expect(adapter.canHandle({})).toBe(false);
+    expect(adapter.canHandle([])).toBe(false);
+    
+    // Plain function without Svelte markers
+    const plainFunction = function() {};
+    expect(adapter.canHandle(plainFunction)).toBe(false);
   });
 });
 
-describe('PreactHMRAdapter - preserveState', () => {
+describe('SvelteHMRAdapter - preserveState', () => {
   it('should return valid snapshot', () => {
-    const adapter = new PreactHMRAdapter();
+    const adapter = new SvelteHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
     // Set up mock island attributes
-    mockIsland.setAttribute('data-src', '/islands/TestComponent.tsx');
+    mockIsland.setAttribute('data-src', '/islands/Counter.svelte');
     mockIsland.setAttribute('data-props', JSON.stringify({ count: 5 }));
     
     const snapshot = adapter.preserveState(mockIsland);
@@ -154,7 +181,7 @@ describe('PreactHMRAdapter - preserveState', () => {
     // In test environment without DOM, preserveState returns null
     // This is expected behavior - the adapter gracefully handles missing DOM
     if (snapshot) {
-      expect(snapshot.framework).toBe('preact');
+      expect(snapshot.framework).toBe('svelte');
       expect(typeof snapshot.timestamp).toBe('number');
       expect(snapshot.data).toBeDefined();
     } else {
@@ -164,17 +191,17 @@ describe('PreactHMRAdapter - preserveState', () => {
   });
 
   it('should capture component name', () => {
-    const adapter = new PreactHMRAdapter();
+    const adapter = new SvelteHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    mockIsland.setAttribute('data-src', '/islands/PreactCounter.tsx');
+    mockIsland.setAttribute('data-src', '/islands/Button.svelte');
     mockIsland.setAttribute('data-props', '{}');
     
     const snapshot = adapter.preserveState(mockIsland);
     
     // In test environment without DOM, preserveState returns null
     if (snapshot) {
-      expect(snapshot.data.componentName).toBe('PreactCounter');
+      expect(snapshot.data.componentName).toBe('Button');
     } else {
       // Expected in test environment
       expect(snapshot).toBeNull();
@@ -182,11 +209,11 @@ describe('PreactHMRAdapter - preserveState', () => {
   });
 
   it('should capture props', () => {
-    const adapter = new PreactHMRAdapter();
+    const adapter = new SvelteHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
     const props = { count: 10, name: 'test' };
-    mockIsland.setAttribute('data-src', '/islands/TestComponent.tsx');
+    mockIsland.setAttribute('data-src', '/islands/Counter.svelte');
     mockIsland.setAttribute('data-props', JSON.stringify(props));
     
     const snapshot = adapter.preserveState(mockIsland);
@@ -202,10 +229,10 @@ describe('PreactHMRAdapter - preserveState', () => {
   });
 
   it('should handle missing props', () => {
-    const adapter = new PreactHMRAdapter();
+    const adapter = new SvelteHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    mockIsland.setAttribute('data-src', '/islands/TestComponent.tsx');
+    mockIsland.setAttribute('data-src', '/islands/Counter.svelte');
     // No data-props attribute
     
     const snapshot = adapter.preserveState(mockIsland);
@@ -221,10 +248,10 @@ describe('PreactHMRAdapter - preserveState', () => {
   });
 
   it('should handle invalid JSON props', () => {
-    const adapter = new PreactHMRAdapter();
+    const adapter = new SvelteHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    mockIsland.setAttribute('data-src', '/islands/TestComponent.tsx');
+    mockIsland.setAttribute('data-src', '/islands/Counter.svelte');
     mockIsland.setAttribute('data-props', 'invalid json');
     
     const snapshot = adapter.preserveState(mockIsland);
@@ -234,13 +261,13 @@ describe('PreactHMRAdapter - preserveState', () => {
   });
 });
 
-describe('PreactHMRAdapter - restoreState', () => {
+describe('SvelteHMRAdapter - restoreState', () => {
   it('should call base implementation', () => {
-    const adapter = new PreactHMRAdapter();
+    const adapter = new SvelteHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
     const snapshot: StateSnapshot = {
-      framework: 'preact',
+      framework: 'svelte',
       timestamp: Date.now(),
       data: {},
       dom: {
@@ -257,12 +284,12 @@ describe('PreactHMRAdapter - restoreState', () => {
   });
 });
 
-describe('PreactHMRAdapter - handleError', () => {
-  it('should add Preact-specific error info', () => {
-    const adapter = new PreactHMRAdapter();
+describe('SvelteHMRAdapter - handleError', () => {
+  it('should add Svelte-specific error info', () => {
+    const adapter = new SvelteHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    const error = new Error('Invalid hook call');
+    const error = new Error('Invalid reactive statement');
     
     // In test environment without DOM, handleError may fail
     // This is expected - the adapter requires DOM APIs
@@ -271,22 +298,21 @@ describe('PreactHMRAdapter - handleError', () => {
       
       // If it succeeds, verify error attributes were set
       expect(mockIsland.getAttribute('data-hmr-error')).toBe('true');
-      expect(mockIsland.getAttribute('data-hmr-error-message')).toBe('Invalid hook call');
+      expect(mockIsland.getAttribute('data-hmr-error-message')).toBe('Invalid reactive statement');
     } catch (e) {
       // Expected in test environment without DOM
-      // The adapter gracefully handles missing DOM APIs
       // Accept any error - the important thing is it doesn't crash silently
       expect(e).toBeDefined();
     }
   });
 
-  it('should provide hooks hint', () => {
-    const adapter = new PreactHMRAdapter();
+  it('should provide reactive hint', () => {
+    const adapter = new SvelteHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    const error = new Error('Hooks can only be called inside the body of a function component');
+    const error = new Error('$: must be at component top level');
     
-    // The adapter should recognize hooks-related errors and provide helpful hints
+    // The adapter should recognize reactive-related errors and provide helpful hints
     // This is tested indirectly through the error message
     try {
       adapter.handleError(mockIsland, error);
@@ -297,57 +323,65 @@ describe('PreactHMRAdapter - handleError', () => {
     // The actual hint is added to the error indicator element
     // which requires full DOM support to test properly
   });
+
+  it('should provide store hint', () => {
+    const adapter = new SvelteHMRAdapter();
+    const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
+    
+    const error = new Error('store subscription failed');
+    
+    // The adapter should recognize store-related errors and provide helpful hints
+    try {
+      adapter.handleError(mockIsland, error);
+    } catch (e) {
+      // Expected in test environment
+    }
+  });
 });
 
-describe('PreactHMRAdapter - extractComponentName', () => {
+describe('SvelteHMRAdapter - extractComponentName', () => {
   it('should extract from various paths', () => {
-    const adapter = new PreactHMRAdapter();
+    const adapter = new SvelteHMRAdapter();
     
     // Access private method through type assertion for testing
     const extractName = (adapter as any).extractComponentName.bind(adapter);
     
-    expect(extractName('/islands/PreactCounter.tsx')).toBe('PreactCounter');
-    expect(extractName('/islands/Button.jsx')).toBe('Button');
-    expect(extractName('/src/components/Card.ts')).toBe('Card');
-    expect(extractName('/nested/path/Component.js')).toBe('Component');
-    expect(extractName('SimpleComponent.tsx')).toBe('SimpleComponent');
+    expect(extractName('/islands/Counter.svelte')).toBe('Counter');
+    expect(extractName('/islands/Button.svelte')).toBe('Button');
+    expect(extractName('/src/components/Card.svelte')).toBe('Card');
+    expect(extractName('/nested/path/Component.svelte')).toBe('Component');
+    expect(extractName('SimpleComponent.svelte')).toBe('SimpleComponent');
   });
 });
 
-describe('PreactHMRAdapter - unmount', () => {
-  it('should clear instance', () => {
-    const adapter = new PreactHMRAdapter();
-    const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
+describe('SvelteHMRAdapter - generateComponentId', () => {
+  it('should create valid ID', () => {
+    const adapter = new SvelteHMRAdapter();
     
-    // Store a mock instance
-    (adapter as any).instances.set(mockIsland, MockFunctionComponent);
+    // Access private method through type assertion for testing
+    const generateId = (adapter as any).generateComponentId.bind(adapter);
     
-    // Unmount should clear the instance
-    adapter.unmount(mockIsland);
+    const id1 = generateId('/islands/Counter.svelte');
+    const id2 = generateId('/islands/Button.svelte');
+    const id3 = generateId('/src/components/Card.svelte');
     
-    // Verify instance was removed
-    const hasInstance = (adapter as any).instances.has(mockIsland);
-    expect(hasInstance).toBe(false);
-  });
-
-  it('should handle missing instance gracefully', () => {
-    const adapter = new PreactHMRAdapter();
-    const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
+    // IDs should be valid (no special characters)
+    expect(id1.match(/^[a-zA-Z0-9_]+$/) !== null).toBe(true);
+    expect(id2.match(/^[a-zA-Z0-9_]+$/) !== null).toBe(true);
+    expect(id3.match(/^[a-zA-Z0-9_]+$/) !== null).toBe(true);
     
-    // Should not throw when unmounting island without instance
-    adapter.unmount(mockIsland);
-    
-    // No assertion needed - just verify it doesn't throw
+    // Same path should generate same ID
+    expect(generateId('/islands/Counter.svelte')).toBe(id1);
   });
 });
 
-describe('PreactHMRAdapter - singleton instance', () => {
+describe('SvelteHMRAdapter - singleton instance', () => {
   it('should export singleton', async () => {
     // Import the singleton
-    const { preactAdapter } = await import('../adapters/preact-adapter.ts');
+    const { svelteAdapter } = await import('../client/hmr-adapter.ts');
     
-    expect(preactAdapter).toBeDefined();
-    expect(preactAdapter.name).toBe('preact');
-    expect(preactAdapter instanceof PreactHMRAdapter).toBe(true);
+    expect(svelteAdapter).toBeDefined();
+    expect(svelteAdapter.name).toBe('svelte');
+    expect(svelteAdapter instanceof SvelteHMRAdapter).toBe(true);
   });
 });

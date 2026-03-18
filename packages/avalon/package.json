@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/avalon",
-	"version": "0.1.11",
+	"version": "0.1.12",
 	"description": "Multi-framework islands architecture for the modern web",
 	"license": "MIT",
 	"type": "module",
@@ -10,14 +10,24 @@
 		"directory": "packages/avalon"
 	},
 	"homepage": "https://useavalon.dev",
-	"keywords": ["avalon", "islands", "ssr", "vite", "preact", "multi-framework", "hydration"],
+	"keywords": [
+		"avalon",
+		"islands",
+		"ssr",
+		"vite",
+		"preact",
+		"multi-framework",
+		"hydration"
+	],
 	"scripts": {
 		"build:client": "bun run scripts/build-client.ts",
-		"prepublishOnly": "bun run build:client"
+		"build": "bun run scripts/build.ts",
+		"prepublishOnly": "bun run build"
 	},
 	"exports": {
 		".": "./mod.ts",
 		"./client": "./src/client/components.ts",
+		"./client/hmr": "./src/client/framework-adapter.ts",
 		"./islands/framework-detection": "./src/islands/framework-detection.ts",
 		"./middleware": "./src/middleware/index.ts",
 		"./nitro/renderer": "./src/nitro/renderer.ts",
@@ -28,12 +38,33 @@
 	},
 	"typesVersions": {
 		"*": {
-			"types": ["./src/types/index.d.ts"]
+			"types": [
+				"./src/types/index.d.ts"
+			]
 		}
 	},
-	"files": ["mod.ts", "src/**/*.ts", "src/**/*.tsx", "src/**/*.js", "src/**/*.d.ts", "!src/**/*.test.ts", "!src/**/tests/**", "!src/**/__tests__/**", "!src/**/README.md", "README.md"],
+	"files": [
+		"dist/**/*.js",
+		"dist/**/*.d.ts",
+		"README.md"
+	],
+	"publishConfig": {
+		"exports": {
+			".": "./dist/mod.js",
+			"./client": "./dist/src/client/components.js",
+			"./client/hmr": "./dist/src/client/framework-adapter.js",
+			"./islands/framework-detection": "./dist/src/islands/framework-detection.js",
+			"./middleware": "./dist/src/middleware/index.js",
+			"./nitro/renderer": "./dist/src/nitro/renderer.js",
+			"./nitro/types": "./dist/src/nitro/types.js",
+			"./nitro/config": "./dist/src/nitro/config.js",
+			"./types/island-jsx": "./dist/src/types/island-jsx.d.ts",
+			"./types": "./dist/src/types/index.d.ts"
+		}
+	},
 	"devDependencies": {
-		"@types/mime-types": "^3.0.1"
+		"@types/mime-types": "^3.0.1",
+		"oxc-minify": "^0.120.0"
 	},
 	"peerDependencies": {
 		"vite": "^8.0.0",
@@ -41,8 +72,12 @@
 		"vite-imagetools": "^7.0.0"
 	},
 	"peerDependenciesMeta": {
-		"nitro": { "optional": true },
-		"vite-imagetools": { "optional": true }
+		"nitro": {
+			"optional": true
+		},
+		"vite-imagetools": {
+			"optional": true
+		}
 	},
 	"dependencies": {
 		"@useavalon/core": "workspace:^",
@@ -57,6 +92,6 @@
 		"remark-gfm": "^4.0.0",
 		"remark-mdx-frontmatter": "^5.0.0",
 		"unified": "^11.0.0",
-		"zod": "4.3.6"
+		"zod": "^4.3.6"
 	}
 }

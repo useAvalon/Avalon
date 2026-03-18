@@ -1,19 +1,18 @@
 /**
- * Tests for Solid HMR Adapter
+ * Tests for Vue HMR Adapter
  * 
- * Verifies Solid-specific HMR functionality including:
+ * Verifies Vue-specific HMR functionality including:
  * - Component detection
  * - State preservation
- * - Solid Refresh integration
- * - Signal subscription preservation
+ * - Vue HMR runtime integration
  * - Error handling
  * 
- * Requirements: 2.5
+ * Requirements: 2.3
  */
 
 import { describe, it, expect } from 'vitest';
-import { SolidHMRAdapter } from '../adapters/solid-adapter.ts';
-import type { StateSnapshot } from '../framework-adapter.ts';
+import { VueHMRAdapter } from '../client/hmr-adapter.ts';
+import type { StateSnapshot } from '@useavalon/avalon/client/hmr';
 
 // Mock HTMLElement for testing
 class MockHTMLElement {
@@ -22,7 +21,6 @@ class MockHTMLElement {
   public scrollTop = 0;
   public scrollLeft = 0;
   public style: Record<string, string> = {};
-  public dataset: Record<string, string> = {};
   
   getAttribute(name: string): string | null {
     return this.attributes.get(name) || null;
@@ -60,133 +58,164 @@ class MockHTMLElement {
     return null;
   }
   
-  get children(): MockHTMLElement[] {
-    return this._children;
-  }
-  
   dispatchEvent(event: any): boolean {
     return true;
   }
 }
 
-// Mock Solid components for testing
-function MockSolidComponent(props: Record<string, unknown>) {
-  return null;
-}
-
-// Add Solid marker
-(MockSolidComponent as any).__solid = true;
-
-function MockSolidComponentWithSignal(props: Record<string, unknown>) {
-  // Simulate a component that uses createSignal
-  const code = `
-    function Component() {
-      const [count, setCount] = createSignal(0);
-      return <div>{count()}</div>;
-    }
-  `;
-  return null;
-}
-
-function MockSolidComponentWithEffect(props: Record<string, unknown>) {
-  // Simulate a component that uses createEffect
-  return null;
-}
-
-// Add Solid patterns to function strings
-Object.defineProperty(MockSolidComponentWithSignal, 'toString', {
-  value: () => 'function() { createSignal(0); }',
-});
-
-Object.defineProperty(MockSolidComponentWithEffect, 'toString', {
-  value: () => 'function() { createEffect(() => {}); }',
-});
-
-const MockSolidModule = {
-  default: MockSolidComponent,
-  __solid: true,
+// Mock Vue components for testing
+const MockVueOptionsComponent = {
+  name: 'TestComponent',
+  props: ['count'],
+  data() {
+    return {
+      internalState: 0,
+    };
+  },
+  template: '<div>{{ count }}</div>',
 };
 
-describe('SolidHMRAdapter - initialization', () => {
+const MockVueSetupComponent = {
+  name: 'SetupComponent',
+  setup(props: Record<string, unknown>) {
+    return () => null;
+  },
+};
+
+function MockVueSetupFunction(props: Record<string, unknown>) {
+  return () => null;
+}
+
+const MockVueSFCComponent = {
+  __vccOpts: {
+    name: 'SFCComponent',
+  },
+  render() {
+    return null;
+  },
+};
+
+const MockVueComputedComponent = {
+  name: 'ComputedComponent',
+  computed: {
+    doubled() {
+      return 2;
+    },
+  },
+};
+
+const MockVueMethodsComponent = {
+  name: 'MethodsComponent',
+  methods: {
+    handleClick() {
+      console.log('clicked');
+    },
+  },
+};
+
+describe('VueHMRAdapter - initialization', () => {
   it('should create adapter with correct name', () => {
-    const adapter = new SolidHMRAdapter();
+    const adapter = new VueHMRAdapter();
     
     expect(adapter).toBeDefined();
-    expect(adapter.name).toBe('solid');
+    expect(adapter.name).toBe('vue');
   });
 });
 
-describe('SolidHMRAdapter - canHandle', () => {
-  it('should handle Solid component with marker', () => {
-    const adapter = new SolidHMRAdapter();
+describe('VueHMRAdapter - canHandle', () => {
+  it('should handle options component', () => {
+    const adapter = new VueHMRAdapter();
     
-    const result = adapter.canHandle(MockSolidComponent);
+    const result = adapter.canHandle(MockVueOptionsComponent);
     expect(result).toBe(true);
   });
 
-  it('should handle component with createSignal', () => {
-    const adapter = new SolidHMRAdapter();
+  it('should handle setup component', () => {
+    const adapter = new VueHMRAdapter();
     
-    const result = adapter.canHandle(MockSolidComponentWithSignal);
+    const result = adapter.canHandle(MockVueSetupComponent);
     expect(result).toBe(true);
   });
 
-  it('should handle component with createEffect', () => {
-    const adapter = new SolidHMRAdapter();
+  it('should handle setup function', () => {
+    const adapter = new VueHMRAdapter();
     
-    const result = adapter.canHandle(MockSolidComponentWithEffect);
+    const result = adapter.canHandle(MockVueSetupFunction);
     expect(result).toBe(true);
   });
 
-  it('should handle function component', () => {
-    const adapter = new SolidHMRAdapter();
-    const ArrowComponent = () => null;
+  it('should handle SFC component', () => {
+    const adapter = new VueHMRAdapter();
     
-    // Solid components are just functions, so any function could be a Solid component
-    const result = adapter.canHandle(ArrowComponent);
+    const result = adapter.canHandle(MockVueSFCComponent);
     expect(result).toBe(true);
   });
 
-  it('should handle module with default export', () => {
-    const adapter = new SolidHMRAdapter();
+  it('should handle computed component', () => {
+    const adapter = new VueHMRAdapter();
     
-    const result = adapter.canHandle(MockSolidModule);
+    const result = adapter.canHandle(MockVueComputedComponent);
     expect(result).toBe(true);
   });
 
-  it('should not handle non-Solid component', () => {
-    const adapter = new SolidHMRAdapter();
+  it('should handle methods component', () => {
+    const adapter = new VueHMRAdapter();
+    
+    const result = adapter.canHandle(MockVueMethodsComponent);
+    expect(result).toBe(true);
+  });
+
+  it('should handle component with lifecycle hooks', () => {
+    const adapter = new VueHMRAdapter();
+    
+    const componentWithHooks = {
+      mounted() {
+        console.log('mounted');
+      },
+    };
+    
+    const result = adapter.canHandle(componentWithHooks);
+    expect(result).toBe(true);
+  });
+
+  it('should handle component with emits', () => {
+    const adapter = new VueHMRAdapter();
+    
+    const componentWithEmits = {
+      emits: ['update', 'change'],
+    };
+    
+    const result = adapter.canHandle(componentWithEmits);
+    expect(result).toBe(true);
+  });
+
+  it('should not handle non-Vue component', () => {
+    const adapter = new VueHMRAdapter();
     
     expect(adapter.canHandle(null)).toBe(false);
     expect(adapter.canHandle(undefined)).toBe(false);
     expect(adapter.canHandle('string')).toBe(false);
     expect(adapter.canHandle(123)).toBe(false);
-  });
-
-  it('should not handle plain object without default', () => {
-    const adapter = new SolidHMRAdapter();
-    
-    const result = adapter.canHandle({ foo: 'bar' });
-    expect(result).toBe(false);
+    expect(adapter.canHandle({})).toBe(false);
+    expect(adapter.canHandle([])).toBe(false);
   });
 });
 
-describe('SolidHMRAdapter - preserveState', () => {
+describe('VueHMRAdapter - preserveState', () => {
   it('should return valid snapshot', () => {
-    const adapter = new SolidHMRAdapter();
+    const adapter = new VueHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
     // Set up mock island attributes
-    mockIsland.setAttribute('data-src', '/islands/SolidCounter.solid.tsx');
+    mockIsland.setAttribute('data-src', '/islands/TestComponent.vue');
     mockIsland.setAttribute('data-props', JSON.stringify({ count: 5 }));
-    mockIsland.dataset.solidRenderId = 'solid-123';
     
     const snapshot = adapter.preserveState(mockIsland);
     
     // In test environment without DOM, preserveState returns null
     // This is expected behavior - the adapter gracefully handles missing DOM
     if (snapshot) {
-      expect(snapshot.framework).toBe('solid');
+      expect(snapshot.framework).toBe('vue');
       expect(typeof snapshot.timestamp).toBe('number');
       expect(snapshot.data).toBeDefined();
     } else {
@@ -196,10 +225,10 @@ describe('SolidHMRAdapter - preserveState', () => {
   });
 
   it('should capture component name', () => {
-    const adapter = new SolidHMRAdapter();
+    const adapter = new VueHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    mockIsland.setAttribute('data-src', '/islands/Counter.solid.tsx');
+    mockIsland.setAttribute('data-src', '/islands/Counter.vue');
     mockIsland.setAttribute('data-props', '{}');
     
     const snapshot = adapter.preserveState(mockIsland);
@@ -213,31 +242,12 @@ describe('SolidHMRAdapter - preserveState', () => {
     }
   });
 
-  it('should capture render ID', () => {
-    const adapter = new SolidHMRAdapter();
-    const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
-    
-    mockIsland.setAttribute('data-src', '/islands/TestComponent.solid.tsx');
-    mockIsland.setAttribute('data-props', '{}');
-    mockIsland.dataset.solidRenderId = 'solid-456';
-    
-    const snapshot = adapter.preserveState(mockIsland);
-    
-    // In test environment without DOM, preserveState returns null
-    if (snapshot) {
-      expect(snapshot.data.renderId).toBe('solid-456');
-    } else {
-      // Expected in test environment
-      expect(snapshot).toBeNull();
-    }
-  });
-
   it('should capture props', () => {
-    const adapter = new SolidHMRAdapter();
+    const adapter = new VueHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
     const props = { count: 10, name: 'test' };
-    mockIsland.setAttribute('data-src', '/islands/TestComponent.solid.tsx');
+    mockIsland.setAttribute('data-src', '/islands/TestComponent.vue');
     mockIsland.setAttribute('data-props', JSON.stringify(props));
     
     const snapshot = adapter.preserveState(mockIsland);
@@ -253,10 +263,10 @@ describe('SolidHMRAdapter - preserveState', () => {
   });
 
   it('should handle missing props', () => {
-    const adapter = new SolidHMRAdapter();
+    const adapter = new VueHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    mockIsland.setAttribute('data-src', '/islands/TestComponent.solid.tsx');
+    mockIsland.setAttribute('data-src', '/islands/TestComponent.vue');
     // No data-props attribute
     
     const snapshot = adapter.preserveState(mockIsland);
@@ -272,10 +282,10 @@ describe('SolidHMRAdapter - preserveState', () => {
   });
 
   it('should handle invalid JSON props', () => {
-    const adapter = new SolidHMRAdapter();
+    const adapter = new VueHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    mockIsland.setAttribute('data-src', '/islands/TestComponent.solid.tsx');
+    mockIsland.setAttribute('data-src', '/islands/TestComponent.vue');
     mockIsland.setAttribute('data-props', 'invalid json');
     
     const snapshot = adapter.preserveState(mockIsland);
@@ -285,13 +295,13 @@ describe('SolidHMRAdapter - preserveState', () => {
   });
 });
 
-describe('SolidHMRAdapter - restoreState', () => {
+describe('VueHMRAdapter - restoreState', () => {
   it('should call base implementation', () => {
-    const adapter = new SolidHMRAdapter();
+    const adapter = new VueHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
     const snapshot: StateSnapshot = {
-      framework: 'solid',
+      framework: 'vue',
       timestamp: Date.now(),
       data: {},
       dom: {
@@ -308,12 +318,12 @@ describe('SolidHMRAdapter - restoreState', () => {
   });
 });
 
-describe('SolidHMRAdapter - handleError', () => {
-  it('should add Solid-specific error info', () => {
-    const adapter = new SolidHMRAdapter();
+describe('VueHMRAdapter - handleError', () => {
+  it('should add Vue-specific error info', () => {
+    const adapter = new VueHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    const error = new Error('Signal must be called as a function');
+    const error = new Error('Invalid reactive usage');
     
     // In test environment without DOM, handleError may fail
     // This is expected - the adapter requires DOM APIs
@@ -322,7 +332,7 @@ describe('SolidHMRAdapter - handleError', () => {
       
       // If it succeeds, verify error attributes were set
       expect(mockIsland.getAttribute('data-hmr-error')).toBe('true');
-      expect(mockIsland.getAttribute('data-hmr-error-message')).toBe('Signal must be called as a function');
+      expect(mockIsland.getAttribute('data-hmr-error-message')).toBe('Invalid reactive usage');
     } catch (e) {
       // Expected in test environment without DOM
       // The adapter gracefully handles missing DOM APIs
@@ -330,13 +340,13 @@ describe('SolidHMRAdapter - handleError', () => {
     }
   });
 
-  it('should provide signal hint', () => {
-    const adapter = new SolidHMRAdapter();
+  it('should provide reactive hint', () => {
+    const adapter = new VueHMRAdapter();
     const mockIsland = new MockHTMLElement() as unknown as HTMLElement;
     
-    const error = new Error('Signal is not defined');
+    const error = new Error('ref must be accessed with .value');
     
-    // The adapter should recognize signal-related errors and provide helpful hints
+    // The adapter should recognize reactive-related errors and provide helpful hints
     // This is tested indirectly through the error message
     try {
       adapter.handleError(mockIsland, error);
@@ -349,48 +359,49 @@ describe('SolidHMRAdapter - handleError', () => {
   });
 });
 
-describe('SolidHMRAdapter - extractComponentName', () => {
+describe('VueHMRAdapter - extractComponentName', () => {
   it('should extract from various paths', () => {
-    const adapter = new SolidHMRAdapter();
+    const adapter = new VueHMRAdapter();
     
     // Access private method through type assertion for testing
     const extractName = (adapter as any).extractComponentName.bind(adapter);
     
-    expect(extractName('/islands/Counter.solid.tsx')).toBe('Counter');
-    expect(extractName('/islands/Button.solid.jsx')).toBe('Button');
-    expect(extractName('/src/components/Card.tsx')).toBe('Card');
-    expect(extractName('/nested/path/Component.jsx')).toBe('Component');
-    expect(extractName('SimpleComponent.solid.tsx')).toBe('SimpleComponent');
+    expect(extractName('/islands/Counter.vue')).toBe('Counter');
+    expect(extractName('/islands/Button.tsx')).toBe('Button');
+    expect(extractName('/src/components/Card.jsx')).toBe('Card');
+    expect(extractName('/nested/path/Component.ts')).toBe('Component');
+    expect(extractName('SimpleComponent.vue')).toBe('SimpleComponent');
   });
 });
 
-describe('SolidHMRAdapter - generateComponentId', () => {
+describe('VueHMRAdapter - generateComponentId', () => {
   it('should create valid ID', () => {
-    const adapter = new SolidHMRAdapter();
+    const adapter = new VueHMRAdapter();
     
     // Access private method through type assertion for testing
     const generateId = (adapter as any).generateComponentId.bind(adapter);
     
-    const id1 = generateId('/islands/Counter.solid.tsx');
-    expect(typeof id1).toBe('string');
-    expect(id1.includes('/')).toBe(false);
-    expect(id1.includes('.')).toBe(false);
+    const id1 = generateId('/islands/Counter.vue');
+    const id2 = generateId('/islands/Button.tsx');
+    const id3 = generateId('/src/components/Card.jsx');
     
-    const id2 = generateId('/islands/Counter.solid.tsx');
-    expect(id1).toBe(id2);
+    // IDs should be valid (no special characters)
+    expect(id1.match(/^[a-zA-Z0-9_]+$/) !== null).toBe(true);
+    expect(id2.match(/^[a-zA-Z0-9_]+$/) !== null).toBe(true);
+    expect(id3.match(/^[a-zA-Z0-9_]+$/) !== null).toBe(true);
     
-    const id3 = generateId('/islands/Button.solid.tsx');
-    expect(id1 === id3).toBe(false);
+    // Same path should generate same ID
+    expect(generateId('/islands/Counter.vue')).toBe(id1);
   });
 });
 
-describe('SolidHMRAdapter - singleton instance', () => {
+describe('VueHMRAdapter - singleton instance', () => {
   it('should export singleton', async () => {
     // Import the singleton
-    const { solidAdapter } = await import('../adapters/solid-adapter.ts');
+    const { vueAdapter } = await import('../client/hmr-adapter.ts');
     
-    expect(solidAdapter).toBeDefined();
-    expect(solidAdapter.name).toBe('solid');
-    expect(solidAdapter instanceof SolidHMRAdapter).toBe(true);
+    expect(vueAdapter).toBeDefined();
+    expect(vueAdapter.name).toBe('vue');
+    expect(vueAdapter instanceof VueHMRAdapter).toBe(true);
   });
 });

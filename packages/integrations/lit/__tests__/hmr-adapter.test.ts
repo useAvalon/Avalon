@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { LitHMRAdapter } from '../adapters/lit-adapter.ts';
+import { LitHMRAdapter } from '../client/hmr-adapter.ts';
 
 // Mock HTMLElement for testing
 class MockHTMLElement {
