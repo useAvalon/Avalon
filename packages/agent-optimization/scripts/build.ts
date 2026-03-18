@@ -54,8 +54,9 @@ async function build() {
 				typescript: { onlyRemoveTypeImports: false },
 			});
 			let output = result.code
-				.replace(/(from\s+['"])([^'"]+)\.ts(['"])/g, '$1$2.js$3')
-				.replace(/(import\s*\(\s*['"])([^'"]+)\.ts(['"]\s*\))/g, '$1$2.js$3');
+				.replaceAll(/(from\s+['"])([^'"]+)\.ts(['"])/g, '$1$2.js$3')
+				.replaceAll(/(import\s*\(\s*['"])([^'"]+)\.ts(['"]\s*\))/g, '$1$2.js$3')
+				.replaceAll(/(import\s+['"])([^'"]+)\.ts(['"])/g, '$1$2.js$3');
 			const min = await minify(rel.replace(/\.ts$/, '.js'), output);
 			await writeFile(join(DIST_DIR, rel.replace(/\.ts$/, '.js')), min.code, 'utf-8');
 			compiled++;
@@ -89,7 +90,4 @@ async function build() {
 	console.log('✓ Rewrote package.json for publish');
 }
 
-build().catch(err => {
-	console.error('Build failed:', err);
-	process.exit(1);
-});
+await build();

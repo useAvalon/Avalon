@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/lit",
-	"version": "0.1.4",
+	"version": "0.1.5",
 	"description": "Lit integration for Avalon islands architecture",
 	"license": "MIT",
 	"type": "module",
