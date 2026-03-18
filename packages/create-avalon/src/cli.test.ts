@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { parseCliArgs, validateDirectory } from './cli';
+import { parseCliArgs, validateDirectory } from './cli-utils';
 
 describe('parseCliArgs', () => {
   it('returns defaults when no args provided', () => {
