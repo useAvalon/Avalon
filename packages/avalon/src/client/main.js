@@ -220,31 +220,14 @@ function setupMediaQuery(island, framework, mediaQuery) {
  * @returns {Promise<object>} The integration module
  */
 async function loadIntegrationModule(framework) {
-	switch (framework) {
-		case 'preact':
-			// @ts-ignore - Vite resolves this at runtime
-			return import('/@useavalon/preact/client');
-		case 'react':
-			// @ts-ignore - Vite resolves this at runtime
-			return import('/@useavalon/react/client');
-		case 'vue':
-			// @ts-ignore - Vite resolves this at runtime
-			return import('/@useavalon/vue/client');
-		case 'svelte':
-			// @ts-ignore - Vite resolves this at runtime
-			return import('/@useavalon/svelte/client');
-		case 'solid':
-			// @ts-ignore - Vite resolves this at runtime
-			return import('/@useavalon/solid/client');
-		case 'lit':
-			// @ts-ignore - Vite resolves this at runtime
-			return import('/@useavalon/lit/client');
-		case 'qwik':
-			// @ts-ignore - Vite resolves this at runtime
-			return import('/@useavalon/qwik/client');
-		default:
-			throw new Error(`Unknown framework: ${framework}`);
+	const knownFrameworks = ['preact', 'react', 'vue', 'svelte', 'solid', 'lit', 'qwik'];
+	if (!knownFrameworks.includes(framework)) {
+		throw new Error(`Unknown framework: ${framework}`);
 	}
+	// Use @vite-ignore + computed path so Vite doesn't statically resolve
+	// imports for frameworks the user hasn't installed.
+	const modulePath = `/@useavalon/${framework}/client`;
+	return import(/* @vite-ignore */ modulePath);
 }
 
 /**
@@ -304,8 +287,8 @@ async function hydrateIsland(island, framework) {
 		// CRITICAL: For Lit components, load hydration support BEFORE importing the component
 		// This ensures our patch is applied before @customElement decorator runs
 		if (framework === 'lit') {
-			// @ts-ignore - Vite resolves this virtual module at runtime
-			await import('/@useavalon/lit/client');
+			const litPath = '/@useavalon/lit/client';
+			await import(/* @vite-ignore */ litPath);
 		}
 
 		const componentModule = await import(/* @vite-ignore */ src);
@@ -519,8 +502,8 @@ async function hydrateIslandWithFreshModule(island, framework, freshSrc, origina
 	const props = propsAttr ? JSON.parse(propsAttr) : {};
 
 	if (framework === 'lit') {
-		// @ts-ignore - Vite resolves this at runtime
-		await import('/@useavalon/lit/client');
+		const litPath = '/@useavalon/lit/client';
+		await import(/* @vite-ignore */ litPath);
 	}
 
 	const componentModule = await import(/* @vite-ignore */ freshSrc);
@@ -623,21 +606,21 @@ if (import.meta.hot) {
 
 			// Only register adapters for frameworks that are used
 			// Adapters are loaded from their respective integration packages
+			// Use computed paths so Vite doesn't statically resolve imports
+			// for frameworks the user hasn't installed.
+			const loadAdapter = (fw) => {
+				const p = `/@useavalon/${fw}/client/hmr`;
+				return import(/* @vite-ignore */ p).then(m => m[`${fw}Adapter`]);
+			};
+
 			const adapterLoaders = {
-				// @ts-ignore - Vite resolves these virtual modules at runtime
-				react: () => import('/@useavalon/react/client/hmr').then(m => m.reactAdapter),
-				// @ts-ignore - Vite resolves these virtual modules at runtime
-				preact: () => import('/@useavalon/preact/client/hmr').then(m => m.preactAdapter),
-				// @ts-ignore - Vite resolves these virtual modules at runtime
-				vue: () => import('/@useavalon/vue/client/hmr').then(m => m.vueAdapter),
-				// @ts-ignore - Vite resolves these virtual modules at runtime
-				svelte: () => import('/@useavalon/svelte/client/hmr').then(m => m.svelteAdapter),
-				// @ts-ignore - Vite resolves these virtual modules at runtime
-				solid: () => import('/@useavalon/solid/client/hmr').then(m => m.solidAdapter),
-				// @ts-ignore - Vite resolves these virtual modules at runtime
-				lit: () => import('/@useavalon/lit/client/hmr').then(m => m.litAdapter),
-				// @ts-ignore - Vite resolves these virtual modules at runtime
-				qwik: () => import('/@useavalon/qwik/client/hmr').then(m => m.qwikAdapter),
+				react: () => loadAdapter('react'),
+				preact: () => loadAdapter('preact'),
+				vue: () => loadAdapter('vue'),
+				svelte: () => loadAdapter('svelte'),
+				solid: () => loadAdapter('solid'),
+				lit: () => loadAdapter('lit'),
+				qwik: () => loadAdapter('qwik'),
 			};
 
 			for (const framework of usedFrameworks) {
