@@ -275,17 +275,14 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 		enforce: 'pre',
 
 		config() {
-			// @useavalon packages ship raw .ts source for SSR and pre-compiled
-			// .js for client-side code.
-			//
-			// oxc.exclude: Prevents Vite's built-in OXC from processing @useavalon
-			//   .ts files. Without this, OXC applies integration plugins' global
-			//   jsx: 'automatic' config to plain .ts files, causing errors.
-			//   Our transform hook below handles TS stripping for SSR instead.
-			//   Client-side loads .js files which OXC skips by default (/\.js$/).
+			// @useavalon packages ship raw .ts source. Vite's built-in OXC
+			// would apply integration plugins' global jsx: 'automatic' config
+			// to plain .ts files, causing errors. We exclude them from OXC and
+			// handle TS stripping ourselves in the transform hook below (for
+			// both client and SSR).
 			//
 			// ssr.noExternal: Ensures Vite processes @useavalon packages through
-			//   the SSR transform pipeline instead of treating them as external CJS.
+			// the SSR transform pipeline instead of treating them as external CJS.
 			return {
 				oxc: {
 					exclude: [/node_modules\/@useavalon\/.*\.tsx?$/],
@@ -323,13 +320,12 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 		},
 
 		async transform(code: string, id: string) {
-			// For SSR: strip TypeScript from @useavalon packages ourselves.
-			// Integration plugins (react, preact) set jsx: 'automatic' which Vite's
-			// OXC applies to all files — causing "Invalid jsx option" errors on
-			// plain .ts files during SSR. We intercept and strip TS without JSX config.
-			// For client-side: main.js imports pre-compiled .js files that OXC
-			// skips entirely (default exclude: /\.js$/), avoiding the jsx conflict.
-			if (this.environment?.config?.consumer === 'server' && id.includes('@useavalon/') && /\.tsx?$/.test(id)) {
+			// Strip TypeScript from @useavalon packages for both SSR and client.
+			// We exclude @useavalon .ts files from Vite's built-in OXC (see config()
+			// above) because integration plugins set jsx: 'automatic' globally, which
+			// OXC would incorrectly apply to plain .ts files. Instead, we handle TS
+			// stripping ourselves here without any JSX config.
+			if (id.includes('@useavalon/') && /\.tsx?$/.test(id)) {
 				const { transform: oxcTransform } = await import('oxc-transform');
 				const result = await oxcTransform(id, code, {
 					sourcemap: true,
