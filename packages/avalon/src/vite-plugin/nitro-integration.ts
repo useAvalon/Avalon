@@ -10,6 +10,7 @@
 import type { Plugin, ViteDevServer } from 'vite';
 import { nitro as nitroVitePlugin } from 'nitro/vite';
 import { stat as fsStat } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import type { ResolvedAvalonConfig } from './types.ts';
@@ -31,22 +32,35 @@ import { getUniversalHeadForInjection } from '../islands/universal-head-collecto
 
 /**
  * Resolves the absolute path to a file inside @useavalon/avalon's source tree.
+ * Handles both workspace (.ts source) and published (.js compiled) layouts.
  */
 function resolveAvalonPackagePath(relativePath: string): string {
 	const require = createRequire(import.meta.url);
 	const modEntry = require.resolve('@useavalon/avalon');
 	const pkgRoot = dirname(modEntry);
-	return join(pkgRoot, relativePath);
+	const resolved = join(pkgRoot, relativePath);
+	// Published package ships .js in dist/, workspace has .ts source
+	if (relativePath.endsWith('.ts') && !existsSync(resolved)) {
+		const jsPath = resolved.replace(/\.ts$/, '.js');
+		if (existsSync(jsPath)) return jsPath;
+	}
+	return resolved;
 }
 
 /**
  * Resolves the absolute path to a file inside an @useavalon/<name> integration package.
+ * Handles both workspace (.ts source) and published (.js compiled) layouts.
  */
 function resolveIntegrationPackagePath(name: string, relativePath: string): string {
 	const require = createRequire(join(process.cwd(), 'package.json'));
 	const modEntry = require.resolve(`@useavalon/${name}`);
 	const pkgRoot = dirname(modEntry);
-	return join(pkgRoot, relativePath);
+	const resolved = join(pkgRoot, relativePath);
+	if (relativePath.endsWith('.ts') && !existsSync(resolved)) {
+		const jsPath = resolved.replace(/\.ts$/, '.js');
+		if (existsSync(jsPath)) return jsPath;
+	}
+	return resolved;
 }
 
 export const VIRTUAL_MODULE_IDS = {
@@ -368,7 +382,10 @@ async function prewarmCoreModules(server: ViteDevServer, verbose?: boolean): Pro
 
 	const coreModules = [
 		{ path: resolveAvalonPackagePath('src/render/ssr.ts'), assignTo: 'ssr' as string | null },
-		{ path: resolveAvalonPackagePath('src/core/layout/enhanced-layout-resolver.ts'), assignTo: 'layout' as string | null },
+		{
+			path: resolveAvalonPackagePath('src/core/layout/enhanced-layout-resolver.ts'),
+			assignTo: 'layout' as string | null,
+		},
 		{ path: resolveAvalonPackagePath('src/middleware/index.ts'), assignTo: null as string | null },
 		...frameworkNames.map(name => ({
 			path: resolveIntegrationPackagePath(name, 'server/renderer.ts'),
@@ -450,7 +467,7 @@ function setupHMRCoordination(
 			cachedSSRModule = null;
 			cachedLayoutModule = null;
 		}
-		
+
 		if (file.includes('/layouts/') || file.includes('_layout')) {
 			const resolver = globalThis.__avalonLayoutResolver as { clearCache?: () => void } | undefined;
 			resolver?.clearCache?.();
@@ -478,18 +495,14 @@ async function generatePageRoutesModule(config: ResolvedAvalonConfig, _verbose?:
 	try {
 		const { getAllPageDirs } = await import('./module-discovery.ts');
 		const { discoverPageRoutesFromMultipleDirs } = await import('../nitro/route-discovery.ts');
-		
+
 		// Get all page directories (traditional + modular)
-		const pageDirs = await getAllPageDirs(
-			config.pagesDir,
-			config.modules,
-			process.cwd()
-		);
-		
+		const pageDirs = await getAllPageDirs(config.pagesDir, config.modules, process.cwd());
+
 		const routes = await discoverPageRoutesFromMultipleDirs(pageDirs, {
 			developmentMode: config.isDev,
 		});
-		
+
 		const routesJson = JSON.stringify(routes, null, 2);
 		return `export const pageRoutes = ${routesJson};\nexport default pageRoutes;\n`;
 	} catch {
@@ -609,7 +622,11 @@ async function handleStreamingSSRRequest(
 
 		const skipLayouts = layoutConfig?.skipLayouts || [];
 		const activeLayouts = layoutModules.filter(({ file }) => {
-			const layoutName = file.split('/').pop()?.replace(/\.[^.]+$/, '') || '';
+			const layoutName =
+				file
+					.split('/')
+					.pop()
+					?.replace(/\.[^.]+$/, '') || '';
 			return !skipLayouts.includes(layoutName);
 		});
 
@@ -710,9 +727,7 @@ async function handleStreamingSSRRequest(
 		// ── RENDER PAGE CONTENT (this is where data fetching happens) ──
 		let pageContent: string;
 		try {
-			const pageResult = typeof PageComponent === 'function'
-				? (PageComponent as () => unknown)()
-				: PageComponent;
+			const pageResult = typeof PageComponent === 'function' ? (PageComponent as () => unknown)() : PageComponent;
 			const resolvedPage = pageResult instanceof Promise ? await pageResult : pageResult;
 			pageContent = preactRender(resolvedPage);
 		} catch (error) {
@@ -721,8 +736,7 @@ async function handleStreamingSSRRequest(
 		}
 
 		// Check if page returned a complete HTML doc (shouldn't happen with layouts, but safety check)
-		const isCompleteDoc = pageContent.trim().startsWith('<!DOCTYPE html>') ||
-			pageContent.trim().startsWith('<html');
+		const isCompleteDoc = pageContent.trim().startsWith('<!DOCTYPE html>') || pageContent.trim().startsWith('<html');
 		if (isCompleteDoc) {
 			// Can't stream this — just send it and close
 			res.end(pageContent);
@@ -753,7 +767,8 @@ async function handleStreamingSSRRequest(
 		if (!tail.includes('/src/client/main.js') && !tail.includes('/@vite/client')) {
 			const bodyCloseIndex = tail.lastIndexOf('</body>');
 			if (bodyCloseIndex !== -1) {
-				tail = tail.slice(0, bodyCloseIndex) +
+				tail =
+					tail.slice(0, bodyCloseIndex) +
 					'\n<script type="module" src="/@vite/client"></script>\n' +
 					'<script type="module" src="/src/client/main.js"></script>\n' +
 					tail.slice(bodyCloseIndex);
@@ -771,7 +786,6 @@ async function handleStreamingSSRRequest(
 		return false;
 	}
 }
-
 
 async function handleSSRRequest(
 	server: ViteDevServer,
@@ -799,7 +813,7 @@ async function handleSSRRequest(
 		// Pre-load layout files via ssrLoadModule so their CSS modules enter
 		// Vite's module graph *before* we collect CSS from them.
 		const layoutFiles = await discoverLayoutFiles(pathname, server);
-		
+
 		// Load all layout modules
 		const layoutModules: Array<{ file: string; module: Record<string, unknown> }> = [];
 		for (const layoutFile of layoutFiles) {
@@ -814,17 +828,10 @@ async function handleSSRRequest(
 		}
 
 		let html: string;
-		
+
 		// If we have modular layouts, use manual layout composition
 		if (config.modules && layoutModules.length > 0) {
-			html = await renderPageWithManualLayouts(
-				PageComponent,
-				pageModule,
-				layoutModules,
-				pathname,
-				config,
-				server
-			);
+			html = await renderPageWithManualLayouts(PageComponent, pageModule, layoutModules, pathname, config, server);
 		} else {
 			html = await renderPageToHtml(PageComponent, pageModule, pathname, config, server);
 		}
@@ -843,12 +850,12 @@ async function handleSSRRequest(
 
 /**
  * Render a page with manually composed layouts (for modular architecture)
- * 
+ *
  * Layout composition order:
  * 1. Page content is rendered first
  * 2. Module-specific layouts (e.g., docs/_layout.tsx) wrap the page content
  * 3. Root/shell layout (shared/_layout.tsx) wraps everything last
- * 
+ *
  * This ensures that layouts returning `<div>` wrappers are applied before
  * layouts returning complete `<html>` documents.
  */
@@ -862,61 +869,62 @@ async function renderPageWithManualLayouts(
 ): Promise<string> {
 	const { render: preactRender } = await server.ssrLoadModule('preact-render-to-string');
 	const { h } = await server.ssrLoadModule('preact');
-	
+
 	// Check if page wants to skip certain layouts
 	const layoutConfig = pageModule.layoutConfig as { skipLayouts?: string[] } | undefined;
 	const skipLayouts = layoutConfig?.skipLayouts || [];
-	
+
 	// Filter out skipped layouts
 	const activeLayouts = layoutModules.filter(({ file }) => {
-		const layoutName = file.split('/').pop()?.replace(/\.[^.]+$/, '') || '';
+		const layoutName =
+			file
+				.split('/')
+				.pop()
+				?.replace(/\.[^.]+$/, '') || '';
 		return !skipLayouts.includes(layoutName);
 	});
-	
+
 	// Render page content first
 	let pageContent: string;
 	try {
-		const pageResult = typeof PageComponent === 'function' 
-			? (PageComponent as () => unknown)() 
-			: PageComponent;
+		const pageResult = typeof PageComponent === 'function' ? (PageComponent as () => unknown)() : PageComponent;
 		const resolvedPage = pageResult instanceof Promise ? await pageResult : pageResult;
 		pageContent = preactRender(resolvedPage);
 	} catch (error) {
 		console.error('[SSR] Error rendering page component:', error);
 		pageContent = `<div>Error rendering page</div>`;
 	}
-	
+
 	// Check if page content is a complete HTML document
-	const isCompleteDoc = pageContent.trim().startsWith('<!DOCTYPE html>') || 
-		pageContent.trim().startsWith('<html');
-	
+	const isCompleteDoc = pageContent.trim().startsWith('<!DOCTYPE html>') || pageContent.trim().startsWith('<html');
+
 	if (isCompleteDoc) {
 		// Page provides its own HTML structure, inject client script and return
 		return injectClientScript(pageContent);
 	}
-	
+
 	// Separate layouts into shell (returns <html>) and wrapper (returns <div>) layouts
 	// We need to render each layout to determine its type, then apply in correct order
 	// Merge frontmatter and metadata - metadata takes precedence for page-specific values
 	const frontmatter = pageModule.frontmatter as Record<string, unknown> | undefined;
 	const metadata = pageModule.metadata as Record<string, unknown> | undefined;
 	const mergedFrontmatter = { ...frontmatter, ...metadata, currentPath: pathname };
-	
+
 	const layoutProps = {
 		children: null as unknown, // Will be set per-layout
 		frontmatter: mergedFrontmatter,
 		params: {},
 		url: pathname,
 	};
-	
+
 	// Categorize layouts by rendering them with placeholder content
 	const shellLayouts: Array<{ module: Record<string, unknown> }> = [];
 	const wrapperLayouts: Array<{ module: Record<string, unknown> }> = [];
-	
+
 	for (const layout of activeLayouts) {
 		const LayoutComponent = layout.module.default;
 		if (!LayoutComponent || typeof LayoutComponent !== 'function') continue;
-		
+
 		try {
 			// Render with placeholder to detect if it returns HTML shell
 			const testProps = {
@@ -926,7 +934,7 @@ async function renderPageWithManualLayouts(
 			const testResult = (LayoutComponent as (props: unknown) => unknown)(testProps);
 			const resolvedTest = testResult instanceof Promise ? await testResult : testResult;
 			const testHtml = preactRender(resolvedTest);
-			
+
 			if (testHtml.trim().startsWith('<html') || testHtml.includes('<!DOCTYPE')) {
 				shellLayouts.push(layout);
 			} else {
@@ -937,21 +945,21 @@ async function renderPageWithManualLayouts(
 			wrapperLayouts.push(layout);
 		}
 	}
-	
+
 	// Apply wrapper layouts first (innermost to outermost)
 	// These are module-specific layouts that return <div> wrappers
 	let content = pageContent;
-	
+
 	for (const { module: layoutModule } of wrapperLayouts) {
 		const LayoutComponent = layoutModule.default;
 		if (!LayoutComponent || typeof LayoutComponent !== 'function') continue;
-		
+
 		try {
 			const props = {
 				...layoutProps,
 				children: h('div', { dangerouslySetInnerHTML: { __html: content } }),
 			};
-			
+
 			const layoutResult = (LayoutComponent as (props: unknown) => unknown)(props);
 			const resolvedLayout = layoutResult instanceof Promise ? await layoutResult : layoutResult;
 			content = preactRender(resolvedLayout);
@@ -959,7 +967,7 @@ async function renderPageWithManualLayouts(
 			console.error('[SSR] Error rendering wrapper layout:', error);
 		}
 	}
-	
+
 	// Apply shell layout last (the one that provides <html>)
 	// If there are multiple shell layouts, prefer the module-specific one (last in array)
 	// since layouts are discovered in order: shared -> module-specific
@@ -967,14 +975,14 @@ async function renderPageWithManualLayouts(
 		// Use the last shell layout (module-specific takes precedence over shared)
 		const { module: shellModule } = shellLayouts[shellLayouts.length - 1];
 		const ShellComponent = shellModule.default;
-		
+
 		if (ShellComponent && typeof ShellComponent === 'function') {
 			try {
 				const props = {
 					...layoutProps,
 					children: h('div', { dangerouslySetInnerHTML: { __html: content } }),
 				};
-				
+
 				const shellResult = (ShellComponent as (props: unknown) => unknown)(props);
 				const resolvedShell = shellResult instanceof Promise ? await shellResult : shellResult;
 				content = preactRender(resolvedShell);
@@ -983,20 +991,19 @@ async function renderPageWithManualLayouts(
 			}
 		}
 	}
-	
+
 	// Check if final content is a complete HTML document
-	const isFinalCompleteDoc = content.trim().startsWith('<!DOCTYPE html>') || 
-		content.trim().startsWith('<html');
-	
+	const isFinalCompleteDoc = content.trim().startsWith('<!DOCTYPE html>') || content.trim().startsWith('<html');
+
 	if (isFinalCompleteDoc) {
 		return injectClientScript(content);
 	}
-	
+
 	// Wrap in basic HTML structure (fallback if no shell layout)
 	const fallbackMetadata = (pageModule.metadata || {}) as { title?: string; description?: string };
 	const title = fallbackMetadata.title || 'Avalon App';
 	const description = fallbackMetadata.description || '';
-	
+
 	return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -1019,12 +1026,12 @@ async function renderPageWithManualLayouts(
  */
 function injectClientScript(html: string): string {
 	let result = html;
-	
+
 	// Ensure DOCTYPE is present
 	if (!result.trim().toLowerCase().startsWith('<!doctype')) {
 		result = '<!DOCTYPE html>\n' + result;
 	}
-	
+
 	// Inject universal CSS from island framework renderers (Svelte scoped, Vue scoped, Solid CSS, etc.)
 	if (!result.includes('data-universal-ssr="true"')) {
 		const universalCSS = getUniversalCSSForHead(true);
@@ -1032,28 +1039,33 @@ function injectClientScript(html: string): string {
 			result = result.replace('</head>', `${universalCSS}\n</head>`);
 		}
 	}
-	
+
 	// Inject universal head content (hydration scripts from frameworks like Solid)
 	const universalHead = getUniversalHeadForInjection(true);
 	if (universalHead && result.includes('</head>')) {
 		result = result.replace('</head>', `${universalHead}\n</head>`);
 	}
-	
+
 	// Skip if scripts already present
 	if (result.includes('/src/client/main.js') || result.includes('/@vite/client')) {
 		return result;
 	}
-	
+
 	// Inject before </body> or at the end
 	const bodyCloseIndex = result.lastIndexOf('</body>');
 	if (bodyCloseIndex !== -1) {
-		return result.slice(0, bodyCloseIndex) + 
+		return (
+			result.slice(0, bodyCloseIndex) +
 			'\n<script type="module" src="/@vite/client"></script>\n' +
 			'<script type="module" src="/src/client/main.js"></script>\n' +
-			result.slice(bodyCloseIndex);
+			result.slice(bodyCloseIndex)
+		);
 	}
-	
-	return result + '\n<script type="module" src="/@vite/client"></script>\n<script type="module" src="/src/client/main.js"></script>';
+
+	return (
+		result +
+		'\n<script type="module" src="/@vite/client"></script>\n<script type="module" src="/src/client/main.js"></script>'
+	);
 }
 
 /**
@@ -1100,11 +1112,11 @@ async function discoverLayoutFiles(pathname: string, server: ViteDevServer): Pro
 	if (config?.modules) {
 		const modulesDir = `${viteRoot}/${config.modules.dir}`;
 		const layoutsDirName = config.modules.layoutsDirName;
-		
+
 		// Determine which module this route belongs to
 		const firstSegment = segments[0] || '';
 		const rootModules = ['home', 'root', 'main', 'index'];
-		
+
 		// For root routes, check the home/root/main/index module
 		if (!firstSegment || rootModules.includes(firstSegment.toLowerCase())) {
 			for (const moduleName of rootModules) {
@@ -1119,16 +1131,21 @@ async function discoverLayoutFiles(pathname: string, server: ViteDevServer): Pro
 	// 3. Check traditional layouts directory (src/layouts/)
 	const traditionalLayoutsDir = `${viteRoot}/src/layouts`;
 	for (const pathSegment of paths) {
-		const fullPath = pathSegment === ''
-			? `${traditionalLayoutsDir}/${layoutFileName}`
-			: `${traditionalLayoutsDir}${pathSegment}/${layoutFileName}`;
+		const fullPath =
+			pathSegment === ''
+				? `${traditionalLayoutsDir}/${layoutFileName}`
+				: `${traditionalLayoutsDir}${pathSegment}/${layoutFileName}`;
 		await tryAddLayout(fullPath);
 	}
 
 	return layoutFiles;
 }
 
-async function findPageFile(pathname: string, config: ResolvedAvalonConfig, server: ViteDevServer): Promise<string | null> {
+async function findPageFile(
+	pathname: string,
+	config: ResolvedAvalonConfig,
+	server: ViteDevServer,
+): Promise<string | null> {
 	let normalizedPath = pathname;
 	if (normalizedPath.endsWith('/') && normalizedPath !== '/') {
 		normalizedPath = normalizedPath.slice(0, -1);
@@ -1139,7 +1156,7 @@ async function findPageFile(pathname: string, config: ResolvedAvalonConfig, serv
 
 	const extensions = ['.tsx', '.ts', '.jsx', '.js', '.mdx', '.md'];
 	const viteRoot = server.config.root || process.cwd();
-	
+
 	// Helper to check if a file exists
 	async function tryFile(relativePath: string): Promise<string | null> {
 		try {
@@ -1159,11 +1176,11 @@ async function findPageFile(pathname: string, config: ResolvedAvalonConfig, serv
 		const segments = pathname.split('/').filter(Boolean);
 		const firstSegment = segments[0] || '';
 		const rootModules = ['home', 'root', 'main', 'index'];
-		
+
 		// Determine which module and what the relative path within that module is
 		let moduleName: string;
 		let moduleRelativePath: string;
-		
+
 		if (!firstSegment || rootModules.includes(firstSegment.toLowerCase())) {
 			// Root route - check home module
 			moduleName = 'home';
@@ -1173,11 +1190,9 @@ async function findPageFile(pathname: string, config: ResolvedAvalonConfig, serv
 			moduleName = firstSegment;
 			// Remove the module prefix from the path
 			const remainingSegments = segments.slice(1);
-			moduleRelativePath = remainingSegments.length > 0 
-				? '/' + remainingSegments.join('/') 
-				: '/index';
+			moduleRelativePath = remainingSegments.length > 0 ? '/' + remainingSegments.join('/') : '/index';
 		}
-		
+
 		// Try to find the page in the module
 		for (const ext of extensions) {
 			const result = await tryFile(`${modulesDir}/${moduleName}/${pagesDirName}${moduleRelativePath}${ext}`);
@@ -1225,7 +1240,9 @@ async function renderPageToHtml(
 		const ssrModule = cachedSSRModule as Record<string, unknown>;
 
 		if (!cachedLayoutModule) {
-			cachedLayoutModule = await server.ssrLoadModule(resolveAvalonPackagePath('src/core/layout/enhanced-layout-resolver.ts'));
+			cachedLayoutModule = await server.ssrLoadModule(
+				resolveAvalonPackagePath('src/core/layout/enhanced-layout-resolver.ts'),
+			);
 		}
 		// cachedLayoutModule is the dynamically-loaded enhanced-layout-resolver.ts module;
 		// expected exports: EnhancedLayoutResolver, EnhancedLayoutResolverUtils
@@ -1250,11 +1267,11 @@ async function renderPageToHtml(
 					const EnhancedLayoutResolver = layoutModule.EnhancedLayoutResolver as new (
 						opts: Record<string, unknown>,
 					) => unknown;
-					
+
 					// Use the shared layouts directory as the base
 					// The resolver will also check modular layouts via the layout composer
 					const layoutsDir = config.layoutsDir || 'src/layouts';
-					
+
 					globalThis.__avalonLayoutResolver = new EnhancedLayoutResolver({
 						baseDirectory: `${viteRoot}/${layoutsDir}`,
 						filePattern: '_layout.tsx',
