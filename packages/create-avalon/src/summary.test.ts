@@ -25,9 +25,9 @@ describe('formatSummary', () => {
 
   // --- Integrations ---
 
-  it('shows "preact" when no additional integrations are selected', () => {
+  it('shows "none" when no integrations are selected', () => {
     const result = formatSummary(baseConfig);
-    expect(result).toContain('Integrations:   preact');
+    expect(result).toContain('Integrations:   none');
   });
 
   it('lists selected integrations', () => {
@@ -36,10 +36,10 @@ describe('formatSummary', () => {
     expect(result).toContain('react, vue');
   });
 
-  it('lists a single integration with preact prefix', () => {
+  it('lists a single integration', () => {
     const config: ProjectConfig = { ...baseConfig, integrations: ['svelte'] };
     const result = formatSummary(config);
-    expect(result).toContain('Integrations:   preact, svelte');
+    expect(result).toContain('Integrations:   svelte');
   });
 
   // --- Styling ---
@@ -109,6 +109,13 @@ describe('formatSummary', () => {
   it('cd command uses the actual project name', () => {
     const result = formatSummary({ ...baseConfig, projectName: 'another-project' });
     expect(result).toContain('cd another-project');
+  });
+
+  it('omits cd command when scaffolded in place', () => {
+    const result = formatSummary(baseConfig, true);
+    expect(result).not.toContain('cd ');
+    expect(result).toContain('bun install');
+    expect(result).toContain('bun run dev');
   });
 
   // --- Full config ---

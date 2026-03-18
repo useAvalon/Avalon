@@ -55,9 +55,9 @@ describe('generateViteConfig', () => {
     expect(result).not.toContain(`from '@useavalon/vue'`);
   });
 
-  it('always includes preact in integrations array when none selected', () => {
+  it('uses empty integrations array when none selected', () => {
     const result = generateViteConfig(baseConfig);
-    expect(result).toContain(`integrations: ['preact']`);
+    expect(result).toContain(`integrations: []`);
   });
 
   it('includes tailwindcss plugin when styling is tailwind', () => {
@@ -114,7 +114,6 @@ describe('generateViteConfig', () => {
     expect(result).toContain(`import { agentOptimization } from '@useavalon/agent-optimization';`);
 
     // Integrations as strings
-    expect(result).toContain(`'preact'`);
     expect(result).toContain(`'react'`);
     expect(result).toContain(`'svelte'`);
     expect(result).toContain(`'qwik'`);

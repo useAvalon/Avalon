@@ -6,11 +6,14 @@ const STYLING_LABELS: Record<string, string> = {
   shadcn: 'shadcn',
 };
 
-export function formatSummary(config: ProjectConfig): string {
-  const allIntegrations = ['preact', ...config.integrations];
-  const integrations = allIntegrations.join(', ');
+export function formatSummary(config: ProjectConfig, scaffoldedInPlace = false): string {
+  const integrations = config.integrations.length > 0 ? config.integrations.join(', ') : 'none';
   const styling = STYLING_LABELS[config.styling] ?? config.styling;
   const plugins = config.plugins.length > 0 ? config.plugins.join(', ') : 'none';
+
+  const nextSteps = scaffoldedInPlace
+    ? ['    bun install', '    bun run dev']
+    : [`    cd ${config.projectName}`, '    bun install', '    bun run dev'];
 
   return [
     '',
@@ -21,13 +24,11 @@ export function formatSummary(config: ProjectConfig): string {
     `  Middleware:     ${config.middleware}`,
     '',
     '  Next steps:',
-    `    cd ${config.projectName}`,
-    '    bun install',
-    '    bun run dev',
+    ...nextSteps,
     '',
   ].join('\n');
 }
 
-export function printSummary(config: ProjectConfig): void {
-  console.log(formatSummary(config));
+export function printSummary(config: ProjectConfig, scaffoldedInPlace = false): void {
+  console.log(formatSummary(config, scaffoldedInPlace));
 }

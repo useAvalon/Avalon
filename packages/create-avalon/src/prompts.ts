@@ -10,7 +10,7 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
     const nameResult = await text({
       message: 'What is your project name?',
       placeholder: 'my-avalon-app',
-      validate(value) {
+      validate(value = '') {
         if (!value.trim()) return 'Project name is required.';
       },
     });
@@ -24,8 +24,9 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
   }
 
   const integrationsResult = await multiselect({
-    message: 'Which additional integrations would you like to include? (use space to toggle, enter to confirm)',
+    message: 'Which integrations would you like to include? (use space to toggle, enter to confirm)',
     options: [
+      { value: 'preact', label: 'preact', hint: 'Preact 10' },
       { value: 'react', label: 'react', hint: 'React 19' },
       { value: 'vue', label: 'vue', hint: 'Vue 3' },
       { value: 'svelte', label: 'svelte', hint: 'Svelte 5' },

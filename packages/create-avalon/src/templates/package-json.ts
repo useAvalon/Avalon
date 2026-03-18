@@ -1,10 +1,9 @@
 import type { ProjectConfig } from '../types';
-import { INTEGRATION_PACKAGES, DEFAULT_INTEGRATION_PACKAGE } from '../types';
+import { INTEGRATION_PACKAGES } from '../types';
 
 export function generatePackageJson(config: ProjectConfig): string {
   const dependencies: Record<string, string> = {
     '@useavalon/avalon': 'latest',
-    [DEFAULT_INTEGRATION_PACKAGE]: 'latest',
   };
 
   for (const integration of config.integrations) {

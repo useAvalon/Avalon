@@ -18,9 +18,8 @@ export function generateViteConfig(config: ProjectConfig): string {
     imports.push(`import { agentOptimization } from '@useavalon/agent-optimization';`);
   }
 
-  // Build integrations array — preact is always included, plus user-selected ones
-  const allIntegrations = ['preact', ...config.integrations];
-  const integrationsList = allIntegrations.map((i) => `'${i}'`).join(', ');
+  // Build integrations array — only user-selected integrations
+  const integrationsList = config.integrations.map((i) => `'${i}'`).join(', ');
 
   // Build plugins array
   const pluginEntries: string[] = [];

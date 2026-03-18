@@ -1,8 +1,4 @@
-export type Integration = 'react' | 'vue' | 'svelte' | 'solid' | 'lit' | 'qwik';
-
-/** Preact is always included as the core rendering framework */
-export const DEFAULT_INTEGRATION = 'preact' as const;
-export const DEFAULT_INTEGRATION_PACKAGE = '@useavalon/preact';
+export type Integration = 'preact' | 'react' | 'vue' | 'svelte' | 'solid' | 'lit' | 'qwik';
 
 export type StylingOption = 'css-modules' | 'tailwind' | 'shadcn';
 
@@ -19,6 +15,7 @@ export interface ProjectConfig {
 }
 
 export const INTEGRATION_PACKAGES: Record<Integration, string> = {
+  preact:  '@useavalon/preact',
   react:   '@useavalon/react',
   vue:     '@useavalon/vue',
   svelte:  '@useavalon/svelte',
