@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/avalon",
-	"version": "0.1.16",
+	"version": "0.1.17",
 	"description": "Multi-framework islands architecture for the modern web",
 	"license": "MIT",
 	"type": "module",
@@ -22,7 +22,8 @@
 	"scripts": {
 		"build:client": "bun run scripts/build-client.ts",
 		"build": "bun run scripts/build.ts",
-		"prepublishOnly": "bun run build"
+		"prepublishOnly": "bun run build",
+		"postpublish": "bun run scripts/postpublish.ts"
 	},
 	"exports": {
 		".": "./mod.ts",

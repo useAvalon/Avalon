@@ -71,6 +71,12 @@ async function compileToDistDir() {
 			const result = await transform(file, code, {
 				sourcemap: false,
 				typescript: { onlyRemoveTypeImports: false },
+				...(ext === '.tsx' && {
+					jsx: {
+						runtime: 'automatic',
+						importSource: 'preact',
+					},
+				}),
 			});
 
 			const output = rewriteImportExtensions(result.code);
