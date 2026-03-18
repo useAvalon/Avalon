@@ -287,7 +287,7 @@ async function hydrateIsland(island, framework) {
 		// CRITICAL: For Lit components, load hydration support BEFORE importing the component
 		// This ensures our patch is applied before @customElement decorator runs
 		if (framework === 'lit') {
-			const litPath = '/@useavalon/lit/client';
+			const litPath = `/@useavalon/${framework}/client`;
 			await import(/* @vite-ignore */ litPath);
 		}
 
@@ -502,7 +502,7 @@ async function hydrateIslandWithFreshModule(island, framework, freshSrc, origina
 	const props = propsAttr ? JSON.parse(propsAttr) : {};
 
 	if (framework === 'lit') {
-		const litPath = '/@useavalon/lit/client';
+		const litPath = `/@useavalon/${framework}/client`;
 		await import(/* @vite-ignore */ litPath);
 	}
 
