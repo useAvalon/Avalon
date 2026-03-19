@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/avalon",
-	"version": "0.1.18",
+	"version": "0.1.19",
 	"description": "Multi-framework islands architecture for the modern web",
 	"license": "MIT",
 	"type": "module",
@@ -66,6 +66,9 @@
 	},
 	"peerDependenciesMeta": {
 		"nitro": {
+			"optional": true
+		},
+		"vite": {
 			"optional": true
 		},
 		"vite-imagetools": {

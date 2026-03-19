@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/core",
-	"version": "0.1.4",
+	"version": "0.1.5",
 	"description": "Core types and utilities for Avalon framework integrations",
 	"license": "MIT",
 	"type": "module",
@@ -33,5 +33,10 @@
 	],
 	"peerDependencies": {
 		"vite": "^8.0.0"
+	},
+	"peerDependenciesMeta": {
+		"vite": {
+			"optional": true
+		}
 	}
 }

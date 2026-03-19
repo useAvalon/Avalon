@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/svelte",
-	"version": "0.1.4",
+	"version": "0.1.5",
 	"description": "Svelte integration for Avalon islands architecture",
 	"license": "MIT",
 	"type": "module",
@@ -44,5 +44,10 @@
 	"peerDependencies": {
 		"svelte": "^5.0.0",
 		"vite": "^8.0.0"
+	},
+	"peerDependenciesMeta": {
+		"vite": {
+			"optional": true
+		}
 	}
 }

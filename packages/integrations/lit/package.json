@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/lit",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"description": "Lit integration for Avalon islands architecture",
 	"license": "MIT",
 	"type": "module",
@@ -53,5 +53,10 @@
 		"@lit-labs/ssr-client": "^1.0.0",
 		"@lit-labs/ssr-dom-shim": "^1.0.0",
 		"vite": "^8.0.0"
+	},
+	"peerDependenciesMeta": {
+		"vite": {
+			"optional": true
+		}
 	}
 }
