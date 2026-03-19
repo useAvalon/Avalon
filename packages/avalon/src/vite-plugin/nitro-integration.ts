@@ -112,12 +112,19 @@ export function createNitroIntegration(
 		serverDir: nitroConfig.serverDir ?? nitroOptions.serverDir ?? './server',
 		routeRules: nitroOptions.routeRules,
 		runtimeConfig: nitroOptions.runtimeConfig,
-		renderer: nitroConfig.renderer === false ? false : (nitroOptions.renderer ?? undefined),
 		compatibilityDate: nitroOptions.compatibilityDate,
 		// Tell Nitro to scan the project root so it discovers routes/ and middleware/
 		// alongside the serverDir (./server) which contains the catch-all renderer.
 		scanDirs: ['.'],
 	};
+
+	// Only pass renderer when explicitly configured — passing `undefined`
+	// can interfere with Nitro's internal SSR entry auto-detection.
+	if (nitroConfig.renderer === false) {
+		nitroVitePluginOptions.renderer = false;
+	} else if (nitroOptions.renderer) {
+		nitroVitePluginOptions.renderer = nitroOptions.renderer;
+	}
 
 	// Only include optional keys if they're defined
 	if (nitroOptions.publicRuntimeConfig) {

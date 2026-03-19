@@ -67,6 +67,16 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 					},
 				},
 			},
+			// Explicit SSR environment — ensures Nitro's configEnvironment
+			// hook registers the SSR service and the internal ssr-renderer
+			// is wired into the catch-all route.
+			ssr: {
+				build: {
+					rollupOptions: {
+						input: './app/entry-server.ts',
+					},
+				},
+			},
 		},
 
 		plugins: [
