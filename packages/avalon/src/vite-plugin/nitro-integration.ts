@@ -213,7 +213,7 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 
 			// Fire-and-forget: prewarm only core infrastructure modules.
 			// Pages, islands, and per-route middleware are loaded on-demand.
-			prewarmCoreModules(server, verbose).catch(err => {
+			prewarmCoreModules(server, avalonConfig.integrations, verbose).catch(err => {
 				console.error('[prewarm] Core modules pre-warm failed:', err);
 			});
 
@@ -375,10 +375,12 @@ async function handle404(
  * doesn't pay the full module-load cost. Island components are loaded on-demand
  * to avoid penalizing startup with unused modules.
  */
-async function prewarmCoreModules(server: ViteDevServer, verbose?: boolean): Promise<void> {
+async function prewarmCoreModules(
+	server: ViteDevServer,
+	integrations: readonly string[],
+	verbose?: boolean,
+): Promise<void> {
 	const prewarmStart = performance.now();
-
-	const frameworkNames = ['react', 'vue', 'solid', 'svelte', 'lit', 'preact'] as const;
 
 	const coreModules = [
 		{ path: resolveAvalonPackagePath('src/render/ssr.ts'), assignTo: 'ssr' as string | null },
@@ -387,7 +389,7 @@ async function prewarmCoreModules(server: ViteDevServer, verbose?: boolean): Pro
 			assignTo: 'layout' as string | null,
 		},
 		{ path: resolveAvalonPackagePath('src/middleware/index.ts'), assignTo: null as string | null },
-		...frameworkNames.map(name => ({
+		...integrations.map(name => ({
 			path: resolveIntegrationPackagePath(name, 'server/renderer.ts'),
 			assignTo: null as string | null,
 		})),
