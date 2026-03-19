@@ -340,15 +340,14 @@ export function createNitroConfig(
 	];
 
 	// Resolve renderer: support explicit false to disable, otherwise use default handler.
-	// template: './index.html' tells Nitro's Vite plugin to run a client build using
-	// index.html as the entry point, which bundles client-side JS (island hydration, etc.)
-	// into the output public directory. Without this, only the server build runs.
+	// Do NOT set template — Nitro's template mode reads index.html and replaces
+	// <!--ssr-outlet-->, ignoring the handler's Response. Our handler returns
+	// complete HTML responses, so we need Nitro to use the handler directly.
 	const renderer: NitroConfigOutput['renderer'] =
 		avalonNitroConfig.renderer === false
 			? false
 			: {
 					handler: './server/renderer.ts',
-					template: './index.html',
 					...avalonNitroConfig.renderer,
 				};
 
