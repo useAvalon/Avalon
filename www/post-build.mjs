@@ -65,11 +65,39 @@ if (existsSync(serverDir)) {
 		}
 		console.log(`[chunks] Old placeholder: ${oldCount}, New fallback: ${newCount}`);
 	}
-	// Show main.mjs size and first 200 chars
+	// Search main.mjs for key HTML fragments
 	const mainMjs = join(serverDir, 'main.mjs');
 	if (existsSync(mainMjs)) {
 		const content = readFileSync(mainMjs, 'utf-8');
-		console.log(`[main.mjs] ${content.length} chars, starts with: ${content.slice(0, 200)}`);
+		console.log(`[main.mjs] ${content.length} chars`);
+
+		// Search for key strings that would appear in the rendered output
+		const searches = [
+			'Avalon Page',
+			'data-page=',
+			'data-props=',
+			'ssr-outlet',
+			'Page content rendered',
+			'Component render fallback',
+			'Async component',
+			'generateStreamingContent',
+			'renderPageComponent',
+			'renderPageStream',
+			'loadPage',
+			'virtual:avalon/page-loader',
+			'resolvePageRoute',
+			'defaultResolvePageRoute',
+			'src/pages/index',
+		];
+		for (const s of searches) {
+			const idx = content.indexOf(s);
+			if (idx !== -1) {
+				const context = content.slice(Math.max(0, idx - 50), idx + s.length + 50);
+				console.log(`[FOUND] "${s}" at ${idx}: ...${context}...`);
+			} else {
+				console.log(`[NOT FOUND] "${s}"`);
+			}
+		}
 	}
 }
 
