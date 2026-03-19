@@ -9,4 +9,4 @@
 // Avalon's island hydration runtime — discovers [data-framework]
 // elements and lazily hydrates them based on their condition
 // (on:client, on:visible, on:interaction, on:idle, media:…).
-import '@useavalon/avalon/src/client/main.js';
+import '@useavalon/avalon/client/main';
