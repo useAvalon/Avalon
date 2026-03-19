@@ -3,7 +3,7 @@ import { join, dirname } from 'node:path';
 import type { ProjectConfig } from './types';
 import { BASE_DIRS } from './types';
 import { generatePackageJson } from './templates/package-json';
-import { generateTsConfig } from './templates/tsconfig';
+import { generateTsConfig, generateEnvDts } from './templates/tsconfig';
 import { generateViteConfig } from './templates/vite-config';
 import { generateRootLayout, generateHomeLayout } from './templates/layouts';
 import { generateHomePage } from './templates/pages';
@@ -89,6 +89,9 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 
 	// Write server env.d.ts
 	await writeFile(join(targetDir, 'server/env.d.ts'), `/// <reference types="nitro" />\n`);
+
+	// Write app env.d.ts — island prop types, virtual module declarations
+	await writeFile(join(targetDir, 'app/env.d.ts'), generateEnvDts());
 
 	// Write server/renderer.ts — Nitro SSR catch-all handler
 	await writeFile(

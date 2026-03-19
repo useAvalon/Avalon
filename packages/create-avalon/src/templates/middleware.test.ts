@@ -17,10 +17,17 @@ describe('generateSampleMiddleware', () => {
 		expect(result).toContain('defineHandler((event)');
 	});
 
-	it('middleware logs method and path from event', () => {
+	it('middleware uses h3 v2 web API (event.req.method, event.url.pathname)', () => {
 		const result = generateSampleMiddleware(baseConfig);
-		expect(result).toContain('event.method');
-		expect(result).toContain('event.path');
+		expect(result).toContain('event.req.method');
+		expect(result).toContain('event.url.pathname');
+	});
+
+	it('middleware does not use deprecated event.method or event.path', () => {
+		const result = generateSampleMiddleware(baseConfig);
+		// Should not contain the deprecated shorthand properties
+		expect(result).not.toMatch(/event\.method[^.]/);
+		expect(result).not.toMatch(/event\.path[^n]/);
 	});
 
 	it('middleware exports default handler', () => {
@@ -33,8 +40,8 @@ describe('generateSampleMiddleware', () => {
 			const config: ProjectConfig = { ...baseConfig, middleware };
 			const result = generateSampleMiddleware(config);
 			expect(result).toContain("import { defineHandler } from 'nitro';");
-			expect(result).toContain('event.method');
-			expect(result).toContain('event.path');
+			expect(result).toContain('event.req.method');
+			expect(result).toContain('event.url.pathname');
 			expect(result).toContain('console.log');
 			expect(result).toContain('new Date().toISOString()');
 		}

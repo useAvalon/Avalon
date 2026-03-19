@@ -301,7 +301,7 @@ async function hydrateIsland(island, framework) {
 				throw new Error(`Integration ${framework} does not export a hydrate function`);
 			}
 
-			integrationModule.hydrate(island, Component, props);
+			await integrationModule.hydrate(island, Component, props);
 			island.dataset.hydrated = 'true';
 		} catch (integrationError) {
 			if (import.meta.env?.DEV) {
@@ -608,7 +608,7 @@ if (import.meta.hot) {
 			// Adapters are loaded from their respective integration packages
 			// Use computed paths so Vite doesn't statically resolve imports
 			// for frameworks the user hasn't installed.
-			const loadAdapter = (fw) => {
+			const loadAdapter = fw => {
 				const p = `/@useavalon/${fw}/client/hmr`;
 				return import(/* @vite-ignore */ p).then(m => m[`${fw}Adapter`]);
 			};

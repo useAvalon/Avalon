@@ -162,6 +162,15 @@ describe('scaffoldProject', () => {
 		expect(content).toContain('/// <reference types="nitro" />');
 	});
 
+	it('creates app/env.d.ts with avalon types reference and virtual module declarations', async () => {
+		const target = join(tempDir, 'out');
+		await scaffoldProject(baseConfig, target);
+
+		const content = await read('app/env.d.ts');
+		expect(content).toContain('/// <reference types="@useavalon/avalon/types" />');
+		expect(content).toContain("declare module 'virtual:avalon/config'");
+	});
+
 	it('creates server/renderer.ts with Nitro SSR handler', async () => {
 		const target = join(tempDir, 'out');
 		await scaffoldProject(baseConfig, target);
