@@ -46,6 +46,8 @@ export function generatePackageJson(config: ProjectConfig): string {
 			devDependencies['tailwindcss'] = 'latest';
 			devDependencies['@tailwindcss/vite'] = 'latest';
 			dependencies['@shadcn/ui'] = 'latest';
+			dependencies['tailwind-merge'] = '^3.5.0';
+			dependencies['clsx'] = '^2.1.1';
 			break;
 	}
 

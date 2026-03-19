@@ -56,7 +56,7 @@ export class LayoutErrorBoundary extends Component<LayoutErrorBoundaryProps, Lay
 		}
 
 		// Log error in development mode
-		if (typeof Deno !== 'undefined' && Deno.env.get('NODE_ENV') === 'development') {
+		if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
 			console.error('Layout Error Boundary caught an error:', error);
 			console.error('Error Info:', layoutErrorInfo);
 			console.error('Component Stack:', errorInfo.componentStack);
@@ -93,7 +93,7 @@ export class LayoutErrorBoundary extends Component<LayoutErrorBoundaryProps, Lay
 							Try Again ({this.maxRetries - this.state.retryCount} attempts left)
 						</button>
 					)}
-					{typeof Deno !== 'undefined' && Deno.env.get('NODE_ENV') === 'development' && (
+					{typeof process !== 'undefined' && process.env?.NODE_ENV === 'development' && (
 						<details class="error-details">
 							<summary>Error Details (Development)</summary>
 							<pre>{error?.stack}</pre>

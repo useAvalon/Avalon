@@ -75,7 +75,7 @@ export function StreamingLayout(props: StreamingLayoutComponentProps): Component
 		hasTimedOut: false,
 	});
 
-	const timeoutRef = useRef<number>();
+	const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 	const mountedRef = useRef(true);
 
 	useEffect(() => {
@@ -304,7 +304,7 @@ export function StreamingSuspense(props: StreamingSuspenseProps): ComponentChild
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<Error | null>(null);
 	const [hasTimedOut, setHasTimedOut] = useState(false);
-	const timeoutRef = useRef<number>();
+	const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
 	const mountedRef = useRef(true);
 
 	useEffect(() => {
@@ -450,7 +450,7 @@ export function withStreaming<P extends object>(
 		priority?: 'high' | 'medium' | 'low';
 		isReady?: () => Promise<boolean>;
 		timeout?: number;
-	} = {}
+	} = {},
 ) {
 	return function StreamingWrapper(props: P) {
 		const finalOptions = {
@@ -458,7 +458,11 @@ export function withStreaming<P extends object>(
 			...streamingOptions,
 		};
 
-		return <StreamingLayout component={WrappedComponent} componentProps={props} {...finalOptions} />;
+		return (
+			<StreamingLayout component={WrappedComponent} componentProps={props} {...finalOptions}>
+				{null}
+			</StreamingLayout>
+		);
 	};
 }
 
@@ -480,7 +484,7 @@ export function useStreamingState(isReady?: () => Promise<boolean>, timeout = 50
 		}
 
 		let cancelled = false;
-		let timeoutId: number;
+		let timeoutId: ReturnType<typeof setTimeout>;
 
 		const checkReady = async () => {
 			try {

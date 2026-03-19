@@ -8,7 +8,10 @@ export function generateTsConfig(): string {
 			esModuleInterop: true,
 			skipLibCheck: true,
 			allowArbitraryExtensions: true,
+			allowImportingTsExtensions: true,
+			noEmit: true,
 			jsx: 'react-jsx',
+			types: ['@useavalon/avalon/types'],
 			paths: {
 				'@shared/*': ['./app/shared/*'],
 				'@modules/*': ['./app/modules/*'],

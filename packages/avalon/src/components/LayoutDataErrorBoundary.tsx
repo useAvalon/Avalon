@@ -94,7 +94,7 @@ export class LayoutDataErrorBoundary extends Component<LayoutDataErrorBoundaryPr
 		const { error, retryCount, isRetrying, fallbackData } = this.state;
 		const canRetry = retryCount < this.maxRetries && this.props.retryLoader;
 		const hasFallback = fallbackData !== null;
-		const isDevelopment = typeof Deno !== 'undefined' && Deno.env.get('NODE_ENV') === 'development';
+		const isDevelopment = typeof process !== 'undefined' && process.env?.NODE_ENV === 'development';
 
 		return (
 			<div class="layout-data-error-boundary">
@@ -120,9 +120,15 @@ export class LayoutDataErrorBoundary extends Component<LayoutDataErrorBoundaryPr
 						<details class="error-details">
 							<summary>Error Details (Development)</summary>
 							<div class="error-info">
-								<p><strong>Error:</strong> {error.message}</p>
-								<p><strong>Layout:</strong> {this.props.layoutPath}</p>
-								<p><strong>Retry Count:</strong> {retryCount}</p>
+								<p>
+									<strong>Error:</strong> {error.message}
+								</p>
+								<p>
+									<strong>Layout:</strong> {this.props.layoutPath}
+								</p>
+								<p>
+									<strong>Retry Count:</strong> {retryCount}
+								</p>
 							</div>
 							<pre class="error-stack">{error.stack}</pre>
 						</details>

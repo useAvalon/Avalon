@@ -44,7 +44,7 @@ export class IslandErrorBoundary extends Component<IslandErrorBoundaryProps, Isl
 			this.props.onError(error, layoutErrorInfo);
 		}
 
-		const isDevelopment = typeof Deno !== 'undefined' && Deno.env.get('NODE_ENV') === 'development';
+		const isDevelopment = typeof process !== 'undefined' && process.env?.NODE_ENV === 'development';
 		if (isDevelopment) {
 			console.error(`Island Error [${this.props.islandId}]:`, error);
 		}
@@ -73,7 +73,7 @@ export class IslandErrorBoundary extends Component<IslandErrorBoundaryProps, Isl
 			return fallback(error, islandId);
 		}
 
-		const isDevelopment = typeof Deno !== 'undefined' && Deno.env.get('NODE_ENV') === 'development';
+		const isDevelopment = typeof process !== 'undefined' && process.env?.NODE_ENV === 'development';
 
 		return (
 			<div class="island-error-boundary" data-island-error={islandId}>
@@ -100,8 +100,12 @@ export class IslandErrorBoundary extends Component<IslandErrorBoundaryProps, Isl
 						<details class="island-error-details">
 							<summary>Error Details (Development)</summary>
 							<div class="island-error-info">
-								<p><strong>Island ID:</strong> {islandId}</p>
-								<p><strong>Error:</strong> {error.message}</p>
+								<p>
+									<strong>Island ID:</strong> {islandId}
+								</p>
+								<p>
+									<strong>Error:</strong> {error.message}
+								</p>
 							</div>
 							<pre class="island-error-stack">{error.stack}</pre>
 						</details>
@@ -129,7 +133,7 @@ export function withIslandErrorBoundary<P extends object>(
 		fallback?: (error: Error, islandId: string) => ComponentChildren;
 		isolateError?: boolean;
 		onError?: (error: Error, errorInfo: LayoutErrorInfo) => void;
-	}
+	},
 ) {
 	return function IslandWithErrorBoundary(props: P) {
 		return (

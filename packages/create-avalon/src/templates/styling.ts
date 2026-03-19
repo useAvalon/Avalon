@@ -1,49 +1,55 @@
 import type { ProjectConfig } from '../types';
 
 export function generateStylingFiles(config: ProjectConfig): Map<string, string> {
-  const files = new Map<string, string>();
+	const files = new Map<string, string>();
 
-  // Common files for all styling options
-  files.set('app/shared/styles/main.css', generateMainCss(config));
-  files.set('app/shared/styles/reset.css', generateResetCss());
+	// Common files for all styling options
+	files.set('app/shared/styles/main.css', generateMainCss(config));
 
-  switch (config.styling) {
-    case 'css-modules':
-      files.set('app/shared/styles/tokens.css', generateTokensCss());
-      files.set('app/shared/layouts/_layout.module.css', generateLayoutModuleCss());
-      files.set('app/modules/home/pages/index.module.css', generatePageModuleCss());
-      files.set('app/modules/home/layouts/_layout.module.css', generateLayoutModuleCss());
-      break;
+	// Only generate reset.css for css-modules — Tailwind's preflight handles resets
+	if (config.styling === 'css-modules') {
+		files.set('app/shared/styles/reset.css', generateResetCss());
+	}
 
-    case 'tailwind':
-      files.set('tailwind.config.js', generateTailwindConfig());
-      files.set('app/shared/styles/global.css', generateTailwindGlobalCss());
-      break;
+	switch (config.styling) {
+		case 'css-modules':
+			files.set('app/shared/styles/tokens.css', generateTokensCss());
+			files.set('app/shared/layouts/_layout.module.css', generateLayoutModuleCss());
+			files.set('app/modules/home/pages/index.module.css', generatePageModuleCss());
+			files.set('app/modules/home/layouts/_layout.module.css', generateLayoutModuleCss());
+			break;
 
-    case 'shadcn':
-      files.set('tailwind.config.js', generateTailwindConfig());
-      files.set('app/shared/styles/global.css', generateTailwindGlobalCss());
-      files.set('components.json', generateShadcnComponentsJson(config));
-      break;
-  }
+		case 'tailwind':
+			files.set('tailwind.config.js', generateTailwindConfig());
+			files.set('app/shared/styles/global.css', generateTailwindGlobalCss(config));
+			break;
 
-  return files;
+		case 'shadcn':
+			files.set('tailwind.config.js', generateTailwindConfig());
+			files.set('app/shared/styles/global.css', generateTailwindGlobalCss(config));
+			files.set('components.json', generateShadcnComponentsJson(config));
+			files.set('app/shared/utils/cn.ts', generateCnUtil());
+			break;
+	}
+
+	return files;
 }
 
 function generateMainCss(config: ProjectConfig): string {
-  const imports: string[] = [`@import './reset.css';`];
+	const imports: string[] = [];
 
-  if (config.styling === 'css-modules') {
-    imports.push(`@import './tokens.css';`);
-  } else {
-    imports.push(`@import './global.css';`);
-  }
+	if (config.styling === 'css-modules') {
+		imports.push(`@import './reset.css';`);
+		imports.push(`@import './tokens.css';`);
+	} else {
+		imports.push(`@import './global.css';`);
+	}
 
-  return imports.join('\n') + '\n';
+	return imports.join('\n') + '\n';
 }
 
 function generateResetCss(): string {
-  return `/* CSS Reset */
+	return `/* CSS Reset */
 *,
 *::before,
 *::after {
@@ -89,7 +95,7 @@ h6 {
 }
 
 function generateTokensCss(): string {
-  return `:root {
+	return `:root {
   --color-primary: #3b82f6;
   --color-secondary: #64748b;
   --color-background: #ffffff;
@@ -104,7 +110,7 @@ function generateTokensCss(): string {
 }
 
 function generateLayoutModuleCss(): string {
-  return `.layout {
+	return `.layout {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
@@ -118,7 +124,7 @@ function generateLayoutModuleCss(): string {
 }
 
 function generatePageModuleCss(): string {
-  return `.page {
+	return `.page {
   max-width: 800px;
   margin: 0 auto;
   padding: 2rem 1rem;
@@ -133,7 +139,7 @@ function generatePageModuleCss(): string {
 }
 
 function generateTailwindConfig(): string {
-  return `/** @type {import('tailwindcss').Config} */
+	return `/** @type {import('tailwindcss').Config} */
 export default {
   content: [
     './app/**/*.{ts,tsx}',
@@ -146,24 +152,64 @@ export default {
 `;
 }
 
-function generateTailwindGlobalCss(): string {
-  return `@import "tailwindcss";
+function generateTailwindGlobalCss(config: ProjectConfig): string {
+	const lines = [`@import "tailwindcss";`];
+
+	if (config.styling === 'shadcn') {
+		lines.push('');
+		lines.push(`@theme inline {
+  --color-background: oklch(1 0 0);
+  --color-foreground: oklch(0.145 0 0);
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.145 0 0);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.145 0 0);
+  --color-primary: oklch(0.205 0 0);
+  --color-primary-foreground: oklch(0.985 0 0);
+  --color-secondary: oklch(0.97 0 0);
+  --color-secondary-foreground: oklch(0.205 0 0);
+  --color-muted: oklch(0.97 0 0);
+  --color-muted-foreground: oklch(0.556 0 0);
+  --color-accent: oklch(0.97 0 0);
+  --color-accent-foreground: oklch(0.205 0 0);
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-foreground: oklch(0.577 0.245 27.325);
+  --color-border: oklch(0.922 0 0);
+  --color-input: oklch(0.922 0 0);
+  --color-ring: oklch(0.708 0 0);
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+}`);
+	}
+
+	return lines.join('\n') + '\n';
+}
+
+function generateCnUtil(): string {
+	return `import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 `;
 }
 
 function generateShadcnComponentsJson(config: ProjectConfig): string {
-  const componentsConfig = {
-    $schema: 'https://ui.shadcn.com/schema.json',
-    style: 'default',
-    tailwind: {
-      config: 'tailwind.config.js',
-      css: 'app/shared/styles/global.css',
-    },
-    aliases: {
-      components: '@shared/components',
-      utils: '@shared/utils',
-    },
-  };
+	const componentsConfig = {
+		$schema: 'https://ui.shadcn.com/schema.json',
+		style: 'default',
+		tailwind: {
+			config: 'tailwind.config.js',
+			css: 'app/shared/styles/global.css',
+		},
+		aliases: {
+			components: '@shared/components',
+			utils: '@shared/utils',
+		},
+	};
 
-  return JSON.stringify(componentsConfig, null, 2) + '\n';
+	return JSON.stringify(componentsConfig, null, 2) + '\n';
 }

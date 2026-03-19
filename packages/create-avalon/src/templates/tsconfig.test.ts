@@ -18,7 +18,10 @@ describe('generateTsConfig', () => {
 		expect(opts.esModuleInterop).toBe(true);
 		expect(opts.skipLibCheck).toBe(true);
 		expect(opts.allowArbitraryExtensions).toBe(true);
+		expect(opts.allowImportingTsExtensions).toBe(true);
+		expect(opts.noEmit).toBe(true);
 		expect(opts.jsx).toBe('react-jsx');
+		expect(opts.types).toEqual(['@useavalon/avalon/types']);
 	});
 
 	it('includes @shared/* and @modules/* path aliases', () => {

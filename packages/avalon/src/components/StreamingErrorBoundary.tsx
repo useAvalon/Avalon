@@ -1,6 +1,6 @@
 /**
  * StreamingErrorBoundary - Error boundary component for streaming contexts
- * 
+ *
  * This component provides error isolation for Suspense boundaries in streaming SSR.
  * It ensures that errors in one component don't break the entire page.
  */
@@ -23,14 +23,11 @@ export interface StreamingErrorBoundaryState {
 
 /**
  * Error boundary component for streaming contexts
- * 
+ *
  * Wraps Suspense boundaries to provide error isolation and recovery.
  * Prevents errors in one component from breaking the entire page.
  */
-export class StreamingErrorBoundary extends Component<
-	StreamingErrorBoundaryProps,
-	StreamingErrorBoundaryState
-> {
+export class StreamingErrorBoundary extends Component<StreamingErrorBoundaryProps, StreamingErrorBoundaryState> {
 	constructor(props: StreamingErrorBoundaryProps) {
 		super(props);
 		this.state = {
@@ -88,7 +85,7 @@ export class StreamingErrorBoundary extends Component<
 		}
 
 		// Default fallback UI
-		const isDevelopment = typeof Deno !== 'undefined' && Deno.env.get('DENO_ENV') !== 'production';
+		const isDevelopment = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
 
 		return (
 			<div
@@ -102,8 +99,7 @@ export class StreamingErrorBoundary extends Component<
 					padding: '20px',
 					margin: '20px 0',
 					fontFamily: 'system-ui, -apple-system, sans-serif',
-				}}
-			>
+				}}>
 				<div
 					class="error-boundary-header"
 					style={{
@@ -111,8 +107,7 @@ export class StreamingErrorBoundary extends Component<
 						alignItems: 'center',
 						gap: '10px',
 						marginBottom: '10px',
-					}}
-				>
+					}}>
 					<span style={{ fontSize: '24px' }}>⚠️</span>
 					<h3 style={{ margin: 0, color: '#856404' }}>Component Error</h3>
 				</div>
@@ -132,8 +127,7 @@ export class StreamingErrorBoundary extends Component<
 						fontWeight: 'bold',
 						color: '#856404',
 						marginTop: '10px',
-					}}
-				>
+					}}>
 					Retry
 				</button>
 
@@ -144,8 +138,7 @@ export class StreamingErrorBoundary extends Component<
 								cursor: 'pointer',
 								color: '#856404',
 								fontWeight: 'bold',
-							}}
-						>
+							}}>
 							Error Details (Development Mode)
 						</summary>
 						<div style={{ marginTop: '10px' }}>
@@ -166,8 +159,7 @@ export class StreamingErrorBoundary extends Component<
 										overflowX: 'auto',
 										fontSize: '12px',
 										marginTop: '10px',
-									}}
-								>
+									}}>
 									{error.stack}
 								</pre>
 							)}
@@ -184,8 +176,7 @@ export class StreamingErrorBoundary extends Component<
 											overflowX: 'auto',
 											fontSize: '12px',
 											marginTop: '10px',
-										}}
-									>
+										}}>
 										{this.state.errorInfo.componentStack}
 									</pre>
 								</div>
@@ -216,7 +207,7 @@ export function withStreamingErrorBoundary<P extends object>(
 		componentId?: string;
 		isolateError?: boolean;
 		onError?: (error: Error, errorInfo: any) => void;
-	}
+	},
 ) {
 	return function ComponentWithErrorBoundary(props: P) {
 		return (
@@ -224,8 +215,7 @@ export function withStreamingErrorBoundary<P extends object>(
 				componentId={options?.componentId}
 				fallback={options?.fallback}
 				isolateError={options?.isolateError ?? true}
-				onError={options?.onError}
-			>
+				onError={options?.onError}>
 				<WrappedComponent {...props} />
 			</StreamingErrorBoundary>
 		);

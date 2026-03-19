@@ -52,7 +52,10 @@ export interface ValidationFailure {
 export type ValidationResult<T> = ValidationSuccess<T> | ValidationFailure;
 
 export class ValidationError extends Error {
-	constructor(message: string, public readonly zodError: z.ZodError) {
+	constructor(
+		message: string,
+		public readonly zodError: z.ZodError,
+	) {
 		super(message);
 		this.name = 'ValidationError';
 	}
@@ -76,7 +79,7 @@ export function createValidationError(message: string, zodError: z.ZodError): Va
 export function safeValidate<TOutput>(
 	schema: z.ZodType<TOutput>,
 	data: unknown,
-	errorMessage = 'Validation failed'
+	errorMessage = 'Validation failed',
 ): ValidationResult<TOutput> {
 	const result = schema.safeParse(data);
 	if (result.success) {
@@ -88,7 +91,7 @@ export function safeValidate<TOutput>(
 export function validate<TOutput>(
 	schema: z.ZodType<TOutput>,
 	data: unknown,
-	errorMessage = 'Validation failed'
+	errorMessage = 'Validation failed',
 ): TOutput {
 	const result = schema.safeParse(data);
 	if (result.success) {
@@ -102,38 +105,59 @@ export const validators = {
 	layoutContext: (data: unknown): LayoutContext => validate(LayoutContextSchema, data, 'Invalid layout context'),
 	layoutData: (data: unknown): LayoutData => validate(LayoutDataSchema, data, 'Invalid layout data'),
 	layoutHandler: (data: unknown): LayoutHandler => validate(LayoutHandlerSchema, data, 'Invalid layout handler'),
-	layoutDiscoveryOptions: (data: unknown): LayoutDiscoveryOptions => validate(LayoutDiscoverySchema, data, 'Invalid layout discovery options'),
+	layoutDiscoveryOptions: (data: unknown): LayoutDiscoveryOptions =>
+		validate(LayoutDiscoverySchema, data, 'Invalid layout discovery options'),
 	layoutConfig: (data: unknown): LayoutConfig => validate(LayoutConfigSchema, data, 'Invalid layout config'),
 	resolvedLayout: (data: unknown): ResolvedLayout => validate(ResolvedLayoutSchema, data, 'Invalid resolved layout'),
-	fileSystemRoute: (data: unknown): FileSystemRoute => validate(FileSystemRouteSchema, data, 'Invalid file system route'),
-	routePageModule: (data: unknown): RoutePageModule => validate(RoutePageModuleSchema, data, 'Invalid route page module'),
-	routeDiscoveryOptions: (data: unknown): RouteDiscoveryOptions => validate(RouteDiscoveryOptionsSchema, data, 'Invalid route discovery options'),
-	fileSystemRouterConfig: (data: unknown): FileSystemRouterConfig => validate(FileSystemRouterConfigSchema, data, 'Invalid file system router config'),
+	fileSystemRoute: (data: unknown): FileSystemRoute =>
+		validate(FileSystemRouteSchema, data, 'Invalid file system route'),
+	routePageModule: (data: unknown): RoutePageModule =>
+		validate(RoutePageModuleSchema, data, 'Invalid route page module'),
+	routeDiscoveryOptions: (data: unknown): RouteDiscoveryOptions =>
+		validate(RouteDiscoveryOptionsSchema, data, 'Invalid route discovery options'),
+	fileSystemRouterConfig: (data: unknown): FileSystemRouterConfig =>
+		validate(FileSystemRouterConfigSchema, data, 'Invalid file system router config'),
 	metadata: (data: unknown): Metadata => validate(MetadataSchema, data, 'Invalid metadata'),
-	resolvedMetadata: (data: unknown): ResolvedMetadata => validate(ResolvedMetadataSchema, data, 'Invalid resolved metadata'),
+	resolvedMetadata: (data: unknown): ResolvedMetadata =>
+		validate(ResolvedMetadataSchema, data, 'Invalid resolved metadata'),
 } as const;
 
 export const safeValidators = {
-	renderOptions: (data: unknown): ValidationResult<RenderOptions> => safeValidate(RenderOptionsSchema, data, 'Invalid render options'),
-	layoutContext: (data: unknown): ValidationResult<LayoutContext> => safeValidate(LayoutContextSchema, data, 'Invalid layout context'),
-	layoutData: (data: unknown): ValidationResult<LayoutData> => safeValidate(LayoutDataSchema, data, 'Invalid layout data'),
-	layoutHandler: (data: unknown): ValidationResult<LayoutHandler> => safeValidate(LayoutHandlerSchema, data, 'Invalid layout handler'),
-	layoutDiscoveryOptions: (data: unknown): ValidationResult<LayoutDiscoveryOptions> => safeValidate(LayoutDiscoverySchema, data, 'Invalid layout discovery options'),
-	layoutConfig: (data: unknown): ValidationResult<LayoutConfig> => safeValidate(LayoutConfigSchema, data, 'Invalid layout config'),
-	resolvedLayout: (data: unknown): ValidationResult<ResolvedLayout> => safeValidate(ResolvedLayoutSchema, data, 'Invalid resolved layout'),
-	fileSystemRoute: (data: unknown): ValidationResult<FileSystemRoute> => safeValidate(FileSystemRouteSchema, data, 'Invalid file system route'),
-	routePageModule: (data: unknown): ValidationResult<RoutePageModule> => safeValidate(RoutePageModuleSchema, data, 'Invalid route page module'),
-	routeDiscoveryOptions: (data: unknown): ValidationResult<RouteDiscoveryOptions> => safeValidate(RouteDiscoveryOptionsSchema, data, 'Invalid route discovery options'),
-	fileSystemRouterConfig: (data: unknown): ValidationResult<FileSystemRouterConfig> => safeValidate(FileSystemRouterConfigSchema, data, 'Invalid file system router config'),
+	renderOptions: (data: unknown): ValidationResult<RenderOptions> =>
+		safeValidate(RenderOptionsSchema, data, 'Invalid render options'),
+	layoutContext: (data: unknown): ValidationResult<LayoutContext> =>
+		safeValidate(LayoutContextSchema, data, 'Invalid layout context'),
+	layoutData: (data: unknown): ValidationResult<LayoutData> =>
+		safeValidate(LayoutDataSchema, data, 'Invalid layout data'),
+	layoutHandler: (data: unknown): ValidationResult<LayoutHandler> =>
+		safeValidate(LayoutHandlerSchema, data, 'Invalid layout handler'),
+	layoutDiscoveryOptions: (data: unknown): ValidationResult<LayoutDiscoveryOptions> =>
+		safeValidate(LayoutDiscoverySchema, data, 'Invalid layout discovery options'),
+	layoutConfig: (data: unknown): ValidationResult<LayoutConfig> =>
+		safeValidate(LayoutConfigSchema, data, 'Invalid layout config'),
+	resolvedLayout: (data: unknown): ValidationResult<ResolvedLayout> =>
+		safeValidate(ResolvedLayoutSchema, data, 'Invalid resolved layout'),
+	fileSystemRoute: (data: unknown): ValidationResult<FileSystemRoute> =>
+		safeValidate(FileSystemRouteSchema, data, 'Invalid file system route'),
+	routePageModule: (data: unknown): ValidationResult<RoutePageModule> =>
+		safeValidate(RoutePageModuleSchema, data, 'Invalid route page module'),
+	routeDiscoveryOptions: (data: unknown): ValidationResult<RouteDiscoveryOptions> =>
+		safeValidate(RouteDiscoveryOptionsSchema, data, 'Invalid route discovery options'),
+	fileSystemRouterConfig: (data: unknown): ValidationResult<FileSystemRouterConfig> =>
+		safeValidate(FileSystemRouterConfigSchema, data, 'Invalid file system router config'),
 	metadata: (data: unknown): ValidationResult<Metadata> => safeValidate(MetadataSchema, data, 'Invalid metadata'),
-	resolvedMetadata: (data: unknown): ValidationResult<ResolvedMetadata> => safeValidate(ResolvedMetadataSchema, data, 'Invalid resolved metadata'),
+	resolvedMetadata: (data: unknown): ValidationResult<ResolvedMetadata> =>
+		safeValidate(ResolvedMetadataSchema, data, 'Invalid resolved metadata'),
 } as const;
 
 export const devValidators = {
 	renderOptionsSoft: (data: unknown, context = 'unknown'): boolean => {
 		const result = safeValidators.renderOptions(data);
 		if (!result.success) {
-			console.warn(`Render options validation warning in ${context}:`, result.error.getErrorMessage());
+			console.warn(
+				`Render options validation warning in ${context}:`,
+				(result as any).error?.getErrorMessage?.() ?? 'unknown error',
+			);
 			return false;
 		}
 		return true;
@@ -164,7 +188,7 @@ export function isValidResolvedMetadata(data: unknown): data is ResolvedMetadata
 
 export function validateBatch<T extends Record<string, unknown>>(
 	schemas: { [K in keyof T]: z.ZodType<T[K]> },
-	data: { [K in keyof T]: unknown }
+	data: { [K in keyof T]: unknown },
 ): T {
 	const result: Partial<T> = {};
 	const errors: string[] = [];
@@ -190,7 +214,7 @@ export function validateBatch<T extends Record<string, unknown>>(
 
 export function safeValidateBatch<T extends Record<string, unknown>>(
 	schemas: { [K in keyof T]: z.ZodType<T[K]> },
-	data: { [K in keyof T]: unknown }
+	data: { [K in keyof T]: unknown },
 ): ValidationResult<T> {
 	try {
 		const result = validateBatch(schemas, data);
@@ -201,7 +225,7 @@ export function safeValidateBatch<T extends Record<string, unknown>>(
 				? error
 				: createValidationError(
 						'Batch validation failed',
-						new z.ZodError([{ code: 'custom', message: String(error), path: [] }])
+						new z.ZodError([{ code: 'custom', message: String(error), path: [] }]),
 					);
 		return { success: false, error: validationError };
 	}

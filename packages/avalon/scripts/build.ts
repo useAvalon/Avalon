@@ -12,6 +12,7 @@ import { readdir, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { join, relative, dirname, extname } from 'node:path';
 import { transform } from 'oxc-transform';
 import { minify } from 'oxc-minify';
+import { execSync } from 'node:child_process';
 
 const ROOT = join(import.meta.dir, '..');
 const SRC_DIR = join(ROOT, 'src');
@@ -110,7 +111,13 @@ async function rewritePackageJsonForPublish() {
 	const raw = await readFile(pkgPath, 'utf-8');
 	const pkg = JSON.parse(raw);
 
-	if (pkg.exports?.['.']?.startsWith('./dist/')) {
+	const mainExport = pkg.exports?.['.'];
+	const alreadyRewritten =
+		typeof mainExport === 'string'
+			? mainExport.startsWith('./dist/')
+			: typeof mainExport === 'object' && mainExport?.default?.startsWith('./dist/');
+
+	if (alreadyRewritten) {
 		console.log('✓ package.json already rewritten for publish, skipping');
 		return;
 	}
@@ -125,7 +132,15 @@ async function rewritePackageJsonForPublish() {
 	if (pkg.exports) {
 		for (const [key, value] of Object.entries(pkg.exports)) {
 			if (typeof value === 'string') {
-				pkg.exports[key] = toDistPath(value, value.endsWith('.d.ts'));
+				if (value.endsWith('.d.ts')) {
+					// Pure type export — keep as-is but point to dist
+					pkg.exports[key] = toDistPath(value, true);
+				} else {
+					// Add types + default conditions
+					const jsPath = toDistPath(value);
+					const dtsPath = jsPath.replace(/\.js$/, '.d.ts');
+					pkg.exports[key] = { types: dtsPath, default: jsPath };
+				}
 			}
 		}
 	}
@@ -144,5 +159,42 @@ async function rewritePackageJsonForPublish() {
 	console.log('✓ Rewrote package.json exports → dist/ for publish');
 }
 
+async function generateDeclarations() {
+	const tsconfigBuild = {
+		compilerOptions: {
+			target: 'ESNext',
+			module: 'ESNext',
+			moduleResolution: 'bundler',
+			declaration: true,
+			emitDeclarationOnly: true,
+			outDir: './dist',
+			rootDir: '.',
+			strict: false,
+			skipLibCheck: true,
+			jsx: 'react-jsx',
+			jsxImportSource: 'preact',
+			allowArbitraryExtensions: true,
+			allowImportingTsExtensions: true,
+			paths: {
+				'@useavalon/core': ['./node_modules/@useavalon/core'],
+			},
+		},
+		include: ['mod.ts', 'src/**/*.ts', 'src/**/*.tsx'],
+		exclude: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'src/**/tests/**', 'src/**/__tests__/**'],
+	};
+
+	const tsconfigPath = join(ROOT, 'tsconfig.build.json');
+	await writeFile(tsconfigPath, JSON.stringify(tsconfigBuild, null, 2), 'utf-8');
+
+	try {
+		const tsc = join(ROOT, '..', '..', 'node_modules', '.bin', 'tsc');
+		execSync(`"${tsc}" --project tsconfig.build.json`, { cwd: ROOT, stdio: 'inherit' });
+		console.log('✓ Generated declaration files');
+	} finally {
+		await rm(tsconfigPath, { force: true });
+	}
+}
+
 await compileToDistDir();
+await generateDeclarations();
 await rewritePackageJsonForPublish();

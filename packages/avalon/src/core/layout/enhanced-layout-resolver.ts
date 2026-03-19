@@ -1,4 +1,5 @@
 import { render as preactRenderToString } from 'preact-render-to-string';
+import type { ComponentChildren } from 'preact';
 
 import { LayoutDiscovery } from './layout-discovery.ts';
 import { LayoutMatcher } from './layout-matcher.ts';
@@ -124,7 +125,6 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 			const loadingResults = await this.layoutDataLoader.loadLayoutData(handlers, context);
 			const { errors: loadErrors } = this.layoutDataLoader.processLoadingResults(loadingResults, handlers);
 			errors.push(...loadErrors);
-
 		} catch (error) {
 			errors.push({ layoutPath: routePath, errorType: 'rendering', timestamp: Date.now() });
 			if (this.options.developmentMode) {
@@ -135,7 +135,9 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 		const totalTime = performance.now() - startTime;
 		const resolvedLayout: ResolvedLayout = {
 			handlers,
-			dataLoaders: handlers.map(h => h.loader).filter((l): l is (ctx: LayoutContext) => Promise<LayoutData> => l !== undefined),
+			dataLoaders: handlers
+				.map(h => h.loader)
+				.filter((l): l is (ctx: LayoutContext) => Promise<LayoutData> => l !== undefined),
 			errorBoundaries: [],
 			streamingComponents: [],
 			metadata: { totalLayouts: handlers.length, resolutionTime: totalTime, cacheHit: false },
@@ -153,7 +155,9 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 			if (errors.length > 0) {
 				console.warn(`[EnhancedLayoutResolver] ${errors.length} error(s) during layout resolution for ${routePath}`);
 			}
-			console.log(`[EnhancedLayoutResolver] Resolved ${handlers.length} layouts for ${routePath} in ${totalTime.toFixed(2)}ms`);
+			console.log(
+				`[EnhancedLayoutResolver] Resolved ${handlers.length} layouts for ${routePath} in ${totalTime.toFixed(2)}ms`,
+			);
 		}
 
 		return resolvedLayout;
@@ -183,7 +187,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 		resolvedLayout: ResolvedLayout,
 		pageModule: PageModule,
 		context: LayoutContext,
-		layoutData: LayoutData[] = []
+		layoutData: LayoutData[] = [],
 	): string {
 		try {
 			const PageComponent = (pageModule.default ?? (() => null)) as unknown as ComponentType<LayoutProps>;
@@ -195,12 +199,13 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 				const previousComponent = currentComponent;
 				const layoutDataForThis: LayoutData = layoutData[i] || {};
 
-				currentComponent = (props: LayoutProps) => callComponent(LayoutComponent, {
-					...props,
-					data: layoutDataForThis,
-					frontmatter: pageModule.frontmatter,
-					children: callComponent(previousComponent, props),
-				});
+				currentComponent = (props: LayoutProps) =>
+					callComponent(LayoutComponent, {
+						...props,
+						data: layoutDataForThis,
+						frontmatter: pageModule.frontmatter,
+						children: callComponent(previousComponent, props) as ComponentChildren,
+					});
 			}
 
 			return preactRenderToString(
@@ -212,7 +217,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 						params: context.params,
 						query: context.query,
 					},
-				}) as Parameters<typeof preactRenderToString>[0]
+				}) as Parameters<typeof preactRenderToString>[0],
 			);
 		} catch (error) {
 			if (this.options.developmentMode) {
@@ -232,10 +237,10 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 
 	clearCache(): void {
 		this.cacheManager.clear();
-		(this.cache.resolved).clear();
-		(this.cache.handlers).clear();
-		(this.cache.data).clear();
-		(this.cache.ttl).clear();
+		this.cache.resolved.clear();
+		this.cache.handlers.clear();
+		this.cache.data.clear();
+		this.cache.ttl.clear();
 		this.layoutDiscovery.clearCache();
 		this.layoutComposer.clearCache();
 	}
@@ -249,7 +254,6 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 		const pageConfigHash = pageModule.layoutConfig ? JSON.stringify(pageModule.layoutConfig) : '';
 		return `${routePath}:${pageConfigHash}:${context.request.method}:${context.request.url}`;
 	}
-
 
 	getResolverStats(): {
 		cacheSize: number;
@@ -284,11 +288,21 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 		return { ...this.options };
 	}
 
-	getLayoutDiscovery(): LayoutDiscovery { return this.layoutDiscovery; }
-	getLayoutMatcher(): LayoutMatcher { return this.layoutMatcher; }
-	getLayoutComposer(): LayoutComposer { return this.layoutComposer; }
-	getLayoutDataLoader(): LayoutDataLoader { return this.layoutDataLoader; }
-	getCacheManager(): LayoutCacheManager { return this.cacheManager; }
+	getLayoutDiscovery(): LayoutDiscovery {
+		return this.layoutDiscovery;
+	}
+	getLayoutMatcher(): LayoutMatcher {
+		return this.layoutMatcher;
+	}
+	getLayoutComposer(): LayoutComposer {
+		return this.layoutComposer;
+	}
+	getLayoutDataLoader(): LayoutDataLoader {
+		return this.layoutDataLoader;
+	}
+	getCacheManager(): LayoutCacheManager {
+		return this.cacheManager;
+	}
 
 	destroy(): void {
 		this.cacheManager.destroy();
