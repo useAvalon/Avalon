@@ -106,6 +106,27 @@ if (existsSync(serverDir)) {
 		const content = readFileSync(mainMjs, 'utf-8');
 		console.log(`[main.mjs] ${content.length} chars`);
 
+		// Search for the compiled routing — the findRoute function
+		const findRouteIdx = content.indexOf('findRoute');
+		if (findRouteIdx !== -1) {
+			// Show context around findRoute to see what routes are compiled
+			console.log(`[ROUTING] findRoute at ${findRouteIdx}: ...${content.slice(findRouteIdx, findRouteIdx + 500)}...`);
+		}
+
+		// Search for lazy handler imports (renderer would be lazy)
+		const lazyIdx = content.indexOf('defineLazyEventHandler');
+		if (lazyIdx !== -1) {
+			console.log(
+				`[LAZY] defineLazyEventHandler at ${lazyIdx}: ...${content.slice(Math.max(0, lazyIdx - 100), lazyIdx + 200)}...`,
+			);
+		}
+
+		// Search for the renderer template virtual module output
+		const rendererTemplateIdx = content.indexOf('renderer.template is not set');
+		if (rendererTemplateIdx !== -1) {
+			console.log(`[RENDERER-TEMPLATE] Found "renderer.template is not set" — no template configured`);
+		}
+
 		// Search for key strings that would appear in the rendered output
 		const searches = [
 			'SSR Error',
@@ -123,6 +144,11 @@ if (existsSync(serverDir)) {
 			'ssrRenderer',
 			'fetchViteEnv',
 			'internal/vite/ssr-renderer',
+			'nitro/vite/runtime',
+			'vite_envs',
+			'__renderer',
+			'rendererHandler',
+			'catch-all',
 		];
 		for (const s of searches) {
 			const idx = content.indexOf(s);
