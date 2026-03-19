@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/lit",
-	"version": "0.1.6",
+	"version": "0.1.7",
 	"description": "Lit integration for Avalon islands architecture",
 	"license": "MIT",
 	"type": "module",
@@ -16,7 +16,8 @@
 		"lit",
 		"web-components",
 		"ssr",
-		"hydration"
+		"hydration",
+		"shadow-dom"
 	],
 	"exports": {
 		".": "./mod.ts",

@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/svelte",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"description": "Svelte integration for Avalon islands architecture",
 	"license": "MIT",
 	"type": "module",
@@ -15,7 +15,8 @@
 		"islands",
 		"svelte",
 		"ssr",
-		"hydration"
+		"hydration",
+		"compiler"
 	],
 	"exports": {
 		".": "./mod.ts",

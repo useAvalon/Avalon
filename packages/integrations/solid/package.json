@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/solid",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"description": "Solid.js integration for Avalon islands architecture",
 	"license": "MIT",
 	"type": "module",
@@ -16,7 +16,8 @@
 		"solid",
 		"solidjs",
 		"ssr",
-		"hydration"
+		"hydration",
+		"reactive"
 	],
 	"exports": {
 		".": "./mod.ts",

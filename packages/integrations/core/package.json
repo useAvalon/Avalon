@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/core",
-	"version": "0.1.5",
+	"version": "0.1.6",
 	"description": "Core types and utilities for Avalon framework integrations",
 	"license": "MIT",
 	"type": "module",
@@ -14,7 +14,8 @@
 		"avalon",
 		"islands",
 		"framework",
-		"core"
+		"core",
+		"integration"
 	],
 	"exports": {
 		".": "./types.ts",
