@@ -45,6 +45,7 @@ declare module '*?assets=client' {
 		css: Array<{ href: string; [key: string]: string }>;
 		js: Array<{ href: string; [key: string]: string }>;
 		entry: string;
+		merge(other: unknown): typeof assets;
 	};
 	export default assets;
 }
@@ -54,6 +55,7 @@ declare module '*?assets=ssr' {
 		css: Array<{ href: string; [key: string]: string }>;
 		js: Array<{ href: string; [key: string]: string }>;
 		entry: string;
+		merge(other: unknown): typeof assets;
 	};
 	export default assets;
 }

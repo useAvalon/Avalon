@@ -56,13 +56,14 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		publicDir: 'public',
 
 		// Nitro auto-detects app/entry-server.ts as the SSR entry.
-		// The client environment needs an explicit input so Vite bundles
-		// the client-side hydration scripts (island hydration, HMR, etc.).
+		// The client environment uses entry-client.ts so Vite bundles
+		// the island hydration runtime. The SSR entry references these
+		// assets via the ?assets=client virtual import.
 		environments: {
 			client: {
 				build: {
 					rollupOptions: {
-						input: './index.html',
+						input: './app/entry-client.ts',
 					},
 				},
 			},
