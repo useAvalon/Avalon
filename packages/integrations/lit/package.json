@@ -29,7 +29,8 @@
 	},
 	"scripts": {
 		"build": "bun run ../../../scripts/build-package.ts",
-		"prepublishOnly": "bun run build"
+		"prepublishOnly": "bun run build",
+		"postpublish": "bun run ../../../scripts/postpublish.ts"
 	},
 	"files": [
 		"**/*.ts",

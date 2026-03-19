@@ -107,4 +107,27 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 			``,
 		].join('\n'),
 	);
+
+	// Write index.html — client build entry point for Nitro's Vite plugin.
+	// Nitro uses this to bundle client-side JS (island hydration) into the
+	// output public directory. The <!--ssr-outlet--> marker is replaced by
+	// Nitro with the SSR-rendered HTML at runtime.
+	await writeFile(
+		join(targetDir, 'index.html'),
+		[
+			`<!DOCTYPE html>`,
+			`<html lang="en">`,
+			`  <head>`,
+			`    <meta charset="utf-8" />`,
+			`    <meta name="viewport" content="width=device-width, initial-scale=1" />`,
+			`    <title>Avalon</title>`,
+			`  </head>`,
+			`  <body>`,
+			`    <!--ssr-outlet-->`,
+			`    <script type="module" src="/src/client/main.js"></script>`,
+			`  </body>`,
+			`</html>`,
+			``,
+		].join('\n'),
+	);
 }

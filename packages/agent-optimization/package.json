@@ -25,7 +25,8 @@
 	},
 	"scripts": {
 		"build": "bun run scripts/build.ts",
-		"prepublishOnly": "bun run build"
+		"prepublishOnly": "bun run build",
+		"postpublish": "bun run scripts/postpublish.ts"
 	},
 	"files": [
 		"mod.ts",

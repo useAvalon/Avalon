@@ -150,6 +150,12 @@ export const PRESET_OUTPUT_CONFIGS: Record<string, PresetOutputConfig> = {
 		supportsStreaming: true,
 		bundleDependencies: true,
 	},
+	netlify: {
+		outputDir: '.netlify',
+		serverEntry: 'functions-internal/server/index.mjs',
+		supportsStreaming: true,
+		bundleDependencies: true,
+	},
 	netlify_edge: {
 		outputDir: '.netlify/edge-functions',
 		serverEntry: 'render.js',
@@ -383,10 +389,17 @@ export function createNitroBuildPlugin(avalonConfig: ResolvedAvalonConfig, nitro
 				return;
 			}
 
-			return createCombinedBuildConfig(avalonConfig, nitroConfig, {
-				sourcemap: true,
-				verbose: avalonConfig.verbose,
-			});
+			// Only return define constants during build. Do NOT set build.outDir
+			// because Nitro's Vite plugin manages output directories for each
+			// environment (client, nitro, ssr) via its own config hooks.
+			return {
+				define: {
+					__DEV__: false,
+					__PROD__: true,
+					'process.env.NODE_ENV': JSON.stringify('production'),
+					...createPresetDefines(preset, presetConfig),
+				},
+			};
 		},
 
 		buildStart() {

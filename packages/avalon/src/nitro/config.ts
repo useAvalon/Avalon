@@ -148,7 +148,7 @@ export interface AvalonNitroConfig {
 	/** Nitro v3: Custom server entry point */
 	serverEntry?: string;
 	/** Nitro v3: Renderer configuration, or false to disable */
-	renderer?: { handler: string } | false;
+	renderer?: { handler: string; template?: string } | false;
 	/** Nitro v3: Pre-compress public assets (gzip, brotli, zstd) */
 	compressPublicAssets?: boolean | { gzip?: boolean; brotli?: boolean; zstd?: boolean };
 }
@@ -175,6 +175,7 @@ export interface NitroConfigOutput {
 	renderer?:
 		| {
 				handler: string;
+				template?: string;
 		  }
 		| false;
 	/** Nitro v3: Compatibility date for preset features (YYYY-MM-DD) */
@@ -338,9 +339,18 @@ export function createNitroConfig(
 		},
 	];
 
-	// Resolve renderer: support explicit false to disable, otherwise use default handler
+	// Resolve renderer: support explicit false to disable, otherwise use default handler.
+	// template: './index.html' tells Nitro's Vite plugin to run a client build using
+	// index.html as the entry point, which bundles client-side JS (island hydration, etc.)
+	// into the output public directory. Without this, only the server build runs.
 	const renderer: NitroConfigOutput['renderer'] =
-		avalonNitroConfig.renderer === false ? false : (avalonNitroConfig.renderer ?? { handler: './server/renderer.ts' });
+		avalonNitroConfig.renderer === false
+			? false
+			: {
+					handler: './server/renderer.ts',
+					template: './index.html',
+					...avalonNitroConfig.renderer,
+				};
 
 	return {
 		preset: resolvePresetName(process.env.NITRO_PRESET ?? avalonNitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset),

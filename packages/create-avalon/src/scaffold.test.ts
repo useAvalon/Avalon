@@ -180,6 +180,16 @@ describe('scaffoldProject', () => {
 		expect(content).toContain('virtual:avalon/config');
 	});
 
+	it('creates index.html with client build entry point', async () => {
+		const target = join(tempDir, 'out');
+		await scaffoldProject(baseConfig, target);
+
+		const content = await read('index.html');
+		expect(content).toContain('<!--ssr-outlet-->');
+		expect(content).toContain('/src/client/main.js');
+		expect(content).toContain('<!DOCTYPE html>');
+	});
+
 	it('uses hono patterns when middleware is hono', async () => {
 		const config: ProjectConfig = { ...baseConfig, middleware: 'hono' };
 		const target = join(tempDir, 'out');

@@ -1,5 +1,6 @@
 /**
- * Restores package.json from the backup created by the build script.
+ * Restores package.json from the backup created by the build script,
+ * but preserves the current (bumped) version number.
  * This runs after `bun publish` to revert exports back to source .ts paths
  * for workspace development.
  */
@@ -12,10 +13,19 @@ const bakPath = join(ROOT, 'package.json.bak');
 const pkgPath = join(ROOT, 'package.json');
 
 try {
-	const original = await readFile(bakPath, 'utf-8');
-	await writeFile(pkgPath, original, 'utf-8');
+	// Read the current (published) package.json to get the version
+	const current = JSON.parse(await readFile(pkgPath, 'utf-8'));
+	const version = current.version;
+
+	// Restore the backup (source exports)
+	const original = JSON.parse(await readFile(bakPath, 'utf-8'));
+
+	// Preserve the bumped version
+	original.version = version;
+
+	await writeFile(pkgPath, JSON.stringify(original, null, '\t') + '\n', 'utf-8');
 	await rm(bakPath);
-	console.log('✓ Restored package.json from backup');
+	console.log(`✓ Restored package.json from backup (version: ${version})`);
 } catch (err) {
 	console.error('Failed to restore package.json:', err);
 	process.exit(1);
