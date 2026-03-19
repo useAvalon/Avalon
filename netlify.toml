@@ -8,3 +8,11 @@
   NODE_VERSION = "22"
   BUN_VERSION = "1.3.9"
   NITRO_PRESET = "netlify"
+
+# SSR catch-all: route all non-static requests to the Nitro server function.
+# Netlify serves static files from publish dir first; anything that doesn't
+# match a static file falls through to this rewrite.
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/server"
+  status = 200
