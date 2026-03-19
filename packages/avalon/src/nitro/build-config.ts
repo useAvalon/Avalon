@@ -422,6 +422,13 @@ export function createNitroBuildPlugin(avalonConfig: ResolvedAvalonConfig, nitro
 				console.log('📦 Avalon build finished');
 				console.log(`   Output directory: ${presetConfig.outputDir}`);
 			}
+
+			// Vite/Nitro leaves open handles (timers, connections) that prevent
+			// the process from exiting after build. Force exit after 30s — long
+			// enough for Nitro's compiled hook to write the server entry file.
+			if (process.env.CI || process.env.NETLIFY) {
+				setTimeout(() => process.exit(0), 30_000);
+			}
 		},
 	};
 }
