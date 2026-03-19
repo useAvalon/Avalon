@@ -11,7 +11,7 @@ import preactRenderToString from 'preact-render-to-string';
 // Nitro asset manifests — resolved at build time to the correct
 // hashed filenames so the HTML includes the right <link>/<script> tags.
 // @ts-ignore — virtual import resolved by Nitro's Vite assets plugin at build time
-import clientAssets from './entry-server?assets=client';
+import clientAssets from './entry-client?assets=client';
 
 export default {
 	async fetch(request: Request) {
