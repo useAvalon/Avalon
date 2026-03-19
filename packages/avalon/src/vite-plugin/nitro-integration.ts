@@ -542,7 +542,9 @@ async function generatePageLoaderModule(config: ResolvedAvalonConfig, _verbose?:
 			const route = routes[i];
 			const varName = `page_${i}`;
 			// Use the file path relative to the project root for the import
-			imports.push(`import * as ${varName} from '/${route.filePath}';`);
+			// Normalize backslashes to forward slashes for cross-platform compatibility
+			const importPath = route.filePath.replaceAll('\\', '/');
+			imports.push(`import * as ${varName} from '/${importPath}';`);
 			routeEntries.push(
 				`  { pattern: ${JSON.stringify(route.pattern)}, params: ${JSON.stringify(route.params)}, module: ${varName} }`,
 			);

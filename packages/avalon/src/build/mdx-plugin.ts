@@ -73,19 +73,17 @@ export async function createMDXPlugin(options: MDXPluginOptions = {}): Promise<P
 
 		// Configure MDX plugin with frontmatter processing, GFM support, and optional syntax highlighting
 		const mdxPlugin = mdx({
-			// Plugin chains - frontmatter must come first, then export as named exports
 			remarkPlugins: [remarkFrontmatter, remarkMdxFrontmatter, remarkGfm, ...remarkPlugins],
 			rehypePlugins: finalRehypePlugins,
-
-			// JSX configuration for the specified runtime
 			jsxImportSource: jsxImportSource,
-
-			// Development vs production optimizations
 			development,
-
-			// Ensure proper module format
 			format: 'mdx',
-		});
+		}) as Plugin;
+
+		// Ensure the MDX plugin is shared across all Vite build environments
+		// (client, ssr, nitro). Without this, the Nitro server build can't
+		// process .mdx files imported by the virtual page-loader module.
+		mdxPlugin.sharedDuringBuild = true;
 
 		return [mdxPlugin];
 	} catch (error) {
