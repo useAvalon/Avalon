@@ -9,7 +9,7 @@
  * This script also logs the build output structure for debugging.
  */
 
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 
 function listDir(dir, prefix = '') {
@@ -45,6 +45,14 @@ if (existsSync(serverMjs)) {
 } else {
 	console.log(`\n[server.mjs] NOT FOUND at ${serverMjs}`);
 	console.log('  This means Nitro compiled hook did not run (likely killed by process.exit)');
+}
+
+// Remove index.html from dist — SSR handles all pages via the Netlify function.
+// If index.html exists, Netlify serves it as a static file for "/" which gives
+// a blank page (it only contains <!--ssr-outlet--> placeholder).
+if (existsSync('dist/index.html')) {
+	unlinkSync('dist/index.html');
+	console.log('[cleanup] Removed dist/index.html (SSR handles all routes)');
 }
 
 // Check dist (publish dir)
