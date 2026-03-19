@@ -620,7 +620,7 @@ export async function renderPage(
 
 /**
  * Renders a page component to HTML
- * This is a placeholder that would integrate with Avalon's existing SSR pipeline
+ * Uses Preact SSR to render the actual component content.
  */
 async function renderPageComponent(
 	pageModule: PageModule,
@@ -630,6 +630,7 @@ async function renderPageComponent(
 ): Promise<string> {
 	const Component = pageModule.default as (props?: Record<string, unknown>) => unknown;
 	const metadata = pageModule.metadata || {};
+	const isDev = process.env.NODE_ENV !== 'production';
 
 	// Call the page component (supports async components)
 	let vnode: unknown;
@@ -650,6 +651,10 @@ async function renderPageComponent(
 		pageHtml = '<div>Error rendering page</div>';
 	}
 
+	// In production, don't inject a script tag — the build pipeline handles client assets.
+	// In dev, inject the Vite-served client entry.
+	const clientScript = isDev ? '\n    <script type="module" src="/src/client/main.js"></script>' : '';
+
 	return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -661,8 +666,7 @@ async function renderPageComponent(
   <body>
     <div id="app">
       ${pageHtml}
-    </div>
-    <script type="module" src="/src/client/main.js"></script>
+    </div>${clientScript}
   </body>
 </html>`;
 }
@@ -827,8 +831,29 @@ export async function renderPageStream(
 
 		// Send the page content
 		if (!state.closed) {
-			const content = generateStreamingContent(pageModule, pageProps);
-			ctrl.enqueue(encoder.encode(content));
+			// Resolve async components before rendering
+			const Component = pageModule.default as ((props?: Record<string, unknown>) => unknown) | undefined;
+			if (Component && typeof Component === 'function') {
+				const result = Component(pageProps);
+				if (result && typeof (result as Promise<unknown>).then === 'function') {
+					// Async component — await it, then render the resolved vnode
+					try {
+						const resolved = await (result as Promise<unknown>);
+						const pageHtml = preactRenderToString(resolved as any);
+						ctrl.enqueue(encoder.encode(`    <div id="app">${pageHtml}</div>\n`));
+					} catch (err) {
+						console.error('[streaming] Async component error:', err);
+						const content = generateStreamingContent(pageModule, pageProps);
+						ctrl.enqueue(encoder.encode(content));
+					}
+				} else {
+					const content = generateStreamingContent(pageModule, pageProps);
+					ctrl.enqueue(encoder.encode(content));
+				}
+			} else {
+				const content = generateStreamingContent(pageModule, pageProps);
+				ctrl.enqueue(encoder.encode(content));
+			}
 			state.contentSent = true;
 		}
 
@@ -917,14 +942,39 @@ function generateStreamingShell(
 }
 
 /**
- * Generates the streaming content
+ * Generates the streaming content by actually rendering the page component.
+ * Falls back to a data-attribute placeholder only if rendering fails.
  */
 function generateStreamingContent(pageModule: PageModule, pageProps: Record<string, unknown>): string {
+	const Component = pageModule.default as ((props?: Record<string, unknown>) => unknown) | undefined;
+
+	if (Component && typeof Component === 'function') {
+		try {
+			const result = Component(pageProps);
+			// Handle async components — resolve the promise synchronously isn't possible
+			// in streaming we need to handle this. For now if it's a promise, fall through
+			// to the placeholder. The executeStreamingRender caller should await it.
+			if (result && typeof (result as Promise<unknown>).then === 'function') {
+				// Can't await here (sync function). The async path is handled in
+				// executeStreamingRender which should be updated to await the component.
+				// For now render what we can.
+				const componentName = Component.name || 'Page';
+				return `    <div id="app" data-page="${escapeHtml(String(componentName))}" data-props='${escapeHtml(JSON.stringify(pageProps))}'>
+      <!-- Async component — awaiting hydration -->
+    </div>\n`;
+			}
+			const pageHtml = preactRenderToString(result as any);
+			return `    <div id="app">${pageHtml}</div>\n`;
+		} catch (err) {
+			console.error('[streaming] Error rendering page component:', err);
+		}
+	}
+
+	// Fallback
 	const componentName = (pageModule.default as { name?: string })?.name || 'Page';
 	return `    <div id="app" data-page="${escapeHtml(String(componentName))}" data-props='${escapeHtml(JSON.stringify(pageProps))}'>
-      <!-- Page content rendered by Avalon SSR pipeline -->
-    </div>
-`;
+      <!-- Component render fallback -->
+    </div>\n`;
 }
 
 /**
