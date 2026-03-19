@@ -1,6 +1,6 @@
 [build]
   base = "www/"
-  command = "bunx --bun vite build && node post-build.mjs"
+  command = "node build.mjs"
   publish = "dist"
   functions = ".netlify/functions-internal"
   ignore = "git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- www/"
