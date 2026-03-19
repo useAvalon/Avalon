@@ -283,12 +283,25 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 			//
 			// ssr.noExternal: Ensures Vite processes @useavalon packages through
 			// the SSR transform pipeline instead of treating them as external CJS.
+			//
+			// optimizeDeps.include: Pre-bundle integration client modules so they
+			// are ready on first page load. Without this, Vite's dep optimizer
+			// may still be processing them when the browser requests them,
+			// causing 504 (Outdated Optimize Dep) errors on first start.
+			const depsToOptimize = integrationsToLoad.flatMap(name => [
+				`@useavalon/${name}/client`,
+				`@useavalon/${name}/client/hmr`,
+			]);
+
 			return {
 				oxc: {
 					exclude: [/node_modules\/@useavalon\/.*\.tsx?$/],
 				},
 				ssr: {
 					noExternal: [/^@useavalon\//],
+				},
+				optimizeDeps: {
+					include: depsToOptimize,
 				},
 			};
 		},
