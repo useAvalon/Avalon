@@ -32,6 +32,41 @@ function listDir(dir, prefix = '') {
 
 console.log('\n=== Post-build: Inspecting Nitro output ===\n');
 
+// Check .nitro/vite intermediate build for SSR service
+const nitroViteDir = 'node_modules/.nitro/vite';
+console.log(`[nitro-vite] ${nitroViteDir}:`);
+listDir(nitroViteDir);
+
+// Check for SSR service bundle in the server output
+for (const ssrDir of [
+	'.netlify/functions-internal/server/_ssr',
+	'.netlify/functions-internal/server/_services',
+	'node_modules/.nitro/vite/services',
+]) {
+	if (existsSync(ssrDir)) {
+		console.log(`\n[ssr-service] ${ssrDir}:`);
+		listDir(ssrDir);
+		// Read first 500 chars of any .mjs files to see what's in them
+		const ssrFiles = readdirSync(ssrDir).filter(f => f.endsWith('.mjs') || f.endsWith('.js'));
+		for (const f of ssrFiles) {
+			const content = readFileSync(join(ssrDir, f), 'utf-8');
+			console.log(`[ssr-service] ${f}: ${content.length} chars, first 500: ${content.slice(0, 500)}`);
+		}
+	} else {
+		console.log(`[ssr-service] ${ssrDir}: NOT FOUND`);
+	}
+}
+
+// Check if index.html still exists in .nitro cache (stale from previous build)
+const nitroIndexHtml = 'node_modules/.nitro/vite/index.html';
+if (existsSync(nitroIndexHtml)) {
+	const content = readFileSync(nitroIndexHtml, 'utf-8');
+	console.log(`[nitro-cache] ${nitroIndexHtml} EXISTS (${content.length} chars):`);
+	console.log(content);
+} else {
+	console.log(`[nitro-cache] ${nitroIndexHtml}: NOT FOUND (good — no template mode)`);
+}
+
 // Check if the old placeholder text is still in the bundled server code
 const serverDir = '.netlify/functions-internal/server';
 if (existsSync(serverDir)) {
@@ -82,6 +117,9 @@ if (existsSync(serverDir)) {
 			'fetchViteEnv',
 			'Not found:',
 			'<div id="app">',
+			'_ssr/',
+			'ssr.mjs',
+			'renderer',
 		];
 		for (const s of searches) {
 			const idx = content.indexOf(s);
@@ -99,6 +137,32 @@ if (existsSync(serverDir)) {
 const fiDir = '.netlify/functions-internal';
 console.log(`[functions-internal] ${fiDir}:`);
 listDir(fiDir);
+
+// Check for _ssr directory inside server output and read its contents
+const ssrBundleDir = join(fiDir, 'server', '_ssr');
+if (existsSync(ssrBundleDir)) {
+	console.log(`\n[_ssr bundle] Found ${ssrBundleDir}:`);
+	const ssrFiles = readdirSync(ssrBundleDir);
+	for (const f of ssrFiles) {
+		const full = join(ssrBundleDir, f);
+		const stat = statSync(full);
+		if (stat.isFile()) {
+			const content = readFileSync(full, 'utf-8');
+			console.log(`[_ssr] ${f}: ${content.length} chars`);
+			// Search for key strings
+			for (const s of ['loadPage', 'preactRenderToString', 'SSR Error', 'fetch', 'Response']) {
+				if (content.includes(s)) {
+					const idx = content.indexOf(s);
+					console.log(`[_ssr] ${f} CONTAINS "${s}" at ${idx}`);
+				}
+			}
+			// Show first 1000 chars
+			console.log(`[_ssr] ${f} first 1000 chars:\n${content.slice(0, 1000)}`);
+		}
+	}
+} else {
+	console.log(`\n[_ssr bundle] NOT FOUND at ${ssrBundleDir}`);
+}
 
 // Check if server.mjs exists (written by Nitro's compiled hook)
 const serverMjs = join(fiDir, 'server', 'server.mjs');
