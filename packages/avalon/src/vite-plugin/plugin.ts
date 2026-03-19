@@ -284,14 +284,25 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 			// ssr.noExternal: Ensures Vite processes @useavalon packages through
 			// the SSR transform pipeline instead of treating them as external CJS.
 			//
-			// optimizeDeps.include: Pre-bundle integration client modules so they
-			// are ready on first page load. Without this, Vite's dep optimizer
-			// may still be processing them when the browser requests them,
-			// causing 504 (Outdated Optimize Dep) errors on first start.
-			const depsToOptimize = integrationsToLoad.flatMap(name => [
-				`@useavalon/${name}/client`,
-				`@useavalon/${name}/client/hmr`,
-			]);
+			// optimizeDeps: @useavalon packages are excluded from dep optimization
+			// because we handle their resolution (resolveId) and transformation
+			// (transform hook) ourselves. Without excluding them, Vite's optimizer
+			// discovers them mid-serve via dynamic imports in main.js, triggers a
+			// re-optimization that invalidates in-flight requests, and causes
+			// 504 (Outdated Optimize Dep) errors on first start.
+			//
+			// We also pre-include the actual framework runtime deps (preact,
+			// solid-js, etc.) so they're pre-bundled before the first page load.
+			const frameworkDeps: Record<string, string[]> = {
+				preact: ['preact', 'preact/hooks'],
+				react: ['react', 'react-dom', 'react-dom/client'],
+				vue: ['vue'],
+				svelte: ['svelte', 'svelte/internal'],
+				solid: ['solid-js', 'solid-js/web'],
+				lit: ['lit', '@lit-labs/ssr-client'],
+				qwik: ['@builder.io/qwik'],
+			};
+			const depsToInclude = integrationsToLoad.flatMap(name => frameworkDeps[name] ?? []);
 
 			return {
 				oxc: {
@@ -301,7 +312,8 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 					noExternal: [/^@useavalon\//],
 				},
 				optimizeDeps: {
-					include: depsToOptimize,
+					exclude: ['@useavalon/avalon', ...integrationsToLoad.map(name => `@useavalon/${name}`)],
+					include: depsToInclude,
 				},
 			};
 		},
