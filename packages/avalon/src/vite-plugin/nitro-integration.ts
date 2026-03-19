@@ -65,6 +65,7 @@ function resolveIntegrationPackagePath(name: string, relativePath: string): stri
 
 export const VIRTUAL_MODULE_IDS = {
 	PAGE_ROUTES: 'virtual:avalon/page-routes',
+	PAGE_LOADER: 'virtual:avalon/page-loader',
 	ISLAND_MANIFEST: 'virtual:avalon/island-manifest',
 	RUNTIME_CONFIG: 'virtual:avalon/runtime-config',
 	CONFIG: 'virtual:avalon/config',
@@ -72,6 +73,7 @@ export const VIRTUAL_MODULE_IDS = {
 
 export const RESOLVED_VIRTUAL_IDS = {
 	PAGE_ROUTES: '\0' + VIRTUAL_MODULE_IDS.PAGE_ROUTES,
+	PAGE_LOADER: '\0' + VIRTUAL_MODULE_IDS.PAGE_LOADER,
 	ISLAND_MANIFEST: '\0' + VIRTUAL_MODULE_IDS.ISLAND_MANIFEST,
 	RUNTIME_CONFIG: '\0' + VIRTUAL_MODULE_IDS.RUNTIME_CONFIG,
 	CONFIG: '\0' + VIRTUAL_MODULE_IDS.CONFIG,
@@ -423,6 +425,7 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 
 		resolveId(id: string) {
 			if (id === VIRTUAL_MODULE_IDS.PAGE_ROUTES) return RESOLVED_VIRTUAL_IDS.PAGE_ROUTES;
+			if (id === VIRTUAL_MODULE_IDS.PAGE_LOADER) return RESOLVED_VIRTUAL_IDS.PAGE_LOADER;
 			if (id === VIRTUAL_MODULE_IDS.ISLAND_MANIFEST) return RESOLVED_VIRTUAL_IDS.ISLAND_MANIFEST;
 			if (id === VIRTUAL_MODULE_IDS.RUNTIME_CONFIG) return RESOLVED_VIRTUAL_IDS.RUNTIME_CONFIG;
 			if (id === VIRTUAL_MODULE_IDS.CONFIG) return RESOLVED_VIRTUAL_IDS.CONFIG;
@@ -431,6 +434,7 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 
 		async load(id: string) {
 			if (id === RESOLVED_VIRTUAL_IDS.PAGE_ROUTES) return await generatePageRoutesModule(avalonConfig, verbose);
+			if (id === RESOLVED_VIRTUAL_IDS.PAGE_LOADER) return await generatePageLoaderModule(avalonConfig, verbose);
 			if (id === RESOLVED_VIRTUAL_IDS.ISLAND_MANIFEST) return generateIslandManifestModule();
 			if (id === RESOLVED_VIRTUAL_IDS.RUNTIME_CONFIG) return generateRuntimeConfigModule(avalonConfig, nitroConfig);
 			if (id === RESOLVED_VIRTUAL_IDS.CONFIG) return generateConfigModule(avalonConfig, nitroConfig);
@@ -509,6 +513,85 @@ async function generatePageRoutesModule(config: ResolvedAvalonConfig, _verbose?:
 		return `export const pageRoutes = ${routesJson};\nexport default pageRoutes;\n`;
 	} catch {
 		return `export const pageRoutes = [];\nexport default pageRoutes;\n`;
+	}
+}
+
+/**
+ * Generates a virtual module that imports all page components and provides
+ * a loadPage(pathname) function for production SSR.
+ *
+ * In development, pages are loaded via Vite's ssrLoadModule. In production,
+ * all page modules must be statically imported into the server bundle so
+ * they're available at runtime. This module bridges that gap.
+ */
+async function generatePageLoaderModule(config: ResolvedAvalonConfig, _verbose?: boolean): Promise<string> {
+	try {
+		const { getAllPageDirs } = await import('./module-discovery.ts');
+		const { discoverPageRoutesFromMultipleDirs, matchRoutePattern } = await import('../nitro/route-discovery.ts');
+
+		const pageDirs = await getAllPageDirs(config.pagesDir, config.modules, process.cwd());
+		const routes = await discoverPageRoutesFromMultipleDirs(pageDirs, {
+			developmentMode: config.isDev,
+		});
+
+		// Generate import statements for each page
+		const imports: string[] = [];
+		const routeEntries: string[] = [];
+
+		for (let i = 0; i < routes.length; i++) {
+			const route = routes[i];
+			const varName = `page_${i}`;
+			// Use the file path relative to the project root for the import
+			imports.push(`import * as ${varName} from '/${route.filePath}';`);
+			routeEntries.push(
+				`  { pattern: ${JSON.stringify(route.pattern)}, params: ${JSON.stringify(route.params)}, module: ${varName} }`,
+			);
+		}
+
+		return [
+			...imports,
+			'',
+			`const routes = [`,
+			routeEntries.join(',\n'),
+			`];`,
+			'',
+			`/**`,
+			` * Match a pathname against discovered routes and return the page module.`,
+			` * Uses the same pattern matching as Avalon's route discovery.`,
+			` */`,
+			`export function loadPage(pathname) {`,
+			`  const cleanPath = pathname.split('?')[0];`,
+			`  for (const route of routes) {`,
+			`    if (matchRoute(cleanPath, route.pattern, route.params)) {`,
+			`      return route.module;`,
+			`    }`,
+			`  }`,
+			`  return null;`,
+			`}`,
+			'',
+			`function matchRoute(pathname, pattern, paramNames) {`,
+			`  // Exact match`,
+			`  if (pattern === pathname) return true;`,
+			`  // Normalize trailing slashes`,
+			`  const normPath = pathname === '/' ? '/' : pathname.replace(/\\/$/, '');`,
+			`  const normPattern = pattern === '/' ? '/' : pattern.replace(/\\/$/, '');`,
+			`  if (normPath === normPattern) return true;`,
+			`  // Dynamic segments: /users/:id matches /users/123`,
+			`  if (paramNames.length > 0) {`,
+			`    const patternParts = normPattern.split('/');`,
+			`    const pathParts = normPath.split('/');`,
+			`    if (patternParts.length !== pathParts.length) return false;`,
+			`    return patternParts.every((part, i) => part.startsWith(':') || part === pathParts[i]);`,
+			`  }`,
+			`  return false;`,
+			`}`,
+			'',
+			`export default { loadPage, routes };`,
+			'',
+		].join('\n');
+	} catch (err) {
+		console.error('[page-loader] Failed to generate page loader:', err);
+		return `export function loadPage() { return null; }\nexport default { loadPage, routes: [] };\n`;
 	}
 }
 
