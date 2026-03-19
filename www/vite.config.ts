@@ -7,7 +7,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 	const avalonPlugins = await avalon({
 		// Modular architecture - pages/layouts discovered within each module
 		modules: 'app/modules',
-		
+
 		// Shared layouts directory (root layout lives here)
 		layoutsDir: 'app/shared/layouts',
 
@@ -69,9 +69,9 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 					siteName: 'Avalon',
 					siteDescription: 'A multi-framework islands architecture for building fast, modern websites.',
 					sections: {
-						'Pages': ['/'],
-						'Docs': ['/docs'],
-						'Blog': ['/blog'],
+						Pages: ['/'],
+						Docs: ['/docs'],
+						Blog: ['/blog'],
 					},
 					exclude: ['/admin/**'],
 					full: true,

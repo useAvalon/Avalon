@@ -239,6 +239,7 @@ export const VALID_V3_PRESETS: string[] = [
 	'cloudflare_pages',
 	'deno_deploy',
 	'deno_server',
+	'netlify',
 	'netlify_functions',
 	'netlify_edge',
 	'aws_lambda',
