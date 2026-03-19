@@ -343,7 +343,7 @@ export function createNitroConfig(
 		avalonNitroConfig.renderer === false ? false : (avalonNitroConfig.renderer ?? { handler: './server/renderer.ts' });
 
 	return {
-		preset: resolvePresetName(avalonNitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset),
+		preset: resolvePresetName(process.env.NITRO_PRESET ?? avalonNitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset),
 		serverDir: avalonNitroConfig.serverDir ?? DEFAULT_NITRO_CONFIG.serverDir,
 		routeRules,
 		runtimeConfig,
