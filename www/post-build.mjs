@@ -120,6 +120,9 @@ if (existsSync(serverDir)) {
 			'_ssr/',
 			'ssr.mjs',
 			'renderer',
+			'ssrRenderer',
+			'fetchViteEnv',
+			'internal/vite/ssr-renderer',
 		];
 		for (const s of searches) {
 			const idx = content.indexOf(s);
