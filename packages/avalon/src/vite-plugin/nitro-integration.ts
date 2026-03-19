@@ -112,7 +112,7 @@ export function createNitroIntegration(
 		serverDir: nitroConfig.serverDir ?? nitroOptions.serverDir ?? './server',
 		routeRules: nitroOptions.routeRules,
 		runtimeConfig: nitroOptions.runtimeConfig,
-		renderer: nitroConfig.renderer === false ? false : nitroOptions.renderer,
+		renderer: nitroConfig.renderer === false ? false : (nitroOptions.renderer ?? undefined),
 		compatibilityDate: nitroOptions.compatibilityDate,
 		// Tell Nitro to scan the project root so it discovers routes/ and middleware/
 		// alongside the serverDir (./server) which contains the catch-all renderer.

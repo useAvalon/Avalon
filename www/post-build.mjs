@@ -73,21 +73,15 @@ if (existsSync(serverDir)) {
 
 		// Search for key strings that would appear in the rendered output
 		const searches = [
-			'Avalon Page',
-			'data-page=',
-			'data-props=',
-			'ssr-outlet',
-			'Page content rendered',
-			'Component render fallback',
-			'Async component',
-			'generateStreamingContent',
-			'renderPageComponent',
-			'renderPageStream',
+			'SSR Error',
+			'entry-server',
 			'loadPage',
-			'virtual:avalon/page-loader',
-			'resolvePageRoute',
-			'defaultResolvePageRoute',
-			'src/pages/index',
+			'preactRenderToString',
+			'ssr-outlet',
+			'__nitro_vite_envs__',
+			'fetchViteEnv',
+			'Not found:',
+			'<div id="app">',
 		];
 		for (const s of searches) {
 			const idx = content.indexOf(s);
@@ -116,12 +110,18 @@ if (existsSync(serverMjs)) {
 	console.log('  This means Nitro compiled hook did not run (likely killed by process.exit)');
 }
 
-// Remove index.html from dist — SSR handles all pages via the Netlify function.
+// Remove index.html from all output dirs — SSR handles all pages via the Netlify function.
 // If index.html exists, Netlify serves it as a static file for "/" which gives
-// a blank page (it only contains <!--ssr-outlet--> placeholder).
-if (existsSync('dist/index.html')) {
-	unlinkSync('dist/index.html');
-	console.log('[cleanup] Removed dist/index.html (SSR handles all routes)');
+// a blank page instead of the SSR-rendered content.
+for (const htmlPath of [
+	'dist/index.html',
+	'.netlify/functions-internal/server/public/index.html',
+	'.netlify/v1/functions/server/public/index.html',
+]) {
+	if (existsSync(htmlPath)) {
+		unlinkSync(htmlPath);
+		console.log(`[cleanup] Removed ${htmlPath} (SSR handles all routes)`);
+	}
 }
 
 // Check dist (publish dir)

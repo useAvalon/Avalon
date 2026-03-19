@@ -8,6 +8,11 @@
 import { loadPage } from 'virtual:avalon/page-loader';
 import preactRenderToString from 'preact-render-to-string';
 
+// Nitro asset manifests — resolved at build time to the correct
+// hashed filenames so the HTML includes the right <link>/<script> tags.
+// @ts-ignore — virtual import resolved by Nitro's Vite assets plugin at build time
+import clientAssets from './entry-server?assets=client';
+
 export default {
 	async fetch(request: Request) {
 		const url = new URL(request.url);
@@ -37,6 +42,15 @@ export default {
 				? `<meta name="description" content="${String(metadata.description).replace(/"/g, '&quot;')}">`
 				: '';
 
+			// Build asset tags from the Nitro-provided manifest
+			const cssLinks = (clientAssets?.css ?? [])
+				.map((attr: Record<string, string>) => `<link rel="stylesheet" href="${attr.href}">`)
+				.join('\n');
+			const jsPreloads = (clientAssets?.js ?? [])
+				.map((attr: Record<string, string>) => `<link rel="modulepreload" href="${attr.href}">`)
+				.join('\n');
+			const entryScript = clientAssets?.entry ? `<script type="module" src="${clientAssets.entry}"></script>` : '';
+
 			const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -44,9 +58,12 @@ export default {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${title}</title>
 ${desc}
+${cssLinks}
+${jsPreloads}
 </head>
 <body>
 <div id="app">${body}</div>
+${entryScript}
 </body>
 </html>`;
 

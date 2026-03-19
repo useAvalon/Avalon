@@ -339,17 +339,17 @@ export function createNitroConfig(
 		},
 	];
 
-	// Resolve renderer: support explicit false to disable, otherwise use default handler.
-	// Do NOT set template — Nitro's template mode reads index.html and replaces
-	// <!--ssr-outlet-->, ignoring the handler's Response. Our handler returns
-	// complete HTML responses, so we need Nitro to use the handler directly.
+	// Resolve renderer: support explicit false to disable.
+	// When using Nitro's Vite plugin, the SSR entry approach (entry-server.ts)
+	// is preferred over a renderer handler. A default handler would block
+	// Nitro's SSR entry auto-detection, so we only set one if the user
+	// explicitly provides a renderer config.
 	const renderer: NitroConfigOutput['renderer'] =
 		avalonNitroConfig.renderer === false
 			? false
-			: {
-					handler: './server/renderer.ts',
-					...avalonNitroConfig.renderer,
-				};
+			: avalonNitroConfig.renderer
+				? { ...avalonNitroConfig.renderer }
+				: undefined;
 
 	return {
 		preset: resolvePresetName(process.env.NITRO_PRESET ?? avalonNitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset),
