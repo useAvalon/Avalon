@@ -1,6 +1,6 @@
 {
 	"name": "create-avalon",
-	"version": "0.1.9",
+	"version": "0.1.10",
 	"description": "Scaffold a new Avalon project with multi-framework islands architecture",
 	"license": "MIT",
 	"type": "module",
@@ -10,11 +10,21 @@
 		"directory": "packages/create-avalon"
 	},
 	"homepage": "https://useavalon.dev",
-	"keywords": ["avalon", "create", "scaffold", "cli", "islands", "vite"],
+	"keywords": [
+		"avalon",
+		"create",
+		"scaffold",
+		"cli",
+		"islands",
+		"vite"
+	],
 	"bin": {
 		"create-avalon": "dist/cli.js"
 	},
-	"files": ["dist", "README.md"],
+	"files": [
+		"dist",
+		"README.md"
+	],
 	"scripts": {
 		"build": "bun build src/cli.ts --outdir dist --target node --format esm",
 		"prepublishOnly": "bun run build"

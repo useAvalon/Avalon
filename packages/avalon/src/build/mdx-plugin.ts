@@ -12,34 +12,34 @@ export interface MDXPluginOptions {
 
 /**
  * Creates and configures the MDX Vite plugin
- * 
+ *
  * This function sets up the MDX plugin with:
  * - Frontmatter processing (remark-frontmatter, remark-mdx-frontmatter)
  * - GitHub Flavored Markdown support (remark-gfm)
  * - Syntax highlighting (rehype-highlight) - enabled by default
  * - Custom remark/rehype plugins
  * - JSX runtime configuration
- * 
+ *
  * @param options - MDX plugin configuration options
  * @returns Array of Vite plugins (empty if MDX dependencies are not available)
- * 
+ *
  * @example
  * ```ts
  * // Basic usage with defaults
  * const plugins = await createMDXPlugin();
- * 
+ *
  * // With React JSX runtime
  * const plugins = await createMDXPlugin({ jsxImportSource: 'react' });
- * 
+ *
  * // Disable syntax highlighting
  * const plugins = await createMDXPlugin({ syntaxHighlighting: false });
  * ```
  */
 export async function createMDXPlugin(options: MDXPluginOptions = {}): Promise<Plugin[]> {
-	const { 
-		remarkPlugins = [], 
-		rehypePlugins = [], 
-		development = false, 
+	const {
+		remarkPlugins = [],
+		rehypePlugins = [],
+		development = false,
 		jsxImportSource = 'preact',
 		syntaxHighlighting = true,
 	} = options;
@@ -55,17 +55,19 @@ export async function createMDXPlugin(options: MDXPluginOptions = {}): Promise<P
 
 		// Build rehype plugins array based on options
 		const finalRehypePlugins: Pluggable[] = [];
-		
+
 		// Add syntax highlighting if enabled
 		if (syntaxHighlighting) {
 			try {
 				const { default: rehypeHighlight } = await import('rehype-highlight');
 				finalRehypePlugins.push(rehypeHighlight);
 			} catch {
-				console.warn('[avalon:mdx] rehype-highlight not available, syntax highlighting disabled');
+				console.warn(
+					'[avalon:mdx] rehype-highlight not installed, syntax highlighting disabled. Install it with: npm install rehype-highlight',
+				);
 			}
 		}
-		
+
 		// Add user-provided rehype plugins
 		finalRehypePlugins.push(...rehypePlugins);
 

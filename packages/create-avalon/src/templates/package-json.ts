@@ -2,61 +2,65 @@ import type { ProjectConfig } from '../types';
 import { INTEGRATION_PACKAGES } from '../types';
 
 export function generatePackageJson(config: ProjectConfig): string {
-  const dependencies: Record<string, string> = {
-    '@useavalon/avalon': 'latest',
-  };
+	const dependencies: Record<string, string> = {
+		'@useavalon/avalon': 'latest',
+	};
 
-  for (const integration of config.integrations) {
-    dependencies[INTEGRATION_PACKAGES[integration]] = 'latest';
-  }
+	for (const integration of config.integrations) {
+		dependencies[INTEGRATION_PACKAGES[integration]] = 'latest';
+	}
 
-  if (config.plugins.includes('agent-optimization')) {
-    dependencies['@useavalon/agent-optimization'] = 'latest';
-  }
+	if (config.plugins.includes('agent-optimization')) {
+		dependencies['@useavalon/agent-optimization'] = 'latest';
+	}
 
-  // Middleware dependencies
-  switch (config.middleware) {
-    case 'hono':
-      dependencies['hono'] = 'latest';
-      break;
-    case 'elysia':
-      dependencies['elysia'] = 'latest';
-      break;
-    // h3 is included via nitro, no extra dep needed
-  }
+	if (config.plugins.includes('syntax-highlighting')) {
+		dependencies['rehype-highlight'] = 'latest';
+	}
 
-  // Styling dependencies
-  const devDependencies: Record<string, string> = {
-    vite: 'latest',
-    typescript: 'latest',
-    nitro: 'latest',
-    'vite-imagetools': 'latest',
-  };
+	// Middleware dependencies
+	switch (config.middleware) {
+		case 'hono':
+			dependencies['hono'] = 'latest';
+			break;
+		case 'elysia':
+			dependencies['elysia'] = 'latest';
+			break;
+		// h3 is included via nitro, no extra dep needed
+	}
 
-  switch (config.styling) {
-    case 'tailwind':
-      devDependencies['tailwindcss'] = 'latest';
-      devDependencies['@tailwindcss/vite'] = 'latest';
-      break;
-    case 'shadcn':
-      devDependencies['tailwindcss'] = 'latest';
-      devDependencies['@tailwindcss/vite'] = 'latest';
-      dependencies['@shadcn/ui'] = 'latest';
-      break;
-  }
+	// Styling dependencies
+	const devDependencies: Record<string, string> = {
+		vite: 'latest',
+		typescript: 'latest',
+		nitro: 'latest',
+		'vite-imagetools': 'latest',
+	};
 
-  const pkg = {
-    name: config.projectName,
-    type: 'module',
-    private: true,
-    scripts: {
-      dev: 'bunx --bun vite dev',
-      build: 'bunx --bun vite build',
-      preview: 'bunx --bun vite preview',
-    },
-    dependencies,
-    devDependencies,
-  };
+	switch (config.styling) {
+		case 'tailwind':
+			devDependencies['tailwindcss'] = 'latest';
+			devDependencies['@tailwindcss/vite'] = 'latest';
+			break;
+		case 'shadcn':
+			devDependencies['tailwindcss'] = 'latest';
+			devDependencies['@tailwindcss/vite'] = 'latest';
+			dependencies['@shadcn/ui'] = 'latest';
+			break;
+	}
 
-  return JSON.stringify(pkg, null, 2);
+	const pkg = {
+		name: config.projectName,
+		type: 'module',
+		private: true,
+		scripts: {
+			dev: 'bunx --bun vite dev',
+			build: 'bunx --bun vite build',
+			preview: 'bunx --bun vite preview',
+		},
+		dependencies,
+		devDependencies,
+	};
+
+	return JSON.stringify(pkg, null, 2);
 }
