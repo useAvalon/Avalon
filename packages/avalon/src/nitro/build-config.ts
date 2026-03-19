@@ -422,15 +422,6 @@ export function createNitroBuildPlugin(avalonConfig: ResolvedAvalonConfig, nitro
 				console.log('📦 Avalon build finished');
 				console.log(`   Output directory: ${presetConfig.outputDir}`);
 			}
-
-			// Workaround: Vite/Nitro can leave open handles (timers, connections)
-			// that prevent the process from exiting after build completes. This is
-			// a known issue in CI environments (Netlify, Heroku, Docker). We force
-			// exit after a short delay to let file writes flush.
-			// See: https://github.com/vitejs/vite/discussions/16030
-			if (process.env.CI || process.env.NETLIFY) {
-				setTimeout(() => process.exit(0), 5000);
-			}
 		},
 	};
 }
