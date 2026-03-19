@@ -1,9 +1,8 @@
 [build]
-  # Build from repo root so workspace: dependencies resolve correctly.
-  # Netlify runs `bun install` from `base`, so it must be the monorepo root.
-  command = "cd www && bunx --bun vite build && node post-build.mjs"
-  publish = "www/dist"
-  functions = "www/.netlify/functions-internal"
+  base = "www/"
+  command = "bunx --bun vite build && node post-build.mjs"
+  publish = "dist"
+  functions = ".netlify/functions-internal"
 
 [build.environment]
   NODE_VERSION = "22"

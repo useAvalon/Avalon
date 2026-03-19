@@ -32,6 +32,23 @@ function listDir(dir, prefix = '') {
 
 console.log('\n=== Post-build: Inspecting Nitro output ===\n');
 
+// Check if the old placeholder text is still in the bundled server code
+const serverDir = '.netlify/functions-internal/server';
+if (existsSync(serverDir)) {
+	const checkFiles = readdirSync(serverDir).filter(f => f.endsWith('.mjs') || f.endsWith('.js'));
+	for (const f of checkFiles) {
+		const content = readFileSync(join(serverDir, f), 'utf-8');
+		if (content.includes('Page content rendered by Avalon SSR pipeline')) {
+			console.log(`[WARNING] Old placeholder found in ${f} — renderer fix NOT applied`);
+		} else {
+			console.log(`[OK] ${f} does not contain old placeholder`);
+		}
+		if (content.includes('Component render fallback')) {
+			console.log(`[INFO] ${f} contains new fallback text — renderer fix IS applied`);
+		}
+	}
+}
+
 // Check functions-internal
 const fiDir = '.netlify/functions-internal';
 console.log(`[functions-internal] ${fiDir}:`);
