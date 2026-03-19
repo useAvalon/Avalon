@@ -16,7 +16,7 @@ Add `'lit'` to the `integrations` array:
 
 ```ts
 const plugins = await avalon({
-  integrations: ['lit'],
+	integrations: ['lit'],
 });
 ```
 
@@ -32,9 +32,9 @@ Lit's decorators use the legacy/experimental decorator spec. Add `experimentalDe
 
 ```json
 {
-  "compilerOptions": {
-    "experimentalDecorators": true
-  }
+	"compilerOptions": {
+		"experimentalDecorators": true
+	}
 }
 ```
 
@@ -52,19 +52,18 @@ import { defineLitIsland } from '@useavalon/lit/island';
 
 @customElement('my-counter')
 export class MyCounter extends LitElement {
-  static styles = css`
-    button { padding: 8px 16px; cursor: pointer; }
-  `;
+	static styles = css`
+		button {
+			padding: 8px 16px;
+			cursor: pointer;
+		}
+	`;
 
-  @state() count = 0;
+	@state() count = 0;
 
-  render() {
-    return html`
-      <button @click=${() => this.count++}>
-        Count: ${this.count}
-      </button>
-    `;
-  }
+	render() {
+		return html` <button @click=${() => this.count++}>Count: ${this.count}</button> `;
+	}
 }
 
 export default defineLitIsland(MyCounter);
@@ -95,11 +94,11 @@ Import the component and use it like any other island:
 import MyCounter from '../islands/my-counter.lit.ts';
 
 export default function Page() {
-  return (
-    <div>
-      <MyCounter island={{ condition: 'on:interaction' }} />
-    </div>
-  );
+	return (
+		<div>
+			<MyCounter island={{ condition: 'on:interaction' }} />
+		</div>
+	);
 }
 ```
 
