@@ -35,17 +35,41 @@ console.log('\n=== Post-build: Inspecting Nitro output ===\n');
 // Check if the old placeholder text is still in the bundled server code
 const serverDir = '.netlify/functions-internal/server';
 if (existsSync(serverDir)) {
+	// Check top-level files
 	const checkFiles = readdirSync(serverDir).filter(f => f.endsWith('.mjs') || f.endsWith('.js'));
 	for (const f of checkFiles) {
 		const content = readFileSync(join(serverDir, f), 'utf-8');
 		if (content.includes('Page content rendered by Avalon SSR pipeline')) {
-			console.log(`[WARNING] Old placeholder found in ${f} — renderer fix NOT applied`);
-		} else {
-			console.log(`[OK] ${f} does not contain old placeholder`);
+			console.log(`[WARNING] Old placeholder found in ${f}`);
 		}
 		if (content.includes('Component render fallback')) {
-			console.log(`[INFO] ${f} contains new fallback text — renderer fix IS applied`);
+			console.log(`[INFO] New fallback in ${f}`);
 		}
+	}
+	// Check _chunks/ directory
+	const chunksDir = join(serverDir, '_chunks');
+	if (existsSync(chunksDir)) {
+		const chunkFiles = readdirSync(chunksDir).filter(f => f.endsWith('.mjs') || f.endsWith('.js'));
+		console.log(`[chunks] Found ${chunkFiles.length} chunk files`);
+		let oldCount = 0;
+		let newCount = 0;
+		for (const f of chunkFiles) {
+			const content = readFileSync(join(chunksDir, f), 'utf-8');
+			if (content.includes('Page content rendered by Avalon SSR pipeline')) {
+				console.log(`[WARNING] Old placeholder in _chunks/${f}`);
+				oldCount++;
+			}
+			if (content.includes('Component render fallback')) {
+				newCount++;
+			}
+		}
+		console.log(`[chunks] Old placeholder: ${oldCount}, New fallback: ${newCount}`);
+	}
+	// Show main.mjs size and first 200 chars
+	const mainMjs = join(serverDir, 'main.mjs');
+	if (existsSync(mainMjs)) {
+		const content = readFileSync(mainMjs, 'utf-8');
+		console.log(`[main.mjs] ${content.length} chars, starts with: ${content.slice(0, 200)}`);
 	}
 }
 
