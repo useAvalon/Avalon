@@ -1,29 +1,37 @@
 /**
  * Solid client-side hydration
- * Handles hydration of server-rendered Solid components
  *
- * Uses hydrate() for SSR content, render() for client-only
+ * Solid's hydrate() requires globalThis._$HY to exist (set up by
+ * generateHydrationScript in the <head>). In islands architecture,
+ * the script may not have executed yet when the island hydrates.
+ *
+ * We ensure _$HY exists before calling hydrate(), and fall back
+ * to render() if hydration fails.
  */
 
 import type { SolidComponent, SolidHydrationOptions } from '../types.ts';
 
 /**
- * Hydrate a server-rendered Solid component
- *
- * Checks for SSR content and uses hydrate() or render() accordingly.
- *
- * @param container - DOM element containing the server-rendered HTML
- * @param Component - Solid component to hydrate
- * @param props - Component props
- * @param _options - Hydration options (unused)
+ * Ensure the Solid hydration context exists on globalThis.
+ * This mirrors what generateHydrationScript() sets up.
  */
+function ensureHydrationContext(): void {
+	if (!(globalThis as any)._$HY) {
+		(globalThis as any)._$HY = {
+			events: [],
+			completed: new WeakSet(),
+			r: {},
+			fe() {},
+		};
+	}
+}
+
 export async function hydrate(
 	container: Element,
 	Component: SolidComponent,
 	props: Record<string, unknown> = {},
 	_options: SolidHydrationOptions = {},
 ): Promise<void> {
-	// Validate inputs
 	if (!container) {
 		throw new Error('Container element is required for hydration');
 	}
@@ -33,55 +41,32 @@ export async function hydrate(
 	}
 
 	const element = container as HTMLElement;
-	const hasSSRContent = element.children.length > 0 || element.innerHTML.trim().length > 0;
-
-	// Get renderId from dataset
+	const hasSSRContent = element.innerHTML.trim().length > 0;
 	const renderId = element.dataset.solidRenderId || element.dataset.renderId;
 
-	try {
-		const [solidWeb] = await Promise.all([import('solid-js/web'), import('solid-js')]);
+	const solidWeb = await import('solid-js/web');
+	const { hydrate: solidHydrate, render: solidRender, createComponent } = solidWeb;
 
-		const { hydrate: solidHydrate, render: solidRender, createComponent } = solidWeb;
+	if (hasSSRContent && renderId) {
+		// Ensure _$HY exists before calling solidHydrate
+		ensureHydrationContext();
 
-		if (hasSSRContent && renderId) {
-			// SSR content exists with a renderId — use hydrate for proper resumption
-			solidHydrate(() => createComponent(Component, props), element, { renderId });
-		} else if (hasSSRContent) {
-			// SSR content but no renderId — clear and do a fresh render to avoid mismatch
-			element.textContent = '';
-			solidRender(() => createComponent(Component, props), element);
-		} else {
-			// No SSR content — client-only render
-			solidRender(() => createComponent(Component, props), element);
-		}
-	} catch (error) {
-		// Hydration failed — fall back to client-side render
-		element.dataset.hydrationStatus = 'failed';
-		const errorMsg = error instanceof Error ? error.message : String(error);
-		element.dataset.hydrationError = errorMsg;
-
-		if (process.env.NODE_ENV !== 'production') {
-			console.warn(`Solid hydration failed, falling back to client render:`, error);
-		}
-
-		// Attempt a clean client-side render as fallback
 		try {
-			const solidWeb = await import('solid-js/web');
-			const { render: solidRender, createComponent } = solidWeb;
-			element.textContent = '';
-			solidRender(() => createComponent(Component, props), element);
-		} catch (fallbackError) {
+			solidHydrate(() => createComponent(Component, props), element, { renderId });
+			return;
+		} catch (error) {
+			// Hydration failed — fall back to client render
 			if (process.env.NODE_ENV !== 'production') {
-				console.error(`Solid fallback render also failed:`, fallbackError);
+				console.warn(`Solid hydration failed, falling back to client render:`, error);
 			}
 		}
 	}
+
+	// No SSR content, no renderId, or hydration failed — clean client render
+	element.textContent = '';
+	solidRender(() => createComponent(Component, props), element);
 }
 
-/**
- * Get the hydration script for Solid components
- * This script is injected into the page to enable client-side hydration
- */
 export function getHydrationScript(): string {
 	return '';
 }
