@@ -10,18 +10,15 @@ import { createNitroRenderer } from '@useavalon/avalon/nitro/renderer';
 import avalonConfig from 'virtual:avalon/config';
 import { loadPage } from 'virtual:avalon/page-loader';
 
-export default createNitroRenderer({
+const handler = createNitroRenderer({
 	avalonConfig,
 	isDev: avalonConfig.isDev,
 	resolvePageRoute: async (pathname: string, _pagesDir: string) => {
 		const mod = loadPage(pathname);
 		if (!mod) return null;
-		// Return a resolved route — filePath is just for logging, the module
-		// is already loaded so loadPageModule below returns it directly.
 		return { filePath: `[virtual:${pathname}]`, pattern: pathname, params: {} };
 	},
 	loadPageModule: async (filePath: string) => {
-		// Extract the pathname we encoded in resolvePageRoute
 		const match = new RegExp(/^\[virtual:(.+)\]$/).exec(filePath);
 		const pathname = match ? match[1] : filePath;
 		const mod = loadPage(pathname);
@@ -29,3 +26,16 @@ export default createNitroRenderer({
 		return { default: () => null, metadata: { title: 'Avalon' } };
 	},
 });
+
+// Wrap with diagnostic error boundary so we never get a blank page
+export default async function rendererWithDiagnostics(event: Parameters<typeof handler>[0]) {
+	try {
+		return await handler(event);
+	} catch (err) {
+		const e = err instanceof Error ? err : new Error(String(err));
+		return new Response(
+			`<!DOCTYPE html><html><body><h1>SSR Error</h1><pre>${e.message}\n${e.stack}</pre></body></html>`,
+			{ status: 500, headers: { 'Content-Type': 'text/html' } },
+		);
+	}
+}
