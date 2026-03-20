@@ -534,9 +534,11 @@ async function generatePageRoutesModule(config: ResolvedAvalonConfig, _verbose?:
 async function generatePageLoaderModule(config: ResolvedAvalonConfig, _verbose?: boolean): Promise<string> {
 	try {
 		const { getAllPageDirs } = await import('./module-discovery.ts');
-		const { discoverPageRoutesFromMultipleDirs, matchRoutePattern } = await import('../nitro/route-discovery.ts');
+		const { discoverPageRoutesFromMultipleDirs } = await import('../nitro/route-discovery.ts');
+		const { relative } = await import('node:path');
 
-		const pageDirs = await getAllPageDirs(config.pagesDir, config.modules, process.cwd());
+		const cwd = process.cwd();
+		const pageDirs = await getAllPageDirs(config.pagesDir, config.modules, cwd);
 		const routes = await discoverPageRoutesFromMultipleDirs(pageDirs, {
 			developmentMode: config.isDev,
 		});
@@ -548,10 +550,11 @@ async function generatePageLoaderModule(config: ResolvedAvalonConfig, _verbose?:
 		for (let i = 0; i < routes.length; i++) {
 			const route = routes[i];
 			const varName = `page_${i}`;
-			// Use the file path relative to the project root for the import
-			// Normalize backslashes to forward slashes for cross-platform compatibility
-			const importPath = route.filePath.replaceAll('\\', '/');
-			imports.push(`import * as ${varName} from '/${importPath}';`);
+			// Make the absolute filePath relative to the project root, then
+			// prefix with '/' so Vite resolves it from the project root.
+			const relPath = relative(cwd, route.filePath).replaceAll('\\', '/');
+			const importPath = relPath.startsWith('/') ? relPath : '/' + relPath;
+			imports.push(`import * as ${varName} from '${importPath}';`);
 			routeEntries.push(
 				`  { pattern: ${JSON.stringify(route.pattern)}, params: ${JSON.stringify(route.params)}, module: ${varName} }`,
 			);

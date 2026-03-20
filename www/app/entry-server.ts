@@ -18,8 +18,11 @@ export default {
 		const url = new URL(request.url);
 		const pathname = url.pathname;
 
+		console.log(`[SSR] Handling ${pathname}`);
+
 		try {
 			const mod = loadPage(pathname);
+			console.log(`[SSR] loadPage result:`, mod ? 'found' : 'null', mod ? Object.keys(mod) : []);
 
 			if (!mod || !('default' in mod)) {
 				return new Response(
