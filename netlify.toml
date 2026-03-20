@@ -1,7 +1,7 @@
 [build]
   base = "www/"
   command = "bun install && bun build.mjs"
-  publish = ".netlify/functions-internal/server/public"
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "22"
