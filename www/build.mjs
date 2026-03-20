@@ -71,7 +71,9 @@ function finish() {
 		}
 
 		// Verify
-		if (existsSync(SERVER_MJS)) console.log('[build] ✅ Server function found');
+		const V1_SERVER = join(CWD, '.netlify', 'v1', 'functions', 'server', 'server.mjs');
+		if (existsSync(V1_SERVER)) console.log('[build] ✅ Server function found (v1 API)');
+		else if (existsSync(SERVER_MJS)) console.log('[build] ✅ Server function found (legacy)');
 		else if (existsSync(OUTPUT_SSR)) console.log('[build] ✅ SSR bundle found');
 		else console.error('[build] ❌ No server output found');
 

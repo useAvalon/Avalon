@@ -10,7 +10,16 @@
  * for standalone use (e.g. after a local `vite build`).
  */
 
-import { existsSync, unlinkSync, readFileSync, writeFileSync, readdirSync, copyFileSync, mkdirSync } from 'node:fs';
+import {
+	existsSync,
+	unlinkSync,
+	readFileSync,
+	writeFileSync,
+	readdirSync,
+	copyFileSync,
+	mkdirSync,
+	cpSync,
+} from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 
 const CWD = process.cwd();
@@ -265,6 +274,27 @@ for (const ssrPath of [
 
 generateIslandRedirects();
 copyAdapters();
+
+// ─── Copy function to Netlify Frameworks API v1 path ─────────────────
+// Nitro v3 beta writes to .netlify/functions-internal/ (legacy path).
+// Netlify's modern Frameworks API expects .netlify/v1/functions/.
+// Copy the server function there so Netlify reliably detects it.
+
+function copyToNetlifyV1() {
+	const legacyDir = join(CWD, '.netlify', 'functions-internal', 'server');
+	const v1Dir = join(CWD, '.netlify', 'v1', 'functions', 'server');
+
+	if (!existsSync(legacyDir)) {
+		console.log('[netlify-v1] No .netlify/functions-internal/server/ found, skipping');
+		return;
+	}
+
+	// Copy entire server directory to v1 path
+	cpSync(legacyDir, v1Dir, { recursive: true, force: true });
+	console.log(`[netlify-v1] ✅ Copied server function to .netlify/v1/functions/server/`);
+}
+
+copyToNetlifyV1();
 
 // ─── Ensure Netlify _redirects has SSR catch-all ─────────────────────
 // Nitro v3 beta's netlify preset generates an empty _redirects file.
