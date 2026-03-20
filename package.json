@@ -14,7 +14,13 @@
 		"test": "bunx vitest run",
 		"lint": "bunx biome check .",
 		"format": "bunx biome format --write .",
-		"typecheck": "bunx tsc --noEmit"
+		"typecheck": "bunx tsc --noEmit",
+		"prepare": "husky"
+	},
+	"lint-staged": {
+		"*.{ts,tsx,js,jsx,json,css}": [
+			"biome check --write --no-errors-on-unmatched"
+		]
 	},
 	"devDependencies": {
 		"@babel/plugin-proposal-decorators": "^7.29.0",
@@ -27,6 +33,8 @@
 		"@types/react": "^19.2.0",
 		"@types/react-dom": "^19.2.0",
 		"fast-check": "^4.6.0",
+		"husky": "^9.1.7",
+		"lint-staged": "^16.4.0",
 		"oxc-minify": "^0.120.0",
 		"oxc-transform": "^0.120.0",
 		"typescript": "^5.9.3",
