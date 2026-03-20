@@ -29,8 +29,8 @@ export interface IslandEntry {
 	bundle: string;
 	/** Bundle hash for cache busting */
 	hash: string;
-	/** Framework type (preact, solid, vue, svelte, vanilla, lit, react) */
-	framework: 'preact' | 'solid' | 'vue' | 'svelte' | 'vanilla' | 'lit' | 'react' | 'unknown';
+	/** Framework type (preact, solid, vue, svelte, qwik, lit, react) */
+	framework: 'preact' | 'solid' | 'vue' | 'svelte' | 'qwik' | 'lit' | 'react' | 'unknown';
 	/** Import dependencies */
 	deps: string[];
 }
@@ -73,11 +73,10 @@ export async function generateIslandManifest(): Promise<ExtendedIslandManifest> 
 			const deps = extractDependencies(content);
 			const hash = await generateHash(content);
 
-			// Generate bundle path based on qualified name
+			// Generate bundle path based on qualified name.
+			// No /dist/ prefix — dist/ is the serve root so paths are relative to it.
 			const bundlePath =
-				island.namespace === ''
-					? `/dist/islands/${island.name}.${hash}.js`
-					: `/dist/islands/${qualifiedName}.${hash}.js`;
+				island.namespace === '' ? `/islands/${island.name}.${hash}.js` : `/islands/${qualifiedName}.${hash}.js`;
 
 			islands[qualifiedName] = {
 				src,
@@ -127,12 +126,12 @@ function mapFrameworkType(framework: string): ExtendedIslandEntry['framework'] {
 			return 'svelte';
 		case 'lit':
 			return 'lit';
-		case 'unknown':
+		case 'qwik':
+			return 'qwik';
 		default:
-			return 'vanilla';
+			return 'unknown';
 	}
 }
-
 
 /**
  * Extract import dependencies from the island file
@@ -219,7 +218,7 @@ export function getIslandBundlePath(src: string, manifest?: ExtendedIslandManife
 	}
 
 	const qualifiedName = extractQualifiedNameFromSrc(src);
-	return `/dist/islands/${qualifiedName}.js`;
+	return `/islands/${qualifiedName}.js`;
 }
 
 /**

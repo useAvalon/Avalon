@@ -25,6 +25,7 @@ import { registry } from '../core/integrations/registry.ts';
 import { createNitroIntegration } from './nitro-integration.ts';
 import { islandSidecarPlugin } from './island-sidecar-plugin.ts';
 import { createImagePlugin } from './image-optimization.ts';
+import { islandClientBundlerPlugin } from '../build/island-client-bundler.ts';
 import type { NitroConfigOutput } from '../nitro/config.ts';
 declare global {
 	var __avalonConfig: ResolvedAvalonConfig | undefined;
@@ -261,11 +262,14 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 
 	// Resolve /@useavalon/*/client and /@useavalon/*/client/hmr virtual imports
 	// used by main.js. These are resolved dynamically in the resolveId hook
-	// using Vite's resolver.
+	// using Vite's resolver. We also handle bare specifiers (without leading /)
+	// so that production static imports in main.js resolve correctly.
 	const integrationVirtualIds = new Set(
 		['preact', 'react', 'vue', 'svelte', 'solid', 'lit', 'qwik'].flatMap(name => [
 			`/@useavalon/${name}/client`,
 			`/@useavalon/${name}/client/hmr`,
+			`@useavalon/${name}/client`,
+			`@useavalon/${name}/client/hmr`,
 		]),
 	);
 
@@ -337,7 +341,8 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 			// integration packages from the consuming project's node_modules,
 			// not from avalon's own context.
 			if (integrationVirtualIds.has(id)) {
-				const packageId = id.slice(1); // strip leading /
+				// Strip leading / for dev virtual imports; bare specifiers are used as-is
+				const packageId = id.startsWith('/') ? id.slice(1) : id;
 				const resolved = await this.resolve(packageId);
 				return resolved?.id ?? null;
 			}
@@ -382,8 +387,12 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 		verbose: preResolvedConfig.verbose,
 	});
 
+	// Island client bundler: emits island components as separate client chunks
+	const islandBundler = islandClientBundlerPlugin(preResolvedConfig);
+
 	return [
 		pageTransformPlugin,
+		islandBundler,
 		...imagePlugins,
 		...litPlugins,
 		...mdxPlugins,

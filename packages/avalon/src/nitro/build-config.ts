@@ -374,40 +374,6 @@ function createPresetDefines(preset: string, presetConfig: PresetOutputConfig): 
 }
 
 /**
- * Polls for Nitro's server entry file, then exits the process.
- * Used in CI/Netlify to ensure the build doesn't exit before Nitro finishes.
- */
-async function waitForNitroBuild(outputDir: string, serverEntry?: string): Promise<void> {
-	const { existsSync } = await import('node:fs');
-	const { join } = await import('node:path');
-	const outDir = join(process.cwd(), outputDir);
-	const candidates = [
-		join(outDir, serverEntry || 'server/main.mjs'),
-		join(outDir, 'functions-internal/server/main.mjs'),
-		join(outDir, 'server/main.mjs'),
-		join(outDir, 'server/index.mjs'),
-	];
-	const maxWait = 180_000;
-	const pollInterval = 2_000;
-	const start = Date.now();
-
-	const poll = () => {
-		if (candidates.some(f => existsSync(f))) {
-			console.log('[avalon] Nitro build complete, exiting.');
-			setTimeout(() => process.exit(0), 1_000);
-			return;
-		}
-		if (Date.now() - start >= maxWait) {
-			console.log('[avalon] Nitro build timeout, force-exiting.');
-			process.exit(0);
-			return;
-		}
-		setTimeout(poll, pollInterval);
-	};
-	setTimeout(poll, pollInterval);
-}
-
-/**
  * Creates a Vite plugin for Nitro build integration
  */
 export function createNitroBuildPlugin(avalonConfig: ResolvedAvalonConfig, nitroConfig: AvalonNitroConfig): Plugin {
@@ -455,13 +421,6 @@ export function createNitroBuildPlugin(avalonConfig: ResolvedAvalonConfig, nitro
 			if (avalonConfig.verbose) {
 				console.log('📦 Avalon build finished');
 				console.log(`   Output directory: ${presetConfig.outputDir}`);
-			}
-
-			// Vite/Nitro leaves open handles (timers, connections) that prevent
-			// the process from exiting after build. Poll for Nitro's output file,
-			// then exit — or force-exit after 180s as a safety net.
-			if (process.env.CI || process.env.NETLIFY) {
-				waitForNitroBuild(presetConfig.outputDir, presetConfig.serverEntry);
 			}
 		},
 	};

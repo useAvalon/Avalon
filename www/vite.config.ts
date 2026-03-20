@@ -160,6 +160,11 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				'react-dom/server',
 				'@builder.io/qwik',
 				'@builder.io/qwik/server',
+				// estree-walker v3 is ESM-only (no CJS "require" export).
+				// Vue's compiler-sfc uses it, and without inlining it the
+				// Nitro server bundle emits a require('estree-walker') that
+				// fails at runtime with ERR_PACKAGE_PATH_NOT_EXPORTED.
+				'estree-walker',
 			],
 			// solid-js and solid-js/web are intentionally NOT in noExternal.
 			// They must load as native ESM so the renderer and component share

@@ -42,6 +42,8 @@ export interface IslandProps {
 	renderOptions?: AnalyzerOptions;
 	/** Hydration data from integration renderer */
 	hydrationData?: Record<string, unknown>;
+	/** Pre-imported component reference (avoids dynamic import in bundled SSR) */
+	component?: unknown;
 }
 
 // ---------------------------------------------------------------------------
@@ -276,6 +278,7 @@ async function renderWithExplicitFramework({
 	framework,
 	ssrOnly,
 	renderOptions,
+	component: preloadedComponent,
 }: {
 	src: string;
 	condition: IslandProps['condition'];
@@ -285,6 +288,7 @@ async function renderWithExplicitFramework({
 	framework: NonNullable<IslandProps['framework']>;
 	ssrOnly: boolean;
 	renderOptions: AnalyzerOptions;
+	component?: unknown;
 }): Promise<JSX.Element> {
 	const logPrefix = `🏝️ [${src}]`;
 
@@ -302,7 +306,7 @@ async function renderWithExplicitFramework({
 
 	try {
 		const renderResult = await integration.render({
-			component: null,
+			component: preloadedComponent ?? null,
 			props,
 			src,
 			condition,
@@ -375,13 +379,14 @@ async function renderSlowPathSSR(
 	ssrOnly: boolean,
 	renderOptions: AnalyzerOptions,
 	logPrefix: string,
+	preloadedComponent?: unknown,
 ): Promise<JSX.Element> {
 	const detectedFramework = await detectFrameworkForSrc(src);
 	const frameworkId = detectedFramework as FrameworkId;
 
 	const integration = await loadIntegrationOrThrow(detectedFramework, logPrefix);
 	const renderResult = await integration.render({
-		component: null,
+		component: preloadedComponent ?? null,
 		props,
 		src,
 		condition,
@@ -454,6 +459,7 @@ export async function renderIsland({
 	framework,
 	ssrOnly = false,
 	renderOptions = {},
+	component: preloadedComponent,
 }: IslandProps): Promise<JSX.Element> {
 	const startTime = isDev() ? performance.now() : 0;
 	const logPrefix = `🏝️ [${src}]`;
@@ -475,6 +481,7 @@ export async function renderIsland({
 				framework,
 				ssrOnly,
 				renderOptions,
+				component: preloadedComponent,
 			});
 		}
 
@@ -488,6 +495,7 @@ export async function renderIsland({
 			ssrOnly,
 			renderOptions,
 			logPrefix,
+			component: preloadedComponent,
 		});
 	} catch (error) {
 		return renderErrorPlaceholder(src, error);
@@ -508,8 +516,19 @@ async function renderIslandSlowPath(opts: {
 	ssrOnly: boolean;
 	renderOptions: AnalyzerOptions;
 	logPrefix: string;
+	component?: unknown;
 }): Promise<JSX.Element> {
-	const { src, condition, props, children, ssr, ssrOnly, renderOptions, logPrefix } = opts;
+	const {
+		src,
+		condition,
+		props,
+		children,
+		ssr,
+		ssrOnly,
+		renderOptions,
+		logPrefix,
+		component: preloadedComponent,
+	} = opts;
 	devLog(`🔍 [renderIsland] ${src} - Starting render (slow path)`, {
 		ssr,
 		ssrOnly,
@@ -530,7 +549,7 @@ async function renderIslandSlowPath(opts: {
 
 	// Full SSR rendering with auto-detected framework
 	try {
-		return await renderSlowPathSSR(src, condition, props, ssrOnly, renderOptions, logPrefix);
+		return await renderSlowPathSSR(src, condition, props, ssrOnly, renderOptions, logPrefix, preloadedComponent);
 	} catch (error) {
 		const detectedFramework = await detectFrameworkForSrc(src);
 		devError(`${logPrefix} Framework rendering failed:`, error);

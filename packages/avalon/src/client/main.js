@@ -216,6 +216,10 @@ function setupMediaQuery(island, framework, mediaQuery) {
 /**
  * Load the integration module for a given framework
  *
+ * In dev, Vite resolves virtual adapter modules via the avalon plugin.
+ * In production, we use static imports so the bundler includes the
+ * adapter code and doesn't tree-shake it away.
+ *
  * @param {string} framework - The framework name
  * @returns {Promise<object>} The integration module
  */
@@ -224,10 +228,33 @@ async function loadIntegrationModule(framework) {
 	if (!knownFrameworks.includes(framework)) {
 		throw new Error(`Unknown framework: ${framework}`);
 	}
-	// Use @vite-ignore + computed path so Vite doesn't statically resolve
-	// imports for frameworks the user hasn't installed.
-	const modulePath = `/@useavalon/${framework}/client`;
-	return import(/* @vite-ignore */ modulePath);
+
+	if (import.meta.env?.DEV) {
+		const modulePath = `/@useavalon/${framework}/client`;
+		return import(/* @vite-ignore */ modulePath);
+	}
+
+	// Production: use static imports so the bundler can resolve them.
+	// Each case is a separate dynamic import with a string literal that
+	// Vite CAN statically analyze (no @vite-ignore).
+	// Note: react falls through to preact since this project aliases react → preact/compat
+	switch (framework) {
+		case 'preact':
+		case 'react':
+			return import('@useavalon/preact/client');
+		case 'vue':
+			return import('@useavalon/vue/client');
+		case 'svelte':
+			return import('@useavalon/svelte/client');
+		case 'solid':
+			return import('@useavalon/solid/client');
+		case 'lit':
+			return import('@useavalon/lit/client');
+		case 'qwik':
+			return import('@useavalon/qwik/client');
+		default:
+			throw new Error(`Unknown framework: ${framework}`);
+	}
 }
 
 /**
@@ -287,8 +314,11 @@ async function hydrateIsland(island, framework) {
 		// CRITICAL: For Lit components, load hydration support BEFORE importing the component
 		// This ensures our patch is applied before @customElement decorator runs
 		if (framework === 'lit') {
-			const litPath = `/@useavalon/${framework}/client`;
-			await import(/* @vite-ignore */ litPath);
+			if (import.meta.env?.DEV) {
+				await import(/* @vite-ignore */ `/@useavalon/lit/client`);
+			} else {
+				await import('@useavalon/lit/client');
+			}
 		}
 
 		const componentModule = await import(/* @vite-ignore */ src);
@@ -502,8 +532,11 @@ async function hydrateIslandWithFreshModule(island, framework, freshSrc, origina
 	const props = propsAttr ? JSON.parse(propsAttr) : {};
 
 	if (framework === 'lit') {
-		const litPath = `/@useavalon/${framework}/client`;
-		await import(/* @vite-ignore */ litPath);
+		if (import.meta.env?.DEV) {
+			await import(/* @vite-ignore */ `/@useavalon/lit/client`);
+		} else {
+			await import('@useavalon/lit/client');
+		}
 	}
 
 	const componentModule = await import(/* @vite-ignore */ freshSrc);

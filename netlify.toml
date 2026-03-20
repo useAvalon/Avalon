@@ -1,15 +1,9 @@
 [build]
   base = "www/"
-  command = "bun install && bunx --bun vite build && bun post-build.mjs"
+  command = "bun install && bun build.mjs"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "22"
   BUN_VERSION = "latest"
   NITRO_PRESET = "netlify"
-
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/server"
-  status = 200
-  force = false

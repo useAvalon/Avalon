@@ -15,3 +15,15 @@ import '@useavalon/avalon/client/main';
 // assets manifest, which the SSR entry reads via ?assets=client
 // to inject <link rel="stylesheet"> tags into the HTML.
 import '@shared/styles/main.css';
+
+// Layout CSS modules — the SSR entry renders layouts with hashed
+// class names from these modules. We must import them here too so
+// the CSS rules are included in the client bundle. Importing the
+// default export (class map) forces Vite to process and emit the CSS.
+import _rootLayout from '@shared/layouts/_layout.module.css';
+import _navStyles from '@shared/styles/nav.module.css';
+import _homeLayout from '@modules/home/layouts/home-layout.module.css';
+import _docsLayout from '@modules/docs/layouts/_layout.module.css';
+import _blogLayout from '@modules/blog/layouts/_layout.module.css';
+// Prevent tree-shaking by referencing the imports
+void [_rootLayout, _navStyles, _homeLayout, _docsLayout, _blogLayout];

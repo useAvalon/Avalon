@@ -116,6 +116,12 @@ export function createNitroIntegration(
 		// Tell Nitro to scan the project root so it discovers routes/ and middleware/
 		// alongside the serverDir (./server) which contains the catch-all renderer.
 		scanDirs: ['.'],
+		// Inline ESM-only packages that fail at runtime when Nitro leaves
+		// them as external CJS require() calls. estree-walker v3 is the
+		// primary offender — it only exports via ESM "import" condition.
+		// Also inline @useavalon packages so their server renderers are
+		// bundled directly (they ship .ts source, not CJS).
+		noExternals: ['estree-walker', /^@useavalon\//, /^estree-util/],
 	};
 
 	// Only pass renderer when explicitly configured — passing `undefined`
