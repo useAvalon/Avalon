@@ -6,8 +6,8 @@
  * enabling resumability on the client without a hydration step.
  */
 
-import type { RenderParams, RenderResult } from "@useavalon/core/types";
-import { loadComponent } from "./utils.ts";
+import type { RenderParams, RenderResult } from '@useavalon/core/types';
+import { loadComponent } from './utils.ts';
 
 /**
  * Render a Qwik component to HTML string
@@ -21,98 +21,95 @@ import { loadComponent } from "./utils.ts";
  * @returns Render result with HTML and resumability data
  */
 export async function render(params: RenderParams): Promise<RenderResult> {
-  const { props = {}, src, condition = "on:client", ssrOnly = false } = params;
+	const { component: preloaded, props = {}, src, condition = 'on:client', ssrOnly = false } = params;
 
-  try {
-    const Component = await loadComponent(src);
+	try {
+		const Component = preloaded || (await loadComponent(src));
 
-    if (!Component) {
-      throw new Error(`Invalid Qwik component in ${src}: component not found`);
-    }
+		if (!Component) {
+			throw new Error(`Invalid Qwik component in ${src}: component not found`);
+		}
 
-    // Import Qwik's SSR utilities through Vite's SSR loader if available
-    // Qwik's renderToString signature: (rootNode, opts?) => Promise<RenderToStringResult>
-    let renderToString: (
-      rootNode: unknown,
-      opts?: Record<string, unknown>
-    ) => Promise<{ html: string }>;
+		// Import Qwik's SSR utilities through Vite's SSR loader if available
+		// Qwik's renderToString signature: (rootNode, opts?) => Promise<RenderToStringResult>
+		let renderToString: (rootNode: unknown, opts?: Record<string, unknown>) => Promise<{ html: string }>;
 
-    // Use Vite's ssrLoadModule if available (during dev), otherwise dynamic import
-    const viteServer = (globalThis as any).__viteDevServer;
-    let qwikServerModule: any;
-    
-    if (viteServer?.ssrLoadModule) {
-      qwikServerModule = await viteServer.ssrLoadModule("@builder.io/qwik/server");
-    } else {
-      // Production or non-Vite context - use dynamic import with vite-ignore
-      const moduleId = "@builder.io/qwik/server";
-      qwikServerModule = await import(/* @vite-ignore */ moduleId);
-    }
+		// Use Vite's ssrLoadModule if available (during dev), otherwise dynamic import
+		const viteServer = (globalThis as any).__viteDevServer;
+		let qwikServerModule: any;
 
-    renderToString = qwikServerModule.renderToString || qwikServerModule.default?.renderToString;
+		if (viteServer?.ssrLoadModule) {
+			qwikServerModule = await viteServer.ssrLoadModule('@builder.io/qwik/server');
+		} else {
+			// Production or non-Vite context - use dynamic import with vite-ignore
+			const moduleId = '@builder.io/qwik/server';
+			qwikServerModule = await import(/* @vite-ignore */ moduleId);
+		}
 
-    if (!renderToString) {
-      throw new Error("renderToString not found in @builder.io/qwik/server");
-    }
+		renderToString = qwikServerModule.renderToString || qwikServerModule.default?.renderToString;
 
-    const containerId = `qwik-island-${src.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+		if (!renderToString) {
+			throw new Error('renderToString not found in @builder.io/qwik/server');
+		}
 
-    // Load Qwik core for JSX creation
-    const qwikCore = await viteServer?.ssrLoadModule?.("@builder.io/qwik") || 
-                     await import(/* @vite-ignore */ "@builder.io/qwik");
+		const containerId = `qwik-island-${src.replaceAll(/[^a-zA-Z0-9]/g, '-')}`;
 
-    // With 'segment' entry strategy, component$ returns a QRL-wrapped component
-    // We use jsx() to create the element, which handles QRLs properly
-    const jsxElement = qwikCore.jsx(Component, props || {});
+		// Load Qwik core for JSX creation
+		const qwikCore =
+			(await viteServer?.ssrLoadModule?.('@builder.io/qwik')) || (await import(/* @vite-ignore */ '@builder.io/qwik'));
 
-    // Qwik's renderToString takes (rootNode, opts) - rootNode is the first argument
-    // The q:container attribute marks the resumable boundary
-    // Set base to "/" so QRL URLs resolve from the web root in dev mode
-    const result = await renderToString(jsxElement, {
-      containerTagName: "div",
-      containerAttributes: {
-        "data-island-id": containerId,
-      },
-      base: "/",
-    });
+		// With 'segment' entry strategy, component$ returns a QRL-wrapped component
+		// We use jsx() to create the element, which handles QRLs properly
+		const jsxElement = qwikCore.jsx(Component, props || {});
 
-    const html = typeof result === "string" ? result : result.html;
+		// Qwik's renderToString takes (rootNode, opts) - rootNode is the first argument
+		// The q:container attribute marks the resumable boundary
+		// Set base to "/" so QRL URLs resolve from the web root in dev mode
+		const result = await renderToString(jsxElement, {
+			containerTagName: 'div',
+			containerAttributes: {
+				'data-island-id': containerId,
+			},
+			base: '/',
+		});
 
-    if (!html || typeof html !== "string") {
-      throw new Error(`renderToString returned invalid result: ${typeof html}`);
-    }
+		const html = typeof result === 'string' ? result : result.html;
 
-    // Post-process: replace absolute filesystem QRL paths with web-relative paths.
-    // The optimizer embeds the file's absolute path in QRL references during SSR.
-    // We strip the project root prefix so the Qwikloader can fetch them via Vite.
-    // e.g. /Users/.../www/app/components/Counter.qwik.tsx → /app/components/Counter.qwik.tsx
-    let processedHtml = html;
-    if (viteServer) {
-      const root = (viteServer as any).config?.root || process.cwd();
-      if (root && processedHtml.includes(root)) {
-        processedHtml = processedHtml.replaceAll(root, "");
-      }
-    }
+		if (!html || typeof html !== 'string') {
+			throw new Error(`renderToString returned invalid result: ${typeof html}`);
+		}
 
-    return {
-      html: processedHtml,
-      hydrationData: { src, props, framework: "qwik", condition, containerId, ssrOnly },
-    };
-  } catch (error) {
-    throw new Error(
-      `Failed to render Qwik component ${src}: ${error instanceof Error ? error.message : String(error)}`,
-      { cause: error }
-    );
-  }
+		// Post-process: replace absolute filesystem QRL paths with web-relative paths.
+		// The optimizer embeds the file's absolute path in QRL references during SSR.
+		// We strip the project root prefix so the Qwikloader can fetch them via Vite.
+		// e.g. /Users/.../www/app/components/Counter.qwik.tsx → /app/components/Counter.qwik.tsx
+		let processedHtml = html;
+		if (viteServer) {
+			const root = (viteServer as any).config?.root || process.cwd();
+			if (root && processedHtml.includes(root)) {
+				processedHtml = processedHtml.replaceAll(root, '');
+			}
+		}
+
+		return {
+			html: processedHtml,
+			hydrationData: { src, props, framework: 'qwik', condition, containerId, ssrOnly },
+		};
+	} catch (error) {
+		throw new Error(
+			`Failed to render Qwik component ${src}: ${error instanceof Error ? error.message : String(error)}`,
+			{ cause: error },
+		);
+	}
 }
 
 /**
  * Render a Qwik component with error boundary
  */
 export async function renderWithErrorBoundary(params: RenderParams): Promise<RenderResult | null> {
-  try {
-    return await render(params);
-  } catch {
-    return null;
-  }
+	try {
+		return await render(params);
+	} catch {
+		return null;
+	}
 }

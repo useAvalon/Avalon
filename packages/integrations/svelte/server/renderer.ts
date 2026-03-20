@@ -46,10 +46,10 @@ async function extractCSS(src: string, scopeId: string | null) {
 }
 
 export async function render(params: RenderParams): Promise<RenderResult> {
-	const { props = {}, src, condition = 'on:client', ssrOnly = false } = params;
+	const { component: preloaded, props = {}, src, condition = 'on:client', ssrOnly = false } = params;
 
 	try {
-		const Component = await loadComponent(src);
+		const Component = preloaded || (await loadComponent(src));
 		if (!Component) {
 			throw new Error('No component found');
 		}

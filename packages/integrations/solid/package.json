@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/solid",
-	"version": "0.1.8",
+	"version": "0.1.9",
 	"description": "Solid.js integration for Avalon islands architecture",
 	"license": "MIT",
 	"type": "module",

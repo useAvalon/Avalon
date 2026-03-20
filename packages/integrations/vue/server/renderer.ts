@@ -32,7 +32,7 @@ export async function render(params: RenderParams): Promise<RenderResult> {
 	const { component: _component, props = {}, src, condition = 'on:client', ssrOnly = false } = params;
 
 	try {
-		const VueComponent = await loadComponent(src);
+		const VueComponent = _component || (await loadComponent(src));
 
 		const app = createSSRApp(VueComponent as any, props);
 		const ssrHtml = await vueRenderToString(app);
