@@ -1,12 +1,12 @@
 /**
  * Netlify build wrapper.
  *
- * Runs `vite build` then post-build.mjs, and force-exits to avoid
- * Netlify's "background executions still going on" error caused by
- * Vite/Nitro leaving open handles after the build completes.
+ * Vite/Nitro leaves open handles after the build completes, preventing
+ * the Node process from exiting. This wrapper detects when the build
+ * output is ready, kills the entire process group, then runs post-build.
  */
 
-import { execSync } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -26,49 +26,85 @@ for (const dir of ['.netlify', '.output']) {
 	}
 }
 
-// Run vite build synchronously — execSync blocks until the process exits
-// and doesn't leave orphan background processes.
-try {
-	execSync('bunx --bun vite build', {
-		cwd: CWD,
-		stdio: 'inherit',
-		timeout: 300_000, // 5 min
-	});
-	console.log('[build] vite build completed');
-} catch (err) {
-	// Vite exits with code 1 due to stderr warnings even on success.
-	// Check if the output files exist to determine actual success.
-	const netlifyReady = existsSync(NITRO_JSON) && existsSync(SERVER_MJS);
-	const nodeServerReady = existsSync(OUTPUT_SSR);
-	if (netlifyReady || nodeServerReady) {
-		console.log('[build] vite build exited with warnings but output exists — continuing');
-	} else {
-		console.error('[build] vite build failed and no output found');
-		console.error(err.message);
-		process.exit(1);
+// Spawn vite build in its own process group so we can kill the whole tree.
+// On Linux (Netlify), { detached: true } puts it in a new process group.
+const child = spawn('bunx', ['--bun', 'vite', 'build'], {
+	cwd: CWD,
+	stdio: 'inherit',
+	detached: true,
+});
+
+const childPid = child.pid;
+let done = false;
+
+function killTree() {
+	try {
+		// Kill the entire process group (negative PID on Linux)
+		process.kill(-childPid, 'SIGKILL');
+	} catch {
+		// Already dead or not a group leader
+	}
+	try {
+		child.kill('SIGKILL');
+	} catch {
+		// Already dead
 	}
 }
 
-// Run post-build synchronously
-console.log('[build] Running post-build...');
-try {
-	execSync('bun post-build.mjs', {
-		cwd: CWD,
-		stdio: 'inherit',
-		timeout: 60_000,
-	});
-} catch (err) {
-	console.error('[build] post-build failed:', err.message);
+function finish() {
+	if (done) return;
+	done = true;
+	clearInterval(poll);
+	clearTimeout(absoluteTimeout);
+
+	// Kill vite and all its children
+	killTree();
+
+	// Small delay to let the OS clean up
+	setTimeout(() => {
+		// Run post-build synchronously
+		console.log('[build] Running post-build...');
+		try {
+			execSync('node post-build.mjs', { cwd: CWD, stdio: 'inherit', timeout: 60_000 });
+		} catch (err) {
+			console.error('[build] post-build warning:', err.message);
+		}
+
+		// Verify
+		if (existsSync(SERVER_MJS)) console.log('[build] ✅ Server function found');
+		else if (existsSync(OUTPUT_SSR)) console.log('[build] ✅ SSR bundle found');
+		else console.error('[build] ❌ No server output found');
+
+		console.log('[build] ✅ Complete');
+		process.exit(0);
+	}, 500);
 }
 
-// Verify output
-if (existsSync(SERVER_MJS)) {
-	console.log('[build] ✅ Server function found');
-} else if (existsSync(OUTPUT_SSR)) {
-	console.log('[build] ✅ SSR bundle found (node-server preset)');
-} else {
-	console.error('[build] ❌ No server output found');
-}
+child.on('exit', code => {
+	console.log(`[build] vite build exited with code ${code}`);
+	finish();
+});
 
-console.log('[build] ✅ Complete');
-process.exit(0);
+child.on('error', err => {
+	console.error('[build] spawn error:', err);
+	process.exit(1);
+});
+
+// Poll for output files — the build is done once these exist
+const poll = setInterval(() => {
+	const netlifyReady = existsSync(NITRO_JSON) && existsSync(SERVER_MJS);
+	const nodeServerReady = existsSync(OUTPUT_SSR);
+	if (netlifyReady || nodeServerReady) {
+		console.log(
+			`[build] Output detected (${netlifyReady ? 'netlify' : 'node-server'}), waiting 3s for final writes...`,
+		);
+		clearInterval(poll);
+		setTimeout(finish, 3_000);
+	}
+}, 1_000);
+
+// Absolute timeout
+const absoluteTimeout = setTimeout(() => {
+	console.error('[build] Timeout — killing build');
+	finish();
+}, 240_000);
