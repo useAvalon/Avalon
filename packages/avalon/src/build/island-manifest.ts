@@ -192,7 +192,7 @@ export function getIslandBundlePath(src: string, manifest?: ExtendedIslandManife
 		if (extendedManifest.islands[qualifiedName]) {
 			return extendedManifest.islands[qualifiedName].bundle;
 		}
-		const simpleName = src.replace(/^\/islands\//, '').replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
+		const simpleName = src.replace(/^\/islands\//, '').replace(/\.(tsx?|jsx?)$/, '');
 		const island = manifest.islands[simpleName];
 		if (island) {
 			return island.bundle;
@@ -226,8 +226,7 @@ export function getIslandBundlePath(src: string, manifest?: ExtendedIslandManife
  */
 function extractQualifiedNameFromSrc(src: string): string {
 	let path = src.replace(/^\//, '');
-	path = path.replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
-	path = path.replace(/\.(solid|react|lit|preact)$/, '');
+	path = path.replace(/\.(tsx?|jsx?)$/, '');
 
 	const nestedMatch = new RegExp(/^src\/(.+)\/islands\/([^/]+)$/).exec(path);
 	if (nestedMatch) {

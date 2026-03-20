@@ -164,7 +164,7 @@ function extractIslandComponents(
 		if (!resolved) continue;
 		const relPath = relative(cwd, resolved)
 			.replaceAll('\\', '/')
-			.replace(/\.(tsx?|jsx?|vue|svelte)$/, '');
+			.replace(/\.(tsx?|jsx?)$/, '');
 		if (!islands.has(resolved)) islands.set(resolved, { filePath: resolved, bundleKey: relPath });
 	}
 }
