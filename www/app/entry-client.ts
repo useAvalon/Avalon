@@ -10,3 +10,8 @@
 // elements and lazily hydrates them based on their condition
 // (on:client, on:visible, on:interaction, on:idle, media:…).
 import '@useavalon/avalon/client/main';
+
+// Global CSS — imported here so Vite includes it in the client
+// assets manifest, which the SSR entry reads via ?assets=client
+// to inject <link rel="stylesheet"> tags into the HTML.
+import '@shared/styles/main.css';

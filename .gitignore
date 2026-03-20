@@ -58,3 +58,10 @@ coverage/
 
 # Test artifacts
 .nyc_output/
+
+# Test project folders
+t/
+
+# Netlify build output
+.netlify/
+www/.netlify/
