@@ -7,3 +7,6 @@
   NODE_VERSION = "22"
   BUN_VERSION = "latest"
   NITRO_PRESET = "netlify"
+
+[functions]
+  directory = "netlify/functions"

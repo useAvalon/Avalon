@@ -275,26 +275,31 @@ for (const ssrPath of [
 generateIslandRedirects();
 copyAdapters();
 
-// ─── Copy function to Netlify Frameworks API v1 path ─────────────────
-// Nitro v3 beta writes to .netlify/functions-internal/ (legacy path).
-// Netlify's modern Frameworks API expects .netlify/v1/functions/.
-// Copy the server function there so Netlify reliably detects it.
+// ─── Copy function to ALL Netlify function paths ─────────────────────
+// Nitro v3 beta writes to .netlify/functions-internal/ (framework path).
+// Netlify may not detect Nitro as a framework with our custom build,
+// so also copy to:
+//   - .netlify/v1/functions/  (Frameworks API v1)
+//   - netlify/functions/      (standard user-facing path)
 
-function copyToNetlifyV1() {
+function copyToNetlifyPaths() {
 	const legacyDir = join(CWD, '.netlify', 'functions-internal', 'server');
-	const v1Dir = join(CWD, '.netlify', 'v1', 'functions', 'server');
 
 	if (!existsSync(legacyDir)) {
-		console.log('[netlify-v1] No .netlify/functions-internal/server/ found, skipping');
+		console.log('[netlify-fn] No .netlify/functions-internal/server/ found, skipping');
 		return;
 	}
 
-	// Copy entire server directory to v1 path
-	cpSync(legacyDir, v1Dir, { recursive: true, force: true });
-	console.log(`[netlify-v1] ✅ Copied server function to .netlify/v1/functions/server/`);
+	const targets = [join(CWD, '.netlify', 'v1', 'functions', 'server'), join(CWD, 'netlify', 'functions', 'server')];
+
+	for (const target of targets) {
+		cpSync(legacyDir, target, { recursive: true, force: true });
+		const rel = target.substring(CWD.length).replaceAll('\\', '/');
+		console.log(`[netlify-fn] ✅ Copied server function to ${rel}/`);
+	}
 }
 
-copyToNetlifyV1();
+copyToNetlifyPaths();
 
 // ─── Ensure Netlify _redirects has SSR catch-all ─────────────────────
 // Nitro v3 beta's netlify preset generates an empty _redirects file.

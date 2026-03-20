@@ -18,7 +18,7 @@ const OUTPUT_SSR = join(CWD, '.output', 'server', '_ssr', 'ssr.mjs');
 console.log('[build] Starting vite build...');
 
 // Clean stale output dirs
-for (const dir of ['.netlify', '.output']) {
+for (const dir of ['.netlify', '.output', 'netlify']) {
 	const full = join(CWD, dir);
 	if (existsSync(full)) {
 		rmSync(full, { recursive: true, force: true });
