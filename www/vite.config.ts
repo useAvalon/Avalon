@@ -20,7 +20,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		},
 
 		nitro: {
-			preset: 'node_server',
+			preset: process.env.NITRO_PRESET || 'node_server',
 			streaming: true,
 			compatibilityDate: '2025-06-01',
 			routeRules: {

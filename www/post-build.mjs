@@ -49,10 +49,23 @@ for (const htmlPath of ['dist/index.html', '.netlify/functions-internal/server/p
 // ─── Patch SSR bundle CSS ────────────────────────────────────────────
 
 function patchSSRBundleCSS(ssrBundlePath) {
-	if (!existsSync(ssrBundlePath) || !existsSync(ASSETS_DIR)) return;
+	if (!existsSync(ssrBundlePath)) return;
 
-	const allCssPaths = collectFiles(ASSETS_DIR, n => n.endsWith('.css')).map(toServePath);
-	console.log(`[patch] Found ${allCssPaths.length} CSS files in dist/assets/`);
+	// Look for CSS in multiple possible asset directories
+	const assetsDirs = [
+		ASSETS_DIR,
+		join(CWD, '.netlify', 'functions-internal', 'server', 'public', 'assets'),
+		join(CWD, '.output', 'public', 'assets'),
+	];
+	const assetsDir = assetsDirs.find(d => existsSync(d));
+	if (!assetsDir) return;
+
+	const allCssPaths = collectFiles(assetsDir, n => n.endsWith('.css')).map(f => {
+		// Normalize to /assets/... serve path regardless of source dir
+		const rel = f.substring(assetsDir.length).replaceAll('\\', '/');
+		return '/assets' + rel;
+	});
+	console.log(`[patch] Found ${allCssPaths.length} CSS files in ${assetsDir}`);
 	for (const p of allCssPaths) console.log(`  ${p}`);
 
 	let code = readFileSync(ssrBundlePath, 'utf-8');
@@ -179,8 +192,12 @@ function copySSRCSSToClient() {
 		const cssFiles = readdirSync(ssrAssetsDir).filter(f => f.endsWith('.css'));
 		if (cssFiles.length === 0) continue;
 
-		// Copy to both dist/assets/ (for Netlify) and .output/public/assets/ (for node-server)
-		const destDirs = [ASSETS_DIR, join(CWD, '.output', 'public', 'assets')];
+		// Copy to dist/assets/, .output/public/assets/ (node-server), and .netlify public (netlify preset)
+		const destDirs = [
+			ASSETS_DIR,
+			join(CWD, '.output', 'public', 'assets'),
+			join(CWD, '.netlify', 'functions-internal', 'server', 'public', 'assets'),
+		];
 		for (const destDir of destDirs) {
 			mkdirSync(destDir, { recursive: true });
 			for (const file of cssFiles) {
