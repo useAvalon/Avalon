@@ -15,6 +15,7 @@ describe('scaffoldProject', () => {
 		styling: 'css-modules',
 		plugins: [],
 		middleware: 'h3',
+		deploy: 'none',
 	};
 
 	beforeEach(async () => {
@@ -180,14 +181,36 @@ describe('scaffoldProject', () => {
 		expect(content).toContain('virtual:avalon/config');
 	});
 
-	it('creates index.html with client build entry point', async () => {
+	it('does not generate index.html', async () => {
 		const target = join(tempDir, 'out');
 		await scaffoldProject(baseConfig, target);
 
-		const content = await read('index.html');
-		expect(content).toContain('<!--ssr-outlet-->');
-		expect(content).toContain('/src/client/main.js');
-		expect(content).toContain('<!DOCTYPE html>');
+		expect(await exists(join(target, 'index.html'))).toBe(false);
+	});
+
+	it('does not generate deploy files when deploy is none', async () => {
+		const target = join(tempDir, 'out');
+		await scaffoldProject(baseConfig, target);
+
+		expect(await exists(join(target, 'netlify.toml'))).toBe(false);
+		expect(await exists(join(target, 'build.mjs'))).toBe(false);
+		expect(await exists(join(target, 'post-build.mjs'))).toBe(false);
+	});
+
+	it('generates netlify.toml, build.mjs, and post-build.mjs when deploy is netlify', async () => {
+		const config: ProjectConfig = { ...baseConfig, deploy: 'netlify' };
+		const target = join(tempDir, 'out');
+		await scaffoldProject(config, target);
+
+		const toml = await read('netlify.toml');
+		expect(toml).toContain('NITRO_PRESET = "netlify"');
+		expect(toml).toContain('publish = "dist"');
+
+		const buildMjs = await read('build.mjs');
+		expect(buildMjs).toContain('vite build');
+
+		const postBuild = await read('post-build.mjs');
+		expect(postBuild).toContain('post-build');
 	});
 
 	it('uses hono patterns when middleware is hono', async () => {

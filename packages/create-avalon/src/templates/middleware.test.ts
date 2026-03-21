@@ -9,6 +9,7 @@ describe('generateSampleMiddleware', () => {
 		styling: 'css-modules',
 		plugins: [],
 		middleware: 'h3',
+		deploy: 'none',
 	};
 
 	it('generates middleware using defineHandler from nitro', () => {

@@ -9,6 +9,7 @@ describe('generateStylingFiles', () => {
 		styling: 'css-modules',
 		plugins: [],
 		middleware: 'h3',
+		deploy: 'none',
 	};
 
 	// --- Common files ---

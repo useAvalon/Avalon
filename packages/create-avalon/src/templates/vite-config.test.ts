@@ -9,6 +9,7 @@ describe('generateViteConfig', () => {
 		styling: 'css-modules',
 		plugins: [],
 		middleware: 'h3',
+		deploy: 'none',
 	};
 
 	it('imports defineConfig from vite and avalon from @useavalon/avalon', () => {
@@ -38,7 +39,7 @@ describe('generateViteConfig', () => {
 	it('includes nitro config with preset and streaming', () => {
 		const result = generateViteConfig(baseConfig);
 		expect(result).toContain(`nitro: {`);
-		expect(result).toContain(`preset: 'node_server'`);
+		expect(result).toContain(`process.env.NITRO_PRESET || 'node_server'`);
 		expect(result).toContain(`streaming: true`);
 	});
 

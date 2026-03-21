@@ -57,12 +57,18 @@ export function generatePackageJson(config: ProjectConfig): string {
 		private: true,
 		scripts: {
 			dev: 'bunx --bun vite dev',
-			build: 'bunx --bun vite build',
-			preview: 'bunx --bun vite preview',
-		},
+			build: config.deploy === 'netlify' ? 'bun build.mjs' : 'bunx --bun vite build',
+			'post-build': config.deploy === 'netlify' ? 'node post-build.mjs' : undefined,
+			preview: 'node .output/server/index.mjs',
+		} as Record<string, string | undefined>,
 		dependencies,
 		devDependencies,
 	};
+
+	// Remove undefined scripts
+	for (const key of Object.keys(pkg.scripts)) {
+		if (pkg.scripts[key] === undefined) delete pkg.scripts[key];
+	}
 
 	return JSON.stringify(pkg, null, 2);
 }

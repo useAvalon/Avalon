@@ -55,7 +55,7 @@ export function generateViteConfig(config: ProjectConfig): string {
 		`    layoutsDir: 'app/shared/layouts',`,
 		`    image: true,`,
 		`    nitro: {`,
-		`      preset: 'node_server',`,
+		`      preset: process.env.NITRO_PRESET || 'node_server',`,
 		`      streaming: true,`,
 		`    },`,
 		`  });`,

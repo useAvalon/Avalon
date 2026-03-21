@@ -11,6 +11,8 @@ import { generateSampleMiddleware } from './templates/middleware';
 import { generateHelloRoute } from './templates/api-routes';
 import { generateStylingFiles } from './templates/styling';
 import { getFaviconBuffer } from './templates/favicon';
+import { generateNetlifyToml, generateBuildMjs } from './templates/deploy';
+import { generatePostBuildMjs } from './templates/post-build';
 
 function generateHonoServerEntry(): string {
 	return `import { Hono } from 'hono';
@@ -121,26 +123,10 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 		].join('\n'),
 	);
 
-	// Write index.html — client build entry point for Nitro's Vite plugin.
-	// Nitro uses this to bundle client-side JS (island hydration) into the
-	// output public directory. The <!--ssr-outlet--> marker is replaced by
-	// Nitro with the SSR-rendered HTML at runtime.
-	await writeFile(
-		join(targetDir, 'index.html'),
-		[
-			`<!DOCTYPE html>`,
-			`<html lang="en">`,
-			`  <head>`,
-			`    <meta charset="utf-8" />`,
-			`    <meta name="viewport" content="width=device-width, initial-scale=1" />`,
-			`    <title>Avalon</title>`,
-			`  </head>`,
-			`  <body>`,
-			`    <!--ssr-outlet-->`,
-			`    <script type="module" src="/src/client/main.js"></script>`,
-			`  </body>`,
-			`</html>`,
-			``,
-		].join('\n'),
-	);
+	// Write deployment files (Netlify)
+	if (config.deploy === 'netlify') {
+		await writeFile(join(targetDir, 'netlify.toml'), generateNetlifyToml(config));
+		await writeFile(join(targetDir, 'build.mjs'), generateBuildMjs());
+		await writeFile(join(targetDir, 'post-build.mjs'), generatePostBuildMjs());
+	}
 }

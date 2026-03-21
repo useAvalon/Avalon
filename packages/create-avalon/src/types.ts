@@ -6,12 +6,15 @@ export type Plugin = 'agent-optimization' | 'syntax-highlighting';
 
 export type MiddlewareOption = 'h3' | 'hono' | 'elysia';
 
+export type DeployTarget = 'netlify' | 'none';
+
 export interface ProjectConfig {
 	projectName: string;
 	integrations: Integration[];
 	styling: StylingOption;
 	plugins: Plugin[];
 	middleware: MiddlewareOption;
+	deploy: DeployTarget;
 }
 
 export const INTEGRATION_PACKAGES: Record<Integration, string> = {

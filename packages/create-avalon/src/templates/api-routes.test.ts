@@ -9,6 +9,7 @@ describe('generateHelloRoute', () => {
 		styling: 'css-modules',
 		plugins: [],
 		middleware: 'h3',
+		deploy: 'none',
 	};
 
 	it('generates route using defineHandler from nitro', () => {

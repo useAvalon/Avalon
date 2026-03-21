@@ -1,5 +1,5 @@
 import { intro, text, multiselect, select, isCancel, cancel } from '@clack/prompts';
-import type { Integration, StylingOption, MiddlewareOption, ProjectConfig } from './types';
+import type { Integration, StylingOption, MiddlewareOption, DeployTarget, ProjectConfig } from './types';
 
 export async function collectProjectConfig(initialName?: string): Promise<ProjectConfig> {
 	intro('create-avalon');
@@ -88,11 +88,25 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 		process.exit(1);
 	}
 
+	const deployResult = await select({
+		message: 'Where will you deploy?',
+		options: [
+			{ value: 'netlify', label: 'Netlify', hint: 'Generates netlify.toml, build.mjs, post-build.mjs' },
+			{ value: 'none', label: 'None / Other', hint: 'Node server preset, no deploy config' },
+		],
+	});
+
+	if (isCancel(deployResult)) {
+		cancel('Operation cancelled.');
+		process.exit(1);
+	}
+
 	return {
 		projectName,
 		integrations: integrationsResult as Integration[],
 		styling: stylingResult as StylingOption,
 		plugins: pluginsResult,
 		middleware: middlewareResult as MiddlewareOption,
+		deploy: deployResult as DeployTarget,
 	};
 }
