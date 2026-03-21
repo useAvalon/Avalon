@@ -81,6 +81,12 @@ function getLayoutsForPath(pathname: string) {
 	return null;
 }
 
+// ── Universal CSS injection ──────────────────────────────────────────
+// @ts-ignore — workspace package export
+import { getUniversalCSSForHead } from '@useavalon/avalon/islands/universal-css-collector';
+// @ts-ignore — workspace package export
+import { getUniversalHeadForInjection } from '@useavalon/avalon/islands/universal-head-collector';
+
 // ── Asset injection helpers ──────────────────────────────────────────
 
 function buildAssetTags() {
@@ -140,6 +146,9 @@ export default {
 			const layoutEntry = getLayoutsForPath(pathname);
 			let html: string;
 
+			// Shared route info for layout props
+			const routeInfo = { path: pathname, params: {}, query: url.searchParams };
+
 			if (!layoutEntry || skipAll) {
 				// No layout — wrap in basic HTML shell
 				const { cssLinks, jsPreloads, entryScript } = buildAssetTags();
@@ -150,16 +159,20 @@ export default {
 				const layoutProps = {
 					children: h('div', { dangerouslySetInnerHTML: { __html: pageHtml } }),
 					frontmatter,
+					data: {},
+					route: routeInfo,
 				};
 				const layoutResult = layoutEntry.Layout(layoutProps);
 				const resolvedLayout = layoutResult instanceof Promise ? await layoutResult : layoutResult;
-				let wrappedHtml = preactRenderToString(resolvedLayout as any);
+				let wrappedHtml = preactRenderToString(resolvedLayout);
 
 				if (!layoutEntry.skipRoot) {
 					// Apply root layout (shell) around the module layout output
 					const rootProps = {
 						children: h('div', { dangerouslySetInnerHTML: { __html: wrappedHtml } }),
 						frontmatter,
+						data: {},
+						route: routeInfo,
 					};
 					const rootResult = RootLayout(rootProps);
 					const resolvedRoot = rootResult instanceof Promise ? await rootResult : rootResult;
@@ -168,6 +181,16 @@ export default {
 
 				// The layout provides the full <html> — just inject assets
 				html = '<!DOCTYPE html>\n' + injectAssetsIntoHtml(wrappedHtml);
+			}
+
+			// Inject universal CSS collected during island SSR (Svelte scoped, Vue scoped, Lit shadow, etc.)
+			const universalCSS = getUniversalCSSForHead(true);
+			if (universalCSS && html.includes('</head>')) {
+				html = html.replace('</head>', `${universalCSS}\n</head>`);
+			}
+			const universalHead = getUniversalHeadForInjection(true);
+			if (universalHead && html.includes('</head>')) {
+				html = html.replace('</head>', `${universalHead}\n</head>`);
 			}
 
 			return new Response(html, {
