@@ -60,11 +60,16 @@ export async function render(params: RenderParams): Promise<RenderResult> {
 		const ssrHtml = result.body;
 		const ssrHead = result.head || '';
 
-		const scopeMatch = ssrHtml.match(/class="[^"]*\b(svelte-[a-z0-9]+)\b/);
-		const scopeId = scopeMatch ? scopeMatch[1] : null;
-
-		// Always try to extract CSS, even without a scopeId (Svelte 5 may not add scope classes)
-		const css = await extractCSS(src, scopeId);
+		// Svelte 5's render() returns CSS directly in the result — use it first.
+		// Only fall back to extractCSS (reads source file from disk) in dev when render() doesn't provide CSS.
+		let css: string | undefined;
+		if (result.css?.code) {
+			css = result.css.code;
+		} else {
+			const scopeMatch = ssrHtml.match(/class="[^"]*\b(svelte-[a-z0-9]+)\b/);
+			const scopeId = scopeMatch ? scopeMatch[1] : null;
+			css = await extractCSS(src, scopeId);
+		}
 
 		return {
 			html: ssrHtml,
