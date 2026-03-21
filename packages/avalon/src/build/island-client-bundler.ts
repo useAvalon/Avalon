@@ -48,10 +48,24 @@ export function islandClientBundlerPlugin(config: ResolvedAvalonConfig): Plugin 
 		load(id) {
 			if (!id.startsWith(ISLAND_WRAPPER_PREFIX)) return null;
 			const filePath = id.slice(ISLAND_WRAPPER_PREFIX.length);
+			const escaped = JSON.stringify(filePath);
+
+			// Qwik components need ALL named exports preserved — the qwikloader
+			// fetches the bundle and looks up QRL symbols (s_xxx) as named exports.
+			// Also re-export _hW from @builder.io/qwik for useVisibleTask$/useTask$.
+			if (filePath.includes('.qwik.')) {
+				return [
+					`export * from ${escaped};`,
+					`export { _hW } from "@builder.io/qwik";`,
+					`import __C from ${escaped};`,
+					`export default __C;`,
+					`if(typeof globalThis<"u")globalThis.__avalonIsland=__C;`,
+				].join('\n');
+			}
+
 			// Create a wrapper that imports the component and explicitly exports it.
 			// We use both a default export AND a named 'Component' export, plus a
 			// globalThis side-effect to prevent aggressive tree-shaking by Rolldown.
-			const escaped = JSON.stringify(filePath);
 			return [
 				`import __C from ${escaped};`,
 				`var Component = __C;`,
@@ -118,6 +132,13 @@ function getPageAndLayoutDirsSync(config: ResolvedAvalonConfig, cwd: string): st
 	return dirs;
 }
 
+/** Auto-island framework file patterns — components from these are bundled even without `island` prop */
+const AUTO_ISLAND_PATTERNS = ['.qwik.'];
+
+function isAutoIslandImport(importPath: string): boolean {
+	return AUTO_ISLAND_PATTERNS.some(p => importPath.includes(p));
+}
+
 function scanDirectorySync(dir: string, cwd: string, islands: Map<string, IslandSource>): void {
 	let entries;
 	try {
@@ -136,7 +157,9 @@ function scanDirectorySync(dir: string, cwd: string, islands: Map<string, Island
 
 		try {
 			const content = readFileSync(fullPath, 'utf-8');
-			if (!content.includes('island=') && !content.includes('island ')) continue;
+			const hasExplicitIsland = content.includes('island=') || content.includes('island ');
+			const hasAutoIslandImport = /import\s+\w+\s+from\s+['"][^'"]*\.qwik\.[^'"]*['"]/m.test(content);
+			if (!hasExplicitIsland && !hasAutoIslandImport) continue;
 			extractIslandComponents(content, fullPath, cwd, islands);
 		} catch {
 			/* skip */
@@ -150,16 +173,31 @@ function extractIslandComponents(
 	cwd: string,
 	islands: Map<string, IslandSource>,
 ): void {
+	// Find components used with explicit island prop
 	const islandUsageRe = /<([A-Z]\w*)\s+[^>]*\bisland\b/g;
 	const usedComponents = new Set<string>();
 	let match;
 	while ((match = islandUsageRe.exec(content)) !== null) usedComponents.add(match[1]);
-	if (usedComponents.size === 0) return;
 
+	// Find auto-island components used as JSX elements (e.g. <QwikCounter />)
 	const importRe = /import\s+(\w+)\s+from\s+['"]([^'"]+)['"]/g;
+	const autoIslandNames = new Set<string>();
+	const imports: Array<[string, string]> = [];
 	while ((match = importRe.exec(content)) !== null) {
-		const [, name, importPath] = match;
-		if (!usedComponents.has(name)) continue;
+		imports.push([match[1], match[2]]);
+		if (isAutoIslandImport(match[2])) {
+			// Check if this component is used as a JSX element
+			const jsxRe = new RegExp('<' + match[1] + '[\\s/>]');
+			if (jsxRe.test(content)) {
+				autoIslandNames.add(match[1]);
+			}
+		}
+	}
+
+	if (usedComponents.size === 0 && autoIslandNames.size === 0) return;
+
+	for (const [name, importPath] of imports) {
+		if (!usedComponents.has(name) && !autoIslandNames.has(name)) continue;
 		const resolved = resolveImport(importPath, fileId, cwd);
 		if (!resolved) continue;
 		const relPath = relative(cwd, resolved)

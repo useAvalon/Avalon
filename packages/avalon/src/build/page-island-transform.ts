@@ -193,7 +193,7 @@ function isLayoutFile(id: string, layoutsDir: string, modules?: PageIslandTransf
 }
 
 /** Frameworks that are auto-wrapped as islands without requiring the `island` prop.
- *  Qwik is resumable — it gets SSR'd with ssrOnly:true and the Qwikloader handles the rest. */
+ *  Qwik components are auto-wrapped with ssrOnly — Qwik's qwikloader handles resumability natively. */
 const AUTO_ISLAND_FRAMEWORKS = new Set(['qwik']);
 
 /** Check if a component import is for an auto-island framework */
@@ -430,7 +430,9 @@ function buildRenderCall(
 	const compArg = ', component: ' + componentName;
 
 	if (autoIsland) {
-		// Auto-island (e.g. Qwik): SSR-only, no client hydration needed
+		// Auto-island (e.g. Qwik): SSR + resumability via Qwik's native qwikloader.
+		// The Qwik Vite plugin transforms component$() / onClick$() etc. into
+		// lazy-loadable QRL chunks that the qwikloader resolves at runtime.
 		return (
 			'{await __pageRenderIsland({ src: "' +
 			srcPath +
@@ -444,9 +446,8 @@ function buildRenderCall(
 	}
 
 	const islandValue = parsed.islandProp!;
-	// Qwik is resumable — SSR the HTML but skip client hydration.
-	// The Qwikloader handles resumption automatically.
-	const ssrOnlyArg = framework === 'qwik' ? ', ssrOnly: true' : '';
+	// Qwik with explicit island prop — treat like other frameworks
+	const ssrOnlyArg = '';
 
 	return (
 		'{await __pageRenderIsland({ src: "' +
