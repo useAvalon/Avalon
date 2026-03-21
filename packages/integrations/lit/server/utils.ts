@@ -15,16 +15,33 @@ import { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection
  * Extract custom element tag name from a Lit component
  */
 export function getTagName(ElementClass: typeof LitElement): string {
+	// Check static properties set by various Lit patterns
 	const tagName = (ElementClass as any).elementName || (ElementClass as any).tagName || (ElementClass as any)._tagName;
 
 	if (tagName && typeof tagName === 'string') {
 		return tagName;
 	}
 
-	// Convert PascalCase to kebab-case
+	// Check __localName set by @lit-labs/ssr-dom-shim's CustomElementRegistry.define()
+	const localName = (ElementClass as any).__localName;
+	if (localName && typeof localName === 'string') {
+		return localName;
+	}
+
+	// Check the customElements registry (reverse lookup)
+	if (
+		typeof globalThis.customElements !== 'undefined' &&
+		typeof (globalThis.customElements as any).getName === 'function'
+	) {
+		const registeredName = (globalThis.customElements as any).getName(ElementClass);
+		if (registeredName) return registeredName;
+	}
+
+	// Convert PascalCase to kebab-case (unreliable with minified builds)
 	const className = ElementClass.name;
-	if (className) {
-		return className.replaceAll(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+	if (className && className.includes('-')) {
+		// Only use class name if it already looks like a custom element name
+		return className;
 	}
 
 	throw new Error('Could not determine tag name for Lit component');
