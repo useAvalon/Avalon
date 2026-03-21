@@ -9,6 +9,20 @@
 import type { RenderParams, RenderResult } from '@useavalon/core/types';
 import { loadComponent } from './utils.ts';
 
+// Lazy-load Qwik modules — they're peer dependencies that may not be available
+// during the Vite build phase (integration activation). Loaded on first render call.
+let _jsx: typeof import('@builder.io/qwik').jsx | null = null;
+let _renderToString: typeof import('@builder.io/qwik/server').renderToString | null = null;
+
+async function getQwikModules() {
+	if (!_jsx || !_renderToString) {
+		const [qwikCore, qwikServer] = await Promise.all([import('@builder.io/qwik'), import('@builder.io/qwik/server')]);
+		_jsx = qwikCore.jsx;
+		_renderToString = qwikServer.renderToString;
+	}
+	return { jsx: _jsx, renderToString: _renderToString };
+}
+
 /**
  * Render a Qwik component to HTML string
  *
@@ -30,47 +44,49 @@ export async function render(params: RenderParams): Promise<RenderResult> {
 			throw new Error(`Invalid Qwik component in ${src}: component not found`);
 		}
 
-		// Import Qwik's SSR utilities through Vite's SSR loader if available
-		// Qwik's renderToString signature: (rootNode, opts?) => Promise<RenderToStringResult>
-		let renderToString: (rootNode: unknown, opts?: Record<string, unknown>) => Promise<{ html: string }>;
-
-		// Use Vite's ssrLoadModule if available (during dev), otherwise dynamic import
-		const viteServer = (globalThis as any).__viteDevServer;
-		let qwikServerModule: any;
-
-		if (viteServer?.ssrLoadModule) {
-			qwikServerModule = await viteServer.ssrLoadModule('@builder.io/qwik/server');
-		} else {
-			// Production or non-Vite context - use dynamic import with vite-ignore
-			const moduleId = '@builder.io/qwik/server';
-			qwikServerModule = await import(/* @vite-ignore */ moduleId);
-		}
-
-		renderToString = qwikServerModule.renderToString || qwikServerModule.default?.renderToString;
-
-		if (!renderToString) {
-			throw new Error('renderToString not found in @builder.io/qwik/server');
-		}
+		// Import Qwik's SSR utilities
+		const { jsx, renderToString } = await getQwikModules();
 
 		const containerId = `qwik-island-${src.replaceAll(/[^a-zA-Z0-9]/g, '-')}`;
 
-		// Load Qwik core for JSX creation
-		const qwikCore =
-			(await viteServer?.ssrLoadModule?.('@builder.io/qwik')) || (await import(/* @vite-ignore */ '@builder.io/qwik'));
-
-		// With 'segment' entry strategy, component$ returns a QRL-wrapped component
-		// We use jsx() to create the element, which handles QRLs properly
-		const jsxElement = qwikCore.jsx(Component, props || {});
+		// Create JSX element using Qwik's jsx function
+		const jsxElement = jsx(Component as any, props || {});
 
 		// Qwik's renderToString takes (rootNode, opts) - rootNode is the first argument
 		// The q:container attribute marks the resumable boundary
 		// Set base to "/" so QRL URLs resolve from the web root in dev mode
+		//
+		// symbolMapper: Qwik's SSR platform needs to resolve QRL symbol hashes to
+		// [symbolName, bundleURL] pairs. Without this, it falls back to the
+		// @qwik-client-manifest virtual module which is empty in Avalon's build.
+		// With the 'hoist' entry strategy, all QRL handlers are exported from the
+		// same module file, so we map every symbol back to the component's URL.
+		//
+		// In dev mode, the QRL middleware intercepts ?qrl= requests.
+		// In production, the qwikloader imports the bundle module directly and
+		// looks up the symbol as a named export — no query string needed.
+		const viteServer = (globalThis as any).__viteDevServer;
+		const componentUrl = src.startsWith('/') ? src : '/' + src;
+		let qrlBase: string;
+		if (viteServer) {
+			// Dev: use source path with ?qrl= for the dev middleware
+			qrlBase = componentUrl;
+		} else {
+			// Production: point to the island client bundle
+			const srcWithoutLeadingSlash = componentUrl.replace(/^\//, '');
+			qrlBase = '/islands/' + srcWithoutLeadingSlash.replace(/\.(tsx?|jsx?)$/, '.js');
+		}
+		const symbolMapper = (symbolName: string) => {
+			return [symbolName, qrlBase] as const;
+		};
+
 		const result = await renderToString(jsxElement, {
 			containerTagName: 'div',
 			containerAttributes: {
 				'data-island-id': containerId,
 			},
 			base: '/',
+			symbolMapper,
 		});
 
 		const html = typeof result === 'string' ? result : result.html;
@@ -79,17 +95,21 @@ export async function render(params: RenderParams): Promise<RenderResult> {
 			throw new Error(`renderToString returned invalid result: ${typeof html}`);
 		}
 
-		// Post-process: replace absolute filesystem QRL paths with web-relative paths.
-		// The optimizer embeds the file's absolute path in QRL references during SSR.
-		// We strip the project root prefix so the Qwikloader can fetch them via Vite.
-		// e.g. /Users/.../www/app/components/Counter.qwik.tsx → /app/components/Counter.qwik.tsx
+		// Post-process: strip any absolute filesystem paths that may leak through.
+		// The symbolMapper handles QRL URL mapping, but the Qwik compiler may
+		// embed absolute paths in other metadata.
 		let processedHtml = html;
-		if (viteServer) {
-			const root = (viteServer as any).config?.root || process.cwd();
-			if (root && processedHtml.includes(root)) {
+		const root = viteServer?.config?.root || process.cwd();
+		if (root) {
+			const forwardRoot = root.replaceAll('\\', '/');
+			if (processedHtml.includes(forwardRoot)) {
+				processedHtml = processedHtml.replaceAll(forwardRoot, '');
+			}
+			if (root !== forwardRoot && processedHtml.includes(root)) {
 				processedHtml = processedHtml.replaceAll(root, '');
 			}
 		}
+		processedHtml = processedHtml.replaceAll(/[A-Z]:[/\\](?:[^"'`\s]*[/\\])*(?=app\/)/gi, '/');
 
 		return {
 			html: processedHtml,
