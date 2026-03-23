@@ -3,17 +3,18 @@
  * These types define the contract that all framework integrations must implement.
  */
 
-import type { Plugin, ViteDevServer } from 'vite';
+import type { Plugin, ViteDevServer } from "vite";
 
 /**
  * Hydration condition types that determine when an island should become interactive
  */
 export type HydrationCondition =
-	| 'on:client' // Hydrate immediately on page load
-	| 'on:visible' // Hydrate when island enters viewport
-	| 'on:interaction' // Hydrate on first user interaction
-	| 'on:idle' // Hydrate when browser is idle
-	| `media:${string}`; // Hydrate when media query matches
+	| "on:client" // Hydrate immediately on page load
+	| "on:visible" // Hydrate when island enters viewport
+	| "on:interaction" // Hydrate on first user interaction
+	| "on:idle" // Hydrate when browser is idle
+	| `media:${string}` // Hydrate when media query matches
+	| `on:${string}`; // Custom hydration directive
 
 /**
  * Parameters passed to the integration's render function
@@ -152,5 +153,5 @@ export interface ComponentLoadOptions {
 	/** Load context */
 	context: LoadContext;
 	/** Whether to load for SSR or client */
-	target?: 'ssr' | 'client';
+	target?: "ssr" | "client";
 }
