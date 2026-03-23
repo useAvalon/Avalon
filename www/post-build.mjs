@@ -299,7 +299,24 @@ function isNetlifyHandler(serverEntryPath) {
  */
 function writeNetlifyWrapper(mainMjsPath, port) {
 	const wrapperPath = join(dirname(mainMjsPath), '_prerender-server.mjs');
+
+	// Resolve the polyfill path from www/node_modules so the wrapper
+	// can import it regardless of its own location in .netlify/...
+	let polyfillImport = '';
+	const polyfillPaths = [
+		join(CWD, 'node_modules', 'urlpattern-polyfill', 'index.js'),
+		join(CWD, 'node_modules', 'urlpattern-polyfill', 'dist', 'urlpattern.js'),
+	];
+	const polyfillPath = polyfillPaths.find(p => existsSync(p));
+	if (polyfillPath) {
+		// Use file:// URL for cross-platform ESM import
+		polyfillImport = `import '${polyfillPath.replaceAll('\\', '/')}';`;
+	}
+
 	const wrapperCode = `
+// Polyfill URLPattern for Node < 23 (Netlify builds use Node 22)
+${polyfillImport}
+
 import { createServer } from 'node:http';
 import handler from './main.mjs';
 
