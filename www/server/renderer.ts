@@ -17,8 +17,28 @@ import { render as svelteRender } from "@useavalon/svelte/server";
 import { render as vueRender } from "@useavalon/vue/server";
 import { h } from "preact";
 import preactRenderToString from "preact-render-to-string";
-// @ts-expect-error — virtual import resolved by Nitro's Vite assets plugin at build time
-import clientAssets from "../app/entry-client?assets=client";
+
+// Client assets are loaded lazily to avoid calling Nitro's internal fetch
+// during module initialization — the fetch proxy isn't ready until the
+// first request is handled. This prevents "n.fetch is not a function"
+// errors during prerendering on the Netlify preset.
+let _clientAssets: {
+	css?: Array<Record<string, string>>;
+	js?: Array<Record<string, string>>;
+	entry?: string;
+} | null = null;
+
+async function getClientAssets() {
+	if (_clientAssets) return _clientAssets;
+	try {
+		// Dynamic import — resolved by Nitro's Vite assets plugin at build time
+		const mod = await import("../app/entry-client?assets=client");
+		_clientAssets = mod.default ?? mod;
+	} catch {
+		_clientAssets = {};
+	}
+	return _clientAssets;
+}
 
 function makeIntegration(
 	name: string,
@@ -61,9 +81,7 @@ import { registerBuiltinDirectives } from "@useavalon/avalon";
 registerBuiltinDirectives();
 
 // ── Universal CSS injection ──────────────────────────────────────────
-// @ts-expect-error — workspace package export
 import { getUniversalCSSForHead } from "@useavalon/avalon/islands/universal-css-collector";
-// @ts-expect-error — workspace package export
 import { getUniversalHeadForInjection } from "@useavalon/avalon/islands/universal-head-collector";
 import { createNitroRenderer } from "@useavalon/avalon/nitro/renderer";
 import type { NitroRenderContext, PageModule } from "@useavalon/avalon/nitro/types";
@@ -96,21 +114,20 @@ function getLayoutsForPath(pathname: string) {
 
 // ── Asset injection helpers ──────────────────────────────────────────
 
-function buildAssetTags() {
-	const cssLinks = (clientAssets?.css ?? [])
+async function buildAssetTags() {
+	const assets = await getClientAssets();
+	const cssLinks = (assets?.css ?? [])
 		.map((attr: Record<string, string>) => `<link rel="stylesheet" href="${attr.href}">`)
 		.join("\n");
-	const jsPreloads = (clientAssets?.js ?? [])
+	const jsPreloads = (assets?.js ?? [])
 		.map((attr: Record<string, string>) => `<link rel="modulepreload" href="${attr.href}">`)
 		.join("\n");
-	const entryScript = clientAssets?.entry
-		? `<script type="module" src="${clientAssets.entry}"></script>`
-		: "";
+	const entryScript = assets?.entry ? `<script type="module" src="${assets.entry}"></script>` : "";
 	return { cssLinks, jsPreloads, entryScript };
 }
 
-function injectAssetsIntoHtml(html: string): string {
-	const { cssLinks, jsPreloads, entryScript } = buildAssetTags();
+async function injectAssetsIntoHtml(html: string): Promise<string> {
+	const { cssLinks, jsPreloads, entryScript } = await buildAssetTags();
 	html = html.replace("</head>", `${cssLinks}\n${jsPreloads}\n</head>`);
 	html = html.replace("</body>", `${entryScript}\n</body>`);
 	return html;
@@ -153,7 +170,7 @@ async function wrapWithLayouts(
 	let html: string;
 
 	if (!layoutEntry || skipAll) {
-		const { cssLinks, jsPreloads, entryScript } = buildAssetTags();
+		const { cssLinks, jsPreloads, entryScript } = await buildAssetTags();
 		const title = String(frontmatter.title || "Avalon");
 		html = [
 			"<!DOCTYPE html>",
@@ -194,7 +211,7 @@ async function wrapWithLayouts(
 			wrappedHtml = preactRenderToString(resolvedRoot as any);
 		}
 
-		html = "<!DOCTYPE html>\n" + injectAssetsIntoHtml(wrappedHtml);
+		html = "<!DOCTYPE html>\n" + (await injectAssetsIntoHtml(wrappedHtml));
 	}
 
 	return injectUniversalAssets(html);
