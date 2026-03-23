@@ -13,6 +13,14 @@ export function generateNetlifyToml(config: ProjectConfig): string {
 
 [functions]
   directory = "netlify/functions"
+
+# SSR catch-all — Netlify checks for a matching static/prerendered file
+# first (force=false is the default in netlify.toml). Only requests with
+# no static file hit the server function.
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/server"
+  status = 200
 `;
 }
 
