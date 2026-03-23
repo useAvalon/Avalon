@@ -552,7 +552,9 @@ async function prerenderIfConfigured() {
 					: normalized + '.html';
 				const outputPath = join(outputDir, fileName);
 				mkdirSync(dirname(outputPath), { recursive: true });
-				writeFileSync(outputPath, result.html);
+				// Stamp prerendered pages so you can tell SSG from SSR in the browser
+				const stamped = result.html.replace('<!DOCTYPE html>', `<!DOCTYPE html>\n<!-- SSG: prerendered at build time -->`);
+				writeFileSync(outputPath, stamped);
 				prerendered.push(normalized);
 				console.log(`[prerender] ✅ ${normalized} → ${fileName}`);
 
