@@ -243,7 +243,7 @@ function copySSRCSSToClient() {
 		// files added after the build get 404 without this patch.
 		const nitroIndexPaths = [
 			join(CWD, '.output', 'server', 'index.mjs'),
-			join(CWD, '.netlify', 'functions-internal', 'server', 'server.mjs'),
+			join(CWD, '.netlify', 'functions-internal', 'server', 'main.mjs'),
 		];
 		for (const indexPath of nitroIndexPaths) {
 			if (!existsSync(indexPath)) continue;
@@ -277,8 +277,67 @@ function copySSRCSSToClient() {
 // static HTML files. This must run AFTER CSS patching so the SSR
 // handler produces complete HTML with all styles.
 
+/**
+ * Detect whether a server entry is a Netlify Functions handler (exports
+ * a default async function that takes a Request) vs a standalone Node
+ * server (node_server preset's index.mjs that listens on a port).
+ *
+ * The Netlify preset's server.mjs re-exports from main.mjs which
+ * exports `{ default: handler, config }`. It does NOT listen on a port.
+ * We detect this by checking for the `config` export with `path: "/*"`.
+ */
+function isNetlifyHandler(serverEntryPath) {
+	const code = readFileSync(serverEntryPath, 'utf-8');
+	// Netlify server.mjs is tiny: `export { default } from "./main.mjs"; export const config = { ... path: "/*" ... }`
+	// Or main.mjs itself has the handler. Check for the Netlify config pattern.
+	return code.includes('path: "/*"') || code.includes('path:`/*`');
+}
+
+/**
+ * Write a temporary wrapper script that imports the Netlify handler
+ * and wraps it in a Node HTTP server for prerendering.
+ */
+function writeNetlifyWrapper(mainMjsPath, port) {
+	const wrapperPath = join(dirname(mainMjsPath), '_prerender-server.mjs');
+	const wrapperCode = `
+import { createServer } from 'node:http';
+import handler from './main.mjs';
+
+const PORT = ${port};
+
+const server = createServer(async (req, res) => {
+  try {
+    const url = new URL(req.url, 'http://localhost:' + PORT);
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (value) headers.set(key, Array.isArray(value) ? value.join(', ') : value);
+    }
+    const request = new Request(url.toString(), {
+      method: req.method,
+      headers,
+    });
+    const response = await handler(request);
+    res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
+    const body = await response.text();
+    res.end(body);
+  } catch (err) {
+    console.error('[prerender-wrapper] Error:', err);
+    res.writeHead(500);
+    res.end('Internal Server Error');
+  }
+});
+
+server.listen(PORT, '127.0.0.1', () => {
+  console.log('[prerender-wrapper] Listening on http://127.0.0.1:' + PORT);
+});
+`;
+	writeFileSync(wrapperPath, wrapperCode);
+	return wrapperPath;
+}
+
 async function prerenderIfConfigured() {
-	// Find the server entry
+	// Find the server entry — prefer node_server's index.mjs (standalone),
+	// fall back to Netlify's server.mjs (function handler, needs wrapper).
 	const serverEntries = [
 		join(CWD, '.output', 'server', 'index.mjs'),
 		join(CWD, '.netlify', 'functions-internal', 'server', 'server.mjs'),
@@ -316,39 +375,58 @@ async function prerenderIfConfigured() {
 	const PRERENDER_PORT = 13172;
 	const baseUrl = `http://localhost:${PRERENDER_PORT}`;
 
-	console.log(`[prerender] Starting prerender with server: ${relative(CWD, serverEntry)}`);
+	// Determine if this is a Netlify function handler or a standalone server
+	const netlifyMode = isNetlifyHandler(serverEntry);
+	let actualEntry = serverEntry;
+
+	if (netlifyMode) {
+		// The Netlify preset's server.mjs is a function handler — it doesn't
+		// listen on a port. Write a thin wrapper that creates a Node HTTP
+		// server around the handler.
+		const mainMjsDir = dirname(serverEntry);
+		const mainMjsPath = join(mainMjsDir, 'main.mjs');
+		if (!existsSync(mainMjsPath)) {
+			console.error('[prerender] Netlify handler detected but main.mjs not found');
+			return;
+		}
+		actualEntry = writeNetlifyWrapper(mainMjsPath, PRERENDER_PORT);
+		console.log(`[prerender] Netlify handler detected — using wrapper: ${relative(CWD, actualEntry)}`);
+	}
+
+	console.log(`[prerender] Starting prerender with server: ${relative(CWD, actualEntry)}`);
 	console.log(`[prerender] Output: ${relative(CWD, outputDir)}`);
 
 	// Patch the Nitro server's static asset manifest to remove HTML entries.
-	// Nitro hardcodes a map of public assets at build time (the `k` object
-	// in index.mjs). If an HTML file exists in that manifest, Nitro serves
-	// it directly from disk WITHOUT hitting the SSR handler. During the
-	// initial Vite/Nitro build, HTML files are written to .output/public/
-	// with stale content (e.g. wrong prev/next links from sidebar fallback).
-	// By stripping HTML entries from the manifest, every route goes through
-	// SSR fresh, producing correct frontmatter-based links so the crawler
-	// discovers all pages.
+	// For node_server preset: Nitro hardcodes a map of public assets at build
+	// time. If an HTML file exists in that manifest, Nitro serves it directly
+	// from disk WITHOUT hitting the SSR handler. We strip HTML entries so
+	// every route goes through SSR fresh during prerender.
+	// For Netlify preset: the asset map is empty (static files served by CDN),
+	// so this is a no-op — but we still check in case future versions change.
 	{
-		let serverCode = readFileSync(serverEntry, 'utf-8');
-		// The manifest is a big object literal assigned to `k={}` or `var k={...}`.
-		// We find keys that end with .html and remove them.
-		const htmlKeyRe = /"\/[^"]*\.html":\{[^}]+\},?/g;
-		const before = serverCode.length;
-		serverCode = serverCode.replace(htmlKeyRe, '');
-		const after = serverCode.length;
-		if (before !== after) {
-			writeFileSync(serverEntry, serverCode);
-			console.log(`[prerender] Patched server manifest: removed HTML asset entries (${before - after} bytes)`);
-		} else {
-			console.log('[prerender] No HTML entries found in server manifest');
+		// Patch both server.mjs and main.mjs if they exist
+		const filesToPatch = [
+			serverEntry,
+			join(dirname(serverEntry), 'main.mjs'),
+		].filter(f => existsSync(f));
+
+		for (const filePath of filesToPatch) {
+			let serverCode = readFileSync(filePath, 'utf-8');
+			const htmlKeyRe = /"\/[^"]*\.html":\{[^}]+\},?/g;
+			const before = serverCode.length;
+			serverCode = serverCode.replaceAll(htmlKeyRe, '');
+			if (before !== serverCode.length) {
+				writeFileSync(filePath, serverCode);
+				console.log(`[prerender] Patched ${relative(CWD, filePath)}: removed HTML asset entries (${before - serverCode.length} bytes)`);
+			}
 		}
 	}
 
-	// Spawn the built Nitro server as a child process
+	// Spawn the server as a child process
 	const { spawn: spawnProcess } = await import('node:child_process');
 	let serverProcess;
 	try {
-		serverProcess = spawnProcess('node', [serverEntry], {
+		serverProcess = spawnProcess('node', [actualEntry], {
 			env: {
 				...process.env,
 				PORT: String(PRERENDER_PORT),
@@ -475,6 +553,15 @@ async function prerenderIfConfigured() {
 	}
 
 	console.log(`[prerender] Done: ${prerendered.length} page(s) prerendered` + (errors.length > 0 ? `, ${errors.length} error(s)` : ''));
+
+	// Clean up the temporary wrapper script if we created one
+	if (netlifyMode) {
+		const wrapperPath = join(dirname(serverEntry), '_prerender-server.mjs');
+		if (existsSync(wrapperPath)) {
+			unlinkSync(wrapperPath);
+			console.log('[prerender] Cleaned up wrapper script');
+		}
+	}
 
 	// Copy prerendered files to all output locations
 	if (prerendered.length > 0) {

@@ -8,6 +8,11 @@
   BUN_VERSION = "latest"
   NITRO_PRESET = "netlify"
 
+[dev]
+  command = "bunx --bun vite"
+  targetPort = 8012
+  autoLaunch = false
+
 [functions]
   directory = "netlify/functions"
 
