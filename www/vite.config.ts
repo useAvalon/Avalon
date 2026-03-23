@@ -1,47 +1,59 @@
-import { defineConfig, type UserConfig } from 'vite';
-import { resolve } from 'node:path';
-import { avalon } from '@useavalon/avalon';
-import { agentOptimization } from '@useavalon/agent-optimization';
+import { resolve } from "node:path";
+import { agentOptimization } from "@useavalon/agent-optimization";
+import { avalon } from "@useavalon/avalon";
+import { defineConfig, type UserConfig } from "vite";
 
 export default defineConfig(async ({ command }): Promise<UserConfig> => {
 	const avalonPlugins = await avalon({
 		// Modular architecture - pages/layouts discovered within each module
-		modules: 'app/modules',
+		modules: "app/modules",
 
 		// Shared layouts directory (root layout lives here)
-		layoutsDir: 'app/shared/layouts',
+		layoutsDir: "app/shared/layouts",
 
-		integrations: ['react', 'preact', 'vue', 'svelte', 'qwik', 'solid', 'lit'],
+		integrations: ["react", "preact", "vue", "svelte", "qwik", "solid", "lit"],
 		lazyIntegrations: true,
 
 		mdx: {
-			jsxImportSource: 'preact',
+			jsxImportSource: "preact",
 			syntaxHighlighting: true,
 		},
 
 		nitro: {
-			preset: process.env.NITRO_PRESET || 'node_server',
+			preset: process.env.NITRO_PRESET || "node_server",
 			streaming: true,
-			compatibilityDate: '2025-06-01',
+			compatibilityDate: "2025-06-01",
 			routeRules: {
-				'/assets/**': {
-					headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
+				"/assets/**": {
+					headers: { "Cache-Control": "public, max-age=31536000, immutable" },
 				},
-				'/chunks/**': {
-					headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
+				"/chunks/**": {
+					headers: { "Cache-Control": "public, max-age=31536000, immutable" },
 				},
-				'/favicon.ico': {
-					headers: { 'Cache-Control': 'public, max-age=86400' },
+				"/favicon.ico": {
+					headers: { "Cache-Control": "public, max-age=86400" },
 				},
 			},
 			runtimeConfig: {
-				appName: 'Avalon Demo',
-				appVersion: '1.0.0',
+				appName: "Avalon Demo",
+				appVersion: "1.0.0",
 			},
 			staticAssets: {
-				publicDir: 'public',
-				buildDir: 'dist',
+				publicDir: "public",
+				buildDir: "dist",
 				compression: true,
+			},
+
+			// Prerender static pages at build time (SSG).
+			// Nitro fetches each route using the SSR handler, writes the
+			// resulting HTML (including island markup) to static files.
+			// Islands still hydrate on the client as normal.
+			// Only /demo/data-fetching stays SSR (it fetches live data).
+			prerender: {
+				crawlLinks: true,
+				routes: ["/"],
+				ignore: ["/demo/data-fetching"],
+				failOnError: true,
 			},
 		},
 
@@ -52,8 +64,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 	});
 
 	return {
-		root: '.',
-		publicDir: 'public',
+		root: ".",
+		publicDir: "public",
 
 		// Nitro auto-detects app/entry-server.ts as the SSR entry.
 		// The client environment uses entry-client.ts so Vite bundles
@@ -63,7 +75,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			client: {
 				build: {
 					rollupOptions: {
-						input: './app/entry-client.ts',
+						input: "./app/entry-client.ts",
 					},
 				},
 			},
@@ -73,7 +85,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			ssr: {
 				build: {
 					rollupOptions: {
-						input: './app/entry-server.ts',
+						input: "./app/entry-server.ts",
 					},
 				},
 			},
@@ -82,22 +94,23 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		plugins: [
 			agentOptimization({
 				sitemap: {
-					siteUrl: 'http://localhost:8012',
-					changefreq: 'daily',
-					exclude: ['/admin/**', '/login'],
+					siteUrl: "http://localhost:8012",
+					changefreq: "daily",
+					exclude: ["/admin/**", "/login"],
 				},
 				markdown: true,
 				structuredData: true,
 				llms: {
-					siteUrl: 'http://localhost:8012',
-					siteName: 'Avalon',
-					siteDescription: 'A multi-framework islands architecture for building fast, modern websites.',
+					siteUrl: "http://localhost:8012",
+					siteName: "Avalon",
+					siteDescription:
+						"A multi-framework islands architecture for building fast, modern websites.",
 					sections: {
-						Pages: ['/'],
-						Docs: ['/docs'],
-						Blog: ['/blog'],
+						Pages: ["/"],
+						Docs: ["/docs"],
+						Blog: ["/blog"],
 					},
-					exclude: ['/admin/**'],
+					exclude: ["/admin/**"],
 					full: true,
 				},
 			}),
@@ -106,30 +119,30 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 		optimizeDeps: {
 			include: [
-				'react',
-				'react/jsx-runtime',
-				'react/jsx-dev-runtime',
-				'react-dom',
-				'react-dom/client',
-				'vue',
-				'svelte',
-				'svelte/internal',
-				'svelte/store',
-				'lit',
-				'@lit-labs/ssr-client',
-				'@lit-labs/ssr-client/lit-element-hydrate-support.js',
-				'preact',
-				'preact/hooks',
-				'preact/jsx-runtime',
-				'@builder.io/qwik',
+				"react",
+				"react/jsx-runtime",
+				"react/jsx-dev-runtime",
+				"react-dom",
+				"react-dom/client",
+				"vue",
+				"svelte",
+				"svelte/internal",
+				"svelte/store",
+				"lit",
+				"@lit-labs/ssr-client",
+				"@lit-labs/ssr-client/lit-element-hydrate-support.js",
+				"preact",
+				"preact/hooks",
+				"preact/jsx-runtime",
+				"@builder.io/qwik",
 			],
 		},
 
 		build: {
-			outDir: 'dist',
+			outDir: "dist",
 			emptyOutDir: true,
-			target: 'es2020',
-			minify: 'oxc',
+			target: "es2020",
+			minify: "oxc",
 		},
 
 		server: {
@@ -139,32 +152,32 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		},
 
 		ssr: {
-			target: 'webworker',
+			target: "webworker",
 			resolve: {
 				// 'node' condition ensures solid-js/web resolves to server.js (SSR build)
 				// instead of dev.js (client DOM build). Vue's CJS issue from its "node"
 				// condition is handled by the resolve.alias for vue below.
-				conditions: ['node'],
+				conditions: ["node"],
 			},
 			noExternal: [
-				'vue',
-				'@vue/server-renderer',
-				'@vue/shared',
-				'svelte',
-				'svelte/internal',
-				'svelte/store',
-				'svelte/server',
-				'react',
-				'react-dom',
-				'react-dom/client',
-				'react-dom/server',
-				'@builder.io/qwik',
-				'@builder.io/qwik/server',
+				"vue",
+				"@vue/server-renderer",
+				"@vue/shared",
+				"svelte",
+				"svelte/internal",
+				"svelte/store",
+				"svelte/server",
+				"react",
+				"react-dom",
+				"react-dom/client",
+				"react-dom/server",
+				"@builder.io/qwik",
+				"@builder.io/qwik/server",
 				// estree-walker v3 is ESM-only (no CJS "require" export).
 				// Vue's compiler-sfc uses it, and without inlining it the
 				// Nitro server bundle emits a require('estree-walker') that
 				// fails at runtime with ERR_PACKAGE_PATH_NOT_EXPORTED.
-				'estree-walker',
+				"estree-walker",
 			],
 			// solid-js and solid-js/web are intentionally NOT in noExternal.
 			// They must load as native ESM so the renderer and component share
@@ -175,25 +188,37 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 		resolve: {
 			alias: [
-				{ find: '@shared', replacement: resolve('app/shared') },
-				{ find: '@modules', replacement: resolve('app/modules') },
-				{ find: '@/', replacement: resolve('app') + '/' },
-				{ find: /^vue$/, replacement: 'vue/dist/vue.esm-bundler.js' },
-				{ find: /^@vue\/shared$/, replacement: '@vue/shared/dist/shared.esm-bundler.js' },
-				{ find: /^@vue\/runtime-core$/, replacement: '@vue/runtime-core/dist/runtime-core.esm-bundler.js' },
-				{ find: /^@vue\/runtime-dom$/, replacement: '@vue/runtime-dom/dist/runtime-dom.esm-bundler.js' },
-				{ find: /^@vue\/reactivity$/, replacement: '@vue/reactivity/dist/reactivity.esm-bundler.js' },
-				{ find: /^@vue\/server-renderer$/, replacement: '@vue/server-renderer/dist/server-renderer.esm-bundler.js' },
+				{ find: "@shared", replacement: resolve("app/shared") },
+				{ find: "@modules", replacement: resolve("app/modules") },
+				{ find: "@/", replacement: resolve("app") + "/" },
+				{ find: /^vue$/, replacement: "vue/dist/vue.esm-bundler.js" },
+				{ find: /^@vue\/shared$/, replacement: "@vue/shared/dist/shared.esm-bundler.js" },
+				{
+					find: /^@vue\/runtime-core$/,
+					replacement: "@vue/runtime-core/dist/runtime-core.esm-bundler.js",
+				},
+				{
+					find: /^@vue\/runtime-dom$/,
+					replacement: "@vue/runtime-dom/dist/runtime-dom.esm-bundler.js",
+				},
+				{
+					find: /^@vue\/reactivity$/,
+					replacement: "@vue/reactivity/dist/reactivity.esm-bundler.js",
+				},
+				{
+					find: /^@vue\/server-renderer$/,
+					replacement: "@vue/server-renderer/dist/server-renderer.esm-bundler.js",
+				},
 			],
 		},
 
 		define: {
-			__DEV__: command === 'serve',
-			__PROD__: command === 'build',
+			__DEV__: command === "serve",
+			__PROD__: command === "build",
 			__VUE_OPTIONS_API__: true,
-			__VUE_PROD_DEVTOOLS__: command === 'serve',
-			global: 'globalThis',
-			'process.env.NODE_ENV': JSON.stringify(command === 'serve' ? 'development' : 'production'),
+			__VUE_PROD_DEVTOOLS__: command === "serve",
+			global: "globalThis",
+			"process.env.NODE_ENV": JSON.stringify(command === "serve" ? "development" : "production"),
 		},
 	};
 });

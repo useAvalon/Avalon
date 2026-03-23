@@ -1,0 +1,119 @@
+---
+title: Prerendering (SSG)
+description: Prerender static pages at build time to reduce server costs and improve performance.
+currentPath: /docs/guides/prerendering
+prev:
+  title: Deployment
+  href: /docs/guides/deployment
+next:
+  title: Performance
+  href: /docs/guides/performance
+---
+
+## Overview
+
+Avalon can prerender pages at build time, producing static HTML files that are served directly from the CDN. This eliminates server function invocations for pages that don't need dynamic data — reducing hosting costs and improving time-to-first-byte.
+
+Islands on prerendered pages still hydrate normally on the client. This is the core benefit of islands architecture: the page shell is static HTML, and only interactive components ship JavaScript.
+
+## How it works
+
+1. Vite and Nitro build the server bundle as usual
+2. After the build, Avalon spawns the server locally and fetches each configured route
+3. The resulting HTML (including SSR'd island markup) is written to the output directory
+4. On deploy, the CDN serves these static files directly — no function invocation needed
+5. Routes that aren't prerendered fall through to the SSR function as normal
+
+## Configuration
+
+Add a `prerender` block to your Nitro config in `vite.config.ts`:
+
+```ts
+const avalonPlugins = await avalon({
+  nitro: {
+    preset: 'netlify',
+    prerender: {
+      routes: ['/'],
+      crawlLinks: true,
+      ignore: ['/dashboard'],
+    },
+  },
+});
+```
+
+### Options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `routes` | `string[]` | `['/']` | Seed routes to start prerendering from |
+| `crawlLinks` | `boolean` | `false` | Discover additional routes by following `<a>` links |
+| `ignore` | `(string \| RegExp)[]` | `[]` | Routes to skip (supports glob patterns like `/api/**`) |
+| `failOnError` | `boolean` | `false` | Fail the build if any route returns an error |
+| `concurrency` | `number` | `4` | Number of routes to fetch in parallel |
+| `retry` | `number` | `3` | Retry attempts per route |
+| `autoSubfolderIndex` | `boolean` | `true` | Write `/about` as `/about/index.html` |
+
+## Typical setup
+
+Most sites have a mix of static and dynamic pages. Prerender the static ones and let SSR handle the rest:
+
+```ts
+prerender: {
+  routes: ['/'],
+  crawlLinks: true,
+  ignore: [
+    '/dashboard',      // needs auth
+    '/api/**',         // API routes
+    '/admin',          // dynamic admin panel
+  ],
+}
+```
+
+With `crawlLinks: true`, you only need to seed the root route. Avalon follows every internal `<a href>` it finds, recursively discovering your entire site. Routes matching `ignore` patterns are skipped and stay SSR.
+
+## Islands on prerendered pages
+
+Prerendered HTML includes the full island markup — the `<avalon-island>` wrapper, `data-framework`, `data-condition`, and the SSR'd component HTML. When the page loads in the browser, the client entry script discovers these islands and hydrates them according to their condition (`on:visible`, `on:interaction`, etc.).
+
+This means prerendered pages behave identically to SSR'd pages from the user's perspective. The only difference is where the HTML comes from: CDN vs server function.
+
+## Build output
+
+After a build with prerendering enabled, you'll see output like:
+
+```
+[prerender] Server ready at http://localhost:13172
+[prerender] ✅ / → /index.html
+[prerender] ✅ /docs/introduction → /docs/introduction/index.html
+[prerender] ✅ /blog → /blog/index.html
+[prerender] ⏭  /dashboard (ignored)
+[prerender] Done: 39 page(s) prerendered
+```
+
+The prerendered files are written to `.output/public/` and copied to all deployment output directories automatically.
+
+## Deployment
+
+### Netlify
+
+Netlify checks for static files before processing `_redirects` rules. Prerendered pages are served from the CDN with zero function invocations. Non-prerendered routes fall through to the `/* /.netlify/functions/server 200` catch-all and hit the SSR function.
+
+### Vercel
+
+Vercel's file-system routing works the same way — static files in the output directory take priority over serverless functions.
+
+### Node server
+
+When using the `node_server` preset, prerendered files are served from `.output/public/` by Nitro's built-in static file handler. The SSR function handles everything else.
+
+## When to use SSG vs SSR
+
+| Use SSG (prerender) | Use SSR (skip prerender) |
+|---|---|
+| Marketing pages | User dashboards |
+| Documentation | Auth-gated content |
+| Blog posts | Pages with request-time data |
+| Landing pages | Personalized content |
+| Changelog | Search results |
+
+A good rule of thumb: if the page looks the same for every visitor, prerender it.

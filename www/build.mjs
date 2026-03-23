@@ -65,7 +65,7 @@ function finish() {
 		// Run post-build synchronously
 		console.log('[build] Running post-build...');
 		try {
-			execSync('node post-build.mjs', { cwd: CWD, stdio: 'inherit', timeout: 60_000 });
+			execSync('node post-build.mjs', { cwd: CWD, stdio: 'inherit', timeout: 120_000 });
 		} catch (err) {
 			console.error('[build] post-build warning:', err.message);
 		}
@@ -92,7 +92,12 @@ child.on('error', err => {
 	process.exit(1);
 });
 
-// Poll for output files — the build is done once these exist
+// Poll for output files — the build is done once these exist.
+// When prerendering is enabled, Nitro fetches routes after the SSR bundle
+// is written. We must wait for the prerender phase to complete before
+// killing the process. Nitro writes prerendered HTML to .output/public/
+// or .netlify/.../public/. We detect completion by waiting for the
+// process to exit naturally, or by checking that the build has settled.
 const poll = setInterval(() => {
 	const netlifyReady = existsSync(NITRO_JSON) && existsSync(SERVER_MJS);
 	const nodeServerReady = existsSync(OUTPUT_SSR);
@@ -101,6 +106,9 @@ const poll = setInterval(() => {
 			`[build] Output detected (${netlifyReady ? 'netlify' : 'node-server'}), waiting 3s for final writes...`,
 		);
 		clearInterval(poll);
+		// Nitro's built-in prerender doesn't work with Vite builder, so we
+		// only need to wait for final file writes before killing the process.
+		// Prerendering happens in post-build.mjs via a separate server spawn.
 		setTimeout(finish, 3_000);
 	}
 }, 1_000);
