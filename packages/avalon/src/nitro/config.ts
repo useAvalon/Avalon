@@ -20,7 +20,7 @@
  * - `/favicon.ico`: Medium cache (1 day)
  */
 
-import type { ResolvedAvalonConfig } from '../vite-plugin/types.ts';
+import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
 
 /**
  * Cache configuration options for route rules
@@ -151,6 +151,44 @@ export interface AvalonNitroConfig {
 	renderer?: { handler: string; template?: string } | false;
 	/** Nitro v3: Pre-compress public assets (gzip, brotli, zstd) */
 	compressPublicAssets?: boolean | { gzip?: boolean; brotli?: boolean; zstd?: boolean };
+
+	/**
+	 * Prerender configuration for static site generation (SSG).
+	 *
+	 * Nitro will fetch each listed route at build time using the SSR handler
+	 * and write the resulting HTML to the public output directory. These pages
+	 * are then served as static files from the CDN — zero function invocations.
+	 *
+	 * Islands on prerendered pages still hydrate normally on the client.
+	 *
+	 * @example
+	 * ```ts
+	 * prerender: {
+	 *   routes: ['/', '/docs', '/blog'],
+	 *   crawlLinks: true,
+	 * }
+	 * ```
+	 */
+	prerender?: {
+		/** Explicit routes to prerender at build time */
+		routes?: string[];
+		/** Crawl `<a>` links in prerendered pages to discover more routes */
+		crawlLinks?: boolean;
+		/** Number of concurrent prerender requests */
+		concurrency?: number;
+		/** Delay in ms between prerender requests */
+		interval?: number;
+		/** Fail the build if a prerender route errors */
+		failOnError?: boolean;
+		/** Routes to ignore (strings, RegExps, or filter functions) */
+		ignore?: Array<string | RegExp | ((path: string) => undefined | null | boolean)>;
+		/** Number of retry attempts per route @default 3 */
+		retry?: number;
+		/** Delay between retries in ms @default 500 */
+		retryDelay?: number;
+		/** Write `/about` as `/about/index.html` @default true */
+		autoSubfolderIndex?: boolean;
+	};
 }
 
 /**
@@ -201,6 +239,8 @@ export interface NitroConfigOutput {
 	}>;
 	/** Static assets configuration */
 	staticAssets?: StaticAssetsConfig;
+	/** Prerender configuration for SSG */
+	prerender?: AvalonNitroConfig["prerender"];
 }
 
 /**
@@ -221,11 +261,11 @@ export interface AvalonRuntimeConfig {
  * Default static assets configuration
  */
 export const DEFAULT_STATIC_ASSETS_CONFIG: Required<StaticAssetsConfig> = {
-	publicDir: 'public',
-	buildDir: 'dist',
+	publicDir: "public",
+	buildDir: "dist",
 	compression: true,
-	cacheControl: 'public, max-age=31536000, immutable',
-	mutableCacheControl: 'public, max-age=0, must-revalidate',
+	cacheControl: "public, max-age=31536000, immutable",
+	mutableCacheControl: "public, max-age=0, must-revalidate",
 	headers: {},
 };
 
@@ -233,22 +273,22 @@ export const DEFAULT_STATIC_ASSETS_CONFIG: Required<StaticAssetsConfig> = {
  * All valid Nitro v3 preset names (underscore convention).
  */
 export const VALID_V3_PRESETS: string[] = [
-	'node_server',
-	'node_middleware',
-	'vercel',
-	'cloudflare_module',
-	'cloudflare_pages',
-	'deno_deploy',
-	'deno_server',
-	'netlify',
-	'netlify_functions',
-	'netlify_edge',
-	'aws_lambda',
-	'azure_swa',
-	'firebase_functions',
-	'render_com',
-	'static',
-	'browser',
+	"node_server",
+	"node_middleware",
+	"vercel",
+	"cloudflare_module",
+	"cloudflare_pages",
+	"deno_deploy",
+	"deno_server",
+	"netlify",
+	"netlify_functions",
+	"netlify_edge",
+	"aws_lambda",
+	"azure_swa",
+	"firebase_functions",
+	"render_com",
+	"static",
+	"browser",
 ];
 
 /**
@@ -261,15 +301,19 @@ export const VALID_V3_PRESETS: string[] = [
  */
 export function resolvePresetName(preset: string): string {
 	if (VALID_V3_PRESETS.includes(preset)) return preset;
-	throw new Error(`Unknown Nitro preset: "${preset}". Valid presets: ${VALID_V3_PRESETS.join(', ')}`);
+	throw new Error(
+		`Unknown Nitro preset: "${preset}". Valid presets: ${VALID_V3_PRESETS.join(", ")}`,
+	);
 }
 
 /**
  * Default Nitro configuration values
  */
-export const DEFAULT_NITRO_CONFIG: Required<Pick<AvalonNitroConfig, 'preset' | 'serverDir' | 'streaming'>> = {
-	preset: 'node_server',
-	serverDir: 'server',
+export const DEFAULT_NITRO_CONFIG: Required<
+	Pick<AvalonNitroConfig, "preset" | "serverDir" | "streaming">
+> = {
+	preset: "node_server",
+	serverDir: "server",
 	streaming: true,
 };
 
@@ -308,12 +352,12 @@ export function createNitroConfig(
 	};
 
 	// Validate that runtimeConfig does not contain a 'nitro' key (reserved in v3)
-	if (avalonNitroConfig.runtimeConfig && 'nitro' in avalonNitroConfig.runtimeConfig) {
+	if (avalonNitroConfig.runtimeConfig && "nitro" in avalonNitroConfig.runtimeConfig) {
 		throw new Error('The "nitro" key in runtimeConfig is reserved by Nitro v3 and cannot be used.');
 	}
 
 	// Merge user runtime config with Avalon runtime config
-	const runtimeConfig: NitroConfigOutput['runtimeConfig'] = {
+	const runtimeConfig: NitroConfigOutput["runtimeConfig"] = {
 		avalon: avalonRuntimeConfig,
 		...avalonNitroConfig.runtimeConfig,
 	};
@@ -331,10 +375,10 @@ export function createNitroConfig(
 	const routeRules = mergeRouteRules(defaultStaticRouteRules, avalonNitroConfig.routeRules ?? {});
 
 	// Configure public assets directories
-	const publicAssets: NitroConfigOutput['publicAssets'] = [
+	const publicAssets: NitroConfigOutput["publicAssets"] = [
 		{
 			dir: staticAssetsConfig.publicDir ?? DEFAULT_STATIC_ASSETS_CONFIG.publicDir,
-			baseURL: '/',
+			baseURL: "/",
 			maxAge: 0, // Let route rules handle caching
 		},
 	];
@@ -344,7 +388,7 @@ export function createNitroConfig(
 	// is preferred over a renderer handler. A default handler would block
 	// Nitro's SSR entry auto-detection, so we only set one if the user
 	// explicitly provides a renderer config.
-	const renderer: NitroConfigOutput['renderer'] =
+	const renderer: NitroConfigOutput["renderer"] =
 		avalonNitroConfig.renderer === false
 			? false
 			: avalonNitroConfig.renderer
@@ -352,7 +396,9 @@ export function createNitroConfig(
 				: undefined;
 
 	return {
-		preset: resolvePresetName(process.env.NITRO_PRESET ?? avalonNitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset),
+		preset: resolvePresetName(
+			process.env.NITRO_PRESET ?? avalonNitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset,
+		),
 		serverDir: avalonNitroConfig.serverDir ?? DEFAULT_NITRO_CONFIG.serverDir,
 		routeRules,
 		runtimeConfig,
@@ -365,6 +411,7 @@ export function createNitroConfig(
 		compressPublicAssets: avalonNitroConfig.compressPublicAssets,
 		publicAssets,
 		staticAssets: staticAssetsConfig,
+		prerender: avalonNitroConfig.prerender,
 	};
 }
 
@@ -374,67 +421,70 @@ export function createNitroConfig(
  * @param config - Static assets configuration
  * @returns Route rules for static assets
  */
-export function createDefaultStaticAssetRouteRules(config: StaticAssetsConfig): Record<string, RouteRule> {
+export function createDefaultStaticAssetRouteRules(
+	config: StaticAssetsConfig,
+): Record<string, RouteRule> {
 	const cacheControl = config.cacheControl ?? DEFAULT_STATIC_ASSETS_CONFIG.cacheControl;
-	const mutableCacheControl = config.mutableCacheControl ?? DEFAULT_STATIC_ASSETS_CONFIG.mutableCacheControl;
+	const mutableCacheControl =
+		config.mutableCacheControl ?? DEFAULT_STATIC_ASSETS_CONFIG.mutableCacheControl;
 
 	return {
 		// Immutable assets with hashed filenames (long cache)
-		'/assets/**': {
+		"/assets/**": {
 			headers: {
-				'Cache-Control': cacheControl,
+				"Cache-Control": cacheControl,
 				...config.headers,
 			},
 		},
-		'/islands/**': {
+		"/islands/**": {
 			headers: {
-				'Cache-Control': cacheControl,
+				"Cache-Control": cacheControl,
 				...config.headers,
 			},
 		},
-		'/chunks/**': {
+		"/chunks/**": {
 			headers: {
-				'Cache-Control': cacheControl,
+				"Cache-Control": cacheControl,
 				...config.headers,
 			},
 		},
-		'/_nuxt/**': {
+		"/_nuxt/**": {
 			headers: {
-				'Cache-Control': cacheControl,
+				"Cache-Control": cacheControl,
 				...config.headers,
 			},
 		},
 		// Font files (long cache)
-		'/**/*.woff': {
+		"/**/*.woff": {
 			headers: {
-				'Cache-Control': cacheControl,
+				"Cache-Control": cacheControl,
 				...config.headers,
 			},
 		},
-		'/**/*.woff2': {
+		"/**/*.woff2": {
 			headers: {
-				'Cache-Control': cacheControl,
+				"Cache-Control": cacheControl,
 				...config.headers,
 			},
 		},
 		// Mutable assets (short cache with revalidation)
-		'/**/*.html': {
+		"/**/*.html": {
 			headers: {
-				'Cache-Control': mutableCacheControl,
+				"Cache-Control": mutableCacheControl,
 				...config.headers,
 			},
 		},
 		// Favicon (medium cache)
-		'/favicon.ico': {
+		"/favicon.ico": {
 			headers: {
-				'Cache-Control': 'public, max-age=86400',
+				"Cache-Control": "public, max-age=86400",
 				...config.headers,
 			},
 		},
 		// CSS files in public directory (may be mutable)
-		'/**/*.css': {
+		"/**/*.css": {
 			headers: {
-				'Cache-Control': mutableCacheControl,
+				"Cache-Control": mutableCacheControl,
 				...config.headers,
 			},
 		},

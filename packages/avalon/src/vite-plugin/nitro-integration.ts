@@ -7,28 +7,36 @@
  * - Middleware: Auto-discovered by Nitro from `middleware/` directory
  */
 
-import type { Plugin, ViteDevServer } from 'vite';
-import { nitro as nitroVitePlugin } from 'nitro/vite';
-import { stat as fsStat } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
-import type { ResolvedAvalonConfig } from './types.ts';
-import { createNitroConfig, type AvalonNitroConfig, type NitroConfigOutput } from '../nitro/config.ts';
-import type { PageModule } from '../nitro/types.ts';
+import { existsSync } from "node:fs";
+import { stat as fsStat } from "node:fs/promises";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+import type { H3Event } from "h3";
+import { nitro as nitroVitePlugin } from "nitro/vite";
+import type { Plugin, ViteDevServer } from "vite";
+import { getUniversalCSSForHead } from "../islands/universal-css-collector.ts";
+import { getUniversalHeadForInjection } from "../islands/universal-head-collector.ts";
 import {
-	createNitroBuildPlugin,
+	clearMiddlewareCache,
+	discoverScopedMiddleware,
+	executeScopedMiddleware,
+} from "../middleware/index.ts";
+import type { MiddlewareRoute } from "../middleware/types.ts";
+import {
+	type AvalonNitroConfig,
+	createNitroConfig,
+	type NitroConfigOutput,
+} from "../nitro/config.ts";
+import {
 	createIslandManifestPlugin,
-	createSourceMapPlugin,
+	createNitroBuildPlugin,
 	createSourceMapConfig,
-} from '../nitro/index.ts';
-import { discoverScopedMiddleware, executeScopedMiddleware, clearMiddlewareCache } from '../middleware/index.ts';
-import type { MiddlewareRoute } from '../middleware/types.ts';
-import type { H3Event } from 'h3';
-import { generateErrorPage, generateFallback404 } from '../render/error-pages.ts';
-import { collectCssFromModuleGraph, injectSsrCss } from '../render/collect-css.ts';
-import { getUniversalCSSForHead } from '../islands/universal-css-collector.ts';
-import { getUniversalHeadForInjection } from '../islands/universal-head-collector.ts';
+	createSourceMapPlugin,
+} from "../nitro/index.ts";
+import type { PageModule } from "../nitro/types.ts";
+import { collectCssFromModuleGraph, injectSsrCss } from "../render/collect-css.ts";
+import { generateErrorPage, generateFallback404 } from "../render/error-pages.ts";
+import type { ResolvedAvalonConfig } from "./types.ts";
 
 /**
  * Resolves the absolute path to a file inside @useavalon/avalon's source tree.
@@ -36,12 +44,12 @@ import { getUniversalHeadForInjection } from '../islands/universal-head-collecto
  */
 function resolveAvalonPackagePath(relativePath: string): string {
 	const require = createRequire(import.meta.url);
-	const modEntry = require.resolve('@useavalon/avalon');
+	const modEntry = require.resolve("@useavalon/avalon");
 	const pkgRoot = dirname(modEntry);
 	const resolved = join(pkgRoot, relativePath);
 	// Published package ships .js in dist/, workspace has .ts source
-	if (relativePath.endsWith('.ts') && !existsSync(resolved)) {
-		const jsPath = resolved.replace(/\.ts$/, '.js');
+	if (relativePath.endsWith(".ts") && !existsSync(resolved)) {
+		const jsPath = resolved.replace(/\.ts$/, ".js");
 		if (existsSync(jsPath)) return jsPath;
 	}
 	return resolved;
@@ -52,31 +60,31 @@ function resolveAvalonPackagePath(relativePath: string): string {
  * Handles both workspace (.ts source) and published (.js compiled) layouts.
  */
 function resolveIntegrationPackagePath(name: string, relativePath: string): string {
-	const require = createRequire(join(process.cwd(), 'package.json'));
+	const require = createRequire(join(process.cwd(), "package.json"));
 	const modEntry = require.resolve(`@useavalon/${name}`);
 	const pkgRoot = dirname(modEntry);
 	const resolved = join(pkgRoot, relativePath);
-	if (relativePath.endsWith('.ts') && !existsSync(resolved)) {
-		const jsPath = resolved.replace(/\.ts$/, '.js');
+	if (relativePath.endsWith(".ts") && !existsSync(resolved)) {
+		const jsPath = resolved.replace(/\.ts$/, ".js");
 		if (existsSync(jsPath)) return jsPath;
 	}
 	return resolved;
 }
 
 export const VIRTUAL_MODULE_IDS = {
-	PAGE_ROUTES: 'virtual:avalon/page-routes',
-	PAGE_LOADER: 'virtual:avalon/page-loader',
-	ISLAND_MANIFEST: 'virtual:avalon/island-manifest',
-	RUNTIME_CONFIG: 'virtual:avalon/runtime-config',
-	CONFIG: 'virtual:avalon/config',
+	PAGE_ROUTES: "virtual:avalon/page-routes",
+	PAGE_LOADER: "virtual:avalon/page-loader",
+	ISLAND_MANIFEST: "virtual:avalon/island-manifest",
+	RUNTIME_CONFIG: "virtual:avalon/runtime-config",
+	CONFIG: "virtual:avalon/config",
 } as const;
 
 export const RESOLVED_VIRTUAL_IDS = {
-	PAGE_ROUTES: '\0' + VIRTUAL_MODULE_IDS.PAGE_ROUTES,
-	PAGE_LOADER: '\0' + VIRTUAL_MODULE_IDS.PAGE_LOADER,
-	ISLAND_MANIFEST: '\0' + VIRTUAL_MODULE_IDS.ISLAND_MANIFEST,
-	RUNTIME_CONFIG: '\0' + VIRTUAL_MODULE_IDS.RUNTIME_CONFIG,
-	CONFIG: '\0' + VIRTUAL_MODULE_IDS.CONFIG,
+	PAGE_ROUTES: "\0" + VIRTUAL_MODULE_IDS.PAGE_ROUTES,
+	PAGE_LOADER: "\0" + VIRTUAL_MODULE_IDS.PAGE_LOADER,
+	ISLAND_MANIFEST: "\0" + VIRTUAL_MODULE_IDS.ISLAND_MANIFEST,
+	RUNTIME_CONFIG: "\0" + VIRTUAL_MODULE_IDS.RUNTIME_CONFIG,
+	CONFIG: "\0" + VIRTUAL_MODULE_IDS.CONFIG,
 } as const;
 
 export interface NitroIntegrationResult {
@@ -109,19 +117,19 @@ export function createNitroIntegration(
 	// "Invalid input options" warnings (e.g. "jsx" key errors).
 	const nitroVitePluginOptions: Record<string, unknown> = {
 		preset: nitroOptions.preset,
-		serverDir: nitroConfig.serverDir ?? nitroOptions.serverDir ?? './server',
+		serverDir: nitroConfig.serverDir ?? nitroOptions.serverDir ?? "./server",
 		routeRules: nitroOptions.routeRules,
 		runtimeConfig: nitroOptions.runtimeConfig,
 		compatibilityDate: nitroOptions.compatibilityDate,
 		// Tell Nitro to scan the project root so it discovers routes/ and middleware/
 		// alongside the serverDir (./server) which contains the catch-all renderer.
-		scanDirs: ['.'],
+		scanDirs: ["."],
 		// Inline ESM-only packages that fail at runtime when Nitro leaves
 		// them as external CJS require() calls. estree-walker v3 is the
 		// primary offender — it only exports via ESM "import" condition.
 		// Also inline @useavalon packages so their server renderers are
 		// bundled directly (they ship .ts source, not CJS).
-		noExternals: ['estree-walker', /^@useavalon\//, /^estree-util/],
+		noExternals: ["estree-walker", /^@useavalon\//, /^estree-util/],
 	};
 
 	// Only pass renderer when explicitly configured — passing `undefined`
@@ -146,6 +154,25 @@ export function createNitroIntegration(
 		nitroVitePluginOptions.serverEntry = nitroOptions.serverEntry;
 	}
 
+	// Ensure undici is always traced — Nitro's server bundle imports it
+	// for its HTTP agent but doesn't always trace it automatically.
+	// Without this, the built server fails with ERR_MODULE_NOT_FOUND
+	// when spawned standalone (e.g. for prerendering).
+	const userTraceDeps = nitroOptions.traceDeps ?? [];
+	const traceDeps = [...new Set(["undici", ...userTraceDeps])];
+	nitroVitePluginOptions.traceDeps = traceDeps;
+
+	// Do NOT forward prerender config to Nitro — Nitro's built-in prerenderer
+	// doesn't work correctly with custom SSR entries (returns 404 for all routes).
+	// Avalon handles prerendering in a post-build step instead (see
+	// packages/avalon/src/prerender/). The config is stored on nitroOptions
+	// so the post-build step can read it, but we explicitly disable Nitro's
+	// own prerender to prevent it from running and failing the build.
+	if (nitroOptions.prerender) {
+		// Store on nitroOptions for post-build, but tell Nitro not to prerender
+		nitroVitePluginOptions.prerender = { routes: [], crawlLinks: false };
+	}
+
 	const nitroPlugin = nitroVitePlugin(nitroVitePluginOptions);
 
 	const coordinationPlugin = createNitroCoordinationPlugin({
@@ -167,7 +194,10 @@ export function createNitroIntegration(
 		generatePreloadHints: true,
 	});
 
-	const sourceMapConfig = createSourceMapConfig(nitroConfig.preset ?? 'node_server', avalonConfig.isDev);
+	const sourceMapConfig = createSourceMapConfig(
+		nitroConfig.preset ?? "node_server",
+		avalonConfig.isDev,
+	);
 	const sourceMapPlugin = createSourceMapPlugin(sourceMapConfig);
 
 	return {
@@ -191,8 +221,8 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 	const { avalonConfig, verbose } = options;
 
 	return {
-		name: 'avalon:nitro-coordination',
-		enforce: 'pre',
+		name: "avalon:nitro-coordination",
+		enforce: "pre",
 
 		configResolved(_config) {
 			globalThis.__avalonConfig = avalonConfig;
@@ -222,42 +252,49 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 			setupHMRCoordination(server, avalonConfig, verbose, clearScopedMiddlewareRoutes);
 
 			// Pre-discover middleware (non-blocking)
-			getScopedMiddleware().catch(err => {
-				console.warn('[middleware] Failed to discover middleware:', err);
+			getScopedMiddleware().catch((err) => {
+				console.warn("[middleware] Failed to discover middleware:", err);
 			});
 
 			// Fire-and-forget: prewarm only core infrastructure modules.
 			// Pages, islands, and per-route middleware are loaded on-demand.
-			prewarmCoreModules(server, avalonConfig.integrations, verbose).catch(err => {
-				console.error('[prewarm] Core modules pre-warm failed:', err);
+			prewarmCoreModules(server, avalonConfig.integrations, verbose).catch((err) => {
+				console.error("[prewarm] Core modules pre-warm failed:", err);
 			});
 
 			// SSR middleware — runs before Vite's SPA fallback
 			server.middlewares.use(async (req, res, next) => {
-				const originalUrl = req.url || '/';
+				const originalUrl = req.url || "/";
 				let url = originalUrl;
 
-				if (url.endsWith('.html')) url = url.slice(0, -5) || '/';
-				if (url === '/index') url = '/';
+				if (url.endsWith(".html")) url = url.slice(0, -5) || "/";
+				if (url === "/index") url = "/";
 
 				// Skip static files, HMR, and Vite internals
 				if (
-					url.startsWith('/@') ||
-					url.startsWith('/__') ||
-					url.startsWith('/node_modules/') ||
-					url.startsWith('/src/client/') ||
-					url.startsWith('/packages/') ||
-					(url.includes('.') && !url.endsWith('/'))
+					url.startsWith("/@") ||
+					url.startsWith("/__") ||
+					url.startsWith("/node_modules/") ||
+					url.startsWith("/src/client/") ||
+					url.startsWith("/packages/") ||
+					(url.includes(".") && !url.endsWith("/"))
 				) {
 					return next();
 				}
 
-				if (url.startsWith('/api/')) {
+				if (url.startsWith("/api/")) {
 					return next();
 				}
 
 				try {
-					const middlewareHandled = await handleScopedMiddleware(server, url, req, res, getScopedMiddleware, verbose);
+					const middlewareHandled = await handleScopedMiddleware(
+						server,
+						url,
+						req,
+						res,
+						getScopedMiddleware,
+						verbose,
+					);
 					if (middlewareHandled) return;
 
 					// Try streaming SSR first (streams shell before page data resolves)
@@ -268,16 +305,16 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 					const html = await handleSSRRequest(server, url, avalonConfig);
 					if (html) {
 						res.statusCode = 200;
-						res.setHeader('Content-Type', 'text/html');
+						res.setHeader("Content-Type", "text/html");
 						res.end(html);
 						return;
 					}
 
 					await handle404(server, url, res, avalonConfig);
 				} catch (error) {
-					console.error('[SSR Error]', error);
+					console.error("[SSR Error]", error);
 					res.statusCode = 500;
-					res.setHeader('Content-Type', 'text/html');
+					res.setHeader("Content-Type", "text/html");
 					res.end(generateErrorPage(error as Error));
 				}
 			});
@@ -291,7 +328,7 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 
 // ─── Dev Server Middleware Helpers ───────────────────────────────────────────
 
-import type { ServerResponse, IncomingMessage } from 'node:http';
+import type { IncomingMessage, ServerResponse } from "node:http";
 
 async function handleScopedMiddleware(
 	server: ViteDevServer,
@@ -307,24 +344,26 @@ async function handleScopedMiddleware(
 
 	const headers: Record<string, string> = {};
 	for (const [key, value] of Object.entries(req.headers)) {
-		if (typeof value === 'string') headers[key] = value;
-		else if (Array.isArray(value)) headers[key] = value.join(', ');
+		if (typeof value === "string") headers[key] = value;
+		else if (Array.isArray(value)) headers[key] = value.join(", ");
 	}
 
-	const fullUrl = `http://${req.headers.host || 'localhost'}${url}`;
+	const fullUrl = `http://${req.headers.host || "localhost"}${url}`;
 	const h3Event = {
 		url: fullUrl,
-		method: req.method || 'GET',
+		method: req.method || "GET",
 		path: url,
 		node: { req, res },
 		req: new Request(fullUrl, {
-			method: req.method || 'GET',
+			method: req.method || "GET",
 			headers,
 		}),
 		context: {} as Record<string, unknown>,
 	} as unknown as H3Event;
 
-	const middlewareResponse = await executeScopedMiddleware(h3Event, middlewareRoutes, { devMode: false });
+	const middlewareResponse = await executeScopedMiddleware(h3Event, middlewareRoutes, {
+		devMode: false,
+	});
 
 	const middlewareTime = performance.now() - middlewareStart;
 	if (middlewareTime > 100) {
@@ -349,8 +388,9 @@ async function handle404(
 	config: ResolvedAvalonConfig,
 ): Promise<void> {
 	try {
-		const { discoverErrorPages, getErrorPageModule, generateDefaultErrorPage } =
-			await import('../nitro/error-handler.ts');
+		const { discoverErrorPages, getErrorPageModule, generateDefaultErrorPage } = await import(
+			"../nitro/error-handler.ts"
+		);
 		const errorPages = await discoverErrorPages({
 			isDev: config.isDev,
 			pagesDir: config.pagesDir,
@@ -360,26 +400,29 @@ async function handle404(
 		});
 		const errorPageModule = getErrorPageModule(404, errorPages);
 
-		if (errorPageModule?.default && typeof errorPageModule.default === 'function') {
-			const { renderToHtml } = await import('../render/ssr.ts');
+		if (errorPageModule?.default && typeof errorPageModule.default === "function") {
+			const { renderToHtml } = await import("../render/ssr.ts");
 			const ErrorPageComponent = errorPageModule.default;
 			const errorHtml = await renderToHtml(
-				{ component: () => ErrorPageComponent({ statusCode: 404, message: `Page not found: ${url}`, url }) },
+				{
+					component: () =>
+						ErrorPageComponent({ statusCode: 404, message: `Page not found: ${url}`, url }),
+				},
 				{},
 			);
 			res.statusCode = 404;
-			res.setHeader('Content-Type', 'text/html');
+			res.setHeader("Content-Type", "text/html");
 			res.end(errorHtml);
 			return;
 		}
 
 		const fallbackHtml = generateDefaultErrorPage(404, `Page not found: ${url}`, config.isDev);
 		res.statusCode = 404;
-		res.setHeader('Content-Type', 'text/html');
+		res.setHeader("Content-Type", "text/html");
 		res.end(fallbackHtml);
 	} catch {
 		res.statusCode = 404;
-		res.setHeader('Content-Type', 'text/html');
+		res.setHeader("Content-Type", "text/html");
 		res.end(generateFallback404(url));
 	}
 }
@@ -398,14 +441,14 @@ async function prewarmCoreModules(
 	const prewarmStart = performance.now();
 
 	const coreModules = [
-		{ path: resolveAvalonPackagePath('src/render/ssr.ts'), assignTo: 'ssr' as string | null },
+		{ path: resolveAvalonPackagePath("src/render/ssr.ts"), assignTo: "ssr" as string | null },
 		{
-			path: resolveAvalonPackagePath('src/core/layout/enhanced-layout-resolver.ts'),
-			assignTo: 'layout' as string | null,
+			path: resolveAvalonPackagePath("src/core/layout/enhanced-layout-resolver.ts"),
+			assignTo: "layout" as string | null,
 		},
-		{ path: resolveAvalonPackagePath('src/middleware/index.ts'), assignTo: null as string | null },
-		...integrations.map(name => ({
-			path: resolveIntegrationPackagePath(name, 'server/renderer.ts'),
+		{ path: resolveAvalonPackagePath("src/middleware/index.ts"), assignTo: null as string | null },
+		...integrations.map((name) => ({
+			path: resolveIntegrationPackagePath(name, "server/renderer.ts"),
 			assignTo: null as string | null,
 		})),
 	];
@@ -413,16 +456,18 @@ async function prewarmCoreModules(
 	const results = await Promise.allSettled(
 		coreModules.map(async ({ path, assignTo }) => {
 			const mod = await server.ssrLoadModule(path);
-			if (assignTo === 'ssr') cachedSSRModule = mod;
-			if (assignTo === 'layout') cachedLayoutModule = mod;
+			if (assignTo === "ssr") cachedSSRModule = mod;
+			if (assignTo === "layout") cachedLayoutModule = mod;
 		}),
 	);
 
-	const succeeded = results.filter(r => r.status === 'fulfilled').length;
+	const succeeded = results.filter((r) => r.status === "fulfilled").length;
 	const totalTime = performance.now() - prewarmStart;
 
 	if (verbose && succeeded > 0) {
-		console.log(`🔥 SSR ready in ${totalTime.toFixed(0)}ms (${succeeded}/${coreModules.length} core modules)`);
+		console.log(
+			`🔥 SSR ready in ${totalTime.toFixed(0)}ms (${succeeded}/${coreModules.length} core modules)`,
+		);
 	}
 }
 
@@ -433,8 +478,8 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 	const { avalonConfig, nitroConfig, verbose } = options;
 
 	return {
-		name: 'avalon:nitro-virtual-modules',
-		enforce: 'pre',
+		name: "avalon:nitro-virtual-modules",
+		enforce: "pre",
 
 		resolveId(id: string) {
 			if (id === VIRTUAL_MODULE_IDS.PAGE_ROUTES) return RESOLVED_VIRTUAL_IDS.PAGE_ROUTES;
@@ -446,11 +491,15 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 		},
 
 		async load(id: string) {
-			if (id === RESOLVED_VIRTUAL_IDS.PAGE_ROUTES) return await generatePageRoutesModule(avalonConfig, verbose);
-			if (id === RESOLVED_VIRTUAL_IDS.PAGE_LOADER) return await generatePageLoaderModule(avalonConfig, verbose);
+			if (id === RESOLVED_VIRTUAL_IDS.PAGE_ROUTES)
+				return await generatePageRoutesModule(avalonConfig, verbose);
+			if (id === RESOLVED_VIRTUAL_IDS.PAGE_LOADER)
+				return await generatePageLoaderModule(avalonConfig, verbose);
 			if (id === RESOLVED_VIRTUAL_IDS.ISLAND_MANIFEST) return generateIslandManifestModule();
-			if (id === RESOLVED_VIRTUAL_IDS.RUNTIME_CONFIG) return generateRuntimeConfigModule(avalonConfig, nitroConfig);
-			if (id === RESOLVED_VIRTUAL_IDS.CONFIG) return generateConfigModule(avalonConfig, nitroConfig);
+			if (id === RESOLVED_VIRTUAL_IDS.RUNTIME_CONFIG)
+				return generateRuntimeConfigModule(avalonConfig, nitroConfig);
+			if (id === RESOLVED_VIRTUAL_IDS.CONFIG)
+				return generateConfigModule(avalonConfig, nitroConfig);
 			return null;
 		},
 
@@ -460,7 +509,11 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 				if (mod) server.moduleGraph.invalidateModule(mod);
 			}
 			// Invalidate virtual:avalon/config when config-related files change
-			if (file.includes('vite.config') || file.includes('avalon.config') || file.includes('nitro.config')) {
+			if (
+				file.includes("vite.config") ||
+				file.includes("avalon.config") ||
+				file.includes("nitro.config")
+			) {
 				const configMod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_IDS.CONFIG);
 				if (configMod) server.moduleGraph.invalidateModule(configMod);
 			}
@@ -477,31 +530,31 @@ function setupHMRCoordination(
 	_verbose?: boolean,
 	clearScopedMiddlewareRoutes?: () => void,
 ): void {
-	server.watcher.on('change', file => {
-		if (file.includes('_middleware')) {
+	server.watcher.on("change", (file) => {
+		if (file.includes("_middleware")) {
 			clearMiddlewareCache();
 			clearScopedMiddlewareRoutes?.();
 		}
-		if (file.includes('/render/') || file.includes('/layout/') || file.includes('/islands/')) {
+		if (file.includes("/render/") || file.includes("/layout/") || file.includes("/islands/")) {
 			cachedSSRModule = null;
 			cachedLayoutModule = null;
 		}
 
-		if (file.includes('/layouts/') || file.includes('_layout')) {
+		if (file.includes("/layouts/") || file.includes("_layout")) {
 			const resolver = globalThis.__avalonLayoutResolver as { clearCache?: () => void } | undefined;
 			resolver?.clearCache?.();
 		}
 	});
 
-	server.watcher.on('add', file => {
-		if (file.includes('_middleware')) {
+	server.watcher.on("add", (file) => {
+		if (file.includes("_middleware")) {
 			clearMiddlewareCache();
 			clearScopedMiddlewareRoutes?.();
 		}
 	});
 
-	server.watcher.on('unlink', file => {
-		if (file.includes('_middleware')) {
+	server.watcher.on("unlink", (file) => {
+		if (file.includes("_middleware")) {
 			clearMiddlewareCache();
 			clearScopedMiddlewareRoutes?.();
 		}
@@ -510,10 +563,13 @@ function setupHMRCoordination(
 
 // ─── Virtual Module Generators ───────────────────────────────────────────────
 
-async function generatePageRoutesModule(config: ResolvedAvalonConfig, _verbose?: boolean): Promise<string> {
+async function generatePageRoutesModule(
+	config: ResolvedAvalonConfig,
+	_verbose?: boolean,
+): Promise<string> {
 	try {
-		const { getAllPageDirs } = await import('./module-discovery.ts');
-		const { discoverPageRoutesFromMultipleDirs } = await import('../nitro/route-discovery.ts');
+		const { getAllPageDirs } = await import("./module-discovery.ts");
+		const { discoverPageRoutesFromMultipleDirs } = await import("../nitro/route-discovery.ts");
 
 		// Get all page directories (traditional + modular)
 		const pageDirs = await getAllPageDirs(config.pagesDir, config.modules, process.cwd());
@@ -537,11 +593,14 @@ async function generatePageRoutesModule(config: ResolvedAvalonConfig, _verbose?:
  * all page modules must be statically imported into the server bundle so
  * they're available at runtime. This module bridges that gap.
  */
-async function generatePageLoaderModule(config: ResolvedAvalonConfig, _verbose?: boolean): Promise<string> {
+async function generatePageLoaderModule(
+	config: ResolvedAvalonConfig,
+	_verbose?: boolean,
+): Promise<string> {
 	try {
-		const { getAllPageDirs } = await import('./module-discovery.ts');
-		const { discoverPageRoutesFromMultipleDirs } = await import('../nitro/route-discovery.ts');
-		const { relative } = await import('node:path');
+		const { getAllPageDirs } = await import("./module-discovery.ts");
+		const { discoverPageRoutesFromMultipleDirs } = await import("../nitro/route-discovery.ts");
+		const { relative } = await import("node:path");
 
 		const cwd = process.cwd();
 		const pageDirs = await getAllPageDirs(config.pagesDir, config.modules, cwd);
@@ -558,8 +617,8 @@ async function generatePageLoaderModule(config: ResolvedAvalonConfig, _verbose?:
 			const varName = `page_${i}`;
 			// Make the absolute filePath relative to the project root, then
 			// prefix with '/' so Vite resolves it from the project root.
-			const relPath = relative(cwd, route.filePath).replaceAll('\\', '/');
-			const importPath = relPath.startsWith('/') ? relPath : '/' + relPath;
+			const relPath = relative(cwd, route.filePath).replaceAll("\\", "/");
+			const importPath = relPath.startsWith("/") ? relPath : "/" + relPath;
 			imports.push(`import * as ${varName} from '${importPath}';`);
 			routeEntries.push(
 				`  { pattern: ${JSON.stringify(route.pattern)}, params: ${JSON.stringify(route.params)}, module: ${varName} }`,
@@ -568,11 +627,11 @@ async function generatePageLoaderModule(config: ResolvedAvalonConfig, _verbose?:
 
 		return [
 			...imports,
-			'',
+			"",
 			`const routes = [`,
-			routeEntries.join(',\n'),
+			routeEntries.join(",\n"),
 			`];`,
-			'',
+			"",
 			`/**`,
 			` * Match a pathname against discovered routes and return the page module.`,
 			` * Uses the same pattern matching as Avalon's route discovery.`,
@@ -586,7 +645,7 @@ async function generatePageLoaderModule(config: ResolvedAvalonConfig, _verbose?:
 			`  }`,
 			`  return null;`,
 			`}`,
-			'',
+			"",
 			`function matchRoute(pathname, pattern, paramNames) {`,
 			`  // Exact match`,
 			`  if (pattern === pathname) return true;`,
@@ -603,12 +662,12 @@ async function generatePageLoaderModule(config: ResolvedAvalonConfig, _verbose?:
 			`  }`,
 			`  return false;`,
 			`}`,
-			'',
+			"",
 			`export default { loadPage, routes };`,
-			'',
-		].join('\n');
+			"",
+		].join("\n");
 	} catch (err) {
-		console.error('[page-loader] Failed to generate page loader:', err);
+		console.error("[page-loader] Failed to generate page loader:", err);
 		return `export function loadPage() { return null; }\nexport default { loadPage, routes: [] };\n`;
 	}
 }
@@ -617,7 +676,10 @@ function generateIslandManifestModule(): string {
 	return `export const islandManifest = { islands: {}, clientEntry: "", css: [] };\nexport default islandManifest;\n`;
 }
 
-function generateRuntimeConfigModule(avalonConfig: ResolvedAvalonConfig, nitroConfig: AvalonNitroConfig): string {
+function generateRuntimeConfigModule(
+	avalonConfig: ResolvedAvalonConfig,
+	nitroConfig: AvalonNitroConfig,
+): string {
 	const runtimeConfig = {
 		avalon: {
 			streaming: nitroConfig.streaming ?? true,
@@ -630,7 +692,10 @@ function generateRuntimeConfigModule(avalonConfig: ResolvedAvalonConfig, nitroCo
 	return `export const runtimeConfig = ${JSON.stringify(runtimeConfig, null, 2)};\nexport function useRuntimeConfig() { return runtimeConfig; }\nexport default runtimeConfig;\n`;
 }
 
-export function generateConfigModule(avalonConfig: ResolvedAvalonConfig, nitroConfig: AvalonNitroConfig): string {
+export function generateConfigModule(
+	avalonConfig: ResolvedAvalonConfig,
+	nitroConfig: AvalonNitroConfig,
+): string {
 	const config = {
 		streaming: nitroConfig.streaming ?? true,
 		pagesDir: avalonConfig.pagesDir,
@@ -657,7 +722,7 @@ export function isDevelopmentMode(): boolean {
 
 // ─── SSR Request Handling ────────────────────────────────────────────────────
 
-const STREAM_MARKER = '<!--AVALON_STREAM_BOUNDARY-->';
+const STREAM_MARKER = "<!--AVALON_STREAM_BOUNDARY-->";
 
 let cachedSSRModule: unknown = null;
 
@@ -692,7 +757,7 @@ async function handleStreamingSSRRequest(
 	// Streaming only works with modular layouts (need shell + wrapper separation)
 	if (!config.modules) return false;
 
-	const pathname = url.split('?')[0];
+	const pathname = url.split("?")[0];
 	const pageFile = await findPageFile(pathname, config, server);
 	if (!pageFile) return false;
 
@@ -720,16 +785,16 @@ async function handleStreamingSSRRequest(
 
 		if (layoutModules.length === 0) return false;
 
-		const { render: preactRender } = await server.ssrLoadModule('preact-render-to-string');
-		const { h } = await server.ssrLoadModule('preact');
+		const { render: preactRender } = await server.ssrLoadModule("preact-render-to-string");
+		const { h } = await server.ssrLoadModule("preact");
 
 		const skipLayouts = layoutConfig?.skipLayouts || [];
 		const activeLayouts = layoutModules.filter(({ file }) => {
 			const layoutName =
 				file
-					.split('/')
+					.split("/")
 					.pop()
-					?.replace(/\.[^.]+$/, '') || '';
+					?.replace(/\.[^.]+$/, "") || "";
 			return !skipLayouts.includes(layoutName);
 		});
 
@@ -749,13 +814,13 @@ async function handleStreamingSSRRequest(
 
 		for (const layout of activeLayouts) {
 			const LayoutComponent = layout.module.default;
-			if (!LayoutComponent || typeof LayoutComponent !== 'function') continue;
+			if (!LayoutComponent || typeof LayoutComponent !== "function") continue;
 			try {
-				const testProps = { ...layoutProps, children: h('div', null, 'test') };
+				const testProps = { ...layoutProps, children: h("div", null, "test") };
 				const testResult = (LayoutComponent as (props: unknown) => unknown)(testProps);
 				const resolvedTest = testResult instanceof Promise ? await testResult : testResult;
 				const testHtml = preactRender(resolvedTest);
-				if (testHtml.trim().startsWith('<html') || testHtml.includes('<!DOCTYPE')) {
+				if (testHtml.trim().startsWith("<html") || testHtml.includes("<!DOCTYPE")) {
 					shellLayouts.push(layout);
 				} else {
 					wrapperLayouts.push(layout);
@@ -771,13 +836,13 @@ async function handleStreamingSSRRequest(
 		// Render shell layout with stream marker as children
 		const { module: shellModule } = shellLayouts[shellLayouts.length - 1];
 		const ShellComponent = shellModule.default;
-		if (!ShellComponent || typeof ShellComponent !== 'function') return false;
+		if (!ShellComponent || typeof ShellComponent !== "function") return false;
 
 		let shellHtml: string;
 		try {
 			const shellProps = {
 				...layoutProps,
-				children: h('div', { dangerouslySetInnerHTML: { __html: STREAM_MARKER } }),
+				children: h("div", { dangerouslySetInnerHTML: { __html: STREAM_MARKER } }),
 			};
 			const shellResult = (ShellComponent as (props: unknown) => unknown)(shellProps);
 			const resolvedShell = shellResult instanceof Promise ? await shellResult : shellResult;
@@ -790,56 +855,58 @@ async function handleStreamingSSRRequest(
 		const markerIndex = shellHtml.indexOf(STREAM_MARKER);
 		if (markerIndex === -1) return false;
 
-		let shellBefore = shellHtml.slice(0, markerIndex);
+		const shellBefore = shellHtml.slice(0, markerIndex);
 		const shellAfter = shellHtml.slice(markerIndex + STREAM_MARKER.length);
 
 		// Inject CSS into the shell's <head>
 		let shellBeforeWithCss = shellBefore;
 		if (cssContents.length > 0) {
-			const cssTag = `<style data-avalon-ssr-css>${cssContents.join('\n')}</style>`;
-			if (shellBefore.includes('</head>')) {
-				shellBeforeWithCss = shellBefore.replace('</head>', `${cssTag}\n</head>`);
+			const cssTag = `<style data-avalon-ssr-css>${cssContents.join("\n")}</style>`;
+			if (shellBefore.includes("</head>")) {
+				shellBeforeWithCss = shellBefore.replace("</head>", `${cssTag}\n</head>`);
 			} else {
 				shellBeforeWithCss = shellBefore + cssTag;
 			}
 		}
 
 		// Ensure DOCTYPE
-		if (!shellBeforeWithCss.trim().toLowerCase().startsWith('<!doctype')) {
-			shellBeforeWithCss = '<!DOCTYPE html>\n' + shellBeforeWithCss;
+		if (!shellBeforeWithCss.trim().toLowerCase().startsWith("<!doctype")) {
+			shellBeforeWithCss = "<!DOCTYPE html>\n" + shellBeforeWithCss;
 		}
 
 		// Inject universal CSS and head content
 		const universalCSS = getUniversalCSSForHead(true);
-		if (universalCSS && shellBeforeWithCss.includes('</head>')) {
-			shellBeforeWithCss = shellBeforeWithCss.replace('</head>', `${universalCSS}\n</head>`);
+		if (universalCSS && shellBeforeWithCss.includes("</head>")) {
+			shellBeforeWithCss = shellBeforeWithCss.replace("</head>", `${universalCSS}\n</head>`);
 		}
 		const universalHead = getUniversalHeadForInjection(true);
-		if (universalHead && shellBeforeWithCss.includes('</head>')) {
-			shellBeforeWithCss = shellBeforeWithCss.replace('</head>', `${universalHead}\n</head>`);
+		if (universalHead && shellBeforeWithCss.includes("</head>")) {
+			shellBeforeWithCss = shellBeforeWithCss.replace("</head>", `${universalHead}\n</head>`);
 		}
 
 		// ── FLUSH SHELL ──
 		res.statusCode = 200;
-		res.setHeader('Content-Type', 'text/html; charset=utf-8');
-		res.setHeader('Transfer-Encoding', 'chunked');
-		res.setHeader('X-Avalon-Streaming', '1');
+		res.setHeader("Content-Type", "text/html; charset=utf-8");
+		res.setHeader("Transfer-Encoding", "chunked");
+		res.setHeader("X-Avalon-Streaming", "1");
 		res.flushHeaders();
 		res.write(shellBeforeWithCss);
 
 		// ── RENDER PAGE CONTENT (this is where data fetching happens) ──
 		let pageContent: string;
 		try {
-			const pageResult = typeof PageComponent === 'function' ? (PageComponent as () => unknown)() : PageComponent;
+			const pageResult =
+				typeof PageComponent === "function" ? (PageComponent as () => unknown)() : PageComponent;
 			const resolvedPage = pageResult instanceof Promise ? await pageResult : pageResult;
 			pageContent = preactRender(resolvedPage);
 		} catch (error) {
-			console.error('[SSR Streaming] Error rendering page component:', error);
+			console.error("[SSR Streaming] Error rendering page component:", error);
 			pageContent = `<div>Error rendering page</div>`;
 		}
 
 		// Check if page returned a complete HTML doc (shouldn't happen with layouts, but safety check)
-		const isCompleteDoc = pageContent.trim().startsWith('<!DOCTYPE html>') || pageContent.trim().startsWith('<html');
+		const isCompleteDoc =
+			pageContent.trim().startsWith("<!DOCTYPE html>") || pageContent.trim().startsWith("<html");
 		if (isCompleteDoc) {
 			// Can't stream this — just send it and close
 			res.end(pageContent);
@@ -850,25 +917,25 @@ async function handleStreamingSSRRequest(
 		let content = pageContent;
 		for (const { module: layoutModule } of wrapperLayouts) {
 			const LayoutComponent = layoutModule.default;
-			if (!LayoutComponent || typeof LayoutComponent !== 'function') continue;
+			if (!LayoutComponent || typeof LayoutComponent !== "function") continue;
 			try {
 				const props = {
 					...layoutProps,
-					children: h('div', { dangerouslySetInnerHTML: { __html: content } }),
+					children: h("div", { dangerouslySetInnerHTML: { __html: content } }),
 				};
 				const layoutResult = (LayoutComponent as (props: unknown) => unknown)(props);
 				const resolvedLayout = layoutResult instanceof Promise ? await layoutResult : layoutResult;
 				content = preactRender(resolvedLayout);
 			} catch (error) {
-				console.error('[SSR Streaming] Error rendering wrapper layout:', error);
+				console.error("[SSR Streaming] Error rendering wrapper layout:", error);
 			}
 		}
 
 		// ── FLUSH PAGE CONTENT + SHELL TAIL ──
 		// Inject client scripts before closing </body>
 		let tail = content + shellAfter;
-		if (!tail.includes('/src/client/main.js') && !tail.includes('/@vite/client')) {
-			const bodyCloseIndex = tail.lastIndexOf('</body>');
+		if (!tail.includes("/src/client/main.js") && !tail.includes("/@vite/client")) {
+			const bodyCloseIndex = tail.lastIndexOf("</body>");
 			if (bodyCloseIndex !== -1) {
 				tail =
 					tail.slice(0, bodyCloseIndex) +
@@ -895,7 +962,7 @@ async function handleSSRRequest(
 	url: string,
 	config: ResolvedAvalonConfig,
 ): Promise<string | null> {
-	const pathname = url.split('?')[0];
+	const pathname = url.split("?")[0];
 	const pageFile = await findPageFile(pathname, config, server);
 
 	if (!pageFile) return null;
@@ -934,7 +1001,14 @@ async function handleSSRRequest(
 
 		// If we have modular layouts, use manual layout composition
 		if (config.modules && layoutModules.length > 0) {
-			html = await renderPageWithManualLayouts(PageComponent, pageModule, layoutModules, pathname, config, server);
+			html = await renderPageWithManualLayouts(
+				PageComponent,
+				pageModule,
+				layoutModules,
+				pathname,
+				config,
+				server,
+			);
 		} else {
 			html = await renderPageToHtml(PageComponent, pageModule, pathname, config, server);
 		}
@@ -970,8 +1044,8 @@ async function renderPageWithManualLayouts(
 	config: ResolvedAvalonConfig,
 	server: ViteDevServer,
 ): Promise<string> {
-	const { render: preactRender } = await server.ssrLoadModule('preact-render-to-string');
-	const { h } = await server.ssrLoadModule('preact');
+	const { render: preactRender } = await server.ssrLoadModule("preact-render-to-string");
+	const { h } = await server.ssrLoadModule("preact");
 
 	// Check if page wants to skip certain layouts
 	const layoutConfig = pageModule.layoutConfig as { skipLayouts?: string[] } | undefined;
@@ -981,25 +1055,27 @@ async function renderPageWithManualLayouts(
 	const activeLayouts = layoutModules.filter(({ file }) => {
 		const layoutName =
 			file
-				.split('/')
+				.split("/")
 				.pop()
-				?.replace(/\.[^.]+$/, '') || '';
+				?.replace(/\.[^.]+$/, "") || "";
 		return !skipLayouts.includes(layoutName);
 	});
 
 	// Render page content first
 	let pageContent: string;
 	try {
-		const pageResult = typeof PageComponent === 'function' ? (PageComponent as () => unknown)() : PageComponent;
+		const pageResult =
+			typeof PageComponent === "function" ? (PageComponent as () => unknown)() : PageComponent;
 		const resolvedPage = pageResult instanceof Promise ? await pageResult : pageResult;
 		pageContent = preactRender(resolvedPage);
 	} catch (error) {
-		console.error('[SSR] Error rendering page component:', error);
+		console.error("[SSR] Error rendering page component:", error);
 		pageContent = `<div>Error rendering page</div>`;
 	}
 
 	// Check if page content is a complete HTML document
-	const isCompleteDoc = pageContent.trim().startsWith('<!DOCTYPE html>') || pageContent.trim().startsWith('<html');
+	const isCompleteDoc =
+		pageContent.trim().startsWith("<!DOCTYPE html>") || pageContent.trim().startsWith("<html");
 
 	if (isCompleteDoc) {
 		// Page provides its own HTML structure, inject client script and return
@@ -1026,19 +1102,19 @@ async function renderPageWithManualLayouts(
 
 	for (const layout of activeLayouts) {
 		const LayoutComponent = layout.module.default;
-		if (!LayoutComponent || typeof LayoutComponent !== 'function') continue;
+		if (!LayoutComponent || typeof LayoutComponent !== "function") continue;
 
 		try {
 			// Render with placeholder to detect if it returns HTML shell
 			const testProps = {
 				...layoutProps,
-				children: h('div', null, 'test'),
+				children: h("div", null, "test"),
 			};
 			const testResult = (LayoutComponent as (props: unknown) => unknown)(testProps);
 			const resolvedTest = testResult instanceof Promise ? await testResult : testResult;
 			const testHtml = preactRender(resolvedTest);
 
-			if (testHtml.trim().startsWith('<html') || testHtml.includes('<!DOCTYPE')) {
+			if (testHtml.trim().startsWith("<html") || testHtml.includes("<!DOCTYPE")) {
 				shellLayouts.push(layout);
 			} else {
 				wrapperLayouts.push(layout);
@@ -1055,19 +1131,19 @@ async function renderPageWithManualLayouts(
 
 	for (const { module: layoutModule } of wrapperLayouts) {
 		const LayoutComponent = layoutModule.default;
-		if (!LayoutComponent || typeof LayoutComponent !== 'function') continue;
+		if (!LayoutComponent || typeof LayoutComponent !== "function") continue;
 
 		try {
 			const props = {
 				...layoutProps,
-				children: h('div', { dangerouslySetInnerHTML: { __html: content } }),
+				children: h("div", { dangerouslySetInnerHTML: { __html: content } }),
 			};
 
 			const layoutResult = (LayoutComponent as (props: unknown) => unknown)(props);
 			const resolvedLayout = layoutResult instanceof Promise ? await layoutResult : layoutResult;
 			content = preactRender(resolvedLayout);
 		} catch (error) {
-			console.error('[SSR] Error rendering wrapper layout:', error);
+			console.error("[SSR] Error rendering wrapper layout:", error);
 		}
 	}
 
@@ -1079,24 +1155,25 @@ async function renderPageWithManualLayouts(
 		const { module: shellModule } = shellLayouts[shellLayouts.length - 1];
 		const ShellComponent = shellModule.default;
 
-		if (ShellComponent && typeof ShellComponent === 'function') {
+		if (ShellComponent && typeof ShellComponent === "function") {
 			try {
 				const props = {
 					...layoutProps,
-					children: h('div', { dangerouslySetInnerHTML: { __html: content } }),
+					children: h("div", { dangerouslySetInnerHTML: { __html: content } }),
 				};
 
 				const shellResult = (ShellComponent as (props: unknown) => unknown)(props);
 				const resolvedShell = shellResult instanceof Promise ? await shellResult : shellResult;
 				content = preactRender(resolvedShell);
 			} catch (error) {
-				console.error('[SSR] Error rendering shell layout:', error);
+				console.error("[SSR] Error rendering shell layout:", error);
 			}
 		}
 	}
 
 	// Check if final content is a complete HTML document
-	const isFinalCompleteDoc = content.trim().startsWith('<!DOCTYPE html>') || content.trim().startsWith('<html');
+	const isFinalCompleteDoc =
+		content.trim().startsWith("<!DOCTYPE html>") || content.trim().startsWith("<html");
 
 	if (isFinalCompleteDoc) {
 		return injectClientScript(content);
@@ -1104,8 +1181,8 @@ async function renderPageWithManualLayouts(
 
 	// Wrap in basic HTML structure (fallback if no shell layout)
 	const fallbackMetadata = (pageModule.metadata || {}) as { title?: string; description?: string };
-	const title = fallbackMetadata.title || 'Avalon App';
-	const description = fallbackMetadata.description || '';
+	const title = fallbackMetadata.title || "Avalon App";
+	const description = fallbackMetadata.description || "";
 
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -1113,7 +1190,7 @@ async function renderPageWithManualLayouts(
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${escapeHtml(title)}</title>
-    ${description ? `<meta name="description" content="${escapeHtml(description)}">` : ''}
+    ${description ? `<meta name="description" content="${escapeHtml(description)}">` : ""}
     <script type="module" src="/@vite/client"></script>
   </head>
   <body>
@@ -1131,31 +1208,31 @@ function injectClientScript(html: string): string {
 	let result = html;
 
 	// Ensure DOCTYPE is present
-	if (!result.trim().toLowerCase().startsWith('<!doctype')) {
-		result = '<!DOCTYPE html>\n' + result;
+	if (!result.trim().toLowerCase().startsWith("<!doctype")) {
+		result = "<!DOCTYPE html>\n" + result;
 	}
 
 	// Inject universal CSS from island framework renderers (Svelte scoped, Vue scoped, Solid CSS, etc.)
 	if (!result.includes('data-universal-ssr="true"')) {
 		const universalCSS = getUniversalCSSForHead(true);
-		if (universalCSS && result.includes('</head>')) {
-			result = result.replace('</head>', `${universalCSS}\n</head>`);
+		if (universalCSS && result.includes("</head>")) {
+			result = result.replace("</head>", `${universalCSS}\n</head>`);
 		}
 	}
 
 	// Inject universal head content (hydration scripts from frameworks like Solid)
 	const universalHead = getUniversalHeadForInjection(true);
-	if (universalHead && result.includes('</head>')) {
-		result = result.replace('</head>', `${universalHead}\n</head>`);
+	if (universalHead && result.includes("</head>")) {
+		result = result.replace("</head>", `${universalHead}\n</head>`);
 	}
 
 	// Skip if scripts already present
-	if (result.includes('/src/client/main.js') || result.includes('/@vite/client')) {
+	if (result.includes("/src/client/main.js") || result.includes("/@vite/client")) {
 		return result;
 	}
 
 	// Inject before </body> or at the end
-	const bodyCloseIndex = result.lastIndexOf('</body>');
+	const bodyCloseIndex = result.lastIndexOf("</body>");
 	if (bodyCloseIndex !== -1) {
 		return (
 			result.slice(0, bodyCloseIndex) +
@@ -1180,14 +1257,14 @@ function injectClientScript(html: string): string {
 async function discoverLayoutFiles(pathname: string, server: ViteDevServer): Promise<string[]> {
 	const viteRoot = server.config.root || process.cwd();
 	const config = globalThis.__avalonConfig;
-	const layoutFileName = '_layout.tsx';
+	const layoutFileName = "_layout.tsx";
 	const layoutFiles: string[] = [];
 
 	// Build path hierarchy: "/" → [''], "/blog/post" → ['', '/blog', '/blog/post']
-	const segments = pathname.split('/').filter(Boolean);
-	const paths = [''];
+	const segments = pathname.split("/").filter(Boolean);
+	const paths = [""];
 	for (let i = 0; i < segments.length; i++) {
-		paths.push('/' + segments.slice(0, i + 1).join('/'));
+		paths.push("/" + segments.slice(0, i + 1).join("/"));
 	}
 
 	// Helper to check and add layout file
@@ -1217,8 +1294,8 @@ async function discoverLayoutFiles(pathname: string, server: ViteDevServer): Pro
 		const layoutsDirName = config.modules.layoutsDirName;
 
 		// Determine which module this route belongs to
-		const firstSegment = segments[0] || '';
-		const rootModules = ['home', 'root', 'main', 'index'];
+		const firstSegment = segments[0] || "";
+		const rootModules = ["home", "root", "main", "index"];
 
 		// For root routes, check the home/root/main/index module
 		if (!firstSegment || rootModules.includes(firstSegment.toLowerCase())) {
@@ -1235,7 +1312,7 @@ async function discoverLayoutFiles(pathname: string, server: ViteDevServer): Pro
 	const traditionalLayoutsDir = `${viteRoot}/src/layouts`;
 	for (const pathSegment of paths) {
 		const fullPath =
-			pathSegment === ''
+			pathSegment === ""
 				? `${traditionalLayoutsDir}/${layoutFileName}`
 				: `${traditionalLayoutsDir}${pathSegment}/${layoutFileName}`;
 		await tryAddLayout(fullPath);
@@ -1250,14 +1327,14 @@ async function findPageFile(
 	server: ViteDevServer,
 ): Promise<string | null> {
 	let normalizedPath = pathname;
-	if (normalizedPath.endsWith('/') && normalizedPath !== '/') {
+	if (normalizedPath.endsWith("/") && normalizedPath !== "/") {
 		normalizedPath = normalizedPath.slice(0, -1);
 	}
-	if (normalizedPath === '/') {
-		normalizedPath = '/index';
+	if (normalizedPath === "/") {
+		normalizedPath = "/index";
 	}
 
-	const extensions = ['.tsx', '.ts', '.jsx', '.js', '.mdx', '.md'];
+	const extensions = [".tsx", ".ts", ".jsx", ".js", ".mdx", ".md"];
 	const viteRoot = server.config.root || process.cwd();
 
 	// Helper to check if a file exists
@@ -1276,9 +1353,9 @@ async function findPageFile(
 	if (config.modules) {
 		const modulesDir = config.modules.dir;
 		const pagesDirName = config.modules.pagesDirName;
-		const segments = pathname.split('/').filter(Boolean);
-		const firstSegment = segments[0] || '';
-		const rootModules = ['home', 'root', 'main', 'index'];
+		const segments = pathname.split("/").filter(Boolean);
+		const firstSegment = segments[0] || "";
+		const rootModules = ["home", "root", "main", "index"];
 
 		// Determine which module and what the relative path within that module is
 		let moduleName: string;
@@ -1286,24 +1363,29 @@ async function findPageFile(
 
 		if (!firstSegment || rootModules.includes(firstSegment.toLowerCase())) {
 			// Root route - check home module
-			moduleName = 'home';
+			moduleName = "home";
 			moduleRelativePath = normalizedPath;
 		} else {
 			// Check if first segment matches a module
 			moduleName = firstSegment;
 			// Remove the module prefix from the path
 			const remainingSegments = segments.slice(1);
-			moduleRelativePath = remainingSegments.length > 0 ? '/' + remainingSegments.join('/') : '/index';
+			moduleRelativePath =
+				remainingSegments.length > 0 ? "/" + remainingSegments.join("/") : "/index";
 		}
 
 		// Try to find the page in the module
 		for (const ext of extensions) {
-			const result = await tryFile(`${modulesDir}/${moduleName}/${pagesDirName}${moduleRelativePath}${ext}`);
+			const result = await tryFile(
+				`${modulesDir}/${moduleName}/${pagesDirName}${moduleRelativePath}${ext}`,
+			);
 			if (result) return result;
 		}
-		if (!moduleRelativePath.endsWith('/index')) {
+		if (!moduleRelativePath.endsWith("/index")) {
 			for (const ext of extensions) {
-				const result = await tryFile(`${modulesDir}/${moduleName}/${pagesDirName}${moduleRelativePath}/index${ext}`);
+				const result = await tryFile(
+					`${modulesDir}/${moduleName}/${pagesDirName}${moduleRelativePath}/index${ext}`,
+				);
 				if (result) return result;
 			}
 		}
@@ -1315,7 +1397,7 @@ async function findPageFile(
 		const result = await tryFile(`${pagesDir}${normalizedPath}${ext}`);
 		if (result) return result;
 	}
-	if (!normalizedPath.endsWith('/index')) {
+	if (!normalizedPath.endsWith("/index")) {
 		for (const ext of extensions) {
 			const result = await tryFile(`${pagesDir}${normalizedPath}/index${ext}`);
 			if (result) return result;
@@ -1336,7 +1418,7 @@ async function renderPageToHtml(
 
 	try {
 		if (!cachedSSRModule) {
-			cachedSSRModule = await server.ssrLoadModule(resolveAvalonPackagePath('src/render/ssr.ts'));
+			cachedSSRModule = await server.ssrLoadModule(resolveAvalonPackagePath("src/render/ssr.ts"));
 		}
 		// cachedSSRModule is the dynamically-loaded render/ssr.ts module;
 		// expected exports: renderToHtml, renderToHtmlWithLayouts
@@ -1344,7 +1426,7 @@ async function renderPageToHtml(
 
 		if (!cachedLayoutModule) {
 			cachedLayoutModule = await server.ssrLoadModule(
-				resolveAvalonPackagePath('src/core/layout/enhanced-layout-resolver.ts'),
+				resolveAvalonPackagePath("src/core/layout/enhanced-layout-resolver.ts"),
 			);
 		}
 		// cachedLayoutModule is the dynamically-loaded enhanced-layout-resolver.ts module;
@@ -1352,8 +1434,9 @@ async function renderPageToHtml(
 		const layoutModule = cachedLayoutModule as Record<string, unknown>;
 
 		const routeConfig = {
-			component: () => (typeof PageComponent === 'function' ? (PageComponent as () => unknown)() : PageComponent),
-			options: { title: metadata.title || 'Avalon App' },
+			component: () =>
+				typeof PageComponent === "function" ? (PageComponent as () => unknown)() : PageComponent,
+			options: { title: metadata.title || "Avalon App" },
 			frontmatter: pageModule.frontmatter as Record<string, unknown> | undefined,
 		};
 
@@ -1373,12 +1456,12 @@ async function renderPageToHtml(
 
 					// Use the shared layouts directory as the base
 					// The resolver will also check modular layouts via the layout composer
-					const layoutsDir = config.layoutsDir || 'src/layouts';
+					const layoutsDir = config.layoutsDir || "src/layouts";
 
 					globalThis.__avalonLayoutResolver = new EnhancedLayoutResolver({
 						baseDirectory: `${viteRoot}/${layoutsDir}`,
-						filePattern: '_layout.tsx',
-						excludeDirectories: ['node_modules', '.git', 'dist', 'build'],
+						filePattern: "_layout.tsx",
+						excludeDirectories: ["node_modules", ".git", "dist", "build"],
 						enableWatching: true,
 						developmentMode: false,
 						enableCaching: true,
@@ -1399,7 +1482,7 @@ async function renderPageToHtml(
 					params: {},
 					query: {},
 					url: fullUrl,
-					request: { method: 'GET', url: fullUrl, headers: new Headers() },
+					request: { method: "GET", url: fullUrl, headers: new Headers() },
 				};
 
 				return await (ssrModule.renderToHtmlWithLayouts as Function)(
@@ -1407,7 +1490,7 @@ async function renderPageToHtml(
 					globalThis.__avalonLayoutResolver,
 					layoutContext,
 					pathname,
-					{ title: metadata.title || 'Avalon App' },
+					{ title: metadata.title || "Avalon App" },
 					undefined,
 					{ suppressWarnings: true },
 				);
@@ -1419,7 +1502,7 @@ async function renderPageToHtml(
 		if (ssrModule.renderToHtml) {
 			return await (ssrModule.renderToHtml as Function)(
 				routeConfig,
-				{ title: metadata.title || 'Avalon App' },
+				{ title: metadata.title || "Avalon App" },
 				undefined,
 				{ suppressWarnings: true },
 			);
@@ -1429,12 +1512,12 @@ async function renderPageToHtml(
 	}
 
 	// Fallback: basic HTML template
-	const title = metadata.title || 'Avalon App';
-	const description = metadata.description || '';
-	let content = '';
+	const title = metadata.title || "Avalon App";
+	const description = metadata.description || "";
+	let content = "";
 	try {
-		const preactRenderModule = await server.ssrLoadModule('preact-render-to-string');
-		if (preactRenderModule.render && typeof PageComponent === 'function') {
+		const preactRenderModule = await server.ssrLoadModule("preact-render-to-string");
+		if (preactRenderModule.render && typeof PageComponent === "function") {
 			content = preactRenderModule.render((PageComponent as () => unknown)());
 		}
 	} catch {
@@ -1447,7 +1530,7 @@ async function renderPageToHtml(
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${escapeHtml(title)}</title>
-    ${description ? `<meta name="description" content="${escapeHtml(description)}">` : ''}
+    ${description ? `<meta name="description" content="${escapeHtml(description)}">` : ""}
     <script type="module" src="/@vite/client"></script>
   </head>
   <body>
@@ -1459,11 +1542,11 @@ async function renderPageToHtml(
 
 function escapeHtml(str: string): string {
 	return str
-		.replaceAll('&', '&amp;')
-		.replaceAll('<', '&lt;')
-		.replaceAll('>', '&gt;')
-		.replaceAll('"', '&quot;')
-		.replaceAll("'", '&#039;');
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;")
+		.replaceAll("'", "&#039;");
 }
 
 // ─── Global Type Declarations ────────────────────────────────────────────────
