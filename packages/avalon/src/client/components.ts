@@ -1,35 +1,23 @@
 /**
- * Client-safe component exports for use in island components.
+ * Client-safe component exports.
  *
- * Import from '@useavalon/avalon/client' instead of '@useavalon/avalon' when
- * you need framework components inside islands. The main entry point
- * re-exports server-only code (nitro, h3, vite plugins) that can't
- * be bundled for the browser.
+ * Image optimization, error boundaries, and persistent state for islands.
  */
 
-// Persistent islands
-export { PersistentIsland } from '../components/PersistentIsland.tsx';
-export {
-	usePersistentIslandContext,
-	PersistentIslandProvider,
-	createPersistentIslandContext,
-} from '../core/islands/persistent-island-context.tsx';
-export { usePersistentState } from '../core/islands/use-persistent-state.ts';
-export { IslandPersistence, defaultIslandPersistence } from '../core/islands/island-persistence.ts';
-export { IslandStateSerializer } from '../core/islands/island-state-serializer.ts';
-
-// Error boundaries
-export { IslandErrorBoundary, withIslandErrorBoundary } from '../components/IslandErrorBoundary.tsx';
-export { LayoutErrorBoundary } from '../components/LayoutErrorBoundary.tsx';
-export { LayoutDataErrorBoundary } from '../components/LayoutDataErrorBoundary.tsx';
-export { StreamingErrorBoundary, withStreamingErrorBoundary } from '../components/StreamingErrorBoundary.tsx';
-
-// Streaming
-export { StreamingLayout, StreamingSuspense, withStreaming, useStreamingState } from '../components/StreamingLayout.tsx';
-
+export type { ImageProps } from "../components/Image.tsx";
 // Image optimization
-export { Image } from '../components/Image.tsx';
-export type { ImageProps } from '../components/Image.tsx';
+export { Image } from "../components/Image.tsx";
+export type { IslandErrorBoundaryProps } from "../components/IslandErrorBoundary.tsx";
+// Error boundaries
+export {
+	IslandErrorBoundary,
+	withIslandErrorBoundary,
+} from "../components/IslandErrorBoundary.tsx";
+export type { LayoutErrorBoundaryProps } from "../components/LayoutErrorBoundary.tsx";
+export { LayoutErrorBoundary } from "../components/LayoutErrorBoundary.tsx";
 
-// Types
-export type { IslandState } from '../schemas/layout.ts';
+// Persistent state
+export { usePersistentState } from "../persistence/use-persistent-state.ts";
+
+// Custom hydration directives (client-side registration)
+export { registerClientDirective } from "./custom-directives.js";

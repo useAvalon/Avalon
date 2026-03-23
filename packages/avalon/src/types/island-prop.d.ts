@@ -11,10 +11,18 @@
  */
 
 export interface IslandDirective {
-  /** Hydration condition */
-  condition?: 'on:visible' | 'on:interaction' | 'on:idle' | 'on:client' | `media:${string}`;
-  /** Force SSR-only rendering without client hydration */
-  ssrOnly?: boolean;
-  /** Whether to render server-side (default: true) */
-  ssr?: boolean;
+	/** Hydration condition (built-in or custom directive name) */
+	condition?:
+		| "on:visible"
+		| "on:interaction"
+		| "on:idle"
+		| "on:client"
+		| `media:${string}`
+		| `on:${string}`;
+	/** Optional argument passed to custom hydration directives */
+	conditionArg?: string;
+	/** Force SSR-only rendering without client hydration */
+	ssrOnly?: boolean;
+	/** Whether to render server-side (default: true) */
+	ssr?: boolean;
 }

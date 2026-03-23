@@ -1,16 +1,17 @@
-import type { JSX } from 'preact';
-import { h } from 'preact';
-import type { ViteDevServer } from 'vite';
-import type { AnalyzerOptions } from '../core/components/component-analyzer.ts';
-import type { Framework } from './types.ts';
-import { detectFramework } from './framework-detection.ts';
-import { analyzeComponentFile, renderComponentSSROnly } from './component-analysis.ts';
-import { loadIntegration, detectFrameworkFromPath } from './integration-loader.ts';
-import { addUniversalCSS } from './universal-css-collector.ts';
-import { addUniversalHead } from './universal-head-collector.ts';
-import { getIslandBundlePath } from '../build/island-manifest.ts';
-import type { Integration } from '@useavalon/core';
-import { isDev, devLog, devWarn, devError, logRenderTiming } from '../utils/dev-logger.ts';
+import type { Integration } from "@useavalon/core";
+import type { JSX } from "preact";
+import { h } from "preact";
+import type { ViteDevServer } from "vite";
+import { getIslandBundlePath } from "../build/island-manifest.ts";
+import type { AnalyzerOptions } from "../core/components/component-analyzer.ts";
+import { devError, devLog, devWarn, isDev, logRenderTiming } from "../utils/dev-logger.ts";
+import { analyzeComponentFile, renderComponentSSROnly } from "./component-analysis.ts";
+import { detectFramework } from "./framework-detection.ts";
+import { isCustomDirective, serializeDirectiveScript } from "./hydration-directives.ts";
+import { detectFrameworkFromPath, loadIntegration } from "./integration-loader.ts";
+import type { Framework } from "./types.ts";
+import { addUniversalCSS } from "./universal-css-collector.ts";
+import { addUniversalHead } from "./universal-head-collector.ts";
 
 // Enhanced global CSS collector for SSR with scoping support
 declare global {
@@ -18,20 +19,28 @@ declare global {
 }
 
 /** Supported hydration conditions for island components */
-export type HydrationCondition = 'on:visible' | 'on:interaction' | 'on:idle' | 'on:client' | `media:${string}`;
+export type HydrationCondition =
+	| "on:visible"
+	| "on:interaction"
+	| "on:idle"
+	| "on:client"
+	| `media:${string}`
+	| `on:${string}`;
 
 /** Supported framework identifiers (without "unknown") */
-export type FrameworkId = Exclude<Framework, 'unknown'>;
+export type FrameworkId = Exclude<Framework, "unknown">;
 
 export interface IslandProps {
 	/** Path to the island component (e.g., "/islands/Counter.tsx") */
 	src: string;
 	/** Hydration condition */
 	condition?: HydrationCondition;
+	/** Optional argument passed to custom hydration directives */
+	conditionArg?: string;
 	/** Props to pass to the island component */
 	props?: Record<string, unknown>;
 	/** Children to render inside the island (for SSR) */
-	children?: import('preact').ComponentChildren;
+	children?: import("preact").ComponentChildren;
 	/** Whether to render server-side (default: true unless condition is 'on:client') */
 	ssr?: boolean;
 	/** Framework hint for client hydration */
@@ -52,18 +61,18 @@ export interface IslandProps {
 
 /** Generate a deterministic island element ID from the source path */
 function toIslandId(src: string): string {
-	return `island-${src.replaceAll(/[^a-zA-Z0-9]/g, '-')}`;
+	return `island-${src.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
 }
 
 /** Build the extra hydration data-attributes from integration render output */
 function buildHydrationDataAttrs(hydrationData: Record<string, unknown>): Record<string, string> {
 	const attrs: Record<string, string> = {};
 	if (hydrationData.renderId) {
-		attrs['data-solid-render-id'] = hydrationData.renderId as string;
+		attrs["data-solid-render-id"] = hydrationData.renderId as string;
 	}
 	const metadata = hydrationData.metadata as Record<string, unknown> | undefined;
 	if (metadata?.tagName) {
-		attrs['data-tag-name'] = metadata.tagName as string;
+		attrs["data-tag-name"] = metadata.tagName as string;
 	}
 	return attrs;
 }
@@ -74,24 +83,40 @@ function buildHydrateAttributes(
 	condition: HydrationCondition,
 	props: Record<string, unknown>,
 	hydrationData: Record<string, unknown>,
+	conditionArg?: string,
 ): Record<string, string> {
-	return {
-		'data-condition': condition,
-		'data-src': getIslandBundlePath(src),
-		'data-props': JSON.stringify(props),
-		'data-render-strategy': 'hydrate',
+	const attrs: Record<string, string> = {
+		"data-condition": condition,
+		"data-src": getIslandBundlePath(src),
+		"data-props": JSON.stringify(props),
+		"data-render-strategy": "hydrate",
 		...buildHydrationDataAttrs(hydrationData),
 	};
+
+	// Attach custom directive metadata if this is a custom condition
+	if (isCustomDirective(condition)) {
+		attrs["data-custom-directive"] = condition;
+		const serialized = serializeDirectiveScript(condition);
+		if (serialized) {
+			attrs["data-directive-script"] = serialized;
+		}
+	}
+
+	if (conditionArg) {
+		attrs["data-condition-arg"] = conditionArg;
+	}
+
+	return attrs;
 }
 
 /** Detect the head-content type from an HTML string returned by an integration */
-function classifyHeadContent(headContent: string): 'script' | 'meta' | 'link' | 'style' | 'other' {
-	if (headContent.startsWith('<script')) return 'script';
-	if (headContent.startsWith('<style')) return 'style';
-	if (headContent.startsWith('<meta')) return 'meta';
-	if (headContent.startsWith('<link')) return 'link';
-	if (headContent.includes('window._$HY') || headContent.includes('_$HY=')) return 'script';
-	return 'other';
+function classifyHeadContent(headContent: string): "script" | "meta" | "link" | "style" | "other" {
+	if (headContent.startsWith("<script")) return "script";
+	if (headContent.startsWith("<style")) return "style";
+	if (headContent.startsWith("<meta")) return "meta";
+	if (headContent.startsWith("<link")) return "link";
+	if (headContent.includes("window._$HY") || headContent.includes("_$HY=")) return "script";
+	return "other";
 }
 
 /** Extract CSS content from a <style> tag */
@@ -108,12 +133,17 @@ function collectRenderAssets(
 	logPrefix: string,
 ): void {
 	if (renderResult.css) {
-		addUniversalCSS(renderResult.css, src, framework, (renderResult as { scopeId?: string }).scopeId);
+		addUniversalCSS(
+			renderResult.css,
+			src,
+			framework,
+			(renderResult as { scopeId?: string }).scopeId,
+		);
 	}
 	if (renderResult.head) {
 		const headContent = renderResult.head.trim();
 		const contentType = classifyHeadContent(headContent);
-		if (contentType === 'style') {
+		if (contentType === "style") {
 			// Extract CSS from <style> tag and add to universal CSS collector
 			const cssContent = extractCSSFromStyleTag(headContent);
 			if (cssContent) {
@@ -137,21 +167,32 @@ function renderIslandSSR(opts: {
 	shouldSkipHydration: boolean;
 	src: string;
 	condition: HydrationCondition;
+	conditionArg?: string;
 	props: Record<string, unknown>;
 	hydrationData: Record<string, unknown>;
-	children: import('preact').ComponentChildren;
+	children: import("preact").ComponentChildren;
 }): JSX.Element {
-	const { islandId, detectedFramework, shouldSkipHydration, src, condition, props, hydrationData, children } = opts;
+	const {
+		islandId,
+		detectedFramework,
+		shouldSkipHydration,
+		src,
+		condition,
+		conditionArg,
+		props,
+		hydrationData,
+		children,
+	} = opts;
 	const baseAttributes: Record<string, string> = {
 		id: islandId,
-		'data-framework': detectedFramework,
+		"data-framework": detectedFramework,
 	};
 
 	const hydrationAttributes = shouldSkipHydration
-		? { 'data-render-strategy': 'ssr-only' }
-		: buildHydrateAttributes(src, condition, props, hydrationData);
+		? { "data-render-strategy": "ssr-only" }
+		: buildHydrateAttributes(src, condition, props, hydrationData, conditionArg);
 
-	if (detectedFramework === 'lit') {
+	if (detectedFramework === "lit") {
 		devLog(`🔍 [Island Component] ${src} - Lit hydration data:`, {
 			hydrationDataKeys: Object.keys(hydrationData),
 			metadata: hydrationData.metadata,
@@ -160,39 +201,66 @@ function renderIslandSSR(opts: {
 
 	const allAttributes = { ...baseAttributes, ...hydrationAttributes };
 
-	if (typeof children === 'string') {
-		return h('avalon-island', { ...allAttributes, dangerouslySetInnerHTML: { __html: children } });
+	if (typeof children === "string") {
+		return h("avalon-island", { ...allAttributes, dangerouslySetInnerHTML: { __html: children } });
 	}
-	return h('avalon-island', allAttributes, children);
+	return h("avalon-island", allAttributes, children);
 }
 
 /** Render the client-only path: empty shell that will be hydrated on the client */
-function renderIslandClientOnly(
-	islandId: string,
-	detectedFramework: string,
-	shouldSkipHydration: boolean,
-	src: string,
-	condition: HydrationCondition,
-	props: Record<string, unknown>,
-	hydrationData: Record<string, unknown>,
-): JSX.Element {
+function renderIslandClientOnly(opts: {
+	islandId: string;
+	detectedFramework: string;
+	shouldSkipHydration: boolean;
+	src: string;
+	condition: HydrationCondition;
+	props: Record<string, unknown>;
+	hydrationData: Record<string, unknown>;
+	conditionArg?: string;
+}): JSX.Element {
+	const {
+		islandId,
+		detectedFramework,
+		shouldSkipHydration,
+		src,
+		condition,
+		props,
+		hydrationData,
+		conditionArg,
+	} = opts;
+
 	if (shouldSkipHydration) {
-		return h('avalon-island', {
+		return h("avalon-island", {
 			id: islandId,
-			'data-render-strategy': 'ssr-only',
-			'data-framework': detectedFramework,
+			"data-render-strategy": "ssr-only",
+			"data-framework": detectedFramework,
 		});
 	}
 
-	return h('avalon-island', {
+	const attrs: Record<string, string> = {
 		id: islandId,
-		'data-condition': condition,
-		'data-src': getIslandBundlePath(src),
-		'data-props': JSON.stringify(props),
-		'data-render-strategy': 'hydrate',
-		'data-framework': detectedFramework,
+		"data-condition": condition,
+		"data-src": getIslandBundlePath(src),
+		"data-props": JSON.stringify(props),
+		"data-render-strategy": "hydrate",
+		"data-framework": detectedFramework,
 		...buildHydrationDataAttrs(hydrationData),
-	});
+	};
+
+	// Attach custom directive metadata
+	if (isCustomDirective(condition)) {
+		attrs["data-custom-directive"] = condition;
+		const serialized = serializeDirectiveScript(condition);
+		if (serialized) {
+			attrs["data-directive-script"] = serialized;
+		}
+	}
+
+	if (conditionArg) {
+		attrs["data-condition-arg"] = conditionArg;
+	}
+
+	return h("avalon-island", attrs);
 }
 
 /**
@@ -203,10 +271,11 @@ function renderIslandClientOnly(
  */
 export default function Island({
 	src,
-	condition = 'on:client',
+	condition = "on:client",
+	conditionArg,
 	props = {},
 	children,
-	ssr = condition !== 'on:client',
+	ssr = condition !== "on:client",
 	framework,
 	ssrOnly = false,
 	renderOptions = {},
@@ -215,9 +284,15 @@ export default function Island({
 	const islandId = toIslandId(src);
 	const shouldSkipHydration = ssrOnly || !!renderOptions.forceSSROnly;
 	const detectedFramework = framework || detectFrameworkFromPath(src);
-	const hasValidChildren = children !== undefined && children !== null && children !== '';
+	const hasValidChildren = children !== undefined && children !== null && children !== "";
 
-	devLog(`🔍 [Island Component] ${src}`, { ssr, ssrOnly, hasChildren: hasValidChildren, framework, condition });
+	devLog(`🔍 [Island Component] ${src}`, {
+		ssr,
+		ssrOnly,
+		hasChildren: hasValidChildren,
+		framework,
+		condition,
+	});
 
 	if (ssr && hasValidChildren) {
 		return renderIslandSSR({
@@ -226,6 +301,7 @@ export default function Island({
 			shouldSkipHydration,
 			src,
 			condition,
+			conditionArg,
 			props,
 			hydrationData,
 			children,
@@ -233,10 +309,21 @@ export default function Island({
 	}
 
 	if (ssr && !hasValidChildren && shouldSkipHydration) {
-		devWarn(`${src}: SSR-only component has no rendered content. This may indicate a rendering error.`);
+		devWarn(
+			`${src}: SSR-only component has no rendered content. This may indicate a rendering error.`,
+		);
 	}
 
-	return renderIslandClientOnly(islandId, detectedFramework, shouldSkipHydration, src, condition, props, hydrationData);
+	return renderIslandClientOnly({
+		islandId,
+		detectedFramework,
+		shouldSkipHydration,
+		src,
+		condition,
+		props,
+		hydrationData,
+		conditionArg,
+	});
 }
 
 // ---------------------------------------------------------------------------
@@ -253,11 +340,11 @@ function renderErrorPlaceholder(src: string, error: unknown): JSX.Element {
 	if (error instanceof Error && error.stack) {
 		devError(`Stack trace:`, error.stack);
 	}
-	return h('avalon-island', {
+	return h("avalon-island", {
 		id: toIslandId(src),
-		'data-src': getIslandBundlePath(src),
-		'data-ssr-error': errorMessage,
-		'data-render-strategy': 'client-only',
+		"data-src": getIslandBundlePath(src),
+		"data-ssr-error": errorMessage,
+		"data-render-strategy": "client-only",
 	});
 }
 
@@ -272,6 +359,7 @@ function renderErrorPlaceholder(src: string, error: unknown): JSX.Element {
 async function renderWithExplicitFramework({
 	src,
 	condition,
+	conditionArg,
 	props,
 	children,
 	ssr,
@@ -281,11 +369,12 @@ async function renderWithExplicitFramework({
 	component: preloadedComponent,
 }: {
 	src: string;
-	condition: IslandProps['condition'];
+	condition: IslandProps["condition"];
+	conditionArg?: string;
 	props: Record<string, unknown>;
-	children?: import('preact').ComponentChildren;
+	children?: import("preact").ComponentChildren;
 	ssr: boolean;
-	framework: NonNullable<IslandProps['framework']>;
+	framework: NonNullable<IslandProps["framework"]>;
 	ssrOnly: boolean;
 	renderOptions: AnalyzerOptions;
 	component?: unknown;
@@ -293,7 +382,17 @@ async function renderWithExplicitFramework({
 	const logPrefix = `🏝️ [${src}]`;
 
 	if (!ssr || children) {
-		return Island({ src, condition, props, children, ssr, framework, ssrOnly, renderOptions });
+		return Island({
+			src,
+			condition,
+			conditionArg,
+			props,
+			children,
+			ssr,
+			framework,
+			ssrOnly,
+			renderOptions,
+		});
 	}
 
 	let integration: Integration;
@@ -301,7 +400,16 @@ async function renderWithExplicitFramework({
 		integration = await loadIntegration(framework);
 	} catch (error) {
 		devError(`${logPrefix} Failed to load ${framework} integration:`, error);
-		return Island({ src, condition, props, ssr: false, framework, ssrOnly, renderOptions });
+		return Island({
+			src,
+			condition,
+			conditionArg,
+			props,
+			ssr: false,
+			framework,
+			ssrOnly,
+			renderOptions,
+		});
 	}
 
 	try {
@@ -320,6 +428,7 @@ async function renderWithExplicitFramework({
 		return Island({
 			src,
 			condition,
+			conditionArg,
 			props,
 			children: renderResult.html,
 			ssr: true,
@@ -330,7 +439,16 @@ async function renderWithExplicitFramework({
 		});
 	} catch (error) {
 		devError(`${logPrefix} Fast path SSR failed:`, error);
-		return Island({ src, condition, props, ssr: false, framework, ssrOnly, renderOptions });
+		return Island({
+			src,
+			condition,
+			conditionArg,
+			props,
+			ssr: false,
+			framework,
+			ssrOnly,
+			renderOptions,
+		});
 	}
 }
 
@@ -363,12 +481,12 @@ async function analyzeHydrationStrategy(
 
 /** Auto-detect framework from file extension / content */
 async function detectFrameworkForSrc(src: string): Promise<string> {
-	if (src.endsWith('.vue')) return 'vue';
-	if (src.endsWith('.svelte')) return 'svelte';
-	if (src.endsWith('.tsx') || src.endsWith('.jsx') || src.endsWith('.ts') || src.endsWith('.js')) {
+	if (src.endsWith(".vue")) return "vue";
+	if (src.endsWith(".svelte")) return "svelte";
+	if (src.endsWith(".tsx") || src.endsWith(".jsx") || src.endsWith(".ts") || src.endsWith(".js")) {
 		return detectFramework(src);
 	}
-	return 'unknown';
+	return "unknown";
 }
 
 /** Load an integration and render the component, returning the Island element */
@@ -452,10 +570,11 @@ async function loadIntegrationOrThrow(framework: string, logPrefix: string): Pro
  */
 export async function renderIsland({
 	src,
-	condition = 'on:client',
+	condition = "on:client",
+	conditionArg,
 	props = {},
 	children,
-	ssr = condition !== 'on:client',
+	ssr = condition !== "on:client",
 	framework,
 	ssrOnly = false,
 	renderOptions = {},
@@ -475,6 +594,7 @@ export async function renderIsland({
 			return await renderWithExplicitFramework({
 				src,
 				condition,
+				conditionArg,
 				props,
 				children,
 				ssr,
@@ -489,6 +609,7 @@ export async function renderIsland({
 		return await renderIslandSlowPath({
 			src,
 			condition,
+			conditionArg,
 			props,
 			children,
 			ssr,
@@ -510,8 +631,9 @@ export async function renderIsland({
 async function renderIslandSlowPath(opts: {
 	src: string;
 	condition: HydrationCondition;
+	conditionArg?: string;
 	props: Record<string, unknown>;
-	children: import('preact').ComponentChildren | undefined;
+	children: import("preact").ComponentChildren | undefined;
 	ssr: boolean;
 	ssrOnly: boolean;
 	renderOptions: AnalyzerOptions;
@@ -521,6 +643,7 @@ async function renderIslandSlowPath(opts: {
 	const {
 		src,
 		condition,
+		conditionArg,
 		props,
 		children,
 		ssr,
@@ -536,7 +659,12 @@ async function renderIslandSlowPath(opts: {
 		condition,
 	});
 
-	const shouldSkipHydration = await analyzeHydrationStrategy(src, ssrOnly, renderOptions, logPrefix);
+	const shouldSkipHydration = await analyzeHydrationStrategy(
+		src,
+		ssrOnly,
+		renderOptions,
+		logPrefix,
+	);
 
 	if (shouldSkipHydration) {
 		return renderSSROnlyPath(src, condition, props, children, ssr, renderOptions, logPrefix);
@@ -544,18 +672,27 @@ async function renderIslandSlowPath(opts: {
 
 	// If SSR is disabled or we already have children, use basic Island
 	if (!ssr || children) {
-		return Island({ src, condition, props, children, ssr, renderOptions });
+		return Island({ src, condition, conditionArg, props, children, ssr, renderOptions });
 	}
 
 	// Full SSR rendering with auto-detected framework
 	try {
-		return await renderSlowPathSSR(src, condition, props, ssrOnly, renderOptions, logPrefix, preloadedComponent);
+		return await renderSlowPathSSR(
+			src,
+			condition,
+			props,
+			ssrOnly,
+			renderOptions,
+			logPrefix,
+			preloadedComponent,
+		);
 	} catch (error) {
 		const detectedFramework = await detectFrameworkForSrc(src);
 		devError(`${logPrefix} Framework rendering failed:`, error);
 		return Island({
 			src,
 			condition,
+			conditionArg,
 			props,
 			ssr: false,
 			framework: detectedFramework as FrameworkId,
@@ -569,13 +706,13 @@ function renderSSROnlyPath(
 	src: string,
 	condition: HydrationCondition,
 	props: Record<string, unknown>,
-	children: import('preact').ComponentChildren | undefined,
+	children: import("preact").ComponentChildren | undefined,
 	ssr: boolean,
 	renderOptions: AnalyzerOptions,
 	logPrefix: string,
 ): Promise<JSX.Element> | JSX.Element {
 	if (ssr && !children) {
-		return renderComponentSSROnly({ src, condition, props, renderOptions }).catch(error => {
+		return renderComponentSSROnly({ src, condition, props, renderOptions }).catch((error) => {
 			devError(`${logPrefix} SSR failed for SSR-only component:`, error);
 			return Island({ src, condition, props, ssr: false, ssrOnly: true, renderOptions });
 		});

@@ -5,8 +5,10 @@
 // that will show as errors in the IDE. These are resolved by Vite at runtime
 // and work correctly in the browser. The errors can be safely ignored.
 
-if (document.readyState === 'loading') {
-	document.addEventListener('DOMContentLoaded', initializeHydration);
+import { executeCustomDirective, hasClientDirective } from "./custom-directives.js";
+
+if (document.readyState === "loading") {
+	document.addEventListener("DOMContentLoaded", initializeHydration);
 } else {
 	initializeHydration();
 }
@@ -16,19 +18,19 @@ if (document.readyState === 'loading') {
  * Discovers islands by data-framework attribute and routes to appropriate integration
  */
 function initializeHydration() {
-	const islands = document.querySelectorAll('[data-framework]');
+	const islands = document.querySelectorAll("[data-framework]");
 
 	if (islands.length === 0) {
 		return;
 	}
 
-	islands.forEach(island => {
+	islands.forEach((island) => {
 		try {
 			const framework = island.dataset.framework;
-			const condition = island.dataset.condition || 'on:client';
+			const condition = island.dataset.condition || "on:client";
 			const renderStrategy = island.dataset.renderStrategy;
 
-			if (renderStrategy === 'ssr-only') {
+			if (renderStrategy === "ssr-only") {
 				return;
 			}
 
@@ -36,23 +38,39 @@ function initializeHydration() {
 				return;
 			}
 
-			if (condition === 'on:client') {
+			if (condition === "on:client") {
 				hydrateIsland(island, framework);
-			} else if (condition === 'on:visible') {
+			} else if (condition === "on:visible") {
 				setupIntersectionObserver(island, framework);
-			} else if (condition === 'on:interaction') {
+			} else if (condition === "on:interaction") {
 				setupInteractionObserver(island, framework);
-			} else if (condition === 'on:idle') {
+			} else if (condition === "on:idle") {
 				setupIdleCallback(island, framework);
-			} else if (condition.startsWith('media:')) {
+			} else if (condition.startsWith("media:")) {
 				const mediaQuery = condition.slice(6);
 				setupMediaQuery(island, framework, mediaQuery);
+			} else if (island.dataset.customDirective || hasClientDirective(condition)) {
+				// Custom hydration directive — delegate to the directive executor
+				const handled = executeCustomDirective(island, condition, () => {
+					hydrateIsland(island, framework);
+				});
+				if (!handled) {
+					console.warn(
+						`[avalon] Unknown hydration condition: "${condition}". Hydrating immediately.`,
+					);
+					hydrateIsland(island, framework);
+				}
 			} else {
 				hydrateIsland(island, framework);
 			}
 		} catch (error) {
-			console.error('Error processing island:', error);
-			handleHydrationError(island, island.dataset.framework || 'unknown', island.dataset.src || 'unknown', error);
+			console.error("Error processing island:", error);
+			handleHydrationError(
+				island,
+				island.dataset.framework || "unknown",
+				island.dataset.src || "unknown",
+				error,
+			);
 		}
 	});
 }
@@ -65,25 +83,25 @@ function initializeHydration() {
  * @returns {boolean} Whether the island should hydrate
  */
 function shouldHydrate(island, condition) {
-	if (!condition || condition === 'on:client') {
+	if (!condition || condition === "on:client") {
 		return true;
 	}
 
-	if (condition.startsWith('media:')) {
+	if (condition.startsWith("media:")) {
 		const mediaQuery = condition.slice(6);
 		try {
 			return globalThis.matchMedia(mediaQuery).matches;
 		} catch (error) {
-			console.error('Invalid media query:', mediaQuery, error);
+			console.error("Invalid media query:", mediaQuery, error);
 			return true;
 		}
 	}
 
-	if (condition === 'on:visible' || condition === 'on:interaction' || condition === 'on:idle') {
+	if (condition === "on:visible" || condition === "on:interaction" || condition === "on:idle") {
 		return true;
 	}
 
-	console.warn('Unknown hydration condition:', condition);
+	console.warn("Unknown hydration condition:", condition);
 	return true;
 }
 
@@ -96,7 +114,7 @@ function shouldHydrate(island, condition) {
 function setupIntersectionObserver(island, framework) {
 	try {
 		const observer = new IntersectionObserver(
-			entries => {
+			(entries) => {
 				const entry = entries[0];
 				if (entry.isIntersecting) {
 					hydrateIsland(island, framework);
@@ -104,14 +122,14 @@ function setupIntersectionObserver(island, framework) {
 				}
 			},
 			{
-				rootMargin: '50px',
+				rootMargin: "50px",
 				threshold: 0,
 			},
 		);
 
 		observer.observe(island);
 	} catch (error) {
-		console.error('Failed to setup intersection observer:', error);
+		console.error("Failed to setup intersection observer:", error);
 		hydrateIsland(island, framework);
 	}
 }
@@ -123,14 +141,14 @@ function setupIntersectionObserver(island, framework) {
  * @param {string} framework - The framework name
  */
 function setupInteractionObserver(island, framework) {
-	const events = ['click', 'touchstart', 'mouseenter', 'focusin'];
+	const events = ["click", "touchstart", "mouseenter", "focusin"];
 	let hydrated = false;
 
 	const handleInteraction = () => {
 		if (hydrated) return;
 		hydrated = true;
 
-		events.forEach(eventType => {
+		events.forEach((eventType) => {
 			island.removeEventListener(eventType, handleInteraction);
 		});
 
@@ -138,11 +156,11 @@ function setupInteractionObserver(island, framework) {
 	};
 
 	try {
-		events.forEach(eventType => {
+		events.forEach((eventType) => {
 			island.addEventListener(eventType, handleInteraction, { once: true, passive: true });
 		});
 	} catch (error) {
-		console.error('Failed to setup interaction observer:', error);
+		console.error("Failed to setup interaction observer:", error);
 		hydrateIsland(island, framework);
 	}
 }
@@ -155,20 +173,20 @@ function setupInteractionObserver(island, framework) {
  */
 function setupIdleCallback(island, framework) {
 	try {
-		if ('requestIdleCallback' in globalThis) {
+		if ("requestIdleCallback" in globalThis) {
 			globalThis.requestIdleCallback(
 				() => {
 					hydrateIsland(island, framework);
 				},
 				{ timeout: 5000 },
 			);
-		} else if (document.readyState === 'complete') {
+		} else if (document.readyState === "complete") {
 			setTimeout(() => {
 				hydrateIsland(island, framework);
 			}, 200);
 		} else {
 			globalThis.addEventListener(
-				'load',
+				"load",
 				() => {
 					setTimeout(() => {
 						hydrateIsland(island, framework);
@@ -178,7 +196,7 @@ function setupIdleCallback(island, framework) {
 			);
 		}
 	} catch (error) {
-		console.error('Failed to setup idle callback:', error);
+		console.error("Failed to setup idle callback:", error);
 		hydrateIsland(island, framework);
 	}
 }
@@ -199,16 +217,16 @@ function setupMediaQuery(island, framework, mediaQuery) {
 			return;
 		}
 
-		const handleChange = event => {
+		const handleChange = (event) => {
 			if (event.matches) {
 				hydrateIsland(island, framework);
-				mql.removeEventListener('change', handleChange);
+				mql.removeEventListener("change", handleChange);
 			}
 		};
 
-		mql.addEventListener('change', handleChange);
+		mql.addEventListener("change", handleChange);
 	} catch (error) {
-		console.error('Failed to setup media query:', mediaQuery, error);
+		console.error("Failed to setup media query:", mediaQuery, error);
 		hydrateIsland(island, framework);
 	}
 }
@@ -224,7 +242,7 @@ function setupMediaQuery(island, framework, mediaQuery) {
  * @returns {Promise<object>} The integration module
  */
 async function loadIntegrationModule(framework) {
-	const knownFrameworks = ['preact', 'react', 'vue', 'svelte', 'solid', 'lit', 'qwik'];
+	const knownFrameworks = ["preact", "react", "vue", "svelte", "solid", "lit", "qwik"];
 	if (!knownFrameworks.includes(framework)) {
 		throw new Error(`Unknown framework: ${framework}`);
 	}
@@ -239,19 +257,19 @@ async function loadIntegrationModule(framework) {
 	// Vite CAN statically analyze (no @vite-ignore).
 	// Note: react falls through to preact since this project aliases react → preact/compat
 	switch (framework) {
-		case 'preact':
-		case 'react':
-			return import('@useavalon/preact/client');
-		case 'vue':
-			return import('@useavalon/vue/client');
-		case 'svelte':
-			return import('@useavalon/svelte/client');
-		case 'solid':
-			return import('@useavalon/solid/client');
-		case 'lit':
-			return import('@useavalon/lit/client');
-		case 'qwik':
-			return import('@useavalon/qwik/client');
+		case "preact":
+		case "react":
+			return import("@useavalon/preact/client");
+		case "vue":
+			return import("@useavalon/vue/client");
+		case "svelte":
+			return import("@useavalon/svelte/client");
+		case "solid":
+			return import("@useavalon/solid/client");
+		case "lit":
+			return import("@useavalon/lit/client");
+		case "qwik":
+			return import("@useavalon/qwik/client");
 		default:
 			throw new Error(`Unknown framework: ${framework}`);
 	}
@@ -268,10 +286,10 @@ function resolveComponent(componentModule, src) {
 	let Component = componentModule.default;
 
 	if (!Component) {
-		const exports = Object.keys(componentModule).filter(key => key !== 'default');
+		const exports = Object.keys(componentModule).filter((key) => key !== "default");
 		for (const exportName of exports) {
 			const exportValue = componentModule[exportName];
-			if (typeof exportValue === 'function' && exportValue.prototype) {
+			if (typeof exportValue === "function" && exportValue.prototype) {
 				Component = exportValue;
 				break;
 			}
@@ -304,7 +322,7 @@ async function hydrateIsland(island, framework) {
 	const propsAttr = island.dataset.props;
 
 	if (!src) {
-		console.warn('Island missing data-src attribute');
+		console.warn("Island missing data-src attribute");
 		return;
 	}
 
@@ -313,11 +331,11 @@ async function hydrateIsland(island, framework) {
 
 		// CRITICAL: For Lit components, load hydration support BEFORE importing the component
 		// This ensures our patch is applied before @customElement decorator runs
-		if (framework === 'lit') {
+		if (framework === "lit") {
 			if (import.meta.env?.DEV) {
 				await import(/* @vite-ignore */ `/@useavalon/lit/client`);
 			} else {
-				await import('@useavalon/lit/client');
+				await import("@useavalon/lit/client");
 			}
 		}
 
@@ -327,28 +345,28 @@ async function hydrateIsland(island, framework) {
 		try {
 			const integrationModule = await loadIntegrationModule(framework);
 
-			if (!integrationModule.hydrate || typeof integrationModule.hydrate !== 'function') {
+			if (!integrationModule.hydrate || typeof integrationModule.hydrate !== "function") {
 				throw new Error(`Integration ${framework} does not export a hydrate function`);
 			}
 
 			await integrationModule.hydrate(island, Component, props);
-			island.dataset.hydrated = 'true';
+			island.dataset.hydrated = "true";
 		} catch (integrationError) {
 			if (import.meta.env?.DEV) {
 				console.error(`Integration hydration failed for ${framework}: ${src}`, integrationError);
 			}
 
-			island.dataset.hydrationStatus = 'failed';
+			island.dataset.hydrationStatus = "failed";
 			island.dataset.hydrationError = integrationError.message;
 
 			island.dispatchEvent(
-				new CustomEvent('hydration-error', {
+				new CustomEvent("hydration-error", {
 					detail: {
 						framework,
 						src,
 						error: integrationError.message,
 						timestamp: Date.now(),
-						hydrationType: 'integration-level',
+						hydrationType: "integration-level",
 					},
 					bubbles: true,
 				}),
@@ -375,12 +393,12 @@ function handleHydrationError(island, framework, src, error) {
 		stack: error.stack,
 	});
 
-	island.dataset.hydrationStatus = 'failed';
-	island.dataset.renderStrategy = 'ssr-only';
-	island.classList.add('hydration-failed');
+	island.dataset.hydrationStatus = "failed";
+	island.dataset.renderStrategy = "ssr-only";
+	island.classList.add("hydration-failed");
 
 	island.dispatchEvent(
-		new CustomEvent('hydration-error', {
+		new CustomEvent("hydration-error", {
 			detail: {
 				framework,
 				src,
@@ -405,8 +423,8 @@ function handleHydrationError(island, framework, src, error) {
  * @param {Error} error - The error that occurred
  */
 function addErrorIndicator(island, framework, src, error) {
-	const indicator = document.createElement('div');
-	indicator.className = 'hydration-error-indicator';
+	const indicator = document.createElement("div");
+	indicator.className = "hydration-error-indicator";
 	indicator.style.cssText = `
 		position: absolute;
 		top: 0;
@@ -424,15 +442,15 @@ function addErrorIndicator(island, framework, src, error) {
 	indicator.textContent = `❌ ${framework}`;
 	indicator.title = `Hydration failed: ${src}\n${error.message}\nClick for details`;
 
-	indicator.addEventListener('click', () => {
+	indicator.addEventListener("click", () => {
 		alert(
 			`Hydration Error\n\nFramework: ${framework}\nComponent: ${src}\n\nError: ${error.message}\n\nStack:\n${error.stack}`,
 		);
 	});
 
 	const computedStyle = globalThis.getComputedStyle(island);
-	if (computedStyle.position === 'static') {
-		island.style.position = 'relative';
+	if (computedStyle.position === "static") {
+		island.style.position = "relative";
 	}
 
 	island.appendChild(indicator);
@@ -446,9 +464,9 @@ function addErrorIndicator(island, framework, src, error) {
 function isDevelopment() {
 	return (
 		import.meta.env?.DEV ||
-		import.meta.env?.MODE === 'development' ||
-		globalThis.location?.hostname === 'localhost' ||
-		globalThis.location?.hostname === '127.0.0.1'
+		import.meta.env?.MODE === "development" ||
+		globalThis.location?.hostname === "localhost" ||
+		globalThis.location?.hostname === "127.0.0.1"
 	);
 }
 
@@ -475,18 +493,18 @@ function preserveIslandState(island) {
 	};
 
 	try {
-		if (framework === 'vue' && island.__vue__) {
+		if (framework === "vue" && island.__vue__) {
 			state.vueData = structuredClone(island.__vue__.$data || {});
-		} else if (framework === 'svelte' && island.__svelte__) {
+		} else if (framework === "svelte" && island.__svelte__) {
 			state.svelteState = island.__svelte__;
-		} else if (framework === 'lit' && island.tagName?.includes('-')) {
-			const litElement = island.querySelector('[data-lit-element]') || island;
+		} else if (framework === "lit" && island.tagName?.includes("-")) {
+			const litElement = island.querySelector("[data-lit-element]") || island;
 			if (litElement._$litElement$) {
 				state.litProperties = {};
 			}
 		}
 	} catch (error) {
-		console.warn('Failed to preserve island state:', error);
+		console.warn("Failed to preserve island state:", error);
 	}
 
 	return state;
@@ -512,11 +530,11 @@ function restoreIslandState(island, state) {
 			}
 		}
 
-		if (island.dataset.framework === 'vue' && state.vueData && island.__vue__) {
+		if (island.dataset.framework === "vue" && state.vueData && island.__vue__) {
 			Object.assign(island.__vue__.$data, state.vueData);
 		}
 	} catch (error) {
-		console.warn('Failed to restore island state:', error);
+		console.warn("Failed to restore island state:", error);
 	}
 }
 
@@ -531,11 +549,11 @@ async function hydrateIslandWithFreshModule(island, framework, freshSrc, origina
 	const propsAttr = island.dataset.props;
 	const props = propsAttr ? JSON.parse(propsAttr) : {};
 
-	if (framework === 'lit') {
+	if (framework === "lit") {
 		if (import.meta.env?.DEV) {
 			await import(/* @vite-ignore */ `/@useavalon/lit/client`);
 		} else {
-			await import('@useavalon/lit/client');
+			await import("@useavalon/lit/client");
 		}
 	}
 
@@ -544,12 +562,12 @@ async function hydrateIslandWithFreshModule(island, framework, freshSrc, origina
 
 	const integrationModule = await loadIntegrationModule(framework);
 
-	if (!integrationModule.hydrate || typeof integrationModule.hydrate !== 'function') {
+	if (!integrationModule.hydrate || typeof integrationModule.hydrate !== "function") {
 		throw new Error(`Integration ${framework} does not export a hydrate function`);
 	}
 
 	integrationModule.hydrate(island, Component, props);
-	island.dataset.hydrated = 'true';
+	island.dataset.hydrated = "true";
 }
 
 /**
@@ -560,13 +578,13 @@ async function hydrateIslandWithFreshModule(island, framework, freshSrc, origina
  * @param {Error} error - The error that occurred
  */
 function showInlineHMRError(island, framework, src, error) {
-	const existing = island.querySelector('.hmr-error-indicator');
+	const existing = island.querySelector(".hmr-error-indicator");
 	if (existing) {
 		existing.remove();
 	}
 
-	const indicator = document.createElement('div');
-	indicator.className = 'hmr-error-indicator';
+	const indicator = document.createElement("div");
+	indicator.className = "hmr-error-indicator";
 	indicator.style.cssText = `
 		position: absolute;
 		top: 0;
@@ -584,16 +602,16 @@ function showInlineHMRError(island, framework, src, error) {
 		gap: 8px;
 	`;
 
-	const icon = document.createElement('span');
-	icon.textContent = '⚠️';
-	icon.style.fontSize = '14px';
+	const icon = document.createElement("span");
+	icon.textContent = "⚠️";
+	icon.style.fontSize = "14px";
 
-	const message = document.createElement('span');
-	message.style.flex = '1';
-	message.innerHTML = `<strong>HMR Failed:</strong> ${error.message.slice(0, 100)}${error.message.length > 100 ? '...' : ''}`;
+	const message = document.createElement("span");
+	message.style.flex = "1";
+	message.innerHTML = `<strong>HMR Failed:</strong> ${error.message.slice(0, 100)}${error.message.length > 100 ? "..." : ""}`;
 
-	const dismissBtn = document.createElement('button');
-	dismissBtn.textContent = '×';
+	const dismissBtn = document.createElement("button");
+	dismissBtn.textContent = "×";
 	dismissBtn.style.cssText = `
 		background: rgba(255,255,255,0.2);
 		border: none;
@@ -612,8 +630,8 @@ function showInlineHMRError(island, framework, src, error) {
 	indicator.appendChild(dismissBtn);
 
 	const computedStyle = globalThis.getComputedStyle(island);
-	if (computedStyle.position === 'static') {
-		island.style.position = 'relative';
+	if (computedStyle.position === "static") {
+		island.style.position = "relative";
 	}
 
 	island.insertBefore(indicator, island.firstChild);
@@ -624,7 +642,7 @@ if (import.meta.hot) {
 	import.meta.hot.accept();
 
 	// Lazy HMR adapter registration - only load adapters for frameworks used on the page
-	import('./hmr-coordinator.js')
+	import("./hmr-coordinator.js")
 		.then(async ({ initializeHMR, getHMRCoordinator }) => {
 			initializeHMR();
 
@@ -632,7 +650,7 @@ if (import.meta.hot) {
 
 			// Discover which frameworks are actually used on this page
 			const usedFrameworks = new Set();
-			document.querySelectorAll('[data-framework]').forEach(island => {
+			document.querySelectorAll("[data-framework]").forEach((island) => {
 				const framework = island.dataset.framework;
 				if (framework) usedFrameworks.add(framework);
 			});
@@ -641,19 +659,19 @@ if (import.meta.hot) {
 			// Adapters are loaded from their respective integration packages
 			// Use computed paths so Vite doesn't statically resolve imports
 			// for frameworks the user hasn't installed.
-			const loadAdapter = fw => {
+			const loadAdapter = (fw) => {
 				const p = `/@useavalon/${fw}/client/hmr`;
-				return import(/* @vite-ignore */ p).then(m => m[`${fw}Adapter`]);
+				return import(/* @vite-ignore */ p).then((m) => m[`${fw}Adapter`]);
 			};
 
 			const adapterLoaders = {
-				react: () => loadAdapter('react'),
-				preact: () => loadAdapter('preact'),
-				vue: () => loadAdapter('vue'),
-				svelte: () => loadAdapter('svelte'),
-				solid: () => loadAdapter('solid'),
-				lit: () => loadAdapter('lit'),
-				qwik: () => loadAdapter('qwik'),
+				react: () => loadAdapter("react"),
+				preact: () => loadAdapter("preact"),
+				vue: () => loadAdapter("vue"),
+				svelte: () => loadAdapter("svelte"),
+				solid: () => loadAdapter("solid"),
+				lit: () => loadAdapter("lit"),
+				qwik: () => loadAdapter("qwik"),
 			};
 
 			for (const framework of usedFrameworks) {
@@ -668,8 +686,8 @@ if (import.meta.hot) {
 				}
 			}
 		})
-		.catch(error => {
-			console.error('[HMR] Failed to initialize:', error);
+		.catch((error) => {
+			console.error("[HMR] Failed to initialize:", error);
 		});
 
 	// Enhanced HMR support for nested islands
@@ -685,7 +703,7 @@ if (import.meta.hot) {
  */
 async function showHMRError(island, hmrFramework, hmrSrc, error) {
 	try {
-		const { showHMRErrorOverlay } = await import('./hmr-error-overlay.js');
+		const { showHMRErrorOverlay } = await import("./hmr-error-overlay.js");
 		showHMRErrorOverlay({
 			framework: hmrFramework,
 			src: hmrSrc,
@@ -708,15 +726,20 @@ function setupNestedIslandHMR() {
 	const hydratedIslands = new Map();
 
 	async function handleIslandHMR(modulePath) {
-		const normalizedPath = modulePath.replaceAll('\\', '/');
+		const normalizedPath = modulePath.replaceAll("\\", "/");
 
-		const islands = document.querySelectorAll(`[data-src*="${normalizedPath}"], [data-src$="${normalizedPath}"]`);
+		const islands = document.querySelectorAll(
+			`[data-src*="${normalizedPath}"], [data-src$="${normalizedPath}"]`,
+		);
 
 		if (islands.length === 0) {
-			const allIslands = document.querySelectorAll('[data-src]');
+			const allIslands = document.querySelectorAll("[data-src]");
 			for (const island of allIslands) {
 				const src = island.dataset.src;
-				if (src && (src.includes(normalizedPath) || normalizedPath.includes(src.replace(/^\//, '')))) {
+				if (
+					src &&
+					(src.includes(normalizedPath) || normalizedPath.includes(src.replace(/^\//, "")))
+				) {
 					await rehydrateIsland(island);
 				}
 			}
@@ -741,13 +764,13 @@ function setupNestedIslandHMR() {
 			delete island.dataset.hydrated;
 			delete island.dataset.hydrationStatus;
 
-			const errorIndicator = island.querySelector('.hydration-error-indicator');
+			const errorIndicator = island.querySelector(".hydration-error-indicator");
 			if (errorIndicator) {
 				errorIndicator.remove();
 			}
 
 			const timestamp = Date.now();
-			const freshSrc = src.includes('?') ? `${src}&t=${timestamp}` : `${src}?t=${timestamp}`;
+			const freshSrc = src.includes("?") ? `${src}&t=${timestamp}` : `${src}?t=${timestamp}`;
 
 			await hydrateIslandWithFreshModule(island, framework, freshSrc, src);
 
@@ -758,7 +781,7 @@ function setupNestedIslandHMR() {
 			}
 
 			island.dispatchEvent(
-				new CustomEvent('hmr-update', {
+				new CustomEvent("hmr-update", {
 					detail: {
 						framework,
 						src,
@@ -772,7 +795,7 @@ function setupNestedIslandHMR() {
 			console.error(`[HMR] Failed for ${framework} island ${src}:`, error);
 
 			island.dispatchEvent(
-				new CustomEvent('hmr-error', {
+				new CustomEvent("hmr-error", {
 					detail: {
 						framework,
 						src,
@@ -790,17 +813,17 @@ function setupNestedIslandHMR() {
 	}
 
 	// Listen for Vite HMR events
-	import.meta.hot.on('vite:beforeUpdate', payload => {
+	import.meta.hot.on("vite:beforeUpdate", (payload) => {
 		for (const update of payload.updates || []) {
 			const path = update.path || update.acceptedPath;
-			if (path && (path.includes('/islands/') || path.includes('\\islands\\'))) {
+			if (path && (path.includes("/islands/") || path.includes("\\islands\\"))) {
 				handleIslandHMR(path);
 			}
 		}
 	});
 
 	// Handle full page reloads for islands
-	import.meta.hot.on('vite:beforeFullReload', () => {
+	import.meta.hot.on("vite:beforeFullReload", () => {
 		const islands = document.querySelectorAll('[data-hydrated="true"]');
 		const states = {};
 
@@ -812,7 +835,7 @@ function setupNestedIslandHMR() {
 		}
 
 		try {
-			sessionStorage.setItem('__avalon_hmr_states__', JSON.stringify(states));
+			sessionStorage.setItem("__avalon_hmr_states__", JSON.stringify(states));
 		} catch {
 			// sessionStorage might not be available
 		}
@@ -820,10 +843,10 @@ function setupNestedIslandHMR() {
 
 	// Restore states after page load (for full reloads)
 	try {
-		const savedStates = sessionStorage.getItem('__avalon_hmr_states__');
+		const savedStates = sessionStorage.getItem("__avalon_hmr_states__");
 		if (savedStates) {
 			const states = JSON.parse(savedStates);
-			sessionStorage.removeItem('__avalon_hmr_states__');
+			sessionStorage.removeItem("__avalon_hmr_states__");
 
 			setTimeout(() => {
 				for (const [src, state] of Object.entries(states)) {
