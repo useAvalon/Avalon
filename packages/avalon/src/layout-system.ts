@@ -7,161 +7,138 @@
 
 // === Core Layout System ===
 
-// Layout Discovery
-export { LayoutDiscovery } from './core/layout/layout-discovery.ts';
-export type { LayoutDiscoveryOptions, LayoutRoute } from './schemas/layout.ts';
-
+export type { EnhancedLayoutResolverOptions } from "./core/layout/enhanced-layout-resolver.ts";
+// Enhanced Layout Resolver
+export {
+	createEnhancedLayoutResolver,
+	EnhancedLayoutResolver,
+	EnhancedLayoutResolverUtils,
+} from "./core/layout/enhanced-layout-resolver.ts";
+// Layout Composition Control
+export { LayoutComposer } from "./core/layout/layout-composer.ts";
+export type {
+	LayoutDataLoadingOptions,
+	LayoutDataLoadingResult,
+} from "./core/layout/layout-data-loader.ts";
 // Layout Data Loading
 export {
+	defaultLayoutDataLoader,
+	getParentLayoutData,
 	LayoutDataLoader,
 	LayoutDataLoadingError,
 	loadSingleLayoutData,
 	mergeLayoutData,
-	getParentLayoutData,
-	defaultLayoutDataLoader,
-} from './core/layout/layout-data-loader.ts';
-export type { LayoutDataLoadingResult, LayoutDataLoadingOptions } from './core/layout/layout-data-loader.ts';
-
+} from "./core/layout/layout-data-loader.ts";
+// Layout Discovery
+export { LayoutDiscovery } from "./core/layout/layout-discovery.ts";
 // Layout Matching and Conditional Rendering
-export { LayoutMatcher as LayoutMatcherClass, BuiltInLayoutRules } from './core/layout/layout-matcher.ts';
-export type { LayoutRule, RouteInfo } from './schemas/layout.ts';
-
-// Layout Composition Control
-export { LayoutComposer } from './core/layout/layout-composer.ts';
-export type { LayoutConfig } from './schemas/layout.ts';
-
-// Enhanced Layout Resolver
 export {
-	EnhancedLayoutResolver,
-	createEnhancedLayoutResolver,
-	EnhancedLayoutResolverUtils,
-} from './core/layout/enhanced-layout-resolver.ts';
-export type { EnhancedLayoutResolverOptions } from './core/layout/enhanced-layout-resolver.ts';
-
-// === Persistent Islands System ===
-
-export { IslandPersistence, defaultIslandPersistence } from './core/islands/island-persistence.ts';
-export { IslandStateSerializer } from './core/islands/island-state-serializer.ts';
-export {
-	createPersistentIslandContext,
-	usePersistentIslandContext,
-	PersistentIslandProvider,
-} from './core/islands/persistent-island-context.tsx';
-export { PersistentIsland } from './components/PersistentIsland.tsx';
-export type { IslandState, PersistentIslandProps, PersistentIslandContext } from './schemas/layout.ts';
-
-// === Error Boundary System ===
-
-export { LayoutErrorBoundary } from './components/LayoutErrorBoundary.tsx';
-export { LayoutDataErrorBoundary } from './components/LayoutDataErrorBoundary.tsx';
-export { IslandErrorBoundary, withIslandErrorBoundary } from './components/IslandErrorBoundary.tsx';
-export { StreamingErrorBoundary, withStreamingErrorBoundary } from './components/StreamingErrorBoundary.tsx';
-export type { LayoutErrorInfo, LayoutErrorBoundaryProps, ErrorRecoveryStrategy } from './schemas/layout.ts';
-
-// === Streaming System ===
-
-export { StreamingLayout, StreamingSuspense, withStreaming, useStreamingState } from './components/StreamingLayout.tsx';
-export type { StreamingLayoutProps, StreamingComponent } from './schemas/layout.ts';
+	BuiltInLayoutRules,
+	LayoutMatcher as LayoutMatcherClass,
+} from "./core/layout/layout-matcher.ts";
+export type {
+	LayoutConfig,
+	LayoutDiscoveryOptions,
+	LayoutRoute,
+	LayoutRule,
+	RouteInfo,
+} from "./schemas/layout.ts";
 
 // === Layout Utilities (Essential Only) ===
 // Debug and performance utilities are available via lazy import from './core/layout/layout-utilities.ts'
 // when needed in development mode
 
-export { LayoutCacheManager } from './core/layout/layout-cache-manager.ts';
 export type {
+	CacheConfig,
 	CacheEntry,
 	CacheStats,
-	CacheConfig,
-} from './core/layout/layout-cache-manager.ts';
+} from "./core/layout/layout-cache-manager.ts";
+export { LayoutCacheManager } from "./core/layout/layout-cache-manager.ts";
 
 // === Core Types and Schemas ===
 
 export type {
+	EnhancedLayoutContext,
+	IslandStateClearer,
+	IslandStateLoader,
+	IslandStateSaver,
+	LayoutCache,
 	LayoutContext,
 	LayoutData,
-	LayoutHandler,
-	LayoutProps,
-	LayoutLoader,
-	ResolvedLayout,
-	LayoutCache,
-	EnhancedLayoutContext,
-	LayoutMatcherFunction,
 	LayoutErrorHandler,
-	LayoutRetryFunction,
 	LayoutFallbackRenderer,
-	IslandStateSaver,
-	IslandStateLoader,
-	IslandStateClearer,
+	LayoutHandler,
+	LayoutLoader,
+	LayoutMatcherFunction,
+	LayoutProps,
+	LayoutRetryFunction,
+	ResolvedLayout,
 	StreamingReadyCheck,
-} from './schemas/layout.ts';
+} from "./schemas/layout.ts";
 
 // === Advanced Interface Types ===
 
 export type {
-	ILayoutDiscovery,
-	ILayoutMatcher,
-	ILayoutComposer,
-	IIslandPersistence,
-	ILayoutErrorRecovery,
-	ILayoutStreaming,
 	IEnhancedLayoutResolver,
+	IIslandPersistence,
 	ILayoutComponent,
-	IPersistentIslandComponent,
+	ILayoutComposer,
+	ILayoutDiscovery,
 	ILayoutErrorBoundaryComponent,
+	ILayoutErrorRecovery,
+	ILayoutEventEmitter,
+	ILayoutMatcher,
+	ILayoutStreaming,
+	IPersistentIslandComponent,
 	IStreamingLayoutComponent,
-	LayoutModule,
-	PageModule,
-	LayoutResolutionContext,
-	LayoutPerformanceMetrics,
 	LayoutDebugInfo,
-	LayoutEventType,
 	LayoutEventData,
 	LayoutEventHandler,
-	ILayoutEventEmitter,
-} from './types/layout.ts';
+	LayoutEventType,
+	LayoutModule,
+	LayoutPerformanceMetrics,
+	LayoutResolutionContext,
+	PageModule,
+} from "./types/layout.ts";
 
 // === Validation Schemas ===
 
 export {
+	EnhancedLayoutContextSchema,
+	ErrorRecoveryStrategySchema,
+	IslandStateSchema,
+	LayoutCacheSchema,
+	LayoutConfigSchema,
 	LayoutContextSchema,
 	LayoutDataSchema,
-	LayoutRouteSchema,
+	LayoutDiscoveryOptionsSchema,
+	LayoutErrorBoundaryPropsSchema,
+	LayoutErrorInfoSchema,
 	LayoutHandlerSchema,
 	LayoutPropsSchema,
-	LayoutDiscoveryOptionsSchema,
-	RouteInfoSchema,
+	LayoutRouteSchema,
 	LayoutRuleSchema,
-	LayoutConfigSchema,
-	IslandStateSchema,
-	PersistentIslandPropsSchema,
 	PersistentIslandContextSchema,
-	LayoutErrorInfoSchema,
-	LayoutErrorBoundaryPropsSchema,
-	ErrorRecoveryStrategySchema,
-	StreamingLayoutPropsSchema,
-	StreamingComponentSchema,
+	PersistentIslandPropsSchema,
 	ResolvedLayoutSchema,
-	LayoutCacheSchema,
-	EnhancedLayoutContextSchema,
-} from './schemas/layout.ts';
+	RouteInfoSchema,
+	StreamingComponentSchema,
+	StreamingLayoutPropsSchema,
+} from "./schemas/layout.ts";
 
 // === Convenience Re-exports ===
 
 // Main layout system class for easy access
-export { EnhancedLayoutResolver as LayoutSystem } from './core/layout/enhanced-layout-resolver.ts';
-
-// Default instances for quick setup
-export { defaultIslandPersistence as defaultPersistence } from './core/islands/island-persistence.ts';
-// Note: defaultLayoutUtilities removed to reduce cold start overhead
-// Import directly from './core/layout/layout-utilities.ts' if needed
-
 // Factory functions for custom setups
-export { createEnhancedLayoutResolver as createLayoutSystem } from './core/layout/enhanced-layout-resolver.ts';
+export {
+	createEnhancedLayoutResolver as createLayoutSystem,
+	EnhancedLayoutResolver as LayoutSystem,
+} from "./core/layout/enhanced-layout-resolver.ts";
 
 /**
  * Layout System Version Information
  */
-export const LAYOUT_SYSTEM_VERSION = '1.0.0';
+export const LAYOUT_SYSTEM_VERSION = "1.0.0";
 
 /**
  * Layout System Feature Flags
@@ -184,9 +161,9 @@ export const LAYOUT_SYSTEM_FEATURES = {
  */
 export const LAYOUT_SYSTEM_DEFAULTS = {
 	DISCOVERY: {
-		baseDirectory: 'src/pages',
-		filePattern: '_layout.tsx',
-		excludeDirectories: ['node_modules', '.git', 'dist'],
+		baseDirectory: "src/pages",
+		filePattern: "_layout.tsx",
+		excludeDirectories: ["node_modules", ".git", "dist"],
 		enableWatching: false,
 		developmentMode: false,
 	},
@@ -198,13 +175,13 @@ export const LAYOUT_SYSTEM_DEFAULTS = {
 	},
 	STREAMING: {
 		enabled: true,
-		priority: 'medium' as const,
+		priority: "medium" as const,
 		timeout: 5000,
 	},
 	ERROR_BOUNDARIES: {
 		enabled: true,
 		maxRetries: 3,
-		fallbackStrategy: 'component' as const,
+		fallbackStrategy: "component" as const,
 	},
 	PERFORMANCE: {
 		monitoring: true,

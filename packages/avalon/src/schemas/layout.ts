@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import type { ComponentChildren } from 'preact';
+import type { ComponentChildren } from "preact";
+import { z } from "zod";
 
 /**
  * Layout Context Schema - Contains request information and state for layout processing
@@ -24,7 +24,7 @@ export const LayoutRouteSchema = z.object({
 	pattern: z.instanceof(URLPattern),
 	layoutPath: z.string().min(1),
 	priority: z.number().int().min(0),
-	type: z.enum(['root', 'nested']),
+	type: z.enum(["root", "nested"]),
 	depth: z.number().int().min(0),
 });
 
@@ -57,7 +57,7 @@ export const LayoutPropsSchema = z.object({
  */
 export const LayoutDiscoveryOptionsSchema = z.object({
 	baseDirectory: z.string().min(1),
-	filePattern: z.string().min(1).optional().default('_layout.tsx'),
+	filePattern: z.string().min(1).optional().default("_layout.tsx"),
 	excludeDirectories: z.array(z.string()).optional().default([]),
 	enableWatching: z.boolean().optional().default(false),
 	developmentMode: z.boolean().optional().default(false),
@@ -118,8 +118,8 @@ export const PersistentIslandContextSchema = z.object({
  * Layout Error Info Schema
  */
 export const LayoutErrorInfoSchema = z.object({
-	layoutPath: z.string(),
-	errorType: z.enum(['component', 'loader', 'rendering', 'island']),
+	layoutPath: z.string().optional(),
+	errorType: z.enum(["component", "loader", "rendering", "island"]),
 	timestamp: z.number().int().positive(),
 	componentStack: z.string().optional(),
 	errorBoundary: z.string().optional(),
@@ -138,7 +138,7 @@ export const LayoutErrorBoundaryPropsSchema = z.object({
  * Error Recovery Strategy Schema
  */
 export const ErrorRecoveryStrategySchema = z.object({
-	type: z.enum(['retry', 'fallback', 'skip', 'redirect']),
+	type: z.enum(["retry", "fallback", "skip", "redirect"]),
 	maxRetries: z.number().int().positive().optional(),
 	fallbackComponent: z.any().optional(), // ComponentType
 	redirectUrl: z.url().optional(),
@@ -150,7 +150,7 @@ export const ErrorRecoveryStrategySchema = z.object({
 export const StreamingLayoutPropsSchema = z.object({
 	children: z.any(), // ComponentChildren
 	fallback: z.any().optional(), // ComponentChildren
-	priority: z.enum(['high', 'medium', 'low']).default('medium'),
+	priority: z.enum(["high", "medium", "low"]).default("medium"),
 });
 
 /**
@@ -252,7 +252,10 @@ export type LayoutRetryFunction = () => void;
  * Layout Fallback Renderer Function Type
  * Renders fallback UI when layout errors occur
  */
-export type LayoutFallbackRenderer = (error: Error, retry: LayoutRetryFunction) => ComponentChildren;
+export type LayoutFallbackRenderer = (
+	error: Error,
+	retry: LayoutRetryFunction,
+) => ComponentChildren;
 
 /**
  * Island State Saver Function Type
