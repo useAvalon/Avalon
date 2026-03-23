@@ -14,6 +14,7 @@ import { dirname, join } from "node:path";
 import type { H3Event } from "h3";
 import { nitro as nitroVitePlugin } from "nitro/vite";
 import type { Plugin, ViteDevServer } from "vite";
+import { isRunnableDevEnvironment } from "vite";
 import { getUniversalCSSForHead } from "../islands/universal-css-collector.ts";
 import { getUniversalHeadForInjection } from "../islands/universal-head-collector.ts";
 import {
@@ -256,14 +257,29 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 				console.warn("[middleware] Failed to discover middleware:", err);
 			});
 
-			// Fire-and-forget: prewarm only core infrastructure modules.
-			// Pages, islands, and per-route middleware are loaded on-demand.
-			prewarmCoreModules(server, avalonConfig.integrations, verbose).catch((err) => {
-				console.error("[prewarm] Core modules pre-warm failed:", err);
-			});
+			// When Nitro manages the SSR environment it replaces the default
+			// RunnableDevEnvironment with a FetchableDevEnvironment. In that
+			// case server.ssrLoadModule() will throw because it requires a
+			// RunnableDevEnvironment. Detect this once at startup and skip
+			// the avalon SSR middleware entirely — Nitro's own env-runner
+			// pipeline handles SSR requests instead.
+			const ssrEnv = server.environments?.ssr;
+			const ssrIsRunnable = !!ssrEnv && isRunnableDevEnvironment(ssrEnv);
 
-			// SSR middleware — runs before Vite's SPA fallback
+			if (ssrIsRunnable) {
+				// Fire-and-forget: prewarm only core infrastructure modules.
+				// Pages, islands, and per-route middleware are loaded on-demand.
+				prewarmCoreModules(server, avalonConfig.integrations, verbose).catch((err) => {
+					console.error("[prewarm] Core modules pre-warm failed:", err);
+				});
+			}
+
+			// SSR middleware — runs before Vite's SPA fallback.
+			// When Nitro owns the SSR environment (non-runnable), we skip
+			// this middleware and let Nitro's handler serve the request.
 			server.middlewares.use(async (req, res, next) => {
+				if (!ssrIsRunnable) return next();
+
 				const originalUrl = req.url || "/";
 				let url = originalUrl;
 
