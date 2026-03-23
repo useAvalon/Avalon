@@ -1,4 +1,4 @@
-import type { ProjectConfig } from '../types';
+import type { ProjectConfig } from "../types";
 
 export function generateNetlifyToml(config: ProjectConfig): string {
 	return `[build]
@@ -68,7 +68,7 @@ function finish() {
   setTimeout(() => {
     console.log('[build] Running post-build...');
     try {
-      execSync('node post-build.mjs', { cwd: CWD, stdio: 'inherit', timeout: 60_000 });
+      execSync('node post-build.mjs', { cwd: CWD, stdio: 'inherit', timeout: 120_000 });
     } catch (err) {
       console.error('[build] post-build warning:', err.message);
     }

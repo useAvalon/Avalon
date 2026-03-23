@@ -1,4 +1,4 @@
-import type { ProjectConfig } from '../types';
+import type { ProjectConfig } from "../types";
 
 export function generateViteConfig(config: ProjectConfig): string {
 	const imports: string[] = [
@@ -8,19 +8,19 @@ export function generateViteConfig(config: ProjectConfig): string {
 	];
 
 	// Tailwind import
-	const needsTailwind = config.styling === 'tailwind' || config.styling === 'shadcn';
+	const needsTailwind = config.styling === "tailwind" || config.styling === "shadcn";
 	if (needsTailwind) {
 		imports.push(`import tailwindcss from '@tailwindcss/vite';`);
 	}
 
 	// Agent optimization import
-	const hasAgentOptimization = config.plugins.includes('agent-optimization');
+	const hasAgentOptimization = config.plugins.includes("agent-optimization");
 	if (hasAgentOptimization) {
 		imports.push(`import { agentOptimization } from '@useavalon/agent-optimization';`);
 	}
 
 	// Build integrations array — only user-selected integrations
-	const integrationsList = config.integrations.map(i => `'${i}'`).join(', ');
+	const integrationsList = config.integrations.map((i) => `'${i}'`).join(", ");
 
 	// Build plugins array
 	const pluginEntries: string[] = [];
@@ -46,8 +46,8 @@ export function generateViteConfig(config: ProjectConfig): string {
 	}
 
 	const lines = [
-		imports.join('\n'),
-		'',
+		imports.join("\n"),
+		"",
 		`export default defineConfig(async (): Promise<UserConfig> => {`,
 		`  const avalonPlugins = await avalon({`,
 		`    integrations: [${integrationsList}],`,
@@ -57,12 +57,17 @@ export function generateViteConfig(config: ProjectConfig): string {
 		`    nitro: {`,
 		`      preset: process.env.NITRO_PRESET || 'node_server',`,
 		`      streaming: true,`,
+		`      prerender: {`,
+		`        routes: ['/'],`,
+		`        crawlLinks: true,`,
+		`        ignore: [],`,
+		`      },`,
 		`    },`,
 		`  });`,
-		'',
+		"",
 		`  return {`,
 		`    plugins: [`,
-		pluginEntries.join('\n'),
+		pluginEntries.join("\n"),
 		`    ],`,
 		``,
 		`    resolve: {`,
@@ -78,8 +83,8 @@ export function generateViteConfig(config: ProjectConfig): string {
 		`    },`,
 		`  };`,
 		`});`,
-		'',
+		"",
 	];
 
-	return lines.join('\n');
+	return lines.join("\n");
 }
