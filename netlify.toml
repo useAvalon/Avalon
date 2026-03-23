@@ -10,3 +10,14 @@
 
 [functions]
   directory = "netlify/functions"
+
+# SSR catch-all — serves the Nitro function for any route that doesn't
+# match a static file. force=false (the default in netlify.toml) means
+# Netlify checks for a matching static/prerendered file FIRST. Only
+# requests with no static file hit the function.
+# In _redirects, 200 rewrites shadow static files — that's why we use
+# netlify.toml instead.
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/server"
+  status = 200

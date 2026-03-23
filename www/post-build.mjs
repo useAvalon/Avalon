@@ -550,31 +550,6 @@ function copyToNetlifyPaths() {
 
 copyToNetlifyPaths();
 
-// ─── Ensure Netlify _redirects has SSR catch-all ─────────────────────
-// Nitro v3 beta's netlify preset generates an empty _redirects file.
-// We need a catch-all rule so all non-static requests hit the SSR function.
-
-function ensureNetlifyRedirects() {
-	const redirectsPath = join(DIST_DIR, '_redirects');
-	let content = existsSync(redirectsPath) ? readFileSync(redirectsPath, 'utf-8') : '';
-
-	// Check if there's already a catch-all to the server function
-	if (content.includes('/.netlify/functions/server')) {
-		console.log('[redirects] SSR catch-all already present');
-		return;
-	}
-
-	// Append the catch-all — must be LAST so static/prerendered files are
-	// served first by Netlify's CDN. The 200 rewrite only fires when no
-	// matching static file exists (Netlify checks static files before _redirects).
-	const catchAll = '\n# SSR catch-all (Nitro server function)\n/*  /.netlify/functions/server  200\n';
-	content = content.trimEnd() + '\n' + catchAll;
-	writeFileSync(redirectsPath, content);
-	console.log('[redirects] ✅ Added SSR catch-all to _redirects');
-}
-
-ensureNetlifyRedirects();
-
 // Run prerender after all patching and copying is done
 await prerenderIfConfigured();
 
