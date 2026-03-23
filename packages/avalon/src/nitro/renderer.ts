@@ -26,26 +26,26 @@
  * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 5.1, 5.3, 9.1, 9.2, 9.3, 9.4, 10.5
  */
 
-import type {
-	NitroRenderContext,
-	SSRRenderOptions,
-	SSRRenderResult,
-	PageModule,
-	AvalonRuntimeConfig,
-	HttpError,
-} from './types.ts';
-import type { H3Event } from 'h3';
-import { getRequestURL as h3GetRequestURL } from 'h3';
-import { createNotFoundError, isHttpError } from './types.ts';
-import type { MiddlewareRoute } from '../middleware/types.ts';
-import { discoverScopedMiddleware, executeScopedMiddleware } from '../middleware/index.ts';
+import type { H3Event } from "h3";
+import { getRequestURL as h3GetRequestURL } from "h3";
+import { h } from "preact";
+import preactRenderToString from "preact-render-to-string";
+import { discoverScopedMiddleware, executeScopedMiddleware } from "../middleware/index.ts";
+import type { MiddlewareRoute } from "../middleware/types.ts";
 import {
-	handleRenderError as handleRenderErrorWithCustomPages,
 	discoverErrorPages,
 	type ErrorHandlerOptions,
-} from './error-handler.ts';
-import { h } from 'preact';
-import preactRenderToString from 'preact-render-to-string';
+	handleRenderError as handleRenderErrorWithCustomPages,
+} from "./error-handler.ts";
+import type {
+	AvalonRuntimeConfig,
+	HttpError,
+	NitroRenderContext,
+	PageModule,
+	SSRRenderOptions,
+	SSRRenderResult,
+} from "./types.ts";
+import { createNotFoundError, isHttpError } from "./types.ts";
 
 /**
  * Resolved page route information
@@ -90,6 +90,21 @@ export interface RenderHandlerOptions {
 	/** Custom layout resolver */
 	resolveLayouts?: (routePath: string, config: AvalonRuntimeConfig) => Promise<string[]>;
 	/**
+	 * Wrap rendered page HTML with layout components.
+	 *
+	 * Called after the page component is rendered to HTML. The function
+	 * receives the page HTML, page module, and render context, and should
+	 * return the full HTML document string (including `<!DOCTYPE html>`).
+	 *
+	 * When provided, the renderer skips its default HTML shell generation
+	 * and uses the returned string directly.
+	 */
+	wrapWithLayouts?: (
+		pageHtml: string,
+		pageModule: PageModule,
+		context: NitroRenderContext,
+	) => Promise<string> | string;
+	/**
 	 * Enable custom error pages (404.tsx, 500.tsx, _error.tsx)
 	 * When enabled, the renderer will look for custom error pages in the pages directory
 	 * Requirements: 10.5
@@ -104,7 +119,10 @@ export interface RenderHandlerOptions {
  * @param params - Route parameters extracted from the URL
  * @returns NitroRenderContext for use in rendering
  */
-export function createRenderContext(event: H3Event, params: Record<string, string> = {}): NitroRenderContext {
+export function createRenderContext(
+	event: H3Event,
+	params: Record<string, string> = {},
+): NitroRenderContext {
 	const url = getRequestURL(event);
 
 	return {
@@ -121,8 +139,8 @@ export function createRenderContext(event: H3Event, params: Record<string, strin
  */
 export function getRequestURL(event: H3Event): URL {
 	// Use h3's getRequestURL for h3 v2 compatibility
-	const protocol = 'http';
-	const host = 'localhost';
+	const protocol = "http";
+	const host = "localhost";
 	return new URL(h3GetRequestURL(event).pathname, `${protocol}://${host}`);
 }
 
@@ -140,7 +158,7 @@ export function toRequest(event: H3Event): Request {
 /**
  * Gets request headers from an H3 event
  */
-export function getRequestHeaders(event: H3Event): Headers {
+export function getRequestHeaders(_event: H3Event): Headers {
 	const headers = new Headers();
 	// In a real Nitro environment, headers would come from event.node.req.headers
 	// This is a placeholder implementation
@@ -170,7 +188,7 @@ export function createErrorResponse(error: Error | HttpError, isDev: boolean): R
 		const errorHtml = generateDevErrorPage(error, statusCode);
 		return new Response(errorHtml, {
 			status: statusCode,
-			headers: { 'Content-Type': 'text/html; charset=utf-8' },
+			headers: { "Content-Type": "text/html; charset=utf-8" },
 		});
 	}
 
@@ -178,7 +196,7 @@ export function createErrorResponse(error: Error | HttpError, isDev: boolean): R
 	const errorHtml = generateProdErrorPage(statusCode);
 	return new Response(errorHtml, {
 		status: statusCode,
-		headers: { 'Content-Type': 'text/html; charset=utf-8' },
+		headers: { "Content-Type": "text/html; charset=utf-8" },
 	});
 }
 
@@ -252,7 +270,7 @@ function generateDevErrorPage(error: Error, statusCode: number): string {
       <div class="stack-title">Stack Trace</div>
       <pre>${escapeHtml(error.stack)}</pre>
       `
-					: ''
+					: ""
 			}
     </div>
   </body>
@@ -324,16 +342,16 @@ function generateProdErrorPage(statusCode: number): string {
  */
 function getStatusText(statusCode: number): string {
 	const statusTexts: Record<number, string> = {
-		400: 'Bad Request',
-		401: 'Unauthorized',
-		403: 'Forbidden',
-		404: 'Page Not Found',
-		405: 'Method Not Allowed',
-		500: 'Internal Server Error',
-		502: 'Bad Gateway',
-		503: 'Service Unavailable',
+		400: "Bad Request",
+		401: "Unauthorized",
+		403: "Forbidden",
+		404: "Page Not Found",
+		405: "Method Not Allowed",
+		500: "Internal Server Error",
+		502: "Bad Gateway",
+		503: "Service Unavailable",
 	};
-	return statusTexts[statusCode] || 'Error';
+	return statusTexts[statusCode] || "Error";
 }
 
 /**
@@ -341,11 +359,11 @@ function getStatusText(statusCode: number): string {
  */
 function escapeHtml(str: string): string {
 	return str
-		.replaceAll('&', '&amp;')
-		.replaceAll('<', '&lt;')
-		.replaceAll('>', '&gt;')
-		.replaceAll('"', '&quot;')
-		.replaceAll("'", '&#039;');
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;")
+		.replaceAll("'", "&#039;");
 }
 
 /**
@@ -374,15 +392,15 @@ export function extractIslandMarkers(html: string): IslandMarker[] {
 
 	// Match island elements with data-framework attribute
 	const islandRegex = /<[^>]*data-framework="([^"]+)"[^>]*>/g;
-	let match;
+	let match: RegExpExecArray | null = islandRegex.exec(html);
 
-	while ((match = islandRegex.exec(html)) !== null) {
+	while (match !== null) {
 		const fullMatch = match[0];
 		const framework = match[1];
 
 		// Extract data-src
 		const srcMatch = /data-src="([^"]+)"/.exec(fullMatch);
-		const src = srcMatch ? srcMatch[1] : '';
+		const src = srcMatch ? srcMatch[1] : "";
 
 		// Extract data-props
 		const propsMatch = /data-props="([^"]*)"/.exec(fullMatch);
@@ -398,6 +416,8 @@ export function extractIslandMarkers(html: string): IslandMarker[] {
 			props,
 			hydrate,
 		});
+
+		match = islandRegex.exec(html);
 	}
 
 	return markers;
@@ -415,17 +435,17 @@ export function ensureHydrationMarkers(element: string, marker: Partial<IslandMa
 	let result = element;
 
 	// Ensure data-framework is present
-	if (marker.framework && !result.includes('data-framework=')) {
+	if (marker.framework && !result.includes("data-framework=")) {
 		result = result.replace(/>/, ` data-framework="${marker.framework}">`);
 	}
 
 	// Ensure data-src is present
-	if (marker.src && !result.includes('data-src=')) {
+	if (marker.src && !result.includes("data-src=")) {
 		result = result.replace(/>/, ` data-src="${marker.src}">`);
 	}
 
 	// Ensure data-props is present (even if empty)
-	if (marker.props !== undefined && !result.includes('data-props=')) {
+	if (marker.props !== undefined && !result.includes("data-props=")) {
 		result = result.replace(/>/, ` data-props="${marker.props}">`);
 	}
 
@@ -459,7 +479,7 @@ export function injectHydrationScript(
 	} = {},
 ): string {
 	// Check if there are any islands that need hydration
-	const hasIslands = html.includes('data-framework=') || html.includes('data-src=');
+	const hasIslands = html.includes("data-framework=") || html.includes("data-src=");
 
 	if (!hasIslands && !options.forceInject) {
 		// No islands found, no need to inject hydration script
@@ -467,14 +487,14 @@ export function injectHydrationScript(
 	}
 
 	// Check if the client script is already included
-	const existingScripts = ['/src/client/main.js', '/dist/client.js', 'client/main.js'];
+	const existingScripts = ["/src/client/main.js", "/dist/client.js", "client/main.js"];
 
-	if (existingScripts.some(script => html.includes(script))) {
+	if (existingScripts.some((script) => html.includes(script))) {
 		return html;
 	}
 
 	// Determine the script path based on environment or override
-	const scriptPath = options.scriptPath || (isDev ? '/src/client/main.js' : '/dist/client.js');
+	const scriptPath = options.scriptPath || (isDev ? "/src/client/main.js" : "/dist/client.js");
 
 	// Build the script tags
 	const scripts: string[] = [];
@@ -487,11 +507,11 @@ export function injectHydrationScript(
 		scripts.push(...options.additionalScripts);
 	}
 
-	const scriptBlock = scripts.join('\n');
+	const scriptBlock = scripts.join("\n");
 
 	// Inject before closing </body> tag
-	if (html.includes('</body>')) {
-		return html.replace('</body>', `${scriptBlock}\n</body>`);
+	if (html.includes("</body>")) {
+		return html.replace("</body>", `${scriptBlock}\n</body>`);
 	}
 
 	// Fallback: append to the end
@@ -524,10 +544,12 @@ export function validateHydrationMarkers(html: string): {
 
 	// Check for client script
 	const hasClientScript =
-		html.includes('/src/client/main.js') || html.includes('/dist/client.js') || html.includes('client/main.js');
+		html.includes("/src/client/main.js") ||
+		html.includes("/dist/client.js") ||
+		html.includes("client/main.js");
 
 	// Validation: all islands should have framework and src attributes
-	const allIslandsValid = islands.every(island => island.framework && island.src);
+	const allIslandsValid = islands.every((island) => island.framework && island.src);
 
 	// Overall validity: if there are islands, they should be valid and have client script
 	const isValid = islands.length === 0 || (allIslandsValid && hasClientScript);
@@ -588,6 +610,7 @@ export async function renderPage(
 	pageModule: PageModule,
 	context: NitroRenderContext,
 	options: SSRRenderOptions = {},
+	wrapWithLayouts?: RenderHandlerOptions["wrapWithLayouts"],
 ): Promise<SSRRenderResult> {
 	try {
 		// Get page props if getServerSideProps is defined
@@ -598,17 +621,23 @@ export async function renderPage(
 
 		// The actual rendering would integrate with Avalon's existing renderToHtml
 		// For now, we return a placeholder that shows the structure
-		const html = await renderPageComponent(pageModule, pageProps, context, options);
+		const html = await renderPageComponent(
+			pageModule,
+			pageProps,
+			context,
+			options,
+			wrapWithLayouts,
+		);
 
 		return {
 			html,
 			statusCode: 200,
 			headers: {
-				'Content-Type': 'text/html; charset=utf-8',
+				"Content-Type": "text/html; charset=utf-8",
 			},
 		};
 	} catch (error) {
-		console.error('[SSR Error]', error);
+		console.error("[SSR Error]", error);
 
 		if (options.onError && error instanceof Error) {
 			options.onError(error);
@@ -627,10 +656,11 @@ async function renderPageComponent(
 	pageProps: Record<string, unknown>,
 	context: NitroRenderContext,
 	_options: SSRRenderOptions,
+	wrapWithLayouts?: RenderHandlerOptions["wrapWithLayouts"],
 ): Promise<string> {
 	const Component = pageModule.default as (props?: Record<string, unknown>) => unknown;
 	const metadata = pageModule.metadata || {};
-	const isDev = process.env.NODE_ENV !== 'production';
+	const isDev = process.env.NODE_ENV !== "production";
 
 	// Call the page component (supports async components)
 	let vnode: unknown;
@@ -638,30 +668,38 @@ async function renderPageComponent(
 		const result = Component(pageProps);
 		vnode = result instanceof Promise ? await result : result;
 	} catch (err) {
-		console.error('[renderer] Error calling page component:', err);
-		vnode = h('div', null, 'Error rendering page');
+		console.error("[renderer] Error calling page component:", err);
+		vnode = h("div", null, "Error rendering page");
 	}
 
 	// Render the vnode to HTML string using Preact SSR
 	let pageHtml: string;
 	try {
+		// biome-ignore lint/suspicious/noExplicitAny: preactRenderToString accepts VNode which is untyped here
 		pageHtml = preactRenderToString(vnode as any);
 	} catch (err) {
-		console.error('[renderer] Error in preactRenderToString:', err);
-		pageHtml = '<div>Error rendering page</div>';
+		console.error("[renderer] Error in preactRenderToString:", err);
+		pageHtml = "<div>Error rendering page</div>";
+	}
+
+	// If a layout wrapper is provided, delegate full HTML generation to it
+	if (wrapWithLayouts) {
+		return await wrapWithLayouts(pageHtml, pageModule, context);
 	}
 
 	// In production, don't inject a script tag — the build pipeline handles client assets.
 	// In dev, inject the Vite-served client entry.
-	const clientScript = isDev ? '\n    <script type="module" src="/src/client/main.js"></script>' : '';
+	const clientScript = isDev
+		? '\n    <script type="module" src="/src/client/main.js"></script>'
+		: "";
 
 	return `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${escapeHtml(String(metadata.title || 'Avalon App'))}</title>
-    ${metadata.description ? `<meta name="description" content="${escapeHtml(String(metadata.description))}">` : ''}
+    <title>${escapeHtml(String(metadata.title || "Avalon App"))}</title>
+    ${metadata.description ? `<meta name="description" content="${escapeHtml(String(metadata.description))}">` : ""}
   </head>
   <body>
     <div id="app">
@@ -752,7 +790,7 @@ export async function renderPageStream(
 		state.error = err;
 		clearFn();
 
-		console.error('[Streaming Error]', {
+		console.error("[Streaming Error]", {
 			message: err.message,
 			stack: err.stack,
 			shellSent: state.shellSent,
@@ -824,7 +862,15 @@ export async function renderPageStream(
 			allReadyTimeoutId = setTimeout(() => {
 				if (!state.contentSent && !state.closed) {
 					const timeoutError = new Error(`All ready timeout after ${allReadyTimeout}ms`);
-					handleStreamError(timeoutError, false, state, controller, encoder, clearTimeouts, options);
+					handleStreamError(
+						timeoutError,
+						false,
+						state,
+						controller,
+						encoder,
+						clearTimeouts,
+						options,
+					);
 				}
 			}, allReadyTimeout);
 		}
@@ -832,17 +878,20 @@ export async function renderPageStream(
 		// Send the page content
 		if (!state.closed) {
 			// Resolve async components before rendering
-			const Component = pageModule.default as ((props?: Record<string, unknown>) => unknown) | undefined;
-			if (Component && typeof Component === 'function') {
+			const Component = pageModule.default as
+				| ((props?: Record<string, unknown>) => unknown)
+				| undefined;
+			if (Component && typeof Component === "function") {
 				const result = Component(pageProps);
-				if (result && typeof (result as Promise<unknown>).then === 'function') {
+				if (result && typeof (result as Promise<unknown>).then === "function") {
 					// Async component — await it, then render the resolved vnode
 					try {
 						const resolved = await (result as Promise<unknown>);
+						// biome-ignore lint/suspicious/noExplicitAny: preactRenderToString accepts VNode which is untyped here
 						const pageHtml = preactRenderToString(resolved as any);
 						ctrl.enqueue(encoder.encode(`    <div id="app">${pageHtml}</div>\n`));
 					} catch (err) {
-						console.error('[streaming] Async component error:', err);
+						console.error("[streaming] Async component error:", err);
 						const content = generateStreamingContent(pageModule, pageProps);
 						ctrl.enqueue(encoder.encode(content));
 					}
@@ -886,7 +935,15 @@ export async function renderPageStream(
 				shellTimeoutId = setTimeout(() => {
 					if (!state.shellSent && !state.closed) {
 						const timeoutError = new Error(`Shell ready timeout after ${shellTimeout}ms`);
-						handleStreamError(timeoutError, true, state, controller, encoder, clearTimeouts, options);
+						handleStreamError(
+							timeoutError,
+							true,
+							state,
+							controller,
+							encoder,
+							clearTimeouts,
+							options,
+						);
 					}
 				}, shellTimeout);
 			}
@@ -934,8 +991,8 @@ function generateStreamingShell(
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${escapeHtml(String(metadata.title || 'Avalon App'))}</title>
-    ${metadata.description ? `<meta name="description" content="${escapeHtml(String(metadata.description))}">` : ''}
+    <title>${escapeHtml(String(metadata.title || "Avalon App"))}</title>
+    ${metadata.description ? `<meta name="description" content="${escapeHtml(String(metadata.description))}">` : ""}
   </head>
   <body>
 `;
@@ -945,33 +1002,39 @@ function generateStreamingShell(
  * Generates the streaming content by actually rendering the page component.
  * Falls back to a data-attribute placeholder only if rendering fails.
  */
-function generateStreamingContent(pageModule: PageModule, pageProps: Record<string, unknown>): string {
-	const Component = pageModule.default as ((props?: Record<string, unknown>) => unknown) | undefined;
+function generateStreamingContent(
+	pageModule: PageModule,
+	pageProps: Record<string, unknown>,
+): string {
+	const Component = pageModule.default as
+		| ((props?: Record<string, unknown>) => unknown)
+		| undefined;
 
-	if (Component && typeof Component === 'function') {
+	if (Component && typeof Component === "function") {
 		try {
 			const result = Component(pageProps);
 			// Handle async components — resolve the promise synchronously isn't possible
 			// in streaming we need to handle this. For now if it's a promise, fall through
 			// to the placeholder. The executeStreamingRender caller should await it.
-			if (result && typeof (result as Promise<unknown>).then === 'function') {
+			if (result && typeof (result as Promise<unknown>).then === "function") {
 				// Can't await here (sync function). The async path is handled in
 				// executeStreamingRender which should be updated to await the component.
 				// For now render what we can.
-				const componentName = Component.name || 'Page';
+				const componentName = Component.name || "Page";
 				return `    <div id="app" data-page="${escapeHtml(String(componentName))}" data-props='${escapeHtml(JSON.stringify(pageProps))}'>
       <!-- Async component — awaiting hydration -->
     </div>\n`;
 			}
+			// biome-ignore lint/suspicious/noExplicitAny: preactRenderToString accepts VNode which is untyped here
 			const pageHtml = preactRenderToString(result as any);
 			return `    <div id="app">${pageHtml}</div>\n`;
 		} catch (err) {
-			console.error('[streaming] Error rendering page component:', err);
+			console.error("[streaming] Error rendering page component:", err);
 		}
 	}
 
 	// Fallback
-	const componentName = (pageModule.default as { name?: string })?.name || 'Page';
+	const componentName = (pageModule.default as { name?: string })?.name || "Page";
 	return `    <div id="app" data-page="${escapeHtml(String(componentName))}" data-props='${escapeHtml(JSON.stringify(pageProps))}'>
       <!-- Component render fallback -->
     </div>\n`;
@@ -989,7 +1052,7 @@ function generateStreamingFooter(): string {
  * Generates an error boundary for mid-stream errors
  */
 function generateStreamingErrorBoundary(error: Error): string {
-	const isDev = process.env.NODE_ENV !== 'production';
+	const isDev = process.env.NODE_ENV !== "production";
 
 	const stackHtml = error.stack
 		? `<pre style="
@@ -1000,7 +1063,7 @@ function generateStreamingErrorBoundary(error: Error): string {
             font-size: 12px;
             margin-top: 10px;
           ">${escapeHtml(error.stack)}</pre>`
-		: '';
+		: "";
 
 	return `
     <div class="streaming-error-boundary" data-error-boundary="true" style="
@@ -1031,7 +1094,7 @@ function generateStreamingErrorBoundary(error: Error): string {
         </div>
       </details>
       `
-					: ''
+					: ""
 			}
     </div>
 `;
@@ -1053,8 +1116,8 @@ export function createStreamingResponse(
 	} = {},
 ): Response {
 	const headers = new Headers({
-		'Content-Type': 'text/html; charset=utf-8',
-		'Transfer-Encoding': 'chunked',
+		"Content-Type": "text/html; charset=utf-8",
+		"Transfer-Encoding": "chunked",
 		...options.headers,
 	});
 
@@ -1129,7 +1192,7 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 	const { avalonConfig, isDev = false, enableCustomErrorPages = true } = options;
 
 	// Middleware routes cache - discovered once at startup
-	let scopedMiddlewareRoutes: MiddlewareRoute[] | null = null;
+	const scopedMiddlewareRoutes: MiddlewareRoute[] | null = null;
 
 	// Error handler options for custom error pages
 	const errorHandlerOptions: ErrorHandlerOptions = {
@@ -1141,8 +1204,8 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 
 	// Pre-discover error pages if custom error pages are enabled
 	if (enableCustomErrorPages) {
-		discoverErrorPages(errorHandlerOptions).catch(err => {
-			console.warn('[renderer] Failed to discover error pages:', err);
+		discoverErrorPages(errorHandlerOptions).catch((err) => {
+			console.warn("[renderer] Failed to discover error pages:", err);
 		});
 	}
 
@@ -1151,7 +1214,11 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 	 * Routes are cached for performance in production
 	 */
 	const middlewareRef = { value: scopedMiddlewareRoutes };
-	const getScopedMiddleware = createScopedMiddlewareGetter(middlewareRef, avalonConfig.srcDir || 'src', isDev);
+	const getScopedMiddleware = createScopedMiddlewareGetter(
+		middlewareRef,
+		avalonConfig.srcDir || "src",
+		isDev,
+	);
 
 	/**
 	 * Handles errors with custom error page support
@@ -1224,16 +1291,16 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 				// Streaming SSR
 				const stream = await renderPageStream(pageModule, renderContext, {
 					onShellReady: () => {
-						setResponseHeader(event, 'Content-Type', 'text/html; charset=utf-8');
+						setResponseHeader(event, "Content-Type", "text/html; charset=utf-8");
 					},
 				});
 
 				return new Response(stream, {
-					headers: { 'Content-Type': 'text/html; charset=utf-8' },
+					headers: { "Content-Type": "text/html; charset=utf-8" },
 				});
 			} else {
 				// Non-streaming SSR
-				const result = await renderPage(pageModule, renderContext);
+				const result = await renderPage(pageModule, renderContext, {}, options.wrapWithLayouts);
 
 				// Inject hydration script
 				const html = injectHydrationScript(result.html as string, isDev);
@@ -1244,7 +1311,7 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 				});
 			}
 		} catch (error) {
-			console.error('[Nitro Renderer Error]', error);
+			console.error("[Nitro Renderer Error]", error);
 
 			const err = error instanceof Error ? error : new Error(String(error));
 			return handleError(err, event);
@@ -1267,19 +1334,22 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
  * @param _pagesDir - Pages directory (unused, kept for interface compatibility)
  * @returns Resolved page route or null if not found
  */
-async function defaultResolvePageRoute(pathname: string, _pagesDir: string): Promise<ResolvedPageRoute | null> {
+async function defaultResolvePageRoute(
+	pathname: string,
+	_pagesDir: string,
+): Promise<ResolvedPageRoute | null> {
 	// Handle root path
-	if (pathname === '/' || pathname === '') {
+	if (pathname === "/" || pathname === "") {
 		return {
-			filePath: 'src/pages/index.tsx',
-			pattern: '/',
+			filePath: "src/pages/index.tsx",
+			pattern: "/",
 			params: {},
 		};
 	}
 
 	// Convert pathname to potential file path
 	// This is a simple conversion - Nitro's routing handles complex patterns
-	const cleanPath = pathname.replace(/^\//, '').replace(/\/$/, '');
+	const cleanPath = pathname.replace(/^\//, "").replace(/\/$/, "");
 	const filePath = `src/pages/${cleanPath}.tsx`;
 
 	return {
@@ -1311,7 +1381,7 @@ async function defaultLoadPageModule(_filePath: string): Promise<PageModule> {
 	return {
 		default: () => null,
 		metadata: {
-			title: 'Avalon Page',
+			title: "Avalon Page",
 		},
 	};
 }
@@ -1332,6 +1402,8 @@ export interface NitroCatchAllOptions {
 	loadPageModule: (filePath: string) => Promise<PageModule>;
 	/** Optional layout resolver */
 	resolveLayouts?: (routePath: string, config: AvalonRuntimeConfig) => Promise<string[]>;
+	/** Wrap rendered page HTML with layout components (same as RenderHandlerOptions) */
+	wrapWithLayouts?: RenderHandlerOptions["wrapWithLayouts"];
 	/**
 	 * Enable custom error pages (404.tsx, 500.tsx, _error.tsx)
 	 * When enabled, the renderer will look for custom error pages in the pages directory
@@ -1378,10 +1450,16 @@ export interface NitroCatchAllOptions {
  * @returns Nitro event handler function
  */
 export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
-	const { avalonConfig, isDev = false, loadPageModule, resolveLayouts, enableCustomErrorPages = true } = options;
+	const {
+		avalonConfig,
+		isDev = false,
+		loadPageModule,
+		resolveLayouts,
+		enableCustomErrorPages = true,
+	} = options;
 
 	// Middleware routes cache - discovered once at startup
-	let scopedMiddlewareRoutes: MiddlewareRoute[] | null = null;
+	const scopedMiddlewareRoutes: MiddlewareRoute[] | null = null;
 
 	// Error handler options for custom error pages
 	const errorHandlerOptions: ErrorHandlerOptions = {
@@ -1393,8 +1471,8 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 
 	// Pre-discover error pages if custom error pages are enabled
 	if (enableCustomErrorPages) {
-		discoverErrorPages(errorHandlerOptions).catch(err => {
-			console.warn('[renderer] Failed to discover error pages:', err);
+		discoverErrorPages(errorHandlerOptions).catch((err) => {
+			console.warn("[renderer] Failed to discover error pages:", err);
 		});
 	}
 
@@ -1403,7 +1481,11 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 	 * Routes are cached for performance in production
 	 */
 	const middlewareRef = { value: scopedMiddlewareRoutes };
-	const getScopedMiddleware = createScopedMiddlewareGetter(middlewareRef, avalonConfig.srcDir || 'src', isDev);
+	const getScopedMiddleware = createScopedMiddlewareGetter(
+		middlewareRef,
+		avalonConfig.srcDir || "src",
+		isDev,
+	);
 
 	/**
 	 * Handles errors with custom error page support
@@ -1436,7 +1518,7 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 
 			// Reconstruct the page file path from the pathname
 			// Nitro's catch-all provides the slug, we map it to the pages directory
-			const slug = params.slug || pathname.replace(/^\//, '') || 'index';
+			const slug = params.slug || pathname.replace(/^\//, "") || "index";
 			const filePath = `${avalonConfig.pagesDir}/${slug}.tsx`;
 
 			// Try to load the page module
@@ -1476,16 +1558,16 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 				// Streaming SSR
 				const stream = await renderPageStream(pageModule, renderContext, {
 					onShellReady: () => {
-						setResponseHeader(event, 'Content-Type', 'text/html; charset=utf-8');
+						setResponseHeader(event, "Content-Type", "text/html; charset=utf-8");
 					},
 				});
 
 				return new Response(stream, {
-					headers: { 'Content-Type': 'text/html; charset=utf-8' },
+					headers: { "Content-Type": "text/html; charset=utf-8" },
 				});
 			} else {
 				// Non-streaming SSR
-				const result = await renderPage(pageModule, renderContext);
+				const result = await renderPage(pageModule, renderContext, {}, options.wrapWithLayouts);
 
 				// Inject hydration script - ensures client-side hydration works
 				const html = injectHydrationScript(result.html as string, isDev);
@@ -1496,7 +1578,7 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 				});
 			}
 		} catch (error) {
-			console.error('[Nitro Catch-All Renderer Error]', error);
+			console.error("[Nitro Catch-All Renderer Error]", error);
 
 			const err = error instanceof Error ? error : new Error(String(error));
 			return handleError(err, event);
@@ -1518,4 +1600,4 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
  * }
  * ```
  */
-export { clearMiddlewareCache as clearRendererMiddlewareCache } from '../middleware/index.ts';
+export { clearMiddlewareCache as clearRendererMiddlewareCache } from "../middleware/index.ts";
