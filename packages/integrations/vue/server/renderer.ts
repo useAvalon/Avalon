@@ -7,12 +7,12 @@
  * Migrated from src/islands/renderers/vue-renderer.ts
  */
 
-import { createSSRApp } from 'vue';
-import { renderToString as vueRenderToString } from 'vue/server-renderer';
-import type { RenderParams, RenderResult } from '@useavalon/core/types';
-import { extractCSS, generateScopeId, applyScopeToHTML } from './css-extractor.ts';
-import { toImportSpecifier } from '@useavalon/core/utils';
-import { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection';
+import { resolveIslandPath } from "@useavalon/avalon/islands/framework-detection";
+import type { RenderParams, RenderResult } from "@useavalon/core/types";
+import { toImportSpecifier } from "@useavalon/core/utils";
+import { createSSRApp } from "vue";
+import { renderToString as vueRenderToString } from "vue/server-renderer";
+import { extractCSS } from "./css-extractor.ts";
 
 /**
  * Render a Vue component to HTML string with SSR
@@ -29,7 +29,13 @@ import { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection
  * @returns Render result with HTML, CSS, and hydration data
  */
 export async function render(params: RenderParams): Promise<RenderResult> {
-	const { component: _component, props = {}, src, condition = 'on:client', ssrOnly = false } = params;
+	const {
+		component: _component,
+		props = {},
+		src,
+		condition = "on:client",
+		ssrOnly = false,
+	} = params;
 
 	try {
 		const VueComponent = _component || (await loadComponent(src));
@@ -37,26 +43,30 @@ export async function render(params: RenderParams): Promise<RenderResult> {
 		const app = createSSRApp(VueComponent as any, props);
 		const ssrHtml = await vueRenderToString(app);
 
-		let componentCSS = '';
-		let scopeId = '';
+		// Extract the scope ID from the compiled Vue SFC. The Vue compiler
+		// sets __scopeId on the component (e.g. "data-v-1c086bc5") and
+		// renderToString applies it to the HTML. We use the same ID to
+		// scope the extracted CSS so SSR styles match the SSR HTML and
+		// the client build's compiled output.
+		const compiledScopeId = (VueComponent as any).__scopeId as string | undefined;
 
-		try {
-			scopeId = generateScopeId(src);
-			componentCSS = await extractCSS(src, { scopeId });
-		} catch {
-			// CSS extraction failed, continue without CSS
-		}
-
-		let finalHtml = ssrHtml;
-		if (componentCSS) {
-			finalHtml = applyScopeToHTML(ssrHtml, scopeId);
+		let componentCSS = "";
+		if (compiledScopeId) {
+			try {
+				// Extract raw CSS from the .vue file's <style scoped> blocks,
+				// then apply the compiler's scope ID (not a custom one).
+				componentCSS = await extractCSS(src, { scopeId: compiledScopeId });
+			} catch {
+				// CSS extraction may fail in production if the raw .vue file
+				// isn't available — the client CSS chunk covers it.
+			}
 		}
 
 		return {
-			html: finalHtml,
+			html: ssrHtml,
 			css: componentCSS || undefined,
-			scopeId: scopeId || undefined,
-			hydrationData: { src, props, framework: 'vue', condition, ssrOnly },
+			scopeId: compiledScopeId || undefined,
+			hydrationData: { src, props, framework: "vue", condition, ssrOnly },
 		};
 	} catch (error) {
 		throw new Error(`Vue SSR rendering failed: ${error}`);
@@ -72,7 +82,7 @@ export async function render(params: RenderParams): Promise<RenderResult> {
  * @returns Vue component module
  */
 async function loadComponent(src: string) {
-	const isDev = process.env.NODE_ENV !== 'production';
+	const isDev = process.env.NODE_ENV !== "production";
 
 	if (isDev && (globalThis as any).__viteDevServer) {
 		// Development: use Vite's SSR module loading
@@ -84,7 +94,7 @@ async function loadComponent(src: string) {
 	}
 
 	// Production: load from build output
-	const ssrPath = src.replace('/islands/', '/dist/ssr/islands/').replace('.vue', '.js');
+	const ssrPath = src.replace("/islands/", "/dist/ssr/islands/").replace(".vue", ".js");
 
 	const module = await import(
 		/* @vite-ignore */
@@ -100,13 +110,13 @@ async function loadComponent(src: string) {
  * @returns Component metadata object
  */
 export function getComponentMetadata(component: unknown) {
-	if (typeof component === 'object' && component !== null) {
+	if (typeof component === "object" && component !== null) {
 		return {
-			name: (component as { name?: string }).name || 'Anonymous',
-			type: 'component',
-			hasSetup: 'setup' in component,
-			hasTemplate: 'template' in component,
-			hasRender: 'render' in component,
+			name: (component as { name?: string }).name || "Anonymous",
+			type: "component",
+			hasSetup: "setup" in component,
+			hasTemplate: "template" in component,
+			hasRender: "render" in component,
 		};
 	}
 
