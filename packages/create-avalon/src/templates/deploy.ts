@@ -12,7 +12,8 @@ export function generateNetlifyToml(config: ProjectConfig): string {
   NITRO_PRESET = "netlify"
 
 [functions]
-  directory = "netlify/functions"
+  directory = ".netlify/functions-internal"
+  node_bundler = "none"
 
 # SSR catch-all — Netlify checks for a matching static/prerendered file
 # first (force=false is the default in netlify.toml). Only requests with
