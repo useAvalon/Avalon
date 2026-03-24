@@ -104,6 +104,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				name: "avalon:preact-compat-resolver",
 				enforce: "pre" as const,
 				resolveId(id: string) {
+					if (id === "preact") return require.resolve("preact");
+					if (id === "preact/hooks") return require.resolve("preact/hooks");
 					if (id === "preact/compat") return require.resolve("preact/compat");
 					if (id === "preact/compat/server") return require.resolve("preact/compat/server");
 					if (id === "preact/compat/client") return require.resolve("preact/compat/client");
@@ -219,6 +221,11 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				"react-dom",
 				"react-dom/client",
 				"react-dom/server",
+				"preact",
+				"preact/hooks",
+				"preact/compat",
+				"preact/compat/server",
+				"preact-render-to-string",
 				"@builder.io/qwik",
 				"@builder.io/qwik/server",
 				// estree-walker v3 is ESM-only (no CJS "require" export).
@@ -248,9 +255,12 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				{ find: /^react-dom$/, replacement: require.resolve("preact/compat") },
 				{ find: /^react-dom\/server$/, replacement: require.resolve("preact/compat/server") },
 				{ find: /^react-dom\/client$/, replacement: require.resolve("preact/compat/client") },
-				// Also alias the preact/compat bare specifiers themselves — after
-				// @preact/preset-vite rewrites react → preact/compat, Rolldown
-				// still needs absolute paths to resolve them.
+				// Pin preact core + hooks to absolute paths so every import
+				// (direct, via compat, via jsx-runtime) resolves to the same
+				// instance. Without this, the bundler can pull in two copies
+				// of preact and hooks never register __H on the right one.
+				{ find: /^preact$/, replacement: require.resolve("preact") },
+				{ find: /^preact\/hooks$/, replacement: require.resolve("preact/hooks") },
 				{ find: /^preact\/compat$/, replacement: require.resolve("preact/compat") },
 				{ find: /^preact\/compat\/server$/, replacement: require.resolve("preact/compat/server") },
 				{ find: /^preact\/compat\/client$/, replacement: require.resolve("preact/compat/client") },
