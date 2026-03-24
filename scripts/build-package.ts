@@ -8,20 +8,23 @@
  * After publish, run: bun run scripts/postpublish.ts (or the shared one)
  */
 
-import { readdir, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
-import { join, relative, dirname, extname } from 'node:path';
-import { transform } from 'oxc-transform';
-import { minify } from 'oxc-minify';
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, extname, join, relative } from "node:path";
+import { minify } from "oxc-minify";
+import { transform } from "oxc-transform";
 
 const ROOT = process.cwd();
-const SRC_DIRS = ['src', 'client', 'server'];
-const DIST_DIR = join(ROOT, 'dist');
+const SRC_DIRS = ["src", "client", "server"];
+const DIST_DIR = join(ROOT, "dist");
 
-const SKIP_DIRS = new Set(['tests', '__tests__', 'node_modules', 'dist']);
+const SKIP_DIRS = new Set(["tests", "__tests__", "node_modules", "dist"]);
 
 function shouldSkipFile(name: string): boolean {
 	return (
-		name.endsWith('.test.ts') || name.endsWith('.test.tsx') || name === 'vitest.config.ts' || name === 'tsconfig.json'
+		name.endsWith(".test.ts") ||
+		name.endsWith(".test.tsx") ||
+		name === "vitest.config.ts" ||
+		name === "tsconfig.json"
 	);
 }
 
@@ -42,9 +45,9 @@ async function collectFiles(dir: string): Promise<string[]> {
 
 function rewriteImportExtensions(code: string): string {
 	return code
-		.replaceAll(/(from\s+['"])([^'"]+)\.tsx?(['"])/g, '$1$2.js$3')
-		.replaceAll(/(import\s*\(\s*['"])([^'"]+)\.tsx?(['"]\s*\))/g, '$1$2.js$3')
-		.replaceAll(/(import\s+['"])([^'"]+)\.tsx?(['"])/g, '$1$2.js$3');
+		.replaceAll(/(from\s+['"])([^'"]+)\.tsx?(['"])/g, "$1$2.js$3")
+		.replaceAll(/(import\s*\(\s*['"])([^'"]+)\.tsx?(['"]\s*\))/g, "$1$2.js$3")
+		.replaceAll(/(import\s+['"])([^'"]+)\.tsx?(['"])/g, "$1$2.js$3");
 }
 
 async function compileFile(file: string, rel: string): Promise<boolean> {
@@ -52,10 +55,10 @@ async function compileFile(file: string, rel: string): Promise<boolean> {
 	const outDir = join(DIST_DIR, dirname(rel));
 	await mkdir(outDir, { recursive: true });
 
-	if (ext === '.ts' || ext === '.tsx') {
-		const code = await readFile(file, 'utf-8');
-		if (file.endsWith('.d.ts')) {
-			await writeFile(join(DIST_DIR, rel), code, 'utf-8');
+	if (ext === ".ts" || ext === ".tsx") {
+		const code = await readFile(file, "utf-8");
+		if (file.endsWith(".d.ts")) {
+			await writeFile(join(DIST_DIR, rel), code, "utf-8");
 			return false;
 		}
 		const result = await transform(file, code, {
@@ -63,18 +66,18 @@ async function compileFile(file: string, rel: string): Promise<boolean> {
 			typescript: { onlyRemoveTypeImports: false },
 		});
 		const output = rewriteImportExtensions(result.code);
-		const min = await minify(rel.replace(/\.tsx?$/, '.js'), output);
-		await writeFile(join(DIST_DIR, rel.replace(/\.tsx?$/, '.js')), min.code, 'utf-8');
+		const min = await minify(rel.replace(/\.tsx?$/, ".js"), output);
+		await writeFile(join(DIST_DIR, rel.replace(/\.tsx?$/, ".js")), min.code, "utf-8");
 		return true;
 	}
-	if (ext === '.js') {
-		const code = await readFile(file, 'utf-8');
+	if (ext === ".js") {
+		const code = await readFile(file, "utf-8");
 		const min = await minify(rel, code);
-		await writeFile(join(DIST_DIR, rel), min.code, 'utf-8');
+		await writeFile(join(DIST_DIR, rel), min.code, "utf-8");
 		return true;
 	}
-	const code = await readFile(file, 'utf-8');
-	await writeFile(join(DIST_DIR, rel), code, 'utf-8');
+	const code = await readFile(file, "utf-8");
+	await writeFile(join(DIST_DIR, rel), code, "utf-8");
 	return false;
 }
 
@@ -104,42 +107,91 @@ async function compileAllFiles(): Promise<number> {
 }
 
 async function rewritePackageJson(): Promise<void> {
-	const pkgPath = join(ROOT, 'package.json');
-	const raw = await readFile(pkgPath, 'utf-8');
+	const pkgPath = join(ROOT, "package.json");
+	const raw = await readFile(pkgPath, "utf-8");
 	const pkg = JSON.parse(raw);
 
-	if (pkg.exports?.['.']?.startsWith('./dist/')) {
-		console.log('✓ package.json already rewritten, skipping');
+	if (pkg.exports?.["."]?.startsWith("./dist/")) {
+		console.log("✓ package.json already rewritten, skipping");
 		return;
 	}
 
-	await writeFile(join(ROOT, 'package.json.bak'), raw, 'utf-8');
+	await writeFile(join(ROOT, "package.json.bak"), raw, "utf-8");
 
 	const toDistPath = (value: string, keepExt = false): string => {
-		const stripped = value.replace(/^\.\//, '');
-		return keepExt ? `./dist/${stripped}` : `./dist/${stripped.replace(/\.tsx?$/, '.js')}`;
+		const stripped = value.replace(/^\.\//, "");
+		return keepExt ? `./dist/${stripped}` : `./dist/${stripped.replace(/\.tsx?$/, ".js")}`;
 	};
 
 	if (pkg.exports) {
 		for (const [key, value] of Object.entries(pkg.exports)) {
-			if (typeof value === 'string') {
-				pkg.exports[key] = toDistPath(value, value.endsWith('.d.ts'));
+			if (typeof value === "string") {
+				pkg.exports[key] = toDistPath(value, value.endsWith(".d.ts"));
 			}
 		}
 	}
 
-	if (pkg.typesVersions?.['*']) {
-		for (const [key, paths] of Object.entries(pkg.typesVersions['*'])) {
+	if (pkg.typesVersions?.["*"]) {
+		for (const [key, paths] of Object.entries(pkg.typesVersions["*"])) {
 			if (Array.isArray(paths)) {
-				pkg.typesVersions['*'][key] = (paths as string[]).map(p => toDistPath(p, true));
+				pkg.typesVersions["*"][key] = (paths as string[]).map((p) => toDistPath(p, true));
 			}
 		}
 	}
 
-	pkg.files = ['dist/**/*.js', 'dist/**/*.d.ts', 'README.md'];
+	pkg.files = ["dist/**/*.js", "dist/**/*.d.ts", "README.md"];
 
-	await writeFile(pkgPath, JSON.stringify(pkg, null, '\t') + '\n', 'utf-8');
-	console.log('✓ Rewrote package.json for publish');
+	// Resolve workspace: protocol references to actual versions.
+	// npm doesn't understand workspace:^ or workspace:* — they must be
+	// replaced with the real version from the referenced package.json.
+	for (const depField of ["dependencies", "devDependencies", "peerDependencies"] as const) {
+		const deps = pkg[depField];
+		if (!deps) continue;
+		for (const [name, version] of Object.entries(deps)) {
+			if (typeof version === "string" && version.startsWith("workspace:")) {
+				const prefix = version.replace("workspace:", "") || "^"; // workspace:^ → ^, workspace:* → *
+				try {
+					// Find the monorepo root by walking up until we find the root package.json
+					let monorepoRoot = ROOT;
+					for (let i = 0; i < 5; i++) {
+						monorepoRoot = join(monorepoRoot, "..");
+						try {
+							const rootPkg = JSON.parse(
+								await readFile(join(monorepoRoot, "package.json"), "utf-8"),
+							);
+							if (rootPkg.workspaces || rootPkg.name === "@useavalon/monorepo") break;
+						} catch {}
+					}
+					// Try packages/integrations/<name>, packages/<name>
+					const shortName = name.replace(/^@useavalon\//, "");
+					const candidates = [
+						join(monorepoRoot, "packages", "integrations", shortName, "package.json"),
+						join(monorepoRoot, "packages", shortName, "package.json"),
+					];
+					let resolved = false;
+					for (const candidate of candidates) {
+						try {
+							const depPkg = JSON.parse(await readFile(candidate, "utf-8"));
+							if (depPkg.name === name) {
+								const resolvedVersion =
+									prefix === "*" ? `>=${depPkg.version}` : `${prefix}${depPkg.version}`;
+								deps[name] = resolvedVersion;
+								console.log(`  ✓ Resolved ${name}: ${version} → ${resolvedVersion}`);
+								resolved = true;
+								break;
+							}
+						} catch {}
+					}
+					if (!resolved) {
+						console.warn(`  ⚠ Could not resolve ${name}: ${version} — leaving as-is`);
+					}
+				} catch {}
+			}
+		}
+	}
+
+	await writeFile(pkgPath, JSON.stringify(pkg, null, "\t") + "\n", "utf-8");
+	console.log("✓ Rewrote package.json for publish");
 }
 
 const compiled = await compileAllFiles();
