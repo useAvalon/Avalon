@@ -1,7 +1,10 @@
+import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { agentOptimization } from "@useavalon/agent-optimization";
 import { avalon } from "@useavalon/avalon";
 import { defineConfig, type UserConfig } from "vite";
+
+const require = createRequire(import.meta.url);
 
 export default defineConfig(async ({ command }): Promise<UserConfig> => {
 	const avalonPlugins = await avalon({
@@ -23,6 +26,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			preset: process.env.NITRO_PRESET || "node_server",
 			streaming: true,
 			compatibilityDate: "2025-06-01",
+			clientEntry: "app/entry-client",
+			globalCSS: ["app/shared/styles/main.css"],
 			routeRules: {
 				"/assets/**": {
 					headers: { "Cache-Control": "public, max-age=31536000, immutable" },
@@ -92,6 +97,49 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		},
 
 		plugins: [
+			// Resolve preact/compat bare specifiers to absolute paths.
+			// @preact/preset-vite rewrites react → preact/compat as bare strings
+			// which Rolldown can't resolve. This plugin catches them early.
+			{
+				name: "avalon:preact-compat-resolver",
+				enforce: "pre" as const,
+				resolveId(id: string) {
+					if (id === "preact/compat") return require.resolve("preact/compat");
+					if (id === "preact/compat/server") return require.resolve("preact/compat/server");
+					if (id === "preact/compat/client") return require.resolve("preact/compat/client");
+				},
+			},
+			// Stub out build-time Vite plugins during SSR/Nitro builds.
+			// Integration vitePlugin() methods dynamically import these packages,
+			// but they're never called at SSR runtime. Without stubbing, the
+			// bundler pulls in vite → rolldown → native bindings, which crash
+			// at runtime with "Cannot find native binding".
+			{
+				name: "avalon:stub-build-time-plugins",
+				enforce: "pre" as const,
+				resolveId(id: string) {
+					// @ts-expect-error — Vite 8 environment API
+					const env = this.environment?.name;
+					if (env !== "ssr" && env !== "nitro") return;
+					const buildTimePackages = [
+						"@preact/preset-vite",
+						"@vitejs/plugin-react",
+						"@vitejs/plugin-vue",
+						"@sveltejs/vite-plugin-svelte",
+						"vite-plugin-solid",
+						"@builder.io/qwik/optimizer",
+						"vite-prerender-plugin",
+					];
+					if (buildTimePackages.some((pkg) => id === pkg || id.startsWith(`${pkg}/`))) {
+						return `\0stub:${id}`;
+					}
+				},
+				load(id: string) {
+					if (id.startsWith("\0stub:")) {
+						return "export default function() { return []; }; export {};";
+					}
+				},
+			},
 			agentOptimization({
 				sitemap: {
 					siteUrl: "http://localhost:8012",
@@ -190,7 +238,22 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			alias: [
 				{ find: "@shared", replacement: resolve("app/shared") },
 				{ find: "@modules", replacement: resolve("app/modules") },
-				{ find: "@/", replacement: resolve("app") + "/" },
+				{ find: "@/", replacement: `${resolve("app")}/` },
+				// React → Preact compat aliases with absolute paths.
+				// @preact/preset-vite adds these as bare specifiers which Rolldown
+				// can't resolve. Providing absolute paths fixes the SSR build.
+				{ find: /^react$/, replacement: require.resolve("preact/compat") },
+				{ find: /^react\/jsx-runtime$/, replacement: require.resolve("preact/jsx-runtime") },
+				{ find: /^react\/jsx-dev-runtime$/, replacement: require.resolve("preact/jsx-runtime") },
+				{ find: /^react-dom$/, replacement: require.resolve("preact/compat") },
+				{ find: /^react-dom\/server$/, replacement: require.resolve("preact/compat/server") },
+				{ find: /^react-dom\/client$/, replacement: require.resolve("preact/compat/client") },
+				// Also alias the preact/compat bare specifiers themselves — after
+				// @preact/preset-vite rewrites react → preact/compat, Rolldown
+				// still needs absolute paths to resolve them.
+				{ find: /^preact\/compat$/, replacement: require.resolve("preact/compat") },
+				{ find: /^preact\/compat\/server$/, replacement: require.resolve("preact/compat/server") },
+				{ find: /^preact\/compat\/client$/, replacement: require.resolve("preact/compat/client") },
 				{ find: /^vue$/, replacement: "vue/dist/vue.esm-bundler.js" },
 				{ find: /^@vue\/shared$/, replacement: "@vue/shared/dist/shared.esm-bundler.js" },
 				{
