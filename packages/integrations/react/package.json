@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/react",
-	"version": "0.1.8",
+	"version": "0.1.9",
 	"description": "React integration for Avalon islands architecture",
 	"license": "MIT",
 	"type": "module",

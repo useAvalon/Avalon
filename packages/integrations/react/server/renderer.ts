@@ -73,15 +73,20 @@ export async function render(params: ReactRenderParams): Promise<ReactRenderResu
 			);
 		}
 
-		const metadata = await analyzeComponent(src);
-		const hasUseClient = await hasUseClientDirective(src);
-		// Server components have "use server" or lack "use client" and hooks.
-		// Components with hooks are client components but can still be SSR'd
-		// via renderToString (React is aliased to preact/compat which handles
-		// hooks during SSR).
-		const isServerComponent =
-			params.isServerComponent ??
-			(metadata.isServerComponent || (!hasUseClient && !metadata.hasHooks));
+		// When a pre-loaded component reference is provided (bundled SSR),
+		// skip file-based analysis since source files aren't on disk.
+		// The island transform only passes component refs for client
+		// components, so default to client-component rendering.
+		let isServerComponent: boolean;
+		if (params.isServerComponent != null) {
+			isServerComponent = params.isServerComponent;
+		} else if (component) {
+			isServerComponent = false;
+		} else {
+			const metadata = await analyzeComponent(src);
+			const hasUseClient = await hasUseClientDirective(src);
+			isServerComponent = metadata.isServerComponent || (!hasUseClient && !metadata.hasHooks);
+		}
 
 		const normalizedProps = serializeProps(props);
 
@@ -113,6 +118,7 @@ export async function render(params: ReactRenderParams): Promise<ReactRenderResu
 		};
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
+		console.error(`[react-ssr] Failed to render ${src}:`, error);
 		throw new Error(`Failed to render React component from ${src}: ${errorMessage}`, {
 			cause: error,
 		});
@@ -209,11 +215,16 @@ export async function renderWithErrorBoundary(
 			);
 		}
 
-		const metadata = await analyzeComponent(src);
-		const hasUseClient = await hasUseClientDirective(src);
-		const isServerComponent =
-			params.isServerComponent ??
-			(metadata.isServerComponent || (!hasUseClient && !metadata.hasHooks));
+		let isServerComponent: boolean;
+		if (params.isServerComponent != null) {
+			isServerComponent = params.isServerComponent;
+		} else if (component) {
+			isServerComponent = false;
+		} else {
+			const metadata = await analyzeComponent(src);
+			const hasUseClient = await hasUseClientDirective(src);
+			isServerComponent = metadata.isServerComponent || (!hasUseClient && !metadata.hasHooks);
+		}
 
 		const normalizedProps = serializeProps(props);
 		const fallbackElement = resolveFallbackElement(fallback);
