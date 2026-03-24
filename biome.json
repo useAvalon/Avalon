@@ -15,6 +15,18 @@
 	"linter": {
 		"enabled": true
 	},
+	"overrides": [
+		{
+			"includes": ["packages/integrations/react/server/renderer.ts"],
+			"linter": {
+				"rules": {
+					"security": {
+						"noDangerouslySetInnerHtml": "off"
+					}
+				}
+			}
+		}
+	],
 	"files": {
 		"includes": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.json", "**/*.css"]
 	}
