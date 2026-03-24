@@ -1,10 +1,11 @@
 // Server-side utilities for React integration
 
-import type { ComponentType } from 'react';
-import type { ComponentMetadata } from '../types.ts';
-import { join } from 'node:path';
-import { toImportSpecifier } from '@useavalon/core/utils';
-import { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection';
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { resolveIslandPath } from "@useavalon/avalon/islands/framework-detection";
+import { toImportSpecifier } from "@useavalon/core/utils";
+import type { ComponentType } from "react";
+import type { ComponentMetadata } from "../types.ts";
 
 /**
  * Load a React component from file path
@@ -20,7 +21,7 @@ export async function loadComponent(src: string): Promise<ComponentType<Record<s
 		// If path starts with /, it's relative to workspace root (e.g., /src/islands/Counter.tsx)
 		// Otherwise, it's already an absolute path or relative to current file
 		let componentPath: string;
-		if (resolvedSrc.startsWith('/')) {
+		if (resolvedSrc.startsWith("/")) {
 			// Remove leading slash and join with cwd
 			componentPath = join(process.cwd(), resolvedSrc.slice(1));
 		} else {
@@ -33,14 +34,18 @@ export async function loadComponent(src: string): Promise<ComponentType<Record<s
 		// Get the default export or named export
 		const Component = module.default || module[Object.keys(module)[0]];
 
-		if (!Component || typeof Component !== 'function') {
-			throw new Error(`Invalid React component in ${src}: expected function, got ${typeof Component}`);
+		if (!Component || typeof Component !== "function") {
+			throw new Error(
+				`Invalid React component in ${src}: expected function, got ${typeof Component}`,
+			);
 		}
 
 		return Component as ComponentType<Record<string, unknown>>;
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
-		throw new Error(`Failed to load React component from ${src}: ${errorMessage}`, { cause: error });
+		throw new Error(`Failed to load React component from ${src}: ${errorMessage}`, {
+			cause: error,
+		});
 	}
 }
 
@@ -55,13 +60,13 @@ export async function hasUseClientDirective(src: string): Promise<boolean> {
 		const resolvedSrc = await resolveIslandPath(src);
 
 		let componentPath: string;
-		if (resolvedSrc.startsWith('/')) {
+		if (resolvedSrc.startsWith("/")) {
 			componentPath = join(process.cwd(), resolvedSrc.slice(1));
 		} else {
 			componentPath = resolvedSrc;
 		}
 
-		const content = await readFile(componentPath, 'utf-8');
+		const content = await readFile(componentPath, "utf-8");
 
 		// Check for "use client" directive at the top of the file
 		// It should be one of the first statements (after imports/comments)
@@ -84,9 +89,12 @@ function extractImports(content: string): string[] {
 
 	// Match ES6 imports: import ... from "source"
 	const importPattern = /import\s+(?:[\w\s{},*]+\s+from\s+)?['"]([^'"]+)['"]/g;
-	let match;
 
-	while ((match = importPattern.exec(content)) !== null) {
+	for (
+		let match = importPattern.exec(content);
+		match !== null;
+		match = importPattern.exec(content)
+	) {
 		imports.push(match[1]);
 	}
 
@@ -104,17 +112,23 @@ export async function analyzeComponent(filePath: string): Promise<ComponentMetad
 		const resolvedPath = await resolveIslandPath(filePath);
 
 		let componentPath: string;
-		if (resolvedPath.startsWith('/')) {
+		if (resolvedPath.startsWith("/")) {
 			componentPath = join(process.cwd(), resolvedPath.slice(1));
 		} else {
 			componentPath = resolvedPath;
 		}
 
-		const content = await readFile(componentPath, 'utf-8');
+		const content = await readFile(componentPath, "utf-8");
 
 		// Check for directives
 		const isClientComponent = /^['"]use client['"];?\s*$/m.test(content);
 		const isServerComponent = /^['"]use server['"];?\s*$/m.test(content);
+
+		// Detect React hooks usage — components with hooks are client components
+		// even without an explicit "use client" directive
+		const hookPattern =
+			/\b(useState|useEffect|useContext|useReducer|useCallback|useMemo|useRef|useLayoutEffect|useImperativeHandle|useDebugValue|useSyncExternalStore|useInsertionEffect|useTransition|useDeferredValue|useId)\b/;
+		const hasHooks = hookPattern.test(content);
 
 		// Check for async function components
 		// Look for: export default async function, export async function, const Component = async
@@ -130,6 +144,7 @@ export async function analyzeComponent(filePath: string): Promise<ComponentMetad
 			path: filePath,
 			isClientComponent,
 			isServerComponent,
+			hasHooks,
 			hasAsyncRender,
 			dependencies,
 		};
@@ -139,6 +154,7 @@ export async function analyzeComponent(filePath: string): Promise<ComponentMetad
 			path: filePath,
 			isClientComponent: false,
 			isServerComponent: false,
+			hasHooks: false,
 			hasAsyncRender: false,
 			dependencies: [],
 		};
@@ -159,7 +175,7 @@ export function serializeProps(props: Record<string, unknown>): Record<string, u
 		const json = JSON.stringify(props);
 		return JSON.parse(json) as Record<string, unknown>;
 	} catch (error) {
-		console.warn('Failed to serialize props, returning empty object:', error);
+		console.warn("Failed to serialize props, returning empty object:", error);
 		return {};
 	}
 }

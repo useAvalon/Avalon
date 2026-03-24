@@ -1,10 +1,10 @@
 // Server-side rendering logic for React components
 
-import { createElement, Component, type ComponentType, type ReactElement } from 'react';
-import { renderToString } from 'react-dom/server';
-import type { ReactRenderParams, ReactRenderResult } from '../types.ts';
-import { loadComponent, serializeProps, hasUseClientDirective, analyzeComponent } from './utils.ts';
-import { renderServerComponent } from './rsc-renderer.ts';
+import { Component, type ComponentType, createElement, type ReactElement } from "react";
+import { renderToString } from "react-dom/server";
+import type { ReactRenderParams, ReactRenderResult } from "../types.ts";
+import { renderServerComponent } from "./rsc-renderer.ts";
+import { analyzeComponent, hasUseClientDirective, loadComponent, serializeProps } from "./utils.ts";
 
 /**
  * Props for Error Boundary component
@@ -30,16 +30,12 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 	declare props: ErrorBoundaryProps;
 	state: ErrorBoundaryState = { hasError: false };
 
-	constructor(props: ErrorBoundaryProps) {
-		super(props);
-	}
-
 	static getDerivedStateFromError(error: Error): ErrorBoundaryState {
 		return { hasError: true, error };
 	}
 
 	componentDidCatch(error: Error, errorInfo: unknown): void {
-		console.error('React Error Boundary caught error:', error, errorInfo);
+		console.error("React Error Boundary caught error:", error, errorInfo);
 	}
 
 	render(): ReactElement {
@@ -48,14 +44,14 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 				return this.props.fallback;
 			}
 			return createElement(
-				'div',
-				{ style: { padding: '20px', border: '1px solid #f00', color: '#f00' } },
-				createElement('h3', null, 'Something went wrong'),
-				createElement('p', null, this.state.error?.message || 'Unknown error'),
+				"div",
+				{ style: { padding: "20px", border: "1px solid #f00", color: "#f00" } },
+				createElement("h3", null, "Something went wrong"),
+				createElement("p", null, this.state.error?.message || "Unknown error"),
 			);
 		}
 
-		return this.props.children ?? createElement('div', null);
+		return this.props.children ?? createElement("div", null);
 	}
 }
 
@@ -66,18 +62,27 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
  * @returns Render result with HTML and hydration data
  */
 export async function render(params: ReactRenderParams): Promise<ReactRenderResult> {
-	const { component, props = {}, src, ssrOnly = false, condition = 'on:client' } = params;
+	const { component, props = {}, src, ssrOnly = false, condition = "on:client" } = params;
 
 	try {
 		const Component = component || (await loadComponent(src));
 
-		if (!Component || typeof Component !== 'function') {
-			throw new Error(`Invalid React component in ${src}: expected function, got ${typeof Component}`);
+		if (!Component || typeof Component !== "function") {
+			throw new Error(
+				`Invalid React component in ${src}: expected function, got ${typeof Component}`,
+			);
 		}
 
 		const metadata = await analyzeComponent(src);
 		const hasUseClient = await hasUseClientDirective(src);
-		const isServerComponent = params.isServerComponent ?? (metadata.isServerComponent || !hasUseClient);
+		// Server components have "use server" or lack "use client" and hooks.
+		// Components with hooks are client components but can still be SSR'd
+		// via renderToString (React is aliased to preact/compat which handles
+		// hooks during SSR).
+		const isServerComponent =
+			params.isServerComponent ??
+			(metadata.isServerComponent || (!hasUseClient && !metadata.hasHooks));
+
 		const normalizedProps = serializeProps(props);
 
 		let html: string;
@@ -100,7 +105,7 @@ export async function render(params: ReactRenderParams): Promise<ReactRenderResu
 				? {
 						src,
 						props,
-						framework: 'react' as const,
+						framework: "react" as const,
 						condition,
 						metadata: { isServerComponent: false },
 					}
@@ -108,7 +113,9 @@ export async function render(params: ReactRenderParams): Promise<ReactRenderResu
 		};
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
-		throw new Error(`Failed to render React component from ${src}: ${errorMessage}`, { cause: error });
+		throw new Error(`Failed to render React component from ${src}: ${errorMessage}`, {
+			cause: error,
+		});
 	}
 }
 
@@ -133,8 +140,8 @@ function createErrorBoundaryWrapper(
  * Resolves fallback to a ReactElement if it's a string
  */
 function resolveFallbackElement(fallback?: ReactElement | string): ReactElement | undefined {
-	if (typeof fallback === 'string') {
-		return createElement('div', { dangerouslySetInnerHTML: { __html: fallback } });
+	if (typeof fallback === "string") {
+		return createElement("div", { dangerouslySetInnerHTML: { __html: fallback } });
 	}
 	return fallback;
 }
@@ -150,19 +157,19 @@ async function renderServerComponentWithFallback(
 ): Promise<{ html: string; element: ReactElement; failed: boolean }> {
 	try {
 		const html = await renderServerComponent(Component, normalizedProps);
-		const element = createElement('div', { dangerouslySetInnerHTML: { __html: html } });
+		const element = createElement("div", { dangerouslySetInnerHTML: { __html: html } });
 		return { html, element, failed: false };
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		let html: string;
 		if (fallbackElement) {
 			html = renderToString(fallbackElement);
-		} else if (typeof fallback === 'string') {
+		} else if (typeof fallback === "string") {
 			html = fallback;
 		} else {
-			html = `<!-- React Server Component SSR failed: ${errorMessage.replaceAll('-->', '--&gt;')} -->`;
+			html = `<!-- React Server Component SSR failed: ${errorMessage.replaceAll("-->", "--&gt;")} -->`;
 		}
-		const element = createElement('div', { dangerouslySetInnerHTML: { __html: html } });
+		const element = createElement("div", { dangerouslySetInnerHTML: { __html: html } });
 		return { html, element, failed: true };
 	}
 }
@@ -171,7 +178,7 @@ async function renderServerComponentWithFallback(
  * Builds a fallback HTML string from various fallback types
  */
 function buildFallbackHtml(errorMessage: string, fallback?: ReactElement | string): string {
-	if (typeof fallback === 'string') {
+	if (typeof fallback === "string") {
 		return fallback;
 	}
 	if (fallback) {
@@ -181,7 +188,7 @@ function buildFallbackHtml(errorMessage: string, fallback?: ReactElement | strin
 			// fall through to default
 		}
 	}
-	return `<!-- React SSR failed: ${errorMessage.replaceAll('-->', '--&gt;')} -->`;
+	return `<!-- React SSR failed: ${errorMessage.replaceAll("-->", "--&gt;")} -->`;
 }
 
 /**
@@ -191,18 +198,23 @@ export async function renderWithErrorBoundary(
 	params: ReactRenderParams,
 	fallback?: ReactElement | string,
 ): Promise<ReactRenderResult> {
-	const { component, props = {}, src, ssrOnly = false, condition = 'on:client' } = params;
+	const { component, props = {}, src, ssrOnly = false, condition = "on:client" } = params;
 
 	try {
 		const Component = component || (await loadComponent(src));
 
-		if (!Component || typeof Component !== 'function') {
-			throw new Error(`Invalid React component in ${src}: expected function, got ${typeof Component}`);
+		if (!Component || typeof Component !== "function") {
+			throw new Error(
+				`Invalid React component in ${src}: expected function, got ${typeof Component}`,
+			);
 		}
 
 		const metadata = await analyzeComponent(src);
 		const hasUseClient = await hasUseClientDirective(src);
-		const isServerComponent = params.isServerComponent ?? (metadata.isServerComponent || !hasUseClient);
+		const isServerComponent =
+			params.isServerComponent ??
+			(metadata.isServerComponent || (!hasUseClient && !metadata.hasHooks));
+
 		const normalizedProps = serializeProps(props);
 		const fallbackElement = resolveFallbackElement(fallback);
 
@@ -210,7 +222,12 @@ export async function renderWithErrorBoundary(
 		let element: ReactElement;
 
 		if (isServerComponent) {
-			const result = await renderServerComponentWithFallback(Component, normalizedProps, fallbackElement, fallback);
+			const result = await renderServerComponentWithFallback(
+				Component,
+				normalizedProps,
+				fallbackElement,
+				fallback,
+			);
 			if (result.failed) {
 				return { html: result.html, isServerComponent: true, hydrationData: undefined };
 			}
@@ -231,7 +248,7 @@ export async function renderWithErrorBoundary(
 				? {
 						src,
 						props,
-						framework: 'react' as const,
+						framework: "react" as const,
 						condition,
 						metadata: { isServerComponent: false, hasErrorBoundary: true },
 					}
@@ -242,7 +259,12 @@ export async function renderWithErrorBoundary(
 		return {
 			html: buildFallbackHtml(errorMessage, fallback),
 			isServerComponent: false,
-			hydrationData: { src: params.src, props: params.props || {}, framework: 'react', metadata: { ssrFailed: true } },
+			hydrationData: {
+				src: params.src,
+				props: params.props || {},
+				framework: "react",
+				metadata: { ssrFailed: true },
+			},
 		};
 	}
 }
