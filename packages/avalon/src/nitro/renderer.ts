@@ -1323,9 +1323,14 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 				renderContext.layoutContext = { layouts };
 			}
 
-			// Render the page
-			if (avalonConfig.streaming) {
-				// Streaming SSR
+			// Render the page.
+			// When wrapWithLayouts is provided, use buffered rendering so
+			// layouts can wrap the page HTML. Streaming bypasses layouts
+			// because it emits the HTML shell before the page is rendered.
+			const useStreaming = avalonConfig.streaming && !options.wrapWithLayouts;
+
+			if (useStreaming) {
+				// Streaming SSR (no layout wrapping)
 				const stream = await renderPageStream(pageModule, renderContext, {
 					onShellReady: () => {
 						setResponseHeader(event, "Content-Type", "text/html; charset=utf-8");
@@ -1336,7 +1341,7 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 					headers: { "Content-Type": "text/html; charset=utf-8" },
 				});
 			} else {
-				// Non-streaming SSR
+				// Buffered SSR with layout wrapping
 				const result = await renderPage(pageModule, renderContext, {}, options.wrapWithLayouts);
 
 				// Inject hydration script
@@ -1641,9 +1646,14 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 				renderContext.layoutContext = { layouts };
 			}
 
-			// Render the page
-			if (avalonConfig.streaming) {
-				// Streaming SSR
+			// Render the page.
+			// When wrapWithLayouts is provided, use buffered rendering so
+			// layouts can wrap the page HTML. Streaming bypasses layouts
+			// because it emits the HTML shell before the page is rendered.
+			const useStreaming = avalonConfig.streaming && !options.wrapWithLayouts;
+
+			if (useStreaming) {
+				// Streaming SSR (no layout wrapping)
 				const stream = await renderPageStream(pageModule, renderContext, {
 					onShellReady: () => {
 						setResponseHeader(event, "Content-Type", "text/html; charset=utf-8");
@@ -1654,7 +1664,7 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 					headers: { "Content-Type": "text/html; charset=utf-8" },
 				});
 			} else {
-				// Non-streaming SSR
+				// Buffered SSR with layout wrapping
 				const result = await renderPage(pageModule, renderContext, {}, options.wrapWithLayouts);
 
 				// Inject hydration script - ensures client-side hydration works

@@ -283,10 +283,7 @@ function copyToNetlifyPaths(cwd: string): void {
 	const legacyDir = join(cwd, ".netlify", "functions-internal", "server");
 	if (!existsSync(legacyDir)) return;
 
-	const targets = [
-		join(cwd, ".netlify", "v1", "functions", "server"),
-		join(cwd, "netlify", "functions", "server"),
-	];
+	const targets = [join(cwd, ".netlify", "v1", "functions", "server")];
 
 	for (const target of targets) {
 		cpSync(legacyDir, target, { recursive: true, force: true });
@@ -373,10 +370,12 @@ async function prerenderIfConfigured(
 	config: PrerenderConfig,
 	port: number,
 ): Promise<void> {
+	// Netlify paths first — when NITRO_PRESET=netlify the fresh build
+	// lands here, while .output/ may contain a stale previous build.
 	const serverEntries = [
-		join(cwd, ".output", "server", "index.mjs"),
 		join(cwd, ".netlify", "functions-internal", "server", "server.mjs"),
 		join(cwd, ".netlify", "v1", "functions", "server", "server.mjs"),
+		join(cwd, ".output", "server", "index.mjs"),
 	];
 	const serverEntry = serverEntries.find((p) => existsSync(p));
 	if (!serverEntry) {

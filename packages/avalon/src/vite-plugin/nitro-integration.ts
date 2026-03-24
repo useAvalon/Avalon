@@ -763,7 +763,7 @@ export function generateConfigModule(
  */
 async function generateLayoutsModule(avalonConfig: ResolvedAvalonConfig): Promise<string> {
 	const { getAllLayoutDirs } = await import("./module-discovery.ts");
-	const { relative } = await import("node:path");
+	const { relative, resolve } = await import("node:path");
 	const { stat: fsStat } = await import("node:fs/promises");
 
 	const cwd = process.cwd();
@@ -773,6 +773,7 @@ async function generateLayoutsModule(avalonConfig: ResolvedAvalonConfig): Promis
 	const layouts: Array<{ prefix: string; importPath: string; varName: string; isShared: boolean }> =
 		[];
 	let idx = 0;
+	const sharedLayoutsPath = resolve(cwd, avalonConfig.layoutsDir);
 
 	for (const { dir, prefix } of layoutDirs) {
 		const layoutFile = join(dir, "_layout.tsx");
@@ -784,7 +785,10 @@ async function generateLayoutsModule(avalonConfig: ResolvedAvalonConfig): Promis
 		}
 		const relPath = relative(cwd, layoutFile).replaceAll("\\", "/");
 		const importPath = relPath.startsWith("/") ? relPath : "/" + relPath;
-		const isShared = dir.includes("/shared/") || prefix === "/";
+		// A layout is "shared" (root) only if it lives in the shared layoutsDir,
+		// not in a module directory. The home module has prefix '/' but provides
+		// its own module-specific layout, not the root layout.
+		const isShared = dir.startsWith(sharedLayoutsPath);
 		// Shared layout that lives in layoutsDir is the root layout
 		const isRootLayout = isShared && !avalonConfig.modules;
 		const varName = isRootLayout ? "RootLayout" : `Layout_${idx}`;
