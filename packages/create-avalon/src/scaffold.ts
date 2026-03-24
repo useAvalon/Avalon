@@ -96,36 +96,22 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 	await writeFile(join(targetDir, "server/env.d.ts"), `/// <reference types="nitro" />\n`);
 
 	// Write app env.d.ts — island prop types, virtual module declarations
-	await writeFile(join(targetDir, "app/env.d.ts"), generateEnvDts());
+	await writeFile(join(targetDir, "app/env.d.ts"), generateEnvDts(config.integrations));
 
 	// Write server/renderer.ts — Nitro SSR catch-all handler
 	await writeFile(
 		join(targetDir, "server/renderer.ts"),
 		[
-			`import { createNitroRenderer } from '@useavalon/avalon/nitro/renderer';`,
-			`import { registerBuiltinDirectives } from '@useavalon/avalon';`,
-			`import avalonConfig from 'virtual:avalon/config';`,
-			`import { loadPage } from 'virtual:avalon/page-loader';`,
-			``,
-			`// Register built-in custom hydration directives (on:delay, on:scroll, etc.)`,
-			`registerBuiltinDirectives();`,
-			``,
-			`export default createNitroRenderer({`,
-			`  avalonConfig,`,
-			`  isDev: avalonConfig.isDev,`,
-			`  resolvePageRoute: async (pathname) => {`,
-			`    const mod = loadPage(pathname);`,
-			`    if (!mod) return null;`,
-			`    return { filePath: \`[virtual:\${pathname}]\`, pattern: pathname, params: {} };`,
-			`  },`,
-			`  loadPageModule: async (filePath) => {`,
-			`    const match = filePath.match(/^\\[virtual:(.+)\\]$/);`,
-			`    const pathname = match ? match[1] : filePath;`,
-			`    const mod = loadPage(pathname);`,
-			`    if (mod) return mod;`,
-			`    return { default: () => null, metadata: { title: 'Avalon' } };`,
-			`  },`,
-			`});`,
+			`/**`,
+			` * SSR Renderer — provided by Avalon's virtual module system.`,
+			` *`,
+			` * Avalon auto-discovers layouts, injects client assets, and handles`,
+			` * layout wrapping. Import from the virtual modules directly to customize:`,
+			` *`,
+			` *   import { wrapWithLayouts } from 'virtual:avalon/layouts';`,
+			` *   import { injectAssets } from 'virtual:avalon/assets';`,
+			` */`,
+			`export { default } from 'virtual:avalon/renderer';`,
 			``,
 		].join("\n"),
 	);
