@@ -24,8 +24,8 @@
  * Only applies to files inside the configured pages or layouts directories.
  */
 
-import type { Plugin } from 'vite';
-import { dirname } from 'node:path';
+import { dirname } from "node:path";
+import type { Plugin } from "vite";
 
 export interface PageIslandTransformOptions {
 	/** Directory containing page files (default: src/pages/) */
@@ -68,8 +68,8 @@ interface ParsedAttribute {
 function findAllDefaultImports(code: string): ComponentImport[] {
 	const imports: ComponentImport[] = [];
 	const re = /^[ \t]*import\s+([A-Z]\w*)\s+from\s+(['"][^'"]+['"])/gm;
-	let m;
-	while ((m = re.exec(code)) !== null) {
+	let m: RegExpExecArray | null = null;
+	for (m = re.exec(code); m !== null; m = re.exec(code)) {
 		imports.push({
 			localName: m[1],
 			importPath: m[2].slice(1, -1),
@@ -84,83 +84,92 @@ function findAllDefaultImports(code: string): ComponentImport[] {
  */
 function resolveIslandSrc(importPath: string, fileId: string): string {
 	// Already absolute
-	if (importPath.startsWith('/src/')) return importPath;
-	if (importPath.startsWith('/app/')) return importPath;
-	if (importPath.startsWith('/')) return importPath;
+	if (importPath.startsWith("/src/")) return importPath;
+	if (importPath.startsWith("/app/")) return importPath;
+	if (importPath.startsWith("/")) return importPath;
 
 	// Handle aliases - convert to absolute paths
-	if (importPath.startsWith('@/')) {
-		return '/app/' + importPath.slice(2);
+	if (importPath.startsWith("@/")) {
+		return `/app/${importPath.slice(2)}`;
 	}
-	if (importPath.startsWith('@shared/')) {
-		return '/app/shared/' + importPath.slice(8);
+	if (importPath.startsWith("@shared/")) {
+		return `/app/shared/${importPath.slice(8)}`;
 	}
-	if (importPath.startsWith('@modules/')) {
-		return '/app/modules/' + importPath.slice(9);
+	if (importPath.startsWith("@modules/")) {
+		return `/app/modules/${importPath.slice(9)}`;
 	}
-	if (importPath.startsWith('$components/')) {
-		return '/src/components/' + importPath.slice(12);
+	if (importPath.startsWith("$components/")) {
+		return `/src/components/${importPath.slice(12)}`;
 	}
-	if (importPath.startsWith('$islands/')) {
-		return '/src/islands/' + importPath.slice(9);
+	if (importPath.startsWith("$islands/")) {
+		return `/src/islands/${importPath.slice(9)}`;
 	}
-	if (importPath.startsWith('~/')) {
-		return '/src/' + importPath.slice(2);
+	if (importPath.startsWith("~/")) {
+		return `/src/${importPath.slice(2)}`;
 	}
 
 	// Relative import - resolve relative to the file
-	if (importPath.startsWith('.')) {
-		const normalized = fileId.replaceAll('\\', '/');
+	if (importPath.startsWith(".")) {
+		const normalized = fileId.replaceAll("\\", "/");
 
 		// Try to find /app/ or /src/ in the path
-		let baseIndex = normalized.indexOf('/app/');
-		if (baseIndex === -1) baseIndex = normalized.indexOf('/src/');
+		let baseIndex = normalized.indexOf("/app/");
+		if (baseIndex === -1) baseIndex = normalized.indexOf("/src/");
 
 		if (baseIndex !== -1) {
 			const fileDir = dirname(normalized.slice(baseIndex));
 			// Simple path resolution
-			const parts = fileDir.split('/');
-			const importParts = importPath.split('/');
+			const parts = fileDir.split("/");
+			const importParts = importPath.split("/");
 
 			for (const part of importParts) {
-				if (part === '..') {
+				if (part === "..") {
 					parts.pop();
-				} else if (part !== '.') {
+				} else if (part !== ".") {
 					parts.push(part);
 				}
 			}
 
-			return parts.join('/');
+			return parts.join("/");
 		}
 	}
 
 	// Fallback: return as-is with /src/ prefix
-	return '/src/' + importPath.split('/').pop();
+	return `/src/${importPath.split("/").pop()}`;
 }
 
 function detectFramework(src: string): string | undefined {
-	if (src.endsWith('.vue')) return 'vue';
-	if (src.endsWith('.svelte')) return 'svelte';
-	if (src.includes('.solid.')) return 'solid';
-	if (src.includes('.lit.')) return 'lit';
-	if (src.includes('.qwik.')) return 'qwik';
+	if (src.endsWith(".vue")) return "vue";
+	if (src.endsWith(".svelte")) return "svelte";
+	if (src.includes(".solid.")) return "solid";
+	if (src.includes(".lit.")) return "lit";
+	if (src.includes(".qwik.")) return "qwik";
+	if (src.includes(".react.")) return "react";
+	// Default .tsx/.jsx to preact — matches the runtime fallback in
+	// detectFrameworkFromFallback and avoids the slow-path file-read
+	// detection that fails in production builds.
+	if (src.endsWith(".tsx") || src.endsWith(".jsx")) return "preact";
 	return undefined;
 }
 
-function isPageFile(id: string, pagesDir: string, modules?: PageIslandTransformOptions['modules']): boolean {
-	const normalized = id.replaceAll('\\', '/');
+function isPageFile(
+	id: string,
+	pagesDir: string,
+	modules?: PageIslandTransformOptions["modules"],
+): boolean {
+	const normalized = id.replaceAll("\\", "/");
 
 	// Check traditional pages directory
-	const dir = pagesDir.replace(/^\//, '');
-	if (normalized.includes('/' + dir + '/') && /\.(tsx|jsx)$/.test(normalized)) {
+	const dir = pagesDir.replace(/^\//, "");
+	if (normalized.includes(`/${dir}/`) && /\.(tsx|jsx)$/.test(normalized)) {
 		return true;
 	}
 
 	// Check modular pages directories
 	if (modules) {
-		const modulesDir = modules.dir.replace(/^\//, '');
+		const modulesDir = modules.dir.replace(/^\//, "");
 		// Pattern: /modules/*/pages/
-		const modulePagePattern = new RegExp('/' + modulesDir + '/[^/]+/' + modules.pagesDirName + '/');
+		const modulePagePattern = new RegExp(`/${modulesDir}/[^/]+/${modules.pagesDirName}/`);
 		if (modulePagePattern.test(normalized) && /\.(tsx|jsx)$/.test(normalized)) {
 			return true;
 		}
@@ -170,20 +179,24 @@ function isPageFile(id: string, pagesDir: string, modules?: PageIslandTransformO
 }
 
 /** Check whether a file is inside the layouts directory */
-function isLayoutFile(id: string, layoutsDir: string, modules?: PageIslandTransformOptions['modules']): boolean {
-	const normalized = id.replaceAll('\\', '/');
+function isLayoutFile(
+	id: string,
+	layoutsDir: string,
+	modules?: PageIslandTransformOptions["modules"],
+): boolean {
+	const normalized = id.replaceAll("\\", "/");
 
 	// Check traditional layouts directory
-	const dir = layoutsDir.replace(/^\//, '');
-	if (normalized.includes('/' + dir + '/') && /\.(tsx|jsx)$/.test(normalized)) {
+	const dir = layoutsDir.replace(/^\//, "");
+	if (normalized.includes(`/${dir}/`) && /\.(tsx|jsx)$/.test(normalized)) {
 		return true;
 	}
 
 	// Check modular layouts directories
 	if (modules) {
-		const modulesDir = modules.dir.replace(/^\//, '');
+		const modulesDir = modules.dir.replace(/^\//, "");
 		// Pattern: /modules/*/layouts/
-		const moduleLayoutPattern = new RegExp('/' + modulesDir + '/[^/]+/' + modules.layoutsDirName + '/');
+		const moduleLayoutPattern = new RegExp(`/${modulesDir}/[^/]+/${modules.layoutsDirName}/`);
 		if (moduleLayoutPattern.test(normalized) && /\.(tsx|jsx)$/.test(normalized)) {
 			return true;
 		}
@@ -194,7 +207,7 @@ function isLayoutFile(id: string, layoutsDir: string, modules?: PageIslandTransf
 
 /** Frameworks that are auto-wrapped as islands without requiring the `island` prop.
  *  Qwik components are auto-wrapped with ssrOnly — Qwik's qwikloader handles resumability natively. */
-const AUTO_ISLAND_FRAMEWORKS = new Set(['qwik']);
+const AUTO_ISLAND_FRAMEWORKS = new Set(["qwik"]);
 
 /** Check if a component import is for an auto-island framework */
 function isAutoIslandImport(importPath: string): boolean {
@@ -204,17 +217,17 @@ function isAutoIslandImport(importPath: string): boolean {
 }
 
 function hasIslandPropUsage(code: string, componentNames: string[]): boolean {
-	return componentNames.some(name => {
-		const pattern = new RegExp('<' + name + String.raw`[\s][^>]*island[\s]*[={]`);
+	return componentNames.some((name) => {
+		const pattern = new RegExp(`<${name}${String.raw`[\s][^>]*island[\s]*[={]`}`);
 		return pattern.test(code);
 	});
 }
 
 /** Check if any auto-island components are used as JSX elements */
 function hasAutoIslandUsage(code: string, imports: ComponentImport[]): boolean {
-	return imports.some(imp => {
+	return imports.some((imp) => {
 		if (!isAutoIslandImport(imp.importPath)) return false;
-		const pattern = new RegExp('<' + imp.localName + String.raw`[\s/>]`);
+		const pattern = new RegExp(`<${imp.localName}${String.raw`[\s/>]`}`);
 		return pattern.test(code);
 	});
 }
@@ -226,7 +239,10 @@ function buildIslandMeta(
 	code: string,
 	imports: ComponentImport[],
 	fileId: string,
-): Map<string, { srcPath: string; framework: string | undefined; importPath: string; autoIsland: boolean }> {
+): Map<
+	string,
+	{ srcPath: string; framework: string | undefined; importPath: string; autoIsland: boolean }
+> {
 	const meta = new Map<
 		string,
 		{ srcPath: string; framework: string | undefined; importPath: string; autoIsland: boolean }
@@ -236,17 +252,27 @@ function buildIslandMeta(
 		const framework = detectFramework(srcPath);
 
 		// Check for explicit island prop usage
-		const islandPattern = new RegExp('<' + imp.localName + String.raw`[\s][^>]*island[\s]*[={]`);
+		const islandPattern = new RegExp(`<${imp.localName}${String.raw`[\s][^>]*island[\s]*[={]`}`);
 		if (islandPattern.test(code)) {
-			meta.set(imp.localName, { srcPath, framework, importPath: imp.importPath, autoIsland: false });
+			meta.set(imp.localName, {
+				srcPath,
+				framework,
+				importPath: imp.importPath,
+				autoIsland: false,
+			});
 			continue;
 		}
 
 		// Check for auto-island frameworks (e.g. Qwik) used as JSX without island prop
 		if (framework && AUTO_ISLAND_FRAMEWORKS.has(framework)) {
-			const usagePattern = new RegExp('<' + imp.localName + String.raw`[\s/>]`);
+			const usagePattern = new RegExp(`<${imp.localName}${String.raw`[\s/>]`}`);
 			if (usagePattern.test(code)) {
-				meta.set(imp.localName, { srcPath, framework, importPath: imp.importPath, autoIsland: true });
+				meta.set(imp.localName, {
+					srcPath,
+					framework,
+					importPath: imp.importPath,
+					autoIsland: true,
+				});
 			}
 		}
 	}
@@ -265,7 +291,7 @@ function skipStringLiteral(code: string, pos: number): number {
 	const quote = code[pos];
 	pos++;
 	while (pos < code.length && code[pos] !== quote) {
-		if (code[pos] === '\\') pos++; // skip escaped char
+		if (code[pos] === "\\") pos++; // skip escaped char
 		pos++;
 	}
 	return pos < code.length ? pos + 1 : pos;
@@ -274,12 +300,12 @@ function skipStringLiteral(code: string, pos: number): number {
 /** Skip a template literal including ${...} expressions. Returns index after closing backtick. */
 function skipTemplateLiteral(code: string, pos: number): number {
 	pos++; // skip opening backtick
-	while (pos < code.length && code[pos] !== '`') {
-		if (code[pos] === '\\') {
+	while (pos < code.length && code[pos] !== "`") {
+		if (code[pos] === "\\") {
 			pos += 2;
 			continue;
 		}
-		if (code[pos] === '$' && code[pos + 1] === '{') {
+		if (code[pos] === "$" && code[pos + 1] === "{") {
 			pos = skipBracedExpression(pos + 1, code);
 			continue;
 		}
@@ -294,13 +320,13 @@ function skipBracedExpression(openBraceIdx: number, code: string): number {
 	let depth = 1;
 	while (pos < code.length && depth > 0) {
 		const ch = code[pos];
-		if (ch === '{') {
+		if (ch === "{") {
 			depth++;
 			pos++;
-		} else if (ch === '}') {
+		} else if (ch === "}") {
 			depth--;
 			if (depth > 0) pos++;
-		} else if (ch === "'" || ch === '"' || ch === '`') {
+		} else if (ch === "'" || ch === '"' || ch === "`") {
 			pos = skipStringLiteral(code, pos);
 		} else {
 			pos++;
@@ -324,10 +350,10 @@ function parseQuotedValue(code: string, pos: number): { value: string; endIdx: n
 	const quote = code[pos];
 	let i = pos + 1;
 	while (i < code.length && code[i] !== quote) {
-		if (code[i] === '\\') i++;
+		if (code[i] === "\\") i++;
 		i++;
 	}
-	const value = '"' + code.slice(pos + 1, i) + '"';
+	const value = `"${code.slice(pos + 1, i)}"`;
 	return { value, endIdx: i + 1 };
 }
 
@@ -342,13 +368,13 @@ function parseAttribute(code: string, pos: number): ParsedAttribute | null {
 	i = skipWhitespace(code, i);
 
 	// Boolean attribute (no `=`)
-	if (code[i] !== '=') {
+	if (code[i] !== "=") {
 		return { name, value: null, endIdx: i };
 	}
 	i = skipWhitespace(code, i + 1); // skip `=` and whitespace
 
 	// Expression value: {expr}
-	if (code[i] === '{') {
+	if (code[i] === "{") {
 		const parsed = parseJSXExpressionValue(code, i);
 		return { name, value: parsed.value, endIdx: parsed.endIdx };
 	}
@@ -365,12 +391,16 @@ function parseAttribute(code: string, pos: number): ParsedAttribute | null {
 // ─── JSX Element Parsing ─────────────────────────────────────────────
 
 /** Find the end of a JSX tag — either self-closing `/>` or `>...</Component>`. */
-function findTagEnd(code: string, pos: number, componentName: string): { endIdx: number; selfClosing: boolean } | null {
-	if (code[pos] === '/' && code[pos + 1] === '>') {
+function findTagEnd(
+	code: string,
+	pos: number,
+	componentName: string,
+): { endIdx: number; selfClosing: boolean } | null {
+	if (code[pos] === "/" && code[pos + 1] === ">") {
 		return { endIdx: pos + 2, selfClosing: true };
 	}
-	if (code[pos] === '>') {
-		const closeTag = '</' + componentName + '>';
+	if (code[pos] === ">") {
+		const closeTag = `</${componentName}>`;
 		const closeIdx = code.indexOf(closeTag, pos + 1);
 		if (closeIdx === -1) return null;
 		return { endIdx: closeIdx + closeTag.length, selfClosing: false };
@@ -382,7 +412,11 @@ function findTagEnd(code: string, pos: number, componentName: string): { endIdx:
  * Parse a JSX element starting at `<ComponentName`.
  * Returns the end index and extracted props, or null if parsing fails.
  */
-function parseJSXElement(code: string, startIdx: number, componentName: string): ParsedJSXElement | null {
+function parseJSXElement(
+	code: string,
+	startIdx: number,
+	componentName: string,
+): ParsedJSXElement | null {
 	let i = skipWhitespace(code, startIdx + 1 + componentName.length);
 
 	let islandProp: string | null = null;
@@ -402,10 +436,10 @@ function parseJSXElement(code: string, startIdx: number, componentName: string):
 		if (!attr) return null;
 		i = attr.endIdx;
 
-		if (attr.name === 'island') {
-			islandProp = attr.value ?? '{}';
+		if (attr.name === "island") {
+			islandProp = attr.value ?? "{}";
 		} else {
-			const propValue = attr.value === null ? attr.name + ': true' : attr.name + ': ' + attr.value;
+			const propValue = attr.value === null ? `${attr.name}: true` : `${attr.name}: ${attr.value}`;
 			otherProps.push(propValue);
 		}
 	}
@@ -423,11 +457,12 @@ function buildRenderCall(
 	autoIsland: boolean,
 	componentName: string,
 ): string {
-	const fwArg = framework ? ', framework: "' + framework + '"' : '';
-	const propsArg = parsed.otherProps.length > 0 ? ', props: { ' + parsed.otherProps.join(', ') + ' }' : '';
+	const fwArg = framework ? `, framework: "${framework}"` : "";
+	const propsArg =
+		parsed.otherProps.length > 0 ? `, props: { ${parsed.otherProps.join(", ")} }` : "";
 	// Pass the component reference so the SSR bundle doesn't need to
 	// dynamically import it at runtime (the import is already in scope).
-	const compArg = ', component: ' + componentName;
+	const compArg = `, component: ${componentName}`;
 
 	if (autoIsland) {
 		// Auto-island (e.g. Qwik): SSR + resumability via Qwik's native qwikloader.
@@ -440,14 +475,14 @@ function buildRenderCall(
 			fwArg +
 			compArg +
 			propsArg +
-			', ssr: true, ssrOnly: true' +
-			' })}'
+			", ssr: true, ssrOnly: true" +
+			" })}"
 		);
 	}
 
-	const islandValue = parsed.islandProp!;
+	const islandValue = parsed.islandProp ?? "";
 	// Qwik with explicit island prop — treat like other frameworks
-	const ssrOnlyArg = '';
+	const ssrOnlyArg = "";
 
 	return (
 		'{await __pageRenderIsland({ src: "' +
@@ -455,17 +490,17 @@ function buildRenderCall(
 		'"' +
 		fwArg +
 		compArg +
-		', ...(' +
+		", ...(" +
 		islandValue +
-		')' +
+		")" +
 		propsArg +
 		ssrOnlyArg +
-		', ssr: (' +
+		", ssr: (" +
 		islandValue +
-		').ssr !== undefined ? (' +
+		").ssr !== undefined ? (" +
 		islandValue +
-		').ssr : true' +
-		' })}'
+		").ssr : true" +
+		" })}"
 	);
 }
 
@@ -486,13 +521,13 @@ function replaceIslandJSX(
 	framework: string | undefined,
 	autoIsland: boolean,
 ): string {
-	const tag = '<' + componentName;
-	let result = '';
+	const tag = `<${componentName}`;
+	let result = "";
 	let i = 0;
 
 	while (i < code.length) {
 		// Skip template literals to avoid transforming code examples
-		if (code[i] === '`') {
+		if (code[i] === "`") {
 			const start = i;
 			i = skipTemplateLiteral(code, i);
 			result += code.slice(start, i);
@@ -501,13 +536,13 @@ function replaceIslandJSX(
 
 		// Skip JSX comments: {/* ... */}
 		// When we see '{' followed by '/*', skip until '*/' then '}'
-		if (code[i] === '{' && code[i + 1] === '/' && code[i + 2] === '*') {
-			const commentEnd = code.indexOf('*/', i + 3);
+		if (code[i] === "{" && code[i + 1] === "/" && code[i + 2] === "*") {
+			const commentEnd = code.indexOf("*/", i + 3);
 			if (commentEnd !== -1) {
 				// Find the closing '}' after '*/'
 				let afterComment = commentEnd + 2;
 				while (afterComment < code.length && /\s/.test(code[afterComment])) afterComment++;
-				if (afterComment < code.length && code[afterComment] === '}') {
+				if (afterComment < code.length && code[afterComment] === "}") {
 					result += code.slice(i, afterComment + 1);
 					i = afterComment + 1;
 					continue;
@@ -516,8 +551,8 @@ function replaceIslandJSX(
 		}
 
 		// Skip single-line comments
-		if (code[i] === '/' && code[i + 1] === '/') {
-			const lineEnd = code.indexOf('\n', i);
+		if (code[i] === "/" && code[i + 1] === "/") {
+			const lineEnd = code.indexOf("\n", i);
 			const end = lineEnd === -1 ? code.length : lineEnd + 1;
 			result += code.slice(i, end);
 			i = end;
@@ -525,8 +560,8 @@ function replaceIslandJSX(
 		}
 
 		// Skip block comments
-		if (code[i] === '/' && code[i + 1] === '*') {
-			const commentEnd = code.indexOf('*/', i + 2);
+		if (code[i] === "/" && code[i + 1] === "*") {
+			const commentEnd = code.indexOf("*/", i + 2);
 			const end = commentEnd === -1 ? code.length : commentEnd + 2;
 			result += code.slice(i, end);
 			i = end;
@@ -549,7 +584,13 @@ function replaceIslandJSX(
 			continue;
 		}
 
-		result += buildRenderCall(parsed, srcPath, framework, autoIsland && !parsed.islandProp, componentName);
+		result += buildRenderCall(
+			parsed,
+			srcPath,
+			framework,
+			autoIsland && !parsed.islandProp,
+			componentName,
+		);
 		i = parsed.endIdx;
 	}
 
@@ -559,11 +600,11 @@ function replaceIslandJSX(
 // ─── Vite Plugin ─────────────────────────────────────────────────────
 
 export function pageIslandTransform(options: PageIslandTransformOptions = {}): Plugin {
-	const { pagesDir = 'src/pages', layoutsDir = 'src/layouts', modules = null } = options;
+	const { pagesDir = "src/pages", layoutsDir = "src/layouts", modules = null } = options;
 
 	return {
-		name: 'avalon:page-island-transform',
-		enforce: 'pre',
+		name: "avalon:page-island-transform",
+		enforce: "pre",
 
 		transform(code: string, id: string) {
 			const isLayout = isLayoutFile(id, layoutsDir, modules);
@@ -573,17 +614,24 @@ export function pageIslandTransform(options: PageIslandTransformOptions = {}): P
 			const componentImports = findAllDefaultImports(code);
 			if (componentImports.length === 0) return null;
 
-			const componentNames = componentImports.map(i => i.localName);
-			if (!hasIslandPropUsage(code, componentNames) && !hasAutoIslandUsage(code, componentImports)) return null;
+			const componentNames = componentImports.map((i) => i.localName);
+			if (!hasIslandPropUsage(code, componentNames) && !hasAutoIslandUsage(code, componentImports))
+				return null;
 
 			// Build metadata only for components actually used with island prop
 			const islandMeta = buildIslandMeta(code, componentImports, id);
 			if (islandMeta.size === 0) return null;
 
-			let transformed = "import { renderIsland as __pageRenderIsland } from '@useavalon/avalon';\n" + code;
+			let transformed = `import { renderIsland as __pageRenderIsland } from '@useavalon/avalon';\n${code}`;
 
 			for (const [name, meta] of islandMeta) {
-				transformed = replaceIslandJSX(transformed, name, meta.srcPath, meta.framework, meta.autoIsland);
+				transformed = replaceIslandJSX(
+					transformed,
+					name,
+					meta.srcPath,
+					meta.framework,
+					meta.autoIsland,
+				);
 			}
 
 			// Keep imports for island components — the component reference is now

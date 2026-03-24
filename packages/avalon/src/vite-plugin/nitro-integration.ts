@@ -78,6 +78,10 @@ export const VIRTUAL_MODULE_IDS = {
 	ISLAND_MANIFEST: "virtual:avalon/island-manifest",
 	RUNTIME_CONFIG: "virtual:avalon/runtime-config",
 	CONFIG: "virtual:avalon/config",
+	LAYOUTS: "virtual:avalon/layouts",
+	ASSETS: "virtual:avalon/assets",
+	RENDERER: "virtual:avalon/renderer",
+	CLIENT_ENTRY: "virtual:avalon/client-entry",
 } as const;
 
 export const RESOLVED_VIRTUAL_IDS = {
@@ -86,6 +90,10 @@ export const RESOLVED_VIRTUAL_IDS = {
 	ISLAND_MANIFEST: "\0" + VIRTUAL_MODULE_IDS.ISLAND_MANIFEST,
 	RUNTIME_CONFIG: "\0" + VIRTUAL_MODULE_IDS.RUNTIME_CONFIG,
 	CONFIG: "\0" + VIRTUAL_MODULE_IDS.CONFIG,
+	LAYOUTS: "\0" + VIRTUAL_MODULE_IDS.LAYOUTS,
+	ASSETS: "\0" + VIRTUAL_MODULE_IDS.ASSETS,
+	RENDERER: "\0" + VIRTUAL_MODULE_IDS.RENDERER,
+	CLIENT_ENTRY: "\0" + VIRTUAL_MODULE_IDS.CLIENT_ENTRY,
 } as const;
 
 export interface NitroIntegrationResult {
@@ -503,6 +511,10 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 			if (id === VIRTUAL_MODULE_IDS.ISLAND_MANIFEST) return RESOLVED_VIRTUAL_IDS.ISLAND_MANIFEST;
 			if (id === VIRTUAL_MODULE_IDS.RUNTIME_CONFIG) return RESOLVED_VIRTUAL_IDS.RUNTIME_CONFIG;
 			if (id === VIRTUAL_MODULE_IDS.CONFIG) return RESOLVED_VIRTUAL_IDS.CONFIG;
+			if (id === VIRTUAL_MODULE_IDS.LAYOUTS) return RESOLVED_VIRTUAL_IDS.LAYOUTS;
+			if (id === VIRTUAL_MODULE_IDS.ASSETS) return RESOLVED_VIRTUAL_IDS.ASSETS;
+			if (id === VIRTUAL_MODULE_IDS.RENDERER) return RESOLVED_VIRTUAL_IDS.RENDERER;
+			if (id === VIRTUAL_MODULE_IDS.CLIENT_ENTRY) return RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY;
 			return null;
 		},
 
@@ -516,6 +528,11 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 				return generateRuntimeConfigModule(avalonConfig, nitroConfig);
 			if (id === RESOLVED_VIRTUAL_IDS.CONFIG)
 				return generateConfigModule(avalonConfig, nitroConfig);
+			if (id === RESOLVED_VIRTUAL_IDS.LAYOUTS) return await generateLayoutsModule(avalonConfig);
+			if (id === RESOLVED_VIRTUAL_IDS.ASSETS) return generateAssetsModule(nitroConfig);
+			if (id === RESOLVED_VIRTUAL_IDS.RENDERER) return generateRendererModule(avalonConfig);
+			if (id === RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY)
+				return await generateClientEntryModule(avalonConfig, nitroConfig);
 			return null;
 		},
 
@@ -523,6 +540,14 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 			if (file.includes(avalonConfig.pagesDir)) {
 				const mod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
 				if (mod) server.moduleGraph.invalidateModule(mod);
+			}
+			// Invalidate layouts virtual module when layout files change
+			if (file.includes("/layouts/") || file.includes("_layout")) {
+				const layoutMod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_IDS.LAYOUTS);
+				if (layoutMod) server.moduleGraph.invalidateModule(layoutMod);
+				// Also invalidate client entry since layout CSS may have changed
+				const clientEntryMod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY);
+				if (clientEntryMod) server.moduleGraph.invalidateModule(clientEntryMod);
 			}
 			// Invalidate virtual:avalon/config when config-related files change
 			if (
@@ -722,7 +747,365 @@ export function generateConfigModule(
 	return `const config = ${JSON.stringify(config, null, 2)};\nexport function useAvalonConfig() { return config; }\nexport default config;\n`;
 }
 
+// ─── Layout & Asset Virtual Module Generators ────────────────────────────────
+
+/**
+ * Generates a virtual module that statically imports all discovered layout
+ * components and exports a `wrapWithLayouts(pageHtml, pageModule, context)`
+ * function. This eliminates the need for consumers to manually import layouts
+ * and build a layout map in their renderer.
+ *
+ * The generated module:
+ * 1. Discovers all layout directories (shared + modular)
+ * 2. Generates static imports for each _layout.tsx
+ * 3. Builds a prefix→Layout map (like the manual moduleLayouts array)
+ * 4. Exports wrapWithLayouts that composes page HTML with the right layouts
+ */
+async function generateLayoutsModule(avalonConfig: ResolvedAvalonConfig): Promise<string> {
+	const { getAllLayoutDirs } = await import("./module-discovery.ts");
+	const { relative } = await import("node:path");
+	const { stat: fsStat } = await import("node:fs/promises");
+
+	const cwd = process.cwd();
+	const layoutDirs = await getAllLayoutDirs(avalonConfig.layoutsDir, avalonConfig.modules, cwd);
+
+	// Discover actual _layout.tsx files
+	const layouts: Array<{ prefix: string; importPath: string; varName: string; isShared: boolean }> =
+		[];
+	let idx = 0;
+
+	for (const { dir, prefix } of layoutDirs) {
+		const layoutFile = join(dir, "_layout.tsx");
+		try {
+			const s = await fsStat(layoutFile);
+			if (!s.isFile()) continue;
+		} catch {
+			continue;
+		}
+		const relPath = relative(cwd, layoutFile).replaceAll("\\", "/");
+		const importPath = relPath.startsWith("/") ? relPath : "/" + relPath;
+		const isShared = dir.includes("/shared/") || prefix === "/";
+		// Shared layout that lives in layoutsDir is the root layout
+		const isRootLayout = isShared && !avalonConfig.modules;
+		const varName = isRootLayout ? "RootLayout" : `Layout_${idx}`;
+		layouts.push({ prefix, importPath, varName, isShared });
+		idx++;
+	}
+
+	// Separate shared (root) layouts from module layouts
+	const sharedLayouts = layouts.filter((l) => l.isShared);
+	const moduleLayouts = layouts.filter((l) => !l.isShared);
+
+	// Generate imports
+	const imports = layouts.map((l) => `import ${l.varName} from '${l.importPath}';`);
+
+	// Generate the module layout entries array
+	// Module layouts are sorted by prefix length (longest first for matching)
+	// The home module (prefix '/') is special — it only matches exact '/'
+	const entries = moduleLayouts
+		.sort((a, b) => b.prefix.length - a.prefix.length)
+		.map((l) => {
+			// Home module: skipRoot=true (it IS the root-level layout)
+			const skipRoot = l.prefix === "/";
+			return `  { prefix: ${JSON.stringify(l.prefix)}, Layout: ${l.varName}, skipRoot: ${skipRoot} }`;
+		});
+
+	// The root/shared layout (outermost wrapper)
+	const rootLayoutVar = sharedLayouts.length > 0 ? sharedLayouts[0].varName : "null";
+
+	const code = [
+		`// Auto-generated by Avalon — do not edit`,
+		`import { h } from 'preact';`,
+		`import preactRenderToString from 'preact-render-to-string';`,
+		`import { getUniversalCSSForHead } from '@useavalon/avalon/islands/universal-css-collector';`,
+		`import { getUniversalHeadForInjection } from '@useavalon/avalon/islands/universal-head-collector';`,
+		...imports,
+		``,
+		`const RootLayoutComponent = ${rootLayoutVar};`,
+		``,
+		`const moduleLayouts = [`,
+		entries.join(",\n"),
+		`];`,
+		``,
+		`function getLayoutsForPath(pathname) {`,
+		`  for (const entry of moduleLayouts) {`,
+		`    if (entry.prefix === '/' ? pathname === '/' : pathname.startsWith(entry.prefix)) {`,
+		`      return entry;`,
+		`    }`,
+		`  }`,
+		`  return null;`,
+		`}`,
+		``,
+		`function injectUniversalAssets(html) {`,
+		`  const universalCSS = getUniversalCSSForHead(true);`,
+		`  if (universalCSS && html.includes('</head>')) {`,
+		`    html = html.replace('</head>', universalCSS + '\\n</head>');`,
+		`  }`,
+		`  const universalHead = getUniversalHeadForInjection(true);`,
+		`  if (universalHead && html.includes('</head>')) {`,
+		`    html = html.replace('</head>', universalHead + '\\n</head>');`,
+		`  }`,
+		`  return html;`,
+		`}`,
+		``,
+		`export async function wrapWithLayouts(pageHtml, pageModule, context, injectAssets) {`,
+		`  const pathname = context.url.pathname;`,
+		`  const frontmatter = {`,
+		`    ...(pageModule.frontmatter || {}),`,
+		`    ...(pageModule.metadata || {}),`,
+		`    currentPath: pathname,`,
+		`  };`,
+		`  const pageLayoutConfig = pageModule.layoutConfig;`,
+		`  const skipAll = pageLayoutConfig?.skipLayouts?.includes('_layout');`,
+		``,
+		`  const layoutEntry = getLayoutsForPath(pathname);`,
+		`  const routeInfo = { path: pathname, params: context.params, query: context.url.searchParams };`,
+		`  let html;`,
+		``,
+		`  if (!layoutEntry || skipAll) {`,
+		`    const title = String(frontmatter.title || 'Avalon');`,
+		`    html = [`,
+		`      '<!DOCTYPE html>',`,
+		`      '<html lang="en">',`,
+		`      '<head>',`,
+		`      '<meta charset="utf-8">',`,
+		`      '<meta name="viewport" content="width=device-width, initial-scale=1">',`,
+		`      '<title>' + title + '</title>',`,
+		`      '</head>',`,
+		`      '<body>',`,
+		`      '<div id="app">' + pageHtml + '</div>',`,
+		`      '</body>',`,
+		`      '</html>',`,
+		`    ].join('\\n');`,
+		`  } else {`,
+		`    const layoutProps = {`,
+		`      children: h('div', { dangerouslySetInnerHTML: { __html: pageHtml } }),`,
+		`      frontmatter,`,
+		`      data: {},`,
+		`      route: routeInfo,`,
+		`    };`,
+		`    const layoutResult = layoutEntry.Layout(layoutProps);`,
+		`    const resolvedLayout = layoutResult instanceof Promise ? await layoutResult : layoutResult;`,
+		`    let wrappedHtml = preactRenderToString(resolvedLayout);`,
+		``,
+		`    if (!layoutEntry.skipRoot && RootLayoutComponent) {`,
+		`      const rootProps = {`,
+		`        children: h('div', { dangerouslySetInnerHTML: { __html: wrappedHtml } }),`,
+		`        frontmatter,`,
+		`        data: {},`,
+		`        route: routeInfo,`,
+		`      };`,
+		`      const rootResult = RootLayoutComponent(rootProps);`,
+		`      const resolvedRoot = rootResult instanceof Promise ? await rootResult : rootResult;`,
+		`      wrappedHtml = preactRenderToString(resolvedRoot);`,
+		`    }`,
+		``,
+		`    html = '<!DOCTYPE html>\\n' + wrappedHtml;`,
+		`  }`,
+		``,
+		`  if (injectAssets) {`,
+		`    html = injectAssets(html);`,
+		`  }`,
+		`  return injectUniversalAssets(html);`,
+		`}`,
+		``,
+		`export default { wrapWithLayouts };`,
+		``,
+	].join("\n");
+
+	return code;
+}
+
+/**
+ * Generates a virtual module that provides asset injection helpers.
+ * Imports client assets via the ?assets=client virtual import and exports
+ * an `injectAssets(html)` function that adds CSS links, JS preloads, and
+ * the entry script to the HTML.
+ *
+ * The ?assets=client suffix is resolved by Nitro's Vite assets plugin
+ * which reads the client build manifest and provides CSS/JS metadata.
+ */
+function generateAssetsModule(nitroConfig: AvalonNitroConfig): string {
+	// Resolve the client entry path. The ?assets=client suffix is handled
+	// by Nitro's Vite assets plugin which reads the client build manifest.
+	// We use an absolute path from the project root so it resolves correctly
+	// even when imported from a virtual module.
+	const clientEntry = nitroConfig.clientEntry ?? "app/entry-client";
+	const importPath = clientEntry.startsWith("/") ? clientEntry : "/" + clientEntry;
+	return [
+		`// Auto-generated by Avalon — do not edit`,
+		`// @ts-ignore — virtual import resolved by Nitro's Vite assets plugin at build time`,
+		`import clientAssets from '${importPath}?assets=client';`,
+		``,
+		`function buildAssetTags() {`,
+		`  const cssLinks = (clientAssets?.css ?? [])`,
+		`    .map(attr => '<link rel="stylesheet" href="' + attr.href + '">')`,
+		`    .join('\\n');`,
+		`  const jsPreloads = (clientAssets?.js ?? [])`,
+		`    .map(attr => '<link rel="modulepreload" href="' + attr.href + '">')`,
+		`    .join('\\n');`,
+		`  const entryScript = clientAssets?.entry`,
+		`    ? '<script type="module" src="' + clientAssets.entry + '"></script>'`,
+		`    : '';`,
+		`  return { cssLinks, jsPreloads, entryScript };`,
+		`}`,
+		``,
+		`export function injectAssets(html) {`,
+		`  const { cssLinks, jsPreloads, entryScript } = buildAssetTags();`,
+		`  if (html.includes('</head>')) {`,
+		`    html = html.replace('</head>', cssLinks + '\\n' + jsPreloads + '\\n</head>');`,
+		`  }`,
+		`  if (html.includes('</body>')) {`,
+		`    html = html.replace('</body>', entryScript + '\\n</body>');`,
+		`  }`,
+		`  return html;`,
+		`}`,
+		``,
+		`export { clientAssets };`,
+		`export default { injectAssets, clientAssets };`,
+		``,
+	].join("\n");
+}
+
+/**
+ * Generates the `virtual:avalon/renderer` module.
+ *
+ * Wires together:
+ * - virtual:avalon/config (runtime config)
+ * - virtual:avalon/page-loader (page module resolution)
+ * - virtual:avalon/layouts (layout wrapping)
+ * - virtual:avalon/assets (client asset injection)
+ * - createNitroRenderer (SSR request handler)
+ * - registerBuiltinDirectives (custom hydration directives)
+ *
+ * Consumer usage: `export { default } from 'virtual:avalon/renderer';`
+ */
+function generateRendererModule(avalonConfig: ResolvedAvalonConfig): string {
+	// Statically import and pre-register integrations so the SSR bundle
+	// can render islands without relying on dynamic imports (which fail
+	// in the bundled Nitro environment).
+	const integrations: string[] = Array.isArray(avalonConfig.integrations)
+		? avalonConfig.integrations
+		: [];
+
+	const integrationImports: string[] = [];
+	const registrationLines: string[] = [];
+
+	for (const fw of integrations) {
+		const varName = `${fw}Integration`;
+		// Each integration's mod.ts exports a named <fw>Integration object
+		integrationImports.push(`import { ${varName} } from '@useavalon/${fw}';`);
+		registrationLines.push(`registry.register(${varName});`);
+	}
+
+	return [
+		`// Auto-generated by Avalon — do not edit`,
+		`import { createNitroRenderer } from '@useavalon/avalon/nitro/renderer';`,
+		`import { registerBuiltinDirectives } from '@useavalon/avalon';`,
+		`import { registry } from '@useavalon/avalon/islands/integration-registry';`,
+		`import avalonConfig from 'virtual:avalon/config';`,
+		`import { loadPage } from 'virtual:avalon/page-loader';`,
+		`import { wrapWithLayouts } from 'virtual:avalon/layouts';`,
+		`import { injectAssets } from 'virtual:avalon/assets';`,
+		...integrationImports,
+		``,
+		`// Pre-register framework integrations for SSR`,
+		...registrationLines,
+		``,
+		`// Register built-in custom hydration directives (on:delay, on:scroll, etc.)`,
+		`registerBuiltinDirectives();`,
+		``,
+		`export default createNitroRenderer({`,
+		`  avalonConfig,`,
+		`  isDev: avalonConfig.isDev,`,
+		`  resolvePageRoute: async (pathname) => {`,
+		`    const mod = loadPage(pathname);`,
+		`    if (!mod || !('default' in mod)) return null;`,
+		`    return { filePath: '[virtual:' + pathname + ']', pattern: pathname, params: {} };`,
+		`  },`,
+		`  loadPageModule: async (filePath) => {`,
+		`    const match = filePath.match(/^\\[virtual:(.+)\\]$/);`,
+		`    const pathname = match ? match[1] : filePath;`,
+		`    const mod = loadPage(pathname);`,
+		`    if (mod) return mod;`,
+		`    return { default: () => null, metadata: { title: 'Avalon' } };`,
+		`  },`,
+		`  wrapWithLayouts: (pageHtml, pageModule, context) =>`,
+		`    wrapWithLayouts(pageHtml, pageModule, context, injectAssets),`,
+		`});`,
+		``,
+	].join("\n");
+}
+
 // ─── Public Accessors ────────────────────────────────────────────────────────
+
+/**
+ * Generate the virtual:avalon/client-entry module.
+ *
+ * Auto-discovers CSS files in layout directories and includes the
+ * hydration runtime + any global CSS specified in config. This means
+ * consumers don't need to manually maintain a client entry file.
+ */
+async function generateClientEntryModule(
+	avalonConfig: ResolvedAvalonConfig,
+	nitroConfig: AvalonNitroConfig,
+): Promise<string> {
+	const { getAllLayoutDirs } = await import("./module-discovery.ts");
+	const { readdir } = await import("node:fs/promises");
+	const { relative, join: pathJoin } = await import("node:path");
+
+	const cwd = process.cwd();
+
+	// Discover all CSS files in layout directories
+	const layoutDirs = await getAllLayoutDirs(avalonConfig.layoutsDir, avalonConfig.modules, cwd);
+
+	const cssImports: string[] = [];
+
+	for (const { dir } of layoutDirs) {
+		try {
+			const entries = await readdir(dir, { withFileTypes: true });
+			for (const entry of entries) {
+				if (!entry.isFile()) continue;
+				if (!entry.name.endsWith(".css")) continue;
+				const absPath = pathJoin(dir, entry.name);
+				const relPath = relative(cwd, absPath).replaceAll("\\", "/");
+				const importPath = relPath.startsWith("/") ? relPath : "/" + relPath;
+				cssImports.push(importPath);
+			}
+		} catch {
+			// Directory doesn't exist or can't be read — skip
+		}
+	}
+
+	// Build the module source
+	const lines: string[] = [
+		`// Auto-generated by Avalon — do not edit`,
+		`// Island hydration runtime`,
+		`import '@useavalon/avalon/client/main';`,
+		``,
+	];
+
+	// Global CSS from config
+	const globalCSS = nitroConfig.globalCSS ?? [];
+	for (const cssPath of globalCSS) {
+		const importPath = cssPath.startsWith("/") ? cssPath : "/" + cssPath;
+		lines.push(`// Global CSS`);
+		lines.push(`import '${importPath}';`);
+	}
+
+	if (globalCSS.length > 0) lines.push(``);
+
+	// Layout CSS (auto-discovered)
+	if (cssImports.length > 0) {
+		lines.push(`// Layout CSS (auto-discovered)`);
+		for (const imp of cssImports) {
+			lines.push(`import '${imp}';`);
+		}
+	}
+
+	lines.push(``);
+	return lines.join("\n");
+}
 
 export function getViteDevServer(): ViteDevServer | undefined {
 	return globalThis.__viteDevServer;

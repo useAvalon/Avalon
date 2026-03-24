@@ -189,6 +189,21 @@ export interface AvalonNitroConfig {
 		/** Write `/about` as `/about/index.html` @default true */
 		autoSubfolderIndex?: boolean;
 	};
+
+	/**
+	 * Path to the client entry file, relative to the project root.
+	 * Used by the auto-generated renderer to import client assets.
+	 * @default "app/entry-client" (or "src/entry-client")
+	 */
+	clientEntry?: string;
+
+	/**
+	 * Global CSS files to include in the client entry.
+	 * Paths are relative to the project root.
+	 * Layout CSS is auto-discovered — this is for additional global stylesheets.
+	 * @example ["app/shared/styles/main.css"]
+	 */
+	globalCSS?: string[];
 }
 
 /**

@@ -1,8 +1,8 @@
 /**
  * Avalon type definitions.
- * 
+ *
  * Include this in your tsconfig.json `types` array to get island prop support:
- * 
+ *
  * ```json
  * {
  *   "compilerOptions": {
@@ -13,10 +13,13 @@
  */
 
 // Re-export island prop types
-export * from './island-prop.d.ts';
+export * from "./island-prop.d.ts";
 
 // Import JSX augmentations (side-effect import for type augmentation)
-import './island-jsx.d.ts';
+import "./island-jsx.d.ts";
 
 // Import image type declarations
-import './image.d.ts';
+import "./image.d.ts";
+
+// Import virtual module declarations (virtual:avalon/*)
+import "./virtual-modules.d.ts";

@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/avalon",
-	"version": "0.1.49",
+	"version": "0.1.50",
 	"description": "Multi-framework islands architecture for the modern web",
 	"license": "MIT",
 	"type": "module",
@@ -50,7 +50,8 @@
 		"./nitro/config": "./src/nitro/config.ts",
 		"./types/island-jsx": "./src/types/island-jsx.d.ts",
 		"./types": "./src/types/index.d.ts",
-		"./prerender": "./src/prerender/index.ts"
+		"./prerender": "./src/prerender/index.ts",
+		"./post-build": "./src/post-build/index.ts"
 	},
 	"typesVersions": {
 		"*": {

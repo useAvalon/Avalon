@@ -64,9 +64,9 @@ export interface ResolvedPageRoute {
 /**
  * Render handler options
  *
- * Simplified for Nitro's catch-all pattern - route resolution is now
- * handled by Nitro's file-system routing, so custom resolvers are optional
- * and primarily used for development/testing scenarios.
+ * Route resolution is handled by Nitro's file-system routing.
+ * Custom resolvers are optional and primarily used for
+ * development/testing scenarios.
  */
 export interface RenderHandlerOptions {
 	/** Avalon runtime configuration */
@@ -130,6 +130,36 @@ export function createRenderContext(
 		params,
 		query: Object.fromEntries(url.searchParams),
 		request: toRequest(event),
+		event,
+	};
+}
+
+/**
+ * Creates a render context directly from a web Request.
+ * Used by the `.fetch()` wrapper to avoid h3 event conversion issues
+ * when Nitro's SSR dispatcher passes a plain Request.
+ */
+export function createRenderContextFromRequest(
+	request: Request,
+	params: Record<string, string> = {},
+): NitroRenderContext {
+	const url = new URL(request.url, "http://localhost");
+
+	// Build a minimal event-like object that satisfies the H3Event interface
+	// from types.ts without depending on h3's internal H3Event class.
+	// Cast needed because the renderer imports h3's full H3Event type,
+	// but at runtime only the minimal shape is accessed by downstream code.
+	const event = {
+		method: request.method,
+		path: url.pathname + url.search,
+		context: { params },
+	} as unknown as H3Event;
+
+	return {
+		url,
+		params,
+		query: Object.fromEntries(url.searchParams),
+		request,
 		event,
 	};
 }
@@ -487,7 +517,14 @@ export function injectHydrationScript(
 	}
 
 	// Check if the client script is already included
-	const existingScripts = ["/src/client/main.js", "/dist/client.js", "client/main.js"];
+	// In production, injectAssets adds the hashed entry script (e.g., /assets/entry-client-BqxPAKgE.js)
+	// so we also check for any module script in the closing body area
+	const existingScripts = [
+		"/src/client/main.js",
+		"/dist/client.js",
+		"client/main.js",
+		"entry-client",
+	];
 
 	if (existingScripts.some((script) => html.includes(script))) {
 		return html;
@@ -1225,7 +1262,7 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 	 */
 	const handleError = createErrorHandler(enableCustomErrorPages, errorHandlerOptions, isDev);
 
-	return async function nitroRendererHandler(event: H3Event): Promise<Response> {
+	async function nitroRendererHandler(event: H3Event): Promise<Response> {
 		const url = getRequestURL(event);
 		const pathname = url.pathname;
 
@@ -1316,7 +1353,58 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 			const err = error instanceof Error ? error : new Error(String(error));
 			return handleError(err, event);
 		}
-	};
+	}
+
+	// Return a srvx-compatible server object.
+	// Nitro's internal SSR dispatcher (ssr-renderer) calls
+	// `__nitro_vite_envs__["ssr"].fetch(request)` which expects
+	// the SSR entry's default export to have a `.fetch()` method
+	// that accepts a web Request and returns a Response.
+	//
+	// Instead of converting Request → H3Event (which breaks because
+	// the bundled h3 has a different H3Event class than the npm package),
+	// we render directly from the Request, bypassing h3 entirely.
+	const handler = Object.assign(nitroRendererHandler, {
+		async fetch(request: Request): Promise<Response> {
+			const url = new URL(request.url, "http://localhost");
+			const pathname = url.pathname;
+
+			try {
+				// Resolve the page route
+				let route: ResolvedPageRoute | null = null;
+				route = options.resolvePageRoute
+					? await options.resolvePageRoute(pathname, avalonConfig.pagesDir)
+					: await defaultResolvePageRoute(pathname, avalonConfig.pagesDir);
+
+				if (!route) {
+					return createErrorResponse(createNotFoundError(`Page not found: ${pathname}`), isDev);
+				}
+
+				// Load the page module
+				const pageModule = options.loadPageModule
+					? await options.loadPageModule(route.filePath)
+					: await defaultLoadPageModule(route.filePath);
+
+				// Create render context directly from the Request
+				const renderContext = createRenderContextFromRequest(request, route.params);
+
+				// Render the page (non-streaming for prerender/fetch path)
+				const result = await renderPage(pageModule, renderContext, {}, options.wrapWithLayouts);
+				const html = injectHydrationScript(result.html as string, isDev);
+
+				return new Response(html, {
+					status: result.statusCode,
+					headers: result.headers,
+				});
+			} catch (error) {
+				console.error("[Nitro Renderer .fetch() Error]", error);
+				const err = error instanceof Error ? error : new Error(String(error));
+				return createErrorResponse(err, isDev);
+			}
+		},
+	});
+
+	return handler;
 }
 
 /**
@@ -1492,7 +1580,7 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 	 */
 	const handleError = createErrorHandler(enableCustomErrorPages, errorHandlerOptions, isDev);
 
-	return async function nitroCatchAllHandler(event: H3Event): Promise<Response> {
+	async function nitroCatchAllHandler(event: H3Event): Promise<Response> {
 		const url = getRequestURL(event);
 		const pathname = url.pathname;
 
@@ -1583,7 +1671,52 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 			const err = error instanceof Error ? error : new Error(String(error));
 			return handleError(err, event);
 		}
-	};
+	}
+
+	// Return a srvx-compatible server object (same pattern as createNitroRenderer)
+	const handler = Object.assign(nitroCatchAllHandler, {
+		async fetch(request: Request): Promise<Response> {
+			const url = new URL(request.url, "http://localhost");
+			const pathname = url.pathname;
+
+			try {
+				// Reconstruct the page file path from the pathname
+				const slug = pathname.replace(/^\//, "") || "index";
+				const filePath = `${avalonConfig.pagesDir}/${slug}.tsx`;
+
+				// Try to load the page module
+				let pageModule: PageModule;
+				try {
+					pageModule = await loadPageModule(filePath);
+				} catch {
+					try {
+						const indexPath = `${avalonConfig.pagesDir}/${slug}/index.tsx`;
+						pageModule = await loadPageModule(indexPath);
+					} catch {
+						return createErrorResponse(createNotFoundError(`Page not found: ${pathname}`), isDev);
+					}
+				}
+
+				// Create render context directly from the Request
+				const renderContext = createRenderContextFromRequest(request);
+
+				// Render the page (non-streaming for prerender/fetch path)
+				const result = await renderPage(pageModule, renderContext, {}, options.wrapWithLayouts);
+				const html = injectHydrationScript(result.html as string, isDev);
+
+				return new Response(html, {
+					status: result.statusCode,
+					headers: result.headers,
+				});
+			} catch (error) {
+				console.error("[Nitro CatchAll .fetch() Error]", error);
+				const err = error instanceof Error ? error : new Error(String(error));
+				return createErrorResponse(err, isDev);
+			}
+		},
+	});
+
+	return handler;
 }
 
 /**
