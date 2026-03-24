@@ -56,7 +56,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			// Only /demo/data-fetching stays SSR (it fetches live data).
 			prerender: {
 				crawlLinks: true,
-				routes: ["/"],
+				routes: ["/", "/demo"],
 				ignore: ["/demo/data-fetching"],
 				failOnError: true,
 			},
