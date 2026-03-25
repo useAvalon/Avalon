@@ -135,3 +135,61 @@ export function getHeadCollectorSize(): number {
   const collector = initHeadCollector();
   return collector.size;
 }
+
+// Cache for the Solid hydration bootstrap script.
+// Set by the Solid renderer via `setSolidHydrationScript`, injected
+// into the page only when Solid islands are present.
+declare global {
+  var __solidHydrationScript: string | undefined;
+}
+
+/**
+ * Store the Solid hydration bootstrap script for conditional injection.
+ *
+ * Called by the Solid renderer once per SSR lifecycle. The script is
+ * cached globally and only injected into pages that contain Solid islands.
+ *
+ * @param script - The hydration script from `generateHydrationScript()`
+ */
+export function setSolidHydrationScript(script: string): void {
+  globalThis.__solidHydrationScript = script;
+}
+
+/**
+ * Conditionally inject the Solid hydration bootstrap script into HTML.
+ *
+ * The `window._$HY` script (~300 bytes) is only needed when Solid islands
+ * are present on the page. Instead of having the Solid renderer add it to
+ * the head collector on every render (which would inject it on every page),
+ * this function checks the final HTML for Solid islands and injects the
+ * script only when needed.
+ *
+ * @param html - The rendered HTML string to check and potentially modify
+ * @returns The HTML with the Solid hydration script injected if needed
+ */
+export function injectSolidHydrationScriptIfNeeded(html: string): string {
+  // Only inject if Solid islands are present on the page
+  const hasSolidIslands = html.includes('data-framework="solid"');
+  if (!hasSolidIslands) {
+    return html;
+  }
+
+  // Don't inject if already present
+  if (html.includes('window._$HY') || html.includes('_$HY=')) {
+    return html;
+  }
+
+  const script = globalThis.__solidHydrationScript;
+  if (!script) {
+    return html;
+  }
+
+  // Wrap in <script> tags if not already wrapped
+  const scriptTag = script.trim().startsWith('<script') ? script : `<script>${script}</script>`;
+
+  if (html.includes('</head>')) {
+    return html.replace('</head>', `${scriptTag}\n</head>`);
+  }
+
+  return html;
+}

@@ -5,11 +5,12 @@
  * generateHydrationScript in the <head>). In islands architecture,
  * the script may not have executed yet when the island hydrates.
  *
- * We ensure _$HY exists before calling hydrate(), and fall back
- * to render() if hydration fails.
+ * We ensure _$HY exists before calling hydrate(). No render()
+ * fallback — SSR hydration is reliable and render() pulls in
+ * extra DOM runtime code (~1-2 KiB).
  */
 
-import type { SolidComponent, SolidHydrationOptions } from '../types.ts';
+import type { SolidComponent, SolidHydrationOptions } from "../types.ts";
 
 /**
  * Ensure the Solid hydration context exists on globalThis.
@@ -33,40 +34,25 @@ export async function hydrate(
 	_options: SolidHydrationOptions = {},
 ): Promise<void> {
 	if (!container) {
-		throw new Error('Container element is required for hydration');
+		throw new Error("Container element is required for hydration");
 	}
 
-	if (!Component || typeof Component !== 'function') {
+	if (!Component || typeof Component !== "function") {
 		throw new Error(`Invalid Solid component: expected function, got ${typeof Component}`);
 	}
 
 	const element = container as HTMLElement;
-	const hasSSRContent = element.innerHTML.trim().length > 0;
 	const renderId = element.dataset.solidRenderId || element.dataset.renderId;
 
-	const solidWeb = await import('solid-js/web');
-	const { hydrate: solidHydrate, render: solidRender, createComponent } = solidWeb;
+	const solidWeb = await import("solid-js/web");
+	const { hydrate: solidHydrate, createComponent } = solidWeb;
 
-	if (hasSSRContent && renderId) {
-		// Ensure _$HY exists before calling solidHydrate
-		ensureHydrationContext();
+	// Ensure _$HY exists before calling solidHydrate
+	ensureHydrationContext();
 
-		try {
-			solidHydrate(() => createComponent(Component, props), element, { renderId });
-			return;
-		} catch (error) {
-			// Hydration failed — fall back to client render
-			if (process.env.NODE_ENV !== 'production') {
-				console.warn(`Solid hydration failed, falling back to client render:`, error);
-			}
-		}
-	}
-
-	// No SSR content, no renderId, or hydration failed — clean client render
-	element.textContent = '';
-	solidRender(() => createComponent(Component, props), element);
+	solidHydrate(() => createComponent(Component, props), element, { renderId: renderId || "" });
 }
 
 export function getHydrationScript(): string {
-	return '';
+	return "";
 }

@@ -27,69 +27,70 @@ import type { QwikComponent, QwikResumabilityOptions } from "../types.ts";
  * @param _options - Resumability options
  */
 export function hydrate(
-  container: Element,
-  Component: QwikComponent,
-  props: Record<string, unknown> = {},
-  _options: QwikResumabilityOptions = {}
+	container: Element,
+	Component: QwikComponent,
+	props: Record<string, unknown> = {},
+	_options: QwikResumabilityOptions = {},
 ): void {
-  try {
-    if (!container) {
-      throw new Error("Container element is required for resumption");
-    }
+	try {
+		if (!container) {
+			throw new Error("Container element is required for resumption");
+		}
 
-    const element = container as HTMLElement;
-    const hasSSRContent = element.children.length > 0;
-    const hasQwikContainer = element.closest('[q\\:container]') !== null ||
-                              element.hasAttribute('q:container');
+		const element = container as HTMLElement;
+		const hasSSRContent = element.children.length > 0;
+		const hasQwikContainer =
+			element.closest("[q\\:container]") !== null || element.hasAttribute("q:container");
 
-    if (hasSSRContent && hasQwikContainer) {
-      // Qwik container already exists with serialized state.
-      // The Qwikloader handles resumption automatically — nothing to do.
-      element.dataset.hydrationStatus = 'resumed';
-      return;
-    }
+		if (hasSSRContent && hasQwikContainer) {
+			// Qwik container already exists with serialized state.
+			// The Qwikloader handles resumption automatically — nothing to do.
+			return;
+		}
 
-    // No SSR content or no Qwik container — do a client-side render
-    Promise.all([
-      import("@builder.io/qwik"),
-    ]).then(([qwik]) => {
-      const qwikModule = qwik as any;
+		// No SSR content or no Qwik container — do a client-side render
+		Promise.all([import("@builder.io/qwik")])
+			.then(([qwik]) => {
+				const qwikModule = qwik as any;
 
-      try {
-        if (qwikModule.render) {
-          const jsxNode = typeof qwikModule.jsx === 'function'
-            ? qwikModule.jsx(Component, props)
-            : Component(props);
+				try {
+					if (qwikModule.render) {
+						const jsxNode =
+							typeof qwikModule.jsx === "function"
+								? qwikModule.jsx(Component, props)
+								: Component(props);
 
-          qwikModule.render(element, jsxNode);
-          element.dataset.hydrationStatus = 'rendered';
-        } else {
-          element.dataset.hydrationStatus = 'failed';
-          element.dataset.hydrationError = 'Qwik render API not available';
-        }
-      } catch (error) {
-        element.dataset.hydrationStatus = 'failed';
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        element.dataset.hydrationError = errorMsg;
-        if (process.env.NODE_ENV !== "production") {
-          console.error(`Qwik client render failed:`, error);
-        }
-      }
-    }).catch((importError) => {
-      element.dataset.hydrationStatus = 'failed';
-      element.dataset.hydrationError = 'Failed to load @builder.io/qwik module';
-      if (process.env.NODE_ENV !== "production") {
-        console.error(`Failed to import @builder.io/qwik:`, importError);
-      }
-    });
-  } catch (error) {
-    (container as HTMLElement).dataset.hydrationStatus = 'failed';
-    const errorMsg = error instanceof Error ? error.message : String(error);
-    (container as HTMLElement).dataset.hydrationError = errorMsg;
-    if (process.env.NODE_ENV !== "production") {
-      console.error(`Qwik resumption setup failed:`, error);
-    }
-  }
+						qwikModule.render(element, jsxNode);
+					} else {
+						if (process.env.NODE_ENV !== "production") {
+							element.dataset.hydrationStatus = "failed";
+							element.dataset.hydrationError = "Qwik render API not available";
+						}
+					}
+				} catch (error) {
+					if (process.env.NODE_ENV !== "production") {
+						element.dataset.hydrationStatus = "failed";
+						const errorMsg = error instanceof Error ? error.message : String(error);
+						element.dataset.hydrationError = errorMsg;
+						console.error(`Qwik client render failed:`, error);
+					}
+				}
+			})
+			.catch((importError) => {
+				if (process.env.NODE_ENV !== "production") {
+					element.dataset.hydrationStatus = "failed";
+					element.dataset.hydrationError = "Failed to load @builder.io/qwik module";
+					console.error(`Failed to import @builder.io/qwik:`, importError);
+				}
+			});
+	} catch (error) {
+		if (process.env.NODE_ENV !== "production") {
+			(container as HTMLElement).dataset.hydrationStatus = "failed";
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			(container as HTMLElement).dataset.hydrationError = errorMsg;
+			console.error(`Qwik resumption setup failed:`, error);
+		}
+	}
 }
 
 /**
@@ -102,7 +103,7 @@ export function hydrate(
  * @returns Resumability script as string
  */
 export function getHydrationScript(): string {
-  return `
+	return `
     // Qwik resumability script
     (async function() {
       // Find all Qwik islands
@@ -118,7 +119,6 @@ export function getHydrationScript(): string {
 
           if (hasContainer) {
             // SSR'd Qwik component — Qwikloader handles resumption
-            island.dataset.hydrationStatus = 'resumed';
             console.log(\`✅ Qwik island resumed: \${island.getAttribute('data-src')}\`);
             continue;
           }

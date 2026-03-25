@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/avalon",
-	"version": "0.1.56",
+	"version": "0.1.58",
 	"description": "Multi-framework islands architecture for the modern web",
 	"license": "MIT",
 	"type": "module",
@@ -39,6 +39,8 @@
 		".": "./mod.ts",
 		"./client": "./src/client/components.ts",
 		"./client/main": "./src/client/main.js",
+		"./client/main-slim": "./src/client/main-slim.js",
+		"./client/strategies": "./src/client/strategies.js",
 		"./client/hmr": "./src/client/framework-adapter.ts",
 		"./islands/framework-detection": "./src/islands/framework-detection.ts",
 		"./islands/integration-registry": "./src/core/integrations/registry.ts",

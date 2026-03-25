@@ -6,17 +6,20 @@
  * enabling resumability on the client without a hydration step.
  */
 
-import type { RenderParams, RenderResult } from '@useavalon/core/types';
-import { loadComponent } from './utils.ts';
+import type { RenderParams, RenderResult } from "@useavalon/core/types";
+import { loadComponent } from "./utils.ts";
 
 // Lazy-load Qwik modules — they're peer dependencies that may not be available
 // during the Vite build phase (integration activation). Loaded on first render call.
-let _jsx: typeof import('@builder.io/qwik').jsx | null = null;
-let _renderToString: typeof import('@builder.io/qwik/server').renderToString | null = null;
+let _jsx: typeof import("@builder.io/qwik").jsx | null = null;
+let _renderToString: typeof import("@builder.io/qwik/server").renderToString | null = null;
 
 async function getQwikModules() {
 	if (!_jsx || !_renderToString) {
-		const [qwikCore, qwikServer] = await Promise.all([import('@builder.io/qwik'), import('@builder.io/qwik/server')]);
+		const [qwikCore, qwikServer] = await Promise.all([
+			import("@builder.io/qwik"),
+			import("@builder.io/qwik/server"),
+		]);
 		_jsx = qwikCore.jsx;
 		_renderToString = qwikServer.renderToString;
 	}
@@ -35,7 +38,13 @@ async function getQwikModules() {
  * @returns Render result with HTML and resumability data
  */
 export async function render(params: RenderParams): Promise<RenderResult> {
-	const { component: preloaded, props = {}, src, condition = 'on:client', ssrOnly = false } = params;
+	const {
+		component: preloaded,
+		props = {},
+		src,
+		condition = "on:client",
+		ssrOnly = false,
+	} = params;
 
 	try {
 		const Component = preloaded || (await loadComponent(src));
@@ -47,7 +56,7 @@ export async function render(params: RenderParams): Promise<RenderResult> {
 		// Import Qwik's SSR utilities
 		const { jsx, renderToString } = await getQwikModules();
 
-		const containerId = `qwik-island-${src.replaceAll(/[^a-zA-Z0-9]/g, '-')}`;
+		const containerId = `qwik-island-${src.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
 
 		// Create JSX element using Qwik's jsx function
 		const jsxElement = jsx(Component as any, props || {});
@@ -65,33 +74,34 @@ export async function render(params: RenderParams): Promise<RenderResult> {
 		// In dev mode, the QRL middleware intercepts ?qrl= requests.
 		// In production, the qwikloader imports the bundle module directly and
 		// looks up the symbol as a named export — no query string needed.
-		const viteServer = (globalThis as any).__viteDevServer;
-		const componentUrl = src.startsWith('/') ? src : '/' + src;
+		const isDev = process.env.NODE_ENV !== "production";
+		const componentUrl = src.startsWith("/") ? src : `/${src}`;
 		let qrlBase: string;
-		if (viteServer) {
-			// Dev: use source path with ?qrl= for the dev middleware
+		if (isDev) {
+			// Dev: use source path — the ?qrl= middleware handles transformation
 			qrlBase = componentUrl;
 		} else {
 			// Production: point to the island client bundle
-			const srcWithoutLeadingSlash = componentUrl.replace(/^\//, '');
-			qrlBase = '/islands/' + srcWithoutLeadingSlash.replace(/\.(tsx?|jsx?)$/, '.js');
+			const srcWithoutLeadingSlash = componentUrl.replace(/^\//, "");
+			qrlBase = `/islands/${srcWithoutLeadingSlash.replace(/\.(tsx?|jsx?)$/, ".js")}`;
 		}
+		// biome-ignore lint/correctness/useQwikValidLexicalScope: server-side SSR function, not a Qwik component
 		const symbolMapper = (symbolName: string) => {
 			return [symbolName, qrlBase] as const;
 		};
 
 		const result = await renderToString(jsxElement, {
-			containerTagName: 'div',
+			containerTagName: "div",
 			containerAttributes: {
-				'data-island-id': containerId,
+				"data-island-id": containerId,
 			},
-			base: '/',
+			base: "/",
 			symbolMapper,
 		});
 
-		const html = typeof result === 'string' ? result : result.html;
+		const html = typeof result === "string" ? result : result.html;
 
-		if (!html || typeof html !== 'string') {
+		if (!html || typeof html !== "string") {
 			throw new Error(`renderToString returned invalid result: ${typeof html}`);
 		}
 
@@ -99,21 +109,21 @@ export async function render(params: RenderParams): Promise<RenderResult> {
 		// The symbolMapper handles QRL URL mapping, but the Qwik compiler may
 		// embed absolute paths in other metadata.
 		let processedHtml = html;
-		const root = viteServer?.config?.root || process.cwd();
+		const root = process.cwd();
 		if (root) {
-			const forwardRoot = root.replaceAll('\\', '/');
+			const forwardRoot = root.replaceAll("\\", "/");
 			if (processedHtml.includes(forwardRoot)) {
-				processedHtml = processedHtml.replaceAll(forwardRoot, '');
+				processedHtml = processedHtml.replaceAll(forwardRoot, "");
 			}
 			if (root !== forwardRoot && processedHtml.includes(root)) {
-				processedHtml = processedHtml.replaceAll(root, '');
+				processedHtml = processedHtml.replaceAll(root, "");
 			}
 		}
-		processedHtml = processedHtml.replaceAll(/[A-Z]:[/\\](?:[^"'`\s]*[/\\])*(?=app\/)/gi, '/');
+		processedHtml = processedHtml.replaceAll(/[A-Z]:[/\\](?:[^"'`\s]*[/\\])*(?=app\/)/gi, "/");
 
 		return {
 			html: processedHtml,
-			hydrationData: { src, props, framework: 'qwik', condition, containerId, ssrOnly },
+			hydrationData: { src, props, framework: "qwik", condition, containerId, ssrOnly },
 		};
 	} catch (error) {
 		throw new Error(

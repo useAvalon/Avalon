@@ -51,10 +51,9 @@
     },
     "packages/avalon": {
       "name": "@useavalon/avalon",
-      "version": "0.1.47",
+      "version": "0.1.57",
       "dependencies": {
         "@mdx-js/rollup": "^3.0.0",
-        "@useavalon/components": "workspace:^",
         "@useavalon/core": "workspace:^",
         "h3": "^2.0.1-rc.16",
         "marked": "^17.0.4",
@@ -84,17 +83,9 @@
         "vite-imagetools",
       ],
     },
-    "packages/components": {
-      "name": "@useavalon/components",
-      "version": "0.1.0",
-      "dependencies": {
-        "preact": "10.28.4",
-        "preact-render-to-string": "6.6.6",
-      },
-    },
     "packages/create-avalon": {
       "name": "create-avalon",
-      "version": "0.1.17",
+      "version": "0.1.20",
       "bin": {
         "create-avalon": "dist/cli.js",
       },
@@ -108,7 +99,7 @@
     },
     "packages/integrations/core": {
       "name": "@useavalon/core",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "peerDependencies": {
         "vite": "^8.0.0",
       },
@@ -173,7 +164,7 @@
     },
     "packages/integrations/react": {
       "name": "@useavalon/react",
-      "version": "0.1.7",
+      "version": "0.1.9",
       "dependencies": {
         "@useavalon/avalon": "workspace:^",
         "@useavalon/core": "workspace:^",
@@ -194,7 +185,7 @@
     },
     "packages/integrations/solid": {
       "name": "@useavalon/solid",
-      "version": "0.1.9",
+      "version": "0.1.11",
       "dependencies": {
         "@useavalon/avalon": "workspace:^",
         "@useavalon/core": "workspace:^",
@@ -226,7 +217,7 @@
     },
     "packages/integrations/vue": {
       "name": "@useavalon/vue",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "dependencies": {
         "@useavalon/avalon": "workspace:^",
         "@useavalon/core": "workspace:^",
@@ -721,8 +712,6 @@
     "@useavalon/agent-optimization": ["@useavalon/agent-optimization@workspace:packages/agent-optimization"],
 
     "@useavalon/avalon": ["@useavalon/avalon@workspace:packages/avalon"],
-
-    "@useavalon/components": ["@useavalon/components@workspace:packages/components"],
 
     "@useavalon/core": ["@useavalon/core@workspace:packages/integrations/core"],
 

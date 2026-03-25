@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/qwik",
-	"version": "0.1.9",
+	"version": "0.1.10",
 	"description": "Qwik integration for Avalon islands architecture",
 	"license": "MIT",
 	"type": "module",

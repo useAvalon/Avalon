@@ -3,7 +3,7 @@ import { render as preactRenderToString } from 'preact-render-to-string';
 import { readFile } from 'node:fs/promises';
 import type { RenderOptions } from '../schemas/core.ts';
 import { getUniversalCSSForHead } from '../islands/universal-css-collector.ts';
-import { getUniversalHeadForInjection } from '../islands/universal-head-collector.ts';
+import { getUniversalHeadForInjection, injectSolidHydrationScriptIfNeeded } from '../islands/universal-head-collector.ts';
 import { analyzeComponentContent, type AnalyzerOptions } from '../core/components/component-analyzer.ts';
 import type { EnhancedLayoutResolver } from '../core/layout/enhanced-layout-resolver.ts';
 import type { LayoutContext, PageModule } from '../types/layout.ts';
@@ -48,6 +48,9 @@ function injectClientScript(html: string): string {
 	if (universalHead && html.includes('</head>')) {
 		modifiedHtml = modifiedHtml.replace('</head>', `    ${universalHead}\n</head>`);
 	}
+
+	// Conditionally inject Solid hydration bootstrap only when Solid islands are present
+	modifiedHtml = injectSolidHydrationScriptIfNeeded(modifiedHtml);
 
 	// Check if the client script is already included
 	if (html.includes('/src/client/main.js') || html.includes('main.js')) {
@@ -511,7 +514,9 @@ export async function renderToHtml(
 		const options = { ...defaultOptions, ...routeConfig.options };
 		const head = generateHead(options, frameworks, viteHmrPort);
 
-		return `<!DOCTYPE html>\n<html lang="en">\n${head}\n<body>\n${content}\n</body>\n</html>`;
+		let html = `<!DOCTYPE html>\n<html lang="en">\n${head}\n<body>\n${content}\n</body>\n</html>`;
+		html = injectSolidHydrationScriptIfNeeded(html);
+		return html;
 	} catch (error) {
 		console.error('Error rendering component:', error);
 		throw new Error('Failed to render component');
