@@ -7,10 +7,10 @@
  * - Middleware: Auto-discovered by Nitro from `middleware/` directory
  */
 
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { stat as fsStat } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { dirname, join } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import type { H3Event } from "h3";
 import { nitro as nitroVitePlugin } from "nitro/vite";
 import type { Plugin, ViteDevServer } from "vite";
@@ -518,8 +518,9 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 	// Pre-discover CSS files synchronously at plugin creation time so the
 	// virtual module load hook doesn't need to do async filesystem I/O.
 	// This keeps the SSR entry resolution fast and avoids Nitro's 503 timeout.
-	const { readdirSync } = require("node:fs") as typeof import("node:fs");
-	const { join: pathJoin, relative: pathRelative, resolve: pathResolve } = require("node:path") as typeof import("node:path");
+	const pathJoin = join;
+	const pathRelative = relative;
+	const pathResolve = resolve;
 	const _cwd = process.cwd();
 	const _devCssLinks: string[] = [];
 
