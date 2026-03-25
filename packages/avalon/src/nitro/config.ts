@@ -325,11 +325,12 @@ export function resolvePresetName(preset: string): string {
  * Default Nitro configuration values
  */
 export const DEFAULT_NITRO_CONFIG: Required<
-	Pick<AvalonNitroConfig, "preset" | "serverDir" | "streaming">
+	Pick<AvalonNitroConfig, "preset" | "serverDir" | "streaming" | "compressPublicAssets">
 > = {
 	preset: "node_server",
 	serverDir: "server",
 	streaming: true,
+	compressPublicAssets: true,
 };
 
 /**
@@ -423,7 +424,8 @@ export function createNitroConfig(
 		traceDeps: avalonNitroConfig.traceDeps,
 		rolldownConfig: avalonNitroConfig.rolldownConfig,
 		serverEntry: avalonNitroConfig.serverEntry,
-		compressPublicAssets: avalonNitroConfig.compressPublicAssets,
+		compressPublicAssets:
+			avalonNitroConfig.compressPublicAssets ?? DEFAULT_NITRO_CONFIG.compressPublicAssets,
 		publicAssets,
 		staticAssets: staticAssetsConfig,
 		prerender: avalonNitroConfig.prerender,

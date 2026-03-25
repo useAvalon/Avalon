@@ -54,3 +54,9 @@ declare module "virtual:avalon/client-entry" {
 	// Side-effect-only module: imports hydration runtime, global CSS, and layout CSS.
 	// No exports — just import it as your client entry point.
 }
+
+declare module "virtual:avalon/integration-loader" {
+	export function loadIntegrationModule(framework: string): Promise<unknown>;
+	export function preLitHydration(): Promise<void>;
+	export function loadHMRAdapter(framework: string): Promise<unknown>;
+}

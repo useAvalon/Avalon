@@ -5,6 +5,11 @@
 // that will show as errors in the IDE. These are resolved by Vite at runtime
 // and work correctly in the browser. The errors can be safely ignored.
 
+import {
+	loadHMRAdapter,
+	loadIntegrationModule,
+	preLitHydration,
+} from "virtual:avalon/integration-loader";
 import { executeCustomDirective, hasClientDirective } from "./custom-directives.js";
 
 if (document.readyState === "loading") {
@@ -241,40 +246,6 @@ function setupMediaQuery(island, framework, mediaQuery) {
  * @param {string} framework - The framework name
  * @returns {Promise<object>} The integration module
  */
-async function loadIntegrationModule(framework) {
-	const knownFrameworks = ["preact", "react", "vue", "svelte", "solid", "lit", "qwik"];
-	if (!knownFrameworks.includes(framework)) {
-		throw new Error(`Unknown framework: ${framework}`);
-	}
-
-	if (import.meta.env?.DEV) {
-		const modulePath = `/@useavalon/${framework}/client`;
-		return import(/* @vite-ignore */ modulePath);
-	}
-
-	// Production: use static imports so the bundler can resolve them.
-	// Each case is a separate dynamic import with a string literal that
-	// Vite CAN statically analyze (no @vite-ignore).
-	// Note: react falls through to preact since this project aliases react → preact/compat
-	switch (framework) {
-		case "preact":
-		case "react":
-			return import("@useavalon/preact/client");
-		case "vue":
-			return import("@useavalon/vue/client");
-		case "svelte":
-			return import("@useavalon/svelte/client");
-		case "solid":
-			return import("@useavalon/solid/client");
-		case "lit":
-			return import("@useavalon/lit/client");
-		case "qwik":
-			return import("@useavalon/qwik/client");
-		default:
-			throw new Error(`Unknown framework: ${framework}`);
-	}
-}
-
 /**
  * Resolve the component from a module, trying default export then named exports
  *
@@ -332,11 +303,7 @@ async function hydrateIsland(island, framework) {
 		// CRITICAL: For Lit components, load hydration support BEFORE importing the component
 		// This ensures our patch is applied before @customElement decorator runs
 		if (framework === "lit") {
-			if (import.meta.env?.DEV) {
-				await import(/* @vite-ignore */ `/@useavalon/lit/client`);
-			} else {
-				await import("@useavalon/lit/client");
-			}
+			await preLitHydration();
 		}
 
 		const componentModule = await import(/* @vite-ignore */ src);
@@ -550,11 +517,7 @@ async function hydrateIslandWithFreshModule(island, framework, freshSrc, origina
 	const props = propsAttr ? JSON.parse(propsAttr) : {};
 
 	if (framework === "lit") {
-		if (import.meta.env?.DEV) {
-			await import(/* @vite-ignore */ `/@useavalon/lit/client`);
-		} else {
-			await import("@useavalon/lit/client");
-		}
+		await preLitHydration();
 	}
 
 	const componentModule = await import(/* @vite-ignore */ freshSrc);
@@ -656,33 +619,16 @@ if (import.meta.hot) {
 			});
 
 			// Only register adapters for frameworks that are used
-			// Adapters are loaded from their respective integration packages
-			// Use computed paths so Vite doesn't statically resolve imports
-			// for frameworks the user hasn't installed.
-			const loadAdapter = (fw) => {
-				const p = `/@useavalon/${fw}/client/hmr`;
-				return import(/* @vite-ignore */ p).then((m) => m[`${fw}Adapter`]);
-			};
-
-			const adapterLoaders = {
-				react: () => loadAdapter("react"),
-				preact: () => loadAdapter("preact"),
-				vue: () => loadAdapter("vue"),
-				svelte: () => loadAdapter("svelte"),
-				solid: () => loadAdapter("solid"),
-				lit: () => loadAdapter("lit"),
-				qwik: () => loadAdapter("qwik"),
-			};
-
+			// Adapters are loaded via the virtual integration-loader module
+			// which only includes configured frameworks.
 			for (const framework of usedFrameworks) {
-				const loader = adapterLoaders[framework];
-				if (loader) {
-					try {
-						const adapter = await loader();
+				try {
+					const adapter = await loadHMRAdapter(framework);
+					if (adapter) {
 						coordinator.registerAdapter(framework, adapter);
-					} catch (error) {
-						console.warn(`[HMR] Failed to load adapter for ${framework}:`, error);
 					}
+				} catch (error) {
+					console.warn(`[HMR] Failed to load adapter for ${framework}:`, error);
 				}
 			}
 		})
