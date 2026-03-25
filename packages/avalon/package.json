@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/avalon",
-	"version": "0.1.58",
+	"version": "0.1.60",
 	"description": "Multi-framework islands architecture for the modern web",
 	"license": "MIT",
 	"type": "module",
@@ -53,7 +53,8 @@
 		"./types/island-jsx": "./src/types/island-jsx.d.ts",
 		"./types": "./src/types/index.d.ts",
 		"./prerender": "./src/prerender/index.ts",
-		"./post-build": "./src/post-build/index.ts"
+		"./post-build": "./src/post-build/index.ts",
+		"./render/collect-css": "./src/render/collect-css.ts"
 	},
 	"typesVersions": {
 		"*": {

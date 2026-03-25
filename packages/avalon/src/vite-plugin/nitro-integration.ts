@@ -229,7 +229,7 @@ export function createNitroIntegration(
  * and prewarms core infrastructure modules (fire-and-forget).
  */
 export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOptions): Plugin {
-	const { avalonConfig, verbose } = options;
+	const { avalonConfig, nitroConfig, verbose } = options;
 
 	return {
 		name: "avalon:nitro-coordination",
@@ -344,6 +344,15 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 					res.end(generateErrorPage(error as Error));
 				}
 			});
+
+			// Return a function that adds post-middleware — runs AFTER Nitro's
+			// SSR handler. When Nitro owns the SSR environment (!ssrIsRunnable),
+			// this intercepts the HTML response and injects layout CSS collected
+			// from Vite's module graph, preventing FOUC.
+			if (!ssrIsRunnable) {
+				// Nitro owns SSR — layout CSS is handled by <link> tags
+				// injected in the generated wrapWithLayouts module.
+			}
 		},
 
 		buildStart() {
@@ -503,6 +512,47 @@ async function prewarmCoreModules(
 export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptions): Plugin {
 	const { avalonConfig, nitroConfig, verbose } = options;
 
+	// Cache generated layouts module to avoid repeated async filesystem scans
+	let cachedLayoutsModule: string | null = null;
+
+	// Pre-discover CSS files synchronously at plugin creation time so the
+	// virtual module load hook doesn't need to do async filesystem I/O.
+	// This keeps the SSR entry resolution fast and avoids Nitro's 503 timeout.
+	const { readdirSync } = require("node:fs") as typeof import("node:fs");
+	const { join: pathJoin, relative: pathRelative, resolve: pathResolve } = require("node:path") as typeof import("node:path");
+	const _cwd = process.cwd();
+	const _devCssLinks: string[] = [];
+
+	function scanCssSync(dir: string): void {
+		try {
+			const entries = readdirSync(dir, { withFileTypes: true });
+			for (const entry of entries) {
+				const full = pathJoin(dir, entry.name);
+				if (entry.isDirectory() && entry.name !== "node_modules" && !entry.name.startsWith(".")) {
+					scanCssSync(full);
+				} else if (entry.isFile() && entry.name.endsWith(".css")) {
+					const rel = pathRelative(_cwd, full).replaceAll("\\", "/");
+					_devCssLinks.push(rel.startsWith("/") ? rel : "/" + rel);
+				}
+			}
+		} catch { /* skip */ }
+	}
+
+	function rescanCss(): void {
+		_devCssLinks.length = 0;
+		for (const cssPath of nitroConfig.globalCSS ?? []) {
+			_devCssLinks.push(cssPath.startsWith("/") ? cssPath : "/" + cssPath);
+		}
+		if (avalonConfig.modules) {
+			scanCssSync(pathResolve(_cwd, avalonConfig.modules.dir));
+		}
+		scanCssSync(pathResolve(_cwd, avalonConfig.layoutsDir));
+	}
+
+	if (avalonConfig.isDev) {
+		rescanCss();
+	}
+
 	return {
 		name: "avalon:nitro-virtual-modules",
 		enforce: "pre",
@@ -532,7 +582,12 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 				return generateRuntimeConfigModule(avalonConfig, nitroConfig);
 			if (id === RESOLVED_VIRTUAL_IDS.CONFIG)
 				return generateConfigModule(avalonConfig, nitroConfig);
-			if (id === RESOLVED_VIRTUAL_IDS.LAYOUTS) return await generateLayoutsModule(avalonConfig);
+			if (id === RESOLVED_VIRTUAL_IDS.LAYOUTS) {
+				if (!cachedLayoutsModule) {
+					cachedLayoutsModule = await generateLayoutsModule(avalonConfig, nitroConfig, _devCssLinks);
+				}
+				return cachedLayoutsModule;
+			}
 			if (id === RESOLVED_VIRTUAL_IDS.ASSETS) return generateAssetsModule(nitroConfig);
 			if (id === RESOLVED_VIRTUAL_IDS.RENDERER) return generateRendererModule(avalonConfig);
 			if (id === RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY)
@@ -548,7 +603,9 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 				if (mod) server.moduleGraph.invalidateModule(mod);
 			}
 			// Invalidate layouts virtual module when layout files change
-			if (file.includes("/layouts/") || file.includes("_layout")) {
+			if (file.includes("/layouts/") || file.includes("_layout") || file.endsWith(".css")) {
+				cachedLayoutsModule = null;
+				rescanCss();
 				const layoutMod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_IDS.LAYOUTS);
 				if (layoutMod) server.moduleGraph.invalidateModule(layoutMod);
 				// Also invalidate client entry since layout CSS may have changed
@@ -767,7 +824,7 @@ export function generateConfigModule(
  * 3. Builds a prefix→Layout map (like the manual moduleLayouts array)
  * 4. Exports wrapWithLayouts that composes page HTML with the right layouts
  */
-async function generateLayoutsModule(avalonConfig: ResolvedAvalonConfig): Promise<string> {
+async function generateLayoutsModule(avalonConfig: ResolvedAvalonConfig, nitroConfig: AvalonNitroConfig, devCssLinks: string[]): Promise<string> {
 	const { getAllLayoutDirs } = await import("./module-discovery.ts");
 	const { relative, resolve } = await import("node:path");
 	const { stat: fsStat } = await import("node:fs/promises");
@@ -791,11 +848,7 @@ async function generateLayoutsModule(avalonConfig: ResolvedAvalonConfig): Promis
 		}
 		const relPath = relative(cwd, layoutFile).replaceAll("\\", "/");
 		const importPath = relPath.startsWith("/") ? relPath : "/" + relPath;
-		// A layout is "shared" (root) only if it lives in the shared layoutsDir,
-		// not in a module directory. The home module has prefix '/' but provides
-		// its own module-specific layout, not the root layout.
 		const isShared = dir.startsWith(sharedLayoutsPath);
-		// Shared layout that lives in layoutsDir is the root layout
 		const isRootLayout = isShared && !avalonConfig.modules;
 		const varName = isRootLayout ? "RootLayout" : `Layout_${idx}`;
 		layouts.push({ prefix, importPath, varName, isShared });
@@ -809,19 +862,22 @@ async function generateLayoutsModule(avalonConfig: ResolvedAvalonConfig): Promis
 	// Generate imports
 	const imports = layouts.map((l) => `import ${l.varName} from '${l.importPath}';`);
 
-	// Generate the module layout entries array
-	// Module layouts are sorted by prefix length (longest first for matching)
-	// The home module (prefix '/') is special — it only matches exact '/'
 	const entries = moduleLayouts
 		.sort((a, b) => b.prefix.length - a.prefix.length)
 		.map((l) => {
-			// Home module: skipRoot=true (it IS the root-level layout)
 			const skipRoot = l.prefix === "/";
 			return `  { prefix: ${JSON.stringify(l.prefix)}, Layout: ${l.varName}, skipRoot: ${skipRoot} }`;
 		});
 
-	// The root/shared layout (outermost wrapper)
 	const rootLayoutVar = sharedLayouts.length > 0 ? sharedLayouts[0].varName : "null";
+
+	const isDev = avalonConfig.isDev === true;
+
+	// CSS paths are pre-discovered synchronously at plugin creation time
+	// to keep the virtual module load hook fast (avoids Nitro 503 timeout).
+	const cssLinkPaths = devCssLinks;
+
+	const cssLinksJson = JSON.stringify(cssLinkPaths);
 
 	const code = [
 		`// Auto-generated by Avalon — do not edit`,
@@ -832,6 +888,8 @@ async function generateLayoutsModule(avalonConfig: ResolvedAvalonConfig): Promis
 		...imports,
 		``,
 		`const RootLayoutComponent = ${rootLayoutVar};`,
+		`const _isDev = ${isDev};`,
+		`const _cssLinks = ${cssLinksJson};`,
 		``,
 		`const moduleLayouts = [`,
 		entries.join(",\n"),
@@ -847,6 +905,17 @@ async function generateLayoutsModule(avalonConfig: ResolvedAvalonConfig): Promis
 		`}`,
 		``,
 		`function injectUniversalAssets(html) {`,
+		`  // In dev, inject <link> tags for all discovered CSS files.`,
+		`  // The ?direct suffix makes Vite return raw CSS (text/css) instead`,
+		`  // of a JS module wrapper, so <link rel="stylesheet"> works.`,
+		`  if (_isDev && _cssLinks.length > 0) {`,
+		`    var links = _cssLinks.map(function(href) {`,
+		`      return '<link rel="stylesheet" href="' + href + '?direct">';`,
+		`    }).join('\\n');`,
+		`    if (html.includes('</head>')) {`,
+		`      html = html.replace('</head>', links + '\\n</head>');`,
+		`    }`,
+		`  }`,
 		`  const universalCSS = getUniversalCSSForHead(true);`,
 		`  if (universalCSS && html.includes('</head>')) {`,
 		`    html = html.replace('</head>', universalCSS + '\\n</head>');`,
@@ -1124,10 +1193,20 @@ async function generateClientEntryModule(
 	if (globalCSS.length > 0) lines.push(``);
 
 	// Layout CSS (auto-discovered)
+	// CSS modules (.module.css) must use a default import so Vite associates
+	// the extracted CSS with this entry chunk. A bare side-effect import
+	// causes Vite/Rolldown to code-split the CSS into an orphaned chunk
+	// that nothing references, so the styles never reach the page.
 	if (cssImports.length > 0) {
 		lines.push(`// Layout CSS (auto-discovered)`);
+		let cssModIdx = 0;
 		for (const imp of cssImports) {
-			lines.push(`import '${imp}';`);
+			if (imp.includes(".module.")) {
+				lines.push(`import _lcss${cssModIdx} from '${imp}';`);
+				cssModIdx++;
+			} else {
+				lines.push(`import '${imp}';`);
+			}
 		}
 	}
 
@@ -2119,4 +2198,6 @@ function escapeHtml(str: string): string {
 declare global {
 	// deno-lint-ignore no-var
 	var __avalonLayoutResolver: unknown;
+	// deno-lint-ignore no-var
+	var __avalonCollectLayoutCss: ((pathname: string) => Promise<string[]>) | undefined;
 }

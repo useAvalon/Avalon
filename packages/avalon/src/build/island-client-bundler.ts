@@ -36,9 +36,15 @@ export function islandClientBundlerPlugin(config: ResolvedAvalonConfig): Plugin 
 	// Virtual module prefix for island wrappers that preserve exports
 	const ISLAND_WRAPPER_PREFIX = '\0avalon-island-entry:';
 
+	let isServeMode = false;
+
 	return {
 		name: 'avalon:island-client-bundler',
 		enforce: 'pre',
+
+		configResolved(resolvedConfig) {
+			isServeMode = resolvedConfig.command === 'serve';
+		},
 
 		resolveId(id) {
 			if (id.startsWith(ISLAND_WRAPPER_PREFIX)) return id;
@@ -75,6 +81,9 @@ export function islandClientBundlerPlugin(config: ResolvedAvalonConfig): Plugin 
 		},
 
 		async buildStart() {
+			// emitFile() is only available during build, not serve mode
+			if (isServeMode) return;
+
 			// Only emit island chunks for the client build environment
 			const env = (this as any).environment;
 			if (env && env.name !== 'client') return;
