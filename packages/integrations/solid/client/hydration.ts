@@ -11,6 +11,7 @@
  */
 
 import type { SolidComponent, SolidHydrationOptions } from "../types.ts";
+import { hydrate as solidHydrate, createComponent } from "solid-js/web";
 
 /**
  * Ensure the Solid hydration context exists on globalThis.
@@ -43,9 +44,6 @@ export async function hydrate(
 
 	const element = container as HTMLElement;
 	const renderId = element.dataset.solidRenderId || element.dataset.renderId;
-
-	const solidWeb = await import("solid-js/web");
-	const { hydrate: solidHydrate, createComponent } = solidWeb;
 
 	// Ensure _$HY exists before calling solidHydrate
 	ensureHydrationContext();

@@ -70,6 +70,26 @@
   gap: var(--space-1);
 }
 
+.navLink {
+  color: var(--avalon-slate);
+  text-decoration: none;
+  padding: 6px 10px;
+  font-size: var(--text-small);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.navLink:hover {
+  color: var(--avalon-mist);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.navLink:focus-visible {
+  outline: 2px solid var(--avalon-blue);
+  outline-offset: 2px;
+}
+
 /* Right side: search + github */
 .navRight {
   display: flex;
@@ -168,8 +188,16 @@
   min-height: 100vh;
 }
 
+.mobileNavWrapper {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .logoDivider { display: none; }
   .nav { display: none; }
   .navRight { display: none; }
+  .mobileNavWrapper {
+    display: block;
+    margin-left: auto;
+  }
 }

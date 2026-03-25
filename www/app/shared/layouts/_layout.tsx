@@ -1,7 +1,6 @@
 import type { LayoutProps } from '@useavalon/avalon';
 import MobileNav from '../components/MobileNav.tsx';
 import styles from './_layout.module.css';
-import navStyles from '../styles/nav.module.css';
 import '../styles/main.css';
 
 export default async function RootLayout({ children, frontmatter }: Readonly<LayoutProps>) {
@@ -9,11 +8,6 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 	const description = typeof frontmatter?.description === 'string' ? frontmatter.description : null;
 	const pageTitle = title ? `${title} — Avalon` : 'Avalon';
 	const currentPath = (frontmatter as Record<string, unknown>)?.currentPath as string | undefined;
-
-	function isActive(href: string) {
-		if (!currentPath) return false;
-		return currentPath === href || currentPath.startsWith(href + '/');
-	}
 
 	return (
 		<html lang="en">
@@ -40,11 +34,14 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 						</a>
 						<div className={styles.logoDivider} aria-hidden="true" />
 						<nav className={styles.nav} aria-label="Main navigation">
-							<a href="/docs/introduction" className={isActive('/docs') ? `${navStyles.navLink} ${navStyles.navLinkActive}` : navStyles.navLink}>
+							<a href="/docs/introduction" className={styles.navLink}>
 								Docs
 							</a>
-							<a href="/blog" className={isActive('/blog') ? `${navStyles.navLink} ${navStyles.navLinkActive}` : navStyles.navLink}>
+							<a href="/blog" className={styles.navLink}>
 								Blog
+							</a>
+								<a href="/demo" className={styles.navLink}>
+								Demo
 							</a>
 						</nav>
 						<div className={styles.navRight}>
@@ -68,8 +65,7 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 								GitHub
 							</a>
 						</div>
-						{/* Mobile nav island */}
-						<div>
+						<div className={styles.mobileNavWrapper}>
 							<MobileNav island={{ condition: 'on:interaction' }} currentPath={currentPath} />
 						</div>
 					</div>
