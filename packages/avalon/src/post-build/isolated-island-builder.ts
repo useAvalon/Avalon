@@ -89,38 +89,53 @@ function generateWrapperCode(filePath: string, framework: string): string {
 async function loadFrameworkPlugins(framework: string, cwd: string): Promise<any[]> {
 	const plugins: any[] = [];
 	const { resolve: resolvePath } = await import("node:path");
+	const { existsSync } = await import("node:fs");
+	const { pathToFileURL } = await import("node:url");
 
-	// Map framework → plugin package → integration package that declares it as a dep
-	const pluginMap: Record<string, { pkg: string; integration: string; esmEntry?: string }> = {
-		solid: {
-			pkg: "vite-plugin-solid",
-			integration: "packages/integrations/solid",
-			esmEntry: "dist/esm/index.mjs",
-		},
-		vue: {
-			pkg: "@vitejs/plugin-vue",
-			integration: "packages/integrations/vue",
-			esmEntry: "dist/index.mjs",
-		},
-		svelte: {
-			pkg: "@sveltejs/vite-plugin-svelte",
-			integration: "packages/integrations/svelte",
-			esmEntry: "src/index.js",
-		},
+	const pluginMap: Record<string, { pkg: string; esmEntry: string }> = {
+		solid: { pkg: "vite-plugin-solid", esmEntry: "dist/esm/index.mjs" },
+		vue: { pkg: "@vitejs/plugin-vue", esmEntry: "dist/index.mjs" },
+		svelte: { pkg: "@sveltejs/vite-plugin-svelte", esmEntry: "src/index.js" },
 	};
 
 	const entry = pluginMap[framework];
 	if (!entry) return plugins;
 
 	try {
-		// Resolve the plugin from the integration package's node_modules
-		const integrationDir = resolvePath(cwd, "..", entry.integration);
-		const pluginDir = resolvePath(integrationDir, "node_modules", entry.pkg);
-		// Use the ESM entry if specified, otherwise try the package root
-		const importTarget = entry.esmEntry ? resolvePath(pluginDir, entry.esmEntry) : pluginDir;
-		// Convert to file:// URL for dynamic import compatibility
-		const { pathToFileURL } = await import("node:url");
-		const mod = await import(pathToFileURL(importTarget).href);
+		// Search for the plugin by walking up the directory tree from cwd.
+		// Also check integration package node_modules at each level.
+		let pluginFile: string | null = null;
+		let dir = cwd;
+		for (let i = 0; i < 8; i++) {
+			// Direct node_modules
+			const direct = resolvePath(dir, "node_modules", entry.pkg, entry.esmEntry);
+			if (existsSync(direct)) {
+				pluginFile = direct;
+				break;
+			}
+			// Integration package node_modules
+			for (const intName of ["solid", "vue", "svelte", "preact", "react", "lit"]) {
+				const intPath = resolvePath(
+					dir,
+					"packages",
+					"integrations",
+					intName,
+					"node_modules",
+					entry.pkg,
+					entry.esmEntry,
+				);
+				if (existsSync(intPath)) {
+					pluginFile = intPath;
+					break;
+				}
+			}
+			if (pluginFile) break;
+			dir = resolvePath(dir, "..");
+		}
+
+		if (!pluginFile) throw new Error(`Cannot find package '${entry.pkg}'`);
+
+		const mod = await import(pathToFileURL(pluginFile).href);
 
 		switch (framework) {
 			case "solid": {
@@ -286,7 +301,7 @@ export async function buildIsolatedIslands(
 					write: true,
 					outDir: resolve(cwd, distDir),
 					emptyOutDir: false,
-					minify: "esbuild",
+					minify: "oxc",
 					target: "es2020",
 					rollupOptions: {
 						input: VIRTUAL_ENTRY,
