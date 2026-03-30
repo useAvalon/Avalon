@@ -23,15 +23,9 @@ const CLIENT_ADAPTER = join(SOLID_PKG_ROOT, "client", "hydration.ts");
 const MOD_FILE = join(SOLID_PKG_ROOT, "mod.ts");
 
 // Resolve solid-js dist files
-const SOLID_JS_ROOT = resolve(
-	SOLID_PKG_ROOT,
-	"node_modules",
-	"solid-js",
-);
+const SOLID_JS_ROOT = resolve(SOLID_PKG_ROOT, "node_modules", "solid-js");
 // Follow symlink to actual location
-const SOLID_JS_REAL = await Bun.file(
-	join(SOLID_JS_ROOT, "package.json"),
-).exists()
+const SOLID_JS_REAL = (await Bun.file(join(SOLID_JS_ROOT, "package.json")).exists())
 	? SOLID_JS_ROOT
 	: dirname(require.resolve("solid-js/package.json"));
 
@@ -211,9 +205,8 @@ const hasSsrTrue = /ssr\s*:\s*true/.test(modSource);
 console.log(`║  ${hasSsrTrue ? "✅" : "❌"} ssr: true (enables SSR compilation)`);
 
 // Check 3: hydratable option
-const hasHydratable = /hydratable\s*:/.test(modSource);
-console.log(`║  ${hasHydratable ? "✅" : "ℹ️ "} hydratable option ${hasHydratable ? "configured" : "not set (uses default)"}`);
-
+const hasHydratable = /hydratable\s*:\s*true/.test(modSource);
+console.log(`║  ${hasHydratable ? "✅" : "❌"} hydratable: true (generates hydration-aware code)`);
 // Check 4: include filter for .solid. files
 const hasIncludeFilter = modSource.includes("include") && modSource.includes(".solid.");
 console.log(`║  ${hasIncludeFilter ? "✅" : "❌"} include filter scoped to .solid. files`);
@@ -228,14 +221,14 @@ console.log(`║  ${hasResolveId ? "✅" : "❌"} resolveId routes solid-js to c
 
 // Check 7: Production target uses solid.js (not dev.js)
 const usesProductionBuild =
-	modSource.includes('"solid"') &&
-	modSource.includes("solid-js/dist/${target}.js") ||
+	(modSource.includes('"solid"') && modSource.includes("solid-js/dist/${target}.js")) ||
 	modSource.includes("`solid-js/dist/${target}.js`");
-console.log(`║  ${usesProductionBuild ? "✅" : "❌"} Production client uses solid.js (tree-shakeable)`);
+console.log(
+	`║  ${usesProductionBuild ? "✅" : "❌"} Production client uses solid.js (tree-shakeable)`,
+);
 
 // Check 8: Dev-only code paths check
-const hasDevGuard =
-	modSource.includes("process.env.NODE_ENV") || modSource.includes("isDev");
+const hasDevGuard = modSource.includes("process.env.NODE_ENV") || modSource.includes("isDev");
 console.log(`║  ${hasDevGuard ? "✅" : "❌"} Dev/prod environment detection present`);
 
 // ─── 4. Recommendations ────────────────────────────────────────────────────
@@ -254,8 +247,8 @@ if (!hasHotFalse) {
 if (!hasHydratable) {
 	findings.push(
 		"INVESTIGATE: Consider adding hydratable: true to vite-plugin-solid." +
-		" This tells Solid's compiler to generate hydration-aware code that" +
-		" may reduce the web runtime size by skipping full render() fallback paths.",
+			" This tells Solid's compiler to generate hydration-aware code that" +
+			" may reduce the web runtime size by skipping full render() fallback paths.",
 	);
 }
 
@@ -265,51 +258,43 @@ const importsRender = adapterSource.includes("render") && adapterSource.includes
 if (importsRender) {
 	findings.push(
 		"NOTE: Client adapter imports both hydrate() and render() from solid-js/web." +
-		" The render() fallback path pulls in additional DOM runtime code." +
-		" If hydration is reliable, removing the render() fallback could reduce" +
-		" the bundle by ~1-2 KiB.",
+			" The render() fallback path pulls in additional DOM runtime code." +
+			" If hydration is reliable, removing the render() fallback could reduce" +
+			" the bundle by ~1-2 KiB.",
 	);
 }
 
 // Check production vs dev build selection
-const solidJsProd = await measureFile(
-	join(SOLID_JS_REAL, "dist", "solid.js"),
-);
-const solidJsDev = await measureFile(
-	join(SOLID_JS_REAL, "dist", "dev.js"),
-);
+const solidJsProd = await measureFile(join(SOLID_JS_REAL, "dist", "solid.js"));
+const solidJsDev = await measureFile(join(SOLID_JS_REAL, "dist", "dev.js"));
 if (solidJsDev.minified > solidJsProd.minified * 1.05) {
 	findings.push(
 		`INFO: solid.js (prod) is ${kib(solidJsProd.minified)} KiB vs dev.js ${kib(solidJsDev.minified)} KiB minified.` +
-		` The resolveId hook correctly routes to solid.js in production.`,
+			` The resolveId hook correctly routes to solid.js in production.`,
 	);
 }
 
-const solidWebProd = await measureFile(
-	join(SOLID_JS_REAL, "web", "dist", "web.js"),
-);
-const solidWebDev = await measureFile(
-	join(SOLID_JS_REAL, "web", "dist", "dev.js"),
-);
+const solidWebProd = await measureFile(join(SOLID_JS_REAL, "web", "dist", "web.js"));
+const solidWebDev = await measureFile(join(SOLID_JS_REAL, "web", "dist", "dev.js"));
 if (solidWebDev.minified > solidWebProd.minified * 1.05) {
 	findings.push(
 		`INFO: web.js (prod) is ${kib(solidWebProd.minified)} KiB vs dev.js ${kib(solidWebDev.minified)} KiB minified.` +
-		` The resolveId hook correctly routes to web.js in production.`,
+			` The resolveId hook correctly routes to web.js in production.`,
 	);
 }
 
 findings.push(
 	"INFO: Astro achieves ~4 KiB because Solid's compiler transforms reactive" +
-	" primitives into direct DOM operations at build time. The 'runtime' is" +
-	" mostly compiled away — only a thin scheduling layer remains. Our adapter" +
-	" dynamically imports solid-js/web at hydration time, which includes the" +
-	" full DOM runtime. Inlining the adapter (Task 11) would save a network" +
-	" request but not reduce the solid-js dependency size.",
+		" primitives into direct DOM operations at build time. The 'runtime' is" +
+		" mostly compiled away — only a thin scheduling layer remains. Our adapter" +
+		" dynamically imports solid-js/web at hydration time, which includes the" +
+		" full DOM runtime. Inlining the adapter (Task 11) would save a network" +
+		" request but not reduce the solid-js dependency size.",
 	"RECOMMENDATION: The biggest win would be ensuring Vite's production" +
-	" bundler (Rolldown) tree-shakes unused solid-js/web exports. The" +
-	" adapter only uses hydrate(), render(), and createComponent() — the" +
-	" rest (template, insert, delegateEvents, spread, etc.) should be" +
-	" tree-shaken if sideEffects: false is respected.",
+		" bundler (Rolldown) tree-shakes unused solid-js/web exports. The" +
+		" adapter only uses hydrate(), render(), and createComponent() — the" +
+		" rest (template, insert, delegateEvents, spread, etc.) should be" +
+		" tree-shaken if sideEffects: false is respected.",
 );
 
 for (const finding of findings) {

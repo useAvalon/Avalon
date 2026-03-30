@@ -86,6 +86,11 @@ export const solidIntegration: Integration = {
 		const solidPlugin = solid({
 			ssr: true,
 			hot: false,
+			// Enable hydratable mode — tells Solid's compiler to generate
+			// hydration-aware code. This produces smaller output by using
+			// hydration markers instead of full render() fallback paths,
+			// and aligns with how Astro's Solid integration achieves ~4 KiB.
+			hydratable: true,
 			include: [/\.solid\.(tsx|jsx)$/],
 			exclude: [/node_modules/],
 		});
