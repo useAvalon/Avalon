@@ -107,10 +107,14 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				enforce: "pre" as const,
 				resolveId(id: string) {
 					if (id === "preact") return require.resolve("preact").replace(/\.js$/, ".mjs");
-					if (id === "preact/hooks") return require.resolve("preact/hooks").replace(/\.js$/, ".mjs");
-					if (id === "preact/compat") return require.resolve("preact/compat").replace(/\.js$/, ".mjs");
-					if (id === "preact/compat/server") return require.resolve("preact/compat/server").replace(/\.js$/, ".mjs");
-					if (id === "preact/compat/client") return require.resolve("preact/compat/client").replace(/\.js$/, ".mjs");
+					if (id === "preact/hooks")
+						return require.resolve("preact/hooks").replace(/\.js$/, ".mjs");
+					if (id === "preact/compat")
+						return require.resolve("preact/compat").replace(/\.js$/, ".mjs");
+					if (id === "preact/compat/server")
+						return require.resolve("preact/compat/server").replace(/\.js$/, ".mjs");
+					if (id === "preact/compat/client")
+						return require.resolve("preact/compat/client").replace(/\.js$/, ".mjs");
 				},
 			},
 			// Stub out build-time Vite plugins during SSR/Nitro builds.
@@ -257,22 +261,51 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 				// can't resolve. Providing absolute paths fixes the SSR build.
 				// Use .mjs (ESM) to avoid CJS `exports` error in Vite 8's SSR runner.
 				{ find: /^react$/, replacement: require.resolve("preact/compat").replace(/\.js$/, ".mjs") },
-				{ find: /^react\/jsx-runtime$/, replacement: require.resolve("preact/jsx-runtime").replace(/\.js$/, ".mjs") },
-				{ find: /^react\/jsx-dev-runtime$/, replacement: require.resolve("preact/jsx-runtime").replace(/\.js$/, ".mjs") },
-				{ find: /^react-dom$/, replacement: require.resolve("preact/compat").replace(/\.js$/, ".mjs") },
-				{ find: /^react-dom\/server$/, replacement: require.resolve("preact/compat/server").replace(/\.js$/, ".mjs") },
-				{ find: /^react-dom\/client$/, replacement: require.resolve("preact/compat/client").replace(/\.js$/, ".mjs") },
+				{
+					find: /^react\/jsx-runtime$/,
+					replacement: require.resolve("preact/jsx-runtime").replace(/\.js$/, ".mjs"),
+				},
+				{
+					find: /^react\/jsx-dev-runtime$/,
+					replacement: require.resolve("preact/jsx-runtime").replace(/\.js$/, ".mjs"),
+				},
+				{
+					find: /^react-dom$/,
+					replacement: require.resolve("preact/compat").replace(/\.js$/, ".mjs"),
+				},
+				{
+					find: /^react-dom\/server$/,
+					replacement: require.resolve("preact/compat/server").replace(/\.js$/, ".mjs"),
+				},
+				{
+					find: /^react-dom\/client$/,
+					replacement: require.resolve("preact/compat/client").replace(/\.js$/, ".mjs"),
+				},
 				// Pin preact core + hooks to absolute paths so every import
 				// (direct, via compat, via jsx-runtime) resolves to the same
 				// instance. Without this, the bundler can pull in two copies
 				// of preact and hooks never register __H on the right one.
 				// Use .mjs (ESM) to avoid CJS `exports` error in Vite 8's SSR runner.
 				{ find: /^preact$/, replacement: require.resolve("preact").replace(/\.js$/, ".mjs") },
-				{ find: /^preact\/hooks$/, replacement: require.resolve("preact/hooks").replace(/\.js$/, ".mjs") },
-				{ find: /^preact\/compat$/, replacement: require.resolve("preact/compat").replace(/\.js$/, ".mjs") },
-				{ find: /^preact\/compat\/server$/, replacement: require.resolve("preact/compat/server").replace(/\.js$/, ".mjs") },
-				{ find: /^preact\/compat\/client$/, replacement: require.resolve("preact/compat/client").replace(/\.js$/, ".mjs") },
-				{ find: /^vue$/, replacement: "vue/dist/vue.esm-bundler.js" },
+				{
+					find: /^preact\/hooks$/,
+					replacement: require.resolve("preact/hooks").replace(/\.js$/, ".mjs"),
+				},
+				{
+					find: /^preact\/compat$/,
+					replacement: require.resolve("preact/compat").replace(/\.js$/, ".mjs"),
+				},
+				{
+					find: /^preact\/compat\/server$/,
+					replacement: require.resolve("preact/compat/server").replace(/\.js$/, ".mjs"),
+				},
+				{
+					find: /^preact\/compat\/client$/,
+					replacement: require.resolve("preact/compat/client").replace(/\.js$/, ".mjs"),
+				},
+				// Vue: use runtime-only build (no template compiler) for ~60% smaller bundle.
+				// Templates are pre-compiled by @vitejs/plugin-vue at build time.
+				{ find: /^vue$/, replacement: "vue/dist/vue.runtime.esm-bundler.js" },
 				{ find: /^@vue\/shared$/, replacement: "@vue/shared/dist/shared.esm-bundler.js" },
 				{
 					find: /^@vue\/runtime-core$/,
