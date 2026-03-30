@@ -1,6 +1,6 @@
 import type { Integration } from "@useavalon/core";
 import type { JSX } from "preact";
-import { h } from "preact";
+import { Fragment, h } from "preact";
 import type { ViteDevServer } from "vite";
 import { getIslandBundlePath } from "../build/island-manifest.ts";
 import type { AnalyzerOptions } from "../core/components/component-analyzer.ts";
@@ -9,13 +9,17 @@ import { analyzeComponentFile, renderComponentSSROnly } from "./component-analys
 import { detectFramework } from "./framework-detection.ts";
 import { isCustomDirective, serializeDirectiveScript } from "./hydration-directives.ts";
 import { detectFrameworkFromPath, loadIntegration } from "./integration-loader.ts";
+import { generatePerIslandScript } from "./per-island-script.ts";
 import type { Framework } from "./types.ts";
+import { addModulepreload } from "./modulepreload-collector.ts";
 import { addUniversalCSS } from "./universal-css-collector.ts";
 import { addUniversalHead } from "./universal-head-collector.ts";
 
 // Enhanced global CSS collector for SSR with scoping support
 declare global {
 	var __viteDevServer: ViteDevServer | undefined;
+	/** Hydration mode — automatically set: "entry-client" in dev (HMR), "per-island" in production */
+	var __avalonHydrationMode: "entry-client" | "per-island" | undefined;
 }
 
 /** Supported hydration conditions for island components */
@@ -62,6 +66,77 @@ export interface IslandProps {
 /** Generate a deterministic island element ID from the source path */
 function toIslandId(src: string): string {
 	return `island-${src.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+}
+
+/** Check if per-island hydration mode is active */
+function isPerIslandMode(): boolean {
+	// In production, always use per-island mode (better performance).
+	// In dev, use entry-client mode (needed for HMR).
+	// The globalThis flag is set by the Vite plugin's configResolved hook,
+	// but it's not available in the Nitro SSR runtime (separate JS realm).
+	// So we fall back to !isDev() for production detection.
+	if (globalThis.__avalonHydrationMode !== undefined) {
+		return globalThis.__avalonHydrationMode === "per-island";
+	}
+	return !isDev();
+}
+
+/**
+ * Wrap an island element with its per-island hydration script.
+ * Returns the element unchanged if per-island mode is not active
+ * or if the island should skip hydration.
+ */
+function wrapWithPerIslandScript(
+	islandElement: JSX.Element,
+	opts: {
+		islandId: string;
+		src: string;
+		condition: HydrationCondition;
+		conditionArg?: string;
+		props: Record<string, unknown>;
+		framework: string;
+		shouldSkipHydration: boolean;
+	},
+): JSX.Element {
+	if (!isPerIslandMode() || opts.shouldSkipHydration) {
+		return islandElement;
+	}
+
+	const componentSrc = getIslandBundlePath(opts.src);
+
+	// Register on:client islands for modulepreload — these are above-the-fold
+	// islands that hydrate immediately and benefit from early fetching.
+	// Deferred islands (on:visible, on:idle, on:interaction, media:*) are
+	// intentionally excluded since preloading defeats lazy loading.
+	if (opts.condition === "on:client") {
+		addModulepreload(componentSrc);
+	}
+	const isCustom = isCustomDirective(opts.condition);
+	const directiveScript = isCustom ? serializeDirectiveScript(opts.condition) : undefined;
+
+	const scriptHtml = generatePerIslandScript({
+		islandId: opts.islandId,
+		componentSrc,
+		framework: opts.framework,
+		condition: opts.condition,
+		conditionArg: opts.conditionArg,
+		propsJson: JSON.stringify(opts.props),
+		isCustomDirective: isCustom,
+		directiveScript: directiveScript ?? undefined,
+	});
+
+	// Emit the island element followed by its self-contained hydration script.
+	// We use a Fragment so both are siblings in the DOM output.
+	return h(
+		Fragment,
+		null,
+		islandElement,
+		h("div", {
+			dangerouslySetInnerHTML: { __html: scriptHtml },
+			style: "display:contents",
+			"data-island-script": "",
+		}),
+	);
 }
 
 /** Build the extra hydration data-attributes from integration render output */
@@ -201,10 +276,25 @@ function renderIslandSSR(opts: {
 
 	const allAttributes = { ...baseAttributes, ...hydrationAttributes };
 
+	let islandElement: JSX.Element;
 	if (typeof children === "string") {
-		return h("avalon-island", { ...allAttributes, dangerouslySetInnerHTML: { __html: children } });
+		islandElement = h("avalon-island", {
+			...allAttributes,
+			dangerouslySetInnerHTML: { __html: children },
+		});
+	} else {
+		islandElement = h("avalon-island", allAttributes, children);
 	}
-	return h("avalon-island", allAttributes, children);
+
+	return wrapWithPerIslandScript(islandElement, {
+		islandId,
+		src,
+		condition,
+		conditionArg,
+		props,
+		framework: detectedFramework,
+		shouldSkipHydration,
+	});
 }
 
 /** Render the client-only path: empty shell that will be hydrated on the client */
@@ -260,7 +350,17 @@ function renderIslandClientOnly(opts: {
 		attrs["data-condition-arg"] = conditionArg;
 	}
 
-	return h("avalon-island", attrs);
+	const islandElement = h("avalon-island", attrs);
+
+	return wrapWithPerIslandScript(islandElement, {
+		islandId,
+		src,
+		condition,
+		conditionArg,
+		props,
+		framework: detectedFramework,
+		shouldSkipHydration,
+	});
 }
 
 /**

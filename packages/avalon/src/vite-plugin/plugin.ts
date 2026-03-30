@@ -10,27 +10,30 @@
  * or layouts is automatically treated as an island. No fixed islands directory required.
  */
 
-import type { Plugin, PluginOption, ResolvedConfig, ViteDevServer } from 'vite';
-import type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig } from './types.ts';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
-import { resolveConfig, checkDirectoriesExist } from './config.ts';
-import { activateIntegrations, activateSingleIntegration } from './integration-activator.ts';
-import { discoverIntegrationsFromIslandUsage } from './auto-discover.ts';
-import { validateActiveIntegrations, formatValidationResults } from './validation.ts';
-import { createMDXPlugin } from '../build/mdx-plugin.ts';
-import { mdxIslandTransform } from '../build/mdx-island-transform.ts';
-import { pageIslandTransform } from '../build/page-island-transform.ts';
-import { registry } from '../core/integrations/registry.ts';
-import { createNitroIntegration } from './nitro-integration.ts';
-import { islandSidecarPlugin } from './island-sidecar-plugin.ts';
-import { createImagePlugin } from './image-optimization.ts';
-import { islandClientBundlerPlugin } from '../build/island-client-bundler.ts';
-import type { NitroConfigOutput } from '../nitro/config.ts';
+import type { Plugin, PluginOption, ResolvedConfig, ViteDevServer } from "vite";
+import type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig } from "./types.ts";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+import { resolveConfig, checkDirectoriesExist } from "./config.ts";
+import { activateIntegrations, activateSingleIntegration } from "./integration-activator.ts";
+import { discoverIntegrationsFromIslandUsage } from "./auto-discover.ts";
+import { validateActiveIntegrations, formatValidationResults } from "./validation.ts";
+import { createMDXPlugin } from "../build/mdx-plugin.ts";
+import { mdxIslandTransform } from "../build/mdx-island-transform.ts";
+import { pageIslandTransform } from "../build/page-island-transform.ts";
+import { registry } from "../core/integrations/registry.ts";
+import { createNitroIntegration } from "./nitro-integration.ts";
+import { islandSidecarPlugin } from "./island-sidecar-plugin.ts";
+import { createImagePlugin } from "./image-optimization.ts";
+import { islandClientBundlerPlugin } from "../build/island-client-bundler.ts";
+import { islandCodeSplittingPlugin } from "../build/island-code-splitting.ts";
+import type { NitroConfigOutput } from "../nitro/config.ts";
 declare global {
 	var __avalonConfig: ResolvedAvalonConfig | undefined;
 	var __viteDevServer: ViteDevServer | undefined;
 	var __nitroConfig: NitroConfigOutput | undefined;
+	/** Hydration mode — automatically set: "entry-client" in dev (HMR), "per-island" in production */
+	var __avalonHydrationMode: "entry-client" | "per-island" | undefined;
 }
 
 /**
@@ -57,7 +60,7 @@ export async function collectIntegrationPlugins(
 
 	for (const name of activeIntegrations) {
 		const validPlugins = await loadPluginsForIntegration(name, verbose);
-		if (name === 'lit') {
+		if (name === "lit") {
 			litPlugins.push(...validPlugins);
 		} else {
 			plugins.push(...validPlugins);
@@ -67,17 +70,23 @@ export async function collectIntegrationPlugins(
 	return [...litPlugins, ...plugins];
 }
 
-async function loadPluginsForIntegration(name: IntegrationName, _verbose: boolean): Promise<Plugin[]> {
+async function loadPluginsForIntegration(
+	name: IntegrationName,
+	_verbose: boolean,
+): Promise<Plugin[]> {
 	const integration = registry.get(name);
 	if (!integration) return [];
-	if (typeof integration.vitePlugin !== 'function') return [];
+	if (typeof integration.vitePlugin !== "function") return [];
 
 	try {
 		const result = await integration.vitePlugin();
 		const pluginArray = Array.isArray(result) ? result : [result];
 		return pluginArray.filter((p): p is Plugin => p != null);
 	} catch (error) {
-		console.warn(`[avalon] Failed to load vite plugin for ${name}:`, error instanceof Error ? error.message : error);
+		console.warn(
+			`[avalon] Failed to load vite plugin for ${name}:`,
+			error instanceof Error ? error.message : error,
+		);
 		return [];
 	}
 }
@@ -121,7 +130,9 @@ async function discoverNeededIntegrations(
 	return needed;
 }
 
-async function resolveIntegrationsToLoad(preResolvedConfig: ResolvedAvalonConfig): Promise<IntegrationName[]> {
+async function resolveIntegrationsToLoad(
+	preResolvedConfig: ResolvedAvalonConfig,
+): Promise<IntegrationName[]> {
 	if (!preResolvedConfig.lazyIntegrations || preResolvedConfig.integrations.length === 0) {
 		return [...preResolvedConfig.integrations];
 	}
@@ -139,15 +150,15 @@ async function setupMDXPlugins(preResolvedConfig: ResolvedAvalonConfig): Promise
 		const mdxPlugins = await createMDXPlugin({
 			jsxImportSource: preResolvedConfig.mdx.jsxImportSource,
 			syntaxHighlighting: preResolvedConfig.mdx.syntaxHighlighting,
-			remarkPlugins: preResolvedConfig.mdx.remarkPlugins as import('unified').Pluggable[],
-			rehypePlugins: preResolvedConfig.mdx.rehypePlugins as import('unified').Pluggable[],
+			remarkPlugins: preResolvedConfig.mdx.remarkPlugins as import("unified").Pluggable[],
+			rehypePlugins: preResolvedConfig.mdx.rehypePlugins as import("unified").Pluggable[],
 			development: true,
 		});
 		mdxPlugins.push(mdxIslandTransform({ verbose: preResolvedConfig.verbose }));
 		return mdxPlugins;
 	} catch (error) {
 		if (preResolvedConfig.showWarnings) {
-			console.warn('⚠️ Could not configure MDX plugin:', error);
+			console.warn("⚠️ Could not configure MDX plugin:", error);
 		}
 		return [];
 	}
@@ -155,7 +166,7 @@ async function setupMDXPlugins(preResolvedConfig: ResolvedAvalonConfig): Promise
 
 function setupNitroPlugins(
 	preResolvedConfig: ResolvedAvalonConfig,
-	nitroConfig: NonNullable<AvalonPluginConfig['nitro']>,
+	nitroConfig: NonNullable<AvalonPluginConfig["nitro"]>,
 	_verbose?: boolean,
 ): { plugins: Plugin[]; options: NitroConfigOutput } {
 	const { plugins, nitroOptions } = createNitroIntegration(preResolvedConfig, nitroConfig);
@@ -182,21 +193,28 @@ async function runAutoDiscovery(
 			try {
 				await activateSingleIntegration(name, activeIntegrations, resolvedConfig.verbose);
 			} catch (error) {
-				if (resolvedConfig.showWarnings) console.warn(`   ⚠️ Could not auto-load integration: ${name}`, error);
+				if (resolvedConfig.showWarnings)
+					console.warn(`   ⚠️ Could not auto-load integration: ${name}`, error);
 			}
 		}
 	} catch (error) {
-		if (resolvedConfig.showWarnings) console.warn('   ⚠️ Auto-discovery failed:', error);
+		if (resolvedConfig.showWarnings) console.warn("   ⚠️ Auto-discovery failed:", error);
 	}
 }
 
-function runValidation(resolvedConfig: ResolvedAvalonConfig, activeIntegrations: Set<IntegrationName>): void {
+function runValidation(
+	resolvedConfig: ResolvedAvalonConfig,
+	activeIntegrations: Set<IntegrationName>,
+): void {
 	if (!resolvedConfig.validateIntegrations || activeIntegrations.size === 0) return;
 
-	const validationSummary = validateActiveIntegrations(activeIntegrations, resolvedConfig.showWarnings);
+	const validationSummary = validateActiveIntegrations(
+		activeIntegrations,
+		resolvedConfig.showWarnings,
+	);
 	if (!validationSummary.allValid) {
 		console.error(formatValidationResults(validationSummary));
-		if (resolvedConfig.showWarnings) console.warn('   ⚠️ Some integrations have validation issues.');
+		if (resolvedConfig.showWarnings) console.warn("   ⚠️ Some integrations have validation issues.");
 	}
 }
 
@@ -225,7 +243,10 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 	const integrationsToLoad = await resolveIntegrationsToLoad(preResolvedConfig);
 
 	if (integrationsToLoad.length > 0) {
-		await activateIntegrations({ ...preResolvedConfig, integrations: integrationsToLoad }, activeIntegrations);
+		await activateIntegrations(
+			{ ...preResolvedConfig, integrations: integrationsToLoad },
+			activeIntegrations,
+		);
 	}
 	const mdxPlugins = await setupMDXPlugins(preResolvedConfig);
 
@@ -234,12 +255,19 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 
 	let integrationPlugins: Plugin[] = [];
 	if (activeIntegrations.size > 0) {
-		integrationPlugins = await collectIntegrationPlugins(activeIntegrations, preResolvedConfig.verbose);
+		integrationPlugins = await collectIntegrationPlugins(
+			activeIntegrations,
+			preResolvedConfig.verbose,
+		);
 	}
 
 	let nitroPlugins: Plugin[] = [];
 	if (config?.nitro) {
-		const { plugins } = setupNitroPlugins(preResolvedConfig, config.nitro, preResolvedConfig.verbose);
+		const { plugins } = setupNitroPlugins(
+			preResolvedConfig,
+			config.nitro,
+			preResolvedConfig.verbose,
+		);
 		nitroPlugins = plugins;
 	}
 
@@ -254,8 +282,8 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 
 	let clientMainResolved: string | null = null;
 	try {
-		const clientEntry = require.resolve('@useavalon/avalon/client');
-		clientMainResolved = join(dirname(clientEntry), 'main.js');
+		const clientEntry = require.resolve("@useavalon/avalon/client");
+		clientMainResolved = join(dirname(clientEntry), "main.js");
 	} catch {
 		// Monorepo — www/ sets its own alias
 	}
@@ -265,7 +293,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 	// using Vite's resolver. We also handle bare specifiers (without leading /)
 	// so that production static imports in main.js resolve correctly.
 	const integrationVirtualIds = new Set(
-		['preact', 'react', 'vue', 'svelte', 'solid', 'lit', 'qwik'].flatMap(name => [
+		["preact", "react", "vue", "svelte", "solid", "lit", "qwik"].flatMap((name) => [
 			`/@useavalon/${name}/client`,
 			`/@useavalon/${name}/client/hmr`,
 			`@useavalon/${name}/client`,
@@ -275,8 +303,8 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 
 	// The main Avalon plugin
 	const avalonPlugin: Plugin = {
-		name: 'avalon',
-		enforce: 'pre',
+		name: "avalon",
+		enforce: "pre",
 
 		config() {
 			// @useavalon packages ship raw .ts source. Vite's built-in OXC
@@ -298,15 +326,15 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 			// We also pre-include the actual framework runtime deps (preact,
 			// solid-js, etc.) so they're pre-bundled before the first page load.
 			const frameworkDeps: Record<string, string[]> = {
-				preact: ['preact', 'preact/hooks'],
-				react: ['react', 'react-dom', 'react-dom/client'],
-				vue: ['vue'],
-				svelte: ['svelte', 'svelte/internal'],
-				solid: ['solid-js', 'solid-js/web'],
-				lit: ['lit', '@lit-labs/ssr-client'],
-				qwik: ['@builder.io/qwik'],
+				preact: ["preact", "preact/hooks"],
+				react: ["react", "react-dom", "react-dom/client"],
+				vue: ["vue"],
+				svelte: ["svelte", "svelte/internal"],
+				solid: ["solid-js", "solid-js/web"],
+				lit: ["lit", "@lit-labs/ssr-client"],
+				qwik: ["@builder.io/qwik"],
 			};
-			const depsToInclude = integrationsToLoad.flatMap(name => frameworkDeps[name] ?? []);
+			const depsToInclude = integrationsToLoad.flatMap((name) => frameworkDeps[name] ?? []);
 
 			return {
 				oxc: {
@@ -316,7 +344,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 					noExternal: [/^@useavalon\//],
 				},
 				optimizeDeps: {
-					exclude: ['@useavalon/avalon', ...integrationsToLoad.map(name => `@useavalon/${name}`)],
+					exclude: ["@useavalon/avalon", ...integrationsToLoad.map((name) => `@useavalon/${name}`)],
 					include: depsToInclude,
 				},
 			};
@@ -324,7 +352,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 
 		configResolved(resolvedViteConfig: ResolvedConfig) {
 			viteConfig = resolvedViteConfig;
-			const isDev = resolvedViteConfig.command === 'serve';
+			const isDev = resolvedViteConfig.command === "serve";
 			resolvedConfig = resolveConfig(config, isDev);
 
 			globalThis.__avalonConfig = resolvedConfig;
@@ -333,7 +361,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 		},
 
 		async resolveId(id: string) {
-			if (id === '/src/client/main.js' && clientMainResolved) {
+			if (id === "/src/client/main.js" && clientMainResolved) {
 				return clientMainResolved;
 			}
 			// /@useavalon/*/client and /@useavalon/*/client/hmr — resolve through
@@ -342,7 +370,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 			// not from avalon's own context.
 			if (integrationVirtualIds.has(id)) {
 				// Strip leading / for dev virtual imports; bare specifiers are used as-is
-				const packageId = id.startsWith('/') ? id.slice(1) : id;
+				const packageId = id.startsWith("/") ? id.slice(1) : id;
 				const resolved = await this.resolve(packageId);
 				return resolved?.id ?? null;
 			}
@@ -355,13 +383,13 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 			// above) because integration plugins set jsx: 'automatic' globally, which
 			// OXC would incorrectly apply to plain .ts files. Instead, we handle TS
 			// stripping ourselves here without any JSX config.
-			if (id.includes('@useavalon/') && /\.tsx?$/.test(id)) {
-				const { transform: oxcTransform } = await import('oxc-transform');
+			if (id.includes("@useavalon/") && /\.tsx?$/.test(id)) {
+				const { transform: oxcTransform } = await import("oxc-transform");
 				const result = await oxcTransform(id, code, {
 					sourcemap: true,
 					typescript: { onlyRemoveTypeImports: false },
 				});
-				return { code: result.code, map: result.map, moduleType: 'js' };
+				return { code: result.code, map: result.map, moduleType: "js" };
 			}
 		},
 
@@ -376,8 +404,8 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 	};
 
 	// Extract Lit plugins for proper ordering
-	const litPlugins = integrationPlugins.filter(p => p.name?.includes('lit'));
-	const otherIntegrationPlugins = integrationPlugins.filter(p => !p.name?.includes('lit'));
+	const litPlugins = integrationPlugins.filter((p) => p.name?.includes("lit"));
+	const otherIntegrationPlugins = integrationPlugins.filter((p) => !p.name?.includes("lit"));
 
 	// Page island transform: auto-wraps components with `island` prop
 	const pageTransformPlugin = pageIslandTransform({
@@ -388,11 +416,15 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 	});
 
 	// Island client bundler: emits island components as separate client chunks
-	const islandBundler = islandClientBundlerPlugin(preResolvedConfig);
+	const islandBundler = islandClientBundlerPlugin(preResolvedConfig, config?.nitro);
+
+	// Island code splitting: bundles framework adapter + runtime into island chunks
+	const codeSplitting = islandCodeSplittingPlugin(preResolvedConfig, config?.nitro);
 
 	return [
 		pageTransformPlugin,
 		islandBundler,
+		codeSplitting,
 		...imagePlugins,
 		...litPlugins,
 		...mdxPlugins,
@@ -408,11 +440,11 @@ export function getResolvedConfig(): ResolvedAvalonConfig | undefined {
 }
 
 export function getPagesDir(): string {
-	return globalThis.__avalonConfig?.pagesDir ?? 'src/pages';
+	return globalThis.__avalonConfig?.pagesDir ?? "src/pages";
 }
 
 export function getLayoutsDir(): string {
-	return globalThis.__avalonConfig?.layoutsDir ?? 'src/layouts';
+	return globalThis.__avalonConfig?.layoutsDir ?? "src/layouts";
 }
 
 export function getNitroConfig(): NitroConfigOutput | undefined {
@@ -429,5 +461,5 @@ export type {
 	ResolvedAvalonConfig,
 	ImageConfig,
 	ResolvedImageConfig,
-} from './types.ts';
-export type { AvalonNitroConfig, NitroConfigOutput } from '../nitro/config.ts';
+} from "./types.ts";
+export type { AvalonNitroConfig, NitroConfigOutput } from "../nitro/config.ts";

@@ -46,6 +46,8 @@ import type {
 	SSRRenderResult,
 } from "./types.ts";
 import { createNotFoundError, isHttpError } from "./types.ts";
+import { inlineCriticalCSS } from "../islands/critical-css.ts";
+import { injectModulepreloadLinks } from "../islands/modulepreload-collector.ts";
 
 /**
  * Resolved page route information
@@ -483,6 +485,22 @@ export function ensureHydrationMarkers(element: string, marker: Partial<IslandMa
 }
 
 /**
+ * Unwrap per-island script wrappers from the HTML.
+ *
+ * During SSR, per-island scripts are wrapped in `<div data-island-script="" style="display:contents">`
+ * because Preact's `h()` needs a real element for `dangerouslySetInnerHTML`. This function
+ * strips those wrappers, leaving just the bare `<script type="module">` tags inline.
+ */
+function unwrapPerIslandScripts(html: string): string {
+	// Replace <div data-island-script="" style="display:contents"><script ...>...</script></div>
+	// with just the <script> tag contents
+	return html.replaceAll(
+		/<div data-island-script="" style="display:contents">(<script[\s\S]*?<\/script>)<\/div>/g,
+		"$1",
+	);
+}
+
+/**
  * Injects the client hydration script into HTML
  * Requirements: 2.6, 9.4
  *
@@ -508,6 +526,15 @@ export function injectHydrationScript(
 		forceInject?: boolean;
 	} = {},
 ): string {
+	// In per-island mode, each island has its own inline script — no shared runtime needed.
+	// We still need to process the per-island script wrappers though.
+	// The globalThis flag may not be set in the Nitro SSR runtime (separate JS realm),
+	// so we also check !isDev — production always uses per-island mode.
+	const isPerIsland = globalThis.__avalonHydrationMode === "per-island" || !isDev;
+	if (isPerIsland) {
+		return unwrapPerIslandScripts(html);
+	}
+
 	// Check if there are any islands that need hydration
 	const hasIslands = html.includes("data-framework=") || html.includes("data-src=");
 
@@ -1345,7 +1372,13 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 				const result = await renderPage(pageModule, renderContext, {}, options.wrapWithLayouts);
 
 				// Inject hydration script
-				const html = injectHydrationScript(result.html as string, isDev);
+				let html = injectHydrationScript(result.html as string, isDev);
+
+				// Inline critical CSS and defer non-critical stylesheets
+				html = inlineCriticalCSS(html);
+
+				// Inject modulepreload links for above-the-fold island chunks
+				html = injectModulepreloadLinks(html);
 
 				return new Response(html, {
 					status: result.statusCode,
@@ -1395,7 +1428,13 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 
 				// Render the page (non-streaming for prerender/fetch path)
 				const result = await renderPage(pageModule, renderContext, {}, options.wrapWithLayouts);
-				const html = injectHydrationScript(result.html as string, isDev);
+				let html = injectHydrationScript(result.html as string, isDev);
+
+				// Inline critical CSS and defer non-critical stylesheets
+				html = inlineCriticalCSS(html);
+
+				// Inject modulepreload links for above-the-fold island chunks
+				html = injectModulepreloadLinks(html);
 
 				return new Response(html, {
 					status: result.statusCode,
@@ -1668,7 +1707,13 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 				const result = await renderPage(pageModule, renderContext, {}, options.wrapWithLayouts);
 
 				// Inject hydration script - ensures client-side hydration works
-				const html = injectHydrationScript(result.html as string, isDev);
+				let html = injectHydrationScript(result.html as string, isDev);
+
+				// Inline critical CSS and defer non-critical stylesheets
+				html = inlineCriticalCSS(html);
+
+				// Inject modulepreload links for above-the-fold island chunks
+				html = injectModulepreloadLinks(html);
 
 				return new Response(html, {
 					status: result.statusCode,
@@ -1712,7 +1757,13 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 
 				// Render the page (non-streaming for prerender/fetch path)
 				const result = await renderPage(pageModule, renderContext, {}, options.wrapWithLayouts);
-				const html = injectHydrationScript(result.html as string, isDev);
+				let html = injectHydrationScript(result.html as string, isDev);
+
+				// Inline critical CSS and defer non-critical stylesheets
+				html = inlineCriticalCSS(html);
+
+				// Inject modulepreload links for above-the-fold island chunks
+				html = injectModulepreloadLinks(html);
 
 				return new Response(html, {
 					status: result.statusCode,

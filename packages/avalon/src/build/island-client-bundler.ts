@@ -10,10 +10,11 @@
  * include all CSS files from the client build output.
  */
 
-import type { Plugin } from 'vite';
-import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { resolve, dirname, relative } from 'node:path';
-import type { ResolvedAvalonConfig } from '../vite-plugin/types.ts';
+import type { Plugin } from "vite";
+import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
+import { resolve, dirname, relative } from "node:path";
+import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
+import type { AvalonNitroConfig } from "../nitro/config.ts";
 
 interface IslandSource {
 	filePath: string;
@@ -23,9 +24,15 @@ interface IslandSource {
 /**
  * Creates a Vite plugin that emits island components as separate client chunks.
  */
-export function islandClientBundlerPlugin(config: ResolvedAvalonConfig): Plugin {
+export function islandClientBundlerPlugin(
+	config: ResolvedAvalonConfig,
+	nitroConfig?: AvalonNitroConfig,
+): Plugin {
 	const cwd = process.cwd();
 	const discoveredIslands = new Map<string, IslandSource>();
+	// Hydration mode is automatic: dev uses entry-client (HMR), prod uses per-island.
+	// Determined in configResolved from the Vite command.
+	let isPerIsland = false;
 
 	// Discover islands synchronously at plugin creation time
 	const pageDirs = getPageAndLayoutDirsSync(config, cwd);
@@ -34,16 +41,17 @@ export function islandClientBundlerPlugin(config: ResolvedAvalonConfig): Plugin 
 	}
 
 	// Virtual module prefix for island wrappers that preserve exports
-	const ISLAND_WRAPPER_PREFIX = '\0avalon-island-entry:';
+	const ISLAND_WRAPPER_PREFIX = "\0avalon-island-entry:";
 
 	let isServeMode = false;
 
 	return {
-		name: 'avalon:island-client-bundler',
-		enforce: 'pre',
+		name: "avalon:island-client-bundler",
+		enforce: "pre",
 
 		configResolved(resolvedConfig) {
-			isServeMode = resolvedConfig.command === 'serve';
+			isServeMode = resolvedConfig.command === "serve";
+			isPerIsland = resolvedConfig.command === "build";
 		},
 
 		resolveId(id) {
@@ -59,25 +67,51 @@ export function islandClientBundlerPlugin(config: ResolvedAvalonConfig): Plugin 
 			// Qwik components need ALL named exports preserved — the qwikloader
 			// fetches the bundle and looks up QRL symbols (s_xxx) as named exports.
 			// Also re-export _hW from @builder.io/qwik for useVisibleTask$/useTask$.
-			if (filePath.includes('.qwik.')) {
-				return [
+			if (filePath.includes(".qwik.")) {
+				if (isPerIsland) {
+					// Qwik uses resumability — the Qwikloader (inline script in SSR HTML)
+					// handles event interception and lazily loads QRL handler symbols.
+					// We only re-export the named symbols (s_xxx) that the Qwikloader
+					// fetches on demand. No default import, no eager Qwik runtime load.
+					// The _hW export is needed for useVisibleTask$/useTask$.
+					return [`export * from ${escaped};`, `export { _hW } from "@builder.io/qwik";`].join(
+						"\n",
+					);
+				}
+				// Dev mode: full wrapper for HMR support
+				const lines = [
 					`export * from ${escaped};`,
 					`export { _hW } from "@builder.io/qwik";`,
 					`import __C from ${escaped};`,
 					`export default __C;`,
 					`if(typeof globalThis<"u")globalThis.__avalonIsland=__C;`,
-				].join('\n');
+				];
+				return lines.join("\n");
 			}
 
 			// Create a wrapper that imports the component and explicitly exports it.
 			// We use both a default export AND a named 'Component' export, plus a
 			// globalThis side-effect to prevent aggressive tree-shaking by Rolldown.
-			return [
+			const isLit = filePath.includes(".lit.");
+			const lines: string[] = [];
+
+			// For Lit islands, hydration support MUST be loaded before the component.
+			if (isLit && isPerIsland) {
+				lines.push(`import "@useavalon/lit/client";`);
+			}
+
+			lines.push(
 				`import __C from ${escaped};`,
 				`var Component = __C;`,
 				`export { Component as default, Component };`,
 				`if(typeof globalThis<"u")globalThis.__avalonIsland=Component;`,
-			].join('\n');
+			);
+			// In per-island mode, re-export the integration loader so it gets
+			// bundled into this island chunk (eliminates separate runtime chunk)
+			if (isPerIsland) {
+				lines.push(`export { loadIntegrationModule } from "virtual:avalon/integration-loader";`);
+			}
+			return lines.join("\n");
 		},
 
 		async buildStart() {
@@ -86,7 +120,7 @@ export function islandClientBundlerPlugin(config: ResolvedAvalonConfig): Plugin 
 
 			// Only emit island chunks for the client build environment
 			const env = (this as any).environment;
-			if (env && env.name !== 'client') return;
+			if (env && env.name !== "client") return;
 
 			// Emit island component chunks via virtual wrapper modules
 			// that explicitly re-export the default export, preventing
@@ -94,10 +128,10 @@ export function islandClientBundlerPlugin(config: ResolvedAvalonConfig): Plugin 
 			if (discoveredIslands.size > 0) {
 				for (const [, island] of discoveredIslands) {
 					this.emitFile({
-						type: 'chunk',
+						type: "chunk",
 						id: ISLAND_WRAPPER_PREFIX + island.filePath,
 						fileName: `islands/${island.bundleKey}.js`,
-						preserveSignature: 'exports-only',
+						preserveSignature: "exports-only",
 					} as any);
 				}
 
@@ -106,6 +140,9 @@ export function islandClientBundlerPlugin(config: ResolvedAvalonConfig): Plugin 
 				}
 			}
 		},
+
+		// Island inlining is handled as a post-build step.
+		// See packages/avalon/src/post-build/inline-islands.ts
 	};
 }
 
@@ -128,7 +165,7 @@ function getPageAndLayoutDirsSync(config: ResolvedAvalonConfig, cwd: string): st
 			try {
 				for (const entry of readdirSync(absModules, { withFileTypes: true })) {
 					if (!entry.isDirectory()) continue;
-					for (const sub of ['pages', 'layouts', 'components']) {
+					for (const sub of ["pages", "layouts", "components"]) {
 						const subDir = resolve(absModules, entry.name, sub);
 						if (existsSync(subDir)) dirs.push(subDir);
 					}
@@ -142,10 +179,10 @@ function getPageAndLayoutDirsSync(config: ResolvedAvalonConfig, cwd: string): st
 }
 
 /** Auto-island framework file patterns — components from these are bundled even without `island` prop */
-const AUTO_ISLAND_PATTERNS = ['.qwik.'];
+const AUTO_ISLAND_PATTERNS = [".qwik."];
 
 function isAutoIslandImport(importPath: string): boolean {
-	return AUTO_ISLAND_PATTERNS.some(p => importPath.includes(p));
+	return AUTO_ISLAND_PATTERNS.some((p) => importPath.includes(p));
 }
 
 function scanDirectorySync(dir: string, cwd: string, islands: Map<string, IslandSource>): void {
@@ -165,9 +202,11 @@ function scanDirectorySync(dir: string, cwd: string, islands: Map<string, Island
 		if (!/\.(tsx?|jsx?|mdx?)$/.test(entry.name)) continue;
 
 		try {
-			const content = readFileSync(fullPath, 'utf-8');
-			const hasExplicitIsland = content.includes('island=') || content.includes('island ');
-			const hasAutoIslandImport = /import\s+\w+\s+from\s+['"][^'"]*\.qwik\.[^'"]*['"]/m.test(content);
+			const content = readFileSync(fullPath, "utf-8");
+			const hasExplicitIsland = content.includes("island=") || content.includes("island ");
+			const hasAutoIslandImport = /import\s+\w+\s+from\s+['"][^'"]*\.qwik\.[^'"]*['"]/m.test(
+				content,
+			);
 			if (!hasExplicitIsland && !hasAutoIslandImport) continue;
 			extractIslandComponents(content, fullPath, cwd, islands);
 		} catch {
@@ -196,7 +235,7 @@ function extractIslandComponents(
 		imports.push([match[1], match[2]]);
 		if (isAutoIslandImport(match[2])) {
 			// Check if this component is used as a JSX element
-			const jsxRe = new RegExp('<' + match[1] + '[\\s/>]');
+			const jsxRe = new RegExp("<" + match[1] + "[\\s/>]");
 			if (jsxRe.test(content)) {
 				autoIslandNames.add(match[1]);
 			}
@@ -210,22 +249,23 @@ function extractIslandComponents(
 		const resolved = resolveImport(importPath, fileId, cwd);
 		if (!resolved) continue;
 		const relPath = relative(cwd, resolved)
-			.replaceAll('\\', '/')
-			.replace(/\.(tsx?|jsx?)$/, '');
+			.replaceAll("\\", "/")
+			.replace(/\.(tsx?|jsx?)$/, "");
 		if (!islands.has(resolved)) islands.set(resolved, { filePath: resolved, bundleKey: relPath });
 	}
 }
 
 function resolveImport(importPath: string, fromFile: string, cwd: string): string | null {
 	let resolved: string;
-	if (importPath.startsWith('@shared/')) resolved = resolve(cwd, 'app/shared', importPath.slice(8));
-	else if (importPath.startsWith('@modules/')) resolved = resolve(cwd, 'app/modules', importPath.slice(9));
-	else if (importPath.startsWith('@/')) resolved = resolve(cwd, 'app', importPath.slice(2));
-	else if (importPath.startsWith('.')) resolved = resolve(dirname(fromFile), importPath);
+	if (importPath.startsWith("@shared/")) resolved = resolve(cwd, "app/shared", importPath.slice(8));
+	else if (importPath.startsWith("@modules/"))
+		resolved = resolve(cwd, "app/modules", importPath.slice(9));
+	else if (importPath.startsWith("@/")) resolved = resolve(cwd, "app", importPath.slice(2));
+	else if (importPath.startsWith(".")) resolved = resolve(dirname(fromFile), importPath);
 	else return null;
 
 	if (existsSync(resolved) && statSync(resolved).isFile()) return resolved;
-	for (const ext of ['.tsx', '.ts', '.jsx', '.js', '.vue', '.svelte']) {
+	for (const ext of [".tsx", ".ts", ".jsx", ".js", ".vue", ".svelte"]) {
 		if (existsSync(resolved + ext)) return resolved + ext;
 	}
 	return null;
