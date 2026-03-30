@@ -1,22 +1,25 @@
 /**
  * Post-build Island Inlining
  *
- * Re-bundles each island chunk with esbuild to inline shared dependencies
+ * Re-bundles island chunks with esbuild to inline shared dependencies
  * (framework runtimes) into a single self-contained file per island.
- * This eliminates the separate shared chunks, matching Astro's approach.
  *
- * Runs AFTER the main Vite build, operating on the compiled JS output.
- * No framework plugins needed — .vue/.svelte/.solid are already compiled to JS.
+ * Safe for all frameworks because each island wrapper exports __hydrateIsland
+ * directly from the framework adapter — the component and hydrate function
+ * share the same module graph, so no duplicate framework singletons are created.
+ *
+ * Runs AFTER the main Vite build, operating on compiled JS output.
  */
 
 import { readdir, readFile } from "node:fs/promises";
-import { resolve, join } from "node:path";
+import { join, resolve } from "node:path";
 
 interface InlineResult {
 	island: string;
 	beforeSize: number;
 	afterSize: number;
 	success: boolean;
+	skipped?: boolean;
 	error?: string;
 }
 
@@ -30,7 +33,7 @@ export async function inlineIslandChunks(
 	distDir: string,
 	options: { verbose?: boolean; skipQwik?: boolean } = {},
 ): Promise<InlineResult[]> {
-	const { verbose = false, skipQwik = true } = options;
+	const { verbose = false } = options;
 	const islandsDir = resolve(distDir, "islands");
 
 	// Find all island JS files recursively
@@ -60,14 +63,16 @@ export async function inlineIslandChunks(
 		return [];
 	}
 
+	console.log(`🏝️  Inlining shared chunks into ${islandFiles.length} islands...`);
+
 	const results: InlineResult[] = [];
 
 	for (const islandFile of islandFiles) {
-		const relPath = islandFile.replace(distDir + "/", "");
+		const relPath = islandFile.replace(`${distDir}/`, "");
 
-		// Skip Qwik islands — they use resumability, not hydration
-		if (skipQwik && relPath.includes(".qwik.")) {
-			results.push({ island: relPath, beforeSize: 0, afterSize: 0, success: true });
+		// Skip Qwik — uses resumability, no hydration needed
+		if (relPath.includes(".qwik.")) {
+			results.push({ island: relPath, beforeSize: 0, afterSize: 0, success: true, skipped: true });
 			continue;
 		}
 

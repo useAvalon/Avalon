@@ -84,13 +84,9 @@ function generateHydrateCall(
 	framework: string,
 	propsJson: string,
 ): string {
-	// Use a compact variable name for the element to minimize script size.
-	// The island chunk re-exports loadIntegrationModule from the integration
-	// loader asset, so we import it from the component chunk itself.
-	//
-	// For Lit, the island chunk wrapper calls preLitHydration() at the top
-	// level (before the component import) via top-level await, so the
-	// hydration support is patched before the LitElement subclass is defined.
+	// The island chunk exports __hydrateIsland (the framework's hydrate function)
+	// directly, so the component and hydrate share the same framework instance.
+	// This is critical for esbuild re-bundling — no duplicate module copies.
 	return [
 		`async function h(){`,
 		`var e=document.getElementById(${JSON.stringify(islandId)});`,
@@ -99,8 +95,8 @@ function generateHydrateCall(
 		`var p=${propsJson};`,
 		`var m=await import(${JSON.stringify(componentSrc)});`,
 		`var C=m.default||Object.values(m).find(function(v){return typeof v==="function"&&v.prototype})||m;`,
-		`var i=await m.loadIntegrationModule(${JSON.stringify(framework)});`,
-		`if(i.hydrate)await i.hydrate(e,C,p);`,
+		`if(m.__hydrateIsland){await m.__hydrateIsland(e,C,p)}`,
+		`else if(m.loadIntegrationModule){var i=await m.loadIntegrationModule(${JSON.stringify(framework)});if(i.hydrate)await i.hydrate(e,C,p)}`,
 		`e.dataset.hydrated="true";`,
 		`}catch(err){console.error("Hydration error:",err)}`,
 		`}`,

@@ -10,11 +10,11 @@
  * include all CSS files from the client build output.
  */
 
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, relative, resolve } from "node:path";
 import type { Plugin } from "vite";
-import { readFileSync, existsSync, readdirSync, statSync } from "node:fs";
-import { resolve, dirname, relative } from "node:path";
-import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
 import type { AvalonNitroConfig } from "../nitro/config.ts";
+import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
 
 interface IslandSource {
 	filePath: string;
@@ -26,7 +26,7 @@ interface IslandSource {
  */
 export function islandClientBundlerPlugin(
 	config: ResolvedAvalonConfig,
-	nitroConfig?: AvalonNitroConfig,
+	_nitroConfig?: AvalonNitroConfig,
 ): Plugin {
 	const cwd = process.cwd();
 	const discoveredIslands = new Map<string, IslandSource>();
@@ -44,6 +44,9 @@ export function islandClientBundlerPlugin(
 	const ISLAND_WRAPPER_PREFIX = "\0avalon-island-entry:";
 
 	let isServeMode = false;
+	let resolvedAliases: any[] = [];
+	let resolvedDefine: Record<string, unknown> = {};
+	let resolvedOutDir = "dist";
 
 	return {
 		name: "avalon:island-client-bundler",
@@ -52,6 +55,9 @@ export function islandClientBundlerPlugin(
 		configResolved(resolvedConfig) {
 			isServeMode = resolvedConfig.command === "serve";
 			isPerIsland = resolvedConfig.command === "build";
+			resolvedAliases = (resolvedConfig.resolve?.alias as any[]) ?? [];
+			resolvedDefine = resolvedConfig.define ?? {};
+			resolvedOutDir = resolvedConfig.build?.outDir ?? "dist";
 		},
 
 		resolveId(id) {
@@ -90,9 +96,16 @@ export function islandClientBundlerPlugin(
 			}
 
 			// Create a wrapper that imports the component and explicitly exports it.
-			// We use both a default export AND a named 'Component' export, plus a
-			// globalThis side-effect to prevent aggressive tree-shaking by Rolldown.
+			// In per-island mode, also export the framework's hydrate function directly
+			// from the integration adapter. This ensures the component and hydrate function
+			// share the same framework module instance — critical for esbuild re-bundling
+			// which would otherwise create duplicate copies that break module singletons.
 			const isLit = filePath.includes(".lit.");
+			const isSolid = filePath.includes(".solid.");
+			const isPreact = filePath.includes(".preact.");
+			const isReact = filePath.includes(".react.");
+			const isVue = filePath.includes(".vue.");
+			const isSvelte = filePath.includes(".svelte.");
 			const lines: string[] = [];
 
 			// For Lit islands, hydration support MUST be loaded before the component.
@@ -106,10 +119,40 @@ export function islandClientBundlerPlugin(
 				`export { Component as default, Component };`,
 				`if(typeof globalThis<"u")globalThis.__avalonIsland=Component;`,
 			);
-			// In per-island mode, re-export the integration loader so it gets
-			// bundled into this island chunk (eliminates separate runtime chunk)
+
 			if (isPerIsland) {
-				lines.push(`export { loadIntegrationModule } from "virtual:avalon/integration-loader";`);
+				// Export the hydrate function directly from the framework adapter.
+				// This keeps the component and hydrate in the same module graph,
+				// so esbuild re-bundling won't create duplicate framework instances.
+				const adapterMap: Record<string, string> = {
+					solid: "@useavalon/solid/client",
+					preact: "@useavalon/preact/client",
+					react: "@useavalon/react/client",
+					vue: "@useavalon/vue/client",
+					svelte: "@useavalon/svelte/client",
+					lit: "@useavalon/lit/client",
+				};
+				const framework = isSolid
+					? "solid"
+					: isPreact
+						? "preact"
+						: isReact
+							? "react"
+							: isVue
+								? "vue"
+								: isSvelte
+									? "svelte"
+									: isLit
+										? "lit"
+										: null;
+				if (framework && adapterMap[framework]) {
+					lines.push(
+						`export { hydrate as __hydrateIsland } from ${JSON.stringify(adapterMap[framework])};`,
+					);
+				} else {
+					// Fallback: use integration loader for unknown frameworks
+					lines.push(`export { loadIntegrationModule } from "virtual:avalon/integration-loader";`);
+				}
 			}
 			return lines.join("\n");
 		},
@@ -143,6 +186,49 @@ export function islandClientBundlerPlugin(
 
 		// Island inlining is handled as a post-build step.
 		// See packages/avalon/src/post-build/inline-islands.ts
+
+		async closeBundle() {
+			// After the main client build, rebuild each island in isolation
+			// with fresh framework plugins for self-contained output.
+			if (isServeMode || !isPerIsland) return;
+			if (discoveredIslands.size === 0) return;
+			if ((globalThis as any).__avalonIslandsRebuilt) return;
+			(globalThis as any).__avalonIslandsRebuilt = true;
+
+			const { buildIsolatedIslands } = await import("../post-build/isolated-island-builder.ts");
+
+			// Detect framework for each island
+			const islandsWithFramework = new Map<
+				string,
+				{ filePath: string; bundleKey: string; framework: string }
+			>();
+			for (const [key, island] of discoveredIslands) {
+				const fw = island.filePath.includes(".solid.")
+					? "solid"
+					: island.filePath.includes(".preact.")
+						? "preact"
+						: island.filePath.includes(".react.")
+							? "react"
+							: island.filePath.includes(".vue.") || island.filePath.endsWith(".vue")
+								? "vue"
+								: island.filePath.includes(".svelte.") || island.filePath.endsWith(".svelte")
+									? "svelte"
+									: island.filePath.includes(".lit.")
+										? "lit"
+										: island.filePath.includes(".qwik.")
+											? "qwik"
+											: "preact";
+				islandsWithFramework.set(key, { ...island, framework: fw });
+			}
+
+			await buildIsolatedIslands(
+				cwd,
+				resolvedOutDir,
+				islandsWithFramework,
+				resolvedAliases,
+				resolvedDefine,
+			);
+		},
 	};
 }
 
@@ -186,7 +272,7 @@ function isAutoIslandImport(importPath: string): boolean {
 }
 
 function scanDirectorySync(dir: string, cwd: string, islands: Map<string, IslandSource>): void {
-	let entries;
+	let entries: import("node:fs").Dirent[] | undefined;
 	try {
 		entries = readdirSync(dir, { withFileTypes: true });
 	} catch {
@@ -224,18 +310,20 @@ function extractIslandComponents(
 	// Find components used with explicit island prop
 	const islandUsageRe = /<([A-Z]\w*)\s+[^>]*\bisland\b/g;
 	const usedComponents = new Set<string>();
-	let match;
-	while ((match = islandUsageRe.exec(content)) !== null) usedComponents.add(match[1]);
+	let match: RegExpExecArray | null = null;
+	for (match = islandUsageRe.exec(content); match !== null; match = islandUsageRe.exec(content)) {
+		usedComponents.add(match[1]);
+	}
 
 	// Find auto-island components used as JSX elements (e.g. <QwikCounter />)
 	const importRe = /import\s+(\w+)\s+from\s+['"]([^'"]+)['"]/g;
 	const autoIslandNames = new Set<string>();
 	const imports: Array<[string, string]> = [];
-	while ((match = importRe.exec(content)) !== null) {
+	for (match = importRe.exec(content); match !== null; match = importRe.exec(content)) {
 		imports.push([match[1], match[2]]);
 		if (isAutoIslandImport(match[2])) {
 			// Check if this component is used as a JSX element
-			const jsxRe = new RegExp("<" + match[1] + "[\\s/>]");
+			const jsxRe = new RegExp(`<${match[1]}[\\s/>]`);
 			if (jsxRe.test(content)) {
 				autoIslandNames.add(match[1]);
 			}
