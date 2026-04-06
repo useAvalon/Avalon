@@ -14,6 +14,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import type { Plugin } from "vite";
 import type { AvalonNitroConfig } from "../nitro/config.ts";
+import type { TreeshakeConfig } from "../post-build/isolated-island-builder.ts";
 import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
 
 interface IslandSource {
@@ -27,6 +28,7 @@ interface IslandSource {
 export function islandClientBundlerPlugin(
 	config: ResolvedAvalonConfig,
 	_nitroConfig?: AvalonNitroConfig,
+	treeshakeOverrides?: Partial<TreeshakeConfig>,
 ): Plugin {
 	const cwd = process.cwd();
 	const discoveredIslands = new Map<string, IslandSource>();
@@ -227,6 +229,7 @@ export function islandClientBundlerPlugin(
 				islandsWithFramework,
 				resolvedAliases,
 				resolvedDefine,
+				treeshakeOverrides ? { treeshake: treeshakeOverrides } : undefined,
 			);
 		},
 	};

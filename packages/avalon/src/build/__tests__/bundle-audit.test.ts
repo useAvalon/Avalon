@@ -8,10 +8,12 @@ import {
 	formatAuditReport,
 	auditBuildConfig,
 	bundleAuditPlugin,
+	compareBenchmarkBaseline,
 	DEFAULT_CHUNK_THRESHOLD,
 	DEFAULT_TOTAL_THRESHOLD,
 	type ChunkInfo,
 	type BundleAsset,
+	type BenchmarkBaseline,
 } from "../bundle-audit.ts";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -518,5 +520,104 @@ describe("constants", () => {
 
 	it("DEFAULT_TOTAL_THRESHOLD is 20 KiB", () => {
 		expect(DEFAULT_TOTAL_THRESHOLD).toBe(20 * 1024);
+	});
+});
+
+
+// ─── compareBenchmarkBaseline ────────────────────────────────────────────────
+
+function makeBaseline(
+	islands: Record<string, { size: number; framework: string }>,
+	astroRef = 4096,
+): BenchmarkBaseline {
+	return {
+		version: 1,
+		timestamp: new Date().toISOString(),
+		islands,
+		references: { astroSolidCounter: astroRef },
+	};
+}
+
+describe("compareBenchmarkBaseline", () => {
+	it("computes deltaBytes and deltaPercent for known islands", () => {
+		const baseline = makeBaseline({
+			"Counter.solid": { size: 5000, framework: "solid" },
+		});
+		const current = [{ island: "Counter.solid", size: 5500, framework: "solid" }];
+
+		const { results } = compareBenchmarkBaseline(current, baseline);
+		expect(results).toHaveLength(1);
+		expect(results[0].deltaBytes).toBe(500);
+		expect(results[0].deltaPercent).toBe(10);
+		expect(results[0].baselineSize).toBe(5000);
+		expect(results[0].currentSize).toBe(5500);
+	});
+
+	it("sets baselineSize to null and deltas to 0 for new islands", () => {
+		const baseline = makeBaseline({});
+		const current = [{ island: "NewIsland.preact", size: 3000, framework: "preact" }];
+
+		const { results } = compareBenchmarkBaseline(current, baseline);
+		expect(results[0].baselineSize).toBeNull();
+		expect(results[0].deltaBytes).toBe(0);
+		expect(results[0].deltaPercent).toBe(0);
+	});
+
+	it("includes astroReferenceSize from baseline in each result", () => {
+		const baseline = makeBaseline({ "A.solid": { size: 1000, framework: "solid" } }, 4096);
+		const current = [{ island: "A.solid", size: 1000, framework: "solid" }];
+
+		const { results } = compareBenchmarkBaseline(current, baseline);
+		expect(results[0].astroReferenceSize).toBe(4096);
+	});
+
+	it("flags regression when deltaBytes exceeds default threshold (500)", () => {
+		const baseline = makeBaseline({ "Big.solid": { size: 5000, framework: "solid" } });
+		const current = [{ island: "Big.solid", size: 5501, framework: "solid" }];
+
+		const { hasRegression } = compareBenchmarkBaseline(current, baseline);
+		expect(hasRegression).toBe(true);
+	});
+
+	it("does not flag regression when deltaBytes equals threshold", () => {
+		const baseline = makeBaseline({ "Ok.solid": { size: 5000, framework: "solid" } });
+		const current = [{ island: "Ok.solid", size: 5500, framework: "solid" }];
+
+		const { hasRegression } = compareBenchmarkBaseline(current, baseline);
+		expect(hasRegression).toBe(false);
+	});
+
+	it("does not flag regression when size decreased", () => {
+		const baseline = makeBaseline({ "Shrunk.solid": { size: 5000, framework: "solid" } });
+		const current = [{ island: "Shrunk.solid", size: 4000, framework: "solid" }];
+
+		const { hasRegression } = compareBenchmarkBaseline(current, baseline);
+		expect(hasRegression).toBe(false);
+	});
+
+	it("respects custom regressionThreshold", () => {
+		const baseline = makeBaseline({ "X.vue": { size: 5000, framework: "vue" } });
+		const current = [{ island: "X.vue", size: 5300, framework: "vue" }];
+
+		// 300 byte delta, threshold 200 → regression
+		expect(compareBenchmarkBaseline(current, baseline, 200).hasRegression).toBe(true);
+		// 300 byte delta, threshold 400 → no regression
+		expect(compareBenchmarkBaseline(current, baseline, 400).hasRegression).toBe(false);
+	});
+
+	it("handles multiple islands with mixed baseline presence", () => {
+		const baseline = makeBaseline({
+			"Known.solid": { size: 4000, framework: "solid" },
+		});
+		const current = [
+			{ island: "Known.solid", size: 4200, framework: "solid" },
+			{ island: "New.preact", size: 3000, framework: "preact" },
+		];
+
+		const { results, hasRegression } = compareBenchmarkBaseline(current, baseline);
+		expect(results).toHaveLength(2);
+		expect(results[0].baselineSize).toBe(4000);
+		expect(results[1].baselineSize).toBeNull();
+		expect(hasRegression).toBe(false);
 	});
 });

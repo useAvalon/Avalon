@@ -11,7 +11,9 @@
  * @module build/bundle-audit
  */
 
+import { readFileSync } from "node:fs";
 import type { Plugin } from "vite";
+import { z } from "zod";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -49,6 +51,15 @@ export interface DuplicatedModule {
 	chunks: string[];
 }
 
+/** Per-framework size thresholds for island chunks (in bytes). */
+export interface PerFrameworkThresholds {
+	solid: number;
+	preact: number;
+	react: number;
+	vue: number;
+	svelte: number;
+}
+
 /** Options for the bundle audit Vite plugin. */
 export interface BundleAuditOptions {
 	/** Maximum allowed size (in bytes) for any single island chunk. Default: 20480 (20 KiB). */
@@ -59,6 +70,93 @@ export interface BundleAuditOptions {
 	logReport?: boolean;
 	/** Whether to emit warnings for oversized chunks. Default: true. */
 	warnOnOversized?: boolean;
+	/** Per-framework size thresholds for island chunks. When provided, islands are also checked against their framework-specific limit. */
+	perFrameworkThresholds?: Partial<PerFrameworkThresholds>;
+	/** Path to the benchmark baseline JSON file. When set, enables benchmark comparison mode. */
+	benchmarkBaseline?: string;
+	/** Maximum allowed regression in bytes before flagging. Default: 500. */
+	regressionThreshold?: number;
+}
+
+/** Zod schema for the benchmark baseline file used to track island bundle sizes over time. */
+export const BenchmarkBaselineSchema = z.object({
+	version: z.number(),
+	timestamp: z.string(),
+	islands: z.record(z.string(), z.object({
+		size: z.number(),
+		framework: z.string(),
+	})),
+	references: z.object({
+		astroSolidCounter: z.number(),
+	}),
+});
+
+/** Benchmark baseline data parsed from the baseline JSON file. */
+export type BenchmarkBaseline = z.infer<typeof BenchmarkBaselineSchema>;
+
+/** Result of comparing a single island's current size against the benchmark baseline. */
+export interface BenchmarkResult {
+	island: string;
+	currentSize: number;
+	baselineSize: number | null;
+	deltaBytes: number;
+	deltaPercent: number;
+	framework: string;
+	astroReferenceSize?: number;
+}
+
+// ─── Benchmark Comparison ────────────────────────────────────────────────────
+
+/**
+ * Compare current island sizes against a stored benchmark baseline.
+ *
+ * This is a pure function — the caller is responsible for loading and parsing
+ * the baseline JSON file. For each island in `currentIslands`, the function
+ * looks up the baseline entry by island name and computes the delta.
+ *
+ * @param currentIslands - Array of current island build results with name, size, and framework
+ * @param baseline - Parsed benchmark baseline data
+ * @param regressionThreshold - Maximum allowed regression in bytes before flagging (default: 500)
+ * @returns Results per island and whether any regression was detected
+ */
+export function compareBenchmarkBaseline(
+	currentIslands: Array<{ island: string; size: number; framework: string }>,
+	baseline: BenchmarkBaseline,
+	regressionThreshold = 500,
+): { results: BenchmarkResult[]; hasRegression: boolean } {
+	const astroReferenceSize = baseline.references.astroSolidCounter;
+
+	const results: BenchmarkResult[] = currentIslands.map((current) => {
+		const baselineEntry = baseline.islands[current.island];
+
+		if (baselineEntry) {
+			const deltaBytes = current.size - baselineEntry.size;
+			const deltaPercent = (deltaBytes / baselineEntry.size) * 100;
+			return {
+				island: current.island,
+				currentSize: current.size,
+				baselineSize: baselineEntry.size,
+				deltaBytes,
+				deltaPercent,
+				framework: current.framework,
+				astroReferenceSize,
+			};
+		}
+
+		return {
+			island: current.island,
+			currentSize: current.size,
+			baselineSize: null,
+			deltaBytes: 0,
+			deltaPercent: 0,
+			framework: current.framework,
+			astroReferenceSize,
+		};
+	});
+
+	const hasRegression = results.some((r) => r.deltaBytes > regressionThreshold);
+
+	return { results, hasRegression };
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -68,6 +166,33 @@ export const DEFAULT_CHUNK_THRESHOLD = 20 * 1024;
 
 /** Default total JS size threshold: 20 KiB (from requirements) */
 export const DEFAULT_TOTAL_THRESHOLD = 20 * 1024;
+
+/** Default per-framework island chunk thresholds. Solid: 6 KiB, others: 10 KiB. */
+export const DEFAULT_PER_FRAMEWORK_THRESHOLDS: PerFrameworkThresholds = {
+	solid: 6 * 1024,
+	preact: 10 * 1024,
+	react: 10 * 1024,
+	vue: 10 * 1024,
+	svelte: 10 * 1024,
+};
+
+/** Supported framework suffixes for detection from file names. */
+const FRAMEWORK_SUFFIXES = [".solid.", ".preact.", ".react.", ".vue.", ".svelte."] as const;
+
+/**
+ * Detect the framework from an island chunk file name.
+ * Looks for `.solid.`, `.preact.`, `.react.`, `.vue.`, `.svelte.` in the file name.
+ * Returns the framework name or `null` if none is detected.
+ */
+export function detectFrameworkFromFileName(fileName: string): string | null {
+	for (const suffix of FRAMEWORK_SUFFIXES) {
+		if (fileName.includes(suffix)) {
+			// Extract framework name between the dots: ".solid." → "solid"
+			return suffix.slice(1, -1);
+		}
+	}
+	return null;
+}
 
 /** Known dev-only module patterns that should not appear in production builds. */
 const DEV_ONLY_PATTERNS = [
@@ -172,13 +297,42 @@ export function findDevOnlyModules(
  */
 export function generateAuditReport(
 	chunks: ChunkInfo[],
-	options: { chunkSizeThreshold?: number; totalSizeThreshold?: number } = {},
+	options: {
+		chunkSizeThreshold?: number;
+		totalSizeThreshold?: number;
+		perFrameworkThresholds?: Partial<PerFrameworkThresholds>;
+	} = {},
 ): BundleAuditReport {
 	const chunkThreshold = options.chunkSizeThreshold ?? DEFAULT_CHUNK_THRESHOLD;
 
 	const totalJsBytes = chunks.reduce((sum, c) => sum + c.size, 0);
 	const islandJsBytes = chunks.filter((c) => c.isIsland).reduce((sum, c) => sum + c.size, 0);
-	const oversizedChunks = chunks.filter((c) => c.isIsland && c.size > chunkThreshold);
+
+	// Global threshold check (existing behavior)
+	const globalOversized = new Set(
+		chunks.filter((c) => c.isIsland && c.size > chunkThreshold).map((c) => c.fileName),
+	);
+
+	// Per-framework threshold check (only when option is provided)
+	const frameworkOversized = new Set<string>();
+	if (options.perFrameworkThresholds) {
+		const thresholds = { ...DEFAULT_PER_FRAMEWORK_THRESHOLDS, ...options.perFrameworkThresholds };
+		for (const chunk of chunks) {
+			if (!chunk.isIsland) continue;
+			const framework = detectFrameworkFromFileName(chunk.fileName);
+			if (framework && framework in thresholds) {
+				const limit = thresholds[framework as keyof PerFrameworkThresholds];
+				if (chunk.size > limit) {
+					frameworkOversized.add(chunk.fileName);
+				}
+			}
+		}
+	}
+
+	// Merge: a chunk is oversized if flagged by EITHER the global OR per-framework threshold
+	const allOversizedNames = new Set([...globalOversized, ...frameworkOversized]);
+	const oversizedChunks = chunks.filter((c) => allOversizedNames.has(c.fileName));
+
 	const duplicatedModules = findDuplicatedModules(chunks);
 
 	return {
@@ -369,6 +523,9 @@ export function bundleAuditPlugin(options: BundleAuditOptions = {}): Plugin {
 		totalSizeThreshold = DEFAULT_TOTAL_THRESHOLD,
 		logReport = true,
 		warnOnOversized = true,
+		perFrameworkThresholds,
+		benchmarkBaseline,
+		regressionThreshold,
 	} = options;
 
 	let isBuild = false;
@@ -416,6 +573,7 @@ export function bundleAuditPlugin(options: BundleAuditOptions = {}): Plugin {
 			const report = generateAuditReport(chunks, {
 				chunkSizeThreshold,
 				totalSizeThreshold,
+				perFrameworkThresholds,
 			});
 
 			if (logReport) {
@@ -447,6 +605,50 @@ export function bundleAuditPlugin(options: BundleAuditOptions = {}): Plugin {
 					this.warn(
 						`Dev-only module "${finding.moduleId}" found in chunk "${finding.chunkFileName}"`,
 					);
+				}
+			}
+
+			// Benchmark comparison mode
+			if (benchmarkBaseline) {
+				try {
+					const baselineJson = readFileSync(benchmarkBaseline, "utf-8");
+					const baseline = BenchmarkBaselineSchema.parse(JSON.parse(baselineJson));
+
+					// Extract island chunks and map to benchmark input format
+					const currentIslands = report.chunks
+						.filter((c) => c.isIsland)
+						.map((c) => ({
+							island: c.fileName,
+							size: c.size,
+							framework: detectFrameworkFromFileName(c.fileName) ?? "unknown",
+						}));
+
+					const { results, hasRegression } = compareBenchmarkBaseline(
+						currentIslands,
+						baseline,
+						regressionThreshold,
+					);
+
+					// Log benchmark results
+					for (const r of results) {
+						const baselineStr = r.baselineSize != null ? formatKiB(r.baselineSize) : "N/A";
+						const deltaStr = r.baselineSize != null ? `${r.deltaBytes > 0 ? "+" : ""}${r.deltaBytes}B (${r.deltaPercent.toFixed(1)}%)` : "new";
+						console.log(
+							`📊 [benchmark] ${r.island}: ${formatKiB(r.currentSize)} (baseline: ${baselineStr}, delta: ${deltaStr})`,
+						);
+					}
+
+					if (hasRegression) {
+						this.error(
+							"Bundle size regression detected — one or more islands exceed the baseline by more than the allowed threshold",
+						);
+					}
+				} catch (err) {
+					if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+						this.warn(`Benchmark baseline file not found: ${benchmarkBaseline}`);
+					} else {
+						throw err;
+					}
 				}
 			}
 		},
