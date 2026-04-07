@@ -234,6 +234,45 @@ function copySSRCSSToClient(cwd: string, distDir: string): void {
 	console.log("[ssr-css] No SSR CSS files found");
 }
 
+// ─── Sync Isolated Islands ───────────────────────────────────────────
+
+/**
+ * Copy isolated island builds from dist/ to .output/public/.
+ *
+ * The isolated island builder runs in Vite's closeBundle hook, which fires
+ * AFTER Nitro copies dist/ to .output/public/. So .output/public/islands/
+ * still has the code-split versions (with external imports). This function
+ * overwrites them with the self-contained isolated builds from dist/.
+ */
+function syncIsolatedIslands(cwd: string, distDir: string): void {
+	const srcIslands = join(distDir, "islands");
+	if (!existsSync(srcIslands)) return;
+
+	const destDirs = [
+		join(cwd, ".output", "public", "islands"),
+		join(cwd, ".netlify", "functions-internal", "server", "public", "islands"),
+	];
+
+	let copied = 0;
+	const islandFiles = collectFiles(srcIslands, (n) => n.endsWith(".js") && !n.endsWith(".js.map"));
+
+	for (const destBase of destDirs) {
+		if (!existsSync(destBase)) continue;
+		for (const srcFile of islandFiles) {
+			const relPath = srcFile.substring(srcIslands.length);
+			const destFile = join(destBase, relPath);
+			if (existsSync(destFile)) {
+				copyFileSync(srcFile, destFile);
+				copied++;
+			}
+		}
+	}
+
+	if (copied > 0) {
+		console.log(`[islands] ✅ Synced ${copied} isolated island build(s) to output`);
+	}
+}
+
 // ─── Island Redirects ────────────────────────────────────────────────
 
 function generateIslandRedirects(distDir: string): void {
@@ -787,7 +826,12 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 		}
 	}
 
-	// 4. Island redirects + local copies
+	// 4. Sync isolated island builds to .output/public/
+	// The isolated builder runs in closeBundle (after Nitro copies dist/ to .output/public/),
+	// so the self-contained island files in dist/ need to be copied over.
+	syncIsolatedIslands(cwd, distDir);
+
+	// 5. Island redirects + local copies
 	generateIslandRedirects(distDir);
 
 	// 5. Copy framework adapters
