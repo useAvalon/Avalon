@@ -91,6 +91,7 @@ function cleanupStaleHtml(cwd: string): void {
 	for (const htmlPath of [
 		"dist/index.html",
 		".netlify/functions-internal/server/public/index.html",
+		".output/public/index.html",
 	]) {
 		const full = join(cwd, htmlPath);
 		if (isViteGeneratedHtml(full)) {
@@ -116,10 +117,26 @@ function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string):
 	const foundAssetsDir = assetsDirs.find((d) => existsSync(d));
 	if (!foundAssetsDir) return;
 
-	const allCssPaths = collectFiles(foundAssetsDir, (n) => n.endsWith(".css")).map((f) => {
-		const rel = f.substring(foundAssetsDir.length).replaceAll("\\", "/");
-		return `/assets${rel}`;
-	});
+	const allCssPaths = collectFiles(foundAssetsDir, (n) => n.endsWith(".css"))
+		.filter((f) => {
+			const name = (f.split("/").pop() || "").toLowerCase();
+			// Only include global/layout CSS — not island-specific CSS
+			// Island CSS is loaded per-page via the island's own chunk imports
+			if (name.includes("_isolated-island-entry")) return false;
+			// SSR-generated index CSS (contains all layout + global styles)
+			if (
+				name.startsWith("ssr-index") ||
+				name.startsWith("index-") ||
+				name.startsWith("entry-client")
+			)
+				return true;
+			// Everything else is island/component-specific — skip it
+			return false;
+		})
+		.map((f) => {
+			const rel = f.substring(foundAssetsDir.length).replaceAll("\\", "/");
+			return `/assets${rel}`;
+		});
 	console.log(`[patch] Found ${allCssPaths.length} CSS files in ${foundAssetsDir}`);
 
 	let code = readFileSync(ssrBundlePath, "utf-8");
@@ -150,6 +167,19 @@ function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string):
 	console.warn("[patch] Could not find CSS array in SSR bundle");
 }
 
+/**
+ * Simple CSS minification — removes comments, extra whitespace, and newlines.
+ * Good enough for production; avoids adding a heavy dependency.
+ */
+function minifyCSS(css: string): string {
+	return css
+		.replaceAll(/\/\*[\s\S]*?\*\//g, "")
+		.replaceAll(/\s+/g, " ")
+		.replaceAll(/\s*([{}:;,>~+])\s*/g, "$1")
+		.replaceAll(/;}/g, "}")
+		.trim();
+}
+
 function copySSRCSSToClient(cwd: string, distDir: string): void {
 	const ssrAssetsDirs = [join(cwd, "node_modules", ".nitro", "vite", "services", "ssr", "assets")];
 
@@ -166,13 +196,17 @@ function copySSRCSSToClient(cwd: string, distDir: string): void {
 		for (const destDir of destDirs) {
 			mkdirSync(destDir, { recursive: true });
 			for (const file of cssFiles) {
-				copyFileSync(join(ssrAssetsDir, file), join(destDir, `ssr-${file}`));
+				// Minify CSS before copying — SSR build output is unminified
+				let css = readFileSync(join(ssrAssetsDir, file), "utf-8");
+				css = minifyCSS(css);
+				writeFileSync(join(destDir, `ssr-${file}`), css);
 			}
 		}
 		const sampleFile = cssFiles[0];
-		const size = readFileSync(join(ssrAssetsDir, sampleFile)).length;
 		const destName = `ssr-${sampleFile}`;
-		console.log(`[ssr-css] Copied SSR CSS → /assets/${destName} (${size} bytes)`);
+		const destPath = join(destDirs.find((d) => existsSync(d)) || destDirs[0], destName);
+		const size = existsSync(destPath) ? readFileSync(destPath).length : 0;
+		console.log(`[ssr-css] Copied SSR CSS → /assets/${destName} (${size} bytes, minified)`);
 
 		// Patch asset manifests (skip silently for Netlify which has no per-file manifest)
 		const nitroIndexPaths = [
@@ -541,7 +575,17 @@ async function prerenderIfConfigured(
 						"<!DOCTYPE html>",
 						"<!DOCTYPE html>\n<!-- SSG: prerendered at build time -->",
 					);
-					writeFileSync(outputPath, stamped);
+					// Strip phantom _isolated-island-entry CSS from prerendered HTML.
+					// Keep: entry-client CSS, ssr-index CSS, index CSS (contains all CSS module styles),
+					// and any other non-phantom CSS.
+					const cleaned = stamped.replaceAll(
+						/<link rel="stylesheet" href="\/assets\/[^"]*\.css">\n?/g,
+						(match) => {
+							if (match.includes("_isolated-island-entry")) return "";
+							return match;
+						},
+					);
+					writeFileSync(outputPath, cleaned);
 					prerendered.push(normalized);
 					console.log(`[prerender] ✅ ${normalized} → ${fileName}`);
 
@@ -622,7 +666,10 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 	// 2. Copy SSR CSS to client assets
 	copySSRCSSToClient(cwd, distDir);
 
-	// 3. Patch SSR bundles
+	// 3. Patch SSR bundle CSS array — adds global CSS (index-*.css, ssr-index-*.css)
+	// to the client manifest in the SSR bundle. The client manifest only includes
+	// entry-client CSS, but index-*.css (all CSS module styles) is needed globally.
+	// Island-specific CSS (Counter-*, DocsSidebar-*, etc.) is excluded by the filter.
 	for (const ssrPath of [
 		join(cwd, ".netlify", "functions-internal", "server", "_ssr", "ssr.mjs"),
 		join(cwd, ".netlify", "v1", "functions", "server", "_ssr", "ssr.mjs"),

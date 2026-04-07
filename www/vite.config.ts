@@ -203,6 +203,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			emptyOutDir: true,
 			target: "es2020",
 			minify: "oxc",
+			cssMinify: true,
 		},
 
 		server: {

@@ -115,8 +115,8 @@ function generateStrategyCode(
 	directiveScript?: string,
 ): string {
 	if (condition === "on:client") {
-		// Immediate hydration, deferred to next idle/frame to avoid blocking
-		return `${hydrateCall}(window.requestIdleCallback||requestAnimationFrame)(function(){h()});`;
+		// Immediate hydration — on:client means hydrate as soon as the module loads
+		return `${hydrateCall}h();`;
 	}
 
 	if (condition === "on:visible") {

@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/avalon",
-	"version": "0.1.67",
+	"version": "0.1.68",
 	"description": "Multi-framework islands architecture for the modern web",
 	"license": "MIT",
 	"type": "module",
@@ -82,10 +82,7 @@
 		"vite": "^8.0.0",
 		"nitro": "^3.0.260311-beta",
 		"vite-imagetools": "^7.0.0",
-		"rehype-highlight": "^7.0.0",
-		"unplugin-solid": "^1.0.0",
-		"unplugin-vue": "^7.0.0",
-		"rollup-plugin-svelte": "^7.0.0"
+		"rehype-highlight": "^7.0.0"
 	},
 	"peerDependenciesMeta": {
 		"nitro": {
@@ -99,21 +96,11 @@
 		},
 		"rehype-highlight": {
 			"optional": true
-		},
-		"unplugin-solid": {
-			"optional": true
-		},
-		"unplugin-vue": {
-			"optional": true
-		},
-		"rollup-plugin-svelte": {
-			"optional": true
 		}
 	},
 	"dependencies": {
 		"@useavalon/core": "workspace:^",
 		"@mdx-js/rollup": "^3.0.0",
-		"tsdown": "^0.21.7",
 		"h3": "^2.0.1-rc.16",
 		"marked": "^17.0.4",
 		"oxc-transform": "^0.117.0",
