@@ -23,6 +23,8 @@ export interface IslandBuildResult {
 	size?: number;
 	error?: string;
 	elapsedMs?: number;
+	/** Dependency chunk paths (for modulepreload hints) */
+	deps?: string[];
 }
 
 interface IslandSource {
@@ -273,7 +275,7 @@ export async function buildIsolatedIslands(
 			const preactCompat = await createPreactCompatPlugin(cwd);
 			const islandStart = performance.now();
 
-			await viteBuild({
+			const buildOutput = await viteBuild({
 				configFile: false,
 				root: cwd,
 				logLevel: "silent",
@@ -320,7 +322,21 @@ export async function buildIsolatedIslands(
 			const elapsedMs = performance.now() - islandStart;
 			const outPath = resolve(cwd, distDir, outputFile);
 			const size = existsSync(outPath) ? statSync(outPath).size : 0;
-			results.push({ island: outputFile, success: true, size, elapsedMs });
+
+			// Extract dependency chunks from the build output for modulepreload hints
+			const deps: string[] = [];
+			const outputs = Array.isArray(buildOutput) ? buildOutput : [buildOutput];
+			for (const out of outputs) {
+				if (out && "output" in out) {
+					for (const chunk of out.output) {
+						if (chunk.type === "chunk" && chunk.fileName !== outputFile) {
+							deps.push(`/${chunk.fileName}`);
+						}
+					}
+				}
+			}
+
+			results.push({ island: outputFile, success: true, size, elapsedMs, deps });
 			console.log(`  ✅ ${bundleKey} (${framework}): ${(size / 1024).toFixed(1)} KiB`);
 			if (elapsedMs > 2000)
 				console.warn(`  ⚠ ${bundleKey} (${framework}): build took ${elapsedMs.toFixed(0)}ms (>2s)`);
@@ -335,5 +351,20 @@ export async function buildIsolatedIslands(
 	const succeeded = results.filter((r) => r.success).length;
 	const failed = results.filter((r) => !r.success).length;
 	console.log(`🏝️  Done in ${elapsed}s: ${succeeded} built${failed ? `, ${failed} failed` : ""}`);
+
+	// Write island dependency manifest for modulepreload hints
+	const depsManifest: Record<string, string[]> = {};
+	for (const result of results) {
+		if (result.success && result.deps && result.deps.length > 0) {
+			// Key by the island's public path (e.g., /islands/app/.../Counter.preact.js)
+			depsManifest[`/${result.island}`] = result.deps;
+		}
+	}
+	if (Object.keys(depsManifest).length > 0) {
+		const manifestPath = resolve(cwd, distDir, "island-deps.json");
+		const { writeFileSync } = await import("node:fs");
+		writeFileSync(manifestPath, JSON.stringify(depsManifest));
+	}
+
 	return results;
 }

@@ -644,6 +644,112 @@ async function prerenderIfConfigured(
 	}
 }
 
+// ─── Island Dependency Modulepreload ──────────────────────────────────
+
+/**
+ * Inject `<link rel="modulepreload">` hints for island dependency chunks
+ * into prerendered HTML files. This eliminates the waterfall where the browser
+ * loads an island JS file, discovers its imports, then fetches them.
+ *
+ * Two strategies:
+ * 1. Reads island-deps.json (from isolated island builder) if available
+ * 2. Falls back to scanning island JS files for static import statements
+ */
+function injectIslandDepsPreloads(cwd: string, distDir: string): void {
+	// Strategy 1: Use island-deps.json from isolated builder
+	let depsManifest: Record<string, string[]> = {};
+	const depsPath = join(distDir, "island-deps.json");
+	if (existsSync(depsPath)) {
+		try {
+			depsManifest = JSON.parse(readFileSync(depsPath, "utf-8"));
+		} catch {
+			/* ignore */
+		}
+	}
+
+	// Strategy 2: Scan island JS files for static imports
+	const outputDir = join(cwd, ".output", "public");
+	if (Object.keys(depsManifest).length === 0 && existsSync(outputDir)) {
+		const islandFiles = collectFiles(
+			join(outputDir, "islands"),
+			(n) => n.endsWith(".js") && !n.endsWith(".js.map"),
+		);
+		for (const islandFile of islandFiles) {
+			const relPath = `/${islandFile.substring(outputDir.length + 1).replaceAll("\\", "/")}`;
+			const code = readFileSync(islandFile, "utf-8");
+			// Extract static import paths: import{...}from"path" or import "path"
+			const importRegex = /\bfrom\s*["']([^"']+)["']|import\s*["']([^"']+)["']/g;
+			const deps: string[] = [];
+			let m: RegExpExecArray | null;
+			for (m = importRegex.exec(code); m !== null; m = importRegex.exec(code)) {
+				const importPath = m[1] || m[2];
+				if (importPath && (importPath.includes("/assets/") || importPath.startsWith("."))) {
+					// Resolve relative paths to absolute
+					const resolved = importPath.startsWith(".")
+						? `/${join(dirname(relPath.slice(1)), importPath)
+								.replaceAll("\\", "/")
+								.replace(/^\/+/, "")}`
+						: importPath;
+					// Normalize path (remove ../ segments)
+					const parts = resolved.split("/").filter(Boolean);
+					const normalized: string[] = [];
+					for (const part of parts) {
+						if (part === "..") normalized.pop();
+						else if (part !== ".") normalized.push(part);
+					}
+					deps.push(`/${normalized.join("/")}`);
+				}
+			}
+			if (deps.length > 0) {
+				depsManifest[relPath] = deps;
+			}
+		}
+	}
+
+	if (Object.keys(depsManifest).length === 0) return;
+
+	// Find all prerendered HTML files and inject modulepreload hints
+	const htmlDirs = [join(cwd, ".output", "public"), distDir];
+
+	let patchedCount = 0;
+	for (const htmlDir of htmlDirs) {
+		if (!existsSync(htmlDir)) continue;
+		const htmlFiles = collectFiles(htmlDir, (n) => n === "index.html");
+		for (const htmlFile of htmlFiles) {
+			let html = readFileSync(htmlFile, "utf-8");
+			const preloadHints = new Set<string>();
+
+			for (const [islandPath, deps] of Object.entries(depsManifest)) {
+				if (html.includes(islandPath)) {
+					for (const dep of deps) {
+						if (!html.includes(`href="${dep}"`)) {
+							preloadHints.add(dep);
+						}
+					}
+				}
+			}
+
+			if (preloadHints.size === 0) continue;
+
+			const hints = Array.from(preloadHints)
+				.map((href) => `<link rel="modulepreload" href="${href}">`)
+				.join("\n");
+
+			if (html.includes("</head>")) {
+				html = html.replace("</head>", `${hints}\n</head>`);
+				writeFileSync(htmlFile, html);
+				patchedCount++;
+			}
+		}
+	}
+
+	if (patchedCount > 0) {
+		console.log(
+			`[modulepreload] ✅ Injected dependency preloads into ${patchedCount} HTML file(s)`,
+		);
+	}
+}
+
 // ─── Main Entry Point ────────────────────────────────────────────────
 
 /**
@@ -694,6 +800,9 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 	if (options.prerender !== false) {
 		await prerenderIfConfigured(cwd, distDir, options.prerender ?? {}, prerenderPort);
 	}
+
+	// 8. Inject modulepreload hints for island dependencies into prerendered HTML
+	injectIslandDepsPreloads(cwd, distDir);
 
 	console.log("[post-build] ✅ Complete");
 }
