@@ -106,8 +106,8 @@ export function islandClientBundlerPlugin(
 			const isSolid = filePath.includes(".solid.");
 			const isPreact = filePath.includes(".preact.");
 			const isReact = filePath.includes(".react.");
-			const isVue = filePath.includes(".vue.");
-			const isSvelte = filePath.includes(".svelte.");
+			const isVue = filePath.includes(".vue.") || filePath.endsWith(".vue");
+			const isSvelte = filePath.includes(".svelte.") || filePath.endsWith(".svelte");
 			const lines: string[] = [];
 
 			// For Lit islands, hydration support MUST be loaded before the component.

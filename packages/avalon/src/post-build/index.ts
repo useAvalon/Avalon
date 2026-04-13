@@ -120,23 +120,23 @@ function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string):
 	const allCssPaths = collectFiles(foundAssetsDir, (n) => n.endsWith(".css"))
 		.filter((f) => {
 			const name = (f.split("/").pop() || "").toLowerCase();
-			// Only include global/layout CSS — not island-specific CSS
-			// Island CSS is loaded per-page via the island's own chunk imports
 			if (name.includes("_isolated-island-entry")) return false;
-			// SSR-generated index CSS (contains all layout + global styles)
-			if (
-				name.startsWith("ssr-index") ||
-				name.startsWith("index-") ||
-				name.startsWith("entry-client")
-			)
-				return true;
-			// Everything else is island/component-specific — skip it
+			if (name.startsWith("entry-client")) return true;
+			if (name.startsWith("index-")) return true;
 			return false;
 		})
 		.map((f) => {
 			const rel = f.substring(foundAssetsDir.length).replaceAll("\\", "/");
 			return `/assets${rel}`;
 		});
+
+	// Include ssr-index only when no index-*.css exists (they have the same content)
+	if (!allCssPaths.some((p) => /\/index-[^/]+\.css$/.test(p))) {
+		const ssrPaths = collectFiles(foundAssetsDir, (n) => n.endsWith(".css"))
+			.filter((f) => (f.split("/").pop() || "").toLowerCase().startsWith("ssr-index"))
+			.map((f) => `/assets${f.substring(foundAssetsDir.length).replaceAll("\\", "/")}`);
+		allCssPaths.push(...ssrPaths);
+	}
 	console.log(`[patch] Found ${allCssPaths.length} CSS files in ${foundAssetsDir}`);
 
 	let code = readFileSync(ssrBundlePath, "utf-8");
@@ -181,6 +181,20 @@ function minifyCSS(css: string): string {
 }
 
 function copySSRCSSToClient(cwd: string, distDir: string): void {
+	// Skip if the client build already emitted entry-client CSS (which contains
+	// the same global + layout styles). The ssr-index copy is only needed when
+	// the client build does not produce its own CSS bundle.
+	const clientAssets = join(distDir, "assets");
+	if (existsSync(clientAssets)) {
+		const hasClientCSS = readdirSync(clientAssets).some(
+			(f) => f.startsWith("entry-client") && f.endsWith(".css"),
+		);
+		if (hasClientCSS) {
+			console.log("[ssr-css] Skipped — client build already includes entry-client CSS");
+			return;
+		}
+	}
+
 	const ssrAssetsDirs = [join(cwd, "node_modules", ".nitro", "vite", "services", "ssr", "assets")];
 
 	for (const ssrAssetsDir of ssrAssetsDirs) {
@@ -234,36 +248,124 @@ function copySSRCSSToClient(cwd: string, distDir: string): void {
 	console.log("[ssr-css] No SSR CSS files found");
 }
 
+// ─── Ensure Isolated Islands ─────────────────────────────────────────
+
+/**
+ * Rebuild any island files in dist/ that are still code-split (contain
+ * relative imports to shared chunks). The isolated builder normally runs
+ * in Vite's closeBundle hook, but the build process may terminate before
+ * all frameworks finish compiling. This function acts as a safety net.
+ */
+async function ensureIsolatedIslands(cwd: string, distDir: string): Promise<void> {
+	const islandsDir = join(distDir, "islands");
+	if (!existsSync(islandsDir)) return;
+
+	const islandFiles = collectFiles(islandsDir, (n) => n.endsWith(".js") && !n.endsWith(".js.map"));
+	if (islandFiles.length === 0) return;
+
+	// Check which islands are still code-split (have relative imports to shared chunks)
+	const staleIslands: Array<{ filePath: string; bundleKey: string; framework: string }> = [];
+	for (const file of islandFiles) {
+		const content = readFileSync(file, "utf-8");
+		// Code-split islands import from shared chunks via relative paths like from"../../assets/
+		// Self-contained isolated builds have no such imports (everything is inlined).
+		const hasSharedImports = /from\s*["']\.\.\//.test(content);
+		if (!hasSharedImports) continue;
+
+		// Determine framework from filename
+		const relPath = file.substring(islandsDir.length + 1).replace(/\.js$/, "");
+		let framework = "preact";
+		if (file.includes(".solid.")) framework = "solid";
+		else if (file.includes(".vue.")) framework = "vue";
+		else if (file.endsWith(".vue.js")) framework = "vue";
+		else if (file.includes(".svelte.")) framework = "svelte";
+		else if (file.includes(".react.")) framework = "react";
+		else if (file.includes(".lit.")) framework = "lit";
+		else if (file.includes(".qwik.")) framework = "qwik";
+
+		// Qwik and Lit are skipped by the isolated builder
+		if (framework === "qwik" || framework === "lit") continue;
+
+		// Resolve the original source file from the bundle key
+		const srcFile = join(cwd, `${relPath}.tsx`);
+		const srcFileTs = join(cwd, `${relPath}.ts`);
+		const srcFileVue = join(cwd, `${relPath}`).replace(/\.vue$/, ".vue");
+		const srcFileSvelte = join(cwd, `${relPath}`).replace(/\.svelte$/, ".svelte");
+
+		let resolvedSrc: string | null = null;
+		for (const candidate of [srcFile, srcFileTs, srcFileVue, srcFileSvelte]) {
+			if (existsSync(candidate)) {
+				resolvedSrc = candidate;
+				break;
+			}
+		}
+
+		if (!resolvedSrc) {
+			console.warn(`[islands] ⚠ Cannot find source for stale island: ${relPath}`);
+			continue;
+		}
+
+		staleIslands.push({ filePath: resolvedSrc, bundleKey: relPath, framework });
+	}
+
+	if (staleIslands.length === 0) return;
+
+	console.log(`[islands] Found ${staleIslands.length} island(s) still code-split, rebuilding...`);
+
+	try {
+		const { buildIsolatedIslands } = await import("./isolated-island-builder.ts");
+
+		const islandsMap = new Map<
+			string,
+			{ filePath: string; bundleKey: string; framework: string }
+		>();
+		for (const island of staleIslands) {
+			islandsMap.set(island.filePath, island);
+		}
+
+		await buildIsolatedIslands(cwd, "dist", islandsMap, [], {});
+	} catch (err) {
+		console.error(
+			`[islands] ❌ Failed to rebuild stale islands: ${err instanceof Error ? err.message : err}`,
+		);
+	}
+}
+
 // ─── Sync Isolated Islands ───────────────────────────────────────────
 
 /**
- * Copy isolated island builds from dist/ to .output/public/.
+ * Copy isolated island builds from dist/ to .output/public/ and .netlify/.
  *
- * The isolated island builder runs in Vite's closeBundle hook, which fires
- * AFTER Nitro copies dist/ to .output/public/. So .output/public/islands/
- * still has the code-split versions (with external imports). This function
- * overwrites them with the self-contained isolated builds from dist/.
+ * Nitro copies dist/ before the isolated builder finishes, so the output
+ * directories contain stale code-split versions. This overwrites them with
+ * the self-contained isolated builds and removes stale compressed files.
  */
 function syncIsolatedIslands(cwd: string, distDir: string): void {
 	const srcIslands = join(distDir, "islands");
 	if (!existsSync(srcIslands)) return;
 
 	const destDirs = [
-		join(cwd, ".output", "public", "islands"),
-		join(cwd, ".netlify", "functions-internal", "server", "public", "islands"),
+		join(cwd, ".output", "public"),
+		join(cwd, ".netlify", "functions-internal", "server", "public"),
 	];
 
 	let copied = 0;
 	const islandFiles = collectFiles(srcIslands, (n) => n.endsWith(".js") && !n.endsWith(".js.map"));
 
-	for (const destBase of destDirs) {
-		if (!existsSync(destBase)) continue;
+	for (const destPublic of destDirs) {
+		if (!existsSync(destPublic)) continue;
+		const destBase = join(destPublic, "islands");
 		for (const srcFile of islandFiles) {
 			const relPath = srcFile.substring(srcIslands.length);
 			const destFile = join(destBase, relPath);
-			if (existsSync(destFile)) {
-				copyFileSync(srcFile, destFile);
-				copied++;
+			mkdirSync(dirname(destFile), { recursive: true });
+			copyFileSync(srcFile, destFile);
+			copied++;
+			for (const ext of [".br", ".gz", ".zst"]) {
+				const compressed = destFile + ext;
+				if (existsSync(compressed)) {
+					unlinkSync(compressed);
+				}
 			}
 		}
 	}
@@ -826,18 +928,19 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 		}
 	}
 
-	// 4. Sync isolated island builds to .output/public/
-	// The isolated builder runs in closeBundle (after Nitro copies dist/ to .output/public/),
-	// so the self-contained island files in dist/ need to be copied over.
+	// 4. Rebuild any islands that are still code-split
+	await ensureIsolatedIslands(cwd, distDir);
+
+	// 5. Sync isolated island builds to output directories
 	syncIsolatedIslands(cwd, distDir);
 
-	// 5. Island redirects + local copies
+	// 6. Island redirects + local copies
 	generateIslandRedirects(distDir);
 
-	// 5. Copy framework adapters
+	// 7. Copy framework adapters
 	copyAdapters(cwd, distDir);
 
-	// 6. Copy to Netlify function paths
+	// 8. Copy to Netlify function paths
 	copyToNetlifyPaths(cwd);
 
 	// 7. Prerender (if not disabled)

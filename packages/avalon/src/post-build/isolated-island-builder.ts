@@ -42,31 +42,20 @@ export interface TreeshakeConfig {
 	manualPureFunctions: string[];
 }
 
-/** Default tree-shaking config with aggressive settings and Solid runtime pure functions */
+/**
+ * Default tree-shaking config for isolated island builds.
+ *
+ * manualPureFunctions is intentionally empty — framework runtime functions
+ * like createSignal, createEffect, template, insert, and delegateEvents
+ * have side effects that are required for hydration. Marking them as pure
+ * causes the tree-shaker to strip hydration code paths and event delegation.
+ */
 export const DEFAULT_TREESHAKE_CONFIG: TreeshakeConfig = {
 	annotations: true,
-	moduleSideEffects: false,
+	moduleSideEffects: true,
 	propertyReadSideEffects: false,
 	unknownGlobalSideEffects: false,
-	manualPureFunctions: [
-		"createSignal",
-		"createEffect",
-		"createMemo",
-		"createComponent",
-		"template",
-		"insert",
-		"delegateEvents",
-		"setAttribute",
-		"effect",
-		"memo",
-		"spread",
-		"mergeProps",
-		"splitProps",
-		"className",
-		"classList",
-		"style",
-		"addEventListener",
-	],
+	manualPureFunctions: [],
 };
 
 /**

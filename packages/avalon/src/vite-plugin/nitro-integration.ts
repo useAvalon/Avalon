@@ -89,16 +89,16 @@ export const VIRTUAL_MODULE_IDS = {
 } as const;
 
 export const RESOLVED_VIRTUAL_IDS = {
-	PAGE_ROUTES: "\0" + VIRTUAL_MODULE_IDS.PAGE_ROUTES,
-	PAGE_LOADER: "\0" + VIRTUAL_MODULE_IDS.PAGE_LOADER,
-	ISLAND_MANIFEST: "\0" + VIRTUAL_MODULE_IDS.ISLAND_MANIFEST,
-	RUNTIME_CONFIG: "\0" + VIRTUAL_MODULE_IDS.RUNTIME_CONFIG,
-	CONFIG: "\0" + VIRTUAL_MODULE_IDS.CONFIG,
-	LAYOUTS: "\0" + VIRTUAL_MODULE_IDS.LAYOUTS,
-	ASSETS: "\0" + VIRTUAL_MODULE_IDS.ASSETS,
-	RENDERER: "\0" + VIRTUAL_MODULE_IDS.RENDERER,
-	CLIENT_ENTRY: "\0" + VIRTUAL_MODULE_IDS.CLIENT_ENTRY,
-	INTEGRATION_LOADER: "\0" + VIRTUAL_MODULE_IDS.INTEGRATION_LOADER,
+	PAGE_ROUTES: `\0${VIRTUAL_MODULE_IDS.PAGE_ROUTES}`,
+	PAGE_LOADER: `\0${VIRTUAL_MODULE_IDS.PAGE_LOADER}`,
+	ISLAND_MANIFEST: `\0${VIRTUAL_MODULE_IDS.ISLAND_MANIFEST}`,
+	RUNTIME_CONFIG: `\0${VIRTUAL_MODULE_IDS.RUNTIME_CONFIG}`,
+	CONFIG: `\0${VIRTUAL_MODULE_IDS.CONFIG}`,
+	LAYOUTS: `\0${VIRTUAL_MODULE_IDS.LAYOUTS}`,
+	ASSETS: `\0${VIRTUAL_MODULE_IDS.ASSETS}`,
+	RENDERER: `\0${VIRTUAL_MODULE_IDS.RENDERER}`,
+	CLIENT_ENTRY: `\0${VIRTUAL_MODULE_IDS.CLIENT_ENTRY}`,
+	INTEGRATION_LOADER: `\0${VIRTUAL_MODULE_IDS.INTEGRATION_LOADER}`,
 } as const;
 
 export interface NitroIntegrationResult {
@@ -232,16 +232,15 @@ export function createNitroIntegration(
  * and prewarms core infrastructure modules (fire-and-forget).
  */
 export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOptions): Plugin {
-	const { avalonConfig, nitroConfig, verbose } = options;
+	const { avalonConfig, verbose } = options;
 
 	return {
 		name: "avalon:nitro-coordination",
 		enforce: "pre",
 
 		configResolved(_config) {
-			globalThis.__avalonConfig = avalonConfig;
-			// Hydration mode is automatic: dev uses entry-client (needed for HMR),
-			// production always uses per-island (better performance, Astro-style).
+			// Hydration mode: dev uses entry-client (HMR), production uses per-island.
+			// __avalonConfig is set by the main avalon plugin with the resolved isDev value.
 			globalThis.__avalonHydrationMode =
 				_config.command === "serve" ? "entry-client" : "per-island";
 		},
@@ -373,12 +372,12 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 async function handleScopedMiddleware(
-	server: ViteDevServer,
+	_server: ViteDevServer,
 	url: string,
 	req: IncomingMessage,
 	res: ServerResponse,
 	getScopedMiddleware: () => Promise<MiddlewareRoute[]>,
-	verbose?: boolean,
+	_verbose?: boolean,
 ): Promise<boolean> {
 	const middlewareStart = performance.now();
 	const middlewareRoutes = await getScopedMiddleware();
@@ -540,7 +539,7 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 					scanCssSync(full);
 				} else if (entry.isFile() && entry.name.endsWith(".css")) {
 					const rel = pathRelative(_cwd, full).replaceAll("\\", "/");
-					_devCssLinks.push(rel.startsWith("/") ? rel : "/" + rel);
+					_devCssLinks.push(rel.startsWith("/") ? rel : `/${rel}`);
 				}
 			}
 		} catch {
@@ -551,7 +550,7 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 	function rescanCss(): void {
 		_devCssLinks.length = 0;
 		for (const cssPath of nitroConfig.globalCSS ?? []) {
-			_devCssLinks.push(cssPath.startsWith("/") ? cssPath : "/" + cssPath);
+			_devCssLinks.push(cssPath.startsWith("/") ? cssPath : `/${cssPath}`);
 		}
 		if (avalonConfig.modules) {
 			scanCssSync(pathResolve(_cwd, avalonConfig.modules.dir));
@@ -736,7 +735,7 @@ async function generatePageLoaderModule(
 			// Make the absolute filePath relative to the project root, then
 			// prefix with '/' so Vite resolves it from the project root.
 			const relPath = relative(cwd, route.filePath).replaceAll("\\", "/");
-			const importPath = relPath.startsWith("/") ? relPath : "/" + relPath;
+			const importPath = relPath.startsWith("/") ? relPath : `/${relPath}`;
 			imports.push(`import * as ${varName} from '${importPath}';`);
 			routeEntries.push(
 				`  { pattern: ${JSON.stringify(route.pattern)}, params: ${JSON.stringify(route.params)}, module: ${varName} }`,
@@ -814,11 +813,12 @@ export function generateConfigModule(
 	avalonConfig: ResolvedAvalonConfig,
 	nitroConfig: AvalonNitroConfig,
 ): string {
+	const resolvedIsDev = globalThis.__avalonConfig?.isDev ?? avalonConfig.isDev;
 	const config = {
 		streaming: nitroConfig.streaming ?? true,
 		pagesDir: avalonConfig.pagesDir,
 		layoutsDir: avalonConfig.layoutsDir,
-		isDev: avalonConfig.isDev,
+		isDev: resolvedIsDev,
 		...nitroConfig.runtimeConfig,
 	};
 	return `const config = ${JSON.stringify(config, null, 2)};\nexport function useAvalonConfig() { return config; }\nexport default config;\n`;
@@ -840,7 +840,7 @@ export function generateConfigModule(
  */
 async function generateLayoutsModule(
 	avalonConfig: ResolvedAvalonConfig,
-	nitroConfig: AvalonNitroConfig,
+	_nitroConfig: AvalonNitroConfig,
 	devCssLinks: string[],
 ): Promise<string> {
 	const { getAllLayoutDirs } = await import("./module-discovery.ts");
@@ -865,7 +865,7 @@ async function generateLayoutsModule(
 			continue;
 		}
 		const relPath = relative(cwd, layoutFile).replaceAll("\\", "/");
-		const importPath = relPath.startsWith("/") ? relPath : "/" + relPath;
+		const importPath = relPath.startsWith("/") ? relPath : `/${relPath}`;
 		const isShared = dir.startsWith(sharedLayoutsPath);
 		const isRootLayout = isShared && !avalonConfig.modules;
 		const varName = isRootLayout ? "RootLayout" : `Layout_${idx}`;
@@ -1032,7 +1032,7 @@ async function generateLayoutsModule(
  */
 function generateAssetsModule(nitroConfig: AvalonNitroConfig): string {
 	const clientEntry = nitroConfig.clientEntry ?? "app/entry-client";
-	const importPath = clientEntry.startsWith("/") ? clientEntry : "/" + clientEntry;
+	const importPath = clientEntry.startsWith("/") ? clientEntry : `/${clientEntry}`;
 	return [
 		`// Auto-generated by Avalon — do not edit`,
 		`// @ts-ignore — virtual import resolved by Nitro's Vite assets plugin at build time`,
@@ -1042,12 +1042,13 @@ function generateAssetsModule(nitroConfig: AvalonNitroConfig): string {
 		`  const cssLinks = (clientAssets?.css ?? [])`,
 		`    .filter(attr => {`,
 		`      const href = attr.href || '';`,
-		`      // Only include global CSS — entry-client and index (layout/global styles)`,
-		`      // Island-specific CSS (Counter-*, DocsSidebar-*, _isolated-island-entry-*, etc.)`,
-		`      // is loaded on-demand when the island's JS chunk imports it.`,
-		`      if (href.includes('entry-client')) return true;`,
-		`      if (href.includes('ssr-index')) return true;`,
-		`      // The main index CSS contains all CSS module styles — needed globally`,
+		`      // The SSR build produces ssr-index-*.css containing all global, reset,`,
+		`      // token, and layout CSS module styles. The client build may also emit`,
+		`      // entry-client-*.css (a subset) and index-*.css. To avoid duplicates,`,
+		`      // prefer ssr-index when it exists; otherwise fall back to the others.`,
+		`      var hasSsrIndex = (clientAssets?.css ?? []).some(function(a) { return (a.href || '').includes('ssr-index'); });`,
+		`      if (hasSsrIndex) return href.includes('ssr-index');`,
+		`      if (href.includes('entry-client') && href.endsWith('.css')) return true;`,
 		`      if (/\\/index-[^/]+\\.css$/.test(href)) return true;`,
 		`      return false;`,
 		`    })`,
@@ -1181,7 +1182,7 @@ async function generateClientEntryModule(
 				if (!entry.name.endsWith(".css")) continue;
 				const absPath = pathJoin(dir, entry.name);
 				const relPath = relative(cwd, absPath).replaceAll("\\", "/");
-				const importPath = relPath.startsWith("/") ? relPath : "/" + relPath;
+				const importPath = relPath.startsWith("/") ? relPath : `/${relPath}`;
 				cssImports.push(importPath);
 			}
 		} catch {
@@ -1217,7 +1218,7 @@ async function generateClientEntryModule(
 	// Global CSS from config
 	const globalCSS = nitroConfig.globalCSS ?? [];
 	for (const cssPath of globalCSS) {
-		const importPath = cssPath.startsWith("/") ? cssPath : "/" + cssPath;
+		const importPath = cssPath.startsWith("/") ? cssPath : `/${cssPath}`;
 		lines.push(`// Global CSS`);
 		lines.push(`import '${importPath}';`);
 	}
@@ -1547,7 +1548,7 @@ async function handleStreamingSSRRequest(
 
 		// Ensure DOCTYPE
 		if (!shellBeforeWithCss.trim().toLowerCase().startsWith("<!doctype")) {
-			shellBeforeWithCss = "<!DOCTYPE html>\n" + shellBeforeWithCss;
+			shellBeforeWithCss = `<!DOCTYPE html>\n${shellBeforeWithCss}`;
 		}
 
 		// Inject universal CSS and head content
@@ -1718,7 +1719,7 @@ async function renderPageWithManualLayouts(
 	pageModule: Record<string, unknown>,
 	layoutModules: Array<{ file: string; module: Record<string, unknown> }>,
 	pathname: string,
-	config: ResolvedAvalonConfig,
+	_config: ResolvedAvalonConfig,
 	server: ViteDevServer,
 ): Promise<string> {
 	const { render: preactRender } = await server.ssrLoadModule("preact-render-to-string");
@@ -1886,7 +1887,7 @@ function injectClientScript(html: string): string {
 
 	// Ensure DOCTYPE is present
 	if (!result.trim().toLowerCase().startsWith("<!doctype")) {
-		result = "<!DOCTYPE html>\n" + result;
+		result = `<!DOCTYPE html>\n${result}`;
 	}
 
 	// Inject universal CSS from island framework renderers (Svelte scoped, Vue scoped, Solid CSS, etc.)
@@ -1944,7 +1945,7 @@ async function discoverLayoutFiles(pathname: string, server: ViteDevServer): Pro
 	const segments = pathname.split("/").filter(Boolean);
 	const paths = [""];
 	for (let i = 0; i < segments.length; i++) {
-		paths.push("/" + segments.slice(0, i + 1).join("/"));
+		paths.push(`/${segments.slice(0, i + 1).join("/")}`);
 	}
 
 	// Helper to check and add layout file
@@ -2051,7 +2052,7 @@ async function findPageFile(
 			// Remove the module prefix from the path
 			const remainingSegments = segments.slice(1);
 			moduleRelativePath =
-				remainingSegments.length > 0 ? "/" + remainingSegments.join("/") : "/index";
+				remainingSegments.length > 0 ? `/${remainingSegments.join("/")}` : "/index";
 		}
 
 		// Try to find the page in the module
@@ -2165,7 +2166,7 @@ async function renderPageToHtml(
 					request: { method: "GET", url: fullUrl, headers: new Headers() },
 				};
 
-				return await (ssrModule.renderToHtmlWithLayouts as Function)(
+				return await (ssrModule.renderToHtmlWithLayouts as (...args: unknown[]) => Promise<string>)(
 					routeConfig,
 					globalThis.__avalonLayoutResolver,
 					layoutContext,
@@ -2180,7 +2181,7 @@ async function renderPageToHtml(
 		}
 
 		if (ssrModule.renderToHtml) {
-			return await (ssrModule.renderToHtml as Function)(
+			return await (ssrModule.renderToHtml as (...args: unknown[]) => Promise<string>)(
 				routeConfig,
 				{ title: metadata.title || "Avalon App" },
 				undefined,

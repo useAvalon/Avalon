@@ -1,21 +1,24 @@
 /**
  * Solid client-side hydration
  *
- * Solid's hydrate() requires globalThis._$HY to exist (set up by
- * generateHydrationScript in the <head>). In islands architecture,
- * the script may not have executed yet when the island hydrates.
+ * Solid's hydrate() reads globalThis._$HY for the hydration context
+ * (events, completed set, resource cache). The SSR output injects a
+ * script that initialises _$HY before any island scripts run.
  *
- * We ensure _$HY exists before calling hydrate(). No render()
- * fallback — SSR hydration is reliable and render() pulls in
- * extra DOM runtime code (~1-2 KiB).
+ * In per-island mode each island is a separate ES module with its own
+ * Solid runtime. Before calling hydrate() we ensure _$HY exists and
+ * reset _$HY.done so Solid enters hydration mode rather than falling
+ * back to client render.
+ *
+ * @module solid/client/hydration
  */
 
+import { createComponent, hydrate as solidHydrate } from "solid-js/web";
 import type { SolidComponent, SolidHydrationOptions } from "../types.ts";
-import { hydrate as solidHydrate, createComponent } from "solid-js/web";
 
 /**
- * Ensure the Solid hydration context exists on globalThis.
- * This mirrors what generateHydrationScript() sets up.
+ * Initialise the Solid hydration context on globalThis if absent,
+ * and reset the `done` flag so each island hydrates independently.
  */
 function ensureHydrationContext(): void {
 	if (!(globalThis as any)._$HY) {
@@ -26,8 +29,16 @@ function ensureHydrationContext(): void {
 			fe() {},
 		};
 	}
+	(globalThis as any)._$HY.done = false;
 }
 
+/**
+ * Hydrate a Solid component into an existing server-rendered container.
+ *
+ * @param container - The `<avalon-island>` element with SSR content
+ * @param Component - Solid component function
+ * @param props     - Component props (serialised from SSR)
+ */
 export async function hydrate(
 	container: Element,
 	Component: SolidComponent,
@@ -37,7 +48,6 @@ export async function hydrate(
 	if (!container) {
 		throw new Error("Container element is required for hydration");
 	}
-
 	if (!Component || typeof Component !== "function") {
 		throw new Error(`Invalid Solid component: expected function, got ${typeof Component}`);
 	}
@@ -45,9 +55,7 @@ export async function hydrate(
 	const element = container as HTMLElement;
 	const renderId = element.dataset.solidRenderId || element.dataset.renderId;
 
-	// Ensure _$HY exists before calling solidHydrate
 	ensureHydrationContext();
-
 	solidHydrate(() => createComponent(Component, props), element, { renderId: renderId || "" });
 }
 

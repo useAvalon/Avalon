@@ -30,6 +30,8 @@ import type { H3Event } from "h3";
 import { getRequestURL as h3GetRequestURL } from "h3";
 import { h } from "preact";
 import preactRenderToString from "preact-render-to-string";
+import { inlineCriticalCSS } from "../islands/critical-css.ts";
+import { injectModulepreloadLinks } from "../islands/modulepreload-collector.ts";
 import { discoverScopedMiddleware, executeScopedMiddleware } from "../middleware/index.ts";
 import type { MiddlewareRoute } from "../middleware/types.ts";
 import {
@@ -46,8 +48,6 @@ import type {
 	SSRRenderResult,
 } from "./types.ts";
 import { createNotFoundError, isHttpError } from "./types.ts";
-import { inlineCriticalCSS } from "../islands/critical-css.ts";
-import { injectModulepreloadLinks } from "../islands/modulepreload-collector.ts";
 
 /**
  * Resolved page route information
@@ -492,10 +492,10 @@ export function ensureHydrationMarkers(element: string, marker: Partial<IslandMa
  * strips those wrappers, leaving just the bare `<script type="module">` tags inline.
  */
 function unwrapPerIslandScripts(html: string): string {
-	// Replace <div data-island-script="" style="display:contents"><script ...>...</script></div>
-	// with just the <script> tag contents
+	// Strip the wrapper <div data-island-script> around per-island <script> tags,
+	// leaving just the <script> elements in the HTML output.
 	return html.replaceAll(
-		/<div data-island-script="" style="display:contents">(<script[\s\S]*?<\/script>)<\/div>/g,
+		/<div[^>]*\bdata-island-script\b[^>]*>(<script[\s\S]*?<\/script>)<\/div>/g,
 		"$1",
 	);
 }
