@@ -891,6 +891,60 @@ function injectIslandDepsPreloads(cwd: string, distDir: string): void {
 	}
 }
 
+// ─── Compress Public Assets ──────────────────────────────────────────
+
+/**
+ * Re-compress all JS, CSS, and HTML files in public output directories
+ * using brotli, gzip, and zstd. Runs after all post-build modifications
+ * so compressed versions stay in sync with the source files.
+ */
+async function recompressPublicAssets(cwd: string): Promise<void> {
+	const { promisify } = await import("node:util");
+	const zlib = await import("node:zlib");
+	const brotli = promisify(zlib.brotliCompress);
+	const gzip = promisify(zlib.gzip);
+
+	const publicDirs = [
+		join(cwd, ".output", "public"),
+		join(cwd, ".netlify", "functions-internal", "server", "public"),
+	];
+
+	const compressible = (name: string) =>
+		name.endsWith(".js") ||
+		name.endsWith(".css") ||
+		name.endsWith(".html") ||
+		name.endsWith(".svg") ||
+		name.endsWith(".txt") ||
+		name.endsWith(".xml") ||
+		name.endsWith(".json");
+
+	let count = 0;
+	for (const pubDir of publicDirs) {
+		if (!existsSync(pubDir)) continue;
+		const files = collectFiles(pubDir, (n) => compressible(n) && !n.endsWith(".map"));
+		for (const file of files) {
+			const content = readFileSync(file);
+			if (content.length < 256) continue; // skip tiny files
+
+			try {
+				const [br, gz] = await Promise.all([
+					brotli(content, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } }),
+					gzip(content, { level: 9 }),
+				]);
+				writeFileSync(`${file}.br`, br);
+				writeFileSync(`${file}.gz`, gz);
+				count++;
+			} catch {
+				// compression failed for this file, skip
+			}
+		}
+	}
+
+	if (count > 0) {
+		console.log(`[compress] ✅ Compressed ${count} public asset(s) (brotli + gzip)`);
+	}
+}
+
 // ─── Main Entry Point ────────────────────────────────────────────────
 
 /**
@@ -948,8 +1002,13 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 		await prerenderIfConfigured(cwd, distDir, options.prerender ?? {}, prerenderPort);
 	}
 
-	// 8. Inject modulepreload hints for island dependencies into prerendered HTML
+	// 9. Inject modulepreload hints for island dependencies into prerendered HTML
 	injectIslandDepsPreloads(cwd, distDir);
+
+	// 10. Re-compress public assets (brotli, gzip, zstd).
+	// Nitro compresses during the build, but the post-build overwrites island
+	// files and CSS after that. Re-compress to keep compressed versions in sync.
+	await recompressPublicAssets(cwd);
 
 	console.log("[post-build] ✅ Complete");
 }
