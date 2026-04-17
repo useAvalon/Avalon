@@ -11,25 +11,25 @@
  * @module nitro/build-config
  */
 
-import type { Plugin, UserConfig, BuildOptions } from 'vite';
-import type { ResolvedAvalonConfig } from '../vite-plugin/types.ts';
-import type { AvalonNitroConfig } from './config.ts';
-import { DEFAULT_NITRO_CONFIG, VALID_V3_PRESETS } from './config.ts';
+import type { BuildOptions, Plugin, UserConfig } from "vite";
+import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
+import type { AvalonNitroConfig } from "./config.ts";
+import { DEFAULT_NITRO_CONFIG, VALID_V3_PRESETS } from "./config.ts";
 
 /**
  * Build mode for the Avalon application
  */
-export type BuildMode = 'client' | 'server' | 'both';
+export type BuildMode = "client" | "server" | "both";
 
 /**
  * Sourcemap option type
  */
-export type SourcemapOption = boolean | 'inline' | 'hidden';
+export type SourcemapOption = boolean | "inline" | "hidden";
 
 /**
  * Minify option type
  */
-export type MinifyOption = boolean | 'oxc' | 'esbuild' | 'terser';
+export type MinifyOption = boolean | "oxc" | "esbuild" | "terser";
 
 /**
  * Preset-specific build output configuration
@@ -85,14 +85,14 @@ export interface AvalonBuildConfig {
  * Default build configuration values
  */
 export const DEFAULT_BUILD_CONFIG: AvalonBuildConfig = {
-	mode: 'both',
-	clientOutDir: 'dist/client',
-	serverOutDir: 'dist/server',
+	mode: "both",
+	clientOutDir: "dist/client",
+	serverOutDir: "dist/server",
 	sourcemap: true,
-	minify: 'oxc',
-	target: 'es2020',
+	minify: "oxc",
+	target: "es2020",
 	ssr: true,
-	preset: 'node_server',
+	preset: "node_server",
 	verbose: false,
 };
 
@@ -101,100 +101,100 @@ export const DEFAULT_BUILD_CONFIG: AvalonBuildConfig = {
  */
 export const PRESET_OUTPUT_CONFIGS: Record<string, PresetOutputConfig> = {
 	node_server: {
-		outputDir: '.output',
-		serverEntry: 'server/index.mjs',
+		outputDir: ".output",
+		serverEntry: "server/index.mjs",
 		supportsStreaming: true,
 		bundleDependencies: false,
 	},
 	node_middleware: {
-		outputDir: '.output',
-		serverEntry: 'server/index.mjs',
+		outputDir: ".output",
+		serverEntry: "server/index.mjs",
 		supportsStreaming: true,
 		bundleDependencies: false,
 	},
 	vercel: {
-		outputDir: '.vercel/output',
-		serverEntry: 'functions/render.func/index.mjs',
+		outputDir: ".vercel/output",
+		serverEntry: "functions/render.func/index.mjs",
 		supportsStreaming: true,
 		bundleDependencies: true,
-		additionalFiles: ['config.json'],
+		additionalFiles: ["config.json"],
 	},
 	cloudflare_module: {
-		outputDir: 'dist',
-		serverEntry: 'server/index.mjs',
+		outputDir: "dist",
+		serverEntry: "server/index.mjs",
 		supportsStreaming: false,
 		bundleDependencies: true,
 	},
 	cloudflare_pages: {
-		outputDir: 'dist',
-		serverEntry: '_worker.js',
+		outputDir: "dist",
+		serverEntry: "_worker.js",
 		supportsStreaming: false,
 		bundleDependencies: true,
-		additionalFiles: ['_routes.json'],
+		additionalFiles: ["_routes.json"],
 	},
 	deno_deploy: {
-		outputDir: '.output',
-		serverEntry: 'server/index.ts',
+		outputDir: ".output",
+		serverEntry: "server/index.ts",
 		supportsStreaming: true,
 		bundleDependencies: false,
 	},
 	deno_server: {
-		outputDir: '.output',
-		serverEntry: 'server/index.ts',
+		outputDir: ".output",
+		serverEntry: "server/index.ts",
 		supportsStreaming: true,
 		bundleDependencies: false,
 	},
 	netlify_functions: {
-		outputDir: '.netlify',
-		serverEntry: 'functions-internal/render.mjs',
+		outputDir: ".netlify",
+		serverEntry: "functions-internal/render.mjs",
 		supportsStreaming: true,
 		bundleDependencies: true,
 	},
 	netlify: {
-		outputDir: '.netlify',
-		serverEntry: 'functions-internal/server/index.mjs',
+		outputDir: ".netlify",
+		serverEntry: "functions-internal/server/index.mjs",
 		supportsStreaming: true,
 		bundleDependencies: true,
 	},
 	netlify_edge: {
-		outputDir: '.netlify/edge-functions',
-		serverEntry: 'render.js',
+		outputDir: ".netlify/edge-functions",
+		serverEntry: "server/server.js",
 		supportsStreaming: true,
 		bundleDependencies: true,
 	},
 	aws_lambda: {
-		outputDir: '.output',
-		serverEntry: 'server/index.mjs',
+		outputDir: ".output",
+		serverEntry: "server/index.mjs",
 		supportsStreaming: false,
 		bundleDependencies: true,
 	},
 	azure_swa: {
-		outputDir: '.output',
-		serverEntry: 'server/index.mjs',
+		outputDir: ".output",
+		serverEntry: "server/index.mjs",
 		supportsStreaming: false,
 		bundleDependencies: true,
 	},
 	firebase_functions: {
-		outputDir: '.output',
-		serverEntry: 'server/index.mjs',
+		outputDir: ".output",
+		serverEntry: "server/index.mjs",
 		supportsStreaming: true,
 		bundleDependencies: true,
 	},
 	render_com: {
-		outputDir: '.output',
-		serverEntry: 'server/index.mjs',
+		outputDir: ".output",
+		serverEntry: "server/index.mjs",
 		supportsStreaming: true,
 		bundleDependencies: false,
 	},
 	static: {
-		outputDir: 'dist',
-		serverEntry: '',
+		outputDir: "dist",
+		serverEntry: "",
 		supportsStreaming: false,
 		bundleDependencies: false,
 	},
 	browser: {
-		outputDir: 'dist',
-		serverEntry: '',
+		outputDir: "dist",
+		serverEntry: "",
 		supportsStreaming: false,
 		bundleDependencies: true,
 	},
@@ -221,19 +221,19 @@ export function createClientBuildConfig(
 		target: config.target,
 		rolldownOptions: {
 			output: {
-				entryFileNames: '[name].[hash].js',
-				chunkFileNames: 'chunks/[name].[hash].js',
-				assetFileNames: 'assets/[name].[hash].[ext]',
+				entryFileNames: "[name].[hash].js",
+				chunkFileNames: "chunks/[name].[hash].js",
+				assetFileNames: "assets/[name].[hash].[ext]",
 				codeSplitting: {
 					groups: [
-						{ name: 'vendor-react', test: /node_modules\/(react|react-dom)/ },
-						{ name: 'vendor-vue', test: /node_modules\/(vue|@vue)/ },
-						{ name: 'vendor-svelte', test: /node_modules\/svelte/ },
-						{ name: 'vendor-preact', test: /node_modules\/preact/ },
-						{ name: 'vendor-solid', test: /node_modules\/solid-js/ },
-						{ name: 'vendor-lit', test: /node_modules\/(lit|@lit)/ },
-						{ name: 'vendor', test: /node_modules/ },
-						{ name: 'islands', test: /\/islands\// },
+						{ name: "vendor-react", test: /node_modules\/(react|react-dom)/ },
+						{ name: "vendor-vue", test: /node_modules\/(vue|@vue)/ },
+						{ name: "vendor-svelte", test: /node_modules\/svelte/ },
+						{ name: "vendor-preact", test: /node_modules\/preact/ },
+						{ name: "vendor-solid", test: /node_modules\/solid-js/ },
+						{ name: "vendor-lit", test: /node_modules\/(lit|@lit)/ },
+						{ name: "vendor", test: /node_modules/ },
+						{ name: "islands", test: /\/islands\// },
 					],
 				},
 			},
@@ -258,7 +258,7 @@ export function createServerBuildConfig(
 ): BuildOptions {
 	const config = { ...DEFAULT_BUILD_CONFIG, ...buildConfig };
 	const preset = nitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset;
-	const presetConfig = PRESET_OUTPUT_CONFIGS[preset] ?? PRESET_OUTPUT_CONFIGS['node_server'];
+	const presetConfig = PRESET_OUTPUT_CONFIGS[preset] ?? PRESET_OUTPUT_CONFIGS["node_server"];
 
 	return {
 		outDir: config.serverOutDir,
@@ -269,12 +269,12 @@ export function createServerBuildConfig(
 		ssr: true,
 		rolldownOptions: {
 			input: {
-				index: './server/index.ts',
+				index: "./server/index.ts",
 			},
 			output: {
-				format: 'esm',
-				entryFileNames: '[name].mjs',
-				chunkFileNames: 'chunks/[name].[hash].mjs',
+				format: "esm",
+				entryFileNames: "[name].mjs",
+				chunkFileNames: "chunks/[name].[hash].mjs",
 				preserveModules: !presetConfig.bundleDependencies,
 			},
 			external: presetConfig.bundleDependencies ? [] : getServerExternals(preset),
@@ -292,11 +292,11 @@ function getServerExternals(preset: string): (string | RegExp)[] {
 	const baseExternals: (string | RegExp)[] = [/^node:/, /^deno:/];
 
 	switch (preset) {
-		case 'deno_deploy':
-		case 'deno_server':
+		case "deno_deploy":
+		case "deno_server":
 			return [...baseExternals];
 
-		case 'node_server':
+		case "node_server":
 			return [...baseExternals, /^[a-z@]/i];
 
 		default:
@@ -311,7 +311,7 @@ function getServerExternals(preset: string): (string | RegExp)[] {
  * @returns Preset output configuration
  */
 export function getPresetOutputConfig(preset: string): PresetOutputConfig {
-	return PRESET_OUTPUT_CONFIGS[preset] ?? PRESET_OUTPUT_CONFIGS['node_server'];
+	return PRESET_OUTPUT_CONFIGS[preset] ?? PRESET_OUTPUT_CONFIGS["node_server"];
 }
 
 /**
@@ -349,7 +349,7 @@ export function createCombinedBuildConfig(
 		define: {
 			__DEV__: false,
 			__PROD__: true,
-			'process.env.NODE_ENV': JSON.stringify('production'),
+			"process.env.NODE_ENV": JSON.stringify("production"),
 			...createPresetDefines(preset, presetConfig),
 		},
 	};
@@ -358,7 +358,10 @@ export function createCombinedBuildConfig(
 /**
  * Creates preset-specific define constants
  */
-function createPresetDefines(preset: string, presetConfig: PresetOutputConfig): Record<string, string> {
+function createPresetDefines(
+	preset: string,
+	presetConfig: PresetOutputConfig,
+): Record<string, string> {
 	const defines: Record<string, string> = {
 		__NITRO_PRESET__: JSON.stringify(preset),
 		__SUPPORTS_STREAMING__: JSON.stringify(presetConfig.supportsStreaming),
@@ -376,16 +379,19 @@ function createPresetDefines(preset: string, presetConfig: PresetOutputConfig): 
 /**
  * Creates a Vite plugin for Nitro build integration
  */
-export function createNitroBuildPlugin(avalonConfig: ResolvedAvalonConfig, nitroConfig: AvalonNitroConfig): Plugin {
+export function createNitroBuildPlugin(
+	avalonConfig: ResolvedAvalonConfig,
+	nitroConfig: AvalonNitroConfig,
+): Plugin {
 	const preset = nitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset;
 	const presetConfig = getPresetOutputConfig(preset);
 
 	return {
-		name: 'avalon:nitro-build',
-		enforce: 'post',
+		name: "avalon:nitro-build",
+		enforce: "post",
 
 		config(_config: UserConfig, { command }: { command: string }) {
-			if (command !== 'build') {
+			if (command !== "build") {
 				return;
 			}
 
@@ -396,7 +402,7 @@ export function createNitroBuildPlugin(avalonConfig: ResolvedAvalonConfig, nitro
 				define: {
 					__DEV__: false,
 					__PROD__: true,
-					'process.env.NODE_ENV': JSON.stringify('production'),
+					"process.env.NODE_ENV": JSON.stringify("production"),
 					...createPresetDefines(preset, presetConfig),
 				},
 			};
@@ -404,7 +410,7 @@ export function createNitroBuildPlugin(avalonConfig: ResolvedAvalonConfig, nitro
 
 		buildStart() {
 			if (avalonConfig.verbose) {
-				console.log('🚀 Avalon Nitro build starting...');
+				console.log("🚀 Avalon Nitro build starting...");
 				console.log(`   Preset: ${preset}`);
 				console.log(`   Output: ${presetConfig.outputDir}`);
 				console.log(`   Streaming: ${presetConfig.supportsStreaming}`);
@@ -413,13 +419,13 @@ export function createNitroBuildPlugin(avalonConfig: ResolvedAvalonConfig, nitro
 
 		writeBundle() {
 			if (avalonConfig.verbose) {
-				console.log('✅ Avalon client build complete');
+				console.log("✅ Avalon client build complete");
 			}
 		},
 
 		closeBundle() {
 			if (avalonConfig.verbose) {
-				console.log('📦 Avalon build finished');
+				console.log("📦 Avalon build finished");
 				console.log(`   Output directory: ${presetConfig.outputDir}`);
 			}
 		},
@@ -429,23 +435,28 @@ export function createNitroBuildPlugin(avalonConfig: ResolvedAvalonConfig, nitro
 /**
  * Validates build configuration
  */
-export function validateBuildConfig(config: Partial<AvalonBuildConfig>): { valid: boolean; errors: string[] } {
+export function validateBuildConfig(config: Partial<AvalonBuildConfig>): {
+	valid: boolean;
+	errors: string[];
+} {
 	const errors: string[] = [];
 
 	if (config.preset) {
 		if (!VALID_V3_PRESETS.includes(config.preset)) {
-			errors.push(`Unknown preset: ${config.preset}. Valid presets: ${VALID_V3_PRESETS.join(', ')}`);
+			errors.push(
+				`Unknown preset: ${config.preset}. Valid presets: ${VALID_V3_PRESETS.join(", ")}`,
+			);
 		}
 	}
 
-	if (config.mode && !['client', 'server', 'both'].includes(config.mode)) {
+	if (config.mode && !["client", "server", "both"].includes(config.mode)) {
 		errors.push(`Invalid build mode: ${config.mode}. Must be 'client', 'server', or 'both'`);
 	}
 
 	if (
 		config.sourcemap !== undefined &&
-		typeof config.sourcemap !== 'boolean' &&
-		!['inline', 'hidden'].includes(config.sourcemap as string)
+		typeof config.sourcemap !== "boolean" &&
+		!["inline", "hidden"].includes(config.sourcemap as string)
 	) {
 		errors.push(`Invalid sourcemap option: ${config.sourcemap}`);
 	}
@@ -491,10 +502,10 @@ export function createSourceMapConfig(preset: string, isDev: boolean): SourceMap
 		};
 	}
 
-	if (preset.includes('edge') || preset.includes('cloudflare') || preset.includes('lambda')) {
+	if (preset.includes("edge") || preset.includes("cloudflare") || preset.includes("lambda")) {
 		return {
 			enabled: true,
-			type: 'hidden',
+			type: "hidden",
 			includeContent: false,
 		};
 	}
@@ -521,11 +532,11 @@ export function getViteSourceMapOption(config: SourceMapConfig): SourcemapOption
  */
 export function createSourceMapPlugin(config: SourceMapConfig): Plugin {
 	return {
-		name: 'avalon:sourcemap',
-		enforce: 'post',
+		name: "avalon:sourcemap",
+		enforce: "post",
 
 		config(_viteConfig: UserConfig, { command }: { command: string }) {
-			if (command !== 'build') {
+			if (command !== "build") {
 				return;
 			}
 
@@ -550,7 +561,7 @@ export function createSourceMapPlugin(config: SourceMapConfig): Plugin {
 				return;
 			}
 
-			const sourceMapCount = Object.keys(bundle).filter(key => key.endsWith('.map')).length;
+			const sourceMapCount = Object.keys(bundle).filter((key) => key.endsWith(".map")).length;
 
 			if (sourceMapCount > 0 && globalThis.__avalonConfig?.verbose) {
 				console.log(`📍 Generated ${sourceMapCount} source map(s)`);

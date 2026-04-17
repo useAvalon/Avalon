@@ -1,6 +1,12 @@
 /**
  * Netlify build wrapper.
  *
+ * When NITRO_PRESET=netlify_edge, does a two-pass build:
+ *   1. node_server build → post-build (prerenders to dist/) → clean server output
+ *   2. netlify_edge build → produces .netlify/edge-functions/
+ *
+ * For other presets, does a single build + post-build.
+ *
  * Vite/Nitro leaves open handles after the build completes, preventing
  * the Node process from exiting. This wrapper detects when the build
  * output is ready, kills the entire process group, then runs post-build.
@@ -11,11 +17,15 @@ import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 const CWD = process.cwd();
-const NITRO_JSON = join(CWD, '.netlify', 'functions-internal', 'nitro.json');
-const SERVER_MJS = join(CWD, '.netlify', 'functions-internal', 'server', 'server.mjs');
-const OUTPUT_SSR = join(CWD, '.output', 'server', '_ssr', 'ssr.mjs');
+const PRESET = process.env.NITRO_PRESET || 'node_server';
+const IS_EDGE = PRESET.includes('edge');
 
-console.log('[build] Starting vite build...');
+// Detection paths
+const EDGE_SERVER = join(CWD, '.netlify', 'edge-functions', 'server', 'server.js');
+const EDGE_MANIFEST = join(CWD, '.netlify', 'edge-functions', 'manifest.json');
+const NETLIFY_MAIN = join(CWD, '.netlify', 'functions-internal', 'main.mjs');
+const NETLIFY_SERVER = join(CWD, '.netlify', 'functions-internal', 'server', 'server.mjs');
+const OUTPUT_SSR = join(CWD, '.output', 'server', '_ssr', 'ssr.mjs');
 
 // Clean stale output dirs
 for (const dir of ['.netlify', '.output', 'netlify']) {
@@ -26,95 +36,147 @@ for (const dir of ['.netlify', '.output', 'netlify']) {
 	}
 }
 
-// Spawn vite build in its own process group so we can kill the whole tree.
-// On Linux (Netlify), { detached: true } puts it in a new process group.
-const child = spawn('bunx', ['--bun', 'vite', 'build'], {
-	cwd: CWD,
-	stdio: 'inherit',
-	detached: true,
-});
+/**
+ * Run a vite build with the given preset, wait for output, kill the process.
+ * Returns a promise that resolves when the build output is detected.
+ */
+function runBuild(preset) {
+	return new Promise((resolve, reject) => {
+		console.log(`[build] Starting vite build (preset: ${preset})...`);
 
-const childPid = child.pid;
-let done = false;
+		const child = spawn('bunx', ['--bun', 'vite', 'build'], {
+			cwd: CWD,
+			stdio: 'inherit',
+			detached: true,
+			env: { ...process.env, NITRO_PRESET: preset },
+		});
 
-function killTree() {
-	try {
-		// Kill the entire process group (negative PID on Linux)
-		process.kill(-childPid, 'SIGKILL');
-	} catch {
-		// Already dead or not a group leader
-	}
-	try {
-		child.kill('SIGKILL');
-	} catch {
-		// Already dead
-	}
-}
+		const childPid = child.pid;
+		let done = false;
 
-function finish() {
-	if (done) return;
-	done = true;
-	clearInterval(poll);
-	clearTimeout(absoluteTimeout);
-
-	// Kill vite and all its children
-	killTree();
-
-	// Small delay to let the OS clean up
-	setTimeout(() => {
-		// Run post-build synchronously
-		console.log('[build] Running post-build...');
-		try {
-			execSync('node post-build.mjs', { cwd: CWD, stdio: 'inherit', timeout: 120_000 });
-		} catch (err) {
-			console.error('[build] post-build warning:', err.message);
+		function killTree() {
+			try { process.kill(-childPid, 'SIGKILL'); } catch {}
+			try { child.kill('SIGKILL'); } catch {}
 		}
 
-		// Verify
-		const V1_SERVER = join(CWD, '.netlify', 'v1', 'functions', 'server', 'server.mjs');
-		if (existsSync(V1_SERVER)) console.log('[build] ✅ Server function found (v1 API)');
-		else if (existsSync(SERVER_MJS)) console.log('[build] ✅ Server function found (legacy)');
-		else if (existsSync(OUTPUT_SSR)) console.log('[build] ✅ SSR bundle found');
-		else console.error('[build] ❌ No server output found');
+		function finish() {
+			if (done) return;
+			done = true;
+			clearInterval(poll);
+			clearTimeout(timeout);
+			killTree();
+			setTimeout(resolve, 500);
+		}
 
-		console.log('[build] ✅ Complete');
-		process.exit(0);
-	}, 500);
+		child.on('exit', () => finish());
+		child.on('error', reject);
+
+		const poll = setInterval(() => {
+			const edgeReady = existsSync(EDGE_SERVER) && existsSync(EDGE_MANIFEST);
+			const netlifyReady = existsSync(NETLIFY_MAIN) && existsSync(NETLIFY_SERVER);
+			const nodeServerReady = existsSync(OUTPUT_SSR);
+			if (edgeReady || netlifyReady || nodeServerReady) {
+				const kind = edgeReady ? 'netlify-edge' : netlifyReady ? 'netlify' : 'node-server';
+				console.log(`[build] Output detected (${kind}), waiting 3s...`);
+				clearInterval(poll);
+				setTimeout(finish, 3_000);
+			}
+		}, 1_000);
+
+		const timeout = setTimeout(() => {
+			console.error('[build] Timeout — killing build');
+			finish();
+		}, 240_000);
+	});
 }
 
-child.on('exit', code => {
-	console.log(`[build] vite build exited with code ${code}`);
-	finish();
-});
+function runPostBuild() {
+	console.log('[build] Running post-build...');
+	try {
+		execSync('node post-build.mjs', { cwd: CWD, stdio: 'inherit', timeout: 120_000 });
+	} catch (err) {
+		console.error('[build] post-build warning:', err.message);
+	}
+}
 
-child.on('error', err => {
-	console.error('[build] spawn error:', err);
+function verify() {
+	if (existsSync(EDGE_SERVER) && existsSync(EDGE_MANIFEST))
+		console.log('[build] ✅ Edge function found');
+	else if (existsSync(NETLIFY_SERVER))
+		console.log('[build] ✅ Server function found (netlify v2)');
+	else if (existsSync(NETLIFY_MAIN))
+		console.log('[build] ✅ Netlify main.mjs found');
+	else if (existsSync(OUTPUT_SSR))
+		console.log('[build] ✅ SSR bundle found');
+	else
+		console.error('[build] ❌ No server output found');
+}
+
+async function main() {
+	if (IS_EDGE) {
+		// Pass 1: node_server build for prerendering
+		await runBuild('node_server');
+		runPostBuild();
+
+		// Save prerendered HTML before pass 2 wipes dist/
+		const tmpPrerender = join(CWD, '.prerendered');
+		if (existsSync(tmpPrerender)) rmSync(tmpPrerender, { recursive: true, force: true });
+		const { cpSync, readdirSync, statSync } = await import('node:fs');
+		const distDir = join(CWD, 'dist');
+
+		// Copy all HTML files and directories containing HTML from dist/
+		if (existsSync(distDir)) {
+			const entries = readdirSync(distDir);
+			for (const entry of entries) {
+				const src = join(distDir, entry);
+				const st = statSync(src);
+				// Copy directories (blog/, docs/, demo/, etc.) and HTML files
+				if (st.isDirectory() && !['assets', 'islands', 'frameworks', 'chunks'].includes(entry)) {
+					cpSync(src, join(tmpPrerender, entry), { recursive: true });
+				} else if (entry.endsWith('.html')) {
+					cpSync(src, join(tmpPrerender, entry));
+				}
+			}
+			console.log('[build] Saved prerendered HTML to .prerendered/');
+		}
+
+		// Clean node_server output
+		const outputDir = join(CWD, '.output');
+		if (existsSync(outputDir)) {
+			rmSync(outputDir, { recursive: true, force: true });
+			console.log('[build] Cleaned .output/');
+		}
+
+		// Pass 2: edge build for the actual deployment function
+		await runBuild(PRESET);
+
+		// Restore prerendered HTML into dist/
+		if (existsSync(tmpPrerender)) {
+			cpSync(tmpPrerender, distDir, { recursive: true, force: true });
+			rmSync(tmpPrerender, { recursive: true, force: true });
+			console.log('[build] Restored prerendered HTML to dist/');
+		}
+
+		// Patch the edge bundle CSS (post-build already handled dist/)
+		console.log('[build] Patching edge bundle...');
+		try {
+			const { runPostBuild: runPB } = await import('@useavalon/avalon/post-build');
+			await runPB({ prerender: false });
+		} catch {
+			runPostBuild();
+		}
+	} else {
+		// Single build for non-edge presets
+		await runBuild(PRESET);
+		runPostBuild();
+	}
+
+	verify();
+	console.log('[build] ✅ Complete');
+	process.exit(0);
+}
+
+main().catch(err => {
+	console.error('[build] Fatal error:', err);
 	process.exit(1);
 });
-
-// Poll for output files — the build is done once these exist.
-// When prerendering is enabled, Nitro fetches routes after the SSR bundle
-// is written. We must wait for the prerender phase to complete before
-// killing the process. Nitro writes prerendered HTML to .output/public/
-// or .netlify/.../public/. We detect completion by waiting for the
-// process to exit naturally, or by checking that the build has settled.
-const poll = setInterval(() => {
-	const netlifyReady = existsSync(NITRO_JSON) && existsSync(SERVER_MJS);
-	const nodeServerReady = existsSync(OUTPUT_SSR);
-	if (netlifyReady || nodeServerReady) {
-		console.log(
-			`[build] Output detected (${netlifyReady ? 'netlify' : 'node-server'}), waiting 3s for final writes...`,
-		);
-		clearInterval(poll);
-		// Nitro's built-in prerender doesn't work with Vite builder, so we
-		// only need to wait for final file writes before killing the process.
-		// Prerendering happens in post-build.mjs via a separate server spawn.
-		setTimeout(finish, 3_000);
-	}
-}, 1_000);
-
-// Absolute timeout
-const absoluteTimeout = setTimeout(() => {
-	console.error('[build] Timeout — killing build');
-	finish();
-}, 240_000);
