@@ -4,9 +4,6 @@
  * Runs `vite build` and watches stdout for Nitro's completion message,
  * then kills the process (Vite/Nitro leaves open handles that prevent
  * clean exit). Runs post-build afterward.
- *
- * For edge presets, prerendering is skipped since edge functions serve
- * all routes with sub-50ms TTFB.
  */
 
 import { spawn, execSync } from 'node:child_process';
@@ -14,8 +11,6 @@ import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 const CWD = process.cwd();
-const PRESET = process.env.NITRO_PRESET || 'node_server';
-const IS_EDGE = PRESET.includes('edge');
 
 // Clean stale output
 for (const dir of ['.netlify', '.output']) {
@@ -27,7 +22,7 @@ for (const dir of ['.netlify', '.output']) {
 }
 
 // Run vite build — resolve when Nitro prints its success message
-console.log(`[build] vite build (preset: ${PRESET})`);
+console.log('[build] vite build');
 await new Promise((resolve, reject) => {
 	const child = spawn('bunx', ['--bun', 'vite', 'build'], {
 		cwd: CWD,
@@ -42,7 +37,6 @@ await new Promise((resolve, reject) => {
 		resolve();
 	};
 
-	// Pipe output, watch for Nitro's completion marker
 	child.stdout.on('data', (chunk) => {
 		process.stdout.write(chunk);
 		if (chunk.toString().includes('nitro.json')) finish();
@@ -58,7 +52,6 @@ await new Promise((resolve, reject) => {
 		}
 	});
 
-	// Safety timeout
 	setTimeout(() => {
 		if (!settled) {
 			console.log('[build] Timeout — killing vite');
@@ -69,9 +62,8 @@ await new Promise((resolve, reject) => {
 
 // Post-build
 console.log('[build] Running post-build...');
-const env = IS_EDGE ? { ...process.env, AVALON_SKIP_PRERENDER: '1' } : process.env;
 try {
-	execSync('node post-build.mjs', { cwd: CWD, stdio: 'inherit', timeout: 120_000, env });
+	execSync('node post-build.mjs', { cwd: CWD, stdio: 'inherit', timeout: 120_000 });
 } catch (err) {
 	console.error('[build] post-build warning:', err.message);
 }
