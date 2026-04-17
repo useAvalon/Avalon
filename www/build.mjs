@@ -1,15 +1,15 @@
 /**
  * Build script for Netlify deployment.
  *
- * Runs `vite build`, then post-build (CSS patching, island isolation,
- * compression). For edge presets, prerendering is skipped since edge
- * functions serve all routes with sub-50ms TTFB.
+ * Runs `vite build` and watches stdout for Nitro's completion message,
+ * then kills the process (Vite/Nitro leaves open handles that prevent
+ * clean exit). Runs post-build afterward.
  *
- * The execSync timeout handles the known issue where Vite/Nitro leaves
- * open handles after the build completes.
+ * For edge presets, prerendering is skipped since edge functions serve
+ * all routes with sub-50ms TTFB.
  */
 
-import { execSync } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 import { existsSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -26,28 +26,46 @@ for (const dir of ['.netlify', '.output']) {
 	}
 }
 
-// Build
+// Run vite build — resolve when Nitro prints its success message
 console.log(`[build] vite build (preset: ${PRESET})`);
-try {
-	execSync('bunx --bun vite build', {
+await new Promise((resolve, reject) => {
+	const child = spawn('bunx', ['--bun', 'vite', 'build'], {
 		cwd: CWD,
-		stdio: 'inherit',
-		timeout: 240_000,
+		stdio: ['inherit', 'pipe', 'pipe'],
 	});
-} catch (err) {
-	// Vite/Nitro often leaves open handles causing a non-zero exit or timeout.
-	// Check if the build actually produced output before treating it as fatal.
-	const hasOutput =
-		existsSync(join(CWD, '.netlify', 'edge-functions', 'server', 'server.js')) ||
-		existsSync(join(CWD, '.netlify', 'functions-internal', 'main.mjs')) ||
-		existsSync(join(CWD, '.output', 'server', '_ssr', 'ssr.mjs'));
 
-	if (!hasOutput) {
-		console.error('[build] Build failed with no output');
-		process.exit(1);
-	}
-	console.log('[build] Build produced output (ignoring hanging process)');
-}
+	let settled = false;
+	const finish = () => {
+		if (settled) return;
+		settled = true;
+		child.kill();
+		resolve();
+	};
+
+	// Pipe output, watch for Nitro's completion marker
+	child.stdout.on('data', (chunk) => {
+		process.stdout.write(chunk);
+		if (chunk.toString().includes('nitro.json')) finish();
+	});
+	child.stderr.on('data', (chunk) => {
+		process.stderr.write(chunk);
+	});
+
+	child.on('exit', (code) => {
+		if (!settled) {
+			if (code && code !== 0) reject(new Error(`vite build exited with code ${code}`));
+			else resolve();
+		}
+	});
+
+	// Safety timeout
+	setTimeout(() => {
+		if (!settled) {
+			console.log('[build] Timeout — killing vite');
+			finish();
+		}
+	}, 240_000);
+});
 
 // Post-build
 console.log('[build] Running post-build...');
@@ -59,3 +77,4 @@ try {
 }
 
 console.log('[build] ✅ Complete');
+process.exit(0);
