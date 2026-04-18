@@ -146,19 +146,6 @@ export function createNitroIntegration(
 		noExternals: ["estree-walker", /^@useavalon\//, /^estree-util/],
 	};
 
-	// Exclude native binary modules from the bundle. Worker-based presets
-	// (netlify-edge, cloudflare, etc.) set noExternals:true which causes
-	// Rolldown to try loading .node binaries as UTF-8, failing the build.
-	// fsevents is macOS-only and only used by chokidar (file watcher) —
-	// it's never needed at runtime in a production server bundle.
-	const resolvedPreset = nitroOptions.preset ?? "node_server";
-	const isWorkerPreset = resolvedPreset.includes("edge") || resolvedPreset.includes("cloudflare");
-	if (isWorkerPreset) {
-		nitroVitePluginOptions.rolldownConfig = {
-			external: ["fsevents"],
-		};
-	}
-
 	// Only pass renderer when explicitly configured — passing `undefined`
 	// can interfere with Nitro's internal SSR entry auto-detection.
 	if (nitroConfig.renderer === false) {

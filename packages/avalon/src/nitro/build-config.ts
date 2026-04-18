@@ -158,7 +158,7 @@ export const PRESET_OUTPUT_CONFIGS: Record<string, PresetOutputConfig> = {
 	},
 	netlify_edge: {
 		outputDir: ".netlify/edge-functions",
-		serverEntry: "server/server.js",
+		serverEntry: "render.js",
 		supportsStreaming: true,
 		bundleDependencies: true,
 	},

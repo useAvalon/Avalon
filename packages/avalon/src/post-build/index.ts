@@ -225,8 +225,6 @@ function copySSRCSSToClient(cwd: string, distDir: string): void {
 		// Patch asset manifests (skip silently for Netlify which has no per-file manifest)
 		const nitroIndexPaths = [
 			join(cwd, ".output", "server", "index.mjs"),
-			// Nitro v3 netlify preset: main.mjs is at the root of functions-internal
-			join(cwd, ".netlify", "functions-internal", "main.mjs"),
 			join(cwd, ".netlify", "functions-internal", "server", "main.mjs"),
 		];
 		for (const indexPath of nitroIndexPaths) {
@@ -457,29 +455,15 @@ function copyAdapters(cwd: string, distDir: string): void {
 // ─── Netlify Function Copying ────────────────────────────────────────
 
 function copyToNetlifyPaths(cwd: string): void {
-	const functionsDir = join(cwd, ".netlify", "functions-internal");
-	if (!existsSync(functionsDir)) return;
+	const legacyDir = join(cwd, ".netlify", "functions-internal", "server");
+	if (!existsSync(legacyDir)) return;
 
-	// Check if this is a Nitro v3 netlify preset build (has main.mjs at root)
-	const hasMainMjs = existsSync(join(functionsDir, "main.mjs"));
+	const targets = [join(cwd, ".netlify", "v1", "functions", "server")];
 
-	if (hasMainMjs) {
-		// Nitro v3 netlify preset: copy the entire functions-internal to v1 path
-		const target = join(cwd, ".netlify", "v1", "functions");
-		cpSync(functionsDir, target, { recursive: true, force: true });
+	for (const target of targets) {
+		cpSync(legacyDir, target, { recursive: true, force: true });
 		const rel = target.substring(cwd.length).replaceAll("\\", "/");
-		console.log(`[netlify-fn] ✅ Copied Netlify function to ${rel}/`);
-	} else {
-		// Legacy: copy just the server/ subdirectory
-		const legacyDir = join(functionsDir, "server");
-		if (!existsSync(legacyDir)) return;
-
-		const targets = [join(cwd, ".netlify", "v1", "functions", "server")];
-		for (const target of targets) {
-			cpSync(legacyDir, target, { recursive: true, force: true });
-			const rel = target.substring(cwd.length).replaceAll("\\", "/");
-			console.log(`[netlify-fn] ✅ Copied server function to ${rel}/`);
-		}
+		console.log(`[netlify-fn] ✅ Copied server function to ${rel}/`);
 	}
 }
 
@@ -488,57 +472,6 @@ function copyToNetlifyPaths(cwd: string): void {
 function isNetlifyHandler(serverEntryPath: string): boolean {
 	const code = readFileSync(serverEntryPath, "utf-8");
 	return code.includes('path: "/*"') || code.includes("path:`/*`");
-}
-
-/**
- * Creates a Node HTTP wrapper around the Netlify edge function bundle.
- * The edge bundle exports a default function(request, context) => Response
- * using standard web APIs that Node 22 supports natively.
- */
-function writeEdgePrerenderWrapper(edgeEntryPath: string, port: number, cwd: string): string {
-	const wrapperPath = join(dirname(edgeEntryPath), "_prerender-server.mjs");
-
-	let polyfillImport = "";
-	const polyfillPaths = [
-		join(cwd, "node_modules", "urlpattern-polyfill", "index.js"),
-		join(cwd, "node_modules", "urlpattern-polyfill", "dist", "urlpattern.js"),
-	];
-	const polyfillPath = polyfillPaths.find((p) => existsSync(p));
-	if (polyfillPath) {
-		polyfillImport = `import '${polyfillPath.replaceAll("\\", "/")}';`;
-	}
-
-	const wrapperCode = `
-${polyfillImport}
-import { createServer } from 'node:http';
-import handler from './server.js';
-const PORT = ${port};
-const server = createServer(async (req, res) => {
-  try {
-    const url = new URL(req.url, 'http://localhost:' + PORT);
-    const headers = new Headers();
-    for (const [key, value] of Object.entries(req.headers)) {
-      if (value) headers.set(key, Array.isArray(value) ? value.join(', ') : value);
-    }
-    const request = new Request(url.toString(), { method: req.method, headers });
-    const context = { ip: '127.0.0.1' };
-    const response = await handler(request, context);
-    if (!response) { res.writeHead(404); res.end('Not Found'); return; }
-    res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
-    const body = await response.text();
-    res.end(body);
-  } catch (err) {
-    console.error('[prerender-edge-wrapper] Error:', err);
-    res.writeHead(500);
-    res.end('Internal Server Error');
-  }
-});
-server.listen(PORT, '127.0.0.1', () => {
-  console.log('[prerender-edge-wrapper] Listening on http://127.0.0.1:' + PORT);
-});
-`;
-	writeFileSync(wrapperPath, wrapperCode);
-	return wrapperPath;
 }
 
 function writeNetlifyWrapper(mainMjsPath: string, port: number, cwd: string): string {
@@ -612,20 +545,14 @@ async function prerenderIfConfigured(
 	config: PrerenderConfig,
 	port: number,
 ): Promise<void> {
-	// Try server entries for prerendering, in priority order.
-	// Prefer Node-native entries (faster, more reliable) over the edge bundle.
+	// Netlify paths first — when NITRO_PRESET=netlify the fresh build
+	// lands here, while .output/ may contain a stale previous build.
 	const serverEntries = [
 		join(cwd, ".netlify", "functions-internal", "server", "server.mjs"),
 		join(cwd, ".netlify", "v1", "functions", "server", "server.mjs"),
 		join(cwd, ".output", "server", "index.mjs"),
 	];
-
 	const serverEntry = serverEntries.find((p) => existsSync(p));
-
-	// Edge function bundles are large and may fail to initialize under Node.
-	// Only use as a last resort — in practice, prerendering with the edge
-	// bundle is unreliable because the bundle includes Deno-targeted polyfills
-	// that conflict with Node's native modules.
 	if (!serverEntry) {
 		console.log("[prerender] No server entry found, skipping prerender");
 		return;
@@ -654,15 +581,8 @@ async function prerenderIfConfigured(
 	let actualEntry = serverEntry;
 
 	if (netlifyMode) {
-		// Nitro v3 netlify preset puts main.mjs in the parent of server/
-		// (e.g. .netlify/functions-internal/main.mjs), while server.mjs
-		// is at .netlify/functions-internal/server/server.mjs
-		const candidates = [
-			join(dirname(serverEntry), "main.mjs"),
-			join(dirname(dirname(serverEntry)), "main.mjs"),
-		];
-		const mainMjsPath = candidates.find((p) => existsSync(p));
-		if (!mainMjsPath) {
+		const mainMjsPath = join(dirname(serverEntry), "main.mjs");
+		if (!existsSync(mainMjsPath)) {
 			console.error("[prerender] Netlify handler detected but main.mjs not found");
 			return;
 		}
@@ -672,11 +592,9 @@ async function prerenderIfConfigured(
 
 	// Patch HTML asset entries out of server manifests so SSR runs fresh
 	{
-		const filesToPatch = [
-			serverEntry,
-			join(dirname(serverEntry), "main.mjs"),
-			join(dirname(dirname(serverEntry)), "main.mjs"),
-		].filter((f) => existsSync(f));
+		const filesToPatch = [serverEntry, join(dirname(serverEntry), "main.mjs")].filter((f) =>
+			existsSync(f),
+		);
 		for (const filePath of filesToPatch) {
 			let serverCode = readFileSync(filePath, "utf-8");
 			const htmlKeyRe = /"\/[^"]*\.html":\{[^}]+\},?/g;
@@ -831,25 +749,13 @@ async function prerenderIfConfigured(
 			(errors.length > 0 ? `, ${errors.length} error(s)` : ""),
 	);
 
-	// Clean up wrapper(s)
+	// Clean up wrapper
 	if (netlifyMode) {
 		const wrapperPath = join(dirname(serverEntry), "_prerender-server.mjs");
 		if (existsSync(wrapperPath)) {
 			unlinkSync(wrapperPath);
 			console.log("[prerender] Cleaned up wrapper script");
 		}
-	}
-	// Also clean up edge wrapper if it was created
-	const edgeWrapperPath = join(
-		cwd,
-		".netlify",
-		"edge-functions",
-		"server",
-		"_prerender-server.mjs",
-	);
-	if (existsSync(edgeWrapperPath)) {
-		unlinkSync(edgeWrapperPath);
-		console.log("[prerender] Cleaned up edge wrapper script");
 	}
 
 	// Copy prerendered files to all output locations
@@ -1001,7 +907,6 @@ async function recompressPublicAssets(cwd: string): Promise<void> {
 	const publicDirs = [
 		join(cwd, ".output", "public"),
 		join(cwd, ".netlify", "functions-internal", "server", "public"),
-		join(cwd, "dist"),
 	];
 
 	const compressible = (name: string) =>
@@ -1040,47 +945,6 @@ async function recompressPublicAssets(cwd: string): Promise<void> {
 	}
 }
 
-// ─── Sync Client Assets ──────────────────────────────────────────────
-
-/**
- * Copy client-side JS and CSS from .output/public/ to dist/ when they're
- * missing. This handles the case where the build used node_server preset
- * (which outputs to .output/public/) but the deploy target is Netlify
- * (which serves from dist/).
- */
-function syncClientAssets(cwd: string, distDir: string): void {
-	const outputPublic = join(cwd, ".output", "public");
-	if (!existsSync(outputPublic)) return;
-
-	const outputAssets = join(outputPublic, "assets");
-	const distAssets = join(distDir, "assets");
-	if (!existsSync(outputAssets)) return;
-
-	// Check if dist/assets/ is missing client JS (the key indicator)
-	const hasClientJS =
-		existsSync(distAssets) &&
-		readdirSync(distAssets).some((f) => f.startsWith("entry-client") && f.endsWith(".js"));
-	if (hasClientJS) return;
-
-	// Copy all assets from .output/public/assets/ to dist/assets/
-	mkdirSync(distAssets, { recursive: true });
-	const files = readdirSync(outputAssets);
-	let copied = 0;
-	for (const file of files) {
-		const src = join(outputAssets, file);
-		const dest = join(distAssets, file);
-		// Skip compressed variants and files that already exist
-		if (file.endsWith(".br") || file.endsWith(".gz") || file.endsWith(".zst")) continue;
-		if (file.endsWith(".map")) continue;
-		if (existsSync(dest)) continue;
-		copyFileSync(src, dest);
-		copied++;
-	}
-	if (copied > 0) {
-		console.log(`[sync] ✅ Copied ${copied} client asset(s) from .output/public/ to dist/`);
-	}
-}
-
 // ─── Main Entry Point ────────────────────────────────────────────────
 
 /**
@@ -1100,12 +964,6 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 	// 1. Cleanup stale HTML
 	cleanupStaleHtml(cwd);
 
-	// 1.5. Sync client assets from .output/public/ to dist/ if missing.
-	// When NITRO_PRESET=netlify, Nitro outputs client assets directly to dist/.
-	// When NITRO_PRESET=node_server (local dev), they go to .output/public/.
-	// Ensure dist/ has all client JS/CSS for Netlify's publish directory.
-	syncClientAssets(cwd, distDir);
-
 	// 2. Copy SSR CSS to client assets
 	copySSRCSSToClient(cwd, distDir);
 
@@ -1114,12 +972,8 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 	// entry-client CSS, but index-*.css (all CSS module styles) is needed globally.
 	// Island-specific CSS (Counter-*, DocsSidebar-*, etc.) is excluded by the filter.
 	for (const ssrPath of [
-		// Nitro v3 netlify preset: SSR code is bundled into main.mjs
-		join(cwd, ".netlify", "functions-internal", "main.mjs"),
 		join(cwd, ".netlify", "functions-internal", "server", "_ssr", "ssr.mjs"),
 		join(cwd, ".netlify", "v1", "functions", "server", "_ssr", "ssr.mjs"),
-		// Nitro v3 netlify-edge preset: SSR code is in edge-functions/server/server.js
-		join(cwd, ".netlify", "edge-functions", "server", "server.js"),
 		join(cwd, ".output", "server", "_ssr", "ssr.mjs"),
 	]) {
 		if (existsSync(ssrPath)) {

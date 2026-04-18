@@ -204,7 +204,7 @@ describe("scaffoldProject", () => {
 		await scaffoldProject(config, target);
 
 		const toml = await read("netlify.toml");
-		expect(toml).toContain('NITRO_PRESET = "netlify_edge"');
+		expect(toml).toContain('NITRO_PRESET = "netlify"');
 		expect(toml).toContain('publish = "dist"');
 
 		const buildMjs = await read("build.mjs");

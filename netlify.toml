@@ -17,6 +17,9 @@
   directory = ".netlify/functions-internal"
   node_bundler = "none"
 
+# SSR catch-all: routes non-static requests to the Nitro function.
+# netlify.toml [[redirects]] with status 200 checks for a matching
+# static file first (unlike _redirects which shadows them).
 [[redirects]]
   from = "/*"
   to = "/.netlify/functions/server"
