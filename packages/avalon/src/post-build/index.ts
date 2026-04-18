@@ -726,7 +726,23 @@ async function prerenderIfConfigured(
 							return match;
 						},
 					);
-					writeFileSync(outputPath, cleaned);
+					// Strip empty entry-client JS and its duplicate CSS.
+					// Per-island hydration mode produces a 0-byte entry-client.js
+					// and entry-client CSS that duplicates index CSS.
+					let final = cleaned;
+					final = final.replaceAll(
+						/<script type="module" src="\/assets\/entry-client[^"]*\.js"><\/script>\n?/g,
+						"",
+					);
+					final = final.replaceAll(
+						/<link rel="stylesheet" href="\/assets\/entry-client[^"]*\.css">\n?/g,
+						"",
+					);
+					final = final.replaceAll(
+						/<link rel="modulepreload" href="\/assets\/entry-client[^"]*\.js">\n?/g,
+						"",
+					);
+					writeFileSync(outputPath, final);
 					prerendered.push(normalized);
 					console.log(`[prerender] ✅ ${normalized} → ${fileName}`);
 

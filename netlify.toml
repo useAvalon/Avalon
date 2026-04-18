@@ -17,17 +17,27 @@
   directory = ".netlify/functions-internal"
   node_bundler = "none"
 
-# SSR catch-all: routes non-static requests to the Nitro function.
-# netlify.toml [[redirects]] with status 200 checks for a matching
-# static file first (unlike _redirects which shadows them).
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/server"
-  status = 200
+# Prerendered HTML — cache at CDN edge, revalidate on deploy.
+# Netlify automatically purges CDN cache on each deploy.
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, s-maxage=31536000"
 
-# Island JS files use clean paths (no content hash) so they must
-# revalidate on each request to avoid serving stale code after deploys.
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "public, max-age=3600, s-maxage=31536000"
+
+# Island JS uses clean paths (no content hash) — must revalidate.
 [[headers]]
   for = "/islands/*"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
+
+# SSR fallback for non-static routes (e.g. /demo/data-fetching, /api/*).
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/server"
+  status = 200
+  force = false
