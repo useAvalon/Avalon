@@ -24,3 +24,10 @@
   from = "/*"
   to = "/.netlify/functions/server"
   status = 200
+
+# Island JS files use clean paths (no content hash) so they must
+# revalidate on each request to avoid serving stale code after deploys.
+[[headers]]
+  for = "/islands/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
