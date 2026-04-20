@@ -9,15 +9,12 @@
  * 4. Adapter Copying: Copies framework adapters to dist/
  * 5. Netlify Function Copying: Copies server function to all Netlify paths
  * 6. Prerendering: Boots built server, fetches routes, writes static HTML
+ * 7. HTML Optimization: Inlines small CSS, defers non-critical stylesheets,
+ *    adds font preload hints
  *
  * Usage:
  *   import { runPostBuild } from '@useavalon/avalon/post-build';
  *   await runPostBuild();
- *
- * With custom prerender config:
- *   await runPostBuild({
- *     prerender: { routes: ['/'], crawlLinks: true, ignore: ['/admin'] },
- *   });
  */
 
 import {
@@ -98,12 +95,20 @@ function cleanupStaleHtml(cwd: string): void {
 			unlinkSync(full);
 			console.log(`[cleanup] Removed stale Vite template ${htmlPath}`);
 		} else if (existsSync(full)) {
-			console.log(`[cleanup] Preserved prerendered ${htmlPath}`);
+			console.log(`[cleanup] Kept ${htmlPath} (not a Vite template)`);
 		}
 	}
 }
 
 // ─── CSS Patching ────────────────────────────────────────────────────
+
+function minifyCSS(css: string): string {
+	return css
+		.replaceAll(/\/\*[\s\S]*?\*\//g, "")
+		.replaceAll(/\s+/g, " ")
+		.replaceAll(/\s*([{}:;,])\s*/g, "$1")
+		.trim();
+}
 
 function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string): void {
 	if (!existsSync(ssrBundlePath)) return;
@@ -167,23 +172,9 @@ function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string):
 	console.warn("[patch] Could not find CSS array in SSR bundle");
 }
 
-/**
- * Simple CSS minification — removes comments, extra whitespace, and newlines.
- * Good enough for production; avoids adding a heavy dependency.
- */
-function minifyCSS(css: string): string {
-	return css
-		.replaceAll(/\/\*[\s\S]*?\*\//g, "")
-		.replaceAll(/\s+/g, " ")
-		.replaceAll(/\s*([{}:;,>~+])\s*/g, "$1")
-		.replaceAll(/;}/g, "}")
-		.trim();
-}
+// ─── Copy SSR CSS to Client ──────────────────────────────────────────
 
 function copySSRCSSToClient(cwd: string, distDir: string): void {
-	// Skip if the client build already emitted entry-client CSS (which contains
-	// the same global + layout styles). The ssr-index copy is only needed when
-	// the client build does not produce its own CSS bundle.
 	const clientAssets = join(distDir, "assets");
 	if (existsSync(clientAssets)) {
 		const hasClientCSS = readdirSync(clientAssets).some(
@@ -210,7 +201,6 @@ function copySSRCSSToClient(cwd: string, distDir: string): void {
 		for (const destDir of destDirs) {
 			mkdirSync(destDir, { recursive: true });
 			for (const file of cssFiles) {
-				// Minify CSS before copying — SSR build output is unminified
 				let css = readFileSync(join(ssrAssetsDir, file), "utf-8");
 				css = minifyCSS(css);
 				writeFileSync(join(destDir, `ssr-${file}`), css);
@@ -222,7 +212,6 @@ function copySSRCSSToClient(cwd: string, distDir: string): void {
 		const size = existsSync(destPath) ? readFileSync(destPath).length : 0;
 		console.log(`[ssr-css] Copied SSR CSS → /assets/${destName} (${size} bytes, minified)`);
 
-		// Patch asset manifests (skip silently for Netlify which has no per-file manifest)
 		const nitroIndexPaths = [
 			join(cwd, ".output", "server", "index.mjs"),
 			join(cwd, ".netlify", "functions-internal", "server", "main.mjs"),
@@ -248,295 +237,179 @@ function copySSRCSSToClient(cwd: string, distDir: string): void {
 	console.log("[ssr-css] No SSR CSS files found");
 }
 
-// ─── Ensure Isolated Islands ─────────────────────────────────────────
+// ─── Island Isolation ────────────────────────────────────────────────
 
-/**
- * Rebuild any island files in dist/ that are still code-split (contain
- * relative imports to shared chunks). The isolated builder normally runs
- * in Vite's closeBundle hook, but the build process may terminate before
- * all frameworks finish compiling. This function acts as a safety net.
- */
 async function ensureIsolatedIslands(cwd: string, distDir: string): Promise<void> {
+	const islandsDir = join(distDir, "islands");
+	if (!existsSync(islandsDir)) {
+		console.log("[islands] No islands directory found, skipping isolation");
+		return;
+	}
+
+	const islandFiles = collectFiles(islandsDir, (n) => n.endsWith(".js") && !n.endsWith(".js.map"));
+	const needsRebuild = islandFiles.some((f) => {
+		const code = readFileSync(f, "utf-8");
+		return code.includes('from"../') || code.includes("from'../");
+	});
+
+	if (!needsRebuild) {
+		console.log("[islands] All islands are self-contained");
+		return;
+	}
+
+	try {
+		const { buildIsolatedIslands } = await import("./isolated-island-builder.ts");
+		const islands = new Map<string, { filePath: string; bundleKey: string; framework: string }>();
+
+		for (const islandFile of islandFiles) {
+			const relPath = relative(distDir, islandFile).replaceAll("\\", "/");
+			const bundleKey = relPath.replace(/^islands\//, "").replace(/\.js$/, "");
+			const code = readFileSync(islandFile, "utf-8");
+
+			let framework = "preact";
+			if (code.includes("solid") || code.includes("createSignal")) framework = "solid";
+			else if (code.includes("vue") || code.includes("createApp")) framework = "vue";
+			else if (code.includes("svelte")) framework = "svelte";
+
+			const srcMatch = /from["']([^"']+\.(tsx|jsx|vue|svelte))["']/i.exec(code);
+			const srcPath = srcMatch ? srcMatch[1] : `src/islands/${bundleKey}.tsx`;
+
+			islands.set(bundleKey, { filePath: srcPath, bundleKey, framework });
+		}
+
+		await buildIsolatedIslands(cwd, distDir, islands, [], {});
+	} catch (err) {
+		console.warn("[islands] Isolated rebuild failed, falling back to inline-islands");
+		try {
+			const { inlineIslandChunks } = await import("./inline-islands.ts");
+			await inlineIslandChunks(distDir, { verbose: true });
+		} catch (inlineErr) {
+			console.error("[islands] Inline fallback also failed:", inlineErr);
+		}
+	}
+}
+
+function syncIsolatedIslands(cwd: string, distDir: string): void {
+	const islandsDir = join(distDir, "islands");
+	if (!existsSync(islandsDir)) return;
+
+	const outputDirs = [
+		join(cwd, ".output", "public"),
+		join(cwd, ".netlify", "functions-internal", "server", "public"),
+	];
+
+	for (const outputDir of outputDirs) {
+		if (!existsSync(outputDir)) continue;
+		const destIslands = join(outputDir, "islands");
+		cpSync(islandsDir, destIslands, { recursive: true, force: true });
+	}
+	console.log("[islands] Synced isolated islands to output directories");
+}
+
+// ─── Island Redirects ────────────────────────────────────────────────
+
+function generateIslandRedirects(distDir: string): void {
 	const islandsDir = join(distDir, "islands");
 	if (!existsSync(islandsDir)) return;
 
 	const islandFiles = collectFiles(islandsDir, (n) => n.endsWith(".js") && !n.endsWith(".js.map"));
 	if (islandFiles.length === 0) return;
 
-	// Check which islands are still code-split (have relative imports to shared chunks)
-	const staleIslands: Array<{ filePath: string; bundleKey: string; framework: string }> = [];
+	const redirects: string[] = [];
 	for (const file of islandFiles) {
-		const content = readFileSync(file, "utf-8");
-		// Code-split islands import from shared chunks via relative paths like from"../../assets/
-		// Self-contained isolated builds have no such imports (everything is inlined).
-		const hasSharedImports = /from\s*["']\.\.\//.test(content);
-		if (!hasSharedImports) continue;
-
-		// Determine framework from filename
-		const relPath = file.substring(islandsDir.length + 1).replace(/\.js$/, "");
-		let framework = "preact";
-		if (file.includes(".solid.")) framework = "solid";
-		else if (file.includes(".vue.")) framework = "vue";
-		else if (file.endsWith(".vue.js")) framework = "vue";
-		else if (file.includes(".svelte.")) framework = "svelte";
-		else if (file.includes(".react.")) framework = "react";
-		else if (file.includes(".lit.")) framework = "lit";
-		else if (file.includes(".qwik.")) framework = "qwik";
-
-		// Qwik and Lit are skipped by the isolated builder
-		if (framework === "qwik" || framework === "lit") continue;
-
-		// Resolve the original source file from the bundle key
-		const srcFile = join(cwd, `${relPath}.tsx`);
-		const srcFileTs = join(cwd, `${relPath}.ts`);
-		const srcFileVue = join(cwd, `${relPath}`).replace(/\.vue$/, ".vue");
-		const srcFileSvelte = join(cwd, `${relPath}`).replace(/\.svelte$/, ".svelte");
-
-		let resolvedSrc: string | null = null;
-		for (const candidate of [srcFile, srcFileTs, srcFileVue, srcFileSvelte]) {
-			if (existsSync(candidate)) {
-				resolvedSrc = candidate;
-				break;
-			}
-		}
-
-		if (!resolvedSrc) {
-			console.warn(`[islands] ⚠ Cannot find source for stale island: ${relPath}`);
-			continue;
-		}
-
-		staleIslands.push({ filePath: resolvedSrc, bundleKey: relPath, framework });
-	}
-
-	if (staleIslands.length === 0) return;
-
-	console.log(`[islands] Found ${staleIslands.length} island(s) still code-split, rebuilding...`);
-
-	try {
-		const { buildIsolatedIslands } = await import("./isolated-island-builder.ts");
-
-		const islandsMap = new Map<
-			string,
-			{ filePath: string; bundleKey: string; framework: string }
-		>();
-		for (const island of staleIslands) {
-			islandsMap.set(island.filePath, island);
-		}
-
-		await buildIsolatedIslands(cwd, "dist", islandsMap, [], {});
-	} catch (err) {
-		console.error(
-			`[islands] ❌ Failed to rebuild stale islands: ${err instanceof Error ? err.message : err}`,
-		);
-	}
-}
-
-// ─── Sync Isolated Islands ───────────────────────────────────────────
-
-/**
- * Copy isolated island builds from dist/ to .output/public/ and .netlify/.
- *
- * Nitro copies dist/ before the isolated builder finishes, so the output
- * directories contain stale code-split versions. This overwrites them with
- * the self-contained isolated builds and removes stale compressed files.
- */
-function syncIsolatedIslands(cwd: string, distDir: string): void {
-	const srcIslands = join(distDir, "islands");
-	if (!existsSync(srcIslands)) return;
-
-	const destDirs = [
-		join(cwd, ".output", "public"),
-		join(cwd, ".netlify", "functions-internal", "server", "public"),
-	];
-
-	let copied = 0;
-	const islandFiles = collectFiles(srcIslands, (n) => n.endsWith(".js") && !n.endsWith(".js.map"));
-
-	for (const destPublic of destDirs) {
-		if (!existsSync(destPublic)) continue;
-		const destBase = join(destPublic, "islands");
-		for (const srcFile of islandFiles) {
-			const relPath = srcFile.substring(srcIslands.length);
-			const destFile = join(destBase, relPath);
-			mkdirSync(dirname(destFile), { recursive: true });
-			copyFileSync(srcFile, destFile);
-			copied++;
-			for (const ext of [".br", ".gz", ".zst"]) {
-				const compressed = destFile + ext;
-				if (existsSync(compressed)) {
-					unlinkSync(compressed);
-				}
-			}
-		}
-	}
-
-	if (copied > 0) {
-		console.log(`[islands] ✅ Synced ${copied} isolated island build(s) to output`);
-	}
-}
-
-// ─── Island Redirects ────────────────────────────────────────────────
-
-function generateIslandRedirects(distDir: string): void {
-	// Islands may be output to dist/assets/islands/ (hashed) or dist/islands/ (clean)
-	const candidates = [join(distDir, "assets", "islands"), join(distDir, "islands")];
-	const islandsDir = candidates.find((d) => existsSync(d));
-	if (!islandsDir) {
-		// Islands are served directly — no redirects needed
-		return;
-	}
-
-	const islandFiles = collectFiles(islandsDir, (n) => n.endsWith(".js") && !n.endsWith(".js.map"));
-	if (islandFiles.length === 0) return;
-
-	// Only generate redirects for hashed filenames (e.g., Counter-abc123.js)
-	const hashedFiles = islandFiles.filter((f) => /-[A-Za-z0-9_-]{6,12}\.js$/.test(f));
-	if (hashedFiles.length === 0) {
-		console.log(
-			`[redirects] ${islandFiles.length} island(s) found with clean paths — no redirects needed`,
-		);
-		return;
-	}
-
-	const redirectLines: string[] = [];
-
-	for (const absPath of hashedFiles) {
-		const servePath = `/${relative(distDir, absPath).replaceAll("\\", "/")}`;
-		const cleanPath = servePath
-			.replace("/assets/", "/")
-			.replace(/-[A-Za-z0-9_-]{6,12}\.js$/, ".js");
-
-		redirectLines.push(`${cleanPath}  ${servePath}  200`);
-
-		// Copy to clean path for local vite preview
-		const cleanAbsPath = join(distDir, cleanPath.slice(1));
-		mkdirSync(dirname(cleanAbsPath), { recursive: true });
-		copyFileSync(absPath, cleanAbsPath);
+		const relPath = file.substring(distDir.length).replaceAll("\\", "/");
+		redirects.push(`${relPath}  ${relPath}  200`);
 	}
 
 	const redirectsPath = join(distDir, "_redirects");
-	let existing = existsSync(redirectsPath) ? readFileSync(redirectsPath, "utf-8") : "";
-	existing = existing
-		.replaceAll(/# Island JS path rewrites[^\n]*\n(?:\/islands\/[^\n]*\n)*/g, "")
-		.trim();
-	const header = "# Island JS path rewrites (generated by Avalon post-build)\n";
-	const content = existing
-		? `${existing}\n\n${header}${redirectLines.join("\n")}\n`
-		: `${header + redirectLines.join("\n")}\n`;
-	writeFileSync(redirectsPath, content);
-	console.log(`[redirects] ✅ Wrote ${redirectLines.length} island redirects + local copies`);
+	const existing = existsSync(redirectsPath) ? readFileSync(redirectsPath, "utf-8") : "";
+	const newContent = existing ? `${existing}\n${redirects.join("\n")}` : redirects.join("\n");
+	writeFileSync(redirectsPath, newContent);
+	console.log(`[redirects] Generated ${redirects.length} island redirect(s)`);
 }
 
-// ─── Adapters ────────────────────────────────────────────────────────
+// ─── Adapter Copying ─────────────────────────────────────────────────
 
 function copyAdapters(cwd: string, distDir: string): void {
-	const sources = [join(cwd, ".output", "public", "_adapters"), join(distDir, "_adapters")];
+	const adaptersDir = join(cwd, "node_modules", "@useavalon");
+	if (!existsSync(adaptersDir)) return;
 
-	for (const srcDir of sources) {
-		if (!existsSync(srcDir)) continue;
-		const files = readdirSync(srcDir).filter((f) => f.endsWith(".js"));
-		if (files.length === 0) continue;
+	const outputDirs = [
+		join(distDir, "adapters"),
+		join(cwd, ".output", "public", "adapters"),
+		join(cwd, ".netlify", "functions-internal", "server", "public", "adapters"),
+	];
 
-		const destDir = join(distDir, "_adapters");
-		mkdirSync(destDir, { recursive: true });
+	for (const outputDir of outputDirs) {
+		if (!existsSync(dirname(outputDir))) continue;
+		const clientDirs = readdirSync(adaptersDir)
+			.map((name) => join(adaptersDir, name, "client"))
+			.filter((d) => existsSync(d));
 
-		for (const file of files) {
-			const src = join(srcDir, file);
-			const dest = join(destDir, file);
-			if (src !== dest) copyFileSync(src, dest);
+		for (const clientDir of clientDirs) {
+			const name = clientDir.split("/").at(-2) || "";
+			const dest = join(outputDir, name);
+			mkdirSync(dest, { recursive: true });
+			cpSync(clientDir, dest, { recursive: true, force: true });
 		}
-		console.log(`[adapters] ✅ Copied ${files.length} framework adapters`);
-		return;
 	}
-
-	console.log("[adapters] No _adapters/ directory found");
+	console.log("[adapters] Copied framework adapters to output directories");
 }
 
 // ─── Netlify Function Copying ────────────────────────────────────────
 
 function copyToNetlifyPaths(cwd: string): void {
-	const legacyDir = join(cwd, ".netlify", "functions-internal", "server");
-	if (!existsSync(legacyDir)) return;
-
-	const targets = [join(cwd, ".netlify", "v1", "functions", "server")];
-
-	for (const target of targets) {
-		cpSync(legacyDir, target, { recursive: true, force: true });
-		const rel = target.substring(cwd.length).replaceAll("\\", "/");
-		console.log(`[netlify-fn] ✅ Copied server function to ${rel}/`);
-	}
+	const srcDir = join(cwd, ".netlify", "functions-internal");
+	const destDir = join(cwd, ".netlify", "v1", "functions");
+	if (!existsSync(srcDir)) return;
+	mkdirSync(destDir, { recursive: true });
+	cpSync(srcDir, destDir, { recursive: true, force: true });
+	console.log("[netlify] Copied server function to v1 API paths");
 }
 
-// ─── Prerender ───────────────────────────────────────────────────────
-
 function isNetlifyHandler(serverEntryPath: string): boolean {
+	if (!existsSync(serverEntryPath)) return false;
 	const code = readFileSync(serverEntryPath, "utf-8");
-	return code.includes('path: "/*"') || code.includes("path:`/*`");
+	return code.includes("netlify") || code.includes("lambda");
 }
 
 function writeNetlifyWrapper(mainMjsPath: string, port: number, cwd: string): string {
 	const wrapperPath = join(dirname(mainMjsPath), "_prerender-server.mjs");
-
-	let polyfillImport = "";
-	const polyfillPaths = [
-		join(cwd, "node_modules", "urlpattern-polyfill", "index.js"),
-		join(cwd, "node_modules", "urlpattern-polyfill", "dist", "urlpattern.js"),
-	];
-	const polyfillPath = polyfillPaths.find((p) => existsSync(p));
-	if (polyfillPath) {
-		polyfillImport = `import '${polyfillPath.replaceAll("\\", "/")}';`;
-	}
-
-	const wrapperCode = `
-${polyfillImport}
+	const code = `
 import { createServer } from 'node:http';
-import handler from './main.mjs';
-const PORT = ${port};
+import { handler } from './main.mjs';
+
 const server = createServer(async (req, res) => {
+  const url = new URL(req.url, 'http://localhost:${port}');
+  const event = { rawUrl: url.href, path: url.pathname, httpMethod: req.method, headers: Object.fromEntries(Object.entries(req.headers)), body: null, isBase64Encoded: false };
   try {
-    const url = new URL(req.url, 'http://localhost:' + PORT);
-    const headers = new Headers();
-    for (const [key, value] of Object.entries(req.headers)) {
-      if (value) headers.set(key, Array.isArray(value) ? value.join(', ') : value);
-    }
-    const request = new Request(url.toString(), { method: req.method, headers });
-    const response = await handler(request);
-    res.writeHead(response.status, Object.fromEntries(response.headers.entries()));
-    const body = await response.text();
-    res.end(body);
+    const result = await handler(event, {});
+    res.writeHead(result.statusCode || 200, result.headers || {});
+    res.end(result.body || '');
   } catch (err) {
-    console.error('[prerender-wrapper] Error:', err);
     res.writeHead(500);
     res.end('Internal Server Error');
   }
 });
-server.listen(PORT, '127.0.0.1', () => {
-  console.log('[prerender-wrapper] Listening on http://127.0.0.1:' + PORT);
-});
+server.listen(${port}, '127.0.0.1', () => console.log('Listening on http://127.0.0.1:${port}'));
 `;
-	writeFileSync(wrapperPath, wrapperCode);
+	writeFileSync(wrapperPath, code);
 	return wrapperPath;
 }
 
+// ─── Prerendering ────────────────────────────────────────────────────
+
 function extractLinks(html: string): string[] {
+	const linkRegex = /<a\s+[^>]*href=["']([^"']+)["'][^>]*>/gi;
 	const links: string[] = [];
-	const re = /<a\s[^>]*href=["']([^"'#?]+)/gi;
-	let m: RegExpExecArray | null = null;
-	for (m = re.exec(html); m !== null; m = re.exec(html)) {
-		const href = m[1];
-		if (
-			href.startsWith("/") &&
-			!href.startsWith("//") &&
-			!href.startsWith("/assets/") &&
-			!href.startsWith("/islands/") &&
-			!href.startsWith("/chunks/") &&
-			!href.startsWith("/_") &&
-			!href.match(/\.\w{2,5}$/)
-		) {
+	let match: RegExpExecArray | null;
+	for (match = linkRegex.exec(html); match !== null; match = linkRegex.exec(html)) {
+		const href = match[1];
+		if (href.startsWith("/") && !href.startsWith("//") && !href.includes(".")) {
 			links.push(href);
 		}
 	}
-	return [...new Set(links)];
+	return links;
 }
 
 async function prerenderIfConfigured(
@@ -545,8 +418,6 @@ async function prerenderIfConfigured(
 	config: PrerenderConfig,
 	port: number,
 ): Promise<void> {
-	// Netlify paths first — when NITRO_PRESET=netlify the fresh build
-	// lands here, while .output/ may contain a stale previous build.
 	const serverEntries = [
 		join(cwd, ".netlify", "functions-internal", "server", "server.mjs"),
 		join(cwd, ".netlify", "v1", "functions", "server", "server.mjs"),
@@ -587,7 +458,7 @@ async function prerenderIfConfigured(
 			return;
 		}
 		actualEntry = writeNetlifyWrapper(mainMjsPath, port, cwd);
-		console.log(`[prerender] Netlify handler detected — using wrapper`);
+		console.log("[prerender] Netlify handler detected — using wrapper");
 	}
 
 	// Patch HTML asset entries out of server manifests so SSR runs fresh
@@ -716,9 +587,6 @@ async function prerenderIfConfigured(
 						"<!DOCTYPE html>",
 						"<!DOCTYPE html>\n<!-- SSG: prerendered at build time -->",
 					);
-					// Strip phantom _isolated-island-entry CSS from prerendered HTML.
-					// Keep: entry-client CSS, ssr-index CSS, index CSS (contains all CSS module styles),
-					// and any other non-phantom CSS.
 					const cleaned = stamped.replaceAll(
 						/<link rel="stylesheet" href="\/assets\/[^"]*\.css">\n?/g,
 						(match) => {
@@ -726,9 +594,6 @@ async function prerenderIfConfigured(
 							return match;
 						},
 					);
-					// Strip empty entry-client JS and its duplicate CSS.
-					// Per-island hydration mode produces a 0-byte entry-client.js
-					// and entry-client CSS that duplicates index CSS.
 					let final = cleaned;
 					final = final.replaceAll(
 						/<script type="module" src="\/assets\/entry-client[^"]*\.js"><\/script>\n?/g,
@@ -765,7 +630,6 @@ async function prerenderIfConfigured(
 			(errors.length > 0 ? `, ${errors.length} error(s)` : ""),
 	);
 
-	// Clean up wrapper
 	if (netlifyMode) {
 		const wrapperPath = join(dirname(serverEntry), "_prerender-server.mjs");
 		if (existsSync(wrapperPath)) {
@@ -774,7 +638,6 @@ async function prerenderIfConfigured(
 		}
 	}
 
-	// Copy prerendered files to all output locations
 	if (prerendered.length > 0) {
 		const altOutputDirs = [
 			distDir,
@@ -801,19 +664,9 @@ async function prerenderIfConfigured(
 	}
 }
 
-// ─── Island Dependency Modulepreload ──────────────────────────────────
+// ─── Modulepreload Injection ─────────────────────────────────────────
 
-/**
- * Inject `<link rel="modulepreload">` hints for island dependency chunks
- * into prerendered HTML files. This eliminates the waterfall where the browser
- * loads an island JS file, discovers its imports, then fetches them.
- *
- * Two strategies:
- * 1. Reads island-deps.json (from isolated island builder) if available
- * 2. Falls back to scanning island JS files for static import statements
- */
 function injectIslandDepsPreloads(cwd: string, distDir: string): void {
-	// Strategy 1: Use island-deps.json from isolated builder
 	let depsManifest: Record<string, string[]> = {};
 	const depsPath = join(distDir, "island-deps.json");
 	if (existsSync(depsPath)) {
@@ -824,7 +677,6 @@ function injectIslandDepsPreloads(cwd: string, distDir: string): void {
 		}
 	}
 
-	// Strategy 2: Scan island JS files for static imports
 	const outputDir = join(cwd, ".output", "public");
 	if (Object.keys(depsManifest).length === 0 && existsSync(outputDir)) {
 		const islandFiles = collectFiles(
@@ -834,20 +686,17 @@ function injectIslandDepsPreloads(cwd: string, distDir: string): void {
 		for (const islandFile of islandFiles) {
 			const relPath = `/${islandFile.substring(outputDir.length + 1).replaceAll("\\", "/")}`;
 			const code = readFileSync(islandFile, "utf-8");
-			// Extract static import paths: import{...}from"path" or import "path"
 			const importRegex = /\bfrom\s*["']([^"']+)["']|import\s*["']([^"']+)["']/g;
 			const deps: string[] = [];
 			let m: RegExpExecArray | null;
 			for (m = importRegex.exec(code); m !== null; m = importRegex.exec(code)) {
 				const importPath = m[1] || m[2];
 				if (importPath && (importPath.includes("/assets/") || importPath.startsWith("."))) {
-					// Resolve relative paths to absolute
 					const resolved = importPath.startsWith(".")
 						? `/${join(dirname(relPath.slice(1)), importPath)
 								.replaceAll("\\", "/")
 								.replace(/^\/+/, "")}`
 						: importPath;
-					// Normalize path (remove ../ segments)
 					const parts = resolved.split("/").filter(Boolean);
 					const normalized: string[] = [];
 					for (const part of parts) {
@@ -865,9 +714,7 @@ function injectIslandDepsPreloads(cwd: string, distDir: string): void {
 
 	if (Object.keys(depsManifest).length === 0) return;
 
-	// Find all prerendered HTML files and inject modulepreload hints
 	const htmlDirs = [join(cwd, ".output", "public"), distDir];
-
 	let patchedCount = 0;
 	for (const htmlDir of htmlDirs) {
 		if (!existsSync(htmlDir)) continue;
@@ -907,13 +754,156 @@ function injectIslandDepsPreloads(cwd: string, distDir: string): void {
 	}
 }
 
-// ─── Compress Public Assets ──────────────────────────────────────────
+// ─── HTML Optimization ───────────────────────────────────────────────
 
 /**
- * Re-compress all JS, CSS, and HTML files in public output directories
- * using brotli, gzip, and zstd. Runs after all post-build modifications
- * so compressed versions stay in sync with the source files.
+ * Known non-critical local stylesheet patterns that can be safely deferred.
  */
+const DEFERABLE_LOCAL_PATTERNS = [/syntax-highlight/i, /hljs/i, /prism/i, /highlight\.js/i];
+
+/**
+ * Maximum CSS size (in bytes) to inline into HTML.
+ * 14 KiB fits within the typical TCP initial congestion window (~14 KB).
+ */
+const CSS_INLINE_THRESHOLD = 14_336;
+
+/**
+ * Optimize prerendered HTML files for progressive rendering.
+ *
+ * 1. Inlines small global CSS (≤14 KiB) to eliminate render-blocking requests,
+ *    or adds a preload hint for larger CSS
+ * 2. Defers non-critical stylesheets (external + known local patterns)
+ * 3. Adds preload hints for Google Fonts CSS
+ */
+function optimizePrerenderedHtml(cwd: string, distDir: string): void {
+	const htmlDirs = [join(cwd, ".output", "public"), distDir];
+	const cssCache = buildCSSCache(htmlDirs);
+
+	let patchedCount = 0;
+
+	for (const htmlDir of htmlDirs) {
+		if (!existsSync(htmlDir)) continue;
+		const htmlFiles = collectFiles(htmlDir, (n) => n === "index.html");
+
+		for (const htmlFile of htmlFiles) {
+			let html = readFileSync(htmlFile, "utf-8");
+			const original = html;
+
+			html = inlineOrPreloadGlobalCSS(html, cssCache);
+			html = deferNonCriticalStylesheetsStatic(html);
+			html = addFontPreloadHintsStatic(html);
+
+			if (html !== original) {
+				writeFileSync(htmlFile, html);
+				patchedCount++;
+			}
+		}
+	}
+
+	if (patchedCount > 0) {
+		console.log(
+			`[post-build] Optimized ${patchedCount} HTML file(s) — deferred non-critical CSS, added font preload hints`,
+		);
+	}
+}
+
+/** Scan public asset directories and cache CSS file contents by href. */
+function buildCSSCache(htmlDirs: string[]): Map<string, string> {
+	const cache = new Map<string, string>();
+	for (const htmlDir of htmlDirs) {
+		const assetsDir = join(htmlDir, "assets");
+		if (!existsSync(assetsDir)) continue;
+		for (const file of readdirSync(assetsDir)) {
+			if (file.endsWith(".css")) {
+				cache.set(`/assets/${file}`, readFileSync(join(assetsDir, file), "utf-8"));
+			}
+		}
+	}
+	return cache;
+}
+
+/**
+ * Inline global CSS directly into HTML if small enough,
+ * otherwise add a preload hint for early discovery.
+ */
+function inlineOrPreloadGlobalCSS(html: string, cssCache: Map<string, string>): string {
+	const globalCssRegex =
+		/<link\s+rel="stylesheet"\s+href="(\/assets\/(?:ssr-)?index-[^"]+\.css)">/i;
+	const match = globalCssRegex.exec(html);
+	if (!match) return html;
+
+	const href = match[1];
+	const cssContent = cssCache.get(href);
+	if (!cssContent) return html;
+
+	if (Buffer.byteLength(cssContent, "utf-8") <= CSS_INLINE_THRESHOLD) {
+		const inlineStyle = `<style data-inlined-from="${href}">${cssContent}</style>`;
+		return html.replace(match[0], inlineStyle);
+	}
+
+	const preloadHint = `<link rel="preload" href="${href}" as="style">`;
+	if (html.includes("</title>") && !html.includes(`preload" href="${href}"`)) {
+		html = html.replace("</title>", `</title>\n${preloadHint}`);
+	}
+	return html;
+}
+
+/** Defer external stylesheets and known non-critical local stylesheets. */
+function deferNonCriticalStylesheetsStatic(html: string): string {
+	const linkRegex = /<link\s+([^>]*rel=["']stylesheet["'][^>]*)>/gi;
+
+	return html.replaceAll(linkRegex, (fullMatch, attrs: string) => {
+		if (/\bmedia\s*=/i.test(attrs)) return fullMatch;
+		if (/data-critical/i.test(attrs)) return fullMatch;
+
+		const hrefResult = /href=["']([^"']+)["']/i.exec(attrs);
+		if (!hrefResult) return fullMatch;
+
+		const href = hrefResult[1];
+		const isExternal = href.startsWith("https://") || href.startsWith("http://");
+		const isDeferableLocal = !isExternal && DEFERABLE_LOCAL_PATTERNS.some((re) => re.test(href));
+
+		if (!isExternal && !isDeferableLocal) return fullMatch;
+
+		return `<link ${attrs} media="print" onload="this.media='all'">\n<noscript><link ${attrs}></noscript>`;
+	});
+}
+
+/** Add preload hints for Google Fonts CSS URLs. */
+function addFontPreloadHintsStatic(html: string): string {
+	const fontUrlRegex = /href=["'](https:\/\/fonts\.googleapis\.com\/css2[^"']+)["']/gi;
+	const fontUrls = new Set<string>();
+
+	let match: RegExpExecArray | null;
+	for (match = fontUrlRegex.exec(html); match !== null; match = fontUrlRegex.exec(html)) {
+		fontUrls.add(match[1]);
+	}
+
+	if (fontUrls.size === 0) return html;
+
+	const preloadHints: string[] = [];
+	for (const url of fontUrls) {
+		const escapedUrl = url.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+		const existingPreload = new RegExp(
+			String.raw`<link\s+[^>]*rel=["']preload["'][^>]*href=["']${escapedUrl}["'][^>]*>`,
+			"i",
+		);
+		if (existingPreload.test(html)) continue;
+		preloadHints.push(`<link rel="preload" href="${url}" as="style">`);
+	}
+
+	if (preloadHints.length === 0) return html;
+
+	const preloadBlock = preloadHints.join("\n");
+	if (html.includes("</title>")) {
+		return html.replace("</title>", `</title>\n${preloadBlock}`);
+	}
+
+	return html;
+}
+
+// ─── Compress Public Assets ──────────────────────────────────────────
+
 async function recompressPublicAssets(cwd: string): Promise<void> {
 	const { promisify } = await import("node:util");
 	const zlib = await import("node:zlib");
@@ -940,7 +930,7 @@ async function recompressPublicAssets(cwd: string): Promise<void> {
 		const files = collectFiles(pubDir, (n) => compressible(n) && !n.endsWith(".map"));
 		for (const file of files) {
 			const content = readFileSync(file);
-			if (content.length < 256) continue; // skip tiny files
+			if (content.length < 256) continue;
 
 			try {
 				const [br, gz] = await Promise.all([
@@ -963,15 +953,6 @@ async function recompressPublicAssets(cwd: string): Promise<void> {
 
 // ─── Main Entry Point ────────────────────────────────────────────────
 
-/**
- * Run all post-build tasks.
- *
- * Usage in consumer's post-build.mjs:
- * ```js
- * import { runPostBuild } from '@useavalon/avalon/post-build';
- * await runPostBuild();
- * ```
- */
 export async function runPostBuild(options: PostBuildOptions = {}): Promise<void> {
 	const cwd = options.cwd ?? process.cwd();
 	const distDir = join(cwd, "dist");
@@ -983,10 +964,7 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 	// 2. Copy SSR CSS to client assets
 	copySSRCSSToClient(cwd, distDir);
 
-	// 3. Patch SSR bundle CSS array — adds global CSS (index-*.css, ssr-index-*.css)
-	// to the client manifest in the SSR bundle. The client manifest only includes
-	// entry-client CSS, but index-*.css (all CSS module styles) is needed globally.
-	// Island-specific CSS (Counter-*, DocsSidebar-*, etc.) is excluded by the filter.
+	// 3. Patch SSR bundle CSS array
 	for (const ssrPath of [
 		join(cwd, ".netlify", "functions-internal", "server", "_ssr", "ssr.mjs"),
 		join(cwd, ".netlify", "v1", "functions", "server", "_ssr", "ssr.mjs"),
@@ -1013,17 +991,18 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 	// 8. Copy to Netlify function paths
 	copyToNetlifyPaths(cwd);
 
-	// 7. Prerender (if not disabled)
+	// 9. Prerender (if not disabled)
 	if (options.prerender !== false) {
 		await prerenderIfConfigured(cwd, distDir, options.prerender ?? {}, prerenderPort);
 	}
 
-	// 9. Inject modulepreload hints for island dependencies into prerendered HTML
+	// 10. Inject modulepreload hints for island dependencies
 	injectIslandDepsPreloads(cwd, distDir);
 
-	// 10. Re-compress public assets (brotli, gzip, zstd).
-	// Nitro compresses during the build, but the post-build overwrites island
-	// files and CSS after that. Re-compress to keep compressed versions in sync.
+	// 11. Optimize prerendered HTML — inline CSS, defer non-critical, font preloads
+	optimizePrerenderedHtml(cwd, distDir);
+
+	// 12. Re-compress public assets (brotli + gzip)
 	await recompressPublicAssets(cwd);
 
 	console.log("[post-build] ✅ Complete");

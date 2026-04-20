@@ -8,8 +8,8 @@
  * This eliminates render-blocking CSS requests, improving FCP and LCP.
  */
 
-import { getUniversalCSS } from "./universal-css-collector.ts";
 import { minifyCSS } from "./css-utils.ts";
+import { getUniversalCSS } from "./universal-css-collector.ts";
 
 /**
  * Count brace depth change for a line of CSS.
@@ -94,18 +94,25 @@ export function extractCriticalCSS(clear = true): string {
 }
 
 /**
- * Convert external third-party <link rel="stylesheet"> tags to use the
- * media="print" swap pattern for async/non-blocking loading.
+ * Convert external third-party <link rel="stylesheet"> tags and explicitly
+ * deferred local stylesheets to use the media="print" swap pattern for
+ * async/non-blocking loading.
  *
- * Only defers stylesheets from external origins (https://) — local asset
- * stylesheets (e.g., /assets/entry-client-*.css) are never deferred since
- * they contain essential layout CSS that would cause FOUC if delayed.
+ * Defers:
+ * - External stylesheets (https://, http://)
+ * - Local stylesheets marked with data-defer attribute
+ * - Local stylesheets matching known non-critical patterns (e.g., syntax highlighting)
  *
- * Stylesheets that already have a media attribute or are marked as critical
- * (data-critical) are left untouched.
+ * Preserves (never deferred):
+ * - Local asset stylesheets (/assets/*) — essential layout CSS
+ * - Stylesheets with an existing media attribute
+ * - Stylesheets marked as critical (data-critical)
  */
 export function deferNonCriticalStylesheets(html: string): string {
 	const linkRegex = /<link\s+([^>]*rel=["']stylesheet["'][^>]*)>/gi;
+
+	// Local stylesheet paths that are safe to defer (not needed for above-the-fold paint)
+	const deferableLocalPaths = [/syntax-highlight/i, /hljs/i, /prism/i, /highlight\.js/i];
 
 	return html.replaceAll(linkRegex, (fullMatch, attrs: string) => {
 		// Skip if already has a media attribute or is marked critical
@@ -119,13 +126,19 @@ export function deferNonCriticalStylesheets(html: string): string {
 
 		const href = hrefResult[1];
 
-		// Only defer external (third-party) stylesheets.
-		// Local stylesheets (/assets/*, relative paths) are essential and must not be deferred.
-		if (!href.startsWith("https://") && !href.startsWith("http://")) {
+		// Determine if this stylesheet should be deferred
+		const isExternal = href.startsWith("https://") || href.startsWith("http://");
+		const isExplicitlyDeferred = /data-defer/i.test(attrs);
+		const isDeferableLocal = !isExternal && deferableLocalPaths.some((re) => re.test(href));
+
+		if (!isExternal && !isExplicitlyDeferred && !isDeferableLocal) {
 			return fullMatch;
 		}
 
-		const deferredLink = `<link ${attrs} media="print" onload="this.media='all'">`;
+		// Strip data-defer attribute from output (it was only a signal)
+		const cleanAttrs = attrs.replace(/\s*data-defer(?:=["'][^"']*["'])?\s*/gi, " ").trim();
+
+		const deferredLink = `<link ${cleanAttrs} media="print" onload="this.media='all'">`;
 		const noscriptFallback = `<noscript><link rel="stylesheet" href="${href}"></noscript>`;
 
 		return `${deferredLink}\n${noscriptFallback}`;
@@ -138,6 +151,7 @@ export function deferNonCriticalStylesheets(html: string): string {
  * 1. Extracts SSR-collected CSS from the universal collector
  * 2. Inlines it as a <style> tag in <head>
  * 3. Converts external stylesheet <link> tags to async loading
+ * 4. Adds fetchpriority hints for above-the-fold resources
  *
  * @param html - The rendered HTML string
  * @returns The HTML with critical CSS inlined and external stylesheets deferred
@@ -158,5 +172,63 @@ export function inlineCriticalCSS(html: string): string {
 	// Step 2: Defer non-critical external stylesheets
 	result = deferNonCriticalStylesheets(result);
 
+	// Step 3: Optimize font preloading — add preload hints for Google Fonts CSS
+	// so the browser starts fetching the font CSS earlier (before it encounters
+	// the deferred stylesheet link). This reduces the font loading waterfall.
+	result = addFontPreloadHints(result);
+
 	return result;
+}
+
+/**
+ * Add `<link rel="preload" as="style">` hints for Google Fonts CSS URLs.
+ *
+ * When fonts are loaded via the media="print" async pattern, the browser
+ * deprioritizes the fetch. A preload hint tells the browser to start
+ * fetching the font CSS at high priority while still not blocking render.
+ *
+ * This closes the gap between first paint (with fallback font) and
+ * font swap, improving Speed Index by reducing the time the page
+ * displays with the wrong font metrics.
+ */
+function addFontPreloadHints(html: string): string {
+	// Find Google Fonts CSS URLs that are being loaded (deferred or not)
+	const fontUrlRegex = /href=["'](https:\/\/fonts\.googleapis\.com\/css2[^"']+)["']/gi;
+	const fontUrls = new Set<string>();
+
+	let match: RegExpExecArray | null;
+	for (match = fontUrlRegex.exec(html); match !== null; match = fontUrlRegex.exec(html)) {
+		fontUrls.add(match[1]);
+	}
+
+	if (fontUrls.size === 0) return html;
+
+	// Don't add preload if one already exists for this URL
+	const preloadHints: string[] = [];
+	for (const url of fontUrls) {
+		// Check for an existing <link rel="preload" ... href="URL"> targeting this exact URL
+		const escapedUrl = url.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+		const existingPreload = new RegExp(
+			String.raw`<link\s+[^>]*rel=["']preload["'][^>]*href=["']${escapedUrl}["'][^>]*>`,
+			"i",
+		);
+		if (existingPreload.test(html)) continue;
+
+		// No crossorigin — the Google Fonts CSS endpoint is a regular
+		// stylesheet request (not CORS). The font *files* referenced
+		// inside the CSS use CORS, but the CSS itself does not.
+		// A credentials mismatch between preload and the actual request
+		// causes the browser to ignore the preload entirely.
+		preloadHints.push(`<link rel="preload" href="${url}" as="style">`);
+	}
+
+	if (preloadHints.length === 0) return html;
+
+	// Inject preload hints early in <head> (after charset/viewport meta)
+	const preloadBlock = preloadHints.join("\n");
+	if (html.includes("</title>")) {
+		return html.replace("</title>", `</title>\n${preloadBlock}`);
+	}
+
+	return html;
 }

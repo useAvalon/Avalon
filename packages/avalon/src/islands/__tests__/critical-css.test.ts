@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
 	deduplicateCSSRules,
-	extractCriticalCSS,
 	deferNonCriticalStylesheets,
+	extractCriticalCSS,
 	inlineCriticalCSS,
 } from "../critical-css.ts";
 import { addUniversalCSS, clearUniversalCSS } from "../universal-css-collector.ts";
@@ -143,6 +143,28 @@ describe("deferNonCriticalStylesheets", () => {
 		expect(result).toContain("fonts.googleapis.com");
 		expect(result).toContain('media="print"');
 	});
+
+	it("defers local stylesheets matching known non-critical patterns", () => {
+		const html = `<link rel="stylesheet" href="/syntax-highlighting.css">`;
+		const result = deferNonCriticalStylesheets(html);
+		expect(result).toContain('media="print"');
+		expect(result).toContain("onload=\"this.media='all'\"");
+		expect(result).toContain("<noscript>");
+	});
+
+	it("defers local stylesheets with data-defer attribute", () => {
+		const html = `<link rel="stylesheet" href="/custom-theme.css" data-defer>`;
+		const result = deferNonCriticalStylesheets(html);
+		expect(result).toContain('media="print"');
+		expect(result).not.toContain("data-defer");
+	});
+
+	it("defers hljs and prism stylesheets automatically", () => {
+		const hljs = `<link rel="stylesheet" href="/hljs-theme.css">`;
+		const prism = `<link rel="stylesheet" href="/prism-dark.css">`;
+		expect(deferNonCriticalStylesheets(hljs)).toContain('media="print"');
+		expect(deferNonCriticalStylesheets(prism)).toContain('media="print"');
+	});
 });
 
 describe("inlineCriticalCSS", () => {
@@ -180,6 +202,18 @@ describe("inlineCriticalCSS", () => {
 		const result = inlineCriticalCSS(html);
 		expect(result).not.toContain('media="print"');
 		expect(result).not.toContain("<noscript>");
+	});
+
+	it("adds preload hints for Google Fonts CSS", () => {
+		const html = `<!DOCTYPE html>
+<html><head><title>Test</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter&display=swap">
+</head><body></body></html>`;
+		const result = inlineCriticalCSS(html);
+		expect(result).toContain('rel="preload"');
+		expect(result).toContain('as="style"');
+		expect(result).not.toContain("crossorigin");
+		expect(result).toContain("fonts.googleapis.com");
 	});
 
 	it("only inlines CSS when no external stylesheets exist", () => {
