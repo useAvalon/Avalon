@@ -337,7 +337,7 @@ function extractIslandComponents(
 
 	for (const [name, importPath] of imports) {
 		if (!usedComponents.has(name) && !autoIslandNames.has(name)) continue;
-		const resolved = resolveImport(importPath, fileId, cwd, resolvedAliases);
+		const resolved = resolveImport(importPath, fileId, cwd);
 		if (!resolved) continue;
 		const relPath = relative(cwd, resolved)
 			.replaceAll("\\", "/")
