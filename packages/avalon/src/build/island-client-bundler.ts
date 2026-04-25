@@ -46,7 +46,7 @@ export function islandClientBundlerPlugin(
 	const ISLAND_WRAPPER_PREFIX = "\0avalon-island-entry:";
 
 	let isServeMode = false;
-	let resolvedAliases: any[] = [];
+	let resolvedAliases: Array<{ find: string | RegExp; replacement: string }> = [];
 	let resolvedDefine: Record<string, unknown> = {};
 	let resolvedOutDir = "dist";
 
@@ -57,7 +57,7 @@ export function islandClientBundlerPlugin(
 		configResolved(resolvedConfig) {
 			isServeMode = resolvedConfig.command === "serve";
 			isPerIsland = resolvedConfig.command === "build";
-			resolvedAliases = (resolvedConfig.resolve?.alias as any[]) ?? [];
+			resolvedAliases = (resolvedConfig.resolve?.alias as typeof resolvedAliases) ?? [];
 			resolvedDefine = resolvedConfig.define ?? {};
 			resolvedOutDir = resolvedConfig.build?.outDir ?? "dist";
 		},
@@ -337,7 +337,7 @@ function extractIslandComponents(
 
 	for (const [name, importPath] of imports) {
 		if (!usedComponents.has(name) && !autoIslandNames.has(name)) continue;
-		const resolved = resolveImport(importPath, fileId, cwd);
+		const resolved = resolveImport(importPath, fileId, cwd, resolvedAliases);
 		if (!resolved) continue;
 		const relPath = relative(cwd, resolved)
 			.replaceAll("\\", "/")
@@ -346,8 +346,37 @@ function extractIslandComponents(
 	}
 }
 
-function resolveImport(importPath: string, fromFile: string, cwd: string): string | null {
+function resolveImport(
+	importPath: string,
+	fromFile: string,
+	cwd: string,
+	aliases: Array<{ find: string | RegExp; replacement: string }> = [],
+): string | null {
 	let resolved: string;
+
+	// Try Vite resolve.alias first
+	for (const alias of aliases) {
+		const find = alias.find;
+		if (typeof find === "string") {
+			if (importPath === find || importPath.startsWith(`${find}/`)) {
+				const rest = importPath.slice(find.length);
+				resolved = resolve(cwd, alias.replacement + rest);
+				if (existsSync(resolved) && statSync(resolved).isFile()) return resolved;
+				for (const ext of [".tsx", ".ts", ".jsx", ".js", ".vue", ".svelte"]) {
+					if (existsSync(resolved + ext)) return resolved + ext;
+				}
+			}
+		} else if (find instanceof RegExp && find.test(importPath)) {
+			const replaced = importPath.replace(find, alias.replacement);
+			resolved = resolve(cwd, replaced);
+			if (existsSync(resolved) && statSync(resolved).isFile()) return resolved;
+			for (const ext of [".tsx", ".ts", ".jsx", ".js", ".vue", ".svelte"]) {
+				if (existsSync(resolved + ext)) return resolved + ext;
+			}
+		}
+	}
+
+	// Fallback hardcoded aliases for backwards compatibility
 	if (importPath.startsWith("@shared/")) resolved = resolve(cwd, "app/shared", importPath.slice(8));
 	else if (importPath.startsWith("@modules/"))
 		resolved = resolve(cwd, "app/modules", importPath.slice(9));

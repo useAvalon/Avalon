@@ -1,6 +1,6 @@
 import type { ProjectConfig } from "../types";
 
-export function generateNetlifyToml(config: ProjectConfig): string {
+export function generateNetlifyToml(_config: ProjectConfig): string {
 	return `[build]
   base = "."
   command = "bun install && bun build.mjs"
@@ -27,7 +27,7 @@ export function generateNetlifyToml(config: ProjectConfig): string {
 
 export function generateBuildMjs(): string {
 	return `/**
- * Netlify build wrapper.
+ * Build wrapper.
  *
  * Vite/Nitro leaves open handles after the build completes, preventing
  * the Node process from exiting. This wrapper detects when the build

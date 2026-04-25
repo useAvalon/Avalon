@@ -82,31 +82,42 @@ function findAllDefaultImports(code: string): ComponentImport[] {
 /**
  * Resolve an import path to an absolute src path for renderIsland
  */
-function resolveIslandSrc(importPath: string, fileId: string): string {
+function resolveIslandSrc(
+	importPath: string,
+	fileId: string,
+	aliases: Array<{ find: string | RegExp; replacement: string }> = [],
+): string {
 	// Already absolute
 	if (importPath.startsWith("/src/")) return importPath;
 	if (importPath.startsWith("/app/")) return importPath;
 	if (importPath.startsWith("/")) return importPath;
 
-	// Handle aliases - convert to absolute paths
-	if (importPath.startsWith("@/")) {
-		return `/app/${importPath.slice(2)}`;
+	// Try Vite resolve.alias first — respects user configuration
+	for (const alias of aliases) {
+		const find = alias.find;
+		if (typeof find === "string") {
+			if (importPath === find || importPath.startsWith(`${find}/`)) {
+				const rest = importPath.slice(find.length);
+				const replacement = alias.replacement.startsWith("/")
+					? alias.replacement
+					: `/${alias.replacement}`;
+				return `${replacement}${rest}`;
+			}
+		} else if (find instanceof RegExp && find.test(importPath)) {
+			const replacement = alias.replacement.startsWith("/")
+				? alias.replacement
+				: `/${alias.replacement}`;
+			return importPath.replace(find, replacement);
+		}
 	}
-	if (importPath.startsWith("@shared/")) {
-		return `/app/shared/${importPath.slice(8)}`;
-	}
-	if (importPath.startsWith("@modules/")) {
-		return `/app/modules/${importPath.slice(9)}`;
-	}
-	if (importPath.startsWith("$components/")) {
-		return `/src/components/${importPath.slice(12)}`;
-	}
-	if (importPath.startsWith("$islands/")) {
-		return `/src/islands/${importPath.slice(9)}`;
-	}
-	if (importPath.startsWith("~/")) {
-		return `/src/${importPath.slice(2)}`;
-	}
+
+	// Fallback aliases for backwards compatibility when no Vite aliases are configured
+	if (importPath.startsWith("@/")) return `/app/${importPath.slice(2)}`;
+	if (importPath.startsWith("@shared/")) return `/app/shared/${importPath.slice(8)}`;
+	if (importPath.startsWith("@modules/")) return `/app/modules/${importPath.slice(9)}`;
+	if (importPath.startsWith("$components/")) return `/src/components/${importPath.slice(12)}`;
+	if (importPath.startsWith("$islands/")) return `/src/islands/${importPath.slice(9)}`;
+	if (importPath.startsWith("~/")) return `/src/${importPath.slice(2)}`;
 
 	// Relative import - resolve relative to the file
 	if (importPath.startsWith(".")) {
@@ -239,6 +250,7 @@ function buildIslandMeta(
 	code: string,
 	imports: ComponentImport[],
 	fileId: string,
+	aliases: Array<{ find: string | RegExp; replacement: string }> = [],
 ): Map<
 	string,
 	{ srcPath: string; framework: string | undefined; importPath: string; autoIsland: boolean }
@@ -248,7 +260,7 @@ function buildIslandMeta(
 		{ srcPath: string; framework: string | undefined; importPath: string; autoIsland: boolean }
 	>();
 	for (const imp of imports) {
-		const srcPath = resolveIslandSrc(imp.importPath, fileId);
+		const srcPath = resolveIslandSrc(imp.importPath, fileId, aliases);
 		const framework = detectFramework(srcPath);
 
 		// Check for explicit island prop usage
@@ -602,9 +614,15 @@ function replaceIslandJSX(
 export function pageIslandTransform(options: PageIslandTransformOptions = {}): Plugin {
 	const { pagesDir = "src/pages", layoutsDir = "src/layouts", modules = null } = options;
 
+	let resolvedAliases: Array<{ find: string | RegExp; replacement: string }> = [];
+
 	return {
 		name: "avalon:page-island-transform",
 		enforce: "pre",
+
+		configResolved(config) {
+			resolvedAliases = (config.resolve?.alias as typeof resolvedAliases) ?? [];
+		},
 
 		transform(code: string, id: string) {
 			const isLayout = isLayoutFile(id, layoutsDir, modules);
@@ -619,7 +637,7 @@ export function pageIslandTransform(options: PageIslandTransformOptions = {}): P
 				return null;
 
 			// Build metadata only for components actually used with island prop
-			const islandMeta = buildIslandMeta(code, componentImports, id);
+			const islandMeta = buildIslandMeta(code, componentImports, id, resolvedAliases);
 			if (islandMeta.size === 0) return null;
 
 			let transformed = `import { renderIsland as __pageRenderIsland } from '@useavalon/avalon';\n${code}`;

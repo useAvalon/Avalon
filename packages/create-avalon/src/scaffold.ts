@@ -116,10 +116,10 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 		].join("\n"),
 	);
 
-	// Write deployment files (Netlify)
+	// Write deployment files
+	await writeFile(join(targetDir, "build.mjs"), generateBuildMjs());
+	await writeFile(join(targetDir, "post-build.mjs"), generatePostBuildMjs());
 	if (config.deploy === "netlify") {
 		await writeFile(join(targetDir, "netlify.toml"), generateNetlifyToml(config));
-		await writeFile(join(targetDir, "build.mjs"), generateBuildMjs());
-		await writeFile(join(targetDir, "post-build.mjs"), generatePostBuildMjs());
 	}
 }

@@ -194,8 +194,9 @@ describe("scaffoldProject", () => {
 		await scaffoldProject(baseConfig, target);
 
 		expect(await exists(join(target, "netlify.toml"))).toBe(false);
-		expect(await exists(join(target, "build.mjs"))).toBe(false);
-		expect(await exists(join(target, "post-build.mjs"))).toBe(false);
+		// build.mjs and post-build.mjs are always generated (Vite hangs without the wrapper)
+		expect(await exists(join(target, "build.mjs"))).toBe(true);
+		expect(await exists(join(target, "post-build.mjs"))).toBe(true);
 	});
 
 	it("generates netlify.toml, build.mjs, and post-build.mjs when deploy is netlify", async () => {

@@ -278,7 +278,7 @@ async function ensureIsolatedIslands(cwd: string, distDir: string): Promise<void
 		}
 
 		await buildIsolatedIslands(cwd, distDir, islands, [], {});
-	} catch (err) {
+	} catch (_err) {
 		console.warn("[islands] Isolated rebuild failed, falling back to inline-islands");
 		try {
 			const { inlineIslandChunks } = await import("./inline-islands.ts");
@@ -373,7 +373,7 @@ function isNetlifyHandler(serverEntryPath: string): boolean {
 	return code.includes("netlify") || code.includes("lambda");
 }
 
-function writeNetlifyWrapper(mainMjsPath: string, port: number, cwd: string): string {
+function writeNetlifyWrapper(mainMjsPath: string, port: number, _cwd: string): string {
 	const wrapperPath = join(dirname(mainMjsPath), "_prerender-server.mjs");
 	const code = `
 import { createServer } from 'node:http';
@@ -790,6 +790,7 @@ function optimizePrerenderedHtml(cwd: string, distDir: string): void {
 			const original = html;
 
 			html = inlineOrPreloadGlobalCSS(html, cssCache);
+			html = hoistBodyStylesToHead(html);
 			html = deferNonCriticalStylesheetsStatic(html);
 			html = addFontPreloadHintsStatic(html);
 
@@ -805,6 +806,78 @@ function optimizePrerenderedHtml(cwd: string, distDir: string): void {
 			`[post-build] Optimized ${patchedCount} HTML file(s) — deferred non-critical CSS, added font preload hints`,
 		);
 	}
+}
+
+/**
+ * Hoist inline <style> tags from <body> into <head>.
+ *
+ * Component-scoped CSS (from Solid, Preact, etc.) is often rendered as
+ * inline <style> tags scattered throughout the body. The browser
+ * recalculates styles each time it encounters one, causing incremental
+ * repaints that inflate Speed Index. Moving all styles into <head>
+ * ensures the browser has complete styling before painting the body.
+ * Duplicate style blocks are deduplicated by content.
+ */
+function hoistBodyStylesToHead(html: string): string {
+	if (!html.includes("</head>") || !html.includes("<body")) return html;
+
+	const headEnd = html.indexOf("</head>");
+	const bodyStart = html.indexOf("<body");
+	if (headEnd === -1 || bodyStart === -1 || bodyStart < headEnd) return html;
+
+	const bodyContent = html.substring(bodyStart);
+
+	// Parse through the body tracking <template> depth.
+	// Only hoist <style> tags at depth 0 (not inside shadow DOM templates).
+	const seen = new Set<string>();
+	const hoisted: string[] = [];
+	let result = "";
+	let templateDepth = 0;
+	let i = 0;
+
+	while (i < bodyContent.length) {
+		if (bodyContent[i] === "<") {
+			// Check for <template or </template>
+			if (bodyContent.startsWith("<template", i)) {
+				templateDepth++;
+				const end = bodyContent.indexOf(">", i);
+				if (end === -1) break;
+				result += bodyContent.substring(i, end + 1);
+				i = end + 1;
+				continue;
+			}
+			if (bodyContent.startsWith("</template>", i)) {
+				templateDepth = Math.max(0, templateDepth - 1);
+				result += "</template>";
+				i += 11;
+				continue;
+			}
+			// Check for <style> at document level (not inside template)
+			if (templateDepth === 0 && bodyContent.startsWith("<style", i)) {
+				const closeIdx = bodyContent.indexOf("</style>", i);
+				if (closeIdx === -1) break;
+				const fullTag = bodyContent.substring(i, closeIdx + 8);
+				const cssMatch = /<style[^>]*>([\s\S]*?)<\/style>/.exec(fullTag);
+				if (cssMatch) {
+					const normalized = cssMatch[1].replaceAll(/\s+/g, " ").trim();
+					if (normalized && !seen.has(normalized)) {
+						seen.add(normalized);
+						hoisted.push(`<style>${normalized}</style>`);
+					}
+				}
+				// Skip this style tag in the body output
+				i = closeIdx + 8;
+				continue;
+			}
+		}
+		result += bodyContent[i];
+		i++;
+	}
+
+	if (hoisted.length === 0) return html;
+
+	const headPart = html.substring(0, headEnd);
+	return `${headPart}\n${hoisted.join("\n")}\n</head>${result}`;
 }
 
 /** Scan public asset directories and cache CSS file contents by href. */
@@ -951,6 +1024,130 @@ async function recompressPublicAssets(cwd: string): Promise<void> {
 	}
 }
 
+// ─── Nitro Asset Manifest Patching ───────────────────────────────────
+
+/**
+ * Register prerendered HTML files (and their compressed variants) in
+ * Nitro's static asset manifest inside server/index.mjs.
+ *
+ * Nitro's asset manifest is baked at build time — before prerendering.
+ * Prerendered HTML files written to .output/public/ are invisible to
+ * the static asset handler, so requests fall through to the SSR
+ * catch-all which serves uncompressed HTML.
+ *
+ * This patches the manifest to include prerendered HTML + .br/.gz
+ * variants, enabling Nitro's static handler to serve them with
+ * content-encoding negotiation (brotli/gzip).
+ */
+function patchNitroAssetManifest(cwd: string): void {
+	const serverEntries = [
+		join(cwd, ".output", "server", "index.mjs"),
+		join(cwd, ".netlify", "functions-internal", "server", "index.mjs"),
+	];
+
+	const publicDir = join(cwd, ".output", "public");
+	if (!existsSync(publicDir)) return;
+
+	const newEntries = buildManifestEntries(publicDir);
+	if (newEntries.length === 0) return;
+
+	let patchedCount = 0;
+	for (const serverEntry of serverEntries) {
+		if (patchServerManifest(serverEntry, newEntries, publicDir)) patchedCount++;
+	}
+
+	if (patchedCount > 0) {
+		console.log(
+			`[manifest] ✅ Registered ${newEntries.length} prerendered HTML file(s) in Nitro asset manifest`,
+		);
+	}
+}
+
+/** Build manifest entry strings for all prerendered HTML files. */
+function buildManifestEntries(publicDir: string): string[] {
+	const htmlFiles = collectFiles(
+		publicDir,
+		(n) =>
+			n === "index.html" ||
+			n === "index.html.br" ||
+			n === "index.html.gz" ||
+			n === "index.html.zst",
+	);
+
+	const entries: string[] = [];
+	const mtime = new Date().toISOString();
+
+	for (const file of htmlFiles) {
+		const relPath = `/${file.substring(publicDir.length + 1).replaceAll("\\", "/")}`;
+		const size = readFileSync(file).length;
+		const etag = `"${size.toString(16)}-prerender"`;
+
+		let encoding = "";
+		if (relPath.endsWith(".br")) encoding = "br";
+		else if (relPath.endsWith(".gz")) encoding = "gzip";
+		else if (relPath.endsWith(".zst")) encoding = "zstd";
+
+		let entry = `"${relPath}":{type:\`text/html; charset=utf-8\``;
+		if (encoding) entry += `,encoding:\`${encoding}\``;
+		entry += `,etag:\`${etag}\`,mtime:\`${mtime}\`,size:${size},path:\`../public${relPath}\`}`;
+		entries.push(entry);
+	}
+
+	return entries;
+}
+
+/** Patch a single Nitro server entry with new manifest entries and route rules. */
+function patchServerManifest(
+	serverEntry: string,
+	newEntries: string[],
+	publicDir: string,
+): boolean {
+	if (!existsSync(serverEntry)) return false;
+
+	let code = readFileSync(serverEntry, "utf-8");
+
+	// 1. Add HTML files to the static asset manifest
+	const manifestPattern = /("\/favicon\.ico":\{[^}]+\})/;
+	const match = manifestPattern.exec(code);
+	if (!match) return false;
+
+	const toAdd = newEntries.filter((entry) => {
+		const keyMatch = /^"([^"]+)"/.exec(entry);
+		return keyMatch && !code.includes(`"${keyMatch[1]}":{`);
+	});
+
+	if (toAdd.length > 0) {
+		code = code.replace(match[0], `${match[0]},${toAdd.join(",")}`);
+	}
+
+	// 2. Add cache-control route rules for prerendered routes so HTML
+	// gets max-age=0 instead of inheriting immutable from asset rules.
+	const routes = findPrerenderedRoutes(publicDir);
+	const faviconTag = "u===`/favicon.ico`&&d.unshift({data:e})";
+	for (const route of routes) {
+		if (code.includes(`route:\`${route}\``)) continue;
+		const rule = `[{name:\`headers\`,route:\`${route}\`,handler:x,options:{"Cache-Control":\`public, max-age=0, must-revalidate\`}}]`;
+		code = code.replace(faviconTag, `${faviconTag};u===\`${route}\`&&d.unshift({data:${rule}})`);
+	}
+
+	writeFileSync(serverEntry, code);
+	return toAdd.length > 0 || routes.length > 0;
+}
+
+/** Find prerendered routes by scanning for index.html files in the public dir. */
+function findPrerenderedRoutes(publicDir: string): string[] {
+	const routes: string[] = [];
+	if (!existsSync(publicDir)) return routes;
+	for (const entry of readdirSync(publicDir, { withFileTypes: true })) {
+		if (!entry.isDirectory() && entry.name === "index.html") {
+			routes.push("/");
+		} else if (entry.isDirectory() && existsSync(join(publicDir, entry.name, "index.html"))) {
+			routes.push(`/${entry.name}`);
+		}
+	}
+	return routes;
+}
+
 // ─── Main Entry Point ────────────────────────────────────────────────
 
 export async function runPostBuild(options: PostBuildOptions = {}): Promise<void> {
@@ -1004,6 +1201,10 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 
 	// 12. Re-compress public assets (brotli + gzip)
 	await recompressPublicAssets(cwd);
+
+	// 13. Register prerendered HTML in Nitro's static asset manifest
+	// so the static handler serves them with brotli/gzip compression.
+	patchNitroAssetManifest(cwd);
 
 	console.log("[post-build] ✅ Complete");
 }
