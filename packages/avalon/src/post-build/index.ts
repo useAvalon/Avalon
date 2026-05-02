@@ -400,6 +400,7 @@ function isNetlifyHandler(serverEntryPath: string): boolean {
 function writeNetlifyWrapper(mainMjsPath: string, port: number, _cwd: string): string {
 	const wrapperPath = join(dirname(mainMjsPath), "_prerender-server.mjs");
 	const code = `
+import 'urlpattern-polyfill';
 import { createServer } from 'node:http';
 
 // Nitro's main.mjs may export handler as named or default export
