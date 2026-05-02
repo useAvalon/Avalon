@@ -183,7 +183,13 @@ export async function loadIslandManifest(): Promise<ExtendedIslandManifest | nul
  * Supports both simple names and qualified names (namespace/name)
  */
 export function getIslandBundlePath(src: string, manifest?: ExtendedIslandManifest | IslandManifest | null): string {
-	const isDev = process.env.NODE_ENV !== 'production';
+	// Use the same production detection as isPerIslandMode() in island.tsx:
+	// check the global hydration mode flag first, then fall back to NODE_ENV.
+	// In the Nitro SSR runtime, process.env.NODE_ENV may not be replaced by
+	// Vite's define config, but the hydration mode flag is always reliable.
+	const isDev = globalThis.__avalonHydrationMode !== undefined
+		? globalThis.__avalonHydrationMode === "entry-client"
+		: process.env.NODE_ENV !== "production";
 
 	// If manifest is provided, use it (production mode)
 	if (manifest) {
