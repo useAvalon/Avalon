@@ -272,7 +272,17 @@ async function ensureIsolatedIslands(cwd: string, distDir: string): Promise<void
 			else if (code.includes("svelte")) framework = "svelte";
 
 			const srcMatch = /from["']([^"']+\.(tsx|jsx|vue|svelte))["']/i.exec(code);
-			const srcPath = srcMatch ? srcMatch[1] : `src/islands/${bundleKey}.tsx`;
+			let srcPath = srcMatch ? srcMatch[1] : `src/islands/${bundleKey}.tsx`;
+
+			// The extracted path may have a dev-mode prefix (src/islands/) that
+			// doesn't exist on disk. Strip it and resolve to the actual source file.
+			if (srcPath.startsWith("src/islands/")) {
+				srcPath = srcPath.slice("src/islands/".length);
+			}
+			// Ensure the path is absolute from the project root
+			if (!srcPath.startsWith("/")) {
+				srcPath = `/${srcPath}`;
+			}
 
 			islands.set(bundleKey, { filePath: srcPath, bundleKey, framework });
 		}
