@@ -267,9 +267,14 @@ async function ensureIsolatedIslands(cwd: string, distDir: string): Promise<void
 			const code = readFileSync(islandFile, "utf-8");
 
 			let framework = "preact";
-			if (code.includes("solid") || code.includes("createSignal")) framework = "solid";
-			else if (code.includes("vue") || code.includes("createApp")) framework = "vue";
-			else if (code.includes("svelte")) framework = "svelte";
+			// Detect framework from the bundle key filename convention (Counter.solid, Counter.vue, etc.)
+			if (bundleKey.includes(".solid")) framework = "solid";
+			else if (bundleKey.includes(".vue") || bundleKey.endsWith(".vue")) framework = "vue";
+			else if (bundleKey.includes(".svelte") || bundleKey.endsWith(".svelte")) framework = "svelte";
+			else if (bundleKey.includes(".lit")) framework = "lit";
+			else if (bundleKey.includes(".qwik")) framework = "qwik";
+			else if (bundleKey.includes(".react")) framework = "react";
+			else if (bundleKey.includes(".preact")) framework = "preact";
 
 			const srcMatch = /from["']((?:\/|\.\/)[^"']+\.(tsx|ts|jsx|js|vue|svelte))["']/i.exec(code);
 			let srcPath: string;
