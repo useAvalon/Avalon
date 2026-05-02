@@ -250,7 +250,7 @@ export async function buildIsolatedIslands(
 		const { filePath, bundleKey, framework } = island;
 		const outputFile = `islands/${bundleKey}.js`;
 
-		if (framework === "qwik" || framework === "lit") {
+		if (framework === "qwik" || framework === "lit" || framework === "preact" || framework === "react") {
 			results.push({ island: outputFile, success: true });
 			continue;
 		}
@@ -291,7 +291,7 @@ export async function buildIsolatedIslands(
 					outDir: resolve(cwd, distDir),
 					emptyOutDir: false,
 					minify: "oxc",
-					target: "es2020",
+					target: "es2022",
 					rollupOptions: {
 						input: VIRTUAL_ENTRY,
 						output: { format: "es", entryFileNames: outputFile },
