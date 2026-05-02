@@ -271,8 +271,22 @@ async function ensureIsolatedIslands(cwd: string, distDir: string): Promise<void
 			else if (code.includes("vue") || code.includes("createApp")) framework = "vue";
 			else if (code.includes("svelte")) framework = "svelte";
 
-			const srcMatch = /from["']([^"']+\.(tsx|jsx|vue|svelte))["']/i.exec(code);
-			let srcPath = srcMatch ? srcMatch[1] : `src/islands/${bundleKey}.tsx`;
+			const srcMatch = /from["']((?:\/|\.\/)[^"']+\.(tsx|ts|jsx|js|vue|svelte))["']/i.exec(code);
+			let srcPath: string;
+			if (srcMatch && !srcMatch[1].includes("/assets/") && !srcMatch[1].startsWith("../")) {
+				srcPath = srcMatch[1];
+			} else {
+				// Infer source path from the bundle key.
+				// The bundle key is like "app/modules/demo/components/Counter.lit"
+				// Try common extensions in order of likelihood.
+				const basePath = bundleKey;
+				const candidates = [
+					`${basePath}.tsx`, `${basePath}.ts`, `${basePath}.jsx`, `${basePath}.js`,
+					`${basePath}`, // .vue and .svelte have no extra extension
+				];
+				const found = candidates.find((c) => existsSync(join(cwd, c)));
+				srcPath = found ?? `${basePath}.tsx`;
+			}
 
 			// The extracted path may have a dev-mode prefix (src/islands/) that
 			// doesn't exist on disk. Strip it and resolve to the actual source file.
@@ -387,16 +401,43 @@ function writeNetlifyWrapper(mainMjsPath: string, port: number, _cwd: string): s
 	const wrapperPath = join(dirname(mainMjsPath), "_prerender-server.mjs");
 	const code = `
 import { createServer } from 'node:http';
-import { handler } from './main.mjs';
+
+// Nitro's main.mjs may export handler as named or default export
+const mod = await import('./main.mjs');
+const handler = mod.handler || mod.default;
+if (!handler) { console.error('No handler found in main.mjs'); process.exit(1); }
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost:${port}');
-  const event = { rawUrl: url.href, path: url.pathname, httpMethod: req.method, headers: Object.fromEntries(Object.entries(req.headers)), body: null, isBase64Encoded: false };
   try {
-    const result = await handler(event, {});
-    res.writeHead(result.statusCode || 200, result.headers || {});
-    res.end(result.body || '');
+    const hdrs = new Headers();
+    for (const [k, v] of Object.entries(req.headers)) {
+      if (v) hdrs.set(k, Array.isArray(v) ? v.join(', ') : v);
+    }
+    const request = new Request(url.href, { method: req.method, headers: hdrs });
+
+    let response;
+    if (handler.fetch) {
+      response = await handler.fetch(request);
+    } else if (typeof handler === 'function') {
+      response = await handler(request);
+    } else {
+      res.writeHead(500);
+      res.end('Unknown handler format');
+      return;
+    }
+
+    const body = await response.text();
+    const resHdrs = {};
+    if (response.headers && typeof response.headers.forEach === 'function') {
+      response.headers.forEach((v, k) => { resHdrs[k] = v; });
+    } else if (response.headers && typeof response.headers === 'object') {
+      Object.assign(resHdrs, response.headers);
+    }
+    res.writeHead(response.status || 200, resHdrs);
+    res.end(body);
   } catch (err) {
+    console.error('Prerender request error:', err);
     res.writeHead(500);
     res.end('Internal Server Error');
   }
