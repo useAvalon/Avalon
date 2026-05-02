@@ -456,8 +456,13 @@ function extractLinks(html: string): string[] {
 	const links: string[] = [];
 	let match: RegExpExecArray | null;
 	for (match = linkRegex.exec(html); match !== null; match = linkRegex.exec(html)) {
-		const href = match[1];
-		if (href.startsWith("/") && !href.startsWith("//") && !href.includes(".")) {
+		let href = match[1];
+		// Strip URL fragments and query strings — they're not separate routes
+		const hashIdx = href.indexOf("#");
+		if (hashIdx !== -1) href = href.substring(0, hashIdx);
+		const queryIdx = href.indexOf("?");
+		if (queryIdx !== -1) href = href.substring(0, queryIdx);
+		if (href && href.startsWith("/") && !href.startsWith("//") && !href.includes(".")) {
 			links.push(href);
 		}
 	}
