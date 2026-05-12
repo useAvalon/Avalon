@@ -1,4 +1,6 @@
 import MobileNav from "@shared/components/MobileNav.tsx";
+import SearchModal from "@shared/components/SearchModal.tsx";
+import ThemeToggle from "@shared/components/ThemeToggle.tsx";
 import type { LayoutProps } from "@useavalon/avalon";
 import styles from "./home-layout.module.css";
 import "@shared/styles/main.css";
@@ -34,10 +36,15 @@ export default async function HomeLayout({ children, frontmatter }: Readonly<Lay
 					<meta property="og:description" content={String(frontmatter.ogDescription)} />
 				)}
 				{frontmatter?.ogImage && <meta property="og:image" content={String(frontmatter.ogImage)} />}
+				<script
+					dangerouslySetInnerHTML={{
+						__html: `(function(){try{var t=localStorage.getItem('avalon-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()`,
+					}}
+				/>
 				<link rel="preconnect" href="https://fonts.googleapis.com" />
 				<link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
 				<link
-					href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap"
+					href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap"
 					rel="stylesheet"
 				/>
 				<link rel="stylesheet" href="/syntax-highlighting.css" />
@@ -60,12 +67,16 @@ export default async function HomeLayout({ children, frontmatter }: Readonly<Lay
 							<a href="/demo" class={styles.navLink}>
 								Demo
 							</a>
+							<a href="/design-system" class={styles.navLink}>
+								Design
+							</a>
 						</nav>
 						<div class={styles.navRight}>
-							<a
-								href="/docs/introduction"
+							<button
+								type="button"
 								class={styles.navSearchBtn}
 								aria-label="Search documentation"
+								{...{ onclick: "document.querySelector('pagefind-modal')?.open?.()" }}
 							>
 								<svg
 									class={styles.navSearchIcon}
@@ -83,7 +94,7 @@ export default async function HomeLayout({ children, frontmatter }: Readonly<Lay
 								</svg>
 								<span class={styles.navSearchText}>Search docs...</span>
 								<kbd class={styles.navSearchKbd}>⌘K</kbd>
-							</a>
+							</button>
 							<a
 								href="https://github.com/useAvalon/Avalon"
 								class={styles.navGithubBtn}
@@ -100,6 +111,7 @@ export default async function HomeLayout({ children, frontmatter }: Readonly<Lay
 								</svg>
 								GitHub
 							</a>
+							<ThemeToggle island={{ condition: "on:idle" }} />
 						</div>
 						<div class={styles.mobileNavWrapper}>
 							<MobileNav island={{ condition: "on:interaction" }} currentPath={currentPath} />
@@ -107,6 +119,50 @@ export default async function HomeLayout({ children, frontmatter }: Readonly<Lay
 					</div>
 				</header>
 				<main>{children}</main>
+				<footer class={styles.footer}>
+					<div class={styles.footerInner}>
+						<div class={styles.footerBrand}>
+							<img src="/logo.svg" alt="" class={styles.footerLogo} width="20" height="20" />
+							<span>Avalon</span>
+						</div>
+						<nav class={styles.footerCols} aria-label="Footer">
+							<div>
+								<p class={styles.footerColTitle}>Docs</p>
+								<a href="/docs/introduction">Introduction</a>
+								<a href="/docs/installation">Installation</a>
+								<a href="/docs/quick-start">Quick start</a>
+								<a href="/docs/islands-architecture">Islands</a>
+								<a href="/docs/hydration-strategies">Hydration</a>
+							</div>
+							<div>
+								<p class={styles.footerColTitle}>Frameworks</p>
+								<a href="/docs/frameworks/react">React</a>
+								<a href="/docs/frameworks/vue">Vue</a>
+								<a href="/docs/frameworks/svelte">Svelte</a>
+								<a href="/docs/frameworks/solid">Solid</a>
+								<a href="/docs/frameworks/qwik">Qwik</a>
+							</div>
+							<div>
+								<p class={styles.footerColTitle}>Community</p>
+								<a
+									href="https://github.com/useAvalon/Avalon"
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									GitHub
+								</a>
+								<a href="https://discord.gg/avalon" target="_blank" rel="noopener noreferrer">
+									Discord
+								</a>
+								<a href="/blog">Blog</a>
+							</div>
+						</nav>
+					</div>
+					<div class={styles.footerBottom}>
+						<p>MIT License · © 2025 Avalon</p>
+					</div>
+				</footer>
+				<SearchModal island={{ condition: "on:idle" }} />
 			</body>
 		</html>
 	);

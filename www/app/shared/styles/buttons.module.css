@@ -1,111 +1,118 @@
 .btnPrimary {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-6);
-  background: var(--avalon-gradient-brand);
-  color: var(--avalon-white);
-  border: none;
-  border-radius: var(--radius-md);
-  font-family: var(--font-sans);
-  font-size: var(--text-body);
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  transition: opacity 0.2s ease, transform 0.15s ease;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-3) var(--space-6);
+	background: var(--avalon-gradient-brand);
+	color: var(--avalon-white);
+	border: none;
+	border-radius: var(--radius-md);
+	font-family: var(--font-sans);
+	font-size: var(--text-body);
+	font-weight: 600;
+	cursor: pointer;
+	text-decoration: none;
+	transition:
+		opacity 0.2s ease,
+		transform 0.15s ease;
 }
 
 .btnPrimary:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+	opacity: 0.9;
+	transform: translateY(-1px);
 }
 
 .btnPrimary:focus-visible {
-  outline: 2px solid var(--avalon-blue);
-  outline-offset: 3px;
+	outline: 2px solid var(--avalon-blue);
+	outline-offset: 3px;
 }
 
 .btnPrimary:active {
-  transform: translateY(0);
-  opacity: 1;
+	transform: translateY(0);
+	opacity: 1;
 }
 
 .btnPrimary:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  transform: none;
+	opacity: 0.4;
+	cursor: not-allowed;
+	transform: none;
 }
 
 .btnSecondary {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-6);
-  background: var(--surface-1);
-  color: var(--avalon-mist);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-md);
-  font-family: var(--font-sans);
-  font-size: var(--text-body);
-  font-weight: 500;
-  cursor: pointer;
-  text-decoration: none;
-  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-3) var(--space-6);
+	background: var(--surface-1);
+	color: var(--color-text);
+	border: 1px solid var(--surface-border);
+	border-radius: var(--radius-md);
+	font-family: var(--font-sans);
+	font-size: var(--text-body);
+	font-weight: 500;
+	cursor: pointer;
+	text-decoration: none;
+	transition:
+		background 0.2s ease,
+		border-color 0.2s ease,
+		transform 0.15s ease;
 }
 
 .btnSecondary:hover {
-  background: var(--surface-2);
-  border-color: var(--surface-border-hover);
-  transform: translateY(-1px);
+	background: var(--surface-2);
+	border-color: var(--surface-border-hover);
+	transform: translateY(-1px);
 }
 
 .btnSecondary:focus-visible {
-  outline: 2px solid var(--avalon-blue);
-  outline-offset: 3px;
+	outline: 2px solid var(--avalon-blue);
+	outline-offset: 3px;
 }
 
 .btnSecondary:active {
-  transform: translateY(0);
+	transform: translateY(0);
 }
 
 .btnSecondary:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  transform: none;
+	opacity: 0.4;
+	cursor: not-allowed;
+	transform: none;
 }
 
 .btnGhost {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-6);
-  background: transparent;
-  color: var(--avalon-slate);
-  border: none;
-  border-radius: var(--radius-md);
-  font-family: var(--font-sans);
-  font-size: var(--text-body);
-  font-weight: 500;
-  cursor: pointer;
-  text-decoration: none;
-  transition: color 0.2s ease, background 0.2s ease;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-2);
+	padding: var(--space-3) var(--space-6);
+	background: transparent;
+	color: var(--color-text-secondary);
+	border: none;
+	border-radius: var(--radius-md);
+	font-family: var(--font-sans);
+	font-size: var(--text-body);
+	font-weight: 500;
+	cursor: pointer;
+	text-decoration: none;
+	transition:
+		color 0.2s ease,
+		background 0.2s ease;
 }
 
 .btnGhost:hover {
-  color: var(--avalon-mist);
-  background: var(--surface-1);
+	color: var(--color-text);
+	background: var(--surface-1);
 }
 
 .btnGhost:focus-visible {
-  outline: 2px solid var(--avalon-blue);
-  outline-offset: 3px;
+	outline: 2px solid var(--avalon-blue);
+	outline-offset: 3px;
 }
 
 .btnGhost:active {
-  background: var(--surface-2);
+	background: var(--surface-2);
 }
 
 .btnGhost:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+	opacity: 0.4;
+	cursor: not-allowed;
 }

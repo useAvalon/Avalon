@@ -1,6 +1,6 @@
 ---
 title: Hydration Strategies
-description: Compare all hydration conditions and choose the right one for each use case.
+description: Advanced hydration directives and custom triggers for fine-grained control.
 currentPath: /docs/hydration-strategies
 prev:
   title: Islands Architecture
@@ -10,85 +10,99 @@ next:
   href: /docs/file-system-routing
 ---
 
-## Choosing a strategy
+## Overview
 
-The right hydration strategy depends on how critical the interactivity is and when the user needs it.
+Avalon ships with four built-in conditions (`on:client`, `on:visible`, `on:interaction`, `on:idle`) and a `media:` condition covered in [Islands Architecture](/docs/islands-architecture). This page covers the **custom directives** that give you fine-grained control beyond those defaults.
 
-| Condition | When it hydrates | Best for | JS cost |
-|---|---|---|---|
-| `on:client` | Immediately on page load | Critical interactive UI | Highest |
-| `on:visible` | When scrolled into view | Below-the-fold content | Medium |
-| `on:interaction` | On first click or hover | Forms, dropdowns, menus | Low |
-| `on:idle` | During browser idle time | Analytics, low-priority widgets | Lowest |
-| `media:` | When media query matches | Responsive-only components | Conditional |
+## Custom directives
 
-## `on:client` — Immediate
+Custom directives follow the `on:<name>` pattern and accept an optional argument via `conditionArg`. They are registered automatically — no setup needed.
 
-The island hydrates as soon as the page loads. The JavaScript bundle is fetched and executed immediately.
+### `on:delay`
 
-**Use when:** The component must be interactive before the user scrolls or interacts — e.g. a hero animation, an autoplaying carousel, or a sticky header with state.
+Hydrates after a timeout.
 
 ```tsx
-<HeroAnimation island={{ condition: 'on:client' }} />
+// Hydrate after 3 seconds (default: 1000ms)
+<Widget island={{ condition: 'on:delay', conditionArg: '3000' }} />
 ```
 
-**Performance note:** Every `on:client` island adds to the critical path. Use sparingly.
+**Use when:** You want to defer hydration by a fixed duration — e.g. a tooltip that isn't needed in the first few seconds.
 
+### `on:scroll`
 
-## `on:visible` — Viewport-triggered
-
-The island hydrates when it enters the viewport. Uses `IntersectionObserver` with a small threshold.
-
-**Use when:** The component is below the fold and doesn't need to be interactive until the user scrolls to it.
+Hydrates when the page scrolls past a pixel threshold.
 
 ```tsx
-<PricingTable island={{ condition: 'on:visible' }} />
+// Hydrate when user scrolls past 500px
+<LazySection island={{ condition: 'on:scroll', conditionArg: '500' }} />
 ```
 
-## `on:interaction` — Demand-triggered
+**Use when:** The component should activate based on scroll depth rather than viewport intersection — e.g. a "back to top" button or a progress bar.
 
-The island renders its SSR HTML immediately (so it looks correct), but only loads and executes JavaScript when the user first clicks or hovers over it.
+### `on:event`
 
-**Use when:** The component has a meaningful static appearance and only needs interactivity on demand — forms, accordions, tabs, dropdowns.
+Hydrates when a custom DOM event fires on `document`.
 
 ```tsx
-<ContactForm island={{ condition: 'on:interaction' }} />
+// Hydrate when a custom event fires
+<Dashboard island={{ condition: 'on:event', conditionArg: 'data:loaded' }} />
 ```
 
-## `on:idle` — Background loading
+**Use when:** Hydration depends on an external signal — data finishing a fetch, a third-party script loading, or an app-level readiness event.
 
-The island hydrates during browser idle time via `requestIdleCallback` (with a `setTimeout` fallback).
+### `on:match`
 
-**Use when:** The component is non-critical and should not compete with more important rendering work.
+Hydrates when a media query matches. Similar to the built-in `media:` condition but uses the custom directive system and accepts the query as `conditionArg`.
 
 ```tsx
-<ChatWidget island={{ condition: 'on:idle' }} />
+// Hydrate when viewport is at least 1024px
+<Sidebar island={{ condition: 'on:match', conditionArg: '(min-width: 1024px)' }} />
 ```
 
-## `media:` — Responsive
+## Registering your own directive
 
-The island only hydrates when the specified CSS media query matches. If the query never matches (e.g. a mobile-only component on desktop), no JavaScript is loaded at all.
+Register custom directives in your `server/renderer.ts` before the export:
 
-**Use when:** A component only exists at certain breakpoints.
+```ts
+import { registerHydrationDirective } from '@useavalon/avalon';
+
+registerHydrationDirective('on:countdown', {
+  name: 'on:countdown',
+  script: (el, hydrate, arg) => {
+    const seconds = parseInt(arg || '5', 10);
+    let remaining = seconds;
+    const tick = setInterval(() => {
+      remaining--;
+      if (remaining <= 0) {
+        clearInterval(tick);
+        hydrate();
+      }
+    }, 1000);
+  },
+});
+
+export { default } from 'virtual:avalon/renderer';
+```
+
+Then use it on any island:
 
 ```tsx
-<MobileDrawer island={{ condition: 'media:(max-width: 768px)' }} />
-<DesktopSidebar island={{ condition: 'media:(min-width: 769px)' }} />
+<MyComponent island={{ condition: 'on:countdown', conditionArg: '5' }} />
 ```
 
-## Combining strategies
+The directive's `script` function runs on the client. It receives:
 
-Each island gets its own strategy. Mix freely across a page:
+| Parameter | Description |
+|---|---|
+| `el` | The island's DOM element |
+| `hydrate` | Callback — call once to trigger hydration |
+| `arg` | The `conditionArg` string (or `undefined`) |
 
-```tsx
-export default function Page() {
-  return (
-    <div>
-      <HeroAnimation island={{ condition: 'on:client' }} />
-      <div><DataChart island={{ condition: 'on:visible' }} /></div>
-      <div><ContactForm island={{ condition: 'on:interaction' }} /></div>
-      <div><Analytics island={{ condition: 'on:idle' }} /></div>
-    </div>
-  );
-}
-```
+## Performance tips
+
+- **Start with `on:interaction` or `on:visible`** for most islands. They cover the majority of use cases with zero upfront JS cost.
+- **Use `on:delay`** to stagger hydration of multiple non-critical islands so they don't all compete for the main thread at once.
+- **Prefer `on:event`** over polling when hydration depends on async data — it avoids unnecessary timer overhead.
+- **Avoid `on:client`** unless the component truly needs to be interactive before any user action. Every `on:client` island adds to the critical path.
+- **Combine `on:scroll` with a high threshold** for components that only matter deep in the page — this is lighter than `on:visible` with a large root margin.

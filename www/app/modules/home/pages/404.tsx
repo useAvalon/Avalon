@@ -6,14 +6,15 @@
  */
 
 export const metadata = {
-  title: "404 - Page Not Found | Avalon",
-  description: "The page you're looking for doesn't exist.",
+	title: "404 - Page Not Found | Avalon",
+	description: "The page you're looking for doesn't exist.",
+	robots: "noindex, nofollow",
 };
 
 export default function NotFoundPage() {
-  return (
-    <div className="error-page">
-      <style>{`
+	return (
+		<div class="error-page">
+			<style>{`
         .error-page {
           font-family: system-ui, -apple-system, sans-serif;
           display: flex;
@@ -77,21 +78,20 @@ export default function NotFoundPage() {
           margin-bottom: 20px;
         }
       `}</style>
-      <div className="error-illustration">🔍</div>
-      <h1 className="error-code">404</h1>
-      <h2 className="error-title">Page Not Found</h2>
-      <p className="error-message">
-        Oops! The page you're looking for seems to have wandered off.
-        Let's get you back on track.
-      </p>
-      <div className="error-actions">
-        <a href="/" className="error-link">
-          Go Home
-        </a>
-        <a href="javascript:history.back()" className="error-link error-link-secondary">
-          Go Back
-        </a>
-      </div>
-    </div>
-  );
+			<div class="error-illustration">🔍</div>
+			<h1 class="error-code">404</h1>
+			<h2 class="error-title">Page Not Found</h2>
+			<p class="error-message">
+				Oops! The page you're looking for seems to have wandered off. Let's get you back on track.
+			</p>
+			<div class="error-actions">
+				<a href="/" class="error-link">
+					Go Home
+				</a>
+				<a href="#" onClick="history.back();return false" class="error-link error-link-secondary">
+					Go Back
+				</a>
+			</div>
+		</div>
+	);
 }

@@ -1,0 +1,184 @@
+/* HeroSpread — annotated code card with one-shot fade-in labels.
+   No looping motion. */
+
+.root {
+	position: relative;
+	width: 100%;
+	max-width: 720px;
+	margin: 0 auto;
+}
+
+/* card frame */
+.card {
+	position: relative;
+	background: var(--bp-bg);
+	border: 1px solid var(--bp-ink-10);
+	border-radius: var(--bp-r-xl);
+	overflow: hidden;
+	box-shadow:
+		0 1px 0 rgba(12, 12, 12, 0.02),
+		0 24px 48px -28px rgba(12, 12, 12, 0.12);
+}
+
+.cardHead {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 14px 18px;
+	border-bottom: 1px solid var(--bp-ink-10);
+	background: var(--bp-bg-alt);
+}
+
+.cardDot {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: var(--bp-ink-15);
+}
+
+.cardPath {
+	margin-left: auto;
+	font-family: var(--bp-mono);
+	font-size: 12px;
+	color: var(--bp-ink-50);
+}
+
+.codeBody {
+	padding: 24px 0 24px 0;
+	font-family: var(--bp-mono);
+	font-size: 14px;
+	line-height: 2;
+	background: var(--bp-bg);
+}
+
+.codeLine {
+	position: relative;
+	display: grid;
+	grid-template-columns: 44px 1fr auto;
+	align-items: center;
+	gap: 12px;
+	padding: 0 24px 0 0;
+	opacity: 0;
+	transform: translateY(6px);
+	transition:
+		opacity 0.45s ease-out,
+		transform 0.45s ease-out;
+}
+
+.revealed .codeLine {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+.codeNum {
+	text-align: right;
+	color: var(--bp-ink-30);
+	font-variant-numeric: tabular-nums;
+	user-select: none;
+	padding-right: 4px;
+	border-right: 1px solid var(--bp-ink-10);
+}
+
+.codeText {
+	color: var(--bp-ink);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	min-width: 0;
+}
+
+.blankLine {
+	height: 16px;
+}
+
+.kw {
+	color: var(--bp-blue);
+}
+.cls {
+	color: var(--bp-ink);
+	font-weight: 500;
+}
+.str {
+	color: #15803d;
+}
+.cmt {
+	color: var(--bp-ink-50);
+	font-style: italic;
+}
+
+/* Pin — right-edge label identifying the framework */
+.pin {
+	--pin-color: var(--bp-blue);
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 3px 10px 3px 4px;
+	background: var(--bp-bg-alt);
+	border: 1px solid var(--bp-ink-10);
+	border-radius: 999px;
+	font-family: var(--bp-mono);
+	font-size: 11px;
+	font-weight: 500;
+	color: var(--bp-ink-70);
+	text-transform: lowercase;
+	white-space: nowrap;
+	transition:
+		background 0.18s,
+		border-color 0.18s;
+}
+
+.codeLine:hover .pin {
+	background: var(--bp-bg);
+	border-color: var(--pin-color);
+}
+
+.pinDot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: var(--pin-color);
+	flex-shrink: 0;
+}
+
+.pinLabel {
+	letter-spacing: 0.02em;
+}
+
+.cardFoot {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 12px 20px;
+	border-top: 1px solid var(--bp-ink-10);
+	background: var(--bp-bg-alt);
+	font-family: var(--bp-mono);
+	font-size: 11px;
+	color: var(--bp-ink-50);
+}
+
+.cardFootKbd {
+	color: var(--bp-ink-15);
+}
+
+@media (max-width: 520px) {
+	.codeBody {
+		font-size: 12px;
+	}
+	.codeLine {
+		grid-template-columns: 32px 1fr auto;
+		gap: 8px;
+	}
+	.pin {
+		padding: 2px 7px 2px 3px;
+		font-size: 10px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.codeLine,
+	.badge {
+		transition: none;
+		opacity: 1;
+		transform: none;
+	}
+}

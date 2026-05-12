@@ -62,3 +62,22 @@ declare module "*?assets=ssr" {
 	};
 	export default assets;
 }
+
+// Pagefind Component UI custom elements
+interface PagefindModalElement extends HTMLElement {
+	open(): void;
+}
+
+declare global {
+	interface HTMLElementTagNameMap {
+		"pagefind-modal": PagefindModalElement;
+	}
+}
+
+declare namespace preact.JSX {
+	interface IntrinsicElements {
+		"pagefind-modal": preact.JSX.HTMLAttributes<PagefindModalElement>;
+		"pagefind-modal-trigger": Record<string, unknown>;
+		"pagefind-searchbox": Record<string, unknown>;
+	}
+}

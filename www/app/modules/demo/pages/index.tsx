@@ -7,6 +7,7 @@ import ReactCounter from "../components/Counter.react.tsx";
 import SolidCounter from "../components/Counter.solid.tsx";
 import SvelteCounter from "../components/Counter.svelte";
 import VueCounter from "../components/Counter.vue";
+import DelayedCounter from "../components/DelayedCounter.tsx";
 
 export const metadata = {
 	title: "Islands Demo — Avalon",
@@ -86,6 +87,11 @@ export default async function DemoPage() {
 				{/* Qwik Counter — resumable, no island prop needed */}
 				<div style={{ display: "flex", flexDirection: "column" }}>
 					<QwikCounter />
+				</div>
+
+				{/* Delayed Counter — custom on:countdown directive, hydrates after 5s */}
+				<div style={{ display: "flex", flexDirection: "column" }}>
+					<DelayedCounter island={{ condition: "on:countdown", conditionArg: "5" }} />
 				</div>
 			</div>
 

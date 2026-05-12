@@ -10,20 +10,13 @@ next:
   href: /docs/api/layout-config
 ---
 
-## Overview
-
-The `island` prop is added to any component import to turn it into a hydrated island. It controls when and how the component's JavaScript is loaded and executed on the client.
-
-```tsx
-<MyComponent island={{ condition: 'on:client' }} />
-```
-
 ## Type definition
 
 ```ts
 interface IslandProp {
-  condition: IslandCondition;
+  condition?: IslandCondition;
   id?: string;
+  conditionArg?: string;
 }
 
 type IslandCondition =
@@ -31,85 +24,46 @@ type IslandCondition =
   | 'on:visible'
   | 'on:interaction'
   | 'on:idle'
-  | `media:${string}`;
+  | `media:${string}`
+  | `on:${string}`;  // custom directives
 ```
 
-## `condition`
+## Properties
 
-Required. Controls when the island hydrates.
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `condition` | `IslandCondition` | `'on:client'` | When the island hydrates |
+| `id` | `string` | Auto-generated | Stable identifier for state persistence |
+| `conditionArg` | `string` | `undefined` | Argument passed to custom directives |
 
-| Value | Trigger | Use case |
-|---|---|---|
-| `on:client` | Immediately on page load | Critical interactive UI |
-| `on:visible` | Enters the viewport | Below-the-fold content |
-| `on:interaction` | First click or hover | Forms, menus, dropdowns |
-| `on:idle` | Browser idle time | Analytics, low-priority widgets |
-| `media:(query)` | CSS media query matches | Responsive-only components |
+## Valid `condition` values
 
+| Value | Trigger |
+|---|---|
+| `on:client` | Immediately on page load |
+| `on:visible` | Element enters the viewport |
+| `on:interaction` | First click or hover |
+| `on:idle` | Browser idle time |
+| `media:(query)` | CSS media query matches |
+| `on:delay` | After a timeout (ms) |
+| `on:scroll` | Page scrolled past threshold (px) |
+| `on:event` | Custom DOM event fires |
+| `on:match` | Media query matches via directive |
+| `on:<custom>` | Any registered custom directive |
 
-## `id`
-
-Optional. A stable identifier for the island instance. Used for state persistence with `PersistentIsland`. If omitted, Avalon generates one automatically.
+## Usage
 
 ```tsx
+<Counter island={{ condition: 'on:interaction' }} />
+
+<Widget island={{ condition: 'on:delay', conditionArg: '2000' }} />
+
 <Counter island={{ condition: 'on:client', id: 'hero-counter' }} />
-```
-
-## Passing props
-
-All other props on the component are passed through to the island as normal:
-
-```tsx
-<Counter
-  initialCount={5}
-  label="Clicks"
-  island={{ condition: 'on:interaction' }}
-/>
 ```
 
 Props must be serializable to JSON — they are embedded in the HTML as a data attribute for hydration.
 
-## Container workaround
+## See also
 
-When an island is the only child returned from a page or layout, wrap it in a container element:
-
-```tsx
-// ✅ Correct
-return <div><MyIsland island={{ condition: 'on:client' }} /></div>;
-
-// ❌ May cause transform issues
-return <MyIsland island={{ condition: 'on:client' }} />;
-```
-
-## Code examples
-
-Each condition in action:
-
-```tsx
-// on:client — hydrates immediately on page load
-<Counter island={{ condition: 'on:client' }} />
-
-// on:visible — hydrates when scrolled into view
-<Chart island={{ condition: 'on:visible' }} />
-
-// on:interaction — hydrates on first click or hover
-<Dropdown island={{ condition: 'on:interaction' }} />
-
-// on:idle — hydrates when the browser is idle
-<Analytics island={{ condition: 'on:idle' }} />
-
-// media: — hydrates when the media query matches
-<MobileMenu island={{ condition: 'media:(max-width: 768px)' }} />
-```
-
-## Without the island prop
-
-A component imported without the `island` prop renders as static HTML only — no JavaScript is sent to the client:
-
-```tsx
-// Static render — no JS
-<MyComponent />
-
-// Island — JS loaded on interaction
-<MyComponent island={{ condition: 'on:interaction' }} />
-```
+- [Islands Architecture](/docs/islands-architecture) — conceptual overview and built-in conditions
+- [Hydration Strategies](/docs/hydration-strategies) — custom directives and performance guidance

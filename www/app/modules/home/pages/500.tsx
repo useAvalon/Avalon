@@ -6,14 +6,15 @@
  */
 
 export const metadata = {
-  title: "500 - Server Error | Avalon",
-  description: "An unexpected error occurred on the server.",
+	title: "500 - Server Error | Avalon",
+	description: "An unexpected error occurred on the server.",
+	robots: "noindex, nofollow",
 };
 
 export default function ServerErrorPage() {
-  return (
-    <div className="error-page">
-      <style>{`
+	return (
+		<div class="error-page">
+			<style>{`
         .error-page {
           font-family: system-ui, -apple-system, sans-serif;
           display: flex;
@@ -58,6 +59,9 @@ export default function ServerErrorPage() {
           text-decoration: none;
           border-radius: 8px;
           font-weight: 600;
+          cursor: pointer;
+          border: none;
+          font-size: inherit;
           transition: transform 0.2s, box-shadow 0.2s;
         }
         .error-link:hover {
@@ -77,21 +81,25 @@ export default function ServerErrorPage() {
           margin-bottom: 20px;
         }
       `}</style>
-      <div className="error-illustration">⚠️</div>
-      <h1 className="error-code">500</h1>
-      <h2 className="error-title">Server Error</h2>
-      <p className="error-message">
-        Something went wrong on our end. Our team has been notified and is working on it.
-        Please try again in a few moments.
-      </p>
-      <div className="error-actions">
-        <a href="/" className="error-link">
-          Go Home
-        </a>
-        <a href="javascript:location.reload()" className="error-link error-link-secondary">
-          Try Again
-        </a>
-      </div>
-    </div>
-  );
+			<div class="error-illustration">⚠️</div>
+			<h1 class="error-code">500</h1>
+			<h2 class="error-title">Server Error</h2>
+			<p class="error-message">
+				Something went wrong on our end. Our team has been notified and is working on it. Please try
+				again in a few moments.
+			</p>
+			<div class="error-actions">
+				<a href="/" class="error-link">
+					Go Home
+				</a>
+				<button
+					type="button"
+					class="error-link error-link-secondary"
+					onClick={() => location.reload()}
+				>
+					Try Again
+				</button>
+			</div>
+		</div>
+	);
 }

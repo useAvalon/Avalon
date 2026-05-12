@@ -1,0 +1,533 @@
+/* ═══════════════════════════════════════════
+   Design System Page — Dark (default) + Light
+   ═══════════════════════════════════════════ */
+
+.root {
+	min-height: 100vh;
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: var(--font-sans);
+	padding: 2rem 1.5rem;
+}
+
+:global([data-theme="light"]) .root {
+	background: #ffffff;
+	color: #1e293b;
+}
+
+.mx {
+	max-width: 880px;
+	margin: 0 auto;
+}
+
+/* Header */
+.hdr {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-bottom: 0.5rem;
+}
+
+.mark {
+	width: 28px;
+	height: 28px;
+	border-radius: 7px;
+	background: var(--avalon-gradient-brand);
+	flex-shrink: 0;
+	position: relative;
+	overflow: hidden;
+}
+
+.mark::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	background: repeating-linear-gradient(
+		45deg,
+		transparent,
+		transparent 3px,
+		rgba(255, 255, 255, 0.08) 3px,
+		rgba(255, 255, 255, 0.08) 4px
+	);
+}
+
+.title {
+	font-size: 1.4rem;
+	font-weight: 700;
+	margin: 0;
+}
+
+.titleMuted {
+	color: var(--color-text-muted);
+	font-weight: 400;
+}
+
+.subtitle {
+	font-size: var(--text-small);
+	color: var(--color-text-muted);
+	margin: 0 0 1.5rem;
+}
+
+/* Theme toggle */
+.themeRow {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 1.5rem;
+}
+
+.themeBtn {
+	padding: 6px 14px;
+	font-size: 12px;
+	font-weight: 500;
+	border: 1px solid var(--surface-border);
+	border-radius: var(--radius-pill);
+	background: transparent;
+	color: var(--color-text-secondary);
+	cursor: pointer;
+	font-family: var(--font-sans);
+	transition: all 0.2s;
+}
+
+.themeBtn:hover {
+	border-color: var(--surface-border-hover);
+	color: var(--color-text);
+}
+
+.themeBtn:focus-visible {
+	outline: 2px solid var(--avalon-blue);
+	outline-offset: 2px;
+}
+
+.themeBtnActive {
+	composes: themeBtn;
+	background: rgba(31, 106, 211, 0.12);
+	border-color: rgba(31, 106, 211, 0.3);
+	color: var(--avalon-blue);
+}
+
+/* Tabs */
+.tabs {
+	display: flex;
+	gap: 2px;
+	margin-bottom: 1.5rem;
+	flex-wrap: wrap;
+	background: var(--surface-1);
+	border-radius: var(--radius-md);
+	padding: 3px;
+	border: 1px solid var(--surface-border);
+}
+
+.tab {
+	flex: 1;
+	min-width: 70px;
+	padding: 7px 6px;
+	font-size: 11px;
+	font-weight: 500;
+	border: none;
+	border-radius: 8px;
+	cursor: pointer;
+	background: transparent;
+	color: var(--color-text-muted);
+	font-family: var(--font-sans);
+	transition: all 0.2s;
+}
+
+.tab:hover {
+	color: var(--color-text-secondary);
+}
+
+.tab:focus-visible {
+	outline: 2px solid var(--avalon-blue);
+	outline-offset: 2px;
+}
+
+.tabActive {
+	composes: tab;
+	background: rgba(31, 106, 211, 0.12);
+	color: var(--avalon-blue);
+}
+
+/* Section labels */
+.label {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 2.5px;
+	color: var(--color-text-muted);
+	font-weight: 600;
+	margin: 0 0 0.8rem;
+}
+
+.desc {
+	font-size: 13px;
+	color: var(--color-text-muted);
+	line-height: 1.6;
+	margin: 0 0 1rem;
+}
+
+/* Swatch grid */
+.swatchGrid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-bottom: 1.5rem;
+}
+
+.swatch {
+	cursor: pointer;
+	min-width: 90px;
+	flex: 1 1 90px;
+}
+
+.swatchColor {
+	width: 100%;
+	height: 44px;
+	border-radius: 8px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-bottom: 4px;
+	transition: transform 0.15s;
+	border: 1px solid var(--surface-border);
+}
+
+.swatch:hover .swatchColor {
+	transform: translateY(-1px);
+}
+
+.swatch:focus-visible .swatchColor {
+	outline: 2px solid var(--avalon-blue);
+	outline-offset: 2px;
+}
+
+.swatchName {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--color-text);
+	display: block;
+}
+
+.swatchHex {
+	font-size: 11px;
+	color: var(--color-text-muted);
+	font-family: "JetBrains Mono", monospace;
+	display: block;
+}
+
+.swatchRole {
+	font-size: 10px;
+	color: var(--color-text-muted);
+	display: block;
+	margin-top: 1px;
+}
+
+/* Contrast pairings */
+.contrastGrid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.contrastPair {
+	padding: 8px 16px;
+	border-radius: 8px;
+	font-size: 12px;
+	font-weight: 600;
+	flex: 1 1 120px;
+	text-align: center;
+}
+
+/* Gradient cards */
+.gradCard {
+	cursor: pointer;
+	border-radius: 12px;
+	overflow: hidden;
+	margin-bottom: 10px;
+	border: 1px solid var(--surface-border);
+	background: var(--color-bg-elevated);
+	transition: transform 0.15s;
+}
+
+.gradCard:hover {
+	transform: translateY(-1px);
+}
+
+.gradCard:focus-visible {
+	outline: 2px solid var(--avalon-blue);
+	outline-offset: 2px;
+}
+
+.gradPreview {
+	width: 100%;
+	height: 72px;
+}
+
+.gradInfo {
+	padding: 10px 14px;
+}
+
+.gradName {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--color-text);
+}
+
+.gradDesc {
+	font-size: 11px;
+	color: var(--color-text-muted);
+	margin-top: 2px;
+}
+
+.gradCode {
+	font-size: 9px;
+	color: var(--color-text-muted);
+	font-family: "JetBrains Mono", monospace;
+	margin-top: 6px;
+	background: var(--surface-1);
+	border-radius: 6px;
+	padding: 5px 7px;
+	word-break: break-all;
+	line-height: 1.5;
+}
+
+/* Pattern previews */
+.patternFull {
+	position: relative;
+	width: 100%;
+	height: 160px;
+	border-radius: 12px;
+	overflow: hidden;
+	border: 1px solid var(--surface-border);
+	margin-bottom: 10px;
+}
+
+.patternFullDark {
+	composes: patternFull;
+	background: var(--color-bg-elevated);
+}
+
+.patternFullLight {
+	composes: patternFull;
+	background: #ffffff;
+}
+
+.patternLabel {
+	position: absolute;
+	bottom: 10px;
+	left: 14px;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--color-text);
+	z-index: 1;
+	background: rgba(10, 14, 26, 0.7);
+	padding: 3px 10px;
+	border-radius: 6px;
+	backdrop-filter: blur(4px);
+}
+
+:global([data-theme="light"]) .patternLabel {
+	background: rgba(255, 255, 255, 0.8);
+	color: #1e293b;
+}
+
+/* Token table */
+.tokenTable {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12px;
+	margin-bottom: 1.5rem;
+}
+
+.tokenTable th {
+	text-align: left;
+	padding: 8px 12px;
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 1.5px;
+	color: var(--color-text-muted);
+	border-bottom: 1px solid var(--surface-border);
+	font-weight: 600;
+}
+
+.tokenTable td {
+	padding: 8px 12px;
+	border-bottom: 1px solid var(--surface-border);
+	vertical-align: middle;
+}
+
+.tokenName {
+	font-family: "JetBrains Mono", monospace;
+	font-size: 11px;
+	color: var(--avalon-blue);
+}
+
+.tokenValue {
+	font-family: "JetBrains Mono", monospace;
+	font-size: 11px;
+	color: var(--color-text-secondary);
+}
+
+.tokenSample {
+	width: 24px;
+	height: 24px;
+	border-radius: 4px;
+	border: 1px solid var(--surface-border);
+	display: inline-block;
+	vertical-align: middle;
+}
+
+/* Code export block */
+.codeBlock {
+	cursor: pointer;
+	background: var(--surface-1);
+	border: 1px solid var(--surface-border);
+	border-radius: 12px;
+	padding: 16px 20px;
+}
+
+.codeBlock:focus-visible {
+	outline: 2px solid var(--avalon-blue);
+	outline-offset: 2px;
+}
+
+.codeBlockHeader {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 12px;
+}
+
+.codeBlockTitle {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--color-text-secondary);
+}
+
+.codeBlockHint {
+	font-size: 11px;
+	color: var(--color-text-muted);
+	transition: color 0.3s;
+}
+
+.codeBlockPre {
+	font-size: 10px;
+	line-height: 1.7;
+	color: var(--color-text-secondary);
+	font-family: "JetBrains Mono", monospace;
+	margin: 0;
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+/* Component showcase */
+.showcase {
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+}
+
+.showcaseCard {
+	border: 1px solid var(--surface-border);
+	border-radius: 12px;
+	overflow: hidden;
+}
+
+.showcasePreview {
+	padding: 24px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: center;
+}
+
+.showcaseInfo {
+	padding: 12px 16px;
+	border-top: 1px solid var(--surface-border);
+}
+
+.showcaseTitle {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--color-text);
+	margin: 0 0 2px;
+}
+
+.showcaseDesc {
+	font-size: 11px;
+	color: var(--color-text-muted);
+	margin: 0;
+}
+
+/* Footer */
+.foot {
+	margin-top: 2rem;
+	font-size: 11px;
+	color: var(--color-text-muted);
+	text-align: center;
+	border-top: 1px solid var(--surface-border);
+	padding-top: 1rem;
+}
+
+/* Chips (cell pattern selectors) */
+.chip {
+	padding: 5px 12px;
+	font-size: 11px;
+	font-weight: 500;
+	border: 1px solid var(--surface-border);
+	border-radius: 20px;
+	background: transparent;
+	color: var(--color-text-muted);
+	cursor: pointer;
+	font-family: var(--font-sans);
+	transition: all 0.2s;
+}
+
+.chip:hover {
+	border-color: var(--surface-border-hover);
+	color: var(--color-text-secondary);
+}
+
+.chipActive {
+	composes: chip;
+	background: rgba(31, 106, 211, 0.12);
+	border-color: rgba(31, 106, 211, 0.3);
+	color: var(--avalon-blue);
+}
+
+/* Stage (animated cell / FX container) */
+.stage {
+	border-radius: 14px;
+	overflow: hidden;
+	border: 1px solid var(--surface-border);
+	background: var(--color-bg);
+}
+
+:global([data-theme="light"]) .stage {
+	background: #ffffff;
+}
+
+.stageContent {
+	padding: 20px;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	min-height: 140px;
+}
+
+.stageInfo {
+	padding: 14px 18px;
+	border-top: 1px solid var(--surface-border);
+}
+
+.stageTitle {
+	font-size: 15px;
+	font-weight: 700;
+	margin: 0 0 3px;
+}
+
+.stageDesc {
+	font-size: 12px;
+	color: var(--color-text-muted);
+	line-height: 1.5;
+	margin: 0;
+}

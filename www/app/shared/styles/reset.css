@@ -1,35 +1,43 @@
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
 }
 
 html {
-  font-family: var(--font-sans);
-  line-height: 1.6;
-  -webkit-text-size-adjust: 100%;
+	font-family: var(--font-sans);
+	line-height: 1.6;
+	-webkit-text-size-adjust: 100%;
 }
 
 body {
-  background: var(--avalon-black);
-  color: var(--avalon-mist);
-  min-height: 100vh;
+	background: var(--color-bg);
+	color: var(--color-text);
+	min-height: 100vh;
 }
 
-img, svg, video {
-  display: block;
-  max-width: 100%;
+img,
+svg,
+video {
+	display: block;
+	max-width: 100%;
 }
 
-button, input, select, textarea {
-  font: inherit;
+button,
+input,
+select,
+textarea {
+	font: inherit;
 }
 
 a {
-  color: inherit;
-  text-decoration: none;
+	color: inherit;
+	text-decoration: none;
 }
 
-ul, ol {
-  list-style: none;
+ul,
+ol {
+	list-style: none;
 }

@@ -1,115 +1,119 @@
 .wrapper {
-  display: none;
-  position: relative;
+	display: none;
+	position: relative;
 }
 
 @media (max-width: 768px) {
-  .wrapper {
-    display: block;
-  }
+	.wrapper {
+		display: block;
+	}
 }
 
 .hamburger {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
-  width: 36px;
-  height: 36px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: var(--radius-sm);
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 5px;
+	width: 36px;
+	height: 36px;
+	background: transparent;
+	border: none;
+	cursor: pointer;
+	padding: 4px;
+	border-radius: var(--radius-sm);
 }
 
 .hamburger:focus-visible {
-  outline: 2px solid var(--avalon-blue);
-  outline-offset: 3px;
+	outline: 2px solid var(--avalon-blue);
+	outline-offset: 3px;
 }
 
 .bar {
-  display: block;
-  width: 20px;
-  height: 2px;
-  background: var(--avalon-mist);
-  border-radius: 2px;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+	display: block;
+	width: 20px;
+	height: 2px;
+	background: var(--color-text);
+	border-radius: 2px;
+	transition:
+		transform 0.2s ease,
+		opacity 0.2s ease;
 }
 
 .barOpen1 {
-  transform: translateY(7px) rotate(45deg);
+	transform: translateY(7px) rotate(45deg);
 }
 
 .barOpen2 {
-  opacity: 0;
+	opacity: 0;
 }
 
 .barOpen3 {
-  transform: translateY(-7px) rotate(-45deg);
+	transform: translateY(-7px) rotate(-45deg);
 }
 
 .mobileMenu {
-  position: absolute;
-  top: calc(100% + 12px);
-  right: 0;
-  min-width: 200px;
-  background: linear-gradient(137deg, rgba(17, 18, 20, 0.95) 4.87%, rgba(12, 13, 15, 0.98) 75.88%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-lg);
-  padding: var(--space-3);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  box-shadow: var(--shadow-lg);
+	position: absolute;
+	top: calc(100% + 12px);
+	right: 0;
+	min-width: 200px;
+	background: linear-gradient(137deg, rgba(17, 18, 20, 0.95) 4.87%, rgba(12, 13, 15, 0.98) 75.88%);
+	backdrop-filter: blur(20px);
+	-webkit-backdrop-filter: blur(20px);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: var(--radius-lg);
+	padding: var(--space-3);
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-1);
+	box-shadow: var(--shadow-lg);
 }
 
 .mobileLink {
-  display: block;
-  padding: var(--space-3) var(--space-4);
-  color: var(--avalon-slate);
-  text-decoration: none;
-  font-size: var(--text-body);
-  font-weight: 500;
-  border-radius: var(--radius-md);
-  transition: color 0.15s ease, background 0.15s ease;
+	display: block;
+	padding: var(--space-3) var(--space-4);
+	color: var(--color-text-secondary);
+	text-decoration: none;
+	font-size: var(--text-body);
+	font-weight: 500;
+	border-radius: var(--radius-md);
+	transition:
+		color 0.15s ease,
+		background 0.15s ease;
 }
 
 .mobileLink:hover {
-  color: var(--avalon-mist);
-  background: var(--surface-1);
+	color: var(--avalon-mist);
+	background: var(--surface-1);
 }
 
 .mobileLink:focus-visible {
-  outline: 2px solid var(--avalon-blue);
-  outline-offset: 3px;
+	outline: 2px solid var(--avalon-blue);
+	outline-offset: 3px;
 }
 
 .mobileLinkActive {
-  color: var(--avalon-mist);
+	color: var(--color-text);
 }
 
 .mobileCta {
-  display: block;
-  margin-top: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  background: var(--avalon-gradient-brand);
-  color: var(--avalon-white);
-  text-decoration: none;
-  font-size: var(--text-body);
-  font-weight: 600;
-  border-radius: var(--radius-md);
-  text-align: center;
-  transition: opacity 0.2s ease;
+	display: block;
+	margin-top: var(--space-2);
+	padding: var(--space-3) var(--space-4);
+	background: var(--avalon-gradient-brand);
+	color: var(--avalon-white);
+	text-decoration: none;
+	font-size: var(--text-body);
+	font-weight: 600;
+	border-radius: var(--radius-md);
+	text-align: center;
+	transition: opacity 0.2s ease;
 }
 
 .mobileCta:hover {
-  opacity: 0.9;
+	opacity: 0.9;
 }
 
 .mobileCta:focus-visible {
-  outline: 2px solid var(--avalon-blue);
-  outline-offset: 3px;
+	outline: 2px solid var(--avalon-blue);
+	outline-offset: 3px;
 }

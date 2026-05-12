@@ -9,39 +9,38 @@
  */
 
 export interface ErrorPageProps {
-  /** HTTP status code */
-  statusCode: number;
-  /** Error message */
-  message: string;
-  /** Error object (development only) */
-  error?: Error;
-  /** Stack trace (development only) */
-  stack?: string;
-  /** Request URL that caused the error */
-  url?: string;
+	/** HTTP status code */
+	statusCode: number;
+	/** Error message */
+	message: string;
+	/** Error object (development only) */
+	error?: Error;
+	/** Stack trace (development only) */
+	stack?: string;
+	/** Request URL that caused the error */
+	url?: string;
 }
 
 export const metadata = {
-  title: "Error | Avalon",
-  description: "An error occurred while processing your request.",
+	title: "Error | Avalon",
+	description: "An error occurred while processing your request.",
+	robots: "noindex, nofollow",
 };
 
 export default function ErrorPage(props: ErrorPageProps) {
-  const { statusCode, message, stack, url } = props;
-  const isDev = typeof window !== "undefined" 
-    ? window.location.hostname === "localhost"
-    : false;
+	const { statusCode, message, stack, url } = props;
+	const isDev = typeof window !== "undefined" ? window.location.hostname === "localhost" : false;
 
-  // Determine the error type for styling
-  const isClientError = statusCode >= 400 && statusCode < 500;
-  const gradientColors = isClientError
-    ? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-    : "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)";
-  const accentColor = isClientError ? "#667eea" : "#f5576c";
+	// Determine the error type for styling
+	const isClientError = statusCode >= 400 && statusCode < 500;
+	const gradientColors = isClientError
+		? "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+		: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)";
+	const accentColor = isClientError ? "#667eea" : "#f5576c";
 
-  return (
-    <div className="error-page">
-      <style>{`
+	return (
+		<div class="error-page">
+			<style>{`
         .error-page {
           font-family: system-ui, -apple-system, sans-serif;
           display: flex;
@@ -120,43 +119,39 @@ export default function ErrorPage(props: ErrorPageProps) {
           margin-top: 20px;
         }
       `}</style>
-      <h1 className="error-code">{statusCode}</h1>
-      <h2 className="error-title">{getStatusTitle(statusCode)}</h2>
-      <p className="error-message">{message}</p>
-      <div className="error-actions">
-        <a href="/" className="error-link">
-          Go Home
-        </a>
-      </div>
-      {url && (
-        <p className="error-url">
-          Requested URL: {url}
-        </p>
-      )}
-      {isDev && stack && (
-        <details className="error-details">
-          <summary>Error Details (Development Mode)</summary>
-          <pre>{stack}</pre>
-        </details>
-      )}
-    </div>
-  );
+			<h1 class="error-code">{statusCode}</h1>
+			<h2 class="error-title">{getStatusTitle(statusCode)}</h2>
+			<p class="error-message">{message}</p>
+			<div class="error-actions">
+				<a href="/" class="error-link">
+					Go Home
+				</a>
+			</div>
+			{url && <p class="error-url">Requested URL: {url}</p>}
+			{isDev && stack && (
+				<details class="error-details">
+					<summary>Error Details (Development Mode)</summary>
+					<pre>{stack}</pre>
+				</details>
+			)}
+		</div>
+	);
 }
 
 function getStatusTitle(statusCode: number): string {
-  const titles: Record<number, string> = {
-    400: "Bad Request",
-    401: "Unauthorized",
-    403: "Forbidden",
-    404: "Not Found",
-    405: "Method Not Allowed",
-    408: "Request Timeout",
-    410: "Gone",
-    429: "Too Many Requests",
-    500: "Internal Server Error",
-    502: "Bad Gateway",
-    503: "Service Unavailable",
-    504: "Gateway Timeout",
-  };
-  return titles[statusCode] || "Something Went Wrong";
+	const titles: Record<number, string> = {
+		400: "Bad Request",
+		401: "Unauthorized",
+		403: "Forbidden",
+		404: "Not Found",
+		405: "Method Not Allowed",
+		408: "Request Timeout",
+		410: "Gone",
+		429: "Too Many Requests",
+		500: "Internal Server Error",
+		502: "Bad Gateway",
+		503: "Service Unavailable",
+		504: "Gateway Timeout",
+	};
+	return titles[statusCode] || "Something Went Wrong";
 }

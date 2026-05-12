@@ -1,0 +1,290 @@
+.root {
+	margin-top: 48px;
+	max-width: 1040px;
+}
+
+/* ── Tabs ── */
+.tabs {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 8px;
+	padding: 6px;
+	background: var(--bp-bg);
+	border: 1px solid var(--bp-ink-10);
+	border-radius: 999px;
+	margin-bottom: 28px;
+}
+
+.tab {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	padding: 11px 12px;
+	background: transparent;
+	border: none;
+	border-radius: 999px;
+	cursor: pointer;
+	color: var(--bp-ink-70);
+	transition:
+		background 0.18s,
+		color 0.18s;
+	font-family: var(--bp-sans);
+	text-align: center;
+}
+
+.tabCode {
+	font-family: var(--bp-mono);
+	font-size: 11px;
+	font-weight: 500;
+	/* Follow the parent tab's color so hover/active states propagate.
+	   Slight opacity via currentColor keeps it subordinate to the title. */
+	color: currentColor;
+	opacity: 0.65;
+	letter-spacing: 0;
+}
+
+.tabTitle {
+	font-family: var(--bp-sans);
+	font-size: 14px;
+	font-weight: 500;
+}
+
+/* Hover only affects inactive tabs — the active tab already owns its
+   own (ink bg + white text) contrast, and a raw `.tab:hover` rule
+   would set its text to ink on top of the ink background. */
+.tab:not(.tabActive):hover {
+	color: var(--bp-ink);
+	background: var(--bp-ink-05);
+}
+
+.tab:focus-visible {
+	outline: 2px solid var(--bp-blue);
+	outline-offset: 2px;
+}
+
+.tabActive {
+	background: var(--bp-blue);
+	color: #ffffff;
+}
+
+/* The active tab should stay visually stable on hover — no color
+   flip, no background change. Cursor default is enough feedback. */
+.tabActive:hover {
+	background: var(--bp-blue);
+	color: #ffffff;
+}
+
+@media (max-width: 720px) {
+	.tabs {
+		grid-template-columns: 1fr 1fr;
+		border-radius: 20px;
+	}
+	.tab {
+		border-radius: 14px;
+	}
+}
+
+/* ── Pane ── */
+
+.pane {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+	gap: clamp(24px, 4vw, 56px);
+	align-items: center;
+	padding: clamp(24px, 3vw, 40px);
+	background: var(--bp-bg);
+	border: 1px solid var(--bp-ink-10);
+	border-radius: var(--bp-r-xl);
+	animation: hcFade 0.35s ease;
+}
+
+@keyframes hcFade {
+	from {
+		opacity: 0.6;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (max-width: 760px) {
+	.pane {
+		grid-template-columns: 1fr;
+	}
+}
+
+.paneCopy {
+	min-width: 0;
+}
+
+.paneBlurb {
+	font-family: var(--bp-sans);
+	font-size: clamp(17px, 1.3vw, 19px);
+	font-weight: 400;
+	line-height: 1.55;
+	color: var(--bp-ink);
+	margin: 0 0 20px;
+}
+
+.paneWhen {
+	font-family: var(--bp-sans);
+	font-size: 14px;
+	color: var(--bp-ink-70);
+	margin: 0;
+	line-height: 1.5;
+}
+
+.paneWhenLabel {
+	display: block;
+	font-family: var(--bp-mono);
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: var(--bp-ink-50);
+	margin-bottom: 6px;
+}
+
+.paneFigure {
+	min-width: 0;
+}
+
+/* ── Diagrams ── */
+.diagram {
+	display: block;
+	width: 100%;
+	height: auto;
+	max-height: 320px;
+}
+
+.frame {
+	fill: var(--bp-bg-alt);
+	stroke: var(--bp-ink-10);
+	stroke-width: 0.5;
+}
+
+.diagLabel {
+	font-family: var(--bp-mono);
+	font-size: 6px;
+	font-weight: 500;
+	fill: var(--bp-ink-50);
+	letter-spacing: 0.08em;
+}
+
+.diagTinyLabel {
+	font-family: var(--bp-mono);
+	font-size: 5px;
+	fill: var(--bp-ink-50);
+}
+
+.diagRule {
+	stroke: var(--bp-ink-10);
+	stroke-width: 0.5;
+}
+
+.diagLineFaint {
+	fill: var(--bp-ink-15);
+}
+
+.diagIslandActive {
+	fill: var(--bp-blue);
+}
+
+.diagIslandDormant {
+	fill: var(--bp-bg);
+	stroke: var(--bp-ink-15);
+	stroke-width: 0.6;
+	stroke-dasharray: 2 2;
+}
+
+.diagIslandText {
+	font-family: var(--bp-mono);
+	font-size: 7px;
+	fill: #ffffff;
+	font-weight: 500;
+}
+
+.diagIslandTextDim {
+	font-family: var(--bp-mono);
+	font-size: 7px;
+	fill: var(--bp-ink-50);
+}
+
+.diagPulse {
+	fill: rgba(255, 255, 255, 0.9);
+	animation: diagPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes diagPulse {
+	0%,
+	100% {
+		opacity: 0.4;
+		r: 3;
+	}
+	50% {
+		opacity: 0.95;
+		r: 4;
+	}
+}
+
+.diagViewport {
+	stroke: var(--bp-blue);
+	stroke-width: 0.8;
+	stroke-dasharray: 3 2;
+}
+
+.diagCursor {
+	fill: var(--bp-ink);
+	stroke: #ffffff;
+	stroke-width: 0.8;
+}
+
+.diagRipple {
+	fill: none;
+	stroke: var(--bp-blue);
+	stroke-width: 0.8;
+	animation: diagRipple 1.8s ease-out infinite;
+	transform-origin: 118px 66px;
+}
+
+@keyframes diagRipple {
+	0% {
+		transform: scale(0.3);
+		opacity: 0.9;
+	}
+	100% {
+		transform: scale(2);
+		opacity: 0;
+	}
+}
+
+.diagFrame {
+	fill: var(--bp-ink-10);
+}
+
+.diagIdleSlot {
+	fill: var(--bp-blue);
+}
+
+.diagSlotLabel {
+	font-family: var(--bp-mono);
+	font-size: 5px;
+	fill: var(--bp-blue);
+	font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.pane {
+		animation: none;
+	}
+	.diagPulse {
+		animation: none;
+		opacity: 0.9;
+	}
+	.diagRipple {
+		animation: none;
+		opacity: 0;
+	}
+}

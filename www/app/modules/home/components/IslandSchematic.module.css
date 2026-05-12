@@ -1,0 +1,89 @@
+.figure {
+	margin: 0;
+	padding: clamp(20px, 3vw, 32px);
+	background: var(--bp-bg-alt);
+	border: 1px solid var(--bp-ink-10);
+	border-radius: var(--bp-r-xl);
+}
+
+.svg {
+	display: block;
+	width: 100%;
+	height: auto;
+	max-height: 520px;
+	overflow: visible;
+}
+
+.pageFrame {
+	fill: var(--bp-bg);
+	stroke: var(--bp-ink-15);
+	stroke-width: 0.3;
+}
+
+.staticLine {
+	fill: var(--bp-ink-15);
+}
+
+/* Island blocks — solid Avalon blue */
+.islandGroup {
+	opacity: 0;
+	transform: translateY(4px);
+	transition:
+		opacity 0.55s ease-out,
+		transform 0.55s ease-out;
+}
+
+.revealed .islandGroup {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+.island {
+	fill: var(--bp-blue);
+}
+
+.islandLineA {
+	fill: rgba(255, 255, 255, 0.9);
+}
+.islandLineB {
+	fill: rgba(255, 255, 255, 0.55);
+}
+
+.callout {
+	stroke: var(--bp-ink);
+	stroke-width: 0.3;
+	stroke-dasharray: 1 1;
+}
+
+.calloutDot {
+	fill: var(--bp-blue);
+}
+
+.labelName {
+	font-family: var(--bp-sans);
+	font-size: 3.6px;
+	font-weight: 600;
+	fill: var(--bp-ink);
+}
+
+.labelCond {
+	font-family: var(--bp-mono);
+	font-size: 3px;
+	fill: var(--bp-blue);
+}
+
+.caption {
+	margin-top: 14px;
+	font-family: var(--bp-mono);
+	font-size: 11px;
+	color: var(--bp-ink-50);
+	letter-spacing: 0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.islandGroup {
+		transition: none;
+		opacity: 1;
+		transform: none;
+	}
+}

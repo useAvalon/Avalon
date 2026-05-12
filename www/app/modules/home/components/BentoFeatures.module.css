@@ -1,0 +1,521 @@
+/* ═══════════════════════════════════════════════════════════════
+   BentoFeatures — 9 cards, mixed sizes, each with a unique visual.
+   Grid: 3 columns, asymmetric spans. Cards reveal on scroll.
+   ═══════════════════════════════════════════════════════════════ */
+
+.grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 16px;
+	margin-top: 48px;
+}
+
+@media (max-width: 900px) {
+	.grid {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+@media (max-width: 560px) {
+	.grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* ── Base card ── */
+.card {
+	background: var(--bp-bg-alt);
+	border: 1px solid var(--bp-ink-10);
+	border-radius: var(--bp-r-xl);
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	opacity: 0;
+	transform: translateY(12px);
+	transition:
+		opacity 0.5s ease,
+		transform 0.5s ease,
+		border-color 0.2s;
+}
+
+.visible .card {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+/* Stagger reveal per card */
+.visible .card:nth-child(1) {
+	transition-delay: 0ms;
+}
+.visible .card:nth-child(2) {
+	transition-delay: 60ms;
+}
+.visible .card:nth-child(3) {
+	transition-delay: 120ms;
+}
+.visible .card:nth-child(4) {
+	transition-delay: 180ms;
+}
+.visible .card:nth-child(5) {
+	transition-delay: 240ms;
+}
+.visible .card:nth-child(6) {
+	transition-delay: 300ms;
+}
+.visible .card:nth-child(7) {
+	transition-delay: 360ms;
+}
+.visible .card:nth-child(8) {
+	transition-delay: 420ms;
+}
+.visible .card:nth-child(9) {
+	transition-delay: 480ms;
+}
+
+.card:hover {
+	border-color: var(--bp-blue);
+}
+
+.cardLg {
+	grid-column: span 2;
+}
+
+@media (max-width: 560px) {
+	.cardLg {
+		grid-column: span 1;
+	}
+}
+
+.cardVisual {
+	padding: 28px 28px 0;
+	flex-shrink: 0;
+	min-height: 140px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.cardVisualLeft {
+	justify-content: flex-start;
+	align-items: flex-start;
+}
+
+.cardVisualFull {
+	width: 100%;
+	flex-direction: column;
+	align-items: stretch;
+}
+
+.cardCopy {
+	padding: 24px 28px 28px;
+}
+
+.cardCopy h3 {
+	font-family: var(--bp-sans);
+	font-size: 16px;
+	font-weight: 600;
+	color: var(--bp-ink);
+	margin: 0 0 6px;
+	letter-spacing: -0.01em;
+}
+
+.cardCopy p {
+	font-family: var(--bp-sans);
+	font-size: 14px;
+	line-height: 1.5;
+	color: var(--bp-ink-70);
+	margin: 0;
+}
+
+/* ═══════════ ZERO JS ═══════════ */
+/* Big animated counter */
+
+.cardZero .cardVisual {
+	background: var(--bp-blue);
+	border-radius: var(--bp-r) var(--bp-r) 0 0;
+	margin: 0;
+	padding: 48px 28px;
+	background-image: var(--bp-pattern-dots-light);
+}
+
+.zeroNum {
+	font-family: var(--bp-sans);
+	font-weight: 700;
+	font-size: clamp(64px, 8vw, 96px);
+	color: #ffffff;
+	line-height: 1;
+	letter-spacing: -0.04em;
+	font-variant-numeric: tabular-nums;
+}
+
+.zeroUnit {
+	font-family: var(--bp-mono);
+	font-size: 24px;
+	color: rgba(255, 255, 255, 0.7);
+	margin-left: 8px;
+	vertical-align: super;
+}
+
+/* ═══════════ HYDRATION ═══════════ */
+
+.hydrationRow {
+	display: flex;
+	gap: 12px;
+}
+
+.hydrationBlock {
+	width: 48px;
+	height: 48px;
+	border-radius: 10px;
+	background: var(--bp-ink-10);
+	transition: transform 0.3s;
+}
+
+.hydrationActive {
+	background: var(--bp-blue);
+	animation: hydrationPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes hydrationPulse {
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 rgba(31, 106, 211, 0.4);
+	}
+	50% {
+		box-shadow: 0 0 0 10px rgba(31, 106, 211, 0);
+	}
+}
+
+.card:hover .hydrationBlock {
+	transform: scale(1.05);
+}
+
+/* ═══════════ FRAMEWORKS ═══════════ */
+
+.fwCluster {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 14px;
+	justify-content: center;
+	max-width: 240px;
+}
+
+.fwItem {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	background: var(--bp-bg);
+	border: 1px solid var(--bp-ink-10);
+	border-radius: 12px;
+	transition:
+		transform 0.2s,
+		border-color 0.2s;
+}
+
+.fwItem:hover {
+	transform: scale(1.12);
+	border-color: var(--bp-ink-30);
+}
+
+.fwDot {
+	position: absolute;
+	top: -3px;
+	right: -3px;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+}
+
+/* ═══════════ FILE ROUTING ═══════════ */
+
+.routingTree {
+	font-family: var(--bp-mono);
+	font-size: 13px;
+	line-height: 1.8;
+	color: var(--bp-ink);
+	margin: 0;
+	white-space: pre;
+	min-height: 120px;
+}
+
+.cursor {
+	color: var(--bp-blue);
+	animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0;
+	}
+}
+
+/* ═══════════ STREAMING ═══════════ */
+
+.streamBar {
+	display: flex;
+	width: 100%;
+	height: 32px;
+	border-radius: 8px;
+	overflow: hidden;
+	background: var(--bp-ink-05);
+	gap: 2px;
+}
+
+.streamChunk {
+	height: 100%;
+	background: var(--bp-blue);
+	border-radius: 6px;
+	transform-origin: left;
+	transform: scaleX(0);
+	transition: transform 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.visible .streamChunk {
+	transform: scaleX(1);
+}
+
+/* Stagger each chunk */
+.streamChunk:nth-child(1) {
+	transition-delay: 0.1s;
+}
+.streamChunk:nth-child(2) {
+	transition-delay: 0.5s;
+}
+.streamChunk:nth-child(3) {
+	transition-delay: 0.9s;
+}
+.streamChunk:nth-child(4) {
+	transition-delay: 1.3s;
+}
+
+.streamLabels {
+	display: flex;
+	justify-content: space-between;
+	margin-top: 10px;
+	font-family: var(--bp-mono);
+	font-size: 10px;
+	color: var(--bp-ink-50);
+	letter-spacing: 0.03em;
+}
+
+/* ═══════════ API ROUTES ═══════════ */
+
+.apiExchange {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	width: 100%;
+}
+
+.apiReq,
+.apiRes {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 12px 16px;
+	border-radius: 10px;
+	font-family: var(--bp-mono);
+	font-size: 13px;
+}
+
+.apiReq {
+	background: var(--bp-bg);
+	border: 1px solid var(--bp-ink-10);
+}
+
+.apiMethod {
+	font-weight: 600;
+	color: var(--bp-blue);
+}
+
+.apiPath {
+	color: var(--bp-ink);
+}
+
+.apiRes {
+	background: var(--bp-blue);
+	opacity: 0;
+	transform: translateY(6px);
+	transition:
+		opacity 0.6s ease 0.8s,
+		transform 0.6s ease 0.8s;
+}
+
+.apiResVisible {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+.apiStatus {
+	font-weight: 700;
+	color: #ffffff;
+}
+
+.apiBody {
+	font-family: var(--bp-mono);
+	font-size: 12px;
+	color: rgba(255, 255, 255, 0.85);
+	margin: 0;
+	white-space: nowrap;
+}
+
+/* ═══════════ IMAGE ═══════════ */
+
+.imgDemo {
+	position: relative;
+	width: 100%;
+	height: 80px;
+	border-radius: 10px;
+	overflow: hidden;
+	background: linear-gradient(135deg, var(--bp-blue), var(--bp-cyan, #2ca1b3));
+	filter: blur(8px);
+	transition: filter 1.5s ease-out 0.5s;
+}
+
+.visible .imgDemo {
+	filter: blur(0px);
+}
+
+/* Remove the separate blur/sharp layers — single element transition is cleaner */
+.imgBlur,
+.imgSharp {
+	display: none;
+}
+
+.imgMeta {
+	display: flex;
+	gap: 8px;
+	margin-top: 10px;
+	font-family: var(--bp-mono);
+	font-size: 11px;
+	color: var(--bp-ink-50);
+}
+
+/* ═══════════ MIDDLEWARE ═══════════ */
+
+.mwStack {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	width: 100%;
+}
+
+.mwLayer {
+	height: 36px;
+	border-radius: 8px;
+	position: relative;
+	display: flex;
+	align-items: center;
+	padding-left: 14px;
+}
+
+.mwLayer::after {
+	content: attr(data-label);
+	font-family: var(--bp-mono);
+	font-size: 12px;
+	font-weight: 500;
+	color: #ffffff;
+}
+
+.mwLayer:nth-child(1) {
+	background: var(--bp-blue);
+	width: 100%;
+}
+
+.mwLayer:nth-child(2) {
+	background: var(--bp-cyan, #2ca1b3);
+	width: 88%;
+}
+
+.mwLayer:nth-child(3) {
+	background: #334155;
+	width: 76%;
+}
+
+/* ═══════════ EDGE ═══════════ */
+
+.edgeMap {
+	position: relative;
+	width: 100%;
+	height: 100px;
+	background-image: var(--bp-pattern-dots);
+	border-radius: 10px;
+}
+
+.edgeDot {
+	position: absolute;
+	width: 12px;
+	height: 12px;
+	background: var(--bp-blue);
+	border-radius: 50%;
+	animation: edgePulse 3s ease-in-out infinite;
+}
+
+.edgeDot:nth-child(2) {
+	animation-delay: 0.6s;
+}
+.edgeDot:nth-child(3) {
+	animation-delay: 1.2s;
+}
+.edgeDot:nth-child(4) {
+	animation-delay: 1.8s;
+}
+.edgeDot:nth-child(5) {
+	animation-delay: 2.4s;
+}
+
+@keyframes edgePulse {
+	0%,
+	100% {
+		transform: scale(1);
+		opacity: 0.8;
+	}
+	50% {
+		transform: scale(1.6);
+		opacity: 0.4;
+	}
+}
+
+/* ═══════════ REDUCED MOTION ═══════════ */
+
+@media (prefers-reduced-motion: reduce) {
+	.card {
+		transition: none;
+		opacity: 1;
+		transform: none;
+	}
+	.hydrationActive {
+		animation: none;
+		box-shadow: 0 0 0 4px rgba(31, 106, 211, 0.2);
+	}
+	.streamChunk {
+		animation: none;
+		transform: scaleX(1);
+	}
+	.cursor {
+		animation: none;
+	}
+	.imgBlur {
+		animation: none;
+		opacity: 0;
+	}
+	.imgSharp {
+		animation: none;
+		opacity: 1;
+	}
+	.edgeDot {
+		animation: none;
+	}
+	.apiRes {
+		opacity: 1;
+		transform: none;
+		transition: none;
+	}
+}

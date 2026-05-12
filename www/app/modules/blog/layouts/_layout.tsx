@@ -1,5 +1,5 @@
-import type { LayoutProps } from '@useavalon/avalon';
-import styles from './_layout.module.css';
+import type { LayoutProps } from "@useavalon/avalon";
+import styles from "./_layout.module.css";
 
 interface BlogFrontmatter {
 	title?: string;
@@ -12,20 +12,18 @@ export default function BlogLayout({ children, frontmatter }: Readonly<LayoutPro
 	const fm = frontmatter as BlogFrontmatter | undefined;
 
 	return (
-		<div className={styles.wrapper}>
-			<article className={styles.article}>
+		<div class={styles.wrapper}>
+			<article class={styles.article} data-pagefind-body>
 				{fm?.title && (
-					<header className={styles.header}>
-						{fm.date && <time className={styles.date}>{fm.date}</time>}
-						<h1 className={styles.title}>{fm.title}</h1>
+					<header class={styles.header}>
+						{fm.date && <time class={styles.date}>{fm.date}</time>}
+						<h1 class={styles.title}>{fm.title}</h1>
 						{(fm.description || fm.excerpt) && (
-							<p className={styles.excerpt}>{fm.description ?? fm.excerpt}</p>
+							<p class={styles.excerpt}>{fm.description ?? fm.excerpt}</p>
 						)}
 					</header>
 				)}
-				<div className={styles.prose}>
-					{children}
-				</div>
+				<div class={styles.prose}>{children}</div>
 			</article>
 		</div>
 	);

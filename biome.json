@@ -13,17 +13,39 @@
 		"lineWidth": 100
 	},
 	"linter": {
-		"enabled": true
+		"enabled": true,
+		"rules": {
+			"correctness": {
+				"useQwikValidLexicalScope": "off",
+				"noUnusedFunctionParameters": "warn",
+				"useImageSize": "warn"
+			},
+			"security": {
+				"noDangerouslySetInnerHtml": "off"
+			},
+			"suspicious": {
+				"noCommentText": "off",
+				"noSuspiciousSemicolonInJsx": "off",
+				"noArrayIndexKey": "off",
+				"useIterableCallbackReturn": "warn"
+			},
+			"style": {
+				"noNonNullAssertion": "warn",
+				"useTemplate": "warn"
+			},
+			"a11y": {
+				"useValidAnchor": "warn",
+				"useButtonType": "warn",
+				"noStaticElementInteractions": "off",
+				"useKeyWithClickEvents": "off"
+			}
+		}
 	},
 	"overrides": [
 		{
-			"includes": ["packages/integrations/react/server/renderer.ts"],
+			"includes": ["www/inspiration/**"],
 			"linter": {
-				"rules": {
-					"security": {
-						"noDangerouslySetInnerHtml": "off"
-					}
-				}
+				"enabled": false
 			}
 		}
 	],
