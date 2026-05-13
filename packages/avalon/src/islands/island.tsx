@@ -20,6 +20,8 @@ declare global {
 	var __viteDevServer: ViteDevServer | undefined;
 	/** Hydration mode — automatically set: "entry-client" in dev (HMR), "per-island" in production */
 	var __avalonHydrationMode: "entry-client" | "per-island" | undefined;
+	/** Compile-time constant set by Vite define — true in production, false in dev */
+	var __AVALON_PER_ISLAND__: boolean;
 }
 
 /** Supported hydration conditions for island components */
@@ -72,11 +74,18 @@ function toIslandId(src: string): string {
 function isPerIslandMode(): boolean {
 	// In production, always use per-island mode (better performance).
 	// In dev, use entry-client mode (needed for HMR).
-	// The globalThis flag is set by the Vite plugin's configResolved hook,
-	// but it's not available in the Nitro SSR runtime (separate JS realm).
-	// So we fall back to !isDev() for production detection.
 	if (globalThis.__avalonHydrationMode !== undefined) {
 		return globalThis.__avalonHydrationMode === "per-island";
+	}
+	if (globalThis.__viteDevServer) {
+		return false;
+	}
+	// __AVALON_PER_ISLAND__ is replaced at build/transform time by the Vite plugin.
+	// In dev (command=serve) it's replaced with `false`.
+	// In production (command=build) it's replaced with `true`.
+	// This is the most reliable detection because it's a compile-time constant.
+	if (typeof __AVALON_PER_ISLAND__ !== "undefined") {
+		return __AVALON_PER_ISLAND__;
 	}
 	return !isDev();
 }

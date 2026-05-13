@@ -141,7 +141,6 @@ export {
 export type { Framework, RenderParams, SvelteSSRCSSEntry } from "./src/islands/types.ts";
 // Main exports
 export { renderToHtml } from "./src/render/ssr.ts";
-export { asIsland } from "./src/types/as-island.ts";
 // Island directive type for the `island` prop
 export type { IslandDirective } from "./src/types/island-prop.d.ts";
 export type {

@@ -191,6 +191,14 @@ export function getIslandBundlePath(src: string, manifest?: ExtendedIslandManife
 		? globalThis.__avalonHydrationMode === "entry-client"
 		: process.env.NODE_ENV !== "production";
 
+	// Strip absolute filesystem paths to project-relative paths.
+	// Vite alias resolution can produce absolute paths like
+	// /Users/.../project/app/shared/components/Foo.tsx
+	const cwd = process.cwd();
+	if (cwd && src.startsWith(cwd + "/")) {
+		src = src.slice(cwd.length);
+	}
+
 	// If manifest is provided, use it (production mode)
 	if (manifest) {
 		const qualifiedName = extractQualifiedNameFromSrc(src);

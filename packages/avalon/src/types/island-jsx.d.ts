@@ -6,28 +6,27 @@
 
 import type { IslandDirective } from './island-prop.d.ts';
 
+/** Force TypeScript to expand the type inline on hover instead of showing the alias name */
+type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;
+
 declare module 'preact' {
   namespace JSX {
     interface IntrinsicAttributes {
-      island?: IslandDirective;
+      island?: Expand<IslandDirective>;
     }
   }
 }
 
-// Augment the global JSX namespace so the `island` prop is accepted on
-// non-Preact components (Svelte, Solid) when used in a Preact JSX context.
 declare global {
   namespace JSX {
     interface IntrinsicAttributes {
-      island?: IslandDirective;
+      island?: Expand<IslandDirective>;
     }
   }
 }
 
-// Augment Vue's ComponentCustomProps so Volar accepts `island` on all Vue SFCs.
 declare module '@vue/runtime-core' {
   interface ComponentCustomProps {
-    island?: IslandDirective;
+    island?: Expand<IslandDirective>;
   }
 }
-

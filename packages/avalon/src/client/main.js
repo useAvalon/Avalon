@@ -54,7 +54,7 @@ function initializeHydration() {
 			} else if (condition.startsWith("media:")) {
 				const mediaQuery = condition.slice(6);
 				setupMediaQuery(island, framework, mediaQuery);
-			} else if (island.dataset.customDirective || hasClientDirective(condition)) {
+			} else if (island.dataset.customDirective || island.dataset.directiveScript || hasClientDirective(condition)) {
 				// Custom hydration directive — delegate to the directive executor
 				const handled = executeCustomDirective(island, condition, () => {
 					hydrateIsland(island, framework);
@@ -103,6 +103,11 @@ function shouldHydrate(island, condition) {
 	}
 
 	if (condition === "on:visible" || condition === "on:interaction" || condition === "on:idle") {
+		return true;
+	}
+
+	// Custom directives — always allow hydration (the directive controls timing)
+	if (island.dataset.customDirective || island.dataset.directiveScript || hasClientDirective(condition)) {
 		return true;
 	}
 

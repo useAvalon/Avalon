@@ -306,7 +306,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 		name: "avalon",
 		enforce: "pre",
 
-		config() {
+		config(_config, { command }) {
 			// @useavalon packages ship raw .ts source. Vite's built-in OXC
 			// would apply integration plugins' global jsx: 'automatic' config
 			// to plain .ts files, causing errors. We exclude them from OXC and
@@ -336,7 +336,17 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 			};
 			const depsToInclude = integrationsToLoad.flatMap((name) => frameworkDeps[name] ?? []);
 
+			// __AVALON_PER_ISLAND__ is a compile-time constant that tells island.tsx
+			// whether to use per-island hydration scripts (production) or entry-client
+			// mode (dev/HMR). This is the most reliable detection because it's replaced
+			// at transform time — it works even in Nitro's separate SSR module runner
+			// where globalThis values from the Vite process aren't available.
+			const isPerIsland = command === "build";
+
 			return {
+				define: {
+					__AVALON_PER_ISLAND__: JSON.stringify(isPerIsland),
+				},
 				oxc: {
 					exclude: [/node_modules\/@useavalon\/.*\.tsx?$/],
 				},

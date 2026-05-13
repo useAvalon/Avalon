@@ -239,7 +239,9 @@ export async function buildIsolatedIslands(
 	if (islands.size === 0) return [];
 	const { build: viteBuild } = await import("vite");
 
-	console.log(`🏝️  Building ${islands.size} islands in isolation...`);
+	const skippedFrameworks = new Set(["qwik", "lit", "preact", "react"]);
+	const toBuild = [...islands.values()].filter((i) => !skippedFrameworks.has(i.framework));
+	console.log(`🏝️  Building ${toBuild.length} island(s) in isolation (${islands.size - toBuild.length} skipped)...`);
 	const startTime = performance.now();
 	const treeshakeConfig = options?.treeshake
 		? mergeTreeshakeConfig(DEFAULT_TREESHAKE_CONFIG, options.treeshake)
@@ -251,7 +253,7 @@ export async function buildIsolatedIslands(
 		const outputFile = `islands/${bundleKey}.js`;
 
 		if (framework === "qwik" || framework === "lit" || framework === "preact" || framework === "react") {
-			results.push({ island: outputFile, success: true });
+			results.push({ island: outputFile, success: true, skipped: true });
 			continue;
 		}
 
@@ -337,9 +339,13 @@ export async function buildIsolatedIslands(
 	}
 
 	const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-	const succeeded = results.filter((r) => r.success).length;
+	const built = results.filter((r) => r.success && !r.skipped).length;
+	const skipped = results.filter((r) => r.skipped).length;
 	const failed = results.filter((r) => !r.success).length;
-	console.log(`🏝️  Done in ${elapsed}s: ${succeeded} built${failed ? `, ${failed} failed` : ""}`);
+	let summary = `🏝️  Done in ${elapsed}s: ${built} built`;
+	if (skipped) summary += `, ${skipped} skipped`;
+	if (failed) summary += `, ${failed} failed`;
+	console.log(summary);
 
 	// Write island dependency manifest for modulepreload hints
 	const depsManifest: Record<string, string[]> = {};
