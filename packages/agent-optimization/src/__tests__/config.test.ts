@@ -100,7 +100,6 @@ describe('validateConfig', () => {
     const config = validateConfig({});
     expect(config.sitemap).toBeUndefined();
     expect(config.markdown).toBeUndefined();
-    expect(config.structuredData).toBeUndefined();
     expect(config.llms).toBeUndefined();
   });
 });

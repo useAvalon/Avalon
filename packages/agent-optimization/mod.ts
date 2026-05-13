@@ -15,9 +15,6 @@ export type { SitemapEntry, DiscoveredRoute, ResolvedSitemapConfig } from './src
 export { htmlToMarkdown, buildFrontMatter, shouldServeMarkdown } from './src/markdown.ts';
 export type { PageMetadata } from './src/markdown.ts';
 
-// Structured data injection
-export { buildWebPageJsonLd, buildWebSiteJsonLd, injectJsonLd } from './src/structured-data.ts';
-
 // llms.txt generation
 export { routesToLlmsEntries, buildLlmsTxt, buildLlmsFullTxt } from './src/llms.ts';
 export type { LlmsEntry, LlmsRoute, ResolvedLlmsConfig } from './src/llms.ts';

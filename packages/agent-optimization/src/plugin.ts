@@ -16,7 +16,6 @@ import { routesToSitemapEntries, buildSitemapXml } from './sitemap.ts';
 import type { ResolvedSitemapConfig } from './sitemap.ts';
 import { shouldServeMarkdown, htmlToMarkdown, buildFrontMatter } from './markdown.ts';
 import type { PageMetadata } from './markdown.ts';
-import { buildWebPageJsonLd, injectJsonLd } from './structured-data.ts';
 import { routesToLlmsEntries, buildLlmsTxt, buildLlmsFullTxt } from './llms.ts';
 import type { ResolvedLlmsConfig, LlmsRoute } from './llms.ts';
 
@@ -32,7 +31,6 @@ export function agentOptimization(config: AgentOptimizationConfigInput): PluginO
 
   const sitemapEnabled = validatedConfig.sitemap !== undefined && validatedConfig.sitemap !== false;
   const markdownEnabled = validatedConfig.markdown === true;
-  const structuredDataEnabled = validatedConfig.structuredData === true;
 
   // Resolve sitemap config
   let resolvedSitemapConfig: ResolvedSitemapConfig | null = null;
@@ -123,11 +121,11 @@ export function agentOptimization(config: AgentOptimizationConfigInput): PluginO
         });
       }
 
-      // --- Markdown + Structured Data response interception ---
+      // --- Markdown response interception ---
       // Registered as PRE-middleware so it patches res.end BEFORE Avalon's
       // SSR handler runs. When Avalon calls res.end(html), our patched
       // version captures the HTML and transforms it.
-      if (markdownEnabled || structuredDataEnabled) {
+      if (markdownEnabled) {
         server.middlewares.use((req, res, next) => {
           const url = req.url ?? '/';
 
@@ -144,10 +142,9 @@ export function agentOptimization(config: AgentOptimizationConfigInput): PluginO
             return next();
           }
 
-          const wantsMarkdown = markdownEnabled && shouldServeMarkdown(req.headers.accept);
-          const wantsStructuredData = structuredDataEnabled && !wantsMarkdown;
+          const wantsMarkdown = shouldServeMarkdown(req.headers.accept);
 
-          if (!wantsMarkdown && !wantsStructuredData) {
+          if (!wantsMarkdown) {
             return next();
           }
 
@@ -411,11 +408,8 @@ function sendTransformed(
     return originalEnd(body, 'utf-8', callback);
   }
 
-  const finalHtml = maybeInjectJsonLd(html, url);
-  if (finalHtml !== html) {
-    originalSetHeader('Content-Length', String(Buffer.byteLength(finalHtml)));
-  }
-  return originalEnd(finalHtml, 'utf-8', callback);
+  // Non-markdown path: pass through unchanged
+  return originalEnd(html, 'utf-8', callback);
 }
 
 
@@ -606,13 +600,6 @@ async function renderRouteViaDevServer(server: ViteDevServer, urlPath: string): 
 // Helpers
 // ---------------------------------------------------------------------------
 
-function maybeInjectJsonLd(html: string, url: string): string {
-  const metadata = extractMetadataFromHtml(html);
-  if (!metadata.title && !metadata.description) return html;
-  const jsonLd = buildWebPageJsonLd(metadata, url);
-  return injectJsonLd(html, jsonLd);
-}
-
 function extractMetadataFromHtml(html: string): PageMetadata {
   const metadata: PageMetadata = {};
 
@@ -631,34 +618,7 @@ function extractMetadataFromHtml(html: string): PageMetadata {
     if (descMatch2) metadata.description = descMatch2[1];
   }
 
-  const ogTitle = extractMetaContent(html, 'og:title');
-  const ogDesc = extractMetaContent(html, 'og:description');
-  const ogImage = extractMetaContent(html, 'og:image');
-
-  if (ogTitle || ogDesc || ogImage) {
-    metadata.openGraph = {};
-    if (ogTitle) metadata.openGraph.title = ogTitle;
-    if (ogDesc) metadata.openGraph.description = ogDesc;
-    if (ogImage) metadata.openGraph.image = ogImage;
-  }
-
   return metadata;
-}
-
-function extractMetaContent(html: string, property: string): string | undefined {
-  const escaped = escapeForRegex(property);
-  const patternA = String.raw`<meta\s[^>]*property\s*=\s*["']` + escaped + String.raw`["'][^>]*content\s*=\s*["']([^"']*)["'][^>]*/?>`;
-  const patternB = String.raw`<meta\s[^>]*content\s*=\s*["']([^"']*)["'][^>]*property\s*=\s*["']` + escaped + String.raw`["'][^>]*/?>`;
-
-  const m1 = html.match(new RegExp(patternA, 'i'));
-  if (m1) return m1[1];
-
-  const m2 = html.match(new RegExp(patternB, 'i'));
-  return m2 ? m2[1] : undefined;
-}
-
-function escapeForRegex(str: string): string {
-  return str.replaceAll(/[.*+?^${}()|[\]\\]/g, (match) => '\\' + match);
 }
 
 // ---------------------------------------------------------------------------

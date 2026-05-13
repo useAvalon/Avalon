@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 export const SitemapConfigSchema = z.object({
   siteUrl: z.url(),
-  siteName: z.string().optional(),
   changefreq: z
     .enum(['always', 'hourly', 'daily', 'weekly', 'monthly', 'yearly', 'never'])
     .optional()
@@ -28,7 +27,6 @@ export const LlmsConfigSchema = z.object({
 export const AgentOptimizationConfigSchema = z.object({
   sitemap: z.union([z.boolean(), SitemapConfigSchema]).optional(),
   markdown: z.boolean().optional(),
-  structuredData: z.boolean().optional(),
   llms: z.union([z.boolean(), LlmsConfigSchema]).optional(),
 });
 

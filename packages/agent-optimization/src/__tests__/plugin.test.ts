@@ -22,7 +22,6 @@ describe('agentOptimization', () => {
     const plugins = agentOptimization({
       sitemap: { siteUrl: 'https://example.com' },
       markdown: true,
-      structuredData: true,
     });
     expect(plugins.length).toBeGreaterThan(0);
     expect(plugins[0].name).toBe('agent-optimization:coordination');
@@ -32,7 +31,6 @@ describe('agentOptimization', () => {
     const plugins = agentOptimization({
       sitemap: false,
       markdown: false,
-      structuredData: false,
     });
     expect(plugins.length).toBeGreaterThan(0);
     // Still returns the coordination plugin, but features are disabled internally
