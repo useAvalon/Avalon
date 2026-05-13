@@ -1,0 +1,55 @@
+{
+	"name": "@useavalon/seo",
+	"version": "0.1.0",
+	"description": "SEO plugin for Avalon — auto-injects Open Graph, Twitter cards, canonical URLs, JSON-LD structured data, and robots meta tags",
+	"license": "MIT",
+	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/useAvalon/Avalon.git",
+		"directory": "packages/seo"
+	},
+	"homepage": "https://useavalon.dev/docs/plugins/seo",
+	"keywords": [
+		"avalon",
+		"seo",
+		"json-ld",
+		"open-graph",
+		"twitter-cards",
+		"structured-data",
+		"canonical",
+		"breadcrumbs",
+		"schema-org"
+	],
+	"exports": {
+		".": "./mod.ts"
+	},
+	"scripts": {
+		"build": "bun run scripts/build.ts",
+		"prepublishOnly": "bun run build",
+		"postpublish": "bun run scripts/postpublish.ts"
+	},
+	"files": [
+		"mod.ts",
+		"src/**/*.ts",
+		"!src/**/__tests__/**",
+		"!src/**/*.test.ts",
+		"README.md"
+	],
+	"dependencies": {
+		"zod": "^4.3.6"
+	},
+	"peerDependencies": {
+		"vite": "^8.0.0"
+	},
+	"peerDependenciesMeta": {
+		"vite": {
+			"optional": true
+		}
+	},
+	"devDependencies": {
+		"oxc-minify": "^0.120.0",
+		"oxc-transform": "^0.120.0",
+		"vitest": "^4.1.0"
+	}
+}
