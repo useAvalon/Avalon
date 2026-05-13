@@ -7,9 +7,9 @@ import MultiFrameworkSpread from "../components/MultiFrameworkSpread.tsx";
 import styles from "./index.module.css";
 
 export const metadata = {
-	title: "Avalon — Multi-framework islands architecture for the modern web",
+	title: "Avalon: The Full-Stack Islands Framework",
 	description:
-		"Avalon is a full-stack islands framework. Author pages in JSX, add islands from any supported framework, and deploy to any JavaScript runtime.",
+		"Avalon is a full-stack islands framework. Author pages in JSX or MDX, add islands from any supported framework, and deploy to any JavaScript runtime.",
 };
 
 /* ============================================================================

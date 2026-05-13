@@ -20,6 +20,7 @@ import { resolve } from "node:path";
 export interface IslandBuildResult {
 	island: string;
 	success: boolean;
+	skipped?: boolean;
 	size?: number;
 	error?: string;
 	elapsedMs?: number;

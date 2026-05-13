@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { agentOptimization } from "@useavalon/agent-optimization";
+import { seo } from "@useavalon/seo";
 import { avalon } from "@useavalon/avalon";
 import { defineConfig, type UserConfig } from "vite";
 
@@ -148,6 +149,25 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 					}
 				},
 			},
+			seo({
+				siteUrl: "http://localhost:8012",
+				siteName: "Avalon",
+				defaultDescription: "A multi-framework islands architecture for building fast, modern websites.",
+				defaultOgImage: {
+					url: "/og-image.png",
+					width: 1200,
+					height: 630,
+				},
+				titleSuffix: " — Avalon",
+				searchPath: "/search",
+				searchQueryParam: "q",
+				breadcrumbs: true,
+				speakable: true,
+				fontPreconnect: [
+					"https://fonts.googleapis.com",
+					"https://fonts.gstatic.com",
+				],
+			}),
 			agentOptimization({
 				sitemap: {
 					siteUrl: "http://localhost:8012",
@@ -155,7 +175,6 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 					exclude: ["/admin/**", "/login"],
 				},
 				markdown: true,
-				structuredData: true,
 				llms: {
 					siteUrl: "http://localhost:8012",
 					siteName: "Avalon",

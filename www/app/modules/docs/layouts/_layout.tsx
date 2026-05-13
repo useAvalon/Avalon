@@ -6,6 +6,7 @@ import styles from "./_layout.module.css";
 
 interface DocsFrontmatter {
 	title?: string;
+	heading?: string;
 	description?: string;
 	currentPath?: string;
 	prev?: { title: string; href: string };
@@ -47,9 +48,9 @@ export default async function DocsLayout({ children, frontmatter }: Readonly<Lay
 				</div>
 			</aside>
 			<main class={styles.content} data-pagefind-body>
-				{fm?.title && (
+				{(fm?.heading || fm?.title) && (
 					<header class={styles.pageHeader}>
-						<h1 class={styles.pageTitle}>{fm.title}</h1>
+						<h1 class={styles.pageTitle}>{fm.heading || fm.title}</h1>
 						{fm.description && <p class={styles.pageDesc}>{fm.description}</p>}
 					</header>
 				)}

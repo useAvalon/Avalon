@@ -1,12 +1,15 @@
+/* Home module layout styles */
+
 .body {
 	background: var(--color-bg);
 	color: var(--color-text);
 	font-family: var(--font-sans);
 	min-height: 100vh;
+	padding-top: 60px;
 }
 
-/* Full-width top navbar */
-.header {
+/* Landing page nav — transparent over hero */
+.nav {
 	position: fixed;
 	top: 0;
 	left: 0;
@@ -22,40 +25,30 @@
 	border-bottom: 1px solid var(--surface-border);
 }
 
-/* Inner wrapper constrains content width */
-.headerInner {
+.navInner {
 	width: 100%;
 	max-width: 1280px;
 	margin: 0 auto;
 	display: flex;
 	align-items: center;
-	gap: 0;
 }
 
-.logo {
+.navLogo {
 	display: flex;
 	align-items: center;
-	gap: var(--space-2);
 	text-decoration: none;
 	flex-shrink: 0;
 	margin-right: var(--space-6);
+	color: var(--color-text-heading);
 }
 
-.logoImg {
+.navLogoImg {
 	height: 24px;
 	width: auto;
 	display: block;
 }
 
-.logoText {
-	font-size: 15px;
-	font-weight: 700;
-	color: var(--color-text-heading);
-	letter-spacing: -0.02em;
-}
-
-/* Divider between logo and nav */
-.logoDivider {
+.navDivider {
 	width: 1px;
 	height: 20px;
 	background: var(--color-nav-divider);
@@ -63,8 +56,7 @@
 	flex-shrink: 0;
 }
 
-/* Nav links — left side, next to logo */
-.nav {
+.navLinks {
 	display: flex;
 	align-items: center;
 	gap: var(--space-1);
@@ -92,7 +84,6 @@
 	outline-offset: 2px;
 }
 
-/* Right side: search + github */
 .navRight {
 	display: flex;
 	align-items: center;
@@ -100,8 +91,7 @@
 	margin-left: auto;
 }
 
-/* Search bar */
-.searchBtn {
+.navSearchBtn {
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
@@ -112,50 +102,41 @@
 	color: var(--color-text-muted);
 	font-size: var(--text-small);
 	font-family: var(--font-sans);
-	cursor: pointer;
+	text-decoration: none;
+	white-space: nowrap;
+	min-width: 160px;
 	transition:
 		background 0.15s,
 		border-color 0.15s,
 		color 0.15s;
-	text-decoration: none;
-	white-space: nowrap;
-	min-width: 180px;
 }
 
-.searchBtn:hover {
+.navSearchBtn:hover {
 	background: var(--surface-2);
 	border-color: var(--surface-border-hover);
 	color: var(--color-text-secondary);
 }
 
-.searchBtn:focus-visible {
-	outline: 2px solid var(--avalon-blue);
-	outline-offset: 2px;
-}
-
-.searchIcon {
+.navSearchIcon {
 	width: 13px;
 	height: 13px;
 	flex-shrink: 0;
 }
 
-.searchText {
+.navSearchText {
 	flex: 1;
 }
 
-.searchKbd {
+.navSearchKbd {
 	font-size: 10px;
 	padding: 1px 5px;
 	background: var(--surface-1);
 	border: 1px solid var(--surface-border);
 	border-radius: 4px;
 	color: var(--color-text-muted);
-	font-family: var(--font-sans);
-	margin-left: auto;
 }
 
-/* GitHub button */
-.githubBtn {
+.navGithubBtn {
 	display: flex;
 	align-items: center;
 	gap: var(--space-2);
@@ -174,26 +155,15 @@
 	white-space: nowrap;
 }
 
-.githubBtn:hover {
+.navGithubBtn:hover {
 	color: var(--color-text);
 	background: var(--surface-2);
 	border-color: var(--surface-border-hover);
 }
 
-.githubBtn:focus-visible {
-	outline: 2px solid var(--avalon-blue);
-	outline-offset: 2px;
-}
-
-.githubIcon {
-	width: 15px;
-	height: 15px;
-	flex-shrink: 0;
-}
-
-.main {
-	padding-top: 60px;
-	min-height: 100vh;
+.navGithubIcon {
+	width: 16px;
+	height: 16px;
 }
 
 .mobileNavWrapper {
@@ -201,57 +171,47 @@
 }
 
 @media (max-width: 768px) {
-	.logoDivider {
-		display: none;
-	}
-	.nav {
-		display: none;
-	}
+	.navLinks,
 	.navRight {
 		display: none;
 	}
+
 	.mobileNavWrapper {
 		display: block;
 		margin-left: auto;
 	}
 }
 
-/* ═══════════ FOOTER ═══════════ */
+/* ─── Footer ─── */
 
 .footer {
 	border-top: 1px solid var(--surface-border);
-	background: var(--color-bg);
+	padding: var(--space-16) var(--space-6) var(--space-8);
+	font-size: var(--text-small);
+	color: var(--color-text-secondary);
+	background: var(--color-bg-elevated);
 }
 
 .footerInner {
-	max-width: 1280px;
+	max-width: 1240px;
 	margin: 0 auto;
-	padding: 48px var(--space-6) 32px;
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(0, 2.5fr);
+	grid-template-columns: 1fr 2fr;
 	gap: var(--space-12);
 }
 
-@media (max-width: 768px) {
-	.footerInner {
-		grid-template-columns: 1fr;
-		gap: var(--space-8);
-	}
-}
-
 .footerBrand {
-	display: inline-flex;
+	display: flex;
 	align-items: center;
 	gap: var(--space-2);
-	font-family: var(--font-sans);
-	font-weight: 700;
 	font-size: 15px;
+	font-weight: 700;
 	color: var(--color-text-heading);
-	letter-spacing: -0.02em;
 }
 
-.footerLogoImg {
-	display: block;
+.footerLogo {
+	height: 20px;
+	width: auto;
 }
 
 .footerCols {
@@ -260,50 +220,47 @@
 	gap: var(--space-8);
 }
 
-@media (max-width: 560px) {
-	.footerCols {
-		grid-template-columns: 1fr 1fr;
-	}
-}
-
-.footerCols > div {
+.footerCols div {
 	display: flex;
 	flex-direction: column;
-	gap: 10px;
+	gap: var(--space-2);
 }
 
 .footerColTitle {
-	font-family: var(--font-mono);
-	font-size: 11px;
-	font-weight: 500;
-	letter-spacing: 0.06em;
+	font-size: var(--text-caption);
+	font-weight: 600;
 	text-transform: uppercase;
+	letter-spacing: 0.05em;
 	color: var(--color-text-muted);
-	margin: 0 0 4px;
+	margin-bottom: var(--space-2);
 }
 
 .footerCols a {
-	font-family: var(--font-sans);
-	font-size: 14px;
 	color: var(--color-text-secondary);
 	text-decoration: none;
 	transition: color 0.15s;
 }
 
 .footerCols a:hover {
-	color: var(--avalon-blue);
+	color: var(--color-text);
 }
 
 .footerBottom {
-	max-width: 1280px;
-	margin: 0 auto;
-	padding: 20px var(--space-6);
+	max-width: 1240px;
+	margin: var(--space-12) auto 0;
+	padding-top: var(--space-6);
 	border-top: 1px solid var(--surface-border);
-	font-family: var(--font-mono);
-	font-size: 12px;
 	color: var(--color-text-muted);
+	font-size: var(--text-caption);
 }
 
-.footerBottom p {
-	margin: 0;
+@media (max-width: 768px) {
+	.footerInner {
+		grid-template-columns: 1fr;
+		gap: var(--space-8);
+	}
+
+	.footerCols {
+		grid-template-columns: 1fr 1fr;
+	}
 }

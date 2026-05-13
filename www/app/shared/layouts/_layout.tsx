@@ -6,17 +6,16 @@ import styles from "./_layout.module.css";
 import "../styles/main.css";
 
 export default async function RootLayout({ children, frontmatter }: Readonly<LayoutProps>) {
-	const title = typeof frontmatter?.title === "string" ? frontmatter.title : null;
-	const description = typeof frontmatter?.description === "string" ? frontmatter.description : null;
-	const pageTitle = title ? `${title} — Avalon` : "Avalon";
-	const currentPath = (frontmatter as Record<string, unknown>)?.currentPath as string | undefined;
+	const title = (frontmatter?.title as string) || "Avalon";
+	const description = frontmatter?.description as string | undefined;
+	const currentPath = frontmatter?.currentPath as string | undefined;
 
 	return (
 		<html lang="en">
 			<head>
 				<meta charset="UTF-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-				<title>{pageTitle}</title>
+				<title>{title}</title>
 				<link rel="icon" href="/favicon.ico" />
 				{description && <meta name="description" content={description} />}
 				<script
@@ -24,23 +23,16 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 						__html: `(function(){try{var t=localStorage.getItem('avalon-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()`,
 					}}
 				/>
-				<link rel="preconnect" href="https://fonts.googleapis.com" />
-				<link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-				<link
-					href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap"
-					rel="stylesheet"
-				/>
 				<link rel="stylesheet" href="/syntax-highlighting.css" />
 			</head>
 			<body class={styles.body}>
-				<header class={styles.header}>
-					<div class={styles.headerInner}>
-						<a href="/" class={styles.logo}>
-							<img src="/logo.svg" alt="Avalon" class={styles.logoImg} width={24} height={24} />
-							<span class={styles.logoText}>Avalon</span>
+				<header class={styles.nav}>
+					<div class={styles.navInner}>
+						<a href="/" class={styles.navLogo}>
+							<img src="/avalon-wordmark.svg" alt="Avalon" class={styles.navLogoImg} height={28} />
 						</a>
-						<div class={styles.logoDivider} aria-hidden="true" />
-						<nav class={styles.nav} aria-label="Main navigation">
+						<div class={styles.navDivider} aria-hidden="true" />
+						<nav class={styles.navLinks} aria-label="Main navigation">
 							<a href="/docs/introduction" class={styles.navLink}>
 								Docs
 							</a>
@@ -50,15 +42,23 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 							<a href="/demo" class={styles.navLink}>
 								Demo
 							</a>
+							<a href="/design-system" class={styles.navLink}>
+								Design
+							</a>
 						</nav>
 						<div class={styles.navRight}>
 							<button
 								type="button"
-								class={styles.searchBtn}
+								class={styles.navSearchBtn}
 								aria-label="Search documentation"
 								{...{ onclick: "document.querySelector('pagefind-modal')?.open?.()" }}
 							>
-								<svg class={styles.searchIcon} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+								<svg
+									class={styles.navSearchIcon}
+									viewBox="0 0 16 16"
+									fill="none"
+									aria-hidden="true"
+								>
 									<circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.5" />
 									<path
 										d="M10.5 10.5L14 14"
@@ -67,17 +67,17 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 										strokeLinecap="round"
 									/>
 								</svg>
-								<span class={styles.searchText}>Search docs...</span>
-								<kbd class={styles.searchKbd}>⌘K</kbd>
+								<span class={styles.navSearchText}>Search docs...</span>
+								<kbd class={styles.navSearchKbd}>⌘K</kbd>
 							</button>
 							<a
 								href="https://github.com/useAvalon/Avalon"
-								class={styles.githubBtn}
+								class={styles.navGithubBtn}
 								target="_blank"
 								rel="noopener noreferrer"
 							>
 								<svg
-									class={styles.githubIcon}
+									class={styles.navGithubIcon}
 									viewBox="0 0 24 24"
 									fill="currentColor"
 									aria-hidden="true"
@@ -93,14 +93,13 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 						</div>
 					</div>
 				</header>
-				<main class={styles.main}>{children}</main>
+				<main>{children}</main>
 				<footer class={styles.footer}>
 					<div class={styles.footerInner}>
 						<div class={styles.footerBrand}>
-							<img src="/logo.svg" alt="" class={styles.footerLogoImg} width={20} height={20} />
-							<span>Avalon</span>
+							<img src="/avalon-wordmark.svg" alt="" class={styles.footerLogo} width="20" height="20" />
 						</div>
-						<nav class={styles.footerCols} aria-label="Footer navigation">
+						<nav class={styles.footerCols} aria-label="Footer">
 							<div>
 								<p class={styles.footerColTitle}>Docs</p>
 								<a href="/docs/introduction">Introduction</a>
@@ -134,7 +133,7 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 						</nav>
 					</div>
 					<div class={styles.footerBottom}>
-						<p>MIT License · © 2026 Avalon</p>
+						<p>MIT License · © 2025 Avalon</p>
 					</div>
 				</footer>
 				<SearchModal island={{ condition: "on:idle" }} />
