@@ -59,13 +59,15 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 	const pluginsResult = await multiselect({
 		message: 'Which plugins would you like to include? (use space to toggle, enter to confirm)',
 		options: [
-			{ value: 'agent-optimization', label: 'agent-optimization', hint: 'LLM/AI optimization' },
+			{ value: 'seo', label: 'seo', hint: 'Auto-injects OG, Twitter cards, JSON-LD, canonical URLs' },
+			{ value: 'agent-optimization', label: 'agent-optimization', hint: 'LLM/AI optimization (llms.txt, markdown, sitemap)' },
 			{
 				value: 'syntax-highlighting',
 				label: 'syntax-highlighting',
 				hint: 'Code block highlighting for MDX (rehype-highlight)',
 			},
 		],
+		initialValues: ['seo'],
 		required: false,
 	});
 

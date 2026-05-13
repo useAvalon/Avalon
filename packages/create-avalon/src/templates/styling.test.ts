@@ -63,14 +63,14 @@ describe('generateStylingFiles', () => {
 
 	it('generates .module.css for home page with css-modules', () => {
 		const files = generateStylingFiles(baseConfig);
-		expect(files.has('app/modules/home/pages/index.module.css')).toBe(true);
-		expect(files.get('app/modules/home/pages/index.module.css')).toContain('.page');
+		expect(files.has('app/modules/main/pages/index.module.css')).toBe(true);
+		expect(files.get('app/modules/main/pages/index.module.css')).toContain('.page');
 	});
 
 	it('generates .module.css for home layout with css-modules', () => {
 		const files = generateStylingFiles(baseConfig);
-		expect(files.has('app/modules/home/layouts/_layout.module.css')).toBe(true);
-		expect(files.get('app/modules/home/layouts/_layout.module.css')).toContain('.layout');
+		expect(files.has('app/modules/main/layouts/_layout.module.css')).toBe(true);
+		expect(files.get('app/modules/main/layouts/_layout.module.css')).toContain('.layout');
 	});
 
 	it('main.css imports tokens.css for css-modules', () => {
@@ -113,8 +113,8 @@ describe('generateStylingFiles', () => {
 		const files = generateStylingFiles(config);
 		expect(files.has('app/shared/styles/tokens.css')).toBe(false);
 		expect(files.has('app/shared/layouts/_layout.module.css')).toBe(false);
-		expect(files.has('app/modules/home/pages/index.module.css')).toBe(false);
-		expect(files.has('app/modules/home/layouts/_layout.module.css')).toBe(false);
+		expect(files.has('app/modules/main/pages/index.module.css')).toBe(false);
+		expect(files.has('app/modules/main/layouts/_layout.module.css')).toBe(false);
 	});
 
 	it('does not generate components.json for tailwind', () => {
@@ -155,8 +155,8 @@ describe('generateStylingFiles', () => {
 		const files = generateStylingFiles(config);
 		expect(files.has('app/shared/styles/tokens.css')).toBe(false);
 		expect(files.has('app/shared/layouts/_layout.module.css')).toBe(false);
-		expect(files.has('app/modules/home/pages/index.module.css')).toBe(false);
-		expect(files.has('app/modules/home/layouts/_layout.module.css')).toBe(false);
+		expect(files.has('app/modules/main/pages/index.module.css')).toBe(false);
+		expect(files.has('app/modules/main/layouts/_layout.module.css')).toBe(false);
 	});
 
 	it('generates cn utility for shadcn', () => {

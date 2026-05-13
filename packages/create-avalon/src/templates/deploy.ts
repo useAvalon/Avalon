@@ -119,3 +119,60 @@ const absoluteTimeout = setTimeout(() => {
 }, 240_000);
 `;
 }
+
+export function generateRobotsTxt(sitemapUrl = 'https://YOUR_DOMAIN/sitemap.xml'): string {
+	return `# robots.txt
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: ${sitemapUrl}
+
+# AI Crawlers — explicitly allowed
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: Diffbot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: AI2Bot
+Allow: /
+`;
+}

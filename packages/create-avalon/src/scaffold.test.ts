@@ -77,18 +77,18 @@ describe("scaffoldProject", () => {
 		expect(content).toContain("modules: 'app/modules'");
 	});
 
-	it("generates root layout, home layout, and home page", async () => {
+	it("generates root layout, main layout, and main page", async () => {
 		const target = join(tempDir, "out");
 		await scaffoldProject(baseConfig, target);
 
 		const rootLayout = await read("app/shared/layouts/_layout.tsx");
 		expect(rootLayout).toContain("RootLayout");
 
-		const homeLayout = await read("app/modules/home/layouts/_layout.tsx");
-		expect(homeLayout).toContain("HomeLayout");
+		const mainLayout = await read("app/modules/main/layouts/_layout.tsx");
+		expect(mainLayout).toContain("MainLayout");
 
-		const homePage = await read("app/modules/home/pages/index.tsx");
-		expect(homePage).toContain("HomePage");
+		const mainPage = await read("app/modules/main/pages/index.tsx");
+		expect(mainPage).toContain("HomePage");
 	});
 
 	it("generates middleware and API route", async () => {
@@ -110,7 +110,7 @@ describe("scaffoldProject", () => {
 		expect(await exists(join(target, "app/shared/styles/reset.css"))).toBe(true);
 		expect(await exists(join(target, "app/shared/styles/tokens.css"))).toBe(true);
 		expect(await exists(join(target, "app/shared/layouts/_layout.module.css"))).toBe(true);
-		expect(await exists(join(target, "app/modules/home/pages/index.module.css"))).toBe(true);
+		expect(await exists(join(target, "app/modules/main/pages/index.module.css"))).toBe(true);
 	});
 
 	it("generates tailwind files when styling is tailwind", async () => {

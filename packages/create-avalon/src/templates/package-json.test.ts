@@ -105,6 +105,20 @@ describe("generatePackageJson", () => {
 		expect(pkg.dependencies["@useavalon/agent-optimization"]).toBeUndefined();
 	});
 
+	it("includes @useavalon/seo when seo plugin selected", () => {
+		const config: ProjectConfig = {
+			...baseConfig,
+			plugins: ["seo"],
+		};
+		const pkg = JSON.parse(generatePackageJson(config));
+		expect(pkg.dependencies["@useavalon/seo"]).toBe("latest");
+	});
+
+	it("does not include @useavalon/seo when plugin not selected", () => {
+		const pkg = JSON.parse(generatePackageJson(baseConfig));
+		expect(pkg.dependencies["@useavalon/seo"]).toBeUndefined();
+	});
+
 	it("returns valid JSON with 2-space indent", () => {
 		const result = generatePackageJson(baseConfig);
 		expect(() => JSON.parse(result)).not.toThrow();

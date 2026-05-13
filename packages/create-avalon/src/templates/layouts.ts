@@ -11,15 +11,21 @@ export function generateRootLayout(config: ProjectConfig): string {
     imports.push(`import '../styles/main.css';`);
   }
 
+  const safeName = config.projectName.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+
   return `${imports.join('\n')}
 
-export default async function RootLayout({ children }: Readonly<LayoutProps>) {
+export default async function RootLayout({ children, frontmatter }: Readonly<LayoutProps>) {
+  const title = frontmatter?.title ?? '${safeName}';
+  const description = frontmatter?.description ?? '';
+
   return (
     <html lang="en">
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>${config.projectName}</title>
+        <title>{title}</title>
+        {description && <meta name="description" content={description} />}
         <link rel="icon" href="/favicon.ico" />
       </head>
       <body style={{ margin: 0 }}>
@@ -31,10 +37,10 @@ export default async function RootLayout({ children }: Readonly<LayoutProps>) {
 `;
 }
 
-export function generateHomeLayout(config: ProjectConfig): string {
+export function generateMainLayout(config: ProjectConfig): string {
   return `import type { LayoutProps } from '@useavalon/avalon';
 
-export default async function HomeLayout({ children }: Readonly<LayoutProps>) {
+export default async function MainLayout({ children }: Readonly<LayoutProps>) {
   return <>{children}</>;
 }
 `;

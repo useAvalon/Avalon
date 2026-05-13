@@ -2,7 +2,7 @@ export type Integration = 'preact' | 'react' | 'vue' | 'svelte' | 'solid' | 'lit
 
 export type StylingOption = 'css-modules' | 'tailwind' | 'shadcn';
 
-export type Plugin = 'agent-optimization' | 'syntax-highlighting';
+export type Plugin = 'seo' | 'agent-optimization' | 'syntax-highlighting';
 
 export type MiddlewareOption = 'h3' | 'hono' | 'elysia';
 
@@ -28,9 +28,9 @@ export const INTEGRATION_PACKAGES: Record<Integration, string> = {
 };
 
 export const BASE_DIRS = [
-	'app/modules/home/pages',
-	'app/modules/home/components',
-	'app/modules/home/layouts',
+	'app/modules/main/pages',
+	'app/modules/main/components',
+	'app/modules/main/layouts',
 	'app/shared/layouts',
 	'app/shared/components',
 	'app/shared/styles',

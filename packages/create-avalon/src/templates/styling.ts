@@ -15,8 +15,8 @@ export function generateStylingFiles(config: ProjectConfig): Map<string, string>
 		case 'css-modules':
 			files.set('app/shared/styles/tokens.css', generateTokensCss());
 			files.set('app/shared/layouts/_layout.module.css', generateLayoutModuleCss());
-			files.set('app/modules/home/pages/index.module.css', generatePageModuleCss());
-			files.set('app/modules/home/layouts/_layout.module.css', generateLayoutModuleCss());
+			files.set('app/modules/main/pages/index.module.css', generatePageModuleCss());
+			files.set('app/modules/main/layouts/_layout.module.css', generateLayoutModuleCss());
 			break;
 
 		case 'tailwind':

@@ -1,6 +1,6 @@
 import type { ProjectConfig } from '../types';
 
-export function generateHomePage(config: ProjectConfig): string {
+export function generateMainPage(config: ProjectConfig): string {
   return `export const metadata = {
   title: 'Avalon — Islands Architecture',
   description: 'A multi-framework islands architecture project powered by Avalon.',
@@ -38,7 +38,7 @@ export default async function HomePage() {
       <div style={{ position: 'relative', zIndex: 1, marginTop: '4rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
         <p style={{ fontSize: '0.75rem', color: '#64748b', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Get started</p>
         <code style={{ display: 'block', padding: '0.6rem 1.2rem', borderRadius: '6px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#a5b4fc', fontSize: '0.85rem', fontFamily: 'ui-monospace, monospace' }}>
-          Edit app/modules/home/pages/index.tsx
+          Edit app/modules/main/pages/index.tsx
         </code>
       </div>
 
@@ -48,6 +48,25 @@ export default async function HomePage() {
           <a href="https://useavalon.dev" target="_blank" rel="noopener noreferrer" style={{ color: '#818cf8', textDecoration: 'none' }}>Avalon</a>
         </p>
       </footer>
+    </div>
+  );
+}
+`;
+}
+
+export function generate404Page(): string {
+  return `export const metadata = {
+  title: '404 - Page Not Found',
+  description: 'The page you are looking for does not exist.',
+  robots: 'noindex, nofollow',
+};
+
+export default function NotFoundPage() {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui, -apple-system, sans-serif', textAlign: 'center', padding: '2rem' }}>
+      <h1 style={{ fontSize: '4rem', margin: '0 0 1rem' }}>404</h1>
+      <p style={{ fontSize: '1.25rem', color: '#64748b', margin: '0 0 2rem' }}>Page not found</p>
+      <a href="/" style={{ color: '#6366f1', textDecoration: 'none', fontWeight: 500 }}>Go Home</a>
     </div>
   );
 }

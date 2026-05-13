@@ -10,6 +10,10 @@ export function generatePackageJson(config: ProjectConfig): string {
 		dependencies[INTEGRATION_PACKAGES[integration]] = "latest";
 	}
 
+	if (config.plugins.includes("seo")) {
+		dependencies["@useavalon/seo"] = "latest";
+	}
+
 	if (config.plugins.includes("agent-optimization")) {
 		dependencies["@useavalon/agent-optimization"] = "latest";
 	}

@@ -1,12 +1,12 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { generateHelloRoute } from "./templates/api-routes";
-import { generateBuildMjs, generateNetlifyToml } from "./templates/deploy";
+import { generateBuildMjs, generateNetlifyToml, generateRobotsTxt } from "./templates/deploy";
 import { getFaviconBuffer } from "./templates/favicon";
-import { generateHomeLayout, generateRootLayout } from "./templates/layouts";
+import { generateMainLayout, generateRootLayout } from "./templates/layouts";
 import { generateSampleMiddleware } from "./templates/middleware";
 import { generatePackageJson } from "./templates/package-json";
-import { generateHomePage } from "./templates/pages";
+import { generate404Page, generateMainPage } from "./templates/pages";
 import { generatePostBuildMjs } from "./templates/post-build";
 import { generateStylingFiles } from "./templates/styling";
 import { generateEnvDts, generateTsConfig } from "./templates/tsconfig";
@@ -66,10 +66,11 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 	// Generate and write layout and page files
 	await writeFile(join(targetDir, "app/shared/layouts/_layout.tsx"), generateRootLayout(config));
 	await writeFile(
-		join(targetDir, "app/modules/home/layouts/_layout.tsx"),
-		generateHomeLayout(config),
+		join(targetDir, "app/modules/main/layouts/_layout.tsx"),
+		generateMainLayout(config),
 	);
-	await writeFile(join(targetDir, "app/modules/home/pages/index.tsx"), generateHomePage(config));
+	await writeFile(join(targetDir, "app/modules/main/pages/index.tsx"), generateMainPage(config));
+	await writeFile(join(targetDir, "app/modules/main/pages/404.tsx"), generate404Page());
 
 	// Generate and write middleware and API route
 	await writeFile(join(targetDir, "middleware/01.logger.ts"), generateSampleMiddleware(config));
@@ -91,6 +92,9 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 
 	// Write Avalon favicon
 	await writeFile(join(targetDir, "public/favicon.ico"), getFaviconBuffer());
+
+	// Write robots.txt with AI crawler rules
+	await writeFile(join(targetDir, "public/robots.txt"), generateRobotsTxt());
 
 	// Write server env.d.ts
 	await writeFile(join(targetDir, "server/env.d.ts"), `/// <reference types="nitro" />\n`);

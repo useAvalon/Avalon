@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateRootLayout, generateHomeLayout } from './layouts';
+import { generateRootLayout, generateMainLayout } from './layouts';
 import type { ProjectConfig } from '../types';
 
 describe('generateRootLayout', () => {
@@ -31,15 +31,16 @@ describe('generateRootLayout', () => {
 		expect(result).toContain('{children}');
 	});
 
-	it('sets the title to the project name', () => {
+	it('sets the title to the project name as default', () => {
 		const result = generateRootLayout(baseConfig);
-		expect(result).toContain('<title>my-app</title>');
+		expect(result).toContain("'my-app'");
+		expect(result).toContain('<title>{title}</title>');
 	});
 
-	it('uses the provided project name in the title', () => {
+	it('uses the provided project name as the fallback title', () => {
 		const config: ProjectConfig = { ...baseConfig, projectName: 'cool-project' };
 		const result = generateRootLayout(config);
-		expect(result).toContain('<title>cool-project</title>');
+		expect(result).toContain("'cool-project'");
 	});
 
 	it('imports main.css stylesheet', () => {
@@ -75,9 +76,25 @@ describe('generateRootLayout', () => {
 		const result = generateRootLayout(baseConfig);
 		expect(result).toContain('href="/favicon.ico"');
 	});
+
+	it('includes meta description from frontmatter', () => {
+		const result = generateRootLayout(baseConfig);
+		expect(result).toContain('name="description"');
+	});
+
+	it('does not include OG/Twitter tags (handled by @useavalon/seo plugin)', () => {
+		const result = generateRootLayout(baseConfig);
+		expect(result).not.toContain('og:title');
+		expect(result).not.toContain('twitter:card');
+	});
+
+	it('does not include canonical URL (handled by @useavalon/seo plugin)', () => {
+		const result = generateRootLayout(baseConfig);
+		expect(result).not.toContain('rel="canonical"');
+	});
 });
 
-describe('generateHomeLayout', () => {
+describe('generateMainLayout', () => {
 	const baseConfig: ProjectConfig = {
 		projectName: 'my-app',
 		integrations: [],
@@ -88,28 +105,28 @@ describe('generateHomeLayout', () => {
 	};
 
 	it('includes a {children} slot', () => {
-		const result = generateHomeLayout(baseConfig);
+		const result = generateMainLayout(baseConfig);
 		expect(result).toContain('{children}');
 	});
 
 	it('exports a default async function', () => {
-		const result = generateHomeLayout(baseConfig);
-		expect(result).toContain('export default async function HomeLayout');
+		const result = generateMainLayout(baseConfig);
+		expect(result).toContain('export default async function MainLayout');
 	});
 
 	it('imports LayoutProps from @useavalon/avalon and uses Readonly<LayoutProps>', () => {
-		const result = generateHomeLayout(baseConfig);
+		const result = generateMainLayout(baseConfig);
 		expect(result).toContain("import type { LayoutProps } from '@useavalon/avalon'");
 		expect(result).toContain('Readonly<LayoutProps>');
 	});
 
 	it('is a passthrough fragment layout', () => {
-		const result = generateHomeLayout(baseConfig);
+		const result = generateMainLayout(baseConfig);
 		expect(result).toContain('<>{children}</>');
 	});
 
 	it('does not include <html> or <head> tags', () => {
-		const result = generateHomeLayout(baseConfig);
+		const result = generateMainLayout(baseConfig);
 		expect(result).not.toContain('<html');
 		expect(result).not.toContain('<head');
 	});
@@ -117,7 +134,7 @@ describe('generateHomeLayout', () => {
 	it('does not import CSS modules regardless of styling', () => {
 		for (const styling of ['css-modules', 'tailwind', 'shadcn'] as const) {
 			const config: ProjectConfig = { ...baseConfig, styling };
-			const result = generateHomeLayout(config);
+			const result = generateMainLayout(config);
 			expect(result).not.toContain('.module.css');
 		}
 	});

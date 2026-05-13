@@ -117,19 +117,42 @@ describe("generateViteConfig", () => {
 		expect(result).not.toContain("@useavalon/agent-optimization");
 	});
 
+	it("includes seo plugin with config when seo is selected", () => {
+		const config: ProjectConfig = {
+			...baseConfig,
+			plugins: ["seo"],
+		};
+		const result = generateViteConfig(config);
+		expect(result).toContain(`import { seo } from '@useavalon/seo';`);
+		expect(result).toContain("seo({");
+		expect(result).toContain("siteUrl:");
+		expect(result).toContain("siteName:");
+		expect(result).toContain("defaultOgImage:");
+		expect(result).toContain("breadcrumbs: true");
+		expect(result).toContain("speakable: true");
+	});
+
+	it("does not include seo when plugin not selected", () => {
+		const result = generateViteConfig(baseConfig);
+		expect(result).not.toContain("@useavalon/seo");
+		expect(result).not.toContain("seo({");
+	});
+
 	it("generates a full config with all options selected", () => {
 		const config: ProjectConfig = {
 			projectName: "full-app",
 			integrations: ["react", "svelte", "qwik"],
 			styling: "shadcn",
-			plugins: ["agent-optimization"],
+			plugins: ["seo", "agent-optimization"],
 			middleware: "hono",
+			deploy: "none",
 		};
 		const result = generateViteConfig(config);
 
-		// Imports — only avalon, tailwind, and agent-optimization (no integration imports)
+		// Imports — only avalon, tailwind, seo, and agent-optimization (no integration imports)
 		expect(result).toContain(`import { avalon } from '@useavalon/avalon';`);
 		expect(result).toContain(`import tailwindcss from '@tailwindcss/vite';`);
+		expect(result).toContain(`import { seo } from '@useavalon/seo';`);
 		expect(result).toContain(`import { agentOptimization } from '@useavalon/agent-optimization';`);
 
 		// Integrations as strings
@@ -139,6 +162,7 @@ describe("generateViteConfig", () => {
 
 		// Plugins
 		expect(result).toContain("tailwindcss()");
+		expect(result).toContain("seo({");
 		expect(result).toContain("agentOptimization({");
 
 		// Config
