@@ -1,22 +1,38 @@
 .card {
-  background: var(--surface-1);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
-  transition: border-color 0.2s ease, background 0.2s ease;
+	background: var(--surface-1);
+	border: 1px solid var(--surface-border);
+	border-radius: var(--radius-lg);
+	padding: var(--space-6);
+	transition:
+		border-color 0.5s ease-out,
+		background 0.5s ease-out,
+		transform 0.5s ease-out,
+		box-shadow 0.5s ease-out;
 }
 
 .cardHover {
-  composes: card;
-  cursor: pointer;
+	composes: card;
+	cursor: pointer;
 }
 
 .cardHover:hover {
-  border-color: var(--surface-border-hover);
-  background: var(--surface-2);
+	border-color: var(--surface-border-hover);
+	background: var(--surface-2);
+	transform: translateY(-3px);
+	box-shadow: 0 12px 32px -12px rgba(0, 0, 0, 0.1);
 }
 
 .cardHover:focus-visible {
-  outline: 2px solid var(--avalon-blue);
-  outline-offset: 3px;
+	outline: 2px solid var(--avalon-blue);
+	outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.card {
+		transition: none;
+	}
+	.cardHover:hover {
+		transform: none;
+		box-shadow: none;
+	}
 }

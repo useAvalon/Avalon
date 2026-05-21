@@ -10,7 +10,7 @@ import { existsSync } from 'node:fs';
 
 await runPostBuild({
 	prerender: {
-		routes: ['/', '/blueprint'],
+		routes: ['/'],
 		crawlLinks: true,
 		ignore: ['/demo/data-fetching'],
 		failOnError: false,

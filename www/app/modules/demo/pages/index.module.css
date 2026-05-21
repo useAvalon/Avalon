@@ -1,0 +1,61 @@
+/* Demo page — uses shared design tokens for consistency with the
+   rest of the site. */
+
+.page {
+	min-height: 80vh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: var(--space-12) var(--space-6);
+	gap: var(--space-8);
+}
+
+.header {
+	text-align: center;
+	max-width: 700px;
+}
+
+.title {
+	font-family: var(--font-sans);
+	font-size: var(--text-h1);
+	font-weight: 700;
+	color: var(--color-text-heading);
+	margin: 0 0 var(--space-3);
+	letter-spacing: -0.02em;
+}
+
+.desc {
+	font-family: var(--font-sans);
+	font-size: var(--text-body);
+	color: var(--color-text-secondary);
+	line-height: 1.6;
+	margin: 0;
+}
+
+.grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: var(--space-4);
+	width: 100%;
+	max-width: 1200px;
+	align-items: stretch;
+}
+
+.cell {
+	display: flex;
+	flex-direction: column;
+}
+
+.tip {
+	font-family: var(--font-sans);
+	font-size: var(--text-small);
+	color: var(--color-text-muted);
+	text-align: center;
+	max-width: 600px;
+	margin: 0;
+	line-height: 1.6;
+}
+
+.tip strong {
+	color: var(--color-text-secondary);
+}

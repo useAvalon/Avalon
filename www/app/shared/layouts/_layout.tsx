@@ -42,9 +42,6 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 							<a href="/demo" class={styles.navLink}>
 								Demo
 							</a>
-							<a href="/design-system" class={styles.navLink}>
-								Design
-							</a>
 						</nav>
 						<div class={styles.navRight}>
 							<button
@@ -97,7 +94,13 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 				<footer class={styles.footer}>
 					<div class={styles.footerInner}>
 						<div class={styles.footerBrand}>
-							<img src="/avalon-wordmark.svg" alt="" class={styles.footerLogo} width="20" height="20" />
+							<img
+								src="/avalon-wordmark.svg"
+								alt=""
+								class={styles.footerLogo}
+								width="20"
+								height="20"
+							/>
 						</div>
 						<nav class={styles.footerCols} aria-label="Footer">
 							<div>

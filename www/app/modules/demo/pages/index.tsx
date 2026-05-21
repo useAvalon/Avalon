@@ -8,6 +8,7 @@ import SolidCounter from "../components/Counter.solid.tsx";
 import SvelteCounter from "../components/Counter.svelte";
 import VueCounter from "../components/Counter.vue";
 import DelayedCounter from "../components/DelayedCounter.tsx";
+import styles from "./index.module.css";
 
 export const metadata = {
 	title: "Islands Demo — Avalon",
@@ -16,100 +17,46 @@ export const metadata = {
 
 export default async function DemoPage() {
 	return (
-		<div
-			style={{
-				minHeight: "80vh",
-				display: "flex",
-				flexDirection: "column",
-				alignItems: "center",
-				padding: "3rem 2rem",
-				gap: "2rem",
-			}}
-		>
-			<div style={{ textAlign: "center", maxWidth: "700px" }}>
-				<h1
-					style={{
-						fontSize: "2rem",
-						color: "#e0e0e0",
-						fontFamily: "system-ui, sans-serif",
-						marginBottom: "0.5rem",
-					}}
-				>
-					Multi-Framework Islands
-				</h1>
-				<p style={{ color: "#888", fontFamily: "system-ui, sans-serif", lineHeight: 1.6 }}>
+		<div class={styles.page}>
+			<header class={styles.header}>
+				<h1 class={styles.title}>Multi-Framework Islands</h1>
+				<p class={styles.desc}>
 					Each island loads its JavaScript only when you interact with it. Watch the network panel
 					to see the lazy loading in action. All counters are SSR'd — the HTML is visible
 					immediately.
 				</p>
-			</div>
+			</header>
 
-			<div
-				style={{
-					display: "grid",
-					gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-					gap: "1.5rem",
-					width: "100%",
-					maxWidth: "1200px",
-					alignItems: "stretch",
-				}}
-			>
-				{/* React Counter */}
-				<div style={{ display: "flex", flexDirection: "column" }}>
+			<div class={styles.grid}>
+				<div class={styles.cell}>
 					<ReactCounter island={{ condition: "on:interaction" }} />
 				</div>
-
-				{/* Preact Counter */}
-				<div style={{ display: "flex", flexDirection: "column" }}>
+				<div class={styles.cell}>
 					<PreactCounter island={{ condition: "on:interaction" }} />
 				</div>
-
-				{/* Vue Counter */}
-				<div style={{ display: "flex", flexDirection: "column" }}>
+				<div class={styles.cell}>
 					<VueCounter island={{ condition: "on:interaction" }} />
 				</div>
-
-				{/* Svelte Counter */}
-				<div style={{ display: "flex", flexDirection: "column" }}>
+				<div class={styles.cell}>
 					<SvelteCounter island={{ condition: "on:interaction" }} />
 				</div>
-
-				{/* Solid Counter */}
-				<div style={{ display: "flex", flexDirection: "column" }}>
+				<div class={styles.cell}>
 					<SolidCounter island={{ condition: "on:interaction" }} />
 				</div>
-
-				{/* Lit Counter */}
-				<div style={{ display: "flex", flexDirection: "column" }}>
+				<div class={styles.cell}>
 					<LitCounter island={{ condition: "on:interaction" }} />
 				</div>
-
-				{/* Qwik Counter — resumable, no island prop needed */}
-				<div style={{ display: "flex", flexDirection: "column" }}>
+				<div class={styles.cell}>
 					<QwikCounter />
 				</div>
-
-				{/* Delayed Counter — custom on:countdown directive, hydrates after 5s */}
-				<div style={{ display: "flex", flexDirection: "column" }}>
+				<div class={styles.cell}>
 					<DelayedCounter island={{ condition: "on:countdown", conditionArg: "5" }} />
 				</div>
 			</div>
 
-			<p
-				style={{
-					color: "#666",
-					fontFamily: "system-ui, sans-serif",
-					fontSize: "0.85rem",
-					textAlign: "center",
-					maxWidth: "600px",
-				}}
-			>
-				<strong style={{ color: "#888" }}>Tip:</strong> Click on any counter to load its JavaScript.
-				The network panel shows the actual load time and file size. See also the{" "}
-				<a href="/demo/data-fetching" style={{ color: "#7c8aff" }}>
-					data fetching demo
-				</a>
-				.
+			<p class={styles.tip}>
+				<strong>Tip:</strong> Click on any counter to load its JavaScript. The network panel shows
+				the actual load time and file size.
 			</p>
 		</div>
 	);
