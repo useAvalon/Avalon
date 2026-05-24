@@ -487,9 +487,10 @@ export function ensureHydrationMarkers(element: string, marker: Partial<IslandMa
 /**
  * Unwrap per-island script wrappers from the HTML.
  *
- * During SSR, per-island scripts are wrapped in `<div data-island-script="" style="display:contents">`
- * because Preact's `h()` needs a real element for `dangerouslySetInnerHTML`. This function
- * strips those wrappers, leaving just the bare `<script type="module">` tags inline.
+ * During SSR, per-island scripts are wrapped in `<div data-island-script>`
+ * because Preact's `h()` needs a real element for `dangerouslySetInnerHTML`.
+ * This function strips those wrappers, leaving just the bare `<script type="module">`
+ * tags inline.
  */
 function unwrapPerIslandScripts(html: string): string {
 	// Strip the wrapper <div data-island-script> around per-island <script> tags,

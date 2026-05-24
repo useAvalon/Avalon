@@ -120,12 +120,14 @@ function generateStrategyCode(
 	}
 
 	if (condition === "on:visible") {
+		// Observe firstElementChild because <avalon-island> has display:contents
+		// (no layout box), so IntersectionObserver would never fire on it directly.
 		return [
 			hydrateCall,
 			`var e=document.getElementById(${JSON.stringify(islandId)});`,
-			`if(e){try{var o=new IntersectionObserver(function(n){`,
+			`if(e){try{var t=e.firstElementChild||e;var o=new IntersectionObserver(function(n){`,
 			`if(n[0].isIntersecting){h();o.disconnect()}`,
-			`},{rootMargin:"50px",threshold:0});o.observe(e)}catch(_){h()}}`,
+			`},{rootMargin:"50px",threshold:0});o.observe(t)}catch(_){h()}}`,
 		].join("");
 	}
 
@@ -141,12 +143,14 @@ function generateStrategyCode(
 	}
 
 	if (condition === "on:interaction") {
+		// Listen on firstElementChild because <avalon-island> has display:contents
+		// (no layout box), so mouseenter/focusin won't fire on it directly.
 		return [
 			hydrateCall,
 			`var e=document.getElementById(${JSON.stringify(islandId)});`,
-			`if(e){var d=false;var ev=["click","touchstart","mouseenter","focusin"];`,
-			`var fn=function(){if(d)return;d=true;ev.forEach(function(n){e.removeEventListener(n,fn)});h()};`,
-			`ev.forEach(function(n){e.addEventListener(n,fn,{once:true,passive:true})})}`,
+			`if(e){var t=e.firstElementChild||e;var d=false;var ev=["click","touchstart","mouseenter","focusin"];`,
+			`var fn=function(){if(d)return;d=true;ev.forEach(function(n){t.removeEventListener(n,fn)});h()};`,
+			`ev.forEach(function(n){t.addEventListener(n,fn,{once:true,passive:true})})}`,
 		].join("");
 	}
 

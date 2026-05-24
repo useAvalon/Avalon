@@ -11,7 +11,7 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 	const currentPath = frontmatter?.currentPath as string | undefined;
 
 	return (
-		<html lang="en">
+		<html lang="en" data-theme="dark">
 			<head>
 				<meta charset="UTF-8" />
 				<meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -20,7 +20,14 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 				{description && <meta name="description" content={description} />}
 				<script
 					dangerouslySetInnerHTML={{
-						__html: `(function(){try{var t=localStorage.getItem('avalon-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()`,
+						__html: [
+							`(function(){`,
+							`var d=document.documentElement;`,
+							`try{var t=localStorage.getItem('avalon-theme')}catch(e){}`,
+							`if(t==='light'){d.setAttribute('data-theme','light');d.style.colorScheme='light'}`,
+							`else{d.style.colorScheme='dark'}`,
+							`})()`,
+						].join(""),
 					}}
 				/>
 				<link rel="stylesheet" href="/syntax-highlighting.css" />
@@ -29,7 +36,18 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 				<header class={styles.nav}>
 					<div class={styles.navInner}>
 						<a href="/" class={styles.navLogo}>
-							<img src="/avalon-wordmark.svg" alt="Avalon" class={styles.navLogoImg} height={28} />
+							<img
+								src="/avalon-wordmark.svg"
+								alt="Avalon"
+								class={`${styles.navLogoImg} ${styles.logoDark}`}
+								height={28}
+							/>
+							<img
+								src="/avalon-wordmark-black.svg"
+								alt="Avalon"
+								class={`${styles.navLogoImg} ${styles.logoLight}`}
+								height={28}
+							/>
 						</a>
 						<div class={styles.navDivider} aria-hidden="true" />
 						<nav class={styles.navLinks} aria-label="Main navigation">
@@ -97,7 +115,14 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 							<img
 								src="/avalon-wordmark.svg"
 								alt=""
-								class={styles.footerLogo}
+								class={`${styles.footerLogo} ${styles.logoDark}`}
+								width="20"
+								height="20"
+							/>
+							<img
+								src="/avalon-wordmark-black.svg"
+								alt=""
+								class={`${styles.footerLogo} ${styles.logoLight}`}
 								width="20"
 								height="20"
 							/>

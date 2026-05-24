@@ -9,6 +9,7 @@
  */
 
 import { minifyCSS } from "./css-utils.ts";
+import { injectFrameworkBaseCSS } from "./framework-base-css.ts";
 import { getUniversalCSS } from "./universal-css-collector.ts";
 
 /**
@@ -157,10 +158,12 @@ export function deferNonCriticalStylesheets(html: string): string {
  * @returns The HTML with critical CSS inlined and external stylesheets deferred
  */
 export function inlineCriticalCSS(html: string): string {
+	// Step 0: Inject framework baseline CSS so <avalon-island>, <avalon-page>,
+	// and <avalon-page-content> are transparent in flex/grid layouts.
+	let result = injectFrameworkBaseCSS(html);
+
 	// Step 1: Extract and inline SSR-collected CSS
 	const criticalStyle = extractCriticalCSS(true);
-
-	let result = html;
 
 	if (criticalStyle) {
 		// Inject the critical CSS into <head>, before </head>

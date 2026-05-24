@@ -41,11 +41,6 @@
 	align-items: stretch;
 }
 
-.cell {
-	display: flex;
-	flex-direction: column;
-}
-
 .tip {
 	font-family: var(--font-sans);
 	font-size: var(--text-small);

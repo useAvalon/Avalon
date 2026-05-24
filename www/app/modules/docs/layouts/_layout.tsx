@@ -43,9 +43,7 @@ export default async function DocsLayout({ children, frontmatter }: Readonly<Lay
 	return (
 		<div class={styles.docsLayout}>
 			<aside class={styles.sidebar}>
-				<div>
-					<DocsSidebar island={{ condition: "on:interaction" }} currentPath={currentPath} />
-				</div>
+				<DocsSidebar island={{ condition: "on:interaction" }} currentPath={currentPath} />
 			</aside>
 			<main class={styles.content} data-pagefind-body>
 				{(fm?.heading || fm?.title) && (
@@ -81,9 +79,7 @@ export default async function DocsLayout({ children, frontmatter }: Readonly<Lay
 				)}
 			</main>
 			<aside class={styles.tocSidebar}>
-				<div>
-					<TableOfContents island={{ condition: "on:client" }} />
-				</div>
+				<TableOfContents island={{ condition: "on:client" }} />
 			</aside>
 		</div>
 	);

@@ -194,7 +194,18 @@ describe("inlineCriticalCSS", () => {
 	it("returns HTML unchanged when no CSS collected and no external stylesheets", () => {
 		const html = `<html><head><title>Test</title></head><body></body></html>`;
 		const result = inlineCriticalCSS(html);
-		expect(result).toBe(html);
+		// The framework baseline <style> is always injected so islands work in
+		// flex/grid layouts, but no other modifications should happen.
+		expect(result).toContain('<style data-avalon-base="true">');
+		expect(result).toContain("display:contents");
+		expect(result).not.toContain('data-critical-css');
+		expect(result).not.toContain('media="print"');
+		// Stripping the baseline should leave the original HTML.
+		const stripped = result.replace(
+			/<style data-avalon-base="true">[^<]*<\/style>/,
+			"",
+		);
+		expect(stripped).toBe(html);
 	});
 
 	it("does not defer local stylesheets", () => {

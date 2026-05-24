@@ -136,13 +136,15 @@ function wrapWithPerIslandScript(
 
 	// Emit the island element followed by its self-contained hydration script.
 	// We use a Fragment so both are siblings in the DOM output.
+	// The wrapper <div data-island-script> is stripped from the final HTML by
+	// `unwrapPerIslandScripts` in the renderer; the global framework baseline
+	// CSS would also make it transparent if it ever leaked through.
 	return h(
 		Fragment,
 		null,
 		islandElement,
 		h("div", {
 			dangerouslySetInnerHTML: { __html: scriptHtml },
-			style: "display:contents",
 			"data-island-script": "",
 		}),
 	);

@@ -1,8 +1,8 @@
 /* Home module layout styles */
 
 .body {
-	background: var(--color-bg);
-	color: var(--color-text);
+	background: var(--color-bg, #050510);
+	color: var(--color-text, #e2e8f0);
 	font-family: var(--font-sans);
 	min-height: 100vh;
 	padding-top: 60px;
@@ -45,6 +45,20 @@
 .navLogoImg {
 	height: 24px;
 	width: auto;
+	display: block;
+}
+
+/* Theme-aware logo visibility */
+.logoDark {
+	display: block;
+}
+.logoLight {
+	display: none;
+}
+:global([data-theme="light"]) .logoDark {
+	display: none;
+}
+:global([data-theme="light"]) .logoLight {
 	display: block;
 }
 

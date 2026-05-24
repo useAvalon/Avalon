@@ -28,30 +28,14 @@ export default async function DemoPage() {
 			</header>
 
 			<div class={styles.grid}>
-				<div class={styles.cell}>
-					<ReactCounter island={{ condition: "on:interaction" }} />
-				</div>
-				<div class={styles.cell}>
-					<PreactCounter island={{ condition: "on:interaction" }} />
-				</div>
-				<div class={styles.cell}>
-					<VueCounter island={{ condition: "on:interaction" }} />
-				</div>
-				<div class={styles.cell}>
-					<SvelteCounter island={{ condition: "on:interaction" }} />
-				</div>
-				<div class={styles.cell}>
-					<SolidCounter island={{ condition: "on:interaction" }} />
-				</div>
-				<div class={styles.cell}>
-					<LitCounter island={{ condition: "on:interaction" }} />
-				</div>
-				<div class={styles.cell}>
-					<QwikCounter />
-				</div>
-				<div class={styles.cell}>
-					<DelayedCounter island={{ condition: "on:countdown", conditionArg: "5" }} />
-				</div>
+				<ReactCounter island={{ condition: "on:interaction" }} />
+				<PreactCounter island={{ condition: "on:interaction" }} />
+				<VueCounter island={{ condition: "on:interaction" }} />
+				<SvelteCounter island={{ condition: "on:interaction" }} />
+				<SolidCounter island={{ condition: "on:interaction" }} />
+				<LitCounter island={{ condition: "on:interaction" }} />
+				<QwikCounter />
+				<DelayedCounter island={{ condition: "on:countdown", conditionArg: "5" }} />
 			</div>
 
 			<p class={styles.tip}>

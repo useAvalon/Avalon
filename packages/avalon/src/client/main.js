@@ -137,7 +137,9 @@ function setupIntersectionObserver(island, framework) {
 			},
 		);
 
-		observer.observe(island);
+		// Observe firstElementChild because <avalon-island> has display:contents
+		// (no layout box), so IntersectionObserver would never fire on it directly.
+		observer.observe(island.firstElementChild || island);
 	} catch (error) {
 		console.error("Failed to setup intersection observer:", error);
 		hydrateIsland(island, framework);
@@ -154,12 +156,16 @@ function setupInteractionObserver(island, framework) {
 	const events = ["click", "touchstart", "mouseenter", "focusin"];
 	let hydrated = false;
 
+	// Listen on firstElementChild because <avalon-island> has display:contents
+	// (no layout box), so mouseenter/focusin won't fire on it directly.
+	const target = island.firstElementChild || island;
+
 	const handleInteraction = () => {
 		if (hydrated) return;
 		hydrated = true;
 
 		events.forEach((eventType) => {
-			island.removeEventListener(eventType, handleInteraction);
+			target.removeEventListener(eventType, handleInteraction);
 		});
 
 		hydrateIsland(island, framework);
@@ -167,7 +173,7 @@ function setupInteractionObserver(island, framework) {
 
 	try {
 		events.forEach((eventType) => {
-			island.addEventListener(eventType, handleInteraction, { once: true, passive: true });
+			target.addEventListener(eventType, handleInteraction, { once: true, passive: true });
 		});
 	} catch (error) {
 		console.error("Failed to setup interaction observer:", error);

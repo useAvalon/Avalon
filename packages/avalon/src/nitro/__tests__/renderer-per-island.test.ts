@@ -25,13 +25,12 @@ describe("injectHydrationScript — per-island mode", () => {
 	it("unwraps per-island script wrappers from the HTML", () => {
 		const html = `<html><body>
 <avalon-island id="island-Counter" data-framework="solid"></avalon-island>
-<div data-island-script="" style="display:contents"><script type="module">console.log("hydrate")</script></div>
+<div data-island-script=""><script type="module">console.log("hydrate")</script></div>
 </body></html>`;
 
 		const result = injectHydrationScript(html, false);
 		// The wrapper div should be removed
 		expect(result).not.toContain("data-island-script");
-		expect(result).not.toContain("display:contents");
 		// But the script tag should remain
 		expect(result).toContain('<script type="module">console.log("hydrate")</script>');
 	});
@@ -39,9 +38,9 @@ describe("injectHydrationScript — per-island mode", () => {
 	it("unwraps multiple per-island script wrappers", () => {
 		const html = `<html><body>
 <avalon-island id="island-A" data-framework="solid"></avalon-island>
-<div data-island-script="" style="display:contents"><script type="module">hydrate("A")</script></div>
+<div data-island-script=""><script type="module">hydrate("A")</script></div>
 <avalon-island id="island-B" data-framework="preact"></avalon-island>
-<div data-island-script="" style="display:contents"><script type="module">hydrate("B")</script></div>
+<div data-island-script=""><script type="module">hydrate("B")</script></div>
 </body></html>`;
 
 		const result = injectHydrationScript(html, false);

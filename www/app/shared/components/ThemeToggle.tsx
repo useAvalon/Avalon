@@ -14,7 +14,9 @@ function getInitialTheme(): "dark" | "light" {
 }
 
 function applyTheme(theme: "dark" | "light") {
-	document.documentElement.setAttribute("data-theme", theme);
+	const el = document.documentElement;
+	el.setAttribute("data-theme", theme);
+	el.style.colorScheme = theme;
 	localStorage.setItem("avalon-theme", theme);
 }
 

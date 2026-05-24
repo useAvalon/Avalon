@@ -67,6 +67,7 @@ export const SIDEBAR: SidebarCategory[] = [
 			{ title: "Deployment", href: "/docs/guides/deployment" },
 			{ title: "Prerendering (SSG)", href: "/docs/guides/prerendering" },
 			{ title: "Performance", href: "/docs/guides/performance" },
+			{ title: "Island DOM Structure", href: "/docs/guides/island-dom-structure" },
 		],
 	},
 	{

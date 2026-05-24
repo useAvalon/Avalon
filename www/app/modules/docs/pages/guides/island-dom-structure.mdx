@@ -1,0 +1,126 @@
+---
+title: Island DOM Structure
+description: How Avalon's island elements interact with CSS layout and how hydration strategies account for display:contents.
+currentPath: /docs/guides/island-dom-structure
+prev:
+  title: Performance
+  href: /docs/guides/performance
+---
+
+## How islands render in the DOM
+
+When you add the `island` prop to a component, Avalon wraps the server-rendered output in an `<avalon-island>` custom element. This element is the hydration anchor — it carries the `id`, `data-framework`, and `data-condition` attributes that the client uses to locate and hydrate the component.
+
+```html
+<avalon-island id="island-Counter" data-framework="preact" data-condition="on:interaction">
+  <button>0</button>
+</avalon-island>
+```
+
+Islands don't need wrapper divs. You can place them directly inside flex or grid containers without breaking the layout, because Avalon makes the `<avalon-island>` element invisible to the layout engine.
+
+## Layout transparency with `display: contents`
+
+Avalon injects a baseline CSS rule into every page:
+
+```css
+avalon-island, avalon-page, avalon-page-content {
+  display: contents;
+}
+```
+
+`display: contents` removes the element's principal box from the layout tree. The browser treats the element's children as direct children of the parent container. This means a grid or flex parent sees the island's content — not the wrapper — as its layout children.
+
+```html
+<div style="display: grid; grid-template-columns: 1fr 1fr;">
+  <!-- The grid sees two columns, not one wrapper -->
+  <avalon-island id="island-MyGrid">
+    <div class="col-1">...</div>
+    <div class="col-2">...</div>
+  </avalon-island>
+</div>
+```
+
+The element still exists in the DOM. `document.getElementById()` finds it, `dataset` attributes are readable, and events bubble through it.
+
+## How hydration strategies account for this
+
+Elements with `display: contents` have no layout box. Two hydration strategies depend on geometry, so Avalon targets the island's **first child element** instead of the wrapper itself.
+
+### `on:visible` and IntersectionObserver
+
+`IntersectionObserver` computes visibility from an element's bounding rect. No box means no rect — the observer would never fire. Avalon observes the first child, which has a real layout box:
+
+```js
+const island = document.getElementById('island-MyComponent');
+const target = island.firstElementChild || island;
+observer.observe(target);
+```
+
+### `on:interaction` and mouseenter
+
+`mouseenter` fires when the pointer enters an element's box. No box, no enter event. Avalon attaches interaction listeners to the first child:
+
+```js
+const target = island.firstElementChild || island;
+['click', 'touchstart', 'mouseenter', 'focusin'].forEach(ev => {
+  target.addEventListener(ev, hydrate, { once: true, passive: true });
+});
+```
+
+`click` and `focusin` bubble and would reach the wrapper regardless, but `mouseenter` does not bubble and requires a layout box on the listener target. Targeting the first child makes all four events work consistently.
+
+### `on:client` and `on:idle`
+
+These strategies don't depend on geometry. `on:client` hydrates immediately when the module loads. `on:idle` uses `requestIdleCallback`. Neither needs a layout box, so they reference the `<avalon-island>` element directly.
+
+## Overriding the baseline style
+
+The CSS rule uses bare element selectors with no specificity tricks. If you need an island to have a visible box (for styling, debugging, or a specific layout reason), any class or attribute selector wins:
+
+```css
+avalon-island.has-border {
+  display: block;
+  border: 1px solid var(--border);
+}
+```
+
+## Visual comparison
+
+Below are two identical 3-column grid layouts. The left uses `display: contents` on the wrapper (what Avalon does). The right uses the browser default — the wrapper collapses the grid items into a single cell.
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:2rem;margin:2rem 0;">
+  <div>
+    <p style="font-weight:600;margin-bottom:0.5rem;font-size:0.875rem;">With <code>display: contents</code></p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;">
+      <div style="display:contents;">
+        <div style="background:var(--color-accent, #6366f1);color:white;padding:1rem;border-radius:0.5rem;text-align:center;font-size:0.8rem;">A</div>
+        <div style="background:var(--color-accent, #6366f1);color:white;padding:1rem;border-radius:0.5rem;text-align:center;font-size:0.8rem;">B</div>
+        <div style="background:var(--color-accent, #6366f1);color:white;padding:1rem;border-radius:0.5rem;text-align:center;font-size:0.8rem;">C</div>
+      </div>
+    </div>
+    <p style="font-size:0.75rem;color:var(--color-muted, #6b7280);margin-top:0.5rem;">Grid sees 3 children → 3 columns ✓</p>
+  </div>
+  <div>
+    <p style="font-weight:600;margin-bottom:0.5rem;font-size:0.875rem;">Without <code>display: contents</code></p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.5rem;">
+      <div>
+        <div style="background:var(--color-accent, #6366f1);color:white;padding:1rem;border-radius:0.5rem;text-align:center;font-size:0.8rem;">A</div>
+        <div style="background:var(--color-accent, #6366f1);color:white;padding:1rem;border-radius:0.5rem;text-align:center;font-size:0.8rem;">B</div>
+        <div style="background:var(--color-accent, #6366f1);color:white;padding:1rem;border-radius:0.5rem;text-align:center;font-size:0.8rem;">C</div>
+      </div>
+    </div>
+    <p style="font-size:0.75rem;color:var(--color-muted, #6b7280);margin-top:0.5rem;">Grid sees 1 child → items stack in first column ✗</p>
+  </div>
+</div>
+
+The wrapper div on the left behaves like `<avalon-island>` — present in the DOM but invisible to layout. The one on the right shows what would happen without the baseline CSS rule.
+
+## Summary
+
+None of this requires action on your part. The key points:
+
+- Islands are layout-transparent — place them anywhere without extra wrapper divs.
+- Your component's root element is what participates in the parent's layout.
+- Hydration strategies handle the `display: contents` behavior internally.
+- You can override the style if you have a reason to, but the default works for the vast majority of cases.
