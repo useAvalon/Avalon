@@ -23,6 +23,7 @@ on:
           - svelte
           - solid
           - vue
+          - qwik
           - all
       bump:
         description: "Version bump type"
@@ -83,10 +84,10 @@ jobs:
         run: |
           case "${{ inputs.package }}" in
             core)
-              echo "packages=packages/avalon packages/integrations/shared" >> "$GITHUB_OUTPUT"
+              echo "packages=packages/integrations/core packages/avalon" >> "$GITHUB_OUTPUT"
               ;;
             all)
-              echo "packages=packages/avalon packages/integrations/shared packages/integrations/lit packages/integrations/react packages/integrations/preact packages/integrations/svelte packages/integrations/solid packages/integrations/vue" >> "$GITHUB_OUTPUT"
+              echo "packages=packages/integrations/core packages/avalon packages/integrations/lit packages/integrations/react packages/integrations/preact packages/integrations/svelte packages/integrations/solid packages/integrations/vue packages/integrations/qwik" >> "$GITHUB_OUTPUT"
               ;;
             *)
               echo "packages=packages/integrations/${{ inputs.package }}" >> "$GITHUB_OUTPUT"
@@ -108,7 +109,7 @@ jobs:
       - name: Publish to npm
         if: ${{ inputs.dry-run == false }}
         env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.AVALON_RELEASE }}
         run: |
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
           TAG="${{ inputs.channel }}"
