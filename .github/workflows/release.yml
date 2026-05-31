@@ -125,35 +125,40 @@ jobs:
             fi
           done
 
-      - name: Read version for tag
-        id: new-version
-        run: |
-          # Use the first target package to get the version
-          FIRST_PKG=$(echo "${{ steps.targets.outputs.packages }}" | awk '{print $1}')
-          VERSION=$(node -e "const c = JSON.parse(require('fs').readFileSync('${FIRST_PKG}/package.json', 'utf-8')); console.log(c.version)")
-          NAME=$(node -e "const c = JSON.parse(require('fs').readFileSync('${FIRST_PKG}/package.json', 'utf-8')); console.log(c.name)")
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "name=$NAME" >> "$GITHUB_OUTPUT"
-
       - name: Commit version bump
         if: ${{ inputs.dry-run == false }}
         run: |
+          # Safety: remove any leftover publish backups so they are not committed
+          find packages -name "package.json.bak" -delete
           git add -A
-          git commit -m "release: ${{ steps.new-version.outputs.name }}@${{ steps.new-version.outputs.version }}"
+          git commit -m "release: ${{ inputs.package }} (${{ inputs.channel }}) [skip ci]"
           git push
 
-      - name: Create git tag
+      - name: Create per-package tags and GitHub Releases
         if: ${{ inputs.dry-run == false }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG_NAME="${{ inputs.package }}/v${{ steps.new-version.outputs.version }}"
-          git tag "$TAG_NAME"
-          git push origin "$TAG_NAME"
+          PRERELEASE_FLAG=""
+          if [ "${{ inputs.channel }}" != "stable" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          for pkg in ${{ steps.targets.outputs.packages }}; do
+            if [ ! -f "$pkg/package.json" ]; then
+              continue
+            fi
+            NAME=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$pkg/package.json','utf-8')).name)")
+            VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$pkg/package.json','utf-8')).version)")
+            # Short name without the @useavalon/ scope, e.g. @useavalon/avalon -> avalon
+            SHORT_NAME="${NAME##*/}"
+            TAG_NAME="${SHORT_NAME}/v${VERSION}"
 
-      - name: Create GitHub Release
-        if: ${{ inputs.dry-run == false }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "${{ inputs.package }}/v${{ steps.new-version.outputs.version }}"
-          name: "${{ steps.new-version.outputs.name }}@${{ steps.new-version.outputs.version }}"
-          prerelease: ${{ inputs.channel != 'stable' }}
-          generate_release_notes: true
+            echo "Creating release $NAME@$VERSION (tag $TAG_NAME)"
+            git tag "$TAG_NAME"
+            git push origin "$TAG_NAME"
+
+            gh release create "$TAG_NAME" \
+              --title "${NAME}@${VERSION}" \
+              --generate-notes \
+              $PRERELEASE_FLAG
+          done
