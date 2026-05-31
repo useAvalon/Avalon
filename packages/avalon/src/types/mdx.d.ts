@@ -1,6 +1,6 @@
-import type { ComponentType } from 'preact';
+import type { ComponentType } from "preact";
 
-declare module '*.mdx' {
+declare module "*.mdx" {
 	const MDXComponent: ComponentType<Record<string, unknown>>;
 	export default MDXComponent;
 }

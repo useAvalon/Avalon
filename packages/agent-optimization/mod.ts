@@ -1,21 +1,23 @@
 // @useavalon/agent-optimization — Public API
 
-// Plugin entry point
-export { agentOptimization } from './src/plugin.ts';
+export type { AgentOptimizationConfig, LlmsConfig, SitemapConfig } from "./src/config.ts";
 
 // Config schema and validation
-export { validateConfig, AgentOptimizationConfigSchema, SitemapConfigSchema, LlmsConfigSchema } from './src/config.ts';
-export type { AgentOptimizationConfig, SitemapConfig, LlmsConfig } from './src/config.ts';
-
-// Sitemap utilities
-export { buildSitemapXml, routesToSitemapEntries } from './src/sitemap.ts';
-export type { SitemapEntry, DiscoveredRoute, ResolvedSitemapConfig } from './src/sitemap.ts';
+export {
+	AgentOptimizationConfigSchema,
+	LlmsConfigSchema,
+	SitemapConfigSchema,
+	validateConfig,
+} from "./src/config.ts";
+export type { LlmsEntry, LlmsRoute, ResolvedLlmsConfig } from "./src/llms.ts";
+// llms.txt generation
+export { buildLlmsFullTxt, buildLlmsTxt, routesToLlmsEntries } from "./src/llms.ts";
+export type { PageMetadata } from "./src/markdown.ts";
 
 // Markdown content negotiation
-export { htmlToMarkdown, buildFrontMatter, shouldServeMarkdown } from './src/markdown.ts';
-export type { PageMetadata } from './src/markdown.ts';
-
-// llms.txt generation
-export { routesToLlmsEntries, buildLlmsTxt, buildLlmsFullTxt } from './src/llms.ts';
-export type { LlmsEntry, LlmsRoute, ResolvedLlmsConfig } from './src/llms.ts';
-
+export { buildFrontMatter, htmlToMarkdown, shouldServeMarkdown } from "./src/markdown.ts";
+// Plugin entry point
+export { agentOptimization } from "./src/plugin.ts";
+export type { DiscoveredRoute, ResolvedSitemapConfig, SitemapEntry } from "./src/sitemap.ts";
+// Sitemap utilities
+export { buildSitemapXml, routesToSitemapEntries } from "./src/sitemap.ts";

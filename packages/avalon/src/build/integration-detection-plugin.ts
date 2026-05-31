@@ -1,6 +1,6 @@
-import type { Plugin } from 'vite';
-import { resolve } from 'node:path';
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import type { Plugin } from "vite";
 
 export interface IntegrationDetectionResult {
 	preact: boolean;
@@ -17,8 +17,8 @@ export function integrationDetectionPlugin(): Plugin {
 	let detectedIntegrations: IntegrationDetectionResult | null = null;
 
 	return {
-		name: 'avalon:integration-detection',
-		enforce: 'pre',
+		name: "avalon:integration-detection",
+		enforce: "pre",
 
 		async buildStart() {
 			// Detect integrations during build start
@@ -27,29 +27,32 @@ export function integrationDetectionPlugin(): Plugin {
 
 		resolveId(id: string) {
 			// Handle integration imports
-			if (id.startsWith('@useavalon/integration-')) {
-				const framework = id.replace('@useavalon/integration-', '').split('/')[0];
-				
+			if (id.startsWith("@useavalon/integration-")) {
+				const framework = id.replace("@useavalon/integration-", "").split("/")[0];
+
 				// Check if this integration is used
-				if (detectedIntegrations && !detectedIntegrations[framework as keyof IntegrationDetectionResult]) {
+				if (
+					detectedIntegrations &&
+					!detectedIntegrations[framework as keyof IntegrationDetectionResult]
+				) {
 					console.warn(`⚠️ Integration ${framework} is imported but not detected in project files`);
 				}
-				
+
 				// Resolve to the actual integration path
 				const integrationPath = resolve(process.cwd(), `packages/integrations/${framework}/mod.ts`);
 				return integrationPath;
 			}
-			
+
 			return null;
 		},
 
 		transform(_code: string, id: string) {
 			// Track integration usage in island files
-			if (id.includes('/islands/') || id.includes('/components/')) {
+			if (id.includes("/islands/") || id.includes("/components/")) {
 				// This helps with dynamic detection during development
 				return null;
 			}
-			
+
 			return null;
 		},
 	};
@@ -66,7 +69,7 @@ export async function detectUsedIntegrations() {
 		svelte: false,
 	};
 
-	const searchDirs = ['islands', 'components', 'src/islands', 'src/components'];
+	const searchDirs = ["islands", "components", "src/islands", "src/components"];
 	const cwd = process.cwd();
 
 	for (const dir of searchDirs) {
@@ -77,16 +80,16 @@ export async function detectUsedIntegrations() {
 				if (!entry.isFile()) continue;
 
 				// Check file extensions
-				if (entry.name.endsWith('.vue')) {
+				if (entry.name.endsWith(".vue")) {
 					result.vue = true;
-				} else if (entry.name.endsWith('.svelte')) {
+				} else if (entry.name.endsWith(".svelte")) {
 					result.svelte = true;
-				} else if (entry.name.endsWith('.tsx') || entry.name.endsWith('.jsx')) {
+				} else if (entry.name.endsWith(".tsx") || entry.name.endsWith(".jsx")) {
 					// Read file content to detect framework
 					const filePath = resolve(dirPath, entry.name);
-					const content = await readFile(filePath, 'utf-8');
-					
-					if (content.includes('solid-js')) {
+					const content = await readFile(filePath, "utf-8");
+
+					if (content.includes("solid-js")) {
 						result.solid = true;
 					} else {
 						// Default to Preact for JSX/TSX files
@@ -107,11 +110,11 @@ export async function detectUsedIntegrations() {
  */
 export function getRequiredIntegrations(detected: IntegrationDetectionResult) {
 	const integrations: string[] = [];
-	
-	if (detected.preact) integrations.push('preact');
-	if (detected.vue) integrations.push('vue');
-	if (detected.solid) integrations.push('solid');
-	if (detected.svelte) integrations.push('svelte');
-	
+
+	if (detected.preact) integrations.push("preact");
+	if (detected.vue) integrations.push("vue");
+	if (detected.solid) integrations.push("solid");
+	if (detected.svelte) integrations.push("svelte");
+
 	return integrations;
 }

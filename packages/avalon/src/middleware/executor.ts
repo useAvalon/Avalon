@@ -15,9 +15,14 @@
  * Requirements: 1.2, 1.3, 1.4, 2.1, 2.2
  */
 
-import type { H3Event } from 'h3';
-import type { MiddlewareHandler, MiddlewareRoute, MiddlewareFileExport, MiddlewareExecutorOptions } from './types.ts';
-import { getMatchingMiddleware } from './discovery.ts';
+import type { H3Event } from "h3";
+import { getMatchingMiddleware } from "./discovery.ts";
+import type {
+	MiddlewareExecutorOptions,
+	MiddlewareFileExport,
+	MiddlewareHandler,
+	MiddlewareRoute,
+} from "./types.ts";
 
 /**
  * Captures a snapshot of the event context for comparison
@@ -164,10 +169,10 @@ export async function executeScopedMiddleware(
  * Supports both h3 v2 (event.url / event.req.url) and the dev-mode mock shape (event.path).
  */
 function buildUrlFromEvent(event: H3Event): URL {
-	const base = 'http://localhost';
+	const base = "http://localhost";
 
 	// h3 v2: event.url is a string
-	if (typeof (event as any).url === 'string') {
+	if (typeof (event as any).url === "string") {
 		return new URL((event as any).url, base);
 	}
 
@@ -186,7 +191,7 @@ function buildUrlFromEvent(event: H3Event): URL {
 		return new URL((event as any).node.req.url, base);
 	}
 
-	return new URL('/', base);
+	return new URL("/", base);
 }
 
 /**
@@ -196,7 +201,7 @@ function buildUrlFromEvent(event: H3Event): URL {
  */
 export function toImportSpecifier(filePath: string): string {
 	if (/^[A-Za-z]:[\\/]/.test(filePath)) {
-		return `file:///${filePath.replaceAll('\\', '/')}`;
+		return `file:///${filePath.replaceAll("\\", "/")}`;
 	}
 	return filePath;
 }
@@ -204,7 +209,10 @@ export function toImportSpecifier(filePath: string): string {
 /**
  * Loads a middleware handler via Vite's ssrLoadModule (dev) or dynamic import (prod/worker).
  */
-async function loadMiddleware(filePath: string, devMode: boolean): Promise<MiddlewareHandler | null> {
+async function loadMiddleware(
+	filePath: string,
+	devMode: boolean,
+): Promise<MiddlewareHandler | null> {
 	if (!devMode && middlewareCache.has(filePath)) {
 		return middlewareCache.get(filePath)!;
 	}
@@ -214,15 +222,17 @@ async function loadMiddleware(filePath: string, devMode: boolean): Promise<Middl
 
 		const viteServer = globalThis.__viteDevServer;
 		if (devMode && viteServer) {
-			const viteRoot = viteServer.config.root || '';
-			const vitePath = filePath.startsWith(viteRoot) ? '/' + filePath.slice(viteRoot.length + 1) : filePath;
+			const viteRoot = viteServer.config.root || "";
+			const vitePath = filePath.startsWith(viteRoot)
+				? "/" + filePath.slice(viteRoot.length + 1)
+				: filePath;
 			module = (await viteServer.ssrLoadModule(vitePath)) as MiddlewareFileExport;
 		} else {
 			const importPath = toImportSpecifier(filePath);
 			module = (await import(/* @vite-ignore */ importPath)) as MiddlewareFileExport;
 		}
 
-		if (!module.default || typeof module.default !== 'function') {
+		if (!module.default || typeof module.default !== "function") {
 			if (devMode) {
 				console.warn(`[middleware] ${filePath} does not export a default function`);
 			}
@@ -245,7 +255,11 @@ async function loadMiddleware(filePath: string, devMode: boolean): Promise<Middl
 /**
  * Executes a middleware handler with a timeout
  */
-async function executeWithTimeout<T>(fn: () => T | Promise<T>, timeout: number, filePath: string): Promise<T> {
+async function executeWithTimeout<T>(
+	fn: () => T | Promise<T>,
+	timeout: number,
+	filePath: string,
+): Promise<T> {
 	return Promise.race([
 		Promise.resolve(fn()),
 		new Promise<never>((_, reject) => {
@@ -260,7 +274,11 @@ async function executeWithTimeout<T>(fn: () => T | Promise<T>, timeout: number, 
  * Handles the result of a middleware execution.
  * Supports Nitro-style (void/Response) format.
  */
-function handleMiddlewareResult(result: unknown, filePath: string, devMode: boolean): Response | undefined {
+function handleMiddlewareResult(
+	result: unknown,
+	filePath: string,
+	devMode: boolean,
+): Response | undefined {
 	if (result === undefined || result === null) {
 		return undefined;
 	}
@@ -305,11 +323,16 @@ export function getContextValue<T>(event: H3Event, key: string): T | undefined {
 }
 
 /** Sets a value in event.context with optional development logging */
-export function setContextValue<T>(event: H3Event, key: string, value: T, devMode: boolean = false): void {
+export function setContextValue<T>(
+	event: H3Event,
+	key: string,
+	value: T,
+	devMode: boolean = false,
+): void {
 	const isNew = !(key in event.context);
 	event.context[key] = value;
 
 	if (devMode) {
-		console.log(`[middleware] Context ${isNew ? 'set' : 'updated'}: ${key}`);
+		console.log(`[middleware] Context ${isNew ? "set" : "updated"}: ${key}`);
 	}
 }

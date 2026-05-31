@@ -258,7 +258,16 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 							],
 						},
 						fs: {
-							deny: [".output", "dist", ".netlify", ".vercel", ".cloudflare", ".wrangler", ".firebase", ".amplify-hosting"],
+							deny: [
+								".output",
+								"dist",
+								".netlify",
+								".vercel",
+								".cloudflare",
+								".wrangler",
+								".firebase",
+								".amplify-hosting",
+							],
 						},
 					},
 				};
@@ -287,8 +296,12 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 			const outDir = server.config.build?.outDir
 				? join(root, server.config.build.outDir)
 				: join(root, "dist");
-			try { rmSync(outDir, { recursive: true, force: true }); } catch {}
-			try { rmSync(join(root, ".output"), { recursive: true, force: true }); } catch {}
+			try {
+				rmSync(outDir, { recursive: true, force: true });
+			} catch {}
+			try {
+				rmSync(join(root, ".output"), { recursive: true, force: true });
+			} catch {}
 
 			// Hold early requests until the SSR environment is ready.
 			// Without this, the first request hits Nitro before its SSR entry
@@ -311,14 +324,21 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 				// Start checking after a short delay to let Nitro register
 				setTimeout(check, 100);
 				// Safety timeout — don't block forever
-				setTimeout(() => { ssrReady = true; resolve(); }, 15000);
+				setTimeout(() => {
+					ssrReady = true;
+					resolve();
+				}, 15000);
 			});
 
 			server.middlewares.use(async (req, res, next) => {
 				if (ssrReady) return next();
 				// Only hold document requests (HTML pages), let assets through
 				const url = req.url || "/";
-				if (url.startsWith("/@") || url.startsWith("/__") || /\/[^/]+\.[a-z0-9]+(\?|$)/i.test(url)) {
+				if (
+					url.startsWith("/@") ||
+					url.startsWith("/__") ||
+					/\/[^/]+\.[a-z0-9]+(\?|$)/i.test(url)
+				) {
 					return next();
 				}
 				// Wait for SSR to be ready
@@ -636,7 +656,11 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 		scanCssSync(pathResolve(_cwd, avalonConfig.layoutsDir));
 		// Also scan the shared directory (components, styles) for CSS modules
 		const sharedDir = pathResolve(_cwd, avalonConfig.layoutsDir, "..");
-		if (sharedDir !== _cwd && sharedDir !== pathResolve(_cwd, avalonConfig.layoutsDir) && sharedDir.startsWith(_cwd)) {
+		if (
+			sharedDir !== _cwd &&
+			sharedDir !== pathResolve(_cwd, avalonConfig.layoutsDir) &&
+			sharedDir.startsWith(_cwd)
+		) {
 			scanCssSync(sharedDir);
 		}
 	}
@@ -698,7 +722,8 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 			// Nitro's own environment handles SSR module invalidation internally.
 			const isPage = file.includes("/pages/") && !file.endsWith(".css");
 			const isComponent = file.includes("/components/") && /\.[tj]sx?$/.test(file);
-			const isLayout = (file.includes("/layouts/") || file.includes("_layout")) && /\.[tj]sx?$/.test(file);
+			const isLayout =
+				(file.includes("/layouts/") || file.includes("_layout")) && /\.[tj]sx?$/.test(file);
 			const isCss = file.endsWith(".css");
 
 			if (isPage || isComponent || isLayout || isCss) {
@@ -713,7 +738,9 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 					rescanCss();
 					const layoutMod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_IDS.LAYOUTS);
 					if (layoutMod) server.moduleGraph.invalidateModule(layoutMod);
-					const clientEntryMod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY);
+					const clientEntryMod = server.moduleGraph.getModuleById(
+						RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY,
+					);
 					if (clientEntryMod) server.moduleGraph.invalidateModule(clientEntryMod);
 				}
 				// Full page reload after Nitro's SSR worker has recompiled.
@@ -988,9 +1015,7 @@ async function generateLayoutsModule(
 		try {
 			const src = await readFile(l.filePath, "utf8");
 			// Look for: skipLayouts: [... '_layout' ...] or ["_layout"]
-			const configMatch = src.match(
-				/layoutConfig\s*=\s*{[\s\S]*?skipLayouts\s*:\s*\[([^\]]*)\]/,
-			);
+			const configMatch = src.match(/layoutConfig\s*=\s*{[\s\S]*?skipLayouts\s*:\s*\[([^\]]*)\]/);
 			const skips = configMatch?.[1] ?? "";
 			const hasRootSkip = /['"`]_layout['"`]/.test(skips);
 			skipRootByPath.set(l.importPath, hasRootSkip);

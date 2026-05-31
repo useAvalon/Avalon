@@ -5,17 +5,17 @@
  * including edge cases, performance tests, and confidence scoring validation.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from "vitest";
 import {
 	EnhancedFrameworkDetector,
-	type FrameworkDetectionResult,
 	type FrameworkConfig,
-} from '../enhanced-framework-detector.ts';
+	type FrameworkDetectionResult,
+} from "../enhanced-framework-detector.ts";
 
-describe('EnhancedFrameworkDetector - Preact Detection', () => {
+describe("EnhancedFrameworkDetector - Preact Detection", () => {
 	const detector = new EnhancedFrameworkDetector();
 
-	it('should detect Preact with JSX import source', () => {
+	it("should detect Preact with JSX import source", () => {
 		const content = `
 /** @jsxImportSource preact */
 import { useState } from 'preact/hooks';
@@ -25,15 +25,15 @@ export default function Counter() {
 	return <button onClick={() => setCount(count + 1)}>{count}</button>;
 }`;
 
-		const result = detector.detectFramework('Counter.tsx', content);
+		const result = detector.detectFramework("Counter.tsx", content);
 
-		expect(result.framework).toEqual('preact');
-		expect(result.confidence).toEqual('high');
-		expect(result.evidence.some(e => e.includes('JSX import source'))).toBeTruthy();
-		expect(result.evidence.some(e => e.includes('preact'))).toBeTruthy();
+		expect(result.framework).toEqual("preact");
+		expect(result.confidence).toEqual("high");
+		expect(result.evidence.some((e) => e.includes("JSX import source"))).toBeTruthy();
+		expect(result.evidence.some((e) => e.includes("preact"))).toBeTruthy();
 	});
 
-	it('should detect Preact with import statements', () => {
+	it("should detect Preact with import statements", () => {
 		const content = `
 import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
@@ -48,14 +48,14 @@ export default function App() {
 	return <div>{data?.message}</div>;
 }`;
 
-		const result = detector.detectFramework('App.tsx', content);
+		const result = detector.detectFramework("App.tsx", content);
 
-		expect(result.framework).toEqual('preact');
-		expect(result.confidence === 'high' || result.confidence === 'medium').toBeTruthy();
-		expect(result.evidence.some(e => e.includes('Framework import'))).toBeTruthy();
+		expect(result.framework).toEqual("preact");
+		expect(result.confidence === "high" || result.confidence === "medium").toBeTruthy();
+		expect(result.evidence.some((e) => e.includes("Framework import"))).toBeTruthy();
 	});
 
-	it('should detect Preact with content patterns', () => {
+	it("should detect Preact with content patterns", () => {
 		const content = `
 export default function Component() {
 	const [state, setState] = useState(0);
@@ -64,18 +64,18 @@ export default function Component() {
 	return <div>{memoized}</div>;
 }`;
 
-		const result = detector.detectFramework('Component.tsx', content);
+		const result = detector.detectFramework("Component.tsx", content);
 
 		// Should detect based on content patterns even without explicit imports
-		expect(result.framework === 'preact' || result.framework === 'solid').toBeTruthy();
+		expect(result.framework === "preact" || result.framework === "solid").toBeTruthy();
 		expect(result.evidence.length > 0).toBeTruthy();
 	});
 });
 
-describe('EnhancedFrameworkDetector - Solid Detection', () => {
+describe("EnhancedFrameworkDetector - Solid Detection", () => {
 	const detector = new EnhancedFrameworkDetector();
 
-	it('should detect Solid with JSX import source', () => {
+	it("should detect Solid with JSX import source", () => {
 		const content = `
 /** @jsxImportSource solid-js */
 import { createSignal } from 'solid-js';
@@ -85,15 +85,15 @@ export default function Counter() {
 	return <button onClick={() => setCount(count() + 1)}>{count()}</button>;
 }`;
 
-		const result = detector.detectFramework('Counter.tsx', content);
+		const result = detector.detectFramework("Counter.tsx", content);
 
-		expect(result.framework).toEqual('solid');
-		expect(result.confidence).toEqual('high');
-		expect(result.evidence.some(e => e.includes('JSX import source'))).toBeTruthy();
-		expect(result.evidence.some(e => e.includes('solid-js'))).toBeTruthy();
+		expect(result.framework).toEqual("solid");
+		expect(result.confidence).toEqual("high");
+		expect(result.evidence.some((e) => e.includes("JSX import source"))).toBeTruthy();
+		expect(result.evidence.some((e) => e.includes("solid-js"))).toBeTruthy();
 	});
 
-	it('should detect Solid with import statements', () => {
+	it("should detect Solid with import statements", () => {
 		const content = `
 import { render } from 'solid-js/web';
 import { createSignal, createEffect } from 'solid-js';
@@ -108,14 +108,14 @@ export default function App() {
 	return <div>{data()?.message}</div>;
 }`;
 
-		const result = detector.detectFramework('App.tsx', content);
+		const result = detector.detectFramework("App.tsx", content);
 
-		expect(result.framework).toEqual('solid');
-		expect(result.confidence === 'high' || result.confidence === 'medium').toBeTruthy();
-		expect(result.evidence.some(e => e.includes('Framework import'))).toBeTruthy();
+		expect(result.framework).toEqual("solid");
+		expect(result.confidence === "high" || result.confidence === "medium").toBeTruthy();
+		expect(result.evidence.some((e) => e.includes("Framework import"))).toBeTruthy();
 	});
 
-	it('should detect Solid with content patterns', () => {
+	it("should detect Solid with content patterns", () => {
 		const content = `
 export default function Component() {
 	const [signal, setSignal] = createSignal(0);
@@ -128,17 +128,17 @@ export default function Component() {
 	return <div>{memo()}</div>;
 }`;
 
-		const result = detector.detectFramework('Component.tsx', content);
+		const result = detector.detectFramework("Component.tsx", content);
 
-		expect(result.framework).toEqual('solid');
-		expect(result.evidence.some(e => e.includes('content pattern'))).toBeTruthy();
+		expect(result.framework).toEqual("solid");
+		expect(result.evidence.some((e) => e.includes("content pattern"))).toBeTruthy();
 	});
 });
 
-describe('EnhancedFrameworkDetector - Vue Detection', () => {
+describe("EnhancedFrameworkDetector - Vue Detection", () => {
 	const detector = new EnhancedFrameworkDetector();
 
-	it('should detect Vue with template syntax', () => {
+	it("should detect Vue with template syntax", () => {
 		const content = `
 <template>
 	<div>
@@ -164,15 +164,15 @@ export default {
 };
 </script>`;
 
-		const result = detector.detectFramework('Component.vue', content);
+		const result = detector.detectFramework("Component.vue", content);
 
-		expect(result.framework).toEqual('vue');
-		expect(result.confidence).toEqual('high');
-		expect(result.evidence.some(e => e.includes('File extension'))).toBeTruthy();
-		expect(result.evidence.some(e => e.includes('content pattern'))).toBeTruthy();
+		expect(result.framework).toEqual("vue");
+		expect(result.confidence).toEqual("high");
+		expect(result.evidence.some((e) => e.includes("File extension"))).toBeTruthy();
+		expect(result.evidence.some((e) => e.includes("content pattern"))).toBeTruthy();
 	});
 
-	it('should detect Vue with composition API', () => {
+	it("should detect Vue with composition API", () => {
 		const content = `
 <template>
 	<div>{{ computedValue }}</div>
@@ -189,17 +189,17 @@ watchEffect(() => {
 });
 </script>`;
 
-		const result = detector.detectFramework('Component.vue', content);
+		const result = detector.detectFramework("Component.vue", content);
 
-		expect(result.framework).toEqual('vue');
-		expect(result.evidence.some(e => e.includes('Framework import'))).toBeTruthy();
+		expect(result.framework).toEqual("vue");
+		expect(result.evidence.some((e) => e.includes("Framework import"))).toBeTruthy();
 	});
 });
 
-describe('EnhancedFrameworkDetector - Svelte Detection', () => {
+describe("EnhancedFrameworkDetector - Svelte Detection", () => {
 	const detector = new EnhancedFrameworkDetector();
 
-	it('should detect Svelte with reactive statements', () => {
+	it("should detect Svelte with reactive statements", () => {
 		const content = `
 <script>
 	import { onMount } from 'svelte';
@@ -227,15 +227,15 @@ describe('EnhancedFrameworkDetector - Svelte Detection', () => {
 	}
 </style>`;
 
-		const result = detector.detectFramework('Component.svelte', content);
+		const result = detector.detectFramework("Component.svelte", content);
 
-		expect(result.framework).toEqual('svelte');
-		expect(result.confidence).toEqual('high');
-		expect(result.evidence.some(e => e.includes('File extension'))).toBeTruthy();
-		expect(result.evidence.some(e => e.includes('content pattern'))).toBeTruthy();
+		expect(result.framework).toEqual("svelte");
+		expect(result.confidence).toEqual("high");
+		expect(result.evidence.some((e) => e.includes("File extension"))).toBeTruthy();
+		expect(result.evidence.some((e) => e.includes("content pattern"))).toBeTruthy();
 	});
 
-	it('should detect Svelte with stores', () => {
+	it("should detect Svelte with stores", () => {
 		const content = `
 <script>
 	import { writable } from 'svelte/store';
@@ -251,31 +251,31 @@ describe('EnhancedFrameworkDetector - Svelte Detection', () => {
 	Click me
 </button>`;
 
-		const result = detector.detectFramework('Component.svelte', content);
+		const result = detector.detectFramework("Component.svelte", content);
 
-		expect(result.framework).toEqual('svelte');
-		expect(result.evidence.some(e => e.includes('Framework import'))).toBeTruthy();
+		expect(result.framework).toEqual("svelte");
+		expect(result.evidence.some((e) => e.includes("Framework import"))).toBeTruthy();
 	});
 });
 
-describe('EnhancedFrameworkDetector - Edge Cases', () => {
+describe("EnhancedFrameworkDetector - Edge Cases", () => {
 	const detector = new EnhancedFrameworkDetector();
 
-	it('should handle missing JSX import source', () => {
+	it("should handle missing JSX import source", () => {
 		const content = `
 export default function Component() {
 	return <div>Hello World</div>;
 }`;
 
-		const result = detector.detectFramework('Component.tsx', content);
+		const result = detector.detectFramework("Component.tsx", content);
 
 		// Should still attempt detection based on other evidence
 		expect(result.framework).toBeDefined();
 		expect(result.warnings.length > 0).toBeTruthy();
-		expect(result.warnings.some(w => w.includes('low confidence'))).toBeTruthy();
+		expect(result.warnings.some((w) => w.includes("low confidence"))).toBeTruthy();
 	});
 
-	it('should handle ambiguous content', () => {
+	it("should handle ambiguous content", () => {
 		const content = `
 // This could be either Preact or Solid
 export default function Component() {
@@ -283,39 +283,43 @@ export default function Component() {
 	return <div>{state}</div>;
 }`;
 
-		const result = detector.detectFramework('Component.tsx', content);
+		const result = detector.detectFramework("Component.tsx", content);
 
 		// Should detect something but with warnings about ambiguity
 		expect(result.framework).toBeDefined();
-		if (result.confidence === 'low') {
+		if (result.confidence === "low") {
 			expect(result.warnings.length > 0).toBeTruthy();
 		}
 	});
 
-	it('should handle empty content', () => {
-		const content = '';
+	it("should handle empty content", () => {
+		const content = "";
 
-		const result = detector.detectFramework('Component.tsx', content);
+		const result = detector.detectFramework("Component.tsx", content);
 
 		// With .tsx extension, it might detect as preact or solid with low confidence
-		expect(result.framework === 'unknown' || result.framework === 'preact' || result.framework === 'solid').toBeTruthy();
-		expect(result.confidence).toEqual('low');
+		expect(
+			result.framework === "unknown" ||
+				result.framework === "preact" ||
+				result.framework === "solid",
+		).toBeTruthy();
+		expect(result.confidence).toEqual("low");
 	});
 
-	it('should handle non-component files', () => {
+	it("should handle non-component files", () => {
 		const content = `
 export const API_URL = 'https://api.example.com';
 export const VERSION = '1.0.0';
 `;
 
-		const result = detector.detectFramework('constants.ts', content);
+		const result = detector.detectFramework("constants.ts", content);
 
 		// .ts extension matches lit's file extensions, so it detects as lit with low confidence
-		expect(result.framework).toEqual('lit');
-		expect(result.confidence).toEqual('low');
+		expect(result.framework).toEqual("lit");
+		expect(result.confidence).toEqual("low");
 	});
 
-	it('should handle mixed framework imports', () => {
+	it("should handle mixed framework imports", () => {
 		const content = `
 // This is problematic - mixing frameworks
 import { useState } from 'preact/hooks';
@@ -327,20 +331,20 @@ export default function Component() {
 	return <div>{preactState} {solidSignal()}</div>;
 }`;
 
-		const result = detector.detectFramework('Component.tsx', content);
+		const result = detector.detectFramework("Component.tsx", content);
 
 		// Should detect one framework (likely the one with higher score)
 		expect(result.framework).toBeDefined();
-		expect(result.framework !== 'unknown').toBeTruthy();
+		expect(result.framework !== "unknown").toBeTruthy();
 		// May have warnings or low confidence due to mixed imports
 		expect(result.warnings.length >= 0).toBeTruthy(); // Allow no warnings if detection is confident
 	});
 });
 
-describe('EnhancedFrameworkDetector - Confidence Scoring', () => {
+describe("EnhancedFrameworkDetector - Confidence Scoring", () => {
 	const detector = new EnhancedFrameworkDetector();
 
-	it('should give high confidence for JSX import source + imports + content', () => {
+	it("should give high confidence for JSX import source + imports + content", () => {
 		const content = `
 /** @jsxImportSource preact */
 import { useState } from 'preact/hooks';
@@ -350,13 +354,13 @@ export default function Component() {
 	return <div>{state}</div>;
 }`;
 
-		const result = detector.detectFramework('Component.tsx', content);
+		const result = detector.detectFramework("Component.tsx", content);
 
-		expect(result.confidence).toEqual('high');
+		expect(result.confidence).toEqual("high");
 		expect(result.evidence.length >= 3).toBeTruthy(); // JSX source + import + content
 	});
 
-	it('should give medium confidence for imports + content', () => {
+	it("should give medium confidence for imports + content", () => {
 		const content = `
 import { createSignal } from 'solid-js';
 
@@ -365,41 +369,41 @@ export default function Component() {
 	return <div>{signal()}</div>;
 }`;
 
-		const result = detector.detectFramework('Component.tsx', content);
+		const result = detector.detectFramework("Component.tsx", content);
 
-		expect(result.confidence === 'medium' || result.confidence === 'high').toBeTruthy();
+		expect(result.confidence === "medium" || result.confidence === "high").toBeTruthy();
 		expect(result.evidence.length >= 2).toBeTruthy();
 	});
 
-	it('should give low confidence for extension only', () => {
+	it("should give low confidence for extension only", () => {
 		const content = `
 export default function Component() {
 	return <div>Static content</div>;
 }`;
 
-		const result = detector.detectFramework('Component.tsx', content);
+		const result = detector.detectFramework("Component.tsx", content);
 
 		// Should have low confidence since only file extension provides evidence
-		expect(result.confidence).toEqual('low');
+		expect(result.confidence).toEqual("low");
 		// Evidence might include file extension for multiple frameworks
 		expect(result.evidence.length >= 0).toBeTruthy();
 	});
 });
 
-describe('EnhancedFrameworkDetector - Performance Tests', () => {
+describe("EnhancedFrameworkDetector - Performance Tests", () => {
 	const detector = new EnhancedFrameworkDetector();
 
-	it('should handle large files efficiently', () => {
+	it("should handle large files efficiently", () => {
 		// Generate a large file with repeated patterns
 		const imports = Array(100)
 			.fill(0)
 			.map((_, i) => `import { Component${i} } from './component${i}';`)
-			.join('\n');
+			.join("\n");
 
 		const components = Array(100)
 			.fill(0)
 			.map((_, i) => `const component${i} = createSignal(${i});`)
-			.join('\n');
+			.join("\n");
 
 		const content = `
 /** @jsxImportSource solid-js */
@@ -412,26 +416,35 @@ export default function LargeComponent() {
 }`;
 
 		const startTime = performance.now();
-		const result = detector.detectFramework('LargeComponent.tsx', content);
+		const result = detector.detectFramework("LargeComponent.tsx", content);
 		const endTime = performance.now();
 
 		// Should complete within reasonable time (< 100ms for large files)
 		expect(endTime - startTime < 100).toBeTruthy();
-		expect(result.framework).toEqual('solid');
-		expect(result.confidence).toEqual('high');
+		expect(result.framework).toEqual("solid");
+		expect(result.confidence).toEqual("high");
 	});
 
-	it('should handle multiple detections efficiently', () => {
+	it("should handle multiple detections efficiently", () => {
 		const files = [
-			{ path: 'Preact.tsx', content: '/** @jsxImportSource preact */\nimport { useState } from "preact/hooks";' },
-			{ path: 'Solid.tsx', content: '/** @jsxImportSource solid-js */\nimport { createSignal } from "solid-js";' },
-			{ path: 'Vue.vue', content: '<template><div></div></template>\n<script>import { ref } from "vue";</script>' },
-			{ path: 'Svelte.svelte', content: '<script>import { onMount } from "svelte";</script>' },
+			{
+				path: "Preact.tsx",
+				content: '/** @jsxImportSource preact */\nimport { useState } from "preact/hooks";',
+			},
+			{
+				path: "Solid.tsx",
+				content: '/** @jsxImportSource solid-js */\nimport { createSignal } from "solid-js";',
+			},
+			{
+				path: "Vue.vue",
+				content: '<template><div></div></template>\n<script>import { ref } from "vue";</script>',
+			},
+			{ path: "Svelte.svelte", content: '<script>import { onMount } from "svelte";</script>' },
 		];
 
 		const startTime = performance.now();
 
-		const results = files.map(file => detector.detectFramework(file.path, file.content));
+		const results = files.map((file) => detector.detectFramework(file.path, file.content));
 
 		const endTime = performance.now();
 
@@ -439,25 +452,25 @@ export default function LargeComponent() {
 		expect(endTime - startTime < 50).toBeTruthy();
 
 		// Verify all detections are correct
-		expect(results[0].framework).toEqual('preact');
-		expect(results[1].framework).toEqual('solid');
-		expect(results[2].framework).toEqual('vue');
-		expect(results[3].framework).toEqual('svelte');
+		expect(results[0].framework).toEqual("preact");
+		expect(results[1].framework).toEqual("solid");
+		expect(results[2].framework).toEqual("vue");
+		expect(results[3].framework).toEqual("svelte");
 	});
 });
 
-describe('EnhancedFrameworkDetector - Custom Framework Configuration', () => {
-	it('should work with custom framework configurations', () => {
+describe("EnhancedFrameworkDetector - Custom Framework Configuration", () => {
+	it("should work with custom framework configurations", () => {
 		const customConfig: FrameworkConfig = {
-			name: 'custom',
-			fileExtensions: ['.custom'],
-			jsxImportSources: ['custom-framework'],
-			ssrModules: ['custom-framework/server'],
-			hydrationModules: ['custom-framework/client'],
+			name: "custom",
+			fileExtensions: [".custom"],
+			jsxImportSources: ["custom-framework"],
+			ssrModules: ["custom-framework/server"],
+			hydrationModules: ["custom-framework/client"],
 			detectionPatterns: {
 				imports: [/^custom-framework$/],
 				content: [/\bcustomHook\b/],
-				jsxPragmas: ['@jsxImportSource custom-framework'],
+				jsxPragmas: ["@jsxImportSource custom-framework"],
 			},
 		};
 
@@ -472,62 +485,64 @@ export default function Component() {
 	return <div>{value}</div>;
 }`;
 
-		const result = detector.detectFramework('Component.custom', content);
+		const result = detector.detectFramework("Component.custom", content);
 
-		expect(result.framework).toEqual('custom');
-		expect(result.confidence).toEqual('high');
+		expect(result.framework).toEqual("custom");
+		expect(result.confidence).toEqual("high");
 	});
 });
 
-describe('EnhancedFrameworkDetector - JSX Import Source Parsing', () => {
+describe("EnhancedFrameworkDetector - JSX Import Source Parsing", () => {
 	const detector = new EnhancedFrameworkDetector();
 
-	it('should parse JSX import source from comment', () => {
+	it("should parse JSX import source from comment", () => {
 		const content = `
 /** @jsxImportSource preact */
 export default function Component() {
 	return <div>Hello</div>;
 }`;
 
-		const result = detector.detectFramework('Component.tsx', content);
+		const result = detector.detectFramework("Component.tsx", content);
 
-		expect(result.framework).toEqual('preact');
-		expect(result.evidence.some(e => e.includes('JSX import source: @jsxImportSource preact'))).toBeTruthy();
+		expect(result.framework).toEqual("preact");
+		expect(
+			result.evidence.some((e) => e.includes("JSX import source: @jsxImportSource preact")),
+		).toBeTruthy();
 	});
 
-	it('should parse JSX import source from single-line comment', () => {
+	it("should parse JSX import source from single-line comment", () => {
 		const content = `
 // @jsxImportSource solid-js
 export default function Component() {
 	return <div>Hello</div>;
 }`;
 
-		const result = detector.detectFramework('Component.tsx', content);
+		const result = detector.detectFramework("Component.tsx", content);
 
 		// Note: Current implementation looks for /** */ comments, not // comments
 		// This test documents current behavior
-		expect(result.framework === 'solid' || result.framework === 'unknown').toBeTruthy();
+		expect(result.framework === "solid" || result.framework === "unknown").toBeTruthy();
 	});
 
-	it('should handle malformed JSX import source', () => {
+	it("should handle malformed JSX import source", () => {
 		const content = `
 /** @jsxImportSource */
 export default function Component() {
 	return <div>Hello</div>;
 }`;
 
-		const result = detector.detectFramework('Component.tsx', content);
+		const result = detector.detectFramework("Component.tsx", content);
 
 		// Should not crash and should fall back to other detection methods
 		expect(result.framework).toBeDefined();
-		expect(result.confidence).toEqual('low');
+		expect(result.confidence).toEqual("low");
 	});
 });
 
-describe('EnhancedFrameworkDetector - Import Statement Extraction', () => {
+describe("EnhancedFrameworkDetector - Import Statement Extraction", () => {
 	const detector = new EnhancedFrameworkDetector();
 
-	it('should extract ES6 imports', () => {
+	it("should extract ES6 imports", () => {
 		const content = `
 import React from 'react';
 import { useState, useEffect } from 'preact/hooks';
@@ -535,14 +550,14 @@ import * as Utils from './utils';
 import type { Props } from './types';
 `;
 
-		const result = detector.detectFramework('Component.tsx', content);
+		const result = detector.detectFramework("Component.tsx", content);
 
 		// Both react and preact imports are present; react scores higher due to
 		// its import patterns and many shared content patterns (useState, useEffect)
-		expect(result.framework).toEqual('react');
+		expect(result.framework).toEqual("react");
 	});
 
-	it('should extract require statements', () => {
+	it("should extract require statements", () => {
 		const content = `
 const { createSignal } = require('solid-js');
 const render = require('solid-js/web').render;
@@ -552,12 +567,12 @@ module.exports = function Component() {
 	return <div>{signal()}</div>;
 };`;
 
-		const result = detector.detectFramework('Component.tsx', content);
+		const result = detector.detectFramework("Component.tsx", content);
 
-		expect(result.framework).toEqual('solid');
+		expect(result.framework).toEqual("solid");
 	});
 
-	it('should handle mixed import styles', () => {
+	it("should handle mixed import styles", () => {
 		const content = `
 import { ref } from 'vue';
 const { computed } = require('vue');
@@ -570,8 +585,8 @@ export default {
 	}
 };`;
 
-		const result = detector.detectFramework('Component.vue', content);
+		const result = detector.detectFramework("Component.vue", content);
 
-		expect(result.framework).toEqual('vue');
+		expect(result.framework).toEqual("vue");
 	});
 });

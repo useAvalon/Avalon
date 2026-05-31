@@ -1,18 +1,18 @@
-import { join, resolve, relative } from 'node:path';
-import { statSync } from 'node:fs';
+import { statSync } from "node:fs";
+import { join, relative, resolve } from "node:path";
 
 import type {
 	ComponentType,
-	LayoutRoute,
-	LayoutHandler,
-	LayoutDiscoveryOptions,
 	LayoutContext,
 	LayoutData,
-	LayoutProps,
+	LayoutDiscoveryOptions,
 	LayoutErrorInfo,
-} from './layout-types.ts';
+	LayoutHandler,
+	LayoutProps,
+	LayoutRoute,
+} from "./layout-types.ts";
 
-export type { LayoutDiscoveryOptions } from './layout-types.ts';
+export type { LayoutDiscoveryOptions } from "./layout-types.ts";
 
 interface LayoutFileExport {
 	default: ComponentType<LayoutProps>;
@@ -25,7 +25,7 @@ interface LayoutFileExport {
  */
 function toImportSpecifier(filePath: string): string {
 	if (/^[A-Za-z]:[\\/]/.test(filePath)) {
-		return `file:///${filePath.replaceAll('\\', '/')}`;
+		return `file:///${filePath.replaceAll("\\", "/")}`;
 	}
 	return filePath;
 }
@@ -47,10 +47,10 @@ function fileExists(filePath: string): boolean {
  * For "/admin/users" returns ['', '/admin', '/admin/users'].
  */
 function buildPathHierarchy(routePath: string): string[] {
-	const segments = routePath.split('/').filter(Boolean);
-	const paths: string[] = [''];
+	const segments = routePath.split("/").filter(Boolean);
+	const paths: string[] = [""];
 	for (let i = 0; i < segments.length; i++) {
-		paths.push('/' + segments.slice(0, i + 1).join('/'));
+		paths.push("/" + segments.slice(0, i + 1).join("/"));
 	}
 	return paths;
 }
@@ -74,11 +74,13 @@ export class LayoutDiscovery {
 
 	constructor(options: LayoutDiscoveryOptions) {
 		this.baseDirectory = resolve(options.baseDirectory);
-		this.filePattern = options.filePattern || '_layout.tsx';
+		this.filePattern = options.filePattern || "_layout.tsx";
 		this.developmentMode = options.developmentMode || false;
 
 		if (this.developmentMode) {
-			console.log(`[LayoutDiscovery] baseDirectory=${this.baseDirectory}, filePattern=${this.filePattern}`);
+			console.log(
+				`[LayoutDiscovery] baseDirectory=${this.baseDirectory}, filePattern=${this.filePattern}`,
+			);
 		}
 	}
 
@@ -96,16 +98,17 @@ export class LayoutDiscovery {
 		const pathsToCheck = buildPathHierarchy(routePath);
 
 		for (const pathToCheck of pathsToCheck) {
-			const fsPath = pathToCheck === '' ? this.baseDirectory : join(this.baseDirectory, pathToCheck);
+			const fsPath =
+				pathToCheck === "" ? this.baseDirectory : join(this.baseDirectory, pathToCheck);
 			const layoutFilePath = join(fsPath, this.filePattern);
 
 			if (fileExists(layoutFilePath)) {
-				const depth = pathToCheck === '' ? 0 : pathToCheck.split('/').filter(Boolean).length;
+				const depth = pathToCheck === "" ? 0 : pathToCheck.split("/").filter(Boolean).length;
 				routes.push({
-					pattern: new URLPattern({ pathname: depth === 0 ? '*' : `${pathToCheck}/*` }),
+					pattern: new URLPattern({ pathname: depth === 0 ? "*" : `${pathToCheck}/*` }),
 					layoutPath: layoutFilePath,
 					priority: depth * 10,
-					type: depth === 0 ? 'root' : 'nested',
+					type: depth === 0 ? "root" : "nested",
 					depth,
 				});
 			}
@@ -161,7 +164,7 @@ export class LayoutDiscovery {
 					if (this.developmentMode) {
 						console.warn(`[Layout] Data loader error for ${handler.path}:`, error);
 					}
-					errors.push({ layoutPath: handler.path, errorType: 'loader', timestamp: Date.now() });
+					errors.push({ layoutPath: handler.path, errorType: "loader", timestamp: Date.now() });
 					data.push({});
 				}
 			} else {
@@ -184,7 +187,7 @@ export class LayoutDiscovery {
 			const importPath = toImportSpecifier(filePath);
 			const layoutModule = (await import(/* @vite-ignore */ importPath)) as LayoutFileExport;
 
-			if (!layoutModule.default || typeof layoutModule.default !== 'function') {
+			if (!layoutModule.default || typeof layoutModule.default !== "function") {
 				if (this.developmentMode) {
 					console.warn(`[Layout] No default export in ${filePath}`);
 				}
@@ -192,7 +195,7 @@ export class LayoutDiscovery {
 			}
 
 			const relativePath = relative(this.baseDirectory, filePath);
-			const pathSegments = relativePath.split('/').filter(Boolean);
+			const pathSegments = relativePath.split("/").filter(Boolean);
 			const priority = Math.max(0, (pathSegments.length - 1) * 10);
 
 			const handler: LayoutHandler = {
@@ -206,7 +209,9 @@ export class LayoutDiscovery {
 			return handler;
 		} catch (error) {
 			if (this.developmentMode) {
-				console.warn(`[Layout] Failed to load ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+				console.warn(
+					`[Layout] Failed to load ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+				);
 			}
 			return null;
 		}

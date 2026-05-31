@@ -1,18 +1,22 @@
 import type {
 	LayoutContext,
 	LayoutData,
+	LayoutErrorInfo,
 	LayoutHandler,
 	LayoutLoader,
-	LayoutErrorInfo,
-} from './layout-types.ts';
+} from "./layout-types.ts";
 
 /**
  * Layout data loading error with context information
  */
 export class LayoutDataLoadingError extends Error {
-	constructor(message: string, public readonly layoutPath: string, public readonly originalError?: Error) {
+	constructor(
+		message: string,
+		public readonly layoutPath: string,
+		public readonly originalError?: Error,
+	) {
 		super(message);
-		this.name = 'LayoutDataLoadingError';
+		this.name = "LayoutDataLoadingError";
 	}
 }
 
@@ -86,8 +90,11 @@ export class LayoutDataLoader {
 	 * Loads data for all layout handlers in the chain
 	 * Requirements: 2.1, 2.2, 2.3, 2.4
 	 */
-	async loadLayoutData(layoutHandlers: LayoutHandler[], context: LayoutContext): Promise<LayoutDataLoadingResult[]> {
-		const handlersWithLoaders = layoutHandlers.filter(handler => handler.loader);
+	async loadLayoutData(
+		layoutHandlers: LayoutHandler[],
+		context: LayoutContext,
+	): Promise<LayoutDataLoadingResult[]> {
+		const handlersWithLoaders = layoutHandlers.filter((handler) => handler.loader);
 
 		if (handlersWithLoaders.length === 0) {
 			return [];
@@ -106,7 +113,7 @@ export class LayoutDataLoader {
 	 */
 	private async loadDataInParallel(
 		handlers: LayoutHandler[],
-		context: LayoutContext
+		context: LayoutContext,
 	): Promise<LayoutDataLoadingResult[]> {
 		// Optimize parallel loading with batching for better performance
 		const batchSize = Math.min(handlers.length, 5); // Process max 5 loaders concurrently
@@ -115,13 +122,13 @@ export class LayoutDataLoader {
 		// Process handlers in batches
 		for (let i = 0; i < handlers.length; i += batchSize) {
 			const batch = handlers.slice(i, i + batchSize);
-			const batchPromises = batch.map(handler => this.loadSingleLayoutData(handler, context));
+			const batchPromises = batch.map((handler) => this.loadSingleLayoutData(handler, context));
 
 			if (this.options.continueOnError) {
 				// Use Promise.allSettled to continue even if some loaders fail
 				const batchResults = await Promise.allSettled(batchPromises);
 				const processedResults = batchResults.map((result, batchIndex) => {
-					if (result.status === 'fulfilled') {
+					if (result.status === "fulfilled") {
 						return result.value;
 					} else {
 						// Create error result for rejected promises
@@ -129,7 +136,7 @@ export class LayoutDataLoader {
 						const error = new LayoutDataLoadingError(
 							`Layout data loading failed: ${result.reason}`,
 							handler.path,
-							result.reason instanceof Error ? result.reason : new Error(String(result.reason))
+							result.reason instanceof Error ? result.reason : new Error(String(result.reason)),
 						);
 
 						return {
@@ -163,7 +170,7 @@ export class LayoutDataLoader {
 	 */
 	private async loadDataSequentially(
 		handlers: LayoutHandler[],
-		context: LayoutContext
+		context: LayoutContext,
 	): Promise<LayoutDataLoadingResult[]> {
 		const results: LayoutDataLoadingResult[] = [];
 
@@ -180,7 +187,7 @@ export class LayoutDataLoader {
 				const loadingError = new LayoutDataLoadingError(
 					`Layout data loading failed: ${error instanceof Error ? error.message : String(error)}`,
 					handler.path,
-					error instanceof Error ? error : new Error(String(error))
+					error instanceof Error ? error : new Error(String(error)),
 				);
 
 				const result: LayoutDataLoadingResult = {
@@ -207,7 +214,10 @@ export class LayoutDataLoader {
 	 * Loads data for a single layout handler with retry logic
 	 * Requirements: 2.1, 2.2, 2.5, 2.6
 	 */
-	private async loadSingleLayoutData(handler: LayoutHandler, context: LayoutContext): Promise<LayoutDataLoadingResult> {
+	private async loadSingleLayoutData(
+		handler: LayoutHandler,
+		context: LayoutContext,
+	): Promise<LayoutDataLoadingResult> {
 		if (!handler.loader) {
 			return {
 				success: true,
@@ -242,7 +252,9 @@ export class LayoutDataLoader {
 				attempt++;
 
 				if (this.options.developmentMode) {
-					console.warn(`[Layout] Data loading attempt ${attempt} failed for ${handler.path}: ${lastError.message}`);
+					console.warn(
+						`[Layout] Data loading attempt ${attempt} failed for ${handler.path}: ${lastError.message}`,
+					);
 				}
 
 				// If this wasn't the last attempt, wait before retrying
@@ -256,7 +268,7 @@ export class LayoutDataLoader {
 		const loadingError = new LayoutDataLoadingError(
 			`Layout data loading failed after ${this.options.maxRetries + 1} attempts: ${lastError?.message}`,
 			handler.path,
-			lastError
+			lastError,
 		);
 
 		return {
@@ -272,18 +284,21 @@ export class LayoutDataLoader {
 	 * Executes a layout loader with timeout protection
 	 * Requirements: 2.1, 2.5
 	 */
-	private executeLoaderWithTimeout(loader: LayoutLoader, context: LayoutContext): Promise<LayoutData> {
+	private executeLoaderWithTimeout(
+		loader: LayoutLoader,
+		context: LayoutContext,
+	): Promise<LayoutData> {
 		return new Promise<LayoutData>((resolve, reject) => {
 			const timeoutId = setTimeout(() => {
 				reject(new Error(`Layout data loading timed out after ${this.options.timeout}ms`));
 			}, this.options.timeout);
 
 			Promise.resolve(loader(context))
-				.then(data => {
+				.then((data) => {
 					clearTimeout(timeoutId);
 					resolve(data);
 				})
-				.catch(error => {
+				.catch((error) => {
 					clearTimeout(timeoutId);
 					reject(error);
 				});
@@ -302,7 +317,7 @@ export class LayoutDataLoader {
 		};
 
 		// Add parent layout data to the context state
-		enhancedContext.state.set('parentLayoutData', parentData);
+		enhancedContext.state.set("parentLayoutData", parentData);
 
 		return enhancedContext;
 	}
@@ -313,19 +328,19 @@ export class LayoutDataLoader {
 	 */
 	processLoadingResults(
 		results: LayoutDataLoadingResult[],
-		layoutHandlers: LayoutHandler[]
+		layoutHandlers: LayoutHandler[],
 	): { data: LayoutData[]; errors: LayoutErrorInfo[] } {
 		const data: LayoutData[] = [];
 		const errors: LayoutErrorInfo[] = [];
 
 		// Create a map of layout path to result for quick lookup
 		const resultMap = new Map<string, LayoutDataLoadingResult>();
-		results.forEach(result => {
+		results.forEach((result) => {
 			resultMap.set(result.layoutPath, result);
 		});
 
 		// Process each layout handler in order
-		layoutHandlers.forEach(handler => {
+		layoutHandlers.forEach((handler) => {
 			const result = resultMap.get(handler.path);
 
 			if (result) {
@@ -339,7 +354,7 @@ export class LayoutDataLoader {
 					if (result.error) {
 						errors.push({
 							layoutPath: handler.path,
-							errorType: 'loader',
+							errorType: "loader",
 							timestamp: Date.now(),
 						});
 
@@ -366,7 +381,7 @@ export class LayoutDataLoader {
 			__layoutError: true,
 			__layoutPath: layoutPath,
 			__errorMessage: error.message,
-			__errorType: 'data-loading',
+			__errorType: "data-loading",
 			__timestamp: Date.now(),
 		};
 	}
@@ -380,13 +395,19 @@ export class LayoutDataLoader {
 			return {};
 		}
 
-		if (typeof data !== 'object') {
-			throw new LayoutDataLoadingError(`Layout loader must return an object, got ${typeof data}`, layoutPath);
+		if (typeof data !== "object") {
+			throw new LayoutDataLoadingError(
+				`Layout loader must return an object, got ${typeof data}`,
+				layoutPath,
+			);
 		}
 
 		// Ensure it's a plain object
 		if (Array.isArray(data)) {
-			throw new LayoutDataLoadingError('Layout loader must return an object, not an array', layoutPath);
+			throw new LayoutDataLoadingError(
+				"Layout loader must return an object, not an array",
+				layoutPath,
+			);
 		}
 
 		return data as LayoutData;
@@ -396,7 +417,7 @@ export class LayoutDataLoader {
 	 * Utility method to create a delay
 	 */
 	private delay(ms: number): Promise<void> {
-		return new Promise(resolve => setTimeout(resolve, ms));
+		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 
 	/**
@@ -406,19 +427,19 @@ export class LayoutDataLoader {
 	async preloadLayoutData(
 		layoutHandlers: LayoutHandler[],
 		context: LayoutContext,
-		priority: 'high' | 'medium' | 'low' = 'medium'
+		priority: "high" | "medium" | "low" = "medium",
 	): Promise<void> {
 		// Only preload if we have loaders
-		const handlersWithLoaders = layoutHandlers.filter(handler => handler.loader);
+		const handlersWithLoaders = layoutHandlers.filter((handler) => handler.loader);
 		if (handlersWithLoaders.length === 0) return;
 
 		// Adjust timeout based on priority
 		const originalTimeout = this.options.timeout;
 		switch (priority) {
-			case 'high':
+			case "high":
 				this.options.timeout = originalTimeout * 0.5; // Faster timeout for high priority
 				break;
-			case 'low':
+			case "low":
 				this.options.timeout = originalTimeout * 2; // Longer timeout for low priority
 				break;
 			// medium uses default timeout
@@ -429,12 +450,14 @@ export class LayoutDataLoader {
 			const results = await this.loadDataInParallel(handlersWithLoaders, context);
 
 			if (this.options.developmentMode) {
-				const successCount = results.filter(r => r.success).length;
-				console.log(`[LayoutDataLoader] Preloaded ${successCount}/${results.length} layouts (priority: ${priority})`);
+				const successCount = results.filter((r) => r.success).length;
+				console.log(
+					`[LayoutDataLoader] Preloaded ${successCount}/${results.length} layouts (priority: ${priority})`,
+				);
 			}
 		} catch (error) {
 			if (this.options.developmentMode) {
-				console.warn('[LayoutDataLoader] Preload failed:', error);
+				console.warn("[LayoutDataLoader] Preload failed:", error);
 			}
 		} finally {
 			// Restore original timeout
@@ -476,7 +499,7 @@ export function createLayoutDataLoader(options: LayoutDataLoadingOptions = {}): 
 export async function loadSingleLayoutData(
 	handler: LayoutHandler,
 	context: LayoutContext,
-	options: LayoutDataLoadingOptions = {}
+	options: LayoutDataLoadingOptions = {},
 ): Promise<LayoutDataLoadingResult> {
 	const loader = new LayoutDataLoader(options);
 	const results = await loader.loadLayoutData([handler], context);
@@ -498,7 +521,7 @@ export function mergeLayoutData(...dataSources: LayoutData[]): LayoutData {
 	const merged: LayoutData = {};
 
 	for (const data of dataSources) {
-		if (data && typeof data === 'object' && !Array.isArray(data)) {
+		if (data && typeof data === "object" && !Array.isArray(data)) {
 			Object.assign(merged, data);
 		}
 	}
@@ -511,6 +534,6 @@ export function mergeLayoutData(...dataSources: LayoutData[]): LayoutData {
  * Requirements: 2.4, 2.6
  */
 export function getParentLayoutData(context: LayoutContext): LayoutData[] {
-	const parentData = context.state.get('parentLayoutData');
+	const parentData = context.state.get("parentLayoutData");
 	return Array.isArray(parentData) ? parentData : [];
 }

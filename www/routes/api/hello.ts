@@ -3,15 +3,15 @@
  * GET /api/hello?name=World
  */
 
-import { defineHandler } from 'nitro/h3';
+import { defineHandler } from "nitro/h3";
 
-export default defineHandler(event => {
-	const name = event.url.searchParams.get('name') || 'World';
+export default defineHandler((event) => {
+	const name = event.url.searchParams.get("name") || "World";
 
 	return {
 		message: `Hello, ${name}!`,
 		timestamp: new Date().toISOString(),
-		framework: 'Avalon',
-		version: '1.0.0',
+		framework: "Avalon",
+		version: "1.0.0",
 	};
 });

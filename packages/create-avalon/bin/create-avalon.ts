@@ -1,4 +1,4 @@
 #!/usr/bin/env bun
-import { main } from '../src/cli';
+import { main } from "../src/cli";
 
 main();

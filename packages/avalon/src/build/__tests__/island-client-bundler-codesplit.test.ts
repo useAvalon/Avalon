@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { islandClientBundlerPlugin } from "../island-client-bundler.ts";
+import { describe, expect, it } from "vitest";
 import type { ResolvedAvalonConfig } from "../../vite-plugin/types.ts";
+import { islandClientBundlerPlugin } from "../island-client-bundler.ts";
 
 function makeConfig(overrides: Partial<ResolvedAvalonConfig> = {}): ResolvedAvalonConfig {
 	return {

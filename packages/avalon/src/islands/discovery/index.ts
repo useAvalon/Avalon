@@ -1,80 +1,75 @@
 /**
  * Island Discovery Module
- * 
+ *
  * Exports all types and functions for discovering island components
  * in nested directory structures.
  */
 
-// Types
-export type {
-  IslandDirectory,
-  DiscoveredIsland,
-  IslandCollision,
-  IslandChangeEvent,
-  IslandFileExtension,
-  IslandDiscoveryConfig,
-} from "./types.ts";
-
-export {
-  ISLAND_FILE_EXTENSIONS,
-  DEFAULT_DISCOVERY_CONFIG,
-  isSupportedIslandExtension,
-} from "./types.ts";
-
-// Scanner functions
-export {
-  discoverIslandDirectories,
-  discoverIslandsInDirectory,
-  discoverAllIslands,
-  isIslandsDirectory,
-  getDefaultIslandsPath,
-  hasDefaultIslandsDirectory,
-  getQualifiedIslandName,
-  parseQualifiedIslandName,
-} from "./scanner.ts";
-
 // Registry
 export {
-  IslandRegistry,
-  createIslandRegistry,
+	createIslandRegistry,
+	IslandRegistry,
 } from "./registry.ts";
-
 // Resolver
 export type {
-  ResolutionResult,
-  ImportPathOptions,
+	ImportPathOptions,
+	ResolutionResult,
 } from "./resolver.ts";
-
 export {
-  IslandResolver,
-  createIslandResolver,
+	createIslandResolver,
+	IslandResolver,
 } from "./resolver.ts";
+// Scanner functions
+export {
+	discoverAllIslands,
+	discoverIslandDirectories,
+	discoverIslandsInDirectory,
+	getDefaultIslandsPath,
+	getQualifiedIslandName,
+	hasDefaultIslandsDirectory,
+	isIslandsDirectory,
+	parseQualifiedIslandName,
+} from "./scanner.ts";
+// Types
+export type {
+	DiscoveredIsland,
+	IslandChangeEvent,
+	IslandCollision,
+	IslandDirectory,
+	IslandDiscoveryConfig,
+	IslandFileExtension,
+} from "./types.ts";
+export {
+	DEFAULT_DISCOVERY_CONFIG,
+	ISLAND_FILE_EXTENSIONS,
+	isSupportedIslandExtension,
+} from "./types.ts";
 
 // Validator
 export type {
-  ValidationResult,
-  ValidationError,
-  ValidationWarning,
-  CircularDependency,
+	CircularDependency,
+	ValidationError,
+	ValidationResult,
+	ValidationWarning,
 } from "./validator.ts";
 
 export {
-  IslandValidator,
-  createIslandValidator,
-  validateAllIslands,
-  formatValidationError,
-  formatValidationWarning,
-  formatCircularDependency,
-  formatValidationResult,
+	createIslandValidator,
+	formatCircularDependency,
+	formatValidationError,
+	formatValidationResult,
+	formatValidationWarning,
+	IslandValidator,
+	validateAllIslands,
 } from "./validator.ts";
 
 // Watcher
 export type {
-  IslandChangeCallback,
-  IslandWatcherOptions,
+	IslandChangeCallback,
+	IslandWatcherOptions,
 } from "./watcher.ts";
 
 export {
-  IslandWatcher,
-  createIslandWatcher,
+	createIslandWatcher,
+	IslandWatcher,
 } from "./watcher.ts";

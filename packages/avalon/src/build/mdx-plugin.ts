@@ -1,5 +1,5 @@
-import type { Plugin } from 'vite';
-import type { Pluggable } from 'unified';
+import type { Pluggable } from "unified";
+import type { Plugin } from "vite";
 
 export interface MDXPluginOptions {
 	remarkPlugins?: Pluggable[];
@@ -40,18 +40,18 @@ export async function createMDXPlugin(options: MDXPluginOptions = {}): Promise<P
 		remarkPlugins = [],
 		rehypePlugins = [],
 		development = false,
-		jsxImportSource = 'preact',
+		jsxImportSource = "preact",
 		syntaxHighlighting = true,
 	} = options;
 
 	try {
 		// Load the core MDX plugin
-		const { default: mdx } = await import('@mdx-js/rollup');
+		const { default: mdx } = await import("@mdx-js/rollup");
 
 		// Load remark plugins for frontmatter processing and GFM support
-		const { default: remarkFrontmatter } = await import('remark-frontmatter');
-		const { default: remarkMdxFrontmatter } = await import('remark-mdx-frontmatter');
-		const { default: remarkGfm } = await import('remark-gfm');
+		const { default: remarkFrontmatter } = await import("remark-frontmatter");
+		const { default: remarkMdxFrontmatter } = await import("remark-mdx-frontmatter");
+		const { default: remarkGfm } = await import("remark-gfm");
 
 		// Build rehype plugins array based on options
 		const finalRehypePlugins: Pluggable[] = [];
@@ -59,11 +59,11 @@ export async function createMDXPlugin(options: MDXPluginOptions = {}): Promise<P
 		// Add syntax highlighting if enabled
 		if (syntaxHighlighting) {
 			try {
-				const { default: rehypeHighlight } = await import('rehype-highlight');
+				const { default: rehypeHighlight } = await import("rehype-highlight");
 				finalRehypePlugins.push(rehypeHighlight);
 			} catch {
 				console.warn(
-					'[avalon:mdx] rehype-highlight not installed, syntax highlighting disabled. Install it with: npm install rehype-highlight',
+					"[avalon:mdx] rehype-highlight not installed, syntax highlighting disabled. Install it with: npm install rehype-highlight",
 				);
 			}
 		}
@@ -77,7 +77,7 @@ export async function createMDXPlugin(options: MDXPluginOptions = {}): Promise<P
 			rehypePlugins: finalRehypePlugins,
 			jsxImportSource: jsxImportSource,
 			development,
-			format: 'mdx',
+			format: "mdx",
 		}) as Plugin;
 
 		// Ensure the MDX plugin is shared across all Vite build environments
@@ -88,11 +88,11 @@ export async function createMDXPlugin(options: MDXPluginOptions = {}): Promise<P
 		return [mdxPlugin];
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
-		console.error('❌ Failed to configure MDX plugin:', errorMessage);
-		console.warn('💡 Install missing dependencies or check import map');
+		console.error("❌ Failed to configure MDX plugin:", errorMessage);
+		console.warn("💡 Install missing dependencies or check import map");
 
 		// Always return empty array to allow server to start without MDX
-		console.warn('⚠️ MDX plugin disabled - .mdx files will not be processed');
+		console.warn("⚠️ MDX plugin disabled - .mdx files will not be processed");
 		return [];
 	}
 }

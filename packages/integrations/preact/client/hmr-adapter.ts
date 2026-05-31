@@ -7,11 +7,13 @@
 
 /// <reference lib="dom" />
 
-import { BaseFrameworkAdapter, type StateSnapshot } from '@useavalon/avalon/client/hmr';
+import { BaseFrameworkAdapter, type StateSnapshot } from "@useavalon/avalon/client/hmr";
 
 type PreactComponent<P = Record<string, unknown>> =
 	| ((props: P) => PreactVNode | null)
-	| (new (props: P) => PreactClassComponent);
+	| (new (
+			props: P,
+	  ) => PreactClassComponent);
 
 interface PreactClassComponent {
 	render(): PreactVNode | null;
@@ -35,7 +37,7 @@ interface PreactModule {
 }
 
 interface PreactStateSnapshot extends StateSnapshot {
-	framework: 'preact';
+	framework: "preact";
 	data: {
 		componentData?: unknown;
 		componentName?: string;
@@ -44,21 +46,21 @@ interface PreactStateSnapshot extends StateSnapshot {
 }
 
 export class PreactHMRAdapter extends BaseFrameworkAdapter {
-	readonly name = 'preact';
+	readonly name = "preact";
 	private instances: WeakMap<HTMLElement, unknown> = new WeakMap();
 
 	canHandle(component: unknown): boolean {
 		if (!component) return false;
-		if (typeof component === 'function') {
+		if (typeof component === "function") {
 			const proto = (component as { prototype?: Record<string, unknown> }).prototype;
 			if (proto && proto.isReactComponent) return true;
 			if ((component as unknown as Record<string, unknown>).$typeof) return true;
 			return true;
 		}
-		if (typeof component !== 'object') return false;
+		if (typeof component !== "object") return false;
 		const obj = component as Record<string, unknown>;
 		if (obj.$typeof) return true;
-		if (obj.type && typeof obj.type === 'function') return true;
+		if (obj.type && typeof obj.type === "function") return true;
 		return false;
 	}
 
@@ -67,28 +69,32 @@ export class PreactHMRAdapter extends BaseFrameworkAdapter {
 			const baseSnapshot = super.preserveState(island);
 			if (!baseSnapshot) return null;
 			const capturedProps = island.dataset.props ? JSON.parse(island.dataset.props) : {};
-			const componentName = this.extractComponentName(island.dataset.src || '');
-			return { ...baseSnapshot, framework: 'preact', data: { componentName, capturedProps } };
+			const componentName = this.extractComponentName(island.dataset.src || "");
+			return { ...baseSnapshot, framework: "preact", data: { componentName, capturedProps } };
 		} catch (error) {
-			console.warn('Failed to preserve Preact state:', error);
+			console.warn("Failed to preserve Preact state:", error);
 			return null;
 		}
 	}
 
-	async update(island: HTMLElement, newComponent: unknown, props: Record<string, unknown>): Promise<void> {
-		if (!this.canHandle(newComponent)) throw new Error('Component is not a valid Preact component');
+	async update(
+		island: HTMLElement,
+		newComponent: unknown,
+		props: Record<string, unknown>,
+	): Promise<void> {
+		if (!this.canHandle(newComponent)) throw new Error("Component is not a valid Preact component");
 		const Component = newComponent as PreactComponent;
 		try {
-			const preactModule = (await import('preact')) as PreactModule;
+			const preactModule = (await import("preact")) as PreactModule;
 			const { h, hydrate } = preactModule;
 			const vnode = h(Component, props);
 			hydrate(vnode, island);
 			this.instances.set(island, Component);
-			island.dataset.hydrated = 'true';
-			island.dataset.hydrationStatus = 'success';
+			island.dataset.hydrated = "true";
+			island.dataset.hydrationStatus = "success";
 		} catch (error) {
-			console.error('Preact HMR update failed:', error);
-			island.dataset.hydrationStatus = 'error';
+			console.error("Preact HMR update failed:", error);
+			island.dataset.hydrationStatus = "error";
 			throw error;
 		}
 	}
@@ -97,29 +103,30 @@ export class PreactHMRAdapter extends BaseFrameworkAdapter {
 		try {
 			super.restoreState(island, state);
 		} catch (error) {
-			console.warn('Failed to restore Preact state:', error);
+			console.warn("Failed to restore Preact state:", error);
 		}
 	}
 
 	override handleError(island: HTMLElement, error: Error): void {
-		console.error('Preact HMR error:', error);
+		console.error("Preact HMR error:", error);
 		super.handleError(island, error);
-		const errorIndicator = island.querySelector('.hmr-error-indicator');
+		const errorIndicator = island.querySelector(".hmr-error-indicator");
 		if (errorIndicator) {
 			const msg = error.message;
-			let hint = '';
-			if (msg.includes('hooks')) hint = ' (Hint: Check hooks usage - hooks must be called in the same order)';
-			else if (msg.includes('render')) hint = ' (Hint: Check component render method for errors)';
-			else if (msg.includes('hydration') || msg.includes('hydrate'))
-				hint = ' (Hint: Server and client render must match)';
+			let hint = "";
+			if (msg.includes("hooks"))
+				hint = " (Hint: Check hooks usage - hooks must be called in the same order)";
+			else if (msg.includes("render")) hint = " (Hint: Check component render method for errors)";
+			else if (msg.includes("hydration") || msg.includes("hydrate"))
+				hint = " (Hint: Server and client render must match)";
 			errorIndicator.textContent = `Preact HMR Error: ${msg}${hint}`;
 		}
 	}
 
 	private extractComponentName(src: string): string {
-		const parts = src.split('/');
-		const filename = parts.at(-1) ?? '';
-		return filename.replace(/\.(tsx?|jsx?)$/, '');
+		const parts = src.split("/");
+		const filename = parts.at(-1) ?? "";
+		return filename.replace(/\.(tsx?|jsx?)$/, "");
 	}
 
 	unmount(island: HTMLElement): void {
@@ -127,9 +134,9 @@ export class PreactHMRAdapter extends BaseFrameworkAdapter {
 		if (instance) {
 			try {
 				this.instances.delete(island);
-				island.innerHTML = '';
+				island.innerHTML = "";
 			} catch (error) {
-				console.warn('Failed to unmount Preact component:', error);
+				console.warn("Failed to unmount Preact component:", error);
 			}
 		}
 	}

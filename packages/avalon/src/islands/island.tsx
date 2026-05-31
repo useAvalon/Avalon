@@ -9,9 +9,9 @@ import { analyzeComponentFile, renderComponentSSROnly } from "./component-analys
 import { detectFramework } from "./framework-detection.ts";
 import { isCustomDirective, serializeDirectiveScript } from "./hydration-directives.ts";
 import { detectFrameworkFromPath, loadIntegration } from "./integration-loader.ts";
+import { addModulepreload } from "./modulepreload-collector.ts";
 import { generatePerIslandScript } from "./per-island-script.ts";
 import type { Framework } from "./types.ts";
-import { addModulepreload } from "./modulepreload-collector.ts";
 import { addUniversalCSS } from "./universal-css-collector.ts";
 import { addUniversalHead } from "./universal-head-collector.ts";
 

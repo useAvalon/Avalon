@@ -5,9 +5,9 @@
  * Adds request timing and a unique request ID.
  */
 
-import { defineHandler } from 'nitro/h3';
+import { defineHandler } from "nitro/h3";
 
-export default defineHandler(event => {
+export default defineHandler((event) => {
 	event.context.timing = { start: Date.now() };
 	event.context.requestId = crypto.randomUUID();
 });

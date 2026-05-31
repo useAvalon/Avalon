@@ -10,12 +10,12 @@
 /// <reference lib="dom" />
 /// <reference lib="dom.iterable" />
 
-import type { Update } from './hmr-coordinator.ts';
+import type { Update } from "./hmr-coordinator.ts";
 
 /**
  * CSS update types
  */
-export type CSSUpdateType = 'global' | 'module' | 'scoped';
+export type CSSUpdateType = "global" | "module" | "scoped";
 
 /**
  * CSS update information
@@ -42,13 +42,13 @@ export class CSSHMRHandler {
 		const updateInfo = this.classifyCSSUpdate(update);
 
 		switch (updateInfo.type) {
-			case 'global':
+			case "global":
 				this.handleGlobalCSSUpdate(updateInfo);
 				break;
-			case 'module':
+			case "module":
 				this.handleCSSModuleUpdate(updateInfo);
 				break;
-			case 'scoped':
+			case "scoped":
 				this.handleScopedCSSUpdate(updateInfo);
 				break;
 		}
@@ -61,18 +61,18 @@ export class CSSHMRHandler {
 		const path = update.path || update.acceptedPath;
 
 		// Check if it's a CSS module
-		if (path.includes('.module.css') || path.includes('.module.scss')) {
+		if (path.includes(".module.css") || path.includes(".module.scss")) {
 			return {
-				type: 'module',
+				type: "module",
 				path,
 				timestamp: update.timestamp,
 			};
 		}
 
 		// Check if it's a scoped style (Svelte or Vue)
-		if (path.includes('.svelte') || path.includes('.vue')) {
+		if (path.includes(".svelte") || path.includes(".vue")) {
 			return {
-				type: 'scoped',
+				type: "scoped",
 				path,
 				timestamp: update.timestamp,
 			};
@@ -80,7 +80,7 @@ export class CSSHMRHandler {
 
 		// Default to global CSS
 		return {
-			type: 'global',
+			type: "global",
 			path,
 			timestamp: update.timestamp,
 		};
@@ -182,10 +182,10 @@ export class CSSHMRHandler {
 		}
 
 		// Find all islands
-		const allIslands = document.querySelectorAll<HTMLElement>('[data-src]');
+		const allIslands = document.querySelectorAll<HTMLElement>("[data-src]");
 
 		for (const island of allIslands) {
-			const src = island.getAttribute('data-src');
+			const src = island.getAttribute("data-src");
 			if (!src) continue;
 
 			// Check if the island's component likely imports this CSS module
@@ -213,10 +213,10 @@ export class CSSHMRHandler {
 		const islands: HTMLElement[] = [];
 		const normalizedPath = this.normalizePath(componentPath);
 
-		const allIslands = document.querySelectorAll<HTMLElement>('[data-src]');
+		const allIslands = document.querySelectorAll<HTMLElement>("[data-src]");
 
 		for (const island of allIslands) {
-			const src = island.getAttribute('data-src');
+			const src = island.getAttribute("data-src");
 			if (!src) continue;
 
 			const normalizedSrc = this.normalizePath(src);
@@ -236,7 +236,7 @@ export class CSSHMRHandler {
 		// Dispatch event to trigger island re-render
 		// The HMR coordinator will handle the actual re-render
 		island.dispatchEvent(
-			new CustomEvent('css-module-update', {
+			new CustomEvent("css-module-update", {
 				detail: {
 					cssPath: info.path,
 					timestamp: info.timestamp,
@@ -247,13 +247,13 @@ export class CSSHMRHandler {
 
 		// Also trigger a standard HMR update event
 		// This will be picked up by the HMR coordinator
-		const src = island.getAttribute('data-src');
+		const src = island.getAttribute("data-src");
 		if (src) {
 			island.dispatchEvent(
-				new CustomEvent('hmr-update-required', {
+				new CustomEvent("hmr-update-required", {
 					detail: {
 						src,
-						reason: 'css-module-update',
+						reason: "css-module-update",
 						cssPath: info.path,
 					},
 					bubbles: true,
@@ -266,7 +266,7 @@ export class CSSHMRHandler {
 	 * Dispatch CSS update event for feedback
 	 */
 	private dispatchCSSUpdateEvent(info: CSSUpdateInfo, success: boolean, error?: Error): void {
-		const event = new CustomEvent('css-hmr-update', {
+		const event = new CustomEvent("css-hmr-update", {
 			detail: {
 				type: info.type,
 				path: info.path,
@@ -284,7 +284,7 @@ export class CSSHMRHandler {
 	 * Normalize a file path for comparison
 	 */
 	private normalizePath(path: string): string {
-		return path.replace(/\\/g, '/').replace(/^\//, '').replace(/\?.*$/, '').replace(/#.*$/, '');
+		return path.replace(/\\/g, "/").replace(/^\//, "").replace(/\?.*$/, "").replace(/#.*$/, "");
 	}
 
 	/**
@@ -292,8 +292,8 @@ export class CSSHMRHandler {
 	 */
 	private getDirectory(path: string): string {
 		const normalized = this.normalizePath(path);
-		const lastSlash = normalized.lastIndexOf('/');
-		return lastSlash >= 0 ? normalized.substring(0, lastSlash) : '';
+		const lastSlash = normalized.lastIndexOf("/");
+		return lastSlash >= 0 ? normalized.substring(0, lastSlash) : "";
 	}
 
 	/**

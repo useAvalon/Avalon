@@ -1,34 +1,34 @@
-import type { ProjectConfig } from '../types';
+import type { ProjectConfig } from "../types";
 
 export function generateStylingFiles(config: ProjectConfig): Map<string, string> {
 	const files = new Map<string, string>();
 
 	// Common files for all styling options
-	files.set('app/shared/styles/main.css', generateMainCss(config));
+	files.set("app/shared/styles/main.css", generateMainCss(config));
 
 	// Only generate reset.css for css-modules — Tailwind's preflight handles resets
-	if (config.styling === 'css-modules') {
-		files.set('app/shared/styles/reset.css', generateResetCss());
+	if (config.styling === "css-modules") {
+		files.set("app/shared/styles/reset.css", generateResetCss());
 	}
 
 	switch (config.styling) {
-		case 'css-modules':
-			files.set('app/shared/styles/tokens.css', generateTokensCss());
-			files.set('app/shared/layouts/_layout.module.css', generateLayoutModuleCss());
-			files.set('app/modules/main/pages/index.module.css', generatePageModuleCss());
-			files.set('app/modules/main/layouts/_layout.module.css', generateLayoutModuleCss());
+		case "css-modules":
+			files.set("app/shared/styles/tokens.css", generateTokensCss());
+			files.set("app/shared/layouts/_layout.module.css", generateLayoutModuleCss());
+			files.set("app/modules/main/pages/index.module.css", generatePageModuleCss());
+			files.set("app/modules/main/layouts/_layout.module.css", generateLayoutModuleCss());
 			break;
 
-		case 'tailwind':
-			files.set('tailwind.config.js', generateTailwindConfig());
-			files.set('app/shared/styles/global.css', generateTailwindGlobalCss(config));
+		case "tailwind":
+			files.set("tailwind.config.js", generateTailwindConfig());
+			files.set("app/shared/styles/global.css", generateTailwindGlobalCss(config));
 			break;
 
-		case 'shadcn':
-			files.set('tailwind.config.js', generateTailwindConfig());
-			files.set('app/shared/styles/global.css', generateTailwindGlobalCss(config));
-			files.set('components.json', generateShadcnComponentsJson(config));
-			files.set('app/shared/utils/cn.ts', generateCnUtil());
+		case "shadcn":
+			files.set("tailwind.config.js", generateTailwindConfig());
+			files.set("app/shared/styles/global.css", generateTailwindGlobalCss(config));
+			files.set("components.json", generateShadcnComponentsJson(config));
+			files.set("app/shared/utils/cn.ts", generateCnUtil());
 			break;
 	}
 
@@ -38,14 +38,14 @@ export function generateStylingFiles(config: ProjectConfig): Map<string, string>
 function generateMainCss(config: ProjectConfig): string {
 	const imports: string[] = [];
 
-	if (config.styling === 'css-modules') {
+	if (config.styling === "css-modules") {
 		imports.push(`@import './reset.css';`);
 		imports.push(`@import './tokens.css';`);
 	} else {
 		imports.push(`@import './global.css';`);
 	}
 
-	return imports.join('\n') + '\n';
+	return imports.join("\n") + "\n";
 }
 
 function generateResetCss(): string {
@@ -155,8 +155,8 @@ export default {
 function generateTailwindGlobalCss(config: ProjectConfig): string {
 	const lines = [`@import "tailwindcss";`];
 
-	if (config.styling === 'shadcn') {
-		lines.push('');
+	if (config.styling === "shadcn") {
+		lines.push("");
 		lines.push(`@theme inline {
   --color-background: oklch(1 0 0);
   --color-foreground: oklch(0.145 0 0);
@@ -184,7 +184,7 @@ function generateTailwindGlobalCss(config: ProjectConfig): string {
 }`);
 	}
 
-	return lines.join('\n') + '\n';
+	return lines.join("\n") + "\n";
 }
 
 function generateCnUtil(): string {
@@ -199,17 +199,17 @@ export function cn(...inputs: ClassValue[]) {
 
 function generateShadcnComponentsJson(config: ProjectConfig): string {
 	const componentsConfig = {
-		$schema: 'https://ui.shadcn.com/schema.json',
-		style: 'default',
+		$schema: "https://ui.shadcn.com/schema.json",
+		style: "default",
 		tailwind: {
-			config: 'tailwind.config.js',
-			css: 'app/shared/styles/global.css',
+			config: "tailwind.config.js",
+			css: "app/shared/styles/global.css",
 		},
 		aliases: {
-			components: '@shared/components',
-			utils: '@shared/utils',
+			components: "@shared/components",
+			utils: "@shared/utils",
 		},
 	};
 
-	return JSON.stringify(componentsConfig, null, 2) + '\n';
+	return JSON.stringify(componentsConfig, null, 2) + "\n";
 }

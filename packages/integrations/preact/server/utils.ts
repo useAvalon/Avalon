@@ -1,18 +1,20 @@
-import type { PreactComponent, PreactComponentModule } from '../types.ts';
-import { toImportSpecifier } from '@useavalon/core/utils';
-import { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection';
+import { resolveIslandPath } from "@useavalon/avalon/islands/framework-detection";
+import { toImportSpecifier } from "@useavalon/core/utils";
+import type { PreactComponent, PreactComponentModule } from "../types.ts";
 
 /**
  * Load a Preact component from a file path
  * Handles both development (via Vite) and production (from build output)
  */
 export async function loadComponent(src: string) {
-	const isDev = process.env.NODE_ENV !== 'production';
+	const isDev = process.env.NODE_ENV !== "production";
 
 	if (isDev && globalThis.__viteDevServer) {
 		// Development: use Vite's SSR module loading
 		const resolvedPath = await resolveIslandPath(src);
-		const module = (await globalThis.__viteDevServer.ssrLoadModule(resolvedPath)) as PreactComponentModule;
+		const module = (await globalThis.__viteDevServer.ssrLoadModule(
+			resolvedPath,
+		)) as PreactComponentModule;
 		return extractComponent(module, src);
 	}
 
@@ -50,7 +52,7 @@ function extractComponent(module: PreactComponentModule, src: string) {
  * Resolve the SSR path for a component in production
  */
 function resolveSsrPath(src: string) {
-	return src.replace('/islands/', '/dist/ssr/islands/').replace(/\.(tsx|jsx)$/, '.js');
+	return src.replace("/islands/", "/dist/ssr/islands/").replace(/\.(tsx|jsx)$/, ".js");
 }
 
 /**
@@ -69,7 +71,7 @@ export function normalizeProps(props: Record<string, unknown>) {
 
 	// Handle special prop transformations if needed
 	// For example, converting class to className
-	if ('class' in normalized && !('className' in normalized)) {
+	if ("class" in normalized && !("className" in normalized)) {
 		normalized.className = normalized.class;
 		delete normalized.class;
 	}

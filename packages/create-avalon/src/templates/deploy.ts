@@ -120,7 +120,7 @@ const absoluteTimeout = setTimeout(() => {
 `;
 }
 
-export function generateRobotsTxt(sitemapUrl = 'https://YOUR_DOMAIN/sitemap.xml'): string {
+export function generateRobotsTxt(sitemapUrl = "https://YOUR_DOMAIN/sitemap.xml"): string {
 	return `# robots.txt
 
 User-agent: *

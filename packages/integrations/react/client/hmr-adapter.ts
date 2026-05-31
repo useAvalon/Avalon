@@ -7,11 +7,13 @@
 
 /// <reference lib="dom" />
 
-import { BaseFrameworkAdapter, type StateSnapshot } from '@useavalon/avalon/client/hmr';
+import { BaseFrameworkAdapter, type StateSnapshot } from "@useavalon/avalon/client/hmr";
 
 type ReactComponent<P = Record<string, unknown>> =
 	| ((props: P) => ReactElement | null)
-	| (new (props: P) => ReactClassComponent);
+	| (new (
+			props: P,
+	  ) => ReactClassComponent);
 
 interface ReactClassComponent {
 	render(): ReactElement | null;
@@ -46,7 +48,7 @@ interface ReactDOMClientModule {
 }
 
 interface ReactStateSnapshot extends StateSnapshot {
-	framework: 'react';
+	framework: "react";
 	data: {
 		fiberData?: unknown;
 		componentName?: string;
@@ -55,21 +57,21 @@ interface ReactStateSnapshot extends StateSnapshot {
 }
 
 export class ReactHMRAdapter extends BaseFrameworkAdapter {
-	readonly name = 'react';
+	readonly name = "react";
 	private readonly roots: WeakMap<HTMLElement, ReactRoot> = new WeakMap();
 
 	canHandle(component: unknown): boolean {
 		if (!component) return false;
-		if (typeof component === 'function') {
+		if (typeof component === "function") {
 			const proto = (component as { prototype?: Record<string, unknown> }).prototype;
 			if (proto?.isReactComponent) return true;
 			if ((component as unknown as Record<string, unknown>).$typeof) return true;
 			return true;
 		}
-		if (typeof component !== 'object') return false;
+		if (typeof component !== "object") return false;
 		const obj = component as Record<string, unknown>;
 		if (obj.$typeof) return true;
-		if (obj.type && typeof obj.type === 'function') return true;
+		if (obj.type && typeof obj.type === "function") return true;
 		return false;
 	}
 
@@ -78,21 +80,25 @@ export class ReactHMRAdapter extends BaseFrameworkAdapter {
 			const baseSnapshot = super.preserveState(island);
 			if (!baseSnapshot) return null;
 			const capturedProps = island.dataset.props ? JSON.parse(island.dataset.props) : {};
-			const componentName = this.extractComponentName(island.dataset.src || '');
-			return { ...baseSnapshot, framework: 'react', data: { componentName, capturedProps } };
+			const componentName = this.extractComponentName(island.dataset.src || "");
+			return { ...baseSnapshot, framework: "react", data: { componentName, capturedProps } };
 		} catch (error) {
-			console.warn('Failed to preserve React state:', error);
+			console.warn("Failed to preserve React state:", error);
 			return null;
 		}
 	}
 
-	async update(island: HTMLElement, newComponent: unknown, props: Record<string, unknown>): Promise<void> {
-		if (!this.canHandle(newComponent)) throw new Error('Component is not a valid React component');
+	async update(
+		island: HTMLElement,
+		newComponent: unknown,
+		props: Record<string, unknown>,
+	): Promise<void> {
+		if (!this.canHandle(newComponent)) throw new Error("Component is not a valid React component");
 		const Component = newComponent as ReactComponent;
 		try {
 			const [reactModule, reactDOMModule] = await Promise.all([
-				import('react') as Promise<ReactModule>,
-				import('react-dom/client') as Promise<ReactDOMClientModule>,
+				import("react") as Promise<ReactModule>,
+				import("react-dom/client") as Promise<ReactDOMClientModule>,
 			]);
 			const { createElement } = reactModule;
 			const { hydrateRoot } = reactDOMModule;
@@ -102,15 +108,16 @@ export class ReactHMRAdapter extends BaseFrameworkAdapter {
 			} else {
 				const element = createElement(Component, props);
 				const newRoot = hydrateRoot(island, element, {
-					onRecoverableError: (error: Error) => console.warn('React hydration recoverable error during HMR:', error),
+					onRecoverableError: (error: Error) =>
+						console.warn("React hydration recoverable error during HMR:", error),
 				});
 				this.roots.set(island, newRoot);
 			}
-			island.dataset.hydrated = 'true';
-			island.dataset.hydrationStatus = 'success';
+			island.dataset.hydrated = "true";
+			island.dataset.hydrationStatus = "success";
 		} catch (error) {
-			console.error('React HMR update failed:', error);
-			island.dataset.hydrationStatus = 'error';
+			console.error("React HMR update failed:", error);
+			island.dataset.hydrationStatus = "error";
 			throw error;
 		}
 	}
@@ -119,28 +126,29 @@ export class ReactHMRAdapter extends BaseFrameworkAdapter {
 		try {
 			super.restoreState(island, state);
 		} catch (error) {
-			console.warn('Failed to restore React state:', error);
+			console.warn("Failed to restore React state:", error);
 		}
 	}
 
 	override handleError(island: HTMLElement, error: Error): void {
-		console.error('React HMR error:', error);
+		console.error("React HMR error:", error);
 		super.handleError(island, error);
-		const errorIndicator = island.querySelector('.hmr-error-indicator');
+		const errorIndicator = island.querySelector(".hmr-error-indicator");
 		if (errorIndicator) {
 			const msg = error.message;
-			let hint = '';
-			if (msg.includes('hooks')) hint = ' (Hint: Check hooks usage - hooks must be called in the same order)';
-			else if (msg.includes('render')) hint = ' (Hint: Check component render method for errors)';
-			else if (msg.includes('hydration')) hint = ' (Hint: Server and client render must match)';
+			let hint = "";
+			if (msg.includes("hooks"))
+				hint = " (Hint: Check hooks usage - hooks must be called in the same order)";
+			else if (msg.includes("render")) hint = " (Hint: Check component render method for errors)";
+			else if (msg.includes("hydration")) hint = " (Hint: Server and client render must match)";
 			errorIndicator.textContent = `React HMR Error: ${msg}${hint}`;
 		}
 	}
 
 	private extractComponentName(src: string): string {
-		const parts = src.split('/');
-		const filename = parts.at(-1) ?? '';
-		return filename.replace(/\.(tsx?|jsx?)$/, '');
+		const parts = src.split("/");
+		const filename = parts.at(-1) ?? "";
+		return filename.replace(/\.(tsx?|jsx?)$/, "");
 	}
 
 	unmount(island: HTMLElement): void {
@@ -150,7 +158,7 @@ export class ReactHMRAdapter extends BaseFrameworkAdapter {
 				root.unmount();
 				this.roots.delete(island);
 			} catch (error) {
-				console.warn('Failed to unmount React root:', error);
+				console.warn("Failed to unmount React root:", error);
 			}
 		}
 	}

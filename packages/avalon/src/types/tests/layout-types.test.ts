@@ -1,31 +1,31 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from "vitest";
+import { safeValidators, validators } from "../../schemas/index.ts";
 import {
+	LayoutConfigSchema,
 	LayoutContextSchema,
 	LayoutDataSchema,
-	LayoutRouteSchema,
+	LayoutDiscoveryOptionsSchema,
 	LayoutHandlerSchema,
 	LayoutPropsSchema,
-	LayoutDiscoveryOptionsSchema,
-	LayoutConfigSchema,
+	LayoutRouteSchema,
 	ResolvedLayoutSchema,
-} from '../../schemas/layout.ts';
-import { validators, safeValidators } from '../../schemas/index.ts';
+} from "../../schemas/layout.ts";
 import type {
+	LayoutConfig,
 	LayoutContext,
 	LayoutData,
-	LayoutRoute,
+	LayoutDiscoveryOptions,
 	LayoutHandler,
 	LayoutProps,
-	LayoutDiscoveryOptions,
-	LayoutConfig,
+	LayoutRoute,
 	ResolvedLayout,
-} from '../layout.ts';
+} from "../layout.ts";
 
-describe('Layout System Types and Schemas', () => {
-	it('LayoutContext - should validate valid layout context', () => {
-		const mockRequest = new Request('https://example.com/test');
-		const mockParams = { id: '123' };
-		const mockQuery = new URLSearchParams('?page=1');
+describe("Layout System Types and Schemas", () => {
+	it("LayoutContext - should validate valid layout context", () => {
+		const mockRequest = new Request("https://example.com/test");
+		const mockParams = { id: "123" };
+		const mockQuery = new URLSearchParams("?page=1");
 		const mockState = new Map();
 
 		const validContext: LayoutContext = {
@@ -39,22 +39,22 @@ describe('Layout System Types and Schemas', () => {
 		expect(result.success).toEqual(true);
 	});
 
-	it('LayoutContext - should reject invalid layout context', () => {
+	it("LayoutContext - should reject invalid layout context", () => {
 		const invalidContext = {
-			request: 'not-a-request',
-			params: 'not-an-object',
-			query: 'not-urlsearchparams',
-			state: 'not-a-map',
+			request: "not-a-request",
+			params: "not-an-object",
+			query: "not-urlsearchparams",
+			state: "not-a-map",
 		};
 
 		const result = safeValidators.layoutContext(invalidContext);
 		expect(result.success).toEqual(false);
 	});
 
-	it('LayoutData - should validate layout data as record', () => {
+	it("LayoutData - should validate layout data as record", () => {
 		const validData: LayoutData = {
-			user: { name: 'John', id: 123 },
-			settings: { theme: 'dark' },
+			user: { name: "John", id: 123 },
+			settings: { theme: "dark" },
 			items: [1, 2, 3],
 		};
 
@@ -62,17 +62,17 @@ describe('Layout System Types and Schemas', () => {
 		expect(result.success).toEqual(true);
 	});
 
-	it('LayoutData - should accept empty layout data', () => {
+	it("LayoutData - should accept empty layout data", () => {
 		const emptyData: LayoutData = {};
 
 		const result = safeValidators.layoutData(emptyData);
 		expect(result.success).toEqual(true);
 	});
 
-	it('LayoutHandler - should validate valid layout handler', () => {
+	it("LayoutHandler - should validate valid layout handler", () => {
 		const validHandler = {
 			component: () => null,
-			path: '/src/pages/blog/_layout.tsx',
+			path: "/src/pages/blog/_layout.tsx",
 			priority: 10,
 		};
 
@@ -80,26 +80,26 @@ describe('Layout System Types and Schemas', () => {
 		expect(result.success).toEqual(true);
 	});
 
-	it('LayoutDiscoveryOptions - should validate with defaults', () => {
+	it("LayoutDiscoveryOptions - should validate with defaults", () => {
 		const options = {
-			baseDirectory: '/src/pages',
+			baseDirectory: "/src/pages",
 		};
 
 		const result = safeValidators.layoutDiscoveryOptions(options);
 		expect(result.success).toEqual(true);
 		if (result.success) {
-			expect(result.data.filePattern).toEqual('_layout.tsx');
+			expect(result.data.filePattern).toEqual("_layout.tsx");
 			expect(result.data.excludeDirectories).toEqual([]);
 			expect(result.data.enableWatching).toEqual(false);
 			expect(result.data.developmentMode).toEqual(false);
 		}
 	});
 
-	it('LayoutDiscoveryOptions - should validate with custom options', () => {
+	it("LayoutDiscoveryOptions - should validate with custom options", () => {
 		const options: LayoutDiscoveryOptions = {
-			baseDirectory: '/src/pages',
-			filePattern: 'layout.tsx',
-			excludeDirectories: ['node_modules', '.git'],
+			baseDirectory: "/src/pages",
+			filePattern: "layout.tsx",
+			excludeDirectories: ["node_modules", ".git"],
 			enableWatching: true,
 			developmentMode: true,
 		};
@@ -107,33 +107,33 @@ describe('Layout System Types and Schemas', () => {
 		const result = safeValidators.layoutDiscoveryOptions(options);
 		expect(result.success).toEqual(true);
 		if (result.success) {
-			expect(result.data.filePattern).toEqual('layout.tsx');
-			expect(result.data.excludeDirectories).toEqual(['node_modules', '.git']);
+			expect(result.data.filePattern).toEqual("layout.tsx");
+			expect(result.data.excludeDirectories).toEqual(["node_modules", ".git"]);
 			expect(result.data.enableWatching).toEqual(true);
 			expect(result.data.developmentMode).toEqual(true);
 		}
 	});
 
-	it('LayoutConfig - should validate layout config with all options', () => {
+	it("LayoutConfig - should validate layout config with all options", () => {
 		const config: LayoutConfig = {
-			skipLayouts: ['root', 'admin'],
+			skipLayouts: ["root", "admin"],
 			replaceLayout: true,
-			onlyLayouts: ['custom'],
-			customLayout: '/custom/layout.tsx',
+			onlyLayouts: ["custom"],
+			customLayout: "/custom/layout.tsx",
 		};
 
 		const result = safeValidators.layoutConfig(config);
 		expect(result.success).toEqual(true);
 	});
 
-	it('LayoutConfig - should validate empty layout config', () => {
+	it("LayoutConfig - should validate empty layout config", () => {
 		const config: LayoutConfig = {};
 
 		const result = safeValidators.layoutConfig(config);
 		expect(result.success).toEqual(true);
 	});
 
-	it('ResolvedLayout - should validate complete resolved layout', () => {
+	it("ResolvedLayout - should validate complete resolved layout", () => {
 		const resolvedLayout: ResolvedLayout = {
 			handlers: [],
 			dataLoaders: [],
@@ -150,7 +150,7 @@ describe('Layout System Types and Schemas', () => {
 		expect(result.success).toEqual(true);
 	});
 
-	it('ResolvedLayout - should require all metadata fields', () => {
+	it("ResolvedLayout - should require all metadata fields", () => {
 		const incompleteLayout = {
 			handlers: [],
 			dataLoaders: [],
@@ -165,11 +165,11 @@ describe('Layout System Types and Schemas', () => {
 		expect(result.success).toEqual(false);
 	});
 
-	it('Type compatibility - should ensure TypeScript types match Zod schemas', () => {
-		const mockRequest = new Request('https://example.com');
+	it("Type compatibility - should ensure TypeScript types match Zod schemas", () => {
+		const mockRequest = new Request("https://example.com");
 		const layoutContext: LayoutContext = {
 			request: mockRequest,
-			params: { id: '123' },
+			params: { id: "123" },
 			query: new URLSearchParams(),
 			state: new Map(),
 		};
@@ -179,7 +179,7 @@ describe('Layout System Types and Schemas', () => {
 		expect(validatedContext.request).toEqual(mockRequest);
 	});
 
-	it('Error handling - should provide meaningful error messages', () => {
+	it("Error handling - should provide meaningful error messages", () => {
 		const invalidData = {
 			request: null,
 			params: null,
@@ -190,7 +190,7 @@ describe('Layout System Types and Schemas', () => {
 		const result = safeValidators.layoutContext(invalidData);
 		expect(result.success).toEqual(false);
 		if (!result.success) {
-			expect(result.error.message).toContain('Invalid layout context');
+			expect(result.error.message).toContain("Invalid layout context");
 			expect(result.error.getFormattedErrors().length > 0).toEqual(true);
 		}
 	});

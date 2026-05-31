@@ -1,19 +1,23 @@
-import type { ProjectConfig } from '../types';
+import type { ProjectConfig } from "../types";
 
 export function generateRootLayout(config: ProjectConfig): string {
-  const imports: string[] = [];
+	const imports: string[] = [];
 
-  imports.push(`import type { LayoutProps } from '@useavalon/avalon';`);
+	imports.push(`import type { LayoutProps } from '@useavalon/avalon';`);
 
-  if (config.styling === 'css-modules') {
-    imports.push(`import '../styles/main.css';`);
-  } else {
-    imports.push(`import '../styles/main.css';`);
-  }
+	if (config.styling === "css-modules") {
+		imports.push(`import '../styles/main.css';`);
+	} else {
+		imports.push(`import '../styles/main.css';`);
+	}
 
-  const safeName = config.projectName.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+	const safeName = config.projectName
+		.replace(/\\/g, "\\\\")
+		.replace(/'/g, "\\'")
+		.replace(/`/g, "\\`")
+		.replace(/\$\{/g, "\\${");
 
-  return `${imports.join('\n')}
+	return `${imports.join("\n")}
 
 export default async function RootLayout({ children, frontmatter }: Readonly<LayoutProps>) {
   const title = frontmatter?.title ?? '${safeName}';
@@ -38,7 +42,7 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 }
 
 export function generateMainLayout(config: ProjectConfig): string {
-  return `import type { LayoutProps } from '@useavalon/avalon';
+	return `import type { LayoutProps } from '@useavalon/avalon';
 
 export default async function MainLayout({ children }: Readonly<LayoutProps>) {
   return <>{children}</>;

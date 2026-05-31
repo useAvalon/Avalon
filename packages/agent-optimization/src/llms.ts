@@ -8,7 +8,7 @@
  * - llms-full.txt: Full markdown content of all pages concatenated
  */
 
-import { htmlToMarkdown } from './markdown.ts';
+import { htmlToMarkdown } from "./markdown.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -57,9 +57,9 @@ function isPrivate(pattern: string): boolean {
 function isExcluded(pattern: string, exclude?: string[]): boolean {
 	if (!exclude?.length) return false;
 	return exclude.some((ex) => {
-		if (ex.endsWith('/**')) {
+		if (ex.endsWith("/**")) {
 			const prefix = ex.slice(0, -3);
-			return pattern === prefix || pattern.startsWith(prefix + '/');
+			return pattern === prefix || pattern.startsWith(prefix + "/");
 		}
 		return pattern === ex;
 	});
@@ -67,22 +67,20 @@ function isExcluded(pattern: string, exclude?: string[]): boolean {
 
 /** Convert a route pattern like `/blog` into a human-readable name. */
 function patternToName(pattern: string): string {
-	if (pattern === '/' || pattern === '') return 'Home';
-	const segments = pattern.replace(/^\//, '').split('/');
-	return segments
-		.map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-		.join(' — ');
+	if (pattern === "/" || pattern === "") return "Home";
+	const segments = pattern.replace(/^\//, "").split("/");
+	return segments.map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" — ");
 }
 
 /** Format a single entry as a markdown list item. */
 function formatEntry(entry: LlmsEntry): string {
-	const desc = entry.description ? `: ${entry.description}` : '';
+	const desc = entry.description ? `: ${entry.description}` : "";
 	return `- [${entry.name}](${entry.url})${desc}`;
 }
 
 /** Build a markdown section: H2 heading + entry list. */
 function buildSection(heading: string, entries: LlmsEntry[]): string[] {
-	return [`## ${heading}`, '', ...entries.map(formatEntry), ''];
+	return [`## ${heading}`, "", ...entries.map(formatEntry), ""];
 }
 
 // ---------------------------------------------------------------------------
@@ -95,30 +93,28 @@ function buildSection(heading: string, entries: LlmsEntry[]): string[] {
  * Excludes dynamic routes, private routes (`_`-prefixed segments),
  * and routes matching the `exclude` patterns.
  */
-export function routesToLlmsEntries(
-	routes: LlmsRoute[],
-	config: ResolvedLlmsConfig,
-): LlmsEntry[] {
-	const baseUrl = config.siteUrl.replace(/\/+$/, '');
+export function routesToLlmsEntries(routes: LlmsRoute[], config: ResolvedLlmsConfig): LlmsEntry[] {
+	const baseUrl = config.siteUrl.replace(/\/+$/, "");
 
 	return routes
-		.filter((route) =>
-			!isDynamic(route.pattern)
-			&& !isPrivate(route.pattern)
-			&& !isExcluded(route.pattern, config.exclude),
+		.filter(
+			(route) =>
+				!isDynamic(route.pattern) &&
+				!isPrivate(route.pattern) &&
+				!isExcluded(route.pattern, config.exclude),
 		)
 		.map((route) => ({
 			name: route.title || patternToName(route.pattern),
-			url: `${baseUrl}${route.pattern === '/' ? '/' : route.pattern}`,
+			url: `${baseUrl}${route.pattern === "/" ? "/" : route.pattern}`,
 			description: route.description,
 		}));
 }
 
 /** Build the header block: H1 + optional blockquote. */
 function buildHeader(config: ResolvedLlmsConfig): string[] {
-	const lines = [`# ${config.siteName}`, ''];
+	const lines = [`# ${config.siteName}`, ""];
 	if (config.siteDescription) {
-		lines.push(`> ${config.siteDescription}`, '');
+		lines.push(`> ${config.siteDescription}`, "");
 	}
 	return lines;
 }
@@ -134,7 +130,7 @@ function buildGroupedSections(
 	for (const [heading, prefixes] of Object.entries(sections)) {
 		const matched = entries.filter((e) => {
 			const entryPath = new URL(e.url).pathname;
-			return prefixes.some((p) => entryPath === p || entryPath.startsWith(p + '/'));
+			return prefixes.some((p) => entryPath === p || entryPath.startsWith(p + "/"));
 		});
 
 		if (matched.length === 0) continue;
@@ -145,7 +141,7 @@ function buildGroupedSections(
 
 	const remaining = entries.filter((e) => !used.has(e.url));
 	if (remaining.length > 0) {
-		lines.push(...buildSection('Other', remaining));
+		lines.push(...buildSection("Other", remaining));
 	}
 
 	return { lines, used };
@@ -159,14 +155,11 @@ function buildGroupedSections(
  * - Blockquote with site description
  * - H2 sections with categorized link lists
  */
-export function buildLlmsTxt(
-	entries: LlmsEntry[],
-	config: ResolvedLlmsConfig,
-): string {
+export function buildLlmsTxt(entries: LlmsEntry[], config: ResolvedLlmsConfig): string {
 	const lines = buildHeader(config);
 
 	if (entries.length === 0) {
-		return lines.join('\n');
+		return lines.join("\n");
 	}
 
 	const hasSections = config.sections && Object.keys(config.sections).length > 0;
@@ -175,10 +168,10 @@ export function buildLlmsTxt(
 		const { lines: sectionLines } = buildGroupedSections(entries, config.sections!);
 		lines.push(...sectionLines);
 	} else {
-		lines.push(...buildSection('Pages', entries));
+		lines.push(...buildSection("Pages", entries));
 	}
 
-	return lines.join('\n');
+	return lines.join("\n");
 }
 
 /**
@@ -198,8 +191,8 @@ export function buildLlmsFullTxt(
 		if (!markdown.trim()) continue;
 
 		const title = route.title || patternToName(route.pattern);
-		lines.push('---', '', `## ${title}`, '', markdown.trim(), '');
+		lines.push("---", "", `## ${title}`, "", markdown.trim(), "");
 	}
 
-	return lines.join('\n');
+	return lines.join("\n");
 }

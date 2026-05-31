@@ -1,23 +1,22 @@
-import { render as preactRenderToString } from 'preact-render-to-string';
-import type { ComponentChildren } from 'preact';
-
-import { LayoutDiscovery } from './layout-discovery.ts';
-import { LayoutMatcher } from './layout-matcher.ts';
-import { LayoutComposer } from './layout-composer.ts';
-import { LayoutDataLoader } from './layout-data-loader.ts';
-import { LayoutCacheManager, defaultCacheConfig } from './layout-cache-manager.ts';
+import type { ComponentChildren } from "preact";
+import { render as preactRenderToString } from "preact-render-to-string";
+import { defaultCacheConfig, LayoutCacheManager } from "./layout-cache-manager.ts";
+import { LayoutComposer } from "./layout-composer.ts";
+import { LayoutDataLoader } from "./layout-data-loader.ts";
+import { LayoutDiscovery } from "./layout-discovery.ts";
+import { LayoutMatcher } from "./layout-matcher.ts";
 import type {
 	ComponentType,
+	LayoutCache,
 	LayoutContext,
 	LayoutData,
+	LayoutDiscoveryOptions,
+	LayoutErrorInfo,
 	LayoutHandler,
 	LayoutProps,
-	LayoutDiscoveryOptions,
-	ResolvedLayout,
-	LayoutCache,
-	LayoutErrorInfo,
 	PageModule,
-} from './layout-types.ts';
+	ResolvedLayout,
+} from "./layout-types.ts";
 
 /**
  * Call a ComponentType as a plain function regardless of whether
@@ -28,7 +27,11 @@ function callComponent<P>(component: ComponentType<P>, props: P): unknown {
 }
 
 interface IEnhancedLayoutResolver {
-	resolveAndRender(routePath: string, pageModule: PageModule, context: LayoutContext): Promise<ResolvedLayout>;
+	resolveAndRender(
+		routePath: string,
+		pageModule: PageModule,
+		context: LayoutContext,
+	): Promise<ResolvedLayout>;
 	getCachedResolution(routePath: string): ResolvedLayout | null;
 	clearCache(): void;
 	setCaching(enabled: boolean): void;
@@ -61,8 +64,8 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 	constructor(options: EnhancedLayoutResolverOptions) {
 		this.options = {
 			baseDirectory: options.baseDirectory,
-			filePattern: options.filePattern || '_layout.tsx',
-			excludeDirectories: options.excludeDirectories || ['node_modules', '.git', 'dist'],
+			filePattern: options.filePattern || "_layout.tsx",
+			excludeDirectories: options.excludeDirectories || ["node_modules", ".git", "dist"],
 			enableWatching: options.enableWatching || false,
 			developmentMode: options.developmentMode || false,
 			enableCaching: options.enableCaching ?? true,
@@ -99,7 +102,11 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 	/**
 	 * Resolve layout chain for a route
 	 */
-	async resolveLayouts(routePath: string, pageModule: PageModule, context: LayoutContext): Promise<ResolvedLayout> {
+	async resolveLayouts(
+		routePath: string,
+		pageModule: PageModule,
+		context: LayoutContext,
+	): Promise<ResolvedLayout> {
 		const startTime = performance.now();
 		const cacheKey = this.generateCacheKey(routePath, pageModule, context);
 
@@ -123,10 +130,13 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 
 			// Stage 4: Data Loading
 			const loadingResults = await this.layoutDataLoader.loadLayoutData(handlers, context);
-			const { errors: loadErrors } = this.layoutDataLoader.processLoadingResults(loadingResults, handlers);
+			const { errors: loadErrors } = this.layoutDataLoader.processLoadingResults(
+				loadingResults,
+				handlers,
+			);
 			errors.push(...loadErrors);
 		} catch (error) {
-			errors.push({ layoutPath: routePath, errorType: 'rendering', timestamp: Date.now() });
+			errors.push({ layoutPath: routePath, errorType: "rendering", timestamp: Date.now() });
 			if (this.options.developmentMode) {
 				console.warn(`[EnhancedLayoutResolver] Error resolving layouts:`, error);
 			}
@@ -136,7 +146,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 		const resolvedLayout: ResolvedLayout = {
 			handlers,
 			dataLoaders: handlers
-				.map(h => h.loader)
+				.map((h) => h.loader)
 				.filter((l): l is (ctx: LayoutContext) => Promise<LayoutData> => l !== undefined),
 			errorBoundaries: [],
 			streamingComponents: [],
@@ -153,7 +163,9 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 
 		if (this.options.developmentMode) {
 			if (errors.length > 0) {
-				console.warn(`[EnhancedLayoutResolver] ${errors.length} error(s) during layout resolution for ${routePath}`);
+				console.warn(
+					`[EnhancedLayoutResolver] ${errors.length} error(s) during layout resolution for ${routePath}`,
+				);
 			}
 			console.log(
 				`[EnhancedLayoutResolver] Resolved ${handlers.length} layouts for ${routePath} in ${totalTime.toFixed(2)}ms`,
@@ -166,15 +178,27 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 	/**
 	 * Resolve and render complete layout chain
 	 */
-	async resolveAndRender(routePath: string, pageModule: PageModule, context: LayoutContext): Promise<ResolvedLayout> {
+	async resolveAndRender(
+		routePath: string,
+		pageModule: PageModule,
+		context: LayoutContext,
+	): Promise<ResolvedLayout> {
 		const resolvedLayout = await this.resolveLayouts(routePath, pageModule, context);
 
 		if (this.options.developmentMode) {
-			console.log(`[EnhancedLayoutResolver] Rendering ${resolvedLayout.handlers.length} layouts for ${routePath}`);
+			console.log(
+				`[EnhancedLayoutResolver] Rendering ${resolvedLayout.handlers.length} layouts for ${routePath}`,
+			);
 		}
 
-		const loadingResults = await this.layoutDataLoader.loadLayoutData(resolvedLayout.handlers, context);
-		const { data } = this.layoutDataLoader.processLoadingResults(loadingResults, resolvedLayout.handlers);
+		const loadingResults = await this.layoutDataLoader.loadLayoutData(
+			resolvedLayout.handlers,
+			context,
+		);
+		const { data } = this.layoutDataLoader.processLoadingResults(
+			loadingResults,
+			resolvedLayout.handlers,
+		);
 
 		if (this.options.developmentMode) {
 			this.renderLayoutsToString(resolvedLayout, pageModule, context, data);
@@ -190,7 +214,8 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 		layoutData: LayoutData[] = [],
 	): string {
 		try {
-			const PageComponent = (pageModule.default ?? (() => null)) as unknown as ComponentType<LayoutProps>;
+			const PageComponent = (pageModule.default ??
+				(() => null)) as unknown as ComponentType<LayoutProps>;
 			let currentComponent: ComponentType<LayoutProps> = PageComponent;
 
 			for (let i = resolvedLayout.handlers.length - 1; i >= 0; i--) {
@@ -221,9 +246,9 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 			);
 		} catch (error) {
 			if (this.options.developmentMode) {
-				console.warn('[EnhancedLayoutResolver] Rendering failed:', error);
+				console.warn("[EnhancedLayoutResolver] Rendering failed:", error);
 			}
-			return '';
+			return "";
 		}
 	}
 
@@ -250,8 +275,12 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 		if (!enabled) this.clearCache();
 	}
 
-	private generateCacheKey(routePath: string, pageModule: PageModule, context: LayoutContext): string {
-		const pageConfigHash = pageModule.layoutConfig ? JSON.stringify(pageModule.layoutConfig) : '';
+	private generateCacheKey(
+		routePath: string,
+		pageModule: PageModule,
+		context: LayoutContext,
+	): string {
+		const pageConfigHash = pageModule.layoutConfig ? JSON.stringify(pageModule.layoutConfig) : "";
 		return `${routePath}:${pageConfigHash}:${context.request.method}:${context.request.url}`;
 	}
 
@@ -261,8 +290,8 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 		totalResolutions: number;
 		averageResolutionTime: number;
 		errorCount: number;
-		cacheStats: ReturnType<LayoutCacheManager['getStats']>;
-		discoveryStats: ReturnType<LayoutDiscovery['getCacheStats']>;
+		cacheStats: ReturnType<LayoutCacheManager["getStats"]>;
+		discoveryStats: ReturnType<LayoutDiscovery["getCacheStats"]>;
 	} {
 		const cacheStats = this.cacheManager.getStats();
 		const discoveryStats = this.layoutDiscovery.getCacheStats();
@@ -309,7 +338,9 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 	}
 }
 
-export function createEnhancedLayoutResolver(options: EnhancedLayoutResolverOptions): EnhancedLayoutResolver {
+export function createEnhancedLayoutResolver(
+	options: EnhancedLayoutResolverOptions,
+): EnhancedLayoutResolver {
 	return new EnhancedLayoutResolver(options);
 }
 

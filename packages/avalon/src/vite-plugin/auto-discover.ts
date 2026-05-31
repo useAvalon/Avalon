@@ -7,20 +7,20 @@
  * and content.
  */
 
-import type { IntegrationName } from "./types.ts";
-import { resolve } from "node:path";
+import { closeSync, openSync, readSync } from "node:fs";
 import { stat as fsStat, readdir, readFile } from "node:fs/promises";
-import { openSync, readSync, closeSync } from "node:fs";
+import { resolve } from "node:path";
+import type { IntegrationName } from "./types.ts";
 
 /**
  * File extension to integration name mapping
  * Maps file extensions and naming conventions to their corresponding integration
  */
 const EXTENSION_TO_INTEGRATION: Record<string, IntegrationName> = {
-  // Vue
-  ".vue": "vue",
-  // Svelte
-  ".svelte": "svelte",
+	// Vue
+	".vue": "vue",
+	// Svelte
+	".svelte": "svelte",
 };
 
 /**
@@ -28,14 +28,14 @@ const EXTENSION_TO_INTEGRATION: Record<string, IntegrationName> = {
  * These take priority over generic extensions
  */
 const FRAMEWORK_NAMING_PATTERNS: Array<{
-  pattern: RegExp;
-  integration: IntegrationName;
+	pattern: RegExp;
+	integration: IntegrationName;
 }> = [
-  { pattern: /\.solid\.(tsx|jsx)$/, integration: "solid" },
-  { pattern: /\.react\.(tsx|jsx)$/, integration: "react" },
-  { pattern: /\.lit\.(ts|js)$/, integration: "lit" },
-  { pattern: /\.preact\.(tsx|jsx)$/, integration: "preact" },
-  { pattern: /\.qwik\.(tsx|jsx)$/, integration: "qwik" },
+	{ pattern: /\.solid\.(tsx|jsx)$/, integration: "solid" },
+	{ pattern: /\.react\.(tsx|jsx)$/, integration: "react" },
+	{ pattern: /\.lit\.(ts|js)$/, integration: "lit" },
+	{ pattern: /\.preact\.(tsx|jsx)$/, integration: "preact" },
+	{ pattern: /\.qwik\.(tsx|jsx)$/, integration: "qwik" },
 ];
 
 /**
@@ -43,21 +43,21 @@ const FRAMEWORK_NAMING_PATTERNS: Array<{
  * These patterns detect framework usage from file content
  */
 const CONTENT_DETECTION_PATTERNS: Array<{
-  pattern: RegExp;
-  integration: IntegrationName;
+	pattern: RegExp;
+	integration: IntegrationName;
 }> = [
-  // React detection: imports from 'react' or @jsxImportSource react
-  { pattern: /from\s+['"]react['"]/, integration: "react" },
-  { pattern: /@jsxImportSource\s+react/, integration: "react" },
-  // Solid detection: imports from 'solid-js' or @jsxImportSource solid-js
-  { pattern: /from\s+['"]solid-js['"]/, integration: "solid" },
-  { pattern: /@jsxImportSource\s+solid-js/, integration: "solid" },
-  // Preact detection: imports from 'preact' or @jsxImportSource preact
-  { pattern: /from\s+['"]preact['"]/, integration: "preact" },
-  { pattern: /@jsxImportSource\s+preact/, integration: "preact" },
-  // Qwik detection: imports from '@builder.io/qwik' or @jsxImportSource @builder.io/qwik
-  { pattern: /from\s+['"]@builder\.io\/qwik['"]/, integration: "qwik" },
-  { pattern: /@jsxImportSource\s+@builder\.io\/qwik/, integration: "qwik" },
+	// React detection: imports from 'react' or @jsxImportSource react
+	{ pattern: /from\s+['"]react['"]/, integration: "react" },
+	{ pattern: /@jsxImportSource\s+react/, integration: "react" },
+	// Solid detection: imports from 'solid-js' or @jsxImportSource solid-js
+	{ pattern: /from\s+['"]solid-js['"]/, integration: "solid" },
+	{ pattern: /@jsxImportSource\s+solid-js/, integration: "solid" },
+	// Preact detection: imports from 'preact' or @jsxImportSource preact
+	{ pattern: /from\s+['"]preact['"]/, integration: "preact" },
+	{ pattern: /@jsxImportSource\s+preact/, integration: "preact" },
+	// Qwik detection: imports from '@builder.io/qwik' or @jsxImportSource @builder.io/qwik
+	{ pattern: /from\s+['"]@builder\.io\/qwik['"]/, integration: "qwik" },
+	{ pattern: /@jsxImportSource\s+@builder\.io\/qwik/, integration: "qwik" },
 ];
 
 /**
@@ -70,14 +70,7 @@ const DEFAULT_JSX_INTEGRATION: IntegrationName = "preact";
 /**
  * Supported file extensions for island components
  */
-const SUPPORTED_EXTENSIONS = [
-  ".tsx",
-  ".jsx",
-  ".ts",
-  ".js",
-  ".vue",
-  ".svelte",
-];
+const SUPPORTED_EXTENSIONS = [".tsx", ".jsx", ".ts", ".js", ".vue", ".svelte"];
 
 /**
  * Discover integrations from files in the islands directory
@@ -97,27 +90,25 @@ const SUPPORTED_EXTENSIONS = [
  * ```
  */
 export async function discoverIntegrationsFromFiles(
-  islandsDir: string,
-  projectRoot?: string
+	islandsDir: string,
+	projectRoot?: string,
 ): Promise<Set<IntegrationName>> {
-  // Resolve the islands directory path
-  const resolvedDir = projectRoot
-    ? resolve(projectRoot, islandsDir)
-    : resolve(islandsDir);
+	// Resolve the islands directory path
+	const resolvedDir = projectRoot ? resolve(projectRoot, islandsDir) : resolve(islandsDir);
 
-  // Check if directory exists
-  try {
-    const statResult = await fsStat(resolvedDir);
-    if (!statResult.isDirectory()) {
-      return new Set();
-    }
-  } catch {
-    return new Set();
-  }
+	// Check if directory exists
+	try {
+		const statResult = await fsStat(resolvedDir);
+		if (!statResult.isDirectory()) {
+			return new Set();
+		}
+	} catch {
+		return new Set();
+	}
 
-  const discovered = new Set<IntegrationName>();
-  await scanDirectoryForIntegrations(resolvedDir, discovered);
-  return discovered;
+	const discovered = new Set<IntegrationName>();
+	await scanDirectoryForIntegrations(resolvedDir, discovered);
+	return discovered;
 }
 
 /**
@@ -127,47 +118,47 @@ export async function discoverIntegrationsFromFiles(
  * @param discovered - Set to add discovered integrations to
  */
 async function scanDirectoryForIntegrations(
-  dirPath: string,
-  discovered: Set<IntegrationName>
+	dirPath: string,
+	discovered: Set<IntegrationName>,
 ): Promise<void> {
-  try {
-    const entries = await readdir(dirPath, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = resolve(dirPath, entry.name);
+	try {
+		const entries = await readdir(dirPath, { withFileTypes: true });
+		for (const entry of entries) {
+			const fullPath = resolve(dirPath, entry.name);
 
-      if (entry.isDirectory()) {
-        // Recursively scan subdirectories
-        await scanDirectoryForIntegrations(fullPath, discovered);
-      } else if (entry.isFile()) {
-        // Check if this is a supported component file
-        const integration = await detectIntegrationFromFile(fullPath, entry.name);
-        if (integration) {
-          discovered.add(integration);
-        }
-      }
-    }
-  } catch (error) {
-    // Log but don't fail on permission errors or other issues
-    if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'EACCES') {
-      console.warn(`Warning: Could not scan directory ${dirPath}:`, error);
-    }
-  }
+			if (entry.isDirectory()) {
+				// Recursively scan subdirectories
+				await scanDirectoryForIntegrations(fullPath, discovered);
+			} else if (entry.isFile()) {
+				// Check if this is a supported component file
+				const integration = await detectIntegrationFromFile(fullPath, entry.name);
+				if (integration) {
+					discovered.add(integration);
+				}
+			}
+		}
+	} catch (error) {
+		// Log but don't fail on permission errors or other issues
+		if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== "EACCES") {
+			console.warn(`Warning: Could not scan directory ${dirPath}:`, error);
+		}
+	}
 }
 
 function detectIntegrationFromContent(filePath: string): IntegrationName {
-  try {
-    const fd = openSync(filePath, 'r');
-    const buffer = Buffer.alloc(500);
-    readSync(fd, buffer, 0, 500, 0);
-    closeSync(fd);
-    const content = buffer.toString('utf-8');
-    for (const { pattern, integration } of CONTENT_DETECTION_PATTERNS) {
-      if (pattern.test(content)) return integration;
-    }
-  } catch {
-    // fall through to default
-  }
-  return DEFAULT_JSX_INTEGRATION;
+	try {
+		const fd = openSync(filePath, "r");
+		const buffer = Buffer.alloc(500);
+		readSync(fd, buffer, 0, 500, 0);
+		closeSync(fd);
+		const content = buffer.toString("utf-8");
+		for (const { pattern, integration } of CONTENT_DETECTION_PATTERNS) {
+			if (pattern.test(content)) return integration;
+		}
+	} catch {
+		// fall through to default
+	}
+	return DEFAULT_JSX_INTEGRATION;
 }
 
 /**
@@ -178,44 +169,44 @@ function detectIntegrationFromContent(filePath: string): IntegrationName {
  * @returns The integration name or null if not a supported component file
  */
 async function detectIntegrationFromFile(
-  filePath: string,
-  fileName: string
+	filePath: string,
+	fileName: string,
 ): Promise<IntegrationName | null> {
-  const normalizedName = fileName.toLowerCase();
+	const normalizedName = fileName.toLowerCase();
 
-  // First, check for framework-specific naming patterns (highest priority)
-  for (const { pattern, integration } of FRAMEWORK_NAMING_PATTERNS) {
-    if (pattern.test(normalizedName)) {
-      return integration;
-    }
-  }
+	// First, check for framework-specific naming patterns (highest priority)
+	for (const { pattern, integration } of FRAMEWORK_NAMING_PATTERNS) {
+		if (pattern.test(normalizedName)) {
+			return integration;
+		}
+	}
 
-  // Second, check for unique file extensions (.vue, .svelte)
-  for (const [ext, integration] of Object.entries(EXTENSION_TO_INTEGRATION)) {
-    if (normalizedName.endsWith(ext)) {
-      return integration;
-    }
-  }
+	// Second, check for unique file extensions (.vue, .svelte)
+	for (const [ext, integration] of Object.entries(EXTENSION_TO_INTEGRATION)) {
+		if (normalizedName.endsWith(ext)) {
+			return integration;
+		}
+	}
 
-  // Third, for JSX/TSX files, read content to detect framework
-  if (normalizedName.endsWith(".tsx") || normalizedName.endsWith(".jsx")) {
-    return detectIntegrationFromContent(filePath);
-  }
+	// Third, for JSX/TSX files, read content to detect framework
+	if (normalizedName.endsWith(".tsx") || normalizedName.endsWith(".jsx")) {
+		return detectIntegrationFromContent(filePath);
+	}
 
-  // Fourth, check for Lit components (.ts/.js files with PascalCase names)
-  if (
-    (normalizedName.endsWith(".ts") || normalizedName.endsWith(".js")) &&
-    !normalizedName.endsWith(".d.ts")
-  ) {
-    // Check if the original filename (not lowercased) starts with uppercase
-    // This indicates a component file (PascalCase convention)
-    if (/^[A-Z]/.test(fileName)) {
-      return "lit";
-    }
-  }
+	// Fourth, check for Lit components (.ts/.js files with PascalCase names)
+	if (
+		(normalizedName.endsWith(".ts") || normalizedName.endsWith(".js")) &&
+		!normalizedName.endsWith(".d.ts")
+	) {
+		// Check if the original filename (not lowercased) starts with uppercase
+		// This indicates a component file (PascalCase convention)
+		if (/^[A-Z]/.test(fileName)) {
+			return "lit";
+		}
+	}
 
-  // Not a supported component file
-  return null;
+	// Not a supported component file
+	return null;
 }
 
 /**
@@ -236,44 +227,42 @@ async function detectIntegrationFromFile(
  * detectIntegrationFromFileName("styles.css") // null
  * ```
  */
-export function detectIntegrationFromFileName(
-  fileName: string
-): IntegrationName | null {
-  const normalizedName = fileName.toLowerCase();
+export function detectIntegrationFromFileName(fileName: string): IntegrationName | null {
+	const normalizedName = fileName.toLowerCase();
 
-  // First, check for framework-specific naming patterns (highest priority)
-  for (const { pattern, integration } of FRAMEWORK_NAMING_PATTERNS) {
-    if (pattern.test(normalizedName)) {
-      return integration;
-    }
-  }
+	// First, check for framework-specific naming patterns (highest priority)
+	for (const { pattern, integration } of FRAMEWORK_NAMING_PATTERNS) {
+		if (pattern.test(normalizedName)) {
+			return integration;
+		}
+	}
 
-  // Second, check for unique file extensions (.vue, .svelte)
-  for (const [ext, integration] of Object.entries(EXTENSION_TO_INTEGRATION)) {
-    if (normalizedName.endsWith(ext)) {
-      return integration;
-    }
-  }
+	// Second, check for unique file extensions (.vue, .svelte)
+	for (const [ext, integration] of Object.entries(EXTENSION_TO_INTEGRATION)) {
+		if (normalizedName.endsWith(ext)) {
+			return integration;
+		}
+	}
 
-  // Third, check for generic JSX/TSX files (default to preact)
-  if (normalizedName.endsWith(".tsx") || normalizedName.endsWith(".jsx")) {
-    return DEFAULT_JSX_INTEGRATION;
-  }
+	// Third, check for generic JSX/TSX files (default to preact)
+	if (normalizedName.endsWith(".tsx") || normalizedName.endsWith(".jsx")) {
+		return DEFAULT_JSX_INTEGRATION;
+	}
 
-  // Fourth, check for Lit components (.ts/.js files with PascalCase names)
-  if (
-    (normalizedName.endsWith(".ts") || normalizedName.endsWith(".js")) &&
-    !normalizedName.endsWith(".d.ts")
-  ) {
-    // Check if the original filename (not lowercased) starts with uppercase
-    // This indicates a component file (PascalCase convention)
-    if (/^[A-Z]/.test(fileName)) {
-      return "lit";
-    }
-  }
+	// Fourth, check for Lit components (.ts/.js files with PascalCase names)
+	if (
+		(normalizedName.endsWith(".ts") || normalizedName.endsWith(".js")) &&
+		!normalizedName.endsWith(".d.ts")
+	) {
+		// Check if the original filename (not lowercased) starts with uppercase
+		// This indicates a component file (PascalCase convention)
+		if (/^[A-Z]/.test(fileName)) {
+			return "lit";
+		}
+	}
 
-  // Not a supported component file
-  return null;
+	// Not a supported component file
+	return null;
 }
 
 /**
@@ -283,7 +272,7 @@ export function detectIntegrationFromFileName(
  * @returns True if the extension is supported
  */
 export function isSupportedExtension(extension: string): boolean {
-  return SUPPORTED_EXTENSIONS.includes(extension.toLowerCase());
+	return SUPPORTED_EXTENSIONS.includes(extension.toLowerCase());
 }
 
 /**
@@ -292,15 +281,15 @@ export function isSupportedExtension(extension: string): boolean {
  * @returns Array of supported file extensions
  */
 export function getSupportedExtensions(): readonly string[] {
-  return SUPPORTED_EXTENSIONS;
+	return SUPPORTED_EXTENSIONS;
 }
 
 /**
  * Discover integrations by scanning pages and layouts for island prop usage.
- * 
+ *
  * This function scans page and layout files for components used with the `island` prop,
  * then resolves the import paths to detect which frameworks are needed.
- * 
+ *
  * @param pagesDir - Path to the pages directory
  * @param layoutsDir - Path to the layouts directory
  * @param projectRoot - Optional project root for resolving relative paths
@@ -308,77 +297,70 @@ export function getSupportedExtensions(): readonly string[] {
  * @returns Set of discovered integration names
  */
 export async function discoverIntegrationsFromIslandUsage(
-  pagesDir: string,
-  layoutsDir: string,
-  projectRoot?: string,
-  modulesDir?: string
+	pagesDir: string,
+	layoutsDir: string,
+	projectRoot?: string,
+	modulesDir?: string,
 ): Promise<Set<IntegrationName>> {
-  const discovered = new Set<IntegrationName>();
-  const root = projectRoot ?? process.cwd();
-  
-  // Scan both pages and layouts directories
-  const dirsToScan = [
-    resolve(root, pagesDir),
-    resolve(root, layoutsDir),
-  ];
-  
-  // Also scan modules directory if provided (modular architecture)
-  if (modulesDir) {
-    dirsToScan.push(resolve(root, modulesDir));
-  }
-  
-  for (const dir of dirsToScan) {
-    try {
-      const statResult = await fsStat(dir);
-      if (statResult.isDirectory()) {
-        await scanForIslandUsage(dir, root, discovered);
-      }
-    } catch {
-      // Directory doesn't exist, skip
-    }
-  }
-  
-  return discovered;
+	const discovered = new Set<IntegrationName>();
+	const root = projectRoot ?? process.cwd();
+
+	// Scan both pages and layouts directories
+	const dirsToScan = [resolve(root, pagesDir), resolve(root, layoutsDir)];
+
+	// Also scan modules directory if provided (modular architecture)
+	if (modulesDir) {
+		dirsToScan.push(resolve(root, modulesDir));
+	}
+
+	for (const dir of dirsToScan) {
+		try {
+			const statResult = await fsStat(dir);
+			if (statResult.isDirectory()) {
+				await scanForIslandUsage(dir, root, discovered);
+			}
+		} catch {
+			// Directory doesn't exist, skip
+		}
+	}
+
+	return discovered;
 }
 
 /**
  * Recursively scan a directory for files that use the island prop
  */
 async function scanForIslandUsage(
-  dirPath: string,
-  projectRoot: string,
-  discovered: Set<IntegrationName>
+	dirPath: string,
+	projectRoot: string,
+	discovered: Set<IntegrationName>,
 ): Promise<void> {
-  try {
-    const entries = await readdir(dirPath, { withFileTypes: true });
-    
-    for (const entry of entries) {
-      const fullPath = resolve(dirPath, entry.name);
-      
-      if (entry.isDirectory()) {
-        await scanForIslandUsage(fullPath, projectRoot, discovered);
-      } else if (entry.isFile() && isPageOrLayoutFile(entry.name)) {
-        await extractIslandIntegrations(fullPath, projectRoot, discovered);
-      }
-    }
-  } catch (error) {
-    // Log but don't fail
-    if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'EACCES') {
-      // Silently skip inaccessible directories
-    }
-  }
+	try {
+		const entries = await readdir(dirPath, { withFileTypes: true });
+
+		for (const entry of entries) {
+			const fullPath = resolve(dirPath, entry.name);
+
+			if (entry.isDirectory()) {
+				await scanForIslandUsage(fullPath, projectRoot, discovered);
+			} else if (entry.isFile() && isPageOrLayoutFile(entry.name)) {
+				await extractIslandIntegrations(fullPath, projectRoot, discovered);
+			}
+		}
+	} catch (error) {
+		// Log but don't fail
+		if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== "EACCES") {
+			// Silently skip inaccessible directories
+		}
+	}
 }
 
 /**
  * Check if a file is a page or layout file that might contain island usage
  */
 function isPageOrLayoutFile(fileName: string): boolean {
-  const lower = fileName.toLowerCase();
-  return (
-    lower.endsWith('.tsx') ||
-    lower.endsWith('.jsx') ||
-    lower.endsWith('.mdx')
-  );
+	const lower = fileName.toLowerCase();
+	return lower.endsWith(".tsx") || lower.endsWith(".jsx") || lower.endsWith(".mdx");
 }
 
 /**
@@ -386,51 +368,51 @@ function isPageOrLayoutFile(fileName: string): boolean {
  */
 /** Import paths that indicate an auto-island framework (no `island` prop needed). */
 const AUTO_ISLAND_IMPORT_PATTERNS: Array<{ pattern: RegExp; integration: IntegrationName }> = [
-  { pattern: /\.qwik\./, integration: 'qwik' },
+	{ pattern: /\.qwik\./, integration: "qwik" },
 ];
 
 async function extractIslandIntegrations(
-  filePath: string,
-  projectRoot: string,
-  discovered: Set<IntegrationName>
+	filePath: string,
+	projectRoot: string,
+	discovered: Set<IntegrationName>,
 ): Promise<void> {
-  try {
-    const content = await readFile(filePath, 'utf-8');
-    
-    // Find all imports
-    const importMap = parseImports(content);
-    
-    // Find components used with island prop
-    const islandComponents = findIslandPropUsage(content);
-    
-    // For each island component, resolve its import and detect framework
-    for (const componentName of islandComponents) {
-      const importPath = importMap.get(componentName);
-      if (!importPath) continue;
-      
-      // Resolve the import path to an actual file
-      const resolvedPath = resolveImportPath(importPath, filePath, projectRoot);
-      if (!resolvedPath) continue;
-      
-      // Detect framework from the resolved file
-      const integration = await detectIntegrationFromResolvedPath(resolvedPath);
-      if (integration) {
-        discovered.add(integration);
-      }
-    }
+	try {
+		const content = await readFile(filePath, "utf-8");
 
-    // Also detect auto-island frameworks by import path alone (e.g. .qwik.tsx).
-    // These don't require the `island` prop so findIslandPropUsage won't find them.
-    for (const [, importPath] of importMap) {
-      for (const { pattern, integration } of AUTO_ISLAND_IMPORT_PATTERNS) {
-        if (pattern.test(importPath)) {
-          discovered.add(integration);
-        }
-      }
-    }
-  } catch {
-    // Skip files that can't be read
-  }
+		// Find all imports
+		const importMap = parseImports(content);
+
+		// Find components used with island prop
+		const islandComponents = findIslandPropUsage(content);
+
+		// For each island component, resolve its import and detect framework
+		for (const componentName of islandComponents) {
+			const importPath = importMap.get(componentName);
+			if (!importPath) continue;
+
+			// Resolve the import path to an actual file
+			const resolvedPath = resolveImportPath(importPath, filePath, projectRoot);
+			if (!resolvedPath) continue;
+
+			// Detect framework from the resolved file
+			const integration = await detectIntegrationFromResolvedPath(resolvedPath);
+			if (integration) {
+				discovered.add(integration);
+			}
+		}
+
+		// Also detect auto-island frameworks by import path alone (e.g. .qwik.tsx).
+		// These don't require the `island` prop so findIslandPropUsage won't find them.
+		for (const [, importPath] of importMap) {
+			for (const { pattern, integration } of AUTO_ISLAND_IMPORT_PATTERNS) {
+				if (pattern.test(importPath)) {
+					discovered.add(integration);
+				}
+			}
+		}
+	} catch {
+		// Skip files that can't be read
+	}
 }
 
 /**
@@ -438,114 +420,120 @@ async function extractIslandIntegrations(
  * Returns a map of component name -> import path
  */
 function parseImports(content: string): Map<string, string> {
-  const imports = new Map<string, string>();
-  
-  // Match: import ComponentName from 'path'
-  const defaultImportRe = /import\s+(\w+)\s+from\s+['"]([^'"]+)['"]/g;
-  let match;
-  
-  while ((match = defaultImportRe.exec(content)) !== null) {
-    imports.set(match[1], match[2]);
-  }
-  
-  // Match: import { ComponentName } from 'path' or import { ComponentName as Alias } from 'path'
-  const namedImportRe = /import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g;
-  
-  while ((match = namedImportRe.exec(content)) !== null) {
-    const names = match[1].split(',').map(n => n.trim());
-    const importPath = match[2];
-    
-    for (const name of names) {
-      // Handle "Name as Alias" syntax
-      const asMatch = name.match(/(\w+)\s+as\s+(\w+)/);
-      if (asMatch) {
-        imports.set(asMatch[2], importPath); // Use alias as key
-      } else if (name) {
-        imports.set(name, importPath);
-      }
-    }
-  }
-  
-  return imports;
+	const imports = new Map<string, string>();
+
+	// Match: import ComponentName from 'path'
+	const defaultImportRe = /import\s+(\w+)\s+from\s+['"]([^'"]+)['"]/g;
+	let match: RegExpExecArray | null;
+
+	for (
+		match = defaultImportRe.exec(content);
+		match !== null;
+		match = defaultImportRe.exec(content)
+	) {
+		imports.set(match[1], match[2]);
+	}
+
+	// Match: import { ComponentName } from 'path' or import { ComponentName as Alias } from 'path'
+	const namedImportRe = /import\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/g;
+
+	for (match = namedImportRe.exec(content); match !== null; match = namedImportRe.exec(content)) {
+		const names = match[1].split(",").map((n) => n.trim());
+		const importPath = match[2];
+
+		for (const name of names) {
+			// Handle "Name as Alias" syntax
+			const asMatch = name.match(/(\w+)\s+as\s+(\w+)/);
+			if (asMatch) {
+				imports.set(asMatch[2], importPath); // Use alias as key
+			} else if (name) {
+				imports.set(name, importPath);
+			}
+		}
+	}
+
+	return imports;
 }
 
 /**
  * Find component names that are used with the island prop
  */
 function findIslandPropUsage(content: string): Set<string> {
-  const components = new Set<string>();
-  
-  // Match: <ComponentName ... island={...} or <ComponentName ... island ...
-  // This regex finds JSX elements with an island prop
-  const islandUsageRe = /<([A-Z]\w*)\s+[^>]*\bisland\b/g;
-  let match;
-  
-  while ((match = islandUsageRe.exec(content)) !== null) {
-    components.add(match[1]);
-  }
-  
-  return components;
+	const components = new Set<string>();
+
+	// Match: <ComponentName ... island={...} or <ComponentName ... island ...
+	// This regex finds JSX elements with an island prop
+	const islandUsageRe = /<([A-Z]\w*)\s+[^>]*\bisland\b/g;
+	for (
+		let match = islandUsageRe.exec(content);
+		match !== null;
+		match = islandUsageRe.exec(content)
+	) {
+		components.add(match[1]);
+	}
+
+	return components;
 }
 
 /**
  * Resolve an import path to an actual file path
  */
 function resolveImportPath(
-  importPath: string,
-  fromFile: string,
-  projectRoot: string
+	importPath: string,
+	fromFile: string,
+	projectRoot: string,
 ): string | null {
-  // Handle relative imports
-  if (importPath.startsWith('.')) {
-    const dir = resolve(fromFile, '..');
-    return resolve(dir, importPath);
-  }
-  
-  // Handle alias imports (common patterns)
-  const aliasPatterns: Array<{ prefix: string; replacement: string }> = [
-    { prefix: '@/', replacement: 'src/' },
-    { prefix: '$components/', replacement: 'src/components/' },
-    { prefix: '$islands/', replacement: 'src/islands/' },
-    { prefix: '~/', replacement: 'src/' },
-  ];
-  
-  for (const { prefix, replacement } of aliasPatterns) {
-    if (importPath.startsWith(prefix)) {
-      const relativePath = importPath.slice(prefix.length);
-      return resolve(projectRoot, replacement, relativePath);
-    }
-  }
-  
-  // Handle absolute imports from src
-  if (importPath.startsWith('/src/')) {
-    return resolve(projectRoot, importPath.slice(1));
-  }
-  
-  // Can't resolve - might be a node_modules import
-  return null;
+	// Handle relative imports
+	if (importPath.startsWith(".")) {
+		const dir = resolve(fromFile, "..");
+		return resolve(dir, importPath);
+	}
+
+	// Handle alias imports (common patterns)
+	const aliasPatterns: Array<{ prefix: string; replacement: string }> = [
+		{ prefix: "@/", replacement: "src/" },
+		{ prefix: "$components/", replacement: "src/components/" },
+		{ prefix: "$islands/", replacement: "src/islands/" },
+		{ prefix: "~/", replacement: "src/" },
+	];
+
+	for (const { prefix, replacement } of aliasPatterns) {
+		if (importPath.startsWith(prefix)) {
+			const relativePath = importPath.slice(prefix.length);
+			return resolve(projectRoot, replacement, relativePath);
+		}
+	}
+
+	// Handle absolute imports from src
+	if (importPath.startsWith("/src/")) {
+		return resolve(projectRoot, importPath.slice(1));
+	}
+
+	// Can't resolve - might be a node_modules import
+	return null;
 }
 
 /**
  * Detect integration from a resolved file path
  */
 async function detectIntegrationFromResolvedPath(
-  filePath: string
+	filePath: string,
 ): Promise<IntegrationName | null> {
-  // Try with common extensions if no extension provided
-  const extensions = ['', '.tsx', '.jsx', '.ts', '.js', '.vue', '.svelte'];
-  
-  for (const ext of extensions) {
-    const fullPath = filePath + ext;
-    try {
-      const statResult = await fsStat(fullPath);
-      if (statResult.isFile()) {
-        const fileName = fullPath.split('/').pop() || '';
-        return detectIntegrationFromFile(fullPath, fileName);
-      }
-    } catch {
-      // Try next extension
-    }
-  }
-  
-  return null;
+	// Try with common extensions if no extension provided
+	const extensions = ["", ".tsx", ".jsx", ".ts", ".js", ".vue", ".svelte"];
+
+	for (const ext of extensions) {
+		const fullPath = filePath + ext;
+		try {
+			const statResult = await fsStat(fullPath);
+			if (statResult.isFile()) {
+				const fileName = fullPath.split("/").pop() || "";
+				return detectIntegrationFromFile(fullPath, fileName);
+			}
+		} catch {
+			// Try next extension
+		}
+	}
+
+	return null;
 }

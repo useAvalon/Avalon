@@ -1,25 +1,31 @@
-import { defineConfig } from 'vite';
-import { resolve } from 'node:path';
-import { readdir, readFile } from 'node:fs/promises';
-import type { UserConfig } from 'vite';
-import { createMDXPlugin } from './src/build/mdx-plugin.ts';
+import { readdir, readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import type { UserConfig } from "vite";
+import { defineConfig } from "vite";
 import {
-	integrationDetectionPlugin,
+	getIntegrationOptimizeDeps,
+	integrationBundlerPlugin,
+} from "./src/build/integration-bundler-plugin.ts";
+import {
 	detectUsedIntegrations,
 	getRequiredIntegrations,
-} from './src/build/integration-detection-plugin.ts';
-import { integrationResolverPlugin, createIntegrationAliases } from './src/build/integration-resolver-plugin.ts';
-import { integrationBundlerPlugin, getIntegrationOptimizeDeps } from './src/build/integration-bundler-plugin.ts';
-import { discoverAllIslands, getQualifiedIslandName } from './src/islands/discovery/index.ts';
+	integrationDetectionPlugin,
+} from "./src/build/integration-detection-plugin.ts";
+import {
+	createIntegrationAliases,
+	integrationResolverPlugin,
+} from "./src/build/integration-resolver-plugin.ts";
+import { createMDXPlugin } from "./src/build/mdx-plugin.ts";
+import { discoverAllIslands, getQualifiedIslandName } from "./src/islands/discovery/index.ts";
 
-const SUPPORTED_EXTENSIONS = ['.tsx', '.ts', '.jsx', '.vue', '.svelte', '.mdx', '.md'] as const;
-const FRAMEWORK_DETECTION_DIRS = ['islands', 'components', 'src'] as const;
-const SVELTE_DETECTION_DIRS = ['islands', 'components', 'src', 'examples'] as const;
+const SUPPORTED_EXTENSIONS = [".tsx", ".ts", ".jsx", ".vue", ".svelte", ".mdx", ".md"] as const;
+const FRAMEWORK_DETECTION_DIRS = ["islands", "components", "src"] as const;
+const SVELTE_DETECTION_DIRS = ["islands", "components", "src", "examples"] as const;
 
 type SupportedExtension = (typeof SUPPORTED_EXTENSIONS)[number];
 
 function isSupportedFile(filename: string): boolean {
-	return SUPPORTED_EXTENSIONS.some(ext => filename.endsWith(ext));
+	return SUPPORTED_EXTENSIONS.some((ext) => filename.endsWith(ext));
 }
 
 /**
@@ -42,18 +48,19 @@ async function discoverIslandEntries(): Promise<Record<string, string>> {
 			// For default /src/islands/: "islands/Counter"
 			// For nested /src/modules/auth/islands/: "islands/modules/auth/Counter"
 			const qualifiedName = getQualifiedIslandName(island);
-			const entryName = island.namespace === '' ? `islands/${island.name}` : `islands/${qualifiedName}`;
+			const entryName =
+				island.namespace === "" ? `islands/${island.name}` : `islands/${qualifiedName}`;
 
 			allEntries[entryName] = island.filePath;
 		}
 
 		// Log discovered islands for debugging
 		const islandCount = Object.keys(allEntries).length;
-		if (islandCount > 0 && process.env.AVALON_VERBOSE === '1') {
+		if (islandCount > 0 && process.env.AVALON_VERBOSE === "1") {
 			console.log(`🏝️  Discovered ${islandCount} island(s) across all directories`);
 		}
 	} catch (error) {
-		console.warn('⚠️  Failed to discover islands:', error);
+		console.warn("⚠️  Failed to discover islands:", error);
 	}
 
 	return allEntries;
@@ -89,10 +96,10 @@ async function hasSolidFiles(): Promise<boolean> {
 			const dirPath = resolve(cwd, dir);
 			const entries = await readdir(dirPath, { withFileTypes: true });
 			for (const entry of entries) {
-				if (entry.isFile() && (entry.name.endsWith('.tsx') || entry.name.endsWith('.jsx'))) {
-					const content = await readFile(resolve(dirPath, entry.name), 'utf-8');
+				if (entry.isFile() && (entry.name.endsWith(".tsx") || entry.name.endsWith(".jsx"))) {
+					const content = await readFile(resolve(dirPath, entry.name), "utf-8");
 					if (
-						content.includes('solid-js') ||
+						content.includes("solid-js") ||
 						content.includes('from "solid-js"') ||
 						content.includes("from 'solid-js'")
 					) {
@@ -109,25 +116,29 @@ async function hasSolidFiles(): Promise<boolean> {
 
 async function detectFrameworks(islandEntries: Record<string, string>) {
 	// Check if any island entries have Vue or Svelte extensions
-	const hasVueInEntries = Object.values(islandEntries).some(path => path.endsWith('.vue'));
-	const hasSvelteInEntries = Object.values(islandEntries).some(path => path.endsWith('.svelte'));
+	const hasVueInEntries = Object.values(islandEntries).some((path) => path.endsWith(".vue"));
+	const hasSvelteInEntries = Object.values(islandEntries).some((path) => path.endsWith(".svelte"));
 
 	return {
-		vue: hasVueInEntries || (await hasFilesWithExtension('.vue')),
+		vue: hasVueInEntries || (await hasFilesWithExtension(".vue")),
 		solid: await hasSolidFiles(),
-		svelte: hasSvelteInEntries || (await hasFilesWithExtension('.svelte', SVELTE_DETECTION_DIRS)),
+		svelte: hasSvelteInEntries || (await hasFilesWithExtension(".svelte", SVELTE_DETECTION_DIRS)),
 	};
 }
 
 function createJsxImportSourcePlugin() {
 	return {
-		name: 'jsx-import-source',
+		name: "jsx-import-source",
 		transform(code: string, id: string) {
-			if (!id.endsWith('.tsx') && !id.endsWith('.jsx')) return;
-			if (code.includes('@jsxImportSource')) return;
+			if (!id.endsWith(".tsx") && !id.endsWith(".jsx")) return;
+			if (code.includes("@jsxImportSource")) return;
 
 			// Solid.js files are handled by vite-plugin-solid
-			if (code.includes('solid-js') || code.includes('from "solid-js"') || code.includes("from 'solid-js'")) {
+			if (
+				code.includes("solid-js") ||
+				code.includes('from "solid-js"') ||
+				code.includes("from 'solid-js'")
+			) {
 				return;
 			}
 
@@ -149,7 +160,7 @@ interface PluginConfig {
 async function loadFrameworkPlugin(pluginConfig: PluginConfig) {
 	try {
 		const module = await import(pluginConfig.packageName);
-		const plugin = pluginConfig.name === 'svelte' ? module.svelte : module.default;
+		const plugin = pluginConfig.name === "svelte" ? module.svelte : module.default;
 		console.log(`✅ ${pluginConfig.successMessage}`);
 		return plugin(pluginConfig.config());
 	} catch (error: unknown) {
@@ -165,51 +176,51 @@ async function loadFrameworkPlugins(frameworks: { vue: boolean; solid: boolean; 
 
 	if (frameworks.vue) {
 		const vuePlugin = await loadFrameworkPlugin({
-			name: 'vue',
-			packageName: '@vitejs/plugin-vue',
+			name: "vue",
+			packageName: "@vitejs/plugin-vue",
 			config: () => ({
 				template: {
 					compilerOptions: {
-						isCustomElement: (tag: string) => tag === 'avalon-island',
-						style: 'scoped',
+						isCustomElement: (tag: string) => tag === "avalon-island",
+						style: "scoped",
 					},
 				},
 			}),
-			successMessage: 'Vue plugin loaded for .vue file support',
-			errorMessage: 'Vue files detected but @vitejs/plugin-vue not available',
-			installHint: 'Install with: bun add @vitejs/plugin-vue',
+			successMessage: "Vue plugin loaded for .vue file support",
+			errorMessage: "Vue files detected but @vitejs/plugin-vue not available",
+			installHint: "Install with: bun add @vitejs/plugin-vue",
 		});
 		if (vuePlugin) plugins.push(vuePlugin);
 	}
 
 	if (frameworks.solid) {
 		const solidPlugin = await loadFrameworkPlugin({
-			name: 'solid',
-			packageName: 'vite-plugin-solid',
+			name: "solid",
+			packageName: "vite-plugin-solid",
 			config: () => ({ ssr: true, hot: true }),
-			successMessage: 'Solid plugin loaded for Solid.js support with SSR',
-			errorMessage: 'Solid.js files detected but vite-plugin-solid not available',
-			installHint: 'Install with: bun add vite-plugin-solid',
+			successMessage: "Solid plugin loaded for Solid.js support with SSR",
+			errorMessage: "Solid.js files detected but vite-plugin-solid not available",
+			installHint: "Install with: bun add vite-plugin-solid",
 		});
 		if (solidPlugin) plugins.push(solidPlugin);
 	}
 
 	if (frameworks.svelte) {
 		const sveltePlugin = await loadFrameworkPlugin({
-			name: 'svelte',
-			packageName: '@sveltejs/vite-plugin-svelte',
+			name: "svelte",
+			packageName: "@sveltejs/vite-plugin-svelte",
 			config: () => ({
 				compilerOptions: {
 					customElement: false,
 					runes: true,
-					css: 'injected',
+					css: "injected",
 					dev: false, // Explicitly disable dev mode to prevent SSR issues
 				},
 				hot: true, // Enable hot reload at plugin level
 			}),
-			successMessage: 'Svelte plugin loaded for .svelte file support with SSR',
-			errorMessage: 'Svelte files detected but @sveltejs/vite-plugin-svelte not available',
-			installHint: 'Install with: bun add @sveltejs/vite-plugin-svelte',
+			successMessage: "Svelte plugin loaded for .svelte file support with SSR",
+			errorMessage: "Svelte files detected but @sveltejs/vite-plugin-svelte not available",
+			installHint: "Install with: bun add @sveltejs/vite-plugin-svelte",
 		});
 		if (sveltePlugin) plugins.push(sveltePlugin);
 	}
@@ -221,28 +232,30 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 	const islandEntries = await discoverIslandEntries();
 	const frameworks = await detectFrameworks(islandEntries);
 	const frameworkPlugins = await loadFrameworkPlugins(frameworks);
-	const mdxPlugins = await createMDXPlugin({ development: command === 'serve' });
+	const mdxPlugins = await createMDXPlugin({ development: command === "serve" });
 
-	const isDev = command === 'serve';
+	const isDev = command === "serve";
 
 	// Detect which integrations are used for tree-shaking
 	const usedIntegrations = await detectUsedIntegrations();
 	const requiredIntegrations = getRequiredIntegrations(usedIntegrations);
 
-	console.log(`🔧 Configuring build for integrations: ${requiredIntegrations.join(', ') || 'none'}`);
+	console.log(
+		`🔧 Configuring build for integrations: ${requiredIntegrations.join(", ") || "none"}`,
+	);
 
 	return {
-		root: '.',
-		publicDir: 'public',
+		root: ".",
+		publicDir: "public",
 		// Ensure proper base URL for dependency resolution
-		base: '/',
+		base: "/",
 
 		optimizeDeps: {
 			include: [
 				// Only include dependencies for used integrations
 				...getIntegrationOptimizeDeps(requiredIntegrations),
 			],
-			exclude: ['@mdx-js/react', '@mdx-js/rollup', '@mdx-js/mdx'],
+			exclude: ["@mdx-js/react", "@mdx-js/rollup", "@mdx-js/mdx"],
 			// Force re-optimization in development for consistency
 			force: isDev,
 		},
@@ -253,7 +266,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			integrationResolverPlugin(),
 			integrationBundlerPlugin({ integrations: requiredIntegrations, ssr: false }),
 			// MDX plugins
-			...mdxPlugins.map(plugin => ({ ...plugin, enforce: 'pre' })),
+			...mdxPlugins.map((plugin) => ({ ...plugin, enforce: "pre" })),
 			// JSX import source plugin
 			createJsxImportSourcePlugin(),
 			// Framework-specific plugins
@@ -261,24 +274,26 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		],
 
 		build: {
-			outDir: 'dist',
+			outDir: "dist",
 			emptyOutDir: true,
 			// Note: Svelte compilation outputs to 'dist' directory, not 'public/dist-svelte-compiled'
 			rolldownOptions: {
 				input: {
 					...islandEntries,
-					client: resolve('./src/client/main.js'),
+					client: resolve("./src/client/main.js"),
 				},
 				output: {
 					entryFileNames: (chunkInfo: { name?: string }) => {
-						return chunkInfo.name?.startsWith('islands/') ? `islands/[name].[hash].js` : '[name].[hash].js';
+						return chunkInfo.name?.startsWith("islands/")
+							? `islands/[name].[hash].js`
+							: "[name].[hash].js";
 					},
-					chunkFileNames: 'chunks/[name].[hash].js',
-					assetFileNames: 'assets/[name].[hash].[ext]',
+					chunkFileNames: "chunks/[name].[hash].js",
+					assetFileNames: "assets/[name].[hash].[ext]",
 				},
 			},
-			target: 'es2020',
-			minify: 'oxc',
+			target: "es2020",
+			minify: "oxc",
 		},
 
 		server: {
@@ -288,28 +303,28 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			cors: {
 				origin: true,
 				credentials: true,
-				methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-				allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+				methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+				allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
 			},
 		},
 
 		ssr: {
-			target: 'webworker',
+			target: "webworker",
 			noExternal: [
-				'vue',
-				'@vue/server-renderer',
-				'@vue/shared',
-				'svelte',
-				'svelte/internal',
-				'svelte/store',
-				'svelte/server',
+				"vue",
+				"@vue/server-renderer",
+				"@vue/shared",
+				"svelte",
+				"svelte/internal",
+				"svelte/store",
+				"svelte/server",
 			],
 		},
 
 		resolve: {
 			alias: {
-				'@/': resolve('./src/'),
-				'~/': resolve('../../'),
+				"@/": resolve("./src/"),
+				"~/": resolve("../../"),
 				// Integration package aliases
 				...createIntegrationAliases(),
 			},

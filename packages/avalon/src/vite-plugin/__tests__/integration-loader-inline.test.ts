@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { generateIntegrationLoaderModule } from "../nitro-integration.ts";
 import type { ResolvedAvalonConfig } from "../types.ts";
 
@@ -57,7 +57,7 @@ describe("generateIntegrationLoaderModule — Solid adapter inlining", () => {
 		// render() fallback should NOT be present — saves ~1-2 KiB
 		expect(code).not.toContain("render: solidRender");
 		expect(code).not.toContain("solidRender(");
-		expect(code).not.toContain("import(\"solid-js/web\");\n  el.textContent");
+		expect(code).not.toContain('import("solid-js/web");\n  el.textContent');
 	});
 
 	it("inlined adapter sets up _$HY hydration context", () => {

@@ -1,6 +1,6 @@
 /** @jsxImportSource preact */
-import { useEffect, useRef, useState } from 'preact/hooks';
-import styles from './TableOfContents.module.css';
+import { useEffect, useRef, useState } from "preact/hooks";
+import styles from "./TableOfContents.module.css";
 
 interface TocItem {
 	id: string;
@@ -10,29 +10,30 @@ interface TocItem {
 
 export default function TableOfContents() {
 	const [items, setItems] = useState<TocItem[]>([]);
-	const [activeId, setActiveId] = useState<string>('');
+	const [activeId, setActiveId] = useState<string>("");
 	const clickLockRef = useRef<number | null>(null);
 
 	useEffect(() => {
-		const prose = document.querySelector('[data-toc-content]');
+		const prose = document.querySelector("[data-toc-content]");
 		if (!prose) return;
 
-		const headings = prose.querySelectorAll('h2, h3');
+		const headings = prose.querySelectorAll("h2, h3");
 		const tocItems: TocItem[] = [];
 
 		headings.forEach((el) => {
 			const heading = el as HTMLElement;
 			if (!heading.id) {
-				heading.id = heading.textContent
-					?.toLowerCase()
-					.replace(/[^a-z0-9]+/g, '-')
-					.replace(/(^-|-$)/g, '') ?? '';
+				heading.id =
+					heading.textContent
+						?.toLowerCase()
+						.replace(/[^a-z0-9]+/g, "-")
+						.replace(/(^-|-$)/g, "") ?? "";
 			}
 			if (heading.id) {
 				tocItems.push({
 					id: heading.id,
-					text: heading.textContent ?? '',
-					level: heading.tagName === 'H3' ? 3 : 2,
+					text: heading.textContent ?? "",
+					level: heading.tagName === "H3" ? 3 : 2,
 				});
 			}
 		});
@@ -44,7 +45,8 @@ export default function TableOfContents() {
 			if (tocItems.length === 0) return;
 			if (clickLockRef.current) return;
 
-			const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 40;
+			const atBottom =
+				window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 40;
 			if (atBottom) {
 				setActiveId(tocItems[tocItems.length - 1].id);
 				return;
@@ -65,11 +67,11 @@ export default function TableOfContents() {
 			setActiveId(current);
 		}
 
-		window.addEventListener('scroll', onScroll, { passive: true });
+		window.addEventListener("scroll", onScroll, { passive: true });
 		onScroll();
 
 		return () => {
-			window.removeEventListener('scroll', onScroll);
+			window.removeEventListener("scroll", onScroll);
 			if (clickLockRef.current) clearTimeout(clickLockRef.current);
 		};
 	}, []);
@@ -78,7 +80,7 @@ export default function TableOfContents() {
 		e.preventDefault();
 		if (clickLockRef.current) clearTimeout(clickLockRef.current);
 		setActiveId(id);
-		document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+		document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 		clickLockRef.current = window.setTimeout(() => {
 			clickLockRef.current = null;
 		}, 800);
@@ -87,14 +89,14 @@ export default function TableOfContents() {
 	if (items.length === 0) return null;
 
 	return (
-		<nav className={styles.toc} aria-label="Table of contents">
-			<p className={styles.tocLabel}>On this page</p>
-			<ul className={styles.tocList}>
+		<nav class={styles.toc} aria-label="Table of contents">
+			<p class={styles.tocLabel}>On this page</p>
+			<ul class={styles.tocList}>
 				{items.map((item) => (
 					<li key={item.id}>
 						<a
 							href={`#${item.id}`}
-							className={`${styles.tocLink} ${item.level === 3 ? styles.tocLinkNested : ''} ${item.id === activeId ? styles.tocLinkActive : ''}`}
+							class={`${styles.tocLink} ${item.level === 3 ? styles.tocLinkNested : ""} ${item.id === activeId ? styles.tocLinkActive : ""}`}
 							onClick={(e) => handleClick(e, item.id)}
 						>
 							{item.text}

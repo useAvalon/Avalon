@@ -1,20 +1,25 @@
-import type { JSX } from 'preact';
+import { readFile } from "node:fs/promises";
+import type { JSX } from "preact";
 import {
-	analyzeComponentContent,
-	type AnalyzerOptions,
 	type AnalysisReport,
-} from '../core/components/component-analyzer.ts';
-import { resolveIslandPath } from './framework-detection.ts';
-import type { IslandProps } from './types.ts';
-import { getCachedAnalysis, setCachedAnalysis, getCachedPath, setCachedPath } from './render-cache.ts';
-import { readFile } from 'node:fs/promises';
+	type AnalyzerOptions,
+	analyzeComponentContent,
+} from "../core/components/component-analyzer.ts";
+import { resolveIslandPath } from "./framework-detection.ts";
+import {
+	getCachedAnalysis,
+	getCachedPath,
+	setCachedAnalysis,
+	setCachedPath,
+} from "./render-cache.ts";
+import type { IslandProps } from "./types.ts";
 
 /**
  * Check if we're in development mode
  */
 function isDev(): boolean {
 	try {
-		return process.env.NODE_ENV !== 'production';
+		return process.env.NODE_ENV !== "production";
 	} catch {
 		return true; // Default to dev mode if we can't check
 	}
@@ -23,7 +28,7 @@ function isDev(): boolean {
 /**
  * Log cache hit/miss in dev mode
  */
-function logCacheEvent(_type: 'hit' | 'miss', _cacheType: string, _src: string): void {
+function logCacheEvent(_type: "hit" | "miss", _cacheType: string, _src: string): void {
 	// Silenced — set AVALON_VERBOSE=1 to enable
 }
 
@@ -34,18 +39,18 @@ function logCacheEvent(_type: 'hit' | 'miss', _cacheType: string, _src: string):
 function getEssentialPathVariations(src: string, resolvedSrc: string): string[] {
 	const baseName =
 		src
-			.split('/')
+			.split("/")
 			.pop()
-			?.replace(/\.(tsx|jsx|vue|svelte|ts|js)$/, '') || '';
+			?.replace(/\.(tsx|jsx|vue|svelte|ts|js)$/, "") || "";
 
 	// Get the original file extension
-	const originalExt = src.split('.').pop() || 'tsx';
+	const originalExt = src.split(".").pop() || "tsx";
 
 	// Essential path variations - prioritized by likelihood
 	return [
 		// Direct paths first (most likely to succeed)
-		resolvedSrc.startsWith('/') ? resolvedSrc.substring(1) : resolvedSrc,
-		src.startsWith('/') ? src.substring(1) : src,
+		resolvedSrc.startsWith("/") ? resolvedSrc.substring(1) : resolvedSrc,
+		src.startsWith("/") ? src.substring(1) : src,
 		// Standard island locations
 		`src/islands/${baseName}.${originalExt}`,
 		`src/islands/${baseName}.tsx`,
@@ -63,7 +68,7 @@ function getEssentialPathVariations(src: string, resolvedSrc: string): string[] 
  */
 async function tryReadFile(path: string): Promise<string | null> {
 	try {
-		return await readFile(path, 'utf-8');
+		return await readFile(path, "utf-8");
 	} catch {
 		return null;
 	}
@@ -81,21 +86,24 @@ async function tryReadFile(path: string): Promise<string | null> {
  * @returns Analysis result with rendering strategy decision
  * @throws Error if component file cannot be found
  */
-export async function analyzeComponentFile(src: string, options: AnalyzerOptions = {}): Promise<AnalysisReport> {
+export async function analyzeComponentFile(
+	src: string,
+	options: AnalyzerOptions = {},
+): Promise<AnalysisReport> {
 	// Check analysis cache first
 	const cachedAnalysis = getCachedAnalysis(src);
 	if (cachedAnalysis) {
-		logCacheEvent('hit', 'analysis', src);
+		logCacheEvent("hit", "analysis", src);
 		return cachedAnalysis;
 	}
-	logCacheEvent('miss', 'analysis', src);
+	logCacheEvent("miss", "analysis", src);
 
 	// Check if we have a cached resolved path
 	let resolvedSrc = getCachedPath(src);
 	if (resolvedSrc) {
-		logCacheEvent('hit', 'path', src);
+		logCacheEvent("hit", "path", src);
 	} else {
-		logCacheEvent('miss', 'path', src);
+		logCacheEvent("miss", "path", src);
 		resolvedSrc = await resolveIslandPath(src);
 	}
 
@@ -145,31 +153,36 @@ export async function renderComponentSSROnly({
 	renderOptions,
 }: {
 	src: string;
-	condition: IslandProps['condition'];
+	condition: IslandProps["condition"];
 	props: Record<string, unknown>;
 	framework?: string;
 	renderOptions: AnalyzerOptions;
 }) {
 	try {
 		// Import Island component dynamically to avoid circular dependencies
-		const { default: Island } = await import('./island.tsx');
+		const { default: Island } = await import("./island.tsx");
 
 		// Import integration loader to load the appropriate framework integration
-		const { loadIntegration } = await import('./integration-loader.ts');
-		const { detectFramework } = await import('./framework-detection.ts');
+		const { loadIntegration } = await import("./integration-loader.ts");
+		const { detectFramework } = await import("./framework-detection.ts");
 
 		// Use explicit framework if provided, otherwise detect it
 		let framework: string;
 		if (explicitFramework) {
 			framework = explicitFramework;
-		} else if (src.endsWith('.vue')) {
-			framework = 'vue';
-		} else if (src.endsWith('.svelte')) {
-			framework = 'svelte';
-		} else if (src.endsWith('.tsx') || src.endsWith('.jsx') || src.endsWith('.ts') || src.endsWith('.js')) {
+		} else if (src.endsWith(".vue")) {
+			framework = "vue";
+		} else if (src.endsWith(".svelte")) {
+			framework = "svelte";
+		} else if (
+			src.endsWith(".tsx") ||
+			src.endsWith(".jsx") ||
+			src.endsWith(".ts") ||
+			src.endsWith(".js")
+		) {
 			framework = await detectFramework(src);
 		} else {
-			framework = 'preact'; // Default fallback
+			framework = "preact"; // Default fallback
 		}
 
 		// Load the appropriate integration
@@ -177,7 +190,7 @@ export async function renderComponentSSROnly({
 
 		// Get Vite server reference for dev mode
 		const viteServer = globalThis.__viteDevServer;
-		const isDev = process.env.NODE_ENV !== 'production';
+		const isDev = process.env.NODE_ENV !== "production";
 
 		// Render the component using the integration
 		const renderResult = await integration.render({
@@ -198,14 +211,14 @@ export async function renderComponentSSROnly({
 			props,
 			children: renderResult.html, // Pass rendered HTML as children
 			ssr: true,
-			framework: framework as 'solid' | 'vue' | 'preact' | 'react' | 'svelte' | 'lit' | 'qwik',
+			framework: framework as "solid" | "vue" | "preact" | "react" | "svelte" | "lit" | "qwik",
 			ssrOnly: true,
 			renderOptions,
 			hydrationData: undefined, // No hydration data for SSR-only components
 		});
 	} catch (error) {
 		// Only log errors in development
-		if (process.env.NODE_ENV !== 'production') {
+		if (process.env.NODE_ENV !== "production") {
 			console.error(`SSR-only rendering failed for ${src}:`, error);
 		}
 		throw error;

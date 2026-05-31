@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 /**
  * Schema for meta tags
@@ -19,29 +19,31 @@ export const ScriptConfigSchema = z.union([
 		.object({
 			src: z.string().min(1).optional(),
 			content: z.string().optional(), // For inline scripts
-			data: z.union([z.record(z.string(), z.unknown()), z.array(z.unknown()), z.string()]).optional(), // For structured data (JSON-LD)
+			data: z
+				.union([z.record(z.string(), z.unknown()), z.array(z.unknown()), z.string()])
+				.optional(), // For structured data (JSON-LD)
 			type: z.string().optional(),
 			async: z.boolean().optional(),
 			defer: z.boolean().optional(),
-			crossorigin: z.enum(['anonymous', 'use-credentials']).optional(),
+			crossorigin: z.enum(["anonymous", "use-credentials"]).optional(),
 			integrity: z.string().optional(),
 			nomodule: z.boolean().optional(),
 			referrerpolicy: z
 				.enum([
-					'no-referrer',
-					'no-referrer-when-downgrade',
-					'origin',
-					'origin-when-cross-origin',
-					'same-origin',
-					'strict-origin',
-					'strict-origin-when-cross-origin',
-					'unsafe-url',
+					"no-referrer",
+					"no-referrer-when-downgrade",
+					"origin",
+					"origin-when-cross-origin",
+					"same-origin",
+					"strict-origin",
+					"strict-origin-when-cross-origin",
+					"unsafe-url",
 				])
 				.optional(),
 			// Allow custom attributes
 			attributes: z.record(z.string(), z.string()).optional(),
 		})
-		.refine(data => data.src || data.content || data.data, {
+		.refine((data) => data.src || data.content || data.data, {
 			message: "Script must have either 'src', 'content', or 'data'",
 		}),
 ]);
@@ -55,7 +57,6 @@ export const RenderOptionsSchema = z.object({
 	styles: z.array(z.string().min(1)).optional(),
 	meta: z.array(MetaTagSchema).optional(),
 });
-
 
 // === Simplified TypeScript types ===
 

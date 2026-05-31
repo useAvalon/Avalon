@@ -5,12 +5,12 @@
  * Migrated from src/islands/renderers/solid-renderer.ts
  */
 
-import type { RenderParams, RenderResult } from '@useavalon/core/types';
-import { loadComponent } from './utils.ts';
-import { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection';
-import { setSolidHydrationScript } from '@useavalon/avalon/islands/universal-head-collector';
-import { readFile } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
+import { readFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { resolveIslandPath } from "@useavalon/avalon/islands/framework-detection";
+import { setSolidHydrationScript } from "@useavalon/avalon/islands/universal-head-collector";
+import type { RenderParams, RenderResult } from "@useavalon/core/types";
+import { loadComponent } from "./utils.ts";
 
 /**
  * Collect CSS imported by a Solid component.
@@ -19,8 +19,8 @@ import { resolve, dirname } from 'node:path';
 async function collectComponentCSS(src: string): Promise<string | undefined> {
 	try {
 		const resolvedPath = await resolveIslandPath(src);
-		const filePath = resolvedPath.startsWith('/') ? resolvedPath.slice(1) : resolvedPath;
-		const source = await readFile(filePath, 'utf-8');
+		const filePath = resolvedPath.startsWith("/") ? resolvedPath.slice(1) : resolvedPath;
+		const source = await readFile(filePath, "utf-8");
 
 		// Match CSS imports: import './Foo.css' or import "./Foo.css"
 		const cssImports = [...source.matchAll(/import\s+['"]([^'"]+\.css)['"]/g)];
@@ -32,14 +32,14 @@ async function collectComponentCSS(src: string): Promise<string | undefined> {
 		for (const [, cssPath] of cssImports) {
 			try {
 				const fullPath = resolve(dir, cssPath);
-				const css = await readFile(fullPath, 'utf-8');
+				const css = await readFile(fullPath, "utf-8");
 				if (css.trim()) chunks.push(css.trim());
 			} catch {
 				// CSS file not found, skip
 			}
 		}
 
-		return chunks.length > 0 ? chunks.join('\n') : undefined;
+		return chunks.length > 0 ? chunks.join("\n") : undefined;
 	} catch {
 		return undefined;
 	}
@@ -73,7 +73,7 @@ export function extractInlineStyles(html: string): { html: string; css: string[]
 	}
 
 	// Strip all <style> tags from the HTML
-	const cleanedHtml = html.replaceAll(styleRegex, '');
+	const cleanedHtml = html.replaceAll(styleRegex, "");
 
 	return { html: cleanedHtml, css: cssChunks };
 }
@@ -88,33 +88,42 @@ export function extractInlineStyles(html: string): { html: string; css: string[]
  * @returns Render result with HTML and hydration data
  */
 export async function render(params: RenderParams): Promise<RenderResult> {
-	const { component, props = {}, src, condition = 'on:client', ssrOnly = false } = params;
+	const { component, props = {}, src, condition = "on:client", ssrOnly = false } = params;
 
 	try {
 		const Component = component || (await loadComponent(src));
 
-		if (!Component || typeof Component !== 'function') {
-			throw new Error(`Invalid Solid component in ${src}: expected function, got ${typeof Component}`);
+		if (!Component || typeof Component !== "function") {
+			throw new Error(
+				`Invalid Solid component in ${src}: expected function, got ${typeof Component}`,
+			);
 		}
 
 		// Import Solid.js SSR utilities
-		const solidWeb = await import('solid-js/web');
+		const solidWeb = await import("solid-js/web");
 
 		const solidWebModule = solidWeb as any;
-		const renderToStringAsync: (fn: () => unknown, options?: { nonce?: string; renderId?: string }) => Promise<string> =
+		const renderToStringAsync: (
+			fn: () => unknown,
+			options?: { nonce?: string; renderId?: string },
+		) => Promise<string> =
 			solidWebModule.renderToStringAsync ||
 			solidWebModule.default?.renderToStringAsync ||
 			(() => {
-				const renderToString = solidWebModule.renderToString || solidWebModule.default?.renderToString;
-				if (!renderToString) throw new Error('Neither renderToStringAsync nor renderToString found in solid-js/web');
+				const renderToString =
+					solidWebModule.renderToString || solidWebModule.default?.renderToString;
+				if (!renderToString)
+					throw new Error("Neither renderToStringAsync nor renderToString found in solid-js/web");
 				return (fn: () => unknown) => Promise.resolve(renderToString(fn));
 			})();
 		const createComponent: (component: any, props: any) => any =
 			solidWebModule.createComponent || solidWebModule.default?.createComponent;
-		const generateHydrationScript: ((options?: { nonce?: string; eventNames?: string[] }) => string) | undefined =
+		const generateHydrationScript:
+			| ((options?: { nonce?: string; eventNames?: string[] }) => string)
+			| undefined =
 			solidWebModule.generateHydrationScript || solidWebModule.default?.generateHydrationScript;
 
-		if (!createComponent) throw new Error('createComponent not found in solid-js/web');
+		if (!createComponent) throw new Error("createComponent not found in solid-js/web");
 
 		// Cache the Solid hydration bootstrap script on first render.
 		// It will only be injected into pages that contain Solid islands.
@@ -131,11 +140,11 @@ export async function render(params: RenderParams): Promise<RenderResult> {
 		if (html === null || html === undefined) {
 			throw new Error(`renderToStringAsync returned null/undefined`);
 		}
-		if (typeof html !== 'string') {
+		if (typeof html !== "string") {
 			throw new Error(`renderToStringAsync returned invalid type: ${typeof html}`);
 		}
 
-		const containerId = `solid-island-${src.replaceAll(/[^a-zA-Z0-9]/g, '-')}`;
+		const containerId = `solid-island-${src.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
 
 		// Extract inline <style> tags from the rendered HTML so they go through
 		// the universal CSS collector for deduplication (one <style> in <head>
@@ -146,7 +155,7 @@ export async function render(params: RenderParams): Promise<RenderResult> {
 		const fileCSS = await collectComponentCSS(src);
 
 		// Merge file-imported CSS and extracted inline CSS
-		const allCSS = [fileCSS, ...inlineCSS].filter(Boolean).join('\n');
+		const allCSS = [fileCSS, ...inlineCSS].filter(Boolean).join("\n");
 
 		// NOTE: The Solid hydration bootstrap script (window._$HY, ~300 bytes)
 		// is NOT returned in `head` here. It is injected once at the HTML
@@ -155,7 +164,7 @@ export async function render(params: RenderParams): Promise<RenderResult> {
 		return {
 			html: cleanedHtml,
 			css: allCSS || undefined,
-			hydrationData: { src, props, framework: 'solid', condition, containerId, ssrOnly, renderId },
+			hydrationData: { src, props, framework: "solid", condition, containerId, ssrOnly, renderId },
 		};
 	} catch (error) {
 		throw new Error(

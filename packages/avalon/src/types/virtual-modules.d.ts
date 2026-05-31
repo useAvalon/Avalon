@@ -24,7 +24,7 @@ declare module "virtual:avalon/config" {
 }
 
 declare module "virtual:avalon/layouts" {
-	import type { PageModule, NitroRenderContext } from "@useavalon/avalon/nitro/types";
+	import type { NitroRenderContext, PageModule } from "@useavalon/avalon/nitro/types";
 	export function wrapWithLayouts(
 		pageHtml: string,
 		pageModule: PageModule,

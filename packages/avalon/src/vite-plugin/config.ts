@@ -5,40 +5,40 @@
  * function that merges user configuration with defaults.
  */
 
-import type {
-  AvalonPluginConfig,
-  ResolvedAvalonConfig,
-  ResolvedMDXConfig,
-  ResolvedModulesConfig,
-  ResolvedImageConfig,
-  ModulesConfig,
-  ImageConfig,
-} from "./types.ts";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import process from "node:process";
+import type {
+	AvalonPluginConfig,
+	ImageConfig,
+	ModulesConfig,
+	ResolvedAvalonConfig,
+	ResolvedImageConfig,
+	ResolvedMDXConfig,
+	ResolvedModulesConfig,
+} from "./types.ts";
 
 /**
  * Default MDX configuration values
  */
 export const DEFAULT_MDX_CONFIG: ResolvedMDXConfig = {
-  jsxImportSource: "preact",
-  syntaxHighlighting: true,
-  remarkPlugins: [],
-  rehypePlugins: [],
+	jsxImportSource: "preact",
+	syntaxHighlighting: true,
+	remarkPlugins: [],
+	rehypePlugins: [],
 };
 
 /**
  * Default image optimization configuration values
  */
 export const DEFAULT_IMAGE_CONFIG: ResolvedImageConfig = {
-  enabled: true,
-  defaultFormat: "webp",
-  quality: 80,
-  widths: [200, 400, 600, 800, 1200],
-  removeMetadata: true,
-  include: /^[^?]+\.(heif|avif|jpeg|jpg|png|tiff|webp|gif)(\?.*)?$/,
-  exclude: "public/**/*",
+	enabled: true,
+	defaultFormat: "webp",
+	quality: 80,
+	widths: [200, 400, 600, 800, 1200],
+	removeMetadata: true,
+	include: /^[^?]+\.(heif|avif|jpeg|jpg|png|tiff|webp|gif)(\?.*)?$/,
+	exclude: "public/**/*",
 };
 
 /**
@@ -46,76 +46,74 @@ export const DEFAULT_IMAGE_CONFIG: ResolvedImageConfig = {
  * These are used when the user doesn't provide specific values
  */
 export const DEFAULT_CONFIG: Omit<ResolvedAvalonConfig, "isDev"> = {
-  pagesDir: "src/pages",
-  layoutsDir: "src/layouts",
-  modules: null,
-  integrations: [],
-  mdx: DEFAULT_MDX_CONFIG,
-  image: DEFAULT_IMAGE_CONFIG,
-  verbose: false,
-  autoDiscoverIntegrations: true,
-  validateIntegrations: true,
-  showWarnings: true,
-  lazyIntegrations: true,
+	pagesDir: "src/pages",
+	layoutsDir: "src/layouts",
+	modules: null,
+	integrations: [],
+	mdx: DEFAULT_MDX_CONFIG,
+	image: DEFAULT_IMAGE_CONFIG,
+	verbose: false,
+	autoDiscoverIntegrations: true,
+	validateIntegrations: true,
+	showWarnings: true,
+	lazyIntegrations: true,
 };
 
 /**
  * Default modules configuration values
  */
 export const DEFAULT_MODULES_CONFIG = {
-  pagesDirName: "pages",
-  layoutsDirName: "layouts",
+	pagesDirName: "pages",
+	layoutsDirName: "layouts",
 };
 
 /**
  * Resolves the modules configuration
  */
 function resolveModulesConfig(
-  modules: string | ModulesConfig | undefined
+	modules: string | ModulesConfig | undefined,
 ): ResolvedModulesConfig | null {
-  if (!modules) return null;
+	if (!modules) return null;
 
-  if (typeof modules === "string") {
-    return {
-      dir: modules,
-      pagesDirName: DEFAULT_MODULES_CONFIG.pagesDirName,
-      layoutsDirName: DEFAULT_MODULES_CONFIG.layoutsDirName,
-    };
-  }
+	if (typeof modules === "string") {
+		return {
+			dir: modules,
+			pagesDirName: DEFAULT_MODULES_CONFIG.pagesDirName,
+			layoutsDirName: DEFAULT_MODULES_CONFIG.layoutsDirName,
+		};
+	}
 
-  return {
-    dir: modules.dir,
-    pagesDirName: modules.pagesDirName ?? DEFAULT_MODULES_CONFIG.pagesDirName,
-    layoutsDirName: modules.layoutsDirName ?? DEFAULT_MODULES_CONFIG.layoutsDirName,
-  };
+	return {
+		dir: modules.dir,
+		pagesDirName: modules.pagesDirName ?? DEFAULT_MODULES_CONFIG.pagesDirName,
+		layoutsDirName: modules.layoutsDirName ?? DEFAULT_MODULES_CONFIG.layoutsDirName,
+	};
 }
 
 /**
  * Resolves the image optimization configuration
  */
-function resolveImageConfig(
-  image: boolean | ImageConfig | undefined
-): ResolvedImageConfig {
-  // Explicitly disabled
-  if (image === false) {
-    return { ...DEFAULT_IMAGE_CONFIG, enabled: false };
-  }
+function resolveImageConfig(image: boolean | ImageConfig | undefined): ResolvedImageConfig {
+	// Explicitly disabled
+	if (image === false) {
+		return { ...DEFAULT_IMAGE_CONFIG, enabled: false };
+	}
 
-  // Default or explicitly enabled with no options
-  if (image === undefined || image === true) {
-    return DEFAULT_IMAGE_CONFIG;
-  }
+	// Default or explicitly enabled with no options
+	if (image === undefined || image === true) {
+		return DEFAULT_IMAGE_CONFIG;
+	}
 
-  // Custom config object
-  return {
-    enabled: image.enabled ?? DEFAULT_IMAGE_CONFIG.enabled,
-    defaultFormat: image.defaultFormat ?? DEFAULT_IMAGE_CONFIG.defaultFormat,
-    quality: image.quality ?? DEFAULT_IMAGE_CONFIG.quality,
-    widths: image.widths ?? DEFAULT_IMAGE_CONFIG.widths,
-    removeMetadata: image.removeMetadata ?? DEFAULT_IMAGE_CONFIG.removeMetadata,
-    include: image.include ?? DEFAULT_IMAGE_CONFIG.include,
-    exclude: image.exclude ?? DEFAULT_IMAGE_CONFIG.exclude,
-  };
+	// Custom config object
+	return {
+		enabled: image.enabled ?? DEFAULT_IMAGE_CONFIG.enabled,
+		defaultFormat: image.defaultFormat ?? DEFAULT_IMAGE_CONFIG.defaultFormat,
+		quality: image.quality ?? DEFAULT_IMAGE_CONFIG.quality,
+		widths: image.widths ?? DEFAULT_IMAGE_CONFIG.widths,
+		removeMetadata: image.removeMetadata ?? DEFAULT_IMAGE_CONFIG.removeMetadata,
+		include: image.include ?? DEFAULT_IMAGE_CONFIG.include,
+		exclude: image.exclude ?? DEFAULT_IMAGE_CONFIG.exclude,
+	};
 }
 
 /**
@@ -134,53 +132,47 @@ function resolveImageConfig(
  * ```
  */
 export function resolveConfig(
-  userConfig: AvalonPluginConfig | undefined,
-  isDev: boolean
+	userConfig: AvalonPluginConfig | undefined,
+	isDev: boolean,
 ): ResolvedAvalonConfig {
-  const config = userConfig ?? {};
-  const modules = resolveModulesConfig(config.modules);
-  const image = resolveImageConfig(config.image);
+	const config = userConfig ?? {};
+	const modules = resolveModulesConfig(config.modules);
+	const image = resolveImageConfig(config.image);
 
-  return {
-    pagesDir: config.pagesDir ?? DEFAULT_CONFIG.pagesDir,
-    layoutsDir: config.layoutsDir ?? DEFAULT_CONFIG.layoutsDir,
-    modules,
-    integrations: config.integrations ?? DEFAULT_CONFIG.integrations,
-    mdx: {
-      jsxImportSource:
-        config.mdx?.jsxImportSource ?? DEFAULT_MDX_CONFIG.jsxImportSource,
-      syntaxHighlighting:
-        config.mdx?.syntaxHighlighting ?? DEFAULT_MDX_CONFIG.syntaxHighlighting,
-      remarkPlugins:
-        config.mdx?.remarkPlugins ?? DEFAULT_MDX_CONFIG.remarkPlugins,
-      rehypePlugins:
-        config.mdx?.rehypePlugins ?? DEFAULT_MDX_CONFIG.rehypePlugins,
-    },
-    image,
-    verbose: config.verbose ?? DEFAULT_CONFIG.verbose,
-    autoDiscoverIntegrations:
-      config.autoDiscoverIntegrations ?? DEFAULT_CONFIG.autoDiscoverIntegrations,
-    validateIntegrations:
-      config.validateIntegrations ?? DEFAULT_CONFIG.validateIntegrations,
-    showWarnings: config.showWarnings ?? DEFAULT_CONFIG.showWarnings,
-    lazyIntegrations: config.lazyIntegrations ?? DEFAULT_CONFIG.lazyIntegrations,
-    isDev,
-  };
+	return {
+		pagesDir: config.pagesDir ?? DEFAULT_CONFIG.pagesDir,
+		layoutsDir: config.layoutsDir ?? DEFAULT_CONFIG.layoutsDir,
+		modules,
+		integrations: config.integrations ?? DEFAULT_CONFIG.integrations,
+		mdx: {
+			jsxImportSource: config.mdx?.jsxImportSource ?? DEFAULT_MDX_CONFIG.jsxImportSource,
+			syntaxHighlighting: config.mdx?.syntaxHighlighting ?? DEFAULT_MDX_CONFIG.syntaxHighlighting,
+			remarkPlugins: config.mdx?.remarkPlugins ?? DEFAULT_MDX_CONFIG.remarkPlugins,
+			rehypePlugins: config.mdx?.rehypePlugins ?? DEFAULT_MDX_CONFIG.rehypePlugins,
+		},
+		image,
+		verbose: config.verbose ?? DEFAULT_CONFIG.verbose,
+		autoDiscoverIntegrations:
+			config.autoDiscoverIntegrations ?? DEFAULT_CONFIG.autoDiscoverIntegrations,
+		validateIntegrations: config.validateIntegrations ?? DEFAULT_CONFIG.validateIntegrations,
+		showWarnings: config.showWarnings ?? DEFAULT_CONFIG.showWarnings,
+		lazyIntegrations: config.lazyIntegrations ?? DEFAULT_CONFIG.lazyIntegrations,
+		isDev,
+	};
 }
-
 
 /**
  * Result of directory existence check
  */
 export interface DirectoryCheckResult {
-  /** The directory path that was checked */
-  path: string;
-  /** The resolved absolute path */
-  absolutePath: string;
-  /** Whether the directory exists */
-  exists: boolean;
-  /** The type of directory (pages, layouts) */
-  type: "pages" | "layouts";
+	/** The directory path that was checked */
+	path: string;
+	/** The resolved absolute path */
+	absolutePath: string;
+	/** Whether the directory exists */
+	exists: boolean;
+	/** The type of directory (pages, layouts) */
+	type: "pages" | "layouts";
 }
 
 /**
@@ -202,44 +194,44 @@ export interface DirectoryCheckResult {
  * ```
  */
 export function checkDirectoriesExist(
-  config: ResolvedAvalonConfig,
-  projectRoot: string = process.cwd()
+	config: ResolvedAvalonConfig,
+	projectRoot: string = process.cwd(),
 ): DirectoryCheckResult[] {
-  const directories: Array<{ path: string; type: DirectoryCheckResult["type"] }> = [];
-  
-  // Only check pagesDir if modules is not configured (traditional architecture)
-  // When using modular architecture, pages are discovered from modules
-  if (!config.modules && config.pagesDir) {
-    directories.push({ path: config.pagesDir, type: "pages" });
-  }
-  
-  // Always check layoutsDir if it's set
-  if (config.layoutsDir) {
-    directories.push({ path: config.layoutsDir, type: "layouts" });
-  }
+	const directories: Array<{ path: string; type: DirectoryCheckResult["type"] }> = [];
 
-  const results: DirectoryCheckResult[] = [];
+	// Only check pagesDir if modules is not configured (traditional architecture)
+	// When using modular architecture, pages are discovered from modules
+	if (!config.modules && config.pagesDir) {
+		directories.push({ path: config.pagesDir, type: "pages" });
+	}
 
-  for (const { path, type } of directories) {
-    const absolutePath = resolve(projectRoot, path);
-    const exists = existsSync(absolutePath);
+	// Always check layoutsDir if it's set
+	if (config.layoutsDir) {
+		directories.push({ path: config.layoutsDir, type: "layouts" });
+	}
 
-    results.push({
-      path,
-      absolutePath,
-      exists,
-      type,
-    });
+	const results: DirectoryCheckResult[] = [];
 
-    if (!exists && config.showWarnings) {
-      console.warn(
-        `⚠️  Avalon: ${type} directory '${path}' does not exist (resolved to: ${absolutePath}). ` +
-        `This directory will be skipped.`
-      );
-    }
-  }
+	for (const { path, type } of directories) {
+		const absolutePath = resolve(projectRoot, path);
+		const exists = existsSync(absolutePath);
 
-  return results;
+		results.push({
+			path,
+			absolutePath,
+			exists,
+			type,
+		});
+
+		if (!exists && config.showWarnings) {
+			console.warn(
+				`⚠️  Avalon: ${type} directory '${path}' does not exist (resolved to: ${absolutePath}). ` +
+					`This directory will be skipped.`,
+			);
+		}
+	}
+
+	return results;
 }
 
 /**
@@ -248,19 +240,16 @@ export function checkDirectoriesExist(
  * @param results - The directory check results
  * @param verbose - Whether to log verbose output
  */
-export function logDirectoryCheckSummary(
-  results: DirectoryCheckResult[],
-  verbose: boolean
-): void {
-  const missing = results.filter((r) => !r.exists);
-  const existing = results.filter((r) => r.exists);
+export function logDirectoryCheckSummary(results: DirectoryCheckResult[], verbose: boolean): void {
+	const missing = results.filter((r) => !r.exists);
+	const existing = results.filter((r) => r.exists);
 
-  if (verbose) {
-    if (existing.length > 0) {
-      console.log(`   ✅ Found directories: ${existing.map((r) => r.path).join(", ")}`);
-    }
-    if (missing.length > 0) {
-      console.log(`   ⚠️  Missing directories: ${missing.map((r) => r.path).join(", ")}`);
-    }
-  }
+	if (verbose) {
+		if (existing.length > 0) {
+			console.log(`   ✅ Found directories: ${existing.map((r) => r.path).join(", ")}`);
+		}
+		if (missing.length > 0) {
+			console.log(`   ⚠️  Missing directories: ${missing.map((r) => r.path).join(", ")}`);
+		}
+	}
 }

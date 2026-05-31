@@ -1,10 +1,10 @@
-import { z } from 'zod';
-import type { ComponentType } from 'preact/compat';
+import type { ComponentType } from "preact/compat";
+import { z } from "zod";
 
 /**
  * Route Type Schema - Defines the different types of routes supported
  */
-export const RouteTypeSchema = z.enum(['static', 'dynamic', 'catch-all', 'index', 'group']);
+export const RouteTypeSchema = z.enum(["static", "dynamic", "catch-all", "index", "group"]);
 
 /**
  * File System Route Schema - Represents a discovered route from the file system
@@ -99,7 +99,7 @@ export const MetadataSchema = z.object({
 	/** Twitter Card data */
 	twitter: z
 		.object({
-			card: z.enum(['summary', 'summary_large_image', 'app', 'player']).optional(),
+			card: z.enum(["summary", "summary_large_image", "app", "player"]).optional(),
 			title: z.string().optional(),
 			description: z.string().optional(),
 			image: z.url().optional(),
@@ -135,7 +135,7 @@ export const MetadataChainSchema = z.object({
 		z.object({
 			path: z.string(),
 			metadata: MetadataSchema,
-		})
+		}),
 	),
 	/** Page-specific metadata */
 	page: MetadataSchema.optional(),
@@ -146,13 +146,13 @@ export const MetadataChainSchema = z.object({
  */
 export const RouteDiscoveryOptionsSchema = z.object({
 	/** Base directory to scan for pages */
-	pagesDirectory: z.string().min(1).default('src/pages'),
+	pagesDirectory: z.string().min(1).default("src/pages"),
 	/** Base directory to scan for API routes */
-	apiDirectory: z.string().min(1).default('src/api'),
+	apiDirectory: z.string().min(1).default("src/api"),
 	/** File extensions to include */
-	extensions: z.array(z.string()).default(['.tsx', '.ts', '.jsx', '.js']),
+	extensions: z.array(z.string()).default([".tsx", ".ts", ".jsx", ".js"]),
 	/** Directories to exclude from scanning */
-	excludeDirectories: z.array(z.string()).default(['node_modules', '.git']),
+	excludeDirectories: z.array(z.string()).default(["node_modules", ".git"]),
 	/** Enable file watching for development */
 	enableWatching: z.boolean().default(false),
 	/** Development mode features */
@@ -233,7 +233,7 @@ export const FileSystemApiRouteSchema = z.object({
 	/** File path to the API handler */
 	filePath: z.string().min(1),
 	/** HTTP methods supported */
-	methods: z.array(z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS'])),
+	methods: z.array(z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"])),
 	/** Route priority */
 	priority: z.number().int().min(0),
 	/** Dynamic segments */
@@ -346,31 +346,31 @@ export function isFileSystemApiModule(data: unknown): data is FileSystemApiModul
 // === Re-exports from types/routing.ts (single source of truth) ===
 
 export type {
-	ExtractRouteParams,
+	CountDynamicSegments,
 	ExtractOptionalParams,
+	ExtractRouteParams,
+	HasCatchAllSegments,
+	HasDynamicSegments,
+	HasOptionalSegments,
+	PageComponentProps,
 	RouteParameters,
-	TypedPageComponent,
-	TypedPageComponentWithData,
-	TypedMetadataGenerator,
-	TypedPageLoader,
 	TypedApiHandler,
 	TypedApiModule,
-	HasDynamicSegments,
-	HasCatchAllSegments,
-	HasOptionalSegments,
-	CountDynamicSegments,
-	ValidRoutePattern,
+	TypedMetadataGenerator,
+	TypedPageComponent,
+	TypedPageComponentWithData,
+	TypedPageLoader,
 	ValidRouteExtension,
-	PageComponentProps,
-} from '../types/routing.ts';
+	ValidRoutePattern,
+} from "../types/routing.ts";
 
 export {
-	isValidRouteParams,
+	createTypedApiHandler,
+	createTypedMetadataGenerator,
+	createTypedPageComponent,
+	createTypedPageLoader,
 	isValidPageProps,
+	isValidRouteParams,
 	isValidRoutePattern,
 	validatePageComponent,
-	createTypedPageComponent,
-	createTypedMetadataGenerator,
-	createTypedPageLoader,
-	createTypedApiHandler,
-} from '../types/routing.ts';
+} from "../types/routing.ts";

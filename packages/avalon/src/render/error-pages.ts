@@ -9,19 +9,19 @@
  * Escapes HTML special characters
  */
 function escapeHtml(str: string): string {
-  return str
-    .replaceAll('&', "&amp;")
-    .replaceAll('<', "&lt;")
-    .replaceAll('>', "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll('\'', "&#039;");
+	return str
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;")
+		.replaceAll("'", "&#039;");
 }
 
 /**
  * Generates a styled 500 error page for development with stack trace.
  */
 export function generateErrorPage(error: Error): string {
-  return `<!DOCTYPE html>
+	return `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -61,10 +61,14 @@ export function generateErrorPage(error: Error): string {
     <div class="error-container">
       <h1>SSR Error</h1>
       <p class="message">${escapeHtml(error.message)}</p>
-      ${error.stack ? `
+      ${
+				error.stack
+					? `
       <div class="stack-title">Stack Trace</div>
       <pre>${escapeHtml(error.stack)}</pre>
-      ` : ""}
+      `
+					: ""
+			}
     </div>
     <script type="module" src="/@vite/client"></script>
   </body>
@@ -75,5 +79,5 @@ export function generateErrorPage(error: Error): string {
  * Generates a minimal fallback 404 page when the error handler itself fails.
  */
 export function generateFallback404(url: string): string {
-  return `<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>404 - Page Not Found</h1><p>The page ${escapeHtml(url)} was not found.</p></body></html>`;
+	return `<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>404 - Page Not Found</h1><p>The page ${escapeHtml(url)} was not found.</p></body></html>`;
 }

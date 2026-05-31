@@ -1,19 +1,19 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
-	extractChunks,
-	findDuplicatedModules,
-	findDevOnlyModules,
-	generateAuditReport,
-	formatKiB,
-	formatAuditReport,
 	auditBuildConfig,
+	type BenchmarkBaseline,
+	type BundleAsset,
 	bundleAuditPlugin,
+	type ChunkInfo,
 	compareBenchmarkBaseline,
 	DEFAULT_CHUNK_THRESHOLD,
 	DEFAULT_TOTAL_THRESHOLD,
-	type ChunkInfo,
-	type BundleAsset,
-	type BenchmarkBaseline,
+	extractChunks,
+	findDevOnlyModules,
+	findDuplicatedModules,
+	formatAuditReport,
+	formatKiB,
+	generateAuditReport,
 } from "../bundle-audit.ts";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -522,7 +522,6 @@ describe("constants", () => {
 		expect(DEFAULT_TOTAL_THRESHOLD).toBe(20 * 1024);
 	});
 });
-
 
 // ─── compareBenchmarkBaseline ────────────────────────────────────────────────
 

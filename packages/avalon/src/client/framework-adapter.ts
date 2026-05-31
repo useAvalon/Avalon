@@ -157,23 +157,23 @@ export class AdapterRegistry {
 			throw new Error(`Adapter for framework ${framework} must have a name property`);
 		}
 
-		if (typeof adapter.canHandle !== 'function') {
+		if (typeof adapter.canHandle !== "function") {
 			throw new Error(`Adapter for framework ${framework} must implement canHandle method`);
 		}
 
-		if (typeof adapter.preserveState !== 'function') {
+		if (typeof adapter.preserveState !== "function") {
 			throw new Error(`Adapter for framework ${framework} must implement preserveState method`);
 		}
 
-		if (typeof adapter.update !== 'function') {
+		if (typeof adapter.update !== "function") {
 			throw new Error(`Adapter for framework ${framework} must implement update method`);
 		}
 
-		if (typeof adapter.restoreState !== 'function') {
+		if (typeof adapter.restoreState !== "function") {
 			throw new Error(`Adapter for framework ${framework} must implement restoreState method`);
 		}
 
-		if (typeof adapter.handleError !== 'function') {
+		if (typeof adapter.handleError !== "function") {
 			throw new Error(`Adapter for framework ${framework} must implement handleError method`);
 		}
 
@@ -271,7 +271,11 @@ export abstract class BaseFrameworkAdapter implements FrameworkHMRAdapter {
 
 	abstract canHandle(component: unknown): boolean;
 
-	abstract update(island: HTMLElement, newComponent: unknown, props: Record<string, unknown>): Promise<void>;
+	abstract update(
+		island: HTMLElement,
+		newComponent: unknown,
+		props: Record<string, unknown>,
+	): Promise<void>;
 
 	/**
 	 * Default state preservation implementation
@@ -319,8 +323,8 @@ export abstract class BaseFrameworkAdapter implements FrameworkHMRAdapter {
 		console.error(`HMR error in ${this.name} island:`, error);
 
 		// Add error indicator
-		const errorIndicator = document.createElement('div');
-		errorIndicator.className = 'hmr-error-indicator';
+		const errorIndicator = document.createElement("div");
+		errorIndicator.className = "hmr-error-indicator";
 		errorIndicator.style.cssText = `
       position: absolute;
       top: 0;
@@ -337,27 +341,27 @@ export abstract class BaseFrameworkAdapter implements FrameworkHMRAdapter {
 		errorIndicator.textContent = `HMR Error: ${error.message}`;
 
 		// Remove existing error indicators
-		const existing = island.querySelector('.hmr-error-indicator');
+		const existing = island.querySelector(".hmr-error-indicator");
 		if (existing) {
 			existing.remove();
 		}
 
-		island.style.position = 'relative';
+		island.style.position = "relative";
 		island.insertBefore(errorIndicator, island.firstChild);
 
 		// Mark island as having error
-		island.setAttribute('data-hmr-error', 'true');
-		island.setAttribute('data-hmr-error-message', error.message);
+		island.setAttribute("data-hmr-error", "true");
+		island.setAttribute("data-hmr-error-message", error.message);
 	}
 
 	/**
 	 * Capture DOM state (scroll, focus, form values)
 	 */
-	protected captureDOMState(island: HTMLElement): StateSnapshot['dom'] {
-		const dom: StateSnapshot['dom'] = {};
+	protected captureDOMState(island: HTMLElement): StateSnapshot["dom"] {
+		const dom: StateSnapshot["dom"] = {};
 
 		// Capture scroll position
-		const scrollableElements = island.querySelectorAll('[data-preserve-scroll]');
+		const scrollableElements = island.querySelectorAll("[data-preserve-scroll]");
 		if (scrollableElements.length > 0 || island.scrollTop > 0 || island.scrollLeft > 0) {
 			dom.scrollPosition = {
 				x: island.scrollLeft,
@@ -375,14 +379,14 @@ export abstract class BaseFrameworkAdapter implements FrameworkHMRAdapter {
 		}
 
 		// Capture form values
-		const formElements = island.querySelectorAll('input, textarea, select');
+		const formElements = island.querySelectorAll("input, textarea, select");
 		if (formElements.length > 0) {
 			dom.formValues = {};
 			formElements.forEach((element, index) => {
 				const input = element as HTMLInputElement;
 				const name = input.name || input.id || `element-${index}`;
 
-				if (input.type === 'checkbox' || input.type === 'radio') {
+				if (input.type === "checkbox" || input.type === "radio") {
 					dom.formValues![name] = input.checked;
 				} else {
 					dom.formValues![name] = input.value;
@@ -396,7 +400,7 @@ export abstract class BaseFrameworkAdapter implements FrameworkHMRAdapter {
 	/**
 	 * Restore DOM state (scroll, focus, form values)
 	 */
-	protected restoreDOMState(island: HTMLElement, dom: StateSnapshot['dom']): void {
+	protected restoreDOMState(island: HTMLElement, dom: StateSnapshot["dom"]): void {
 		if (!dom) return;
 
 		// Restore scroll position
@@ -409,24 +413,24 @@ export abstract class BaseFrameworkAdapter implements FrameworkHMRAdapter {
 		if (dom.focusedElement) {
 			try {
 				const element = island.querySelector(dom.focusedElement) as HTMLElement;
-				if (element && typeof element.focus === 'function') {
+				if (element && typeof element.focus === "function") {
 					element.focus();
 				}
 			} catch (error) {
-				console.warn('Failed to restore focus:', error);
+				console.warn("Failed to restore focus:", error);
 			}
 		}
 
 		// Restore form values
 		if (dom.formValues) {
-			const formElements = island.querySelectorAll('input, textarea, select');
+			const formElements = island.querySelectorAll("input, textarea, select");
 			formElements.forEach((element, index) => {
 				const input = element as HTMLInputElement;
 				const name = input.name || input.id || `element-${index}`;
 				const value = dom.formValues![name];
 
 				if (value !== undefined) {
-					if (input.type === 'checkbox' || input.type === 'radio') {
+					if (input.type === "checkbox" || input.type === "radio") {
 						input.checked = value as boolean;
 					} else {
 						input.value = value as string;
@@ -445,7 +449,7 @@ export abstract class BaseFrameworkAdapter implements FrameworkHMRAdapter {
 		}
 
 		// Check if element has name attribute (for form elements)
-		const nameAttr = element.getAttribute('name');
+		const nameAttr = element.getAttribute("name");
 		if (nameAttr) {
 			return `[name="${nameAttr}"]`;
 		}

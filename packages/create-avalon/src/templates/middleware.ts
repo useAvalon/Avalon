@@ -1,4 +1,4 @@
-import type { ProjectConfig } from '../types';
+import type { ProjectConfig } from "../types";
 
 export function generateSampleMiddleware(_config: ProjectConfig): string {
 	return `import { defineHandler } from 'nitro';

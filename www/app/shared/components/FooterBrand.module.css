@@ -1,30 +1,30 @@
 .wrap {
-  position: relative;
-  width: 100%;
-  overflow: hidden;
-  line-height: 0.85;
-  pointer-events: none;
-  user-select: none;
+	position: relative;
+	width: 100%;
+	overflow: hidden;
+	line-height: 0.85;
+	pointer-events: none;
+	user-select: none;
 }
 
 .text {
-  display: block;
-  font-family: var(--font-sans);
-  font-size: clamp(100px, 24vw, 260px);
-  font-weight: 800;
-  letter-spacing: -0.04em;
-  line-height: 0.85;
-  text-align: center;
-  paint-order: stroke fill;
-  color: var(--avalon-black);
-  -webkit-text-stroke: 2px rgba(31, 106, 211, 0.5);
+	display: block;
+	font-family: var(--font-sans);
+	font-size: clamp(100px, 24vw, 260px);
+	font-weight: 800;
+	letter-spacing: -0.04em;
+	line-height: 0.85;
+	text-align: center;
+	paint-order: stroke fill;
+	color: var(--avalon-black);
+	-webkit-text-stroke: 2px rgba(31, 106, 211, 0.5);
 }
 
 .canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  mix-blend-mode: screen;
-  pointer-events: none;
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	mix-blend-mode: screen;
+	pointer-events: none;
 }

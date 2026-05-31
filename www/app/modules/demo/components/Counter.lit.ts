@@ -1,10 +1,10 @@
-import { LitElement, html, css } from 'lit';
-import { customElement, state } from 'lit/decorators.js';
-import { defineLitIsland } from '@useavalon/lit/island';
+import { defineLitIsland } from "@useavalon/lit/island";
+import { css, html, LitElement } from "lit";
+import { customElement, state } from "lit/decorators.js";
 
-@customElement('lit-counter')
+@customElement("lit-counter")
 export class LitCounter extends LitElement {
-  static styles = css`
+	static styles = css`
     :host {
       display: flex;
       flex-direction: column;
@@ -122,49 +122,52 @@ export class LitCounter extends LitElement {
     .time-pending { color: #6b7280; text-align: right; }
   `;
 
-  @state() count = 0;
-  @state() hydrated = false;
-  @state() loadTime: number | null = null;
-  @state() fileSize: string | null = null;
+	@state() count = 0;
+	@state() hydrated = false;
+	@state() loadTime: number | null = null;
+	@state() fileSize: string | null = null;
 
-  override connectedCallback() {
-    super.connectedCallback();
-    if (!this.hasAttribute('defer-hydration')) {
-      this._activate();
-    }
-  }
+	override connectedCallback() {
+		super.connectedCallback();
+		if (!this.hasAttribute("defer-hydration")) {
+			this._activate();
+		}
+	}
 
-  override attributeChangedCallback(name: string, old: string | null, value: string | null) {
-    super.attributeChangedCallback(name, old, value);
-    if (name === 'defer-hydration' && value === null && !this.hydrated) {
-      this.updateComplete.then(() => this._activate());
-    }
-  }
+	override attributeChangedCallback(name: string, old: string | null, value: string | null) {
+		super.attributeChangedCallback(name, old, value);
+		if (name === "defer-hydration" && value === null && !this.hydrated) {
+			this.updateComplete.then(() => this._activate());
+		}
+	}
 
-  private _activate() {
-    this.hydrated = true;
-    setTimeout(() => {
-      const entries = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
-      const entry = entries.find(e =>
-        e.name.includes('Counter.lit') &&
-        (e.initiatorType === 'script' || e.initiatorType === 'fetch' || e.initiatorType === 'other')
-      );
-      if (entry) {
-        this.loadTime = Math.round(entry.responseEnd - entry.startTime);
-        const bytes = entry.transferSize || entry.encodedBodySize || 0;
-        this.fileSize = bytes > 1024 ? `${(bytes / 1024).toFixed(1)} kB` : `${bytes} B`;
-      } else {
-        this.loadTime = 18;
-        this.fileSize = '4.1 kB';
-      }
-    }, 50);
-  }
+	private _activate() {
+		this.hydrated = true;
+		setTimeout(() => {
+			const entries = performance.getEntriesByType("resource") as PerformanceResourceTiming[];
+			const entry = entries.find(
+				(e) =>
+					e.name.includes("Counter.lit") &&
+					(e.initiatorType === "script" ||
+						e.initiatorType === "fetch" ||
+						e.initiatorType === "other"),
+			);
+			if (entry) {
+				this.loadTime = Math.round(entry.responseEnd - entry.startTime);
+				const bytes = entry.transferSize || entry.encodedBodySize || 0;
+				this.fileSize = bytes > 1024 ? `${(bytes / 1024).toFixed(1)} kB` : `${bytes} B`;
+			} else {
+				this.loadTime = 18;
+				this.fileSize = "4.1 kB";
+			}
+		}, 50);
+	}
 
-  override render() {
-    return html`
+	override render() {
+		return html`
       <div class="header">
         <span class="label">Lit Island</span>
-        <span class="badge" style="visibility: ${this.hydrated ? 'visible' : 'hidden'}">Interactive</span>
+        <span class="badge" style="visibility: ${this.hydrated ? "visible" : "hidden"}">Interactive</span>
       </div>
 
       <div class="content">
@@ -185,16 +188,16 @@ export class LitCounter extends LitElement {
         </div>
         <div class="network-body">
           <div class="network-row">
-            <span class=${this.hydrated ? 'status' : 'pending'}>${this.hydrated ? '200' : 'pending'}</span>
-            <span class=${this.hydrated ? 'file' : 'file-pending'}>Counter.lit.ts</span>
+            <span class=${this.hydrated ? "status" : "pending"}>${this.hydrated ? "200" : "pending"}</span>
+            <span class=${this.hydrated ? "file" : "file-pending"}>Counter.lit.ts</span>
             <span class="type">script</span>
-            <span class=${this.hydrated ? 'size' : 'size-pending'}>${this.hydrated ? (this.fileSize ?? '...') : '—'}</span>
-            <span class=${this.hydrated ? 'time' : 'time-pending'}>${this.hydrated ? `${this.loadTime ?? '...'}ms` : '—'}</span>
+            <span class=${this.hydrated ? "size" : "size-pending"}>${this.hydrated ? (this.fileSize ?? "...") : "—"}</span>
+            <span class=${this.hydrated ? "time" : "time-pending"}>${this.hydrated ? `${this.loadTime ?? "..."}ms` : "—"}</span>
           </div>
         </div>
       </div>
     `;
-  }
+	}
 }
 
 export default defineLitIsland(LitCounter);

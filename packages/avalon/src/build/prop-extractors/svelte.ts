@@ -60,8 +60,7 @@ function extractScriptContent(source: string): string | null {
 function extractFromDollarProps(scriptContent: string): string | null {
 	// Match: let <binding> : <type> = $props()
 	// The binding can be `{ ... }` (destructuring) or a simple identifier
-	const propsCallRegex =
-		/let\s+(?:\{[^}]*\}|\w+)\s*:\s*([\s\S]*?)\s*=\s*\$props\s*\(\s*\)/;
+	const propsCallRegex = /let\s+(?:\{[^}]*\}|\w+)\s*:\s*([\s\S]*?)\s*=\s*\$props\s*\(\s*\)/;
 	const match = new RegExp(propsCallRegex).exec(scriptContent);
 	if (!match) {
 		return null;
@@ -76,9 +75,7 @@ function extractFromDollarProps(scriptContent: string): string | null {
 	if (typeAnnotation.startsWith("{")) {
 		// Validate balanced braces
 		if (!areBracesBalanced(typeAnnotation)) {
-			console.warn(
-				"[avalon] Unbalanced braces in Svelte $props() type — falling back",
-			);
+			console.warn("[avalon] Unbalanced braces in Svelte $props() type — falling back");
 			return null;
 		}
 		return typeAnnotation;
@@ -92,14 +89,9 @@ function extractFromDollarProps(scriptContent: string): string | null {
  * Resolve a named type (interface or type alias) from the script content.
  * Returns the body as a type literal string, or null if not found.
  */
-function resolveNamedType(
-	scriptContent: string,
-	typeName: string,
-): string | null {
+function resolveNamedType(scriptContent: string, typeName: string): string | null {
 	// Try interface first: `interface TypeName { ... }`
-	const interfaceRegex = new RegExp(
-		String.raw`interface\s+${escapeRegex(typeName)}\s*\{`,
-	);
+	const interfaceRegex = new RegExp(String.raw`interface\s+${escapeRegex(typeName)}\s*\{`);
 	const interfaceMatch = interfaceRegex.exec(scriptContent);
 	if (interfaceMatch) {
 		const startIdx = interfaceMatch.index + interfaceMatch[0].length - 1; // position of `{`
@@ -110,13 +102,10 @@ function resolveNamedType(
 	}
 
 	// Try type alias: `type TypeName = { ... }`
-	const typeAliasRegex = new RegExp(
-		String.raw`type\s+${escapeRegex(typeName)}\s*=\s*\{`,
-	);
+	const typeAliasRegex = new RegExp(String.raw`type\s+${escapeRegex(typeName)}\s*=\s*\{`);
 	const typeAliasMatch = typeAliasRegex.exec(scriptContent);
 	if (typeAliasMatch) {
-		const startIdx =
-			typeAliasMatch.index + typeAliasMatch[0].length - 1; // position of `{`
+		const startIdx = typeAliasMatch.index + typeAliasMatch[0].length - 1; // position of `{`
 		const body = extractBalancedBraces(scriptContent, startIdx);
 		if (body !== null) {
 			return body;
@@ -160,9 +149,12 @@ function extractBalancedBraces(source: string, startIdx: number): string | null 
 function extractFromExportLet(scriptContent: string): string | null {
 	const exportLetRegex = /export\s+let\s+(\w+)\s*:\s*([^;=]+)/g;
 	const props: string[] = [];
-	let match: RegExpExecArray | null;
 
-	while ((match = exportLetRegex.exec(scriptContent)) !== null) {
+	for (
+		let match = exportLetRegex.exec(scriptContent);
+		match !== null;
+		match = exportLetRegex.exec(scriptContent)
+	) {
 		const name = match[1].trim();
 		const type = match[2].trim();
 		if (name && type) {

@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
-import { LayoutCacheManager, defaultCacheConfig } from '../layout-cache-manager.ts';
-import type { ResolvedLayout, LayoutHandler, LayoutData } from '../../../types/layout.ts';
+import { describe, expect, it } from "vitest";
+import type { LayoutData, LayoutHandler, ResolvedLayout } from "../../../types/layout.ts";
+import { defaultCacheConfig, LayoutCacheManager } from "../layout-cache-manager.ts";
 
-describe('LayoutCacheManager - Intelligent Invalidation', () => {
-	it('should cache and invalidate by file path', () => {
+describe("LayoutCacheManager - Intelligent Invalidation", () => {
+	it("should cache and invalidate by file path", () => {
 		const cacheManager = new LayoutCacheManager({
 			...defaultCacheConfig,
 			enableStats: true,
@@ -24,18 +24,18 @@ describe('LayoutCacheManager - Intelligent Invalidation', () => {
 
 		const layoutHandler: LayoutHandler = {
 			component: () => null,
-			path: '/test/layout.tsx',
+			path: "/test/layout.tsx",
 			priority: 10,
 		};
 
 		const layoutData: LayoutData = {
-			title: 'Test Layout',
-			description: 'Test description',
+			title: "Test Layout",
+			description: "Test description",
 		};
 
-		const routeKey = '/test/route:/test/layout.tsx';
-		const handlerKey = '/test/layout.tsx';
-		const dataKey = '/test/layout.tsx:data';
+		const routeKey = "/test/route:/test/layout.tsx";
+		const handlerKey = "/test/layout.tsx";
+		const dataKey = "/test/layout.tsx:data";
 
 		cacheManager.setResolvedLayout(routeKey, resolvedLayout);
 		cacheManager.setLayoutHandler(handlerKey, layoutHandler);
@@ -49,9 +49,9 @@ describe('LayoutCacheManager - Intelligent Invalidation', () => {
 		expect(cachedHandler).toBeDefined();
 		expect(cachedData).toBeDefined();
 
-		cacheManager.addDependency(routeKey, '/test/layout.tsx');
+		cacheManager.addDependency(routeKey, "/test/layout.tsx");
 
-		const invalidatedCount = cacheManager.invalidateByFilePath('/test/layout.tsx');
+		const invalidatedCount = cacheManager.invalidateByFilePath("/test/layout.tsx");
 		expect(invalidatedCount >= 1).toEqual(true);
 
 		const invalidatedLayout = cacheManager.getResolvedLayout(routeKey);
@@ -59,18 +59,18 @@ describe('LayoutCacheManager - Intelligent Invalidation', () => {
 
 		const stats = cacheManager.getStats();
 		expect(stats).toBeDefined();
-		expect(typeof stats.hits).toEqual('number');
-		expect(typeof stats.misses).toEqual('number');
+		expect(typeof stats.hits).toEqual("number");
+		expect(typeof stats.misses).toEqual("number");
 
 		const hitRate = cacheManager.getHitRate();
-		expect(typeof hitRate).toEqual('number');
+		expect(typeof hitRate).toEqual("number");
 
 		cacheManager.destroy();
 	});
 });
 
-describe('LayoutCacheManager - LRU Eviction', () => {
-	it('should evict least recently used entries', () => {
+describe("LayoutCacheManager - LRU Eviction", () => {
+	it("should evict least recently used entries", () => {
 		const cacheManager = new LayoutCacheManager({
 			...defaultCacheConfig,
 			maxEntries: 3,
@@ -89,18 +89,18 @@ describe('LayoutCacheManager - LRU Eviction', () => {
 			},
 		});
 
-		cacheManager.setResolvedLayout('route1', createResolvedLayout('1'));
-		cacheManager.setResolvedLayout('route2', createResolvedLayout('2'));
-		cacheManager.setResolvedLayout('route3', createResolvedLayout('3'));
+		cacheManager.setResolvedLayout("route1", createResolvedLayout("1"));
+		cacheManager.setResolvedLayout("route2", createResolvedLayout("2"));
+		cacheManager.setResolvedLayout("route3", createResolvedLayout("3"));
 
-		cacheManager.getResolvedLayout('route1');
+		cacheManager.getResolvedLayout("route1");
 
-		cacheManager.setResolvedLayout('route4', createResolvedLayout('4'));
+		cacheManager.setResolvedLayout("route4", createResolvedLayout("4"));
 
-		const route1 = cacheManager.getResolvedLayout('route1');
-		const route2 = cacheManager.getResolvedLayout('route2');
-		const route3 = cacheManager.getResolvedLayout('route3');
-		const route4 = cacheManager.getResolvedLayout('route4');
+		const route1 = cacheManager.getResolvedLayout("route1");
+		const route2 = cacheManager.getResolvedLayout("route2");
+		const route3 = cacheManager.getResolvedLayout("route3");
+		const route4 = cacheManager.getResolvedLayout("route4");
 
 		expect(route1).toBeDefined();
 		expect(route2).toEqual(null);
@@ -111,8 +111,8 @@ describe('LayoutCacheManager - LRU Eviction', () => {
 	});
 });
 
-describe('LayoutCacheManager - Performance Metrics', () => {
-	it('should track hits and misses', () => {
+describe("LayoutCacheManager - Performance Metrics", () => {
+	it("should track hits and misses", () => {
 		const cacheManager = new LayoutCacheManager({
 			...defaultCacheConfig,
 			enableStats: true,
@@ -130,11 +130,11 @@ describe('LayoutCacheManager - Performance Metrics', () => {
 			},
 		};
 
-		const miss = cacheManager.getResolvedLayout('nonexistent');
+		const miss = cacheManager.getResolvedLayout("nonexistent");
 		expect(miss).toEqual(null);
 
-		cacheManager.setResolvedLayout('test', resolvedLayout);
-		const hit = cacheManager.getResolvedLayout('test');
+		cacheManager.setResolvedLayout("test", resolvedLayout);
+		const hit = cacheManager.getResolvedLayout("test");
 		expect(hit).toBeDefined();
 
 		const stats = cacheManager.getStats();

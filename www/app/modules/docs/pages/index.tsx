@@ -1,5 +1,5 @@
 export const layoutConfig = {
-	skipLayouts: ['_layout'],
+	skipLayouts: ["_layout"],
 };
 
 export default function DocsIndex() {
@@ -11,7 +11,9 @@ export default function DocsIndex() {
 				<title>Redirecting…</title>
 			</head>
 			<body>
-				<p>Redirecting to <a href="/docs/introduction">Introduction</a>…</p>
+				<p>
+					Redirecting to <a href="/docs/introduction">Introduction</a>…
+				</p>
 			</body>
 		</html>
 	);

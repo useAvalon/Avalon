@@ -1,10 +1,19 @@
-import { defineConfig } from 'vite';
-import { resolve } from 'node:path';
-import { readdir } from 'node:fs/promises';
-import type { UserConfig } from 'vite';
-import { detectUsedIntegrations, getRequiredIntegrations } from './src/build/integration-detection-plugin.ts';
-import { integrationResolverPlugin, createIntegrationAliases } from './src/build/integration-resolver-plugin.ts';
-import { integrationBundlerPlugin, getIntegrationSSRNoExternal } from './src/build/integration-bundler-plugin.ts';
+import { readdir } from "node:fs/promises";
+import { resolve } from "node:path";
+import type { UserConfig } from "vite";
+import { defineConfig } from "vite";
+import {
+	getIntegrationSSRNoExternal,
+	integrationBundlerPlugin,
+} from "./src/build/integration-bundler-plugin.ts";
+import {
+	detectUsedIntegrations,
+	getRequiredIntegrations,
+} from "./src/build/integration-detection-plugin.ts";
+import {
+	createIntegrationAliases,
+	integrationResolverPlugin,
+} from "./src/build/integration-resolver-plugin.ts";
 
 /**
  * Vite configuration for SSR builds
@@ -15,20 +24,27 @@ export default defineConfig(async (): Promise<UserConfig> => {
 	const usedIntegrations = await detectUsedIntegrations();
 	const requiredIntegrations = getRequiredIntegrations(usedIntegrations);
 
-	console.log(`🔧 Configuring SSR build for integrations: ${requiredIntegrations.join(', ') || 'none'}`);
+	console.log(
+		`🔧 Configuring SSR build for integrations: ${requiredIntegrations.join(", ") || "none"}`,
+	);
 
 	// Discover island entries for SSR
 	const islandEntries: Record<string, string> = {};
 	const cwd = process.cwd();
 
 	try {
-		const islandsPath = resolve(cwd, 'islands');
+		const islandsPath = resolve(cwd, "islands");
 		const dirEntries = await readdir(islandsPath, { withFileTypes: true });
 		for (const dirEntry of dirEntries) {
 			if (dirEntry.isFile()) {
 				const name = dirEntry.name;
-				if (name.endsWith('.tsx') || name.endsWith('.jsx') || name.endsWith('.vue') || name.endsWith('.svelte')) {
-					const baseName = name.replace(/\.(tsx|jsx|vue|svelte)$/, '');
+				if (
+					name.endsWith(".tsx") ||
+					name.endsWith(".jsx") ||
+					name.endsWith(".vue") ||
+					name.endsWith(".svelte")
+				) {
+					const baseName = name.replace(/\.(tsx|jsx|vue|svelte)$/, "");
 					islandEntries[`islands/${baseName}`] = resolve(islandsPath, name);
 				}
 			}
@@ -41,27 +57,27 @@ export default defineConfig(async (): Promise<UserConfig> => {
 	const frameworkPlugins = [];
 
 	// Vue SSR plugin
-	if (requiredIntegrations.includes('vue')) {
+	if (requiredIntegrations.includes("vue")) {
 		try {
-			const { default: vue } = await import('@vitejs/plugin-vue');
+			const { default: vue } = await import("@vitejs/plugin-vue");
 			frameworkPlugins.push(
 				vue({
 					template: {
 						compilerOptions: {
-							isCustomElement: (tag: string) => tag === 'avalon-island',
+							isCustomElement: (tag: string) => tag === "avalon-island",
 						},
 					},
 				}),
 			);
 		} catch {
-			console.warn('⚠️ Vue plugin not available for SSR build');
+			console.warn("⚠️ Vue plugin not available for SSR build");
 		}
 	}
 
 	// Solid SSR plugin
-	if (requiredIntegrations.includes('solid')) {
+	if (requiredIntegrations.includes("solid")) {
 		try {
-			const { default: solid } = await import('vite-plugin-solid');
+			const { default: solid } = await import("vite-plugin-solid");
 			frameworkPlugins.push(
 				solid({
 					ssr: true,
@@ -69,32 +85,32 @@ export default defineConfig(async (): Promise<UserConfig> => {
 				}),
 			);
 		} catch {
-			console.warn('⚠️ Solid plugin not available for SSR build');
+			console.warn("⚠️ Solid plugin not available for SSR build");
 		}
 	}
 
 	// Svelte SSR plugin
-	if (requiredIntegrations.includes('svelte')) {
+	if (requiredIntegrations.includes("svelte")) {
 		try {
-			const { svelte } = await import('@sveltejs/vite-plugin-svelte');
+			const { svelte } = await import("@sveltejs/vite-plugin-svelte");
 			frameworkPlugins.push(
 				svelte({
 					compilerOptions: {
 						customElement: false,
 						runes: true,
-						css: 'injected',
+						css: "injected",
 						dev: false, // Explicitly disable dev mode for SSR
 					},
 					hot: false, // Disable hot reload for SSR build
 				}),
 			);
 		} catch {
-			console.warn('⚠️ Svelte plugin not available for SSR build');
+			console.warn("⚠️ Svelte plugin not available for SSR build");
 		}
 	}
 
 	return {
-		root: '.',
+		root: ".",
 		publicDir: false, // No public dir for SSR build
 
 		plugins: [
@@ -106,7 +122,7 @@ export default defineConfig(async (): Promise<UserConfig> => {
 		],
 
 		build: {
-			outDir: 'dist/ssr',
+			outDir: "dist/ssr",
 			emptyOutDir: true,
 			ssr: true,
 			rolldownOptions: {
@@ -115,24 +131,24 @@ export default defineConfig(async (): Promise<UserConfig> => {
 					...islandEntries,
 				},
 				output: {
-					entryFileNames: '[name].js',
-					chunkFileNames: 'chunks/[name].[hash].js',
-					format: 'es',
+					entryFileNames: "[name].js",
+					chunkFileNames: "chunks/[name].[hash].js",
+					format: "es",
 				},
 			},
-			target: 'es2020',
+			target: "es2020",
 			minify: false, // Don't minify SSR code for better debugging
 		},
 
 		ssr: {
-			target: 'webworker',
+			target: "webworker",
 			noExternal: getIntegrationSSRNoExternal(requiredIntegrations),
 		},
 
 		resolve: {
 			alias: {
-				'@/': resolve('./src/'),
-				'~/': resolve('../../'),
+				"@/": resolve("./src/"),
+				"~/": resolve("../../"),
 				// Integration package aliases
 				...createIntegrationAliases(),
 			},

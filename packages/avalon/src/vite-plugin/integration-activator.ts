@@ -6,22 +6,22 @@
  * the appropriate integration packages.
  */
 
-import type { IntegrationName, ResolvedAvalonConfig } from "./types.ts";
 import { loadIntegration } from "../islands/integration-loader.ts";
 import { IntegrationError } from "./errors.ts";
+import type { IntegrationName, ResolvedAvalonConfig } from "./types.ts";
 
 /**
  * Valid integration names that can be activated
  * This array is used for validation and error messages
  */
 export const VALID_INTEGRATION_NAMES: readonly IntegrationName[] = [
-  "react",
-  "preact",
-  "vue",
-  "svelte",
-  "solid",
-  "lit",
-  "qwik",
+	"react",
+	"preact",
+	"vue",
+	"svelte",
+	"solid",
+	"lit",
+	"qwik",
 ] as const;
 
 /**
@@ -31,7 +31,7 @@ export const VALID_INTEGRATION_NAMES: readonly IntegrationName[] = [
  * @returns True if the name is a valid IntegrationName
  */
 export function isValidIntegrationName(name: string): name is IntegrationName {
-  return VALID_INTEGRATION_NAMES.includes(name as IntegrationName);
+	return VALID_INTEGRATION_NAMES.includes(name as IntegrationName);
 }
 
 /**
@@ -52,37 +52,37 @@ export function isValidIntegrationName(name: string): name is IntegrationName {
  * ```
  */
 export async function activateIntegrations(
-  config: ResolvedAvalonConfig,
-  activeIntegrations: Set<IntegrationName>
+	config: ResolvedAvalonConfig,
+	activeIntegrations: Set<IntegrationName>,
 ): Promise<void> {
-  const { integrations } = config;
+	const { integrations } = config;
 
-  // Load explicitly specified integrations
-  for (const name of integrations) {
-    // Validate integration name
-    if (!isValidIntegrationName(name)) {
-      throw new IntegrationError(
-        `Invalid integration name '${name}'. Valid integration names are: ${VALID_INTEGRATION_NAMES.join(", ")}`,
-        name
-      );
-    }
+	// Load explicitly specified integrations
+	for (const name of integrations) {
+		// Validate integration name
+		if (!isValidIntegrationName(name)) {
+			throw new IntegrationError(
+				`Invalid integration name '${name}'. Valid integration names are: ${VALID_INTEGRATION_NAMES.join(", ")}`,
+				name,
+			);
+		}
 
-    // Skip if already activated
-    if (activeIntegrations.has(name)) {
-      continue;
-    }
+		// Skip if already activated
+		if (activeIntegrations.has(name)) {
+			continue;
+		}
 
-    try {
-      await loadIntegration(name);
-      activeIntegrations.add(name);
-    } catch (error) {
-      throw new IntegrationError(
-        `Failed to activate integration. Is @useavalon/${name} installed?`,
-        name,
-        error as Error
-      );
-    }
-  }
+		try {
+			await loadIntegration(name);
+			activeIntegrations.add(name);
+		} catch (error) {
+			throw new IntegrationError(
+				`Failed to activate integration. Is @useavalon/${name} installed?`,
+				name,
+				error as Error,
+			);
+		}
+	}
 }
 
 /**
@@ -95,32 +95,32 @@ export async function activateIntegrations(
  * @throws IntegrationError if the name is invalid or loading fails
  */
 export async function activateSingleIntegration(
-  name: string,
-  activeIntegrations: Set<IntegrationName>,
-  _verbose: boolean = false
+	name: string,
+	activeIntegrations: Set<IntegrationName>,
+	_verbose: boolean = false,
 ): Promise<boolean> {
-  // Validate integration name
-  if (!isValidIntegrationName(name)) {
-    throw new IntegrationError(
-      `Invalid integration name '${name}'. Valid integration names are: ${VALID_INTEGRATION_NAMES.join(", ")}`,
-      name
-    );
-  }
+	// Validate integration name
+	if (!isValidIntegrationName(name)) {
+		throw new IntegrationError(
+			`Invalid integration name '${name}'. Valid integration names are: ${VALID_INTEGRATION_NAMES.join(", ")}`,
+			name,
+		);
+	}
 
-  // Skip if already activated
-  if (activeIntegrations.has(name)) {
-    return false;
-  }
+	// Skip if already activated
+	if (activeIntegrations.has(name)) {
+		return false;
+	}
 
-  try {
-    await loadIntegration(name);
-    activeIntegrations.add(name);
-    return true;
-  } catch (error) {
-    throw new IntegrationError(
-      `Failed to activate integration. Is @useavalon/${name} installed?`,
-      name,
-      error as Error
-    );
-  }
+	try {
+		await loadIntegration(name);
+		activeIntegrations.add(name);
+		return true;
+	} catch (error) {
+		throw new IntegrationError(
+			`Failed to activate integration. Is @useavalon/${name} installed?`,
+			name,
+			error as Error,
+		);
+	}
 }

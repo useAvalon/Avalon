@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { isSideEffectFreeModule, islandCodeSplittingPlugin } from "../island-code-splitting.ts";
+import { describe, expect, it } from "vitest";
 import type { ResolvedAvalonConfig } from "../../vite-plugin/types.ts";
+import { islandCodeSplittingPlugin, isSideEffectFreeModule } from "../island-code-splitting.ts";
 
 function makeConfig(overrides: Partial<ResolvedAvalonConfig> = {}): ResolvedAvalonConfig {
 	return {

@@ -5,7 +5,7 @@
  * validation utilities, and management of framework-specific detection patterns.
  */
 
-import type { FrameworkConfig } from './enhanced-framework-detector.ts';
+import type { FrameworkConfig } from "./enhanced-framework-detector.ts";
 
 export interface FrameworkRegistryConfig {
 	enableValidation: boolean;
@@ -31,7 +31,7 @@ export class FrameworkRegistry {
 		this.config = {
 			enableValidation: true,
 			allowCustomFrameworks: true,
-			defaultFramework: 'unknown',
+			defaultFramework: "unknown",
 			...config,
 		};
 
@@ -165,49 +165,57 @@ export class FrameworkRegistry {
 	}
 
 	/** Validate required top-level fields on a framework config */
-	private validateRequiredFields(config: FrameworkConfig, errors: string[], warnings: string[]): void {
-		if (!config.name || config.name.trim() === '') {
-			errors.push('Framework name is required and cannot be empty');
+	private validateRequiredFields(
+		config: FrameworkConfig,
+		errors: string[],
+		warnings: string[],
+	): void {
+		if (!config.name || config.name.trim() === "") {
+			errors.push("Framework name is required and cannot be empty");
 		}
 
 		if (!config.fileExtensions || config.fileExtensions.length === 0) {
-			errors.push('At least one file extension is required');
+			errors.push("At least one file extension is required");
 		} else {
 			for (const ext of config.fileExtensions) {
-				if (!ext.startsWith('.')) {
+				if (!ext.startsWith(".")) {
 					errors.push(`File extension '${ext}' must start with a dot`);
 				}
 			}
 		}
 
 		if (!config.jsxImportSources || config.jsxImportSources.length === 0) {
-			warnings.push('No JSX import sources defined - detection may be less accurate');
+			warnings.push("No JSX import sources defined - detection may be less accurate");
 		}
 
 		if (!config.ssrModules || config.ssrModules.length === 0) {
-			errors.push('At least one SSR module is required');
+			errors.push("At least one SSR module is required");
 		}
 
 		if (!config.hydrationModules || config.hydrationModules.length === 0) {
-			errors.push('At least one hydration module is required');
+			errors.push("At least one hydration module is required");
 		}
 	}
 
 	/** Validate the detectionPatterns sub-object */
-	private validateDetectionPatterns(config: FrameworkConfig, errors: string[], warnings: string[]): void {
+	private validateDetectionPatterns(
+		config: FrameworkConfig,
+		errors: string[],
+		warnings: string[],
+	): void {
 		if (!config.detectionPatterns) {
-			errors.push('Detection patterns are required');
+			errors.push("Detection patterns are required");
 			return;
 		}
 
 		if (!config.detectionPatterns.imports || config.detectionPatterns.imports.length === 0) {
-			errors.push('At least one import pattern is required for detection');
+			errors.push("At least one import pattern is required for detection");
 		}
 		if (!config.detectionPatterns.content || config.detectionPatterns.content.length === 0) {
-			warnings.push('No content patterns defined - detection may be less accurate');
+			warnings.push("No content patterns defined - detection may be less accurate");
 		}
 		if (!config.detectionPatterns.jsxPragmas || config.detectionPatterns.jsxPragmas.length === 0) {
-			warnings.push('No JSX pragmas defined - detection may be less accurate');
+			warnings.push("No JSX pragmas defined - detection may be less accurate");
 		}
 	}
 
@@ -225,22 +233,26 @@ export class FrameworkRegistry {
 
 			// Check for overlapping file extensions
 			if (existingConfig.fileExtensions) {
-				const overlappingExtensions = config.fileExtensions.filter(ext => existingConfig.fileExtensions.includes(ext));
+				const overlappingExtensions = config.fileExtensions.filter((ext) =>
+					existingConfig.fileExtensions.includes(ext),
+				);
 
 				if (overlappingExtensions.length > 0) {
-					warnings.push(`File extensions ${overlappingExtensions.join(', ')} overlap with framework '${existingName}'`);
+					warnings.push(
+						`File extensions ${overlappingExtensions.join(", ")} overlap with framework '${existingName}'`,
+					);
 				}
 			}
 
 			// Check for overlapping JSX import sources
 			if (existingConfig.jsxImportSources) {
-				const overlappingImportSources = config.jsxImportSources.filter(source =>
-					existingConfig.jsxImportSources.includes(source)
+				const overlappingImportSources = config.jsxImportSources.filter((source) =>
+					existingConfig.jsxImportSources.includes(source),
 				);
 
 				if (overlappingImportSources.length > 0) {
 					warnings.push(
-						`JSX import sources ${overlappingImportSources.join(', ')} overlap with framework '${existingName}'`
+						`JSX import sources ${overlappingImportSources.join(", ")} overlap with framework '${existingName}'`,
 					);
 				}
 			}
@@ -251,7 +263,7 @@ export class FrameworkRegistry {
 	 * Checks if a framework is a default framework
 	 */
 	private isDefaultFramework(name: string): boolean {
-		return ['preact', 'solid', 'vue', 'svelte', 'react', 'lit', 'qwik'].includes(name);
+		return ["preact", "solid", "vue", "svelte", "react", "lit", "qwik"].includes(name);
 	}
 
 	/**
@@ -271,11 +283,11 @@ export class FrameworkRegistry {
 	private getDefaultFrameworkConfigs(): Record<string, FrameworkConfig> {
 		return {
 			preact: {
-				name: 'preact',
-				fileExtensions: ['.tsx', '.jsx'],
-				jsxImportSources: ['preact'],
-				ssrModules: ['preact-render-to-string'],
-				hydrationModules: ['preact'],
+				name: "preact",
+				fileExtensions: [".tsx", ".jsx"],
+				jsxImportSources: ["preact"],
+				ssrModules: ["preact-render-to-string"],
+				hydrationModules: ["preact"],
 				detectionPatterns: {
 					imports: [/^preact$/, /^preact\//, /preact-render-to-string/],
 					content: [
@@ -289,15 +301,15 @@ export class FrameworkRegistry {
 						/from\s+['"]preact['"]/,
 						/import\s+.*\s+from\s+['"]preact['"]/,
 					],
-					jsxPragmas: ['@jsxImportSource preact'],
+					jsxPragmas: ["@jsxImportSource preact"],
 				},
 			},
 			solid: {
-				name: 'solid',
-				fileExtensions: ['.tsx', '.jsx'],
-				jsxImportSources: ['solid-js'],
-				ssrModules: ['solid-js/web'],
-				hydrationModules: ['solid-js/web'],
+				name: "solid",
+				fileExtensions: [".tsx", ".jsx"],
+				jsxImportSources: ["solid-js"],
+				ssrModules: ["solid-js/web"],
+				hydrationModules: ["solid-js/web"],
 				detectionPatterns: {
 					imports: [/^solid-js$/, /^solid-js\//, /solid-js\/web/, /solid-js\/store/],
 					content: [
@@ -313,15 +325,15 @@ export class FrameworkRegistry {
 						/from\s+['"]solid-js['"]/,
 						/import\s+.*\s+from\s+['"]solid-js['"]/,
 					],
-					jsxPragmas: ['@jsxImportSource solid-js'],
+					jsxPragmas: ["@jsxImportSource solid-js"],
 				},
 			},
 			vue: {
-				name: 'vue',
-				fileExtensions: ['.vue'],
-				jsxImportSources: ['vue'],
-				ssrModules: ['vue/server-renderer'],
-				hydrationModules: ['vue'],
+				name: "vue",
+				fileExtensions: [".vue"],
+				jsxImportSources: ["vue"],
+				ssrModules: ["vue/server-renderer"],
+				hydrationModules: ["vue"],
 				detectionPatterns: {
 					imports: [/^vue$/, /^@vue\//, /vue\/server-renderer/, /vue\/composition-api/],
 					content: [
@@ -338,17 +350,23 @@ export class FrameworkRegistry {
 						/from\s+['"]vue['"]/,
 						/import\s+.*\s+from\s+['"]vue['"]/,
 					],
-					jsxPragmas: ['@jsxImportSource vue'],
+					jsxPragmas: ["@jsxImportSource vue"],
 				},
 			},
 			svelte: {
-				name: 'svelte',
-				fileExtensions: ['.svelte'],
-				jsxImportSources: ['svelte'],
-				ssrModules: ['svelte/server'],
-				hydrationModules: ['svelte'],
+				name: "svelte",
+				fileExtensions: [".svelte"],
+				jsxImportSources: ["svelte"],
+				ssrModules: ["svelte/server"],
+				hydrationModules: ["svelte"],
 				detectionPatterns: {
-					imports: [/^svelte$/, /^svelte\//, /svelte\/store/, /svelte\/motion/, /svelte\/transition/],
+					imports: [
+						/^svelte$/,
+						/^svelte\//,
+						/svelte\/store/,
+						/svelte\/motion/,
+						/svelte\/transition/,
+					],
 					content: [
 						/<script>/,
 						/<style>/,
@@ -361,15 +379,15 @@ export class FrameworkRegistry {
 						/from\s+['"]svelte['"]/,
 						/import\s+.*\s+from\s+['"]svelte['"]/,
 					],
-					jsxPragmas: ['@jsxImportSource svelte'],
+					jsxPragmas: ["@jsxImportSource svelte"],
 				},
 			},
 			react: {
-				name: 'react',
-				fileExtensions: ['.jsx', '.tsx'],
-				jsxImportSources: ['react'],
-				ssrModules: ['react-dom/server'],
-				hydrationModules: ['react-dom/client'],
+				name: "react",
+				fileExtensions: [".jsx", ".tsx"],
+				jsxImportSources: ["react"],
+				ssrModules: ["react-dom/server"],
+				hydrationModules: ["react-dom/client"],
 				detectionPatterns: {
 					imports: [
 						/^react$/,
@@ -398,15 +416,15 @@ export class FrameworkRegistry {
 						/from\s+['"]react['"]/,
 						/import\s+.*\s+from\s+['"]react['"]/,
 					],
-					jsxPragmas: ['@jsxImportSource react'],
+					jsxPragmas: ["@jsxImportSource react"],
 				},
 			},
 			lit: {
-				name: 'lit',
-				fileExtensions: ['.ts', '.js'],
-				jsxImportSources: ['lit'],
-				ssrModules: ['@lit-labs/ssr'],
-				hydrationModules: ['lit'],
+				name: "lit",
+				fileExtensions: [".ts", ".js"],
+				jsxImportSources: ["lit"],
+				ssrModules: ["@lit-labs/ssr"],
+				hydrationModules: ["lit"],
 				detectionPatterns: {
 					imports: [
 						/^lit$/,
@@ -431,15 +449,15 @@ export class FrameworkRegistry {
 						/from\s+['"]lit['"]/,
 						/import\s+.*\s+from\s+['"]lit['"]/,
 					],
-					jsxPragmas: ['@jsxImportSource lit'],
+					jsxPragmas: ["@jsxImportSource lit"],
 				},
 			},
 			qwik: {
-				name: 'qwik',
-				fileExtensions: ['.tsx', '.jsx'],
-				jsxImportSources: ['@builder.io/qwik'],
-				ssrModules: ['@builder.io/qwik/server'],
-				hydrationModules: ['@builder.io/qwik'],
+				name: "qwik",
+				fileExtensions: [".tsx", ".jsx"],
+				jsxImportSources: ["@builder.io/qwik"],
+				ssrModules: ["@builder.io/qwik/server"],
+				hydrationModules: ["@builder.io/qwik"],
 				detectionPatterns: {
 					imports: [
 						/^@builder\.io\/qwik$/,
@@ -459,7 +477,7 @@ export class FrameworkRegistry {
 						/from\s+['"]@builder\.io\/qwik['"]/,
 						/import\s+.*\s+from\s+['"]@builder\.io\/qwik['"]/,
 					],
-					jsxPragmas: ['@jsxImportSource @builder.io/qwik'],
+					jsxPragmas: ["@jsxImportSource @builder.io/qwik"],
 				},
 			},
 		};
@@ -509,12 +527,22 @@ export class FrameworkRegistry {
 		customFrameworks: number;
 		supportedExtensions: string[];
 	} {
-		const defaultFrameworkNames = new Set(['preact', 'solid', 'vue', 'svelte', 'react', 'lit', 'qwik']);
-		const defaultCount = Array.from(this.frameworks.keys()).filter(name => defaultFrameworkNames.has(name)).length;
+		const defaultFrameworkNames = new Set([
+			"preact",
+			"solid",
+			"vue",
+			"svelte",
+			"react",
+			"lit",
+			"qwik",
+		]);
+		const defaultCount = Array.from(this.frameworks.keys()).filter((name) =>
+			defaultFrameworkNames.has(name),
+		).length;
 
 		const allExtensions = new Set<string>();
 		for (const config of this.frameworks.values()) {
-			config.fileExtensions.forEach(ext => allExtensions.add(ext));
+			config.fileExtensions.forEach((ext) => allExtensions.add(ext));
 		}
 
 		return {
@@ -544,7 +572,7 @@ export function createFrameworkConfig(
 		importPatterns: (string | RegExp)[];
 		contentPatterns?: (string | RegExp)[];
 		jsxPragmas?: string[];
-	}
+	},
 ): FrameworkConfig {
 	return {
 		name,
@@ -553,9 +581,11 @@ export function createFrameworkConfig(
 		ssrModules: options.ssrModules,
 		hydrationModules: options.hydrationModules,
 		detectionPatterns: {
-			imports: options.importPatterns.map(pattern => (typeof pattern === 'string' ? new RegExp(pattern) : pattern)),
-			content: (options.contentPatterns || []).map(pattern =>
-				typeof pattern === 'string' ? new RegExp(pattern) : pattern
+			imports: options.importPatterns.map((pattern) =>
+				typeof pattern === "string" ? new RegExp(pattern) : pattern,
+			),
+			content: (options.contentPatterns || []).map((pattern) =>
+				typeof pattern === "string" ? new RegExp(pattern) : pattern,
 			),
 			jsxPragmas: options.jsxPragmas || [],
 		},

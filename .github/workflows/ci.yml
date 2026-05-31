@@ -19,8 +19,7 @@ jobs:
         with:
           bun-version: latest
       - run: bun install
-      - run: bunx biome check .
-      - run: bunx biome format --check .
+      - run: bunx biome ci .
 
   test:
     name: Test

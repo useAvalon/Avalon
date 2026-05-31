@@ -3,7 +3,7 @@
  * GET /api/time
  */
 
-import { defineHandler } from 'nitro/h3';
+import { defineHandler } from "nitro/h3";
 
 export default defineHandler(() => {
 	const now = new Date();
@@ -17,6 +17,6 @@ export default defineHandler(() => {
 			time: now.toTimeString(),
 			locale: now.toLocaleString(),
 		},
-		server: 'Avalon/Nitro',
+		server: "Avalon/Nitro",
 	};
 });

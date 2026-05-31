@@ -12,20 +12,20 @@
  * Usage: bun run scripts/build-client.ts
  */
 
-import { readdir, readFile, writeFile } from 'node:fs/promises';
-import { join, relative } from 'node:path';
-import { transform } from 'oxc-transform';
+import { readdir, readFile, writeFile } from "node:fs/promises";
+import { join, relative } from "node:path";
+import { transform } from "oxc-transform";
 
-const CLIENT_DIR = join(import.meta.dir, '..', 'src', 'client');
+const CLIENT_DIR = join(import.meta.dir, "..", "src", "client");
 
 async function collectTSFiles(dir: string): Promise<string[]> {
 	const files: string[] = [];
 	for (const entry of await readdir(dir, { withFileTypes: true })) {
 		const fullPath = join(dir, entry.name);
 		if (entry.isDirectory()) {
-			if (entry.name === 'tests' || entry.name === 'types') continue;
+			if (entry.name === "tests" || entry.name === "types") continue;
 			files.push(...(await collectTSFiles(fullPath)));
-		} else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
+		} else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts")) {
 			files.push(fullPath);
 		}
 	}
@@ -34,16 +34,16 @@ async function collectTSFiles(dir: string): Promise<string[]> {
 
 function rewriteImportExtensions(code: string): string {
 	return code
-		.replaceAll(/(from\s+['"])([^'"]+)\.ts(['"])/g, '$1$2.js$3')
-		.replaceAll(/(import\s*\(\s*['"])([^'"]+)\.ts(['"]\s*\))/g, '$1$2.js$3')
-		.replaceAll(/(import\s+['"])([^'"]+)\.ts(['"])/g, '$1$2.js$3');
+		.replaceAll(/(from\s+['"])([^'"]+)\.ts(['"])/g, "$1$2.js$3")
+		.replaceAll(/(import\s*\(\s*['"])([^'"]+)\.ts(['"]\s*\))/g, "$1$2.js$3")
+		.replaceAll(/(import\s+['"])([^'"]+)\.ts(['"])/g, "$1$2.js$3");
 }
 
 const tsFiles = await collectTSFiles(CLIENT_DIR);
 console.log(`Compiling ${tsFiles.length} client files...`);
 
 for (const file of tsFiles) {
-	const code = await readFile(file, 'utf-8');
+	const code = await readFile(file, "utf-8");
 	const rel = relative(CLIENT_DIR, file);
 
 	const result = await transform(file, code, {
@@ -52,10 +52,10 @@ for (const file of tsFiles) {
 	});
 
 	const rewritten = rewriteImportExtensions(result.code);
-	const jsPath = file.replace(/\.ts$/, '.js');
-	await writeFile(jsPath, rewritten, 'utf-8');
+	const jsPath = file.replace(/\.ts$/, ".js");
+	await writeFile(jsPath, rewritten, "utf-8");
 
-	console.log(`  ✓ ${rel} → ${rel.replace(/\.ts$/, '.js')}`);
+	console.log(`  ✓ ${rel} → ${rel.replace(/\.ts$/, ".js")}`);
 }
 
-console.log('Done.');
+console.log("Done.");
