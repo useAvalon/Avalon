@@ -1294,6 +1294,11 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 		const url = getRequestURL(event);
 		const pathname = url.pathname;
 
+		// Skip server islands requests — handled by the dedicated handler
+		if (pathname.startsWith("/_server-islands/")) {
+			return new Response("Not handled by renderer", { status: 404 });
+		}
+
 		try {
 			// Execute route-scoped middleware before page rendering
 			// Global middleware has already run (handled by Nitro's middleware/ directory)
@@ -1407,6 +1412,11 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 		async fetch(request: Request): Promise<Response> {
 			const url = new URL(request.url, "http://localhost");
 			const pathname = url.pathname;
+
+			// Skip server islands requests — handled by the dedicated handler
+			if (pathname.startsWith("/_server-islands/")) {
+				return new Response("Not handled by renderer", { status: 404 });
+			}
 
 			try {
 				// Resolve the page route
@@ -1629,6 +1639,11 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 		const url = getRequestURL(event);
 		const pathname = url.pathname;
 
+		// Skip server islands requests — handled by the dedicated handler
+		if (pathname.startsWith("/_server-islands/")) {
+			return new Response("Not handled by renderer", { status: 404 });
+		}
+
 		try {
 			// Execute route-scoped middleware before page rendering
 			// Global middleware has already run (handled by Nitro's middleware/ directory)
@@ -1734,6 +1749,11 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 		async fetch(request: Request): Promise<Response> {
 			const url = new URL(request.url, "http://localhost");
 			const pathname = url.pathname;
+
+			// Skip server islands requests — handled by the dedicated handler
+			if (pathname.startsWith("/_server-islands/")) {
+				return new Response("Not handled by renderer", { status: 404 });
+			}
 
 			try {
 				// Reconstruct the page file path from the pathname

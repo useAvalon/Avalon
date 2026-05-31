@@ -60,3 +60,15 @@ declare module "virtual:avalon/integration-loader" {
 	export function preLitHydration(): Promise<void>;
 	export function loadHMRAdapter(framework: string): Promise<unknown>;
 }
+
+declare module "virtual:server-island-manifest" {
+	/** Mapping of componentId → module path for all registered server islands */
+	export const serverIslandManifest: Record<string, string>;
+	/** Lazy loaders that dynamically import each server island component, preventing tree-shaking */
+	export const serverIslandLoaders: Record<string, () => Promise<{ default: unknown }>>;
+}
+
+declare module "virtual:server-island-key" {
+	/** The AES-256-GCM encryption key (base64-encoded) embedded at build time */
+	export const serverIslandKey: string;
+}

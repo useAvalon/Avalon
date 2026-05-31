@@ -129,6 +129,14 @@ export function createNitroIntegration(
 	// Spreading the full nitroOptions leaks Avalon-specific keys (staticAssets,
 	// publicAssets, etc.) which Nitro forwards to Rolldown, causing
 	// "Invalid input options" warnings (e.g. "jsx" key errors).
+
+	// Resolve the server islands route handler path from the @useavalon/avalon package.
+	// This ensures the route is available in all Avalon projects regardless of
+	// whether they have a routes/ directory.
+	// NOTE: Only registered for production builds. In dev mode, the server islands
+	// endpoint is handled by the coordination plugin's SSR middleware.
+	const serverIslandsRoutePath = resolveAvalonPackagePath("src/server-islands/route.ts");
+
 	const nitroVitePluginOptions: Record<string, unknown> = {
 		preset: nitroOptions.preset,
 		serverDir: nitroConfig.serverDir ?? nitroOptions.serverDir ?? "./server",
@@ -143,7 +151,25 @@ export function createNitroIntegration(
 		// primary offender — it only exports via ESM "import" condition.
 		// Also inline @useavalon packages so their server renderers are
 		// bundled directly (they ship .ts source, not CJS).
-		noExternals: ["estree-walker", /^@useavalon\//, /^estree-util/],
+		noExternals: [
+			"estree-walker",
+			/^@useavalon\//,
+			/^estree-util/,
+			/^preact/,
+			/^react/,
+			/^react-dom/,
+			/^vue/,
+			/^@vue\//,
+		],
+		// Register the server islands endpoint as a framework-provided route.
+		// In dev mode when Nitro owns SSR, Nitro handles these requests directly.
+		// When SSR is runnable (Avalon owns SSR), the middleware handles them instead.
+		handlers: [
+			{
+				route: "/_server-islands/**",
+				handler: serverIslandsRoutePath,
+			},
+		],
 	};
 
 	// Only pass renderer when explicitly configured — passing `undefined`
@@ -387,6 +413,144 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 					console.error("[prewarm] Core modules pre-warm failed:", err);
 				});
 			}
+
+			// Server islands middleware — handles /_server-islands/ requests in dev mode.
+			// Only active when the SSR environment is runnable (Avalon owns SSR).
+			// When Nitro owns SSR (!ssrIsRunnable), the request passes through to
+			// Nitro's registered handler instead.
+			server.middlewares.use(async (req, res, next) => {
+				const url = req.url || "/";
+				if (!url.startsWith("/_server-islands/")) return next();
+				if (!ssrIsRunnable) return next();
+
+				try {
+					const { decrypt } = await server.ssrLoadModule(
+						resolveAvalonPackagePath("src/server-islands/encryption.ts"),
+					);
+					const { h } = await server.ssrLoadModule("preact");
+					const preactRenderToString = (await server.ssrLoadModule("preact-render-to-string"))
+						.default;
+
+					// Extract encrypted props from query param or POST body
+					const fullUrl = new URL(url, `http://${req.headers.host || "localhost"}`);
+					let payload = fullUrl.searchParams.get("p") || "";
+
+					if (!payload && req.method === "POST") {
+						payload = await new Promise<string>((resolve, reject) => {
+							const chunks: Buffer[] = [];
+							const onData = (chunk: Buffer) => chunks.push(chunk);
+							const onEnd = () => {
+								cleanup();
+								resolve(Buffer.concat(chunks).toString("utf8"));
+							};
+							const onError = (err: Error) => {
+								cleanup();
+								reject(err);
+							};
+							const timer = setTimeout(() => {
+								cleanup();
+								reject(new Error("Timed out reading server island request body"));
+							}, 15000);
+							function cleanup() {
+								clearTimeout(timer);
+								req.off("data", onData);
+								req.off("end", onEnd);
+								req.off("error", onError);
+							}
+							req.on("data", onData);
+							req.on("end", onEnd);
+							req.on("error", onError);
+						});
+					}
+
+					if (!payload) {
+						res.statusCode = 400;
+						res.setHeader("Content-Type", "text/plain");
+						res.end("Missing encrypted props");
+						return;
+					}
+
+					// Decrypt props (or decode in dev mode)
+					let props: Record<string, unknown>;
+					let srcPath: string | undefined;
+					let islandMeta: any;
+					try {
+						let decrypted: string;
+						if (payload.startsWith("dev.")) {
+							// Dev mode: base64url-encoded (no encryption)
+							const encoded = payload.slice(4);
+							decrypted = Buffer.from(encoded, "base64url").toString("utf8");
+						} else {
+							decrypted = decrypt(payload);
+						}
+						const parsed = JSON.parse(decrypted);
+						if (parsed.__island) {
+							islandMeta = parsed.__island;
+							delete parsed.__island;
+						}
+						if (parsed.__src) {
+							srcPath = parsed.__src;
+							delete parsed.__src;
+						}
+						props = parsed;
+					} catch {
+						res.statusCode = 400;
+						res.setHeader("Content-Type", "text/plain");
+						res.end("Bad Request: decryption failed");
+						return;
+					}
+
+					if (!srcPath) {
+						res.statusCode = 404;
+						res.setHeader("Content-Type", "text/plain");
+						res.end("Component not found (no __src in payload)");
+						return;
+					}
+
+					// Load the component via Vite's SSR module loader
+					const mod = await server.ssrLoadModule(srcPath);
+					const Component = mod.default;
+					if (typeof Component !== "function") {
+						res.statusCode = 500;
+						res.setHeader("Content-Type", "text/plain");
+						res.end(`Module "${srcPath}" does not export a default component function`);
+						return;
+					}
+
+					// Render the component
+					const vnode = h(Component, props);
+					let html = preactRenderToString(vnode);
+
+					// If combined island, append dev-mode hydration script
+					if (islandMeta) {
+						const pathSegments = url.split("/");
+						const cId = pathSegments[2]?.split("?")[0] || "";
+						const islandId = islandMeta.elementId ?? `si-${cId}`;
+						const componentPath = islandMeta.componentSrc ?? srcPath;
+						const propsJson = JSON.stringify(props);
+						const condition = islandMeta.condition ?? "on:client";
+						const fw = islandMeta.framework ?? "preact";
+						const helperPath = resolveAvalonPackagePath("src/client/server-island-hydrate.ts");
+						const hydrationScript = `<script type="module">
+import{hydrateServerIsland}from"/@fs${helperPath}";
+hydrateServerIsland(${JSON.stringify(islandId)},${JSON.stringify(componentPath)},${propsJson},${JSON.stringify(condition)},${JSON.stringify(fw)});
+</script>`;
+						html += hydrationScript;
+					}
+
+					res.statusCode = 200;
+					res.setHeader("Content-Type", "text/html");
+					res.setHeader("Cache-Control", "private, no-store");
+					res.end(html);
+				} catch (error) {
+					console.error("[server-islands] Dev handler error:", error);
+					res.statusCode = 500;
+					res.setHeader("Content-Type", "text/plain");
+					res.end(
+						`Server island render failed: ${error instanceof Error ? error.message : String(error)}`,
+					);
+				}
+			});
 
 			// SSR middleware — runs before Vite's SPA fallback.
 			// When Nitro owns the SSR environment (non-runnable), we skip

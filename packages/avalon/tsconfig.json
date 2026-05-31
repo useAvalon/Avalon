@@ -8,6 +8,7 @@
 			"vite/client",
 			"./src/types/mdx.d.ts",
 			"./src/types/urlpattern.d.ts",
+			"./src/types/virtual-modules.d.ts",
 			"./src/client/types/vite-virtual-modules.d.ts",
 			"./src/client/types/framework-runtime.d.ts"
 		]

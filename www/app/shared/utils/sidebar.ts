@@ -22,6 +22,7 @@ export const SIDEBAR: SidebarCategory[] = [
 		items: [
 			{ title: "Islands Architecture", href: "/docs/islands-architecture" },
 			{ title: "Hydration Strategies", href: "/docs/hydration-strategies" },
+			{ title: "Server Islands", href: "/docs/server-islands" },
 			{ title: "File-System Routing", href: "/docs/file-system-routing" },
 			{ title: "Layouts", href: "/docs/layouts" },
 			{ title: "MDX & Markdown", href: "/docs/mdx" },

@@ -1,5 +1,6 @@
 import type { JSX } from "preact";
 import type { AnalyzerOptions } from "../core/components/component-analyzer.ts";
+import type { ServerIslandProp } from "../server-islands/types.ts";
 
 /**
  * Framework type for island components
@@ -44,6 +45,8 @@ export interface IslandProps {
 	ssrOnly?: boolean;
 	/** Component render options for intelligent detection */
 	renderOptions?: AnalyzerOptions;
+	/** Server island configuration — defers rendering to a server endpoint after page load */
+	server?: ServerIslandProp;
 }
 
 /**
