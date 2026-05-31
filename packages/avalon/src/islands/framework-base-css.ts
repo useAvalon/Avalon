@@ -2,7 +2,7 @@
  * Framework Baseline CSS
  *
  * Provides default styling for Avalon's framework-emitted custom elements
- * (`<avalon-island>`, `<avalon-page>`, `<avalon-page-content>`).
+ * (`<avalon-island>`, `<avalon-page>`, `<avalon-page-content>`, `<avalon-server-island>`).
  *
  * These elements are used as DOM anchors for hydration and content
  * placement. They must be transparent to layout — otherwise an island
@@ -18,7 +18,8 @@
  * so any user CSS that sets a different `display` value naturally wins.
  */
 
-const FRAMEWORK_BASE_CSS = "avalon-island,avalon-page,avalon-page-content{display:contents}";
+const FRAMEWORK_BASE_CSS =
+	"avalon-island,avalon-page,avalon-page-content,avalon-server-island,[data-server-island-wrapper]{display:contents}";
 
 const STYLE_TAG = `<style data-avalon-base="true">${FRAMEWORK_BASE_CSS}</style>`;
 

@@ -26,6 +26,7 @@ import { createImagePlugin } from "./image-optimization.ts";
 import { activateIntegrations, activateSingleIntegration } from "./integration-activator.ts";
 import { islandSidecarPlugin } from "./island-sidecar-plugin.ts";
 import { createNitroIntegration } from "./nitro-integration.ts";
+import { serverIslandsPlugin } from "./server-islands-plugin.ts";
 import type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig } from "./types.ts";
 import { formatValidationResults, validateActiveIntegrations } from "./validation.ts";
 
@@ -277,6 +278,12 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 		verbose: preResolvedConfig.verbose,
 	});
 
+	// Server islands plugin: collects server island components during build,
+	// generates the component manifest, and embeds the encryption key
+	const serverIslands = serverIslandsPlugin({
+		verbose: preResolvedConfig.verbose,
+	});
+
 	// Pre-resolve paths for standalone projects.
 	// In the monorepo www/ project these are handled by manual resolve.alias.
 	const require = createRequire(import.meta.url);
@@ -441,6 +448,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 		...mdxPlugins,
 		avalonPlugin,
 		sidecarPlugin,
+		serverIslands,
 		...nitroPlugins,
 		...otherIntegrationPlugins,
 	] as PluginOption[];

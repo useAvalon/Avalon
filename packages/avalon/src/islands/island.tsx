@@ -4,6 +4,10 @@ import { Fragment, h } from "preact";
 import type { ViteDevServer } from "vite";
 import { getIslandBundlePath } from "../build/island-manifest.ts";
 import type { AnalyzerOptions } from "../core/components/component-analyzer.ts";
+import { addToManifest, generateComponentId } from "../server-islands/manifest.ts";
+import { renderServerIsland } from "../server-islands/renderer.ts";
+import type { ServerIslandProp } from "../server-islands/types.ts";
+import type { IslandDirective } from "../types/island-prop.d.ts";
 import { devError, devLog, devWarn, isDev, logRenderTiming } from "../utils/dev-logger.ts";
 import { analyzeComponentFile, renderComponentSSROnly } from "./component-analysis.ts";
 import { detectFramework } from "./framework-detection.ts";
@@ -59,6 +63,10 @@ export interface IslandProps {
 	hydrationData?: Record<string, unknown>;
 	/** Pre-imported component reference (avoids dynamic import in bundled SSR) */
 	component?: unknown;
+	/** Server island configuration — defers rendering to a server endpoint after page load */
+	server?: ServerIslandProp;
+	/** Island directive for combined server + client islands */
+	island?: IslandDirective;
 }
 
 // ---------------------------------------------------------------------------
@@ -690,11 +698,43 @@ export async function renderIsland({
 	ssrOnly = false,
 	renderOptions = {},
 	component: preloadedComponent,
+	server,
+	island,
 }: IslandProps): Promise<JSX.Element> {
 	const startTime = isDev() ? performance.now() : 0;
 	const logPrefix = `🏝️ [${src}]`;
 
 	try {
+		// Server island delegation: when `server` prop is present, render as a
+		// server island (deferred rendering via endpoint) instead of a normal island.
+		if (server) {
+			const componentId = generateComponentId(src);
+			addToManifest(componentId, src);
+
+			const detectedFw = framework || detectFrameworkFromPath(src);
+			const serverIslandHtml = renderServerIsland(
+				componentId,
+				props,
+				server,
+				island,
+				island ? getIslandBundlePath(src) : undefined,
+				src,
+				detectedFw,
+			);
+
+			// Return raw HTML wrapped in a fragment. The wrapper uses a data attribute
+			// (data-server-island-wrapper) instead of an inline style so it stays
+			// CSP-safe; the `display: contents` rule lives in the framework baseline CSS.
+			return h(
+				Fragment,
+				null,
+				h("div", {
+					dangerouslySetInnerHTML: { __html: serverIslandHtml },
+					"data-server-island-wrapper": "",
+				}),
+			);
+		}
+
 		// If ssrOnly is true we MUST enable SSR to render the component
 		if (ssrOnly && !ssr) {
 			ssr = true;

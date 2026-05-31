@@ -1,3 +1,5 @@
+import type { ServerIslandProp } from "../server-islands/types.ts";
+
 /**
  * Type augmentation for the `island` prop on island components.
  *
@@ -11,7 +13,12 @@
  *
  * Custom directives:
  *   <Counter island={{ condition: 'on:delay' }} />
+ *
+ * Server islands:
+ *   <UserAvatar server={{ fallback: <AvatarSkeleton /> }} userId={session.id} />
  */
+
+export type { ServerIslandProp } from "../server-islands/types.ts";
 
 export type IslandDirective = {
 	/**

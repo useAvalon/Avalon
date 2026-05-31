@@ -1,0 +1,171 @@
+---
+title: Server Islands
+description: Render personalized or dynamic components on-demand without sacrificing page cacheability.
+currentPath: /docs/server-islands
+prev:
+  title: Hydration Strategies
+  href: /docs/hydration-strategies
+next:
+  title: File-System Routing
+  href: /docs/file-system-routing
+---
+
+## What are server islands?
+
+A server island is a component that is excluded from the initial page render and instead fetched on-demand from the server after the page loads. The rest of the page can be fully cached or prerendered while the server island delivers personalized or dynamic content (user avatars, cart counts, session-dependent UI) without a full-page request.
+
+**Use server islands when:**
+
+- The page is prerendered/cached but one component needs fresh or personalized data
+- You want to avoid shipping client JavaScript for a dynamic component
+- The component depends on server context (cookies, headers, database) that shouldn't be exposed to the client
+
+## The `server` prop
+
+Add the `server` prop to any component to make it a server island:
+
+```tsx
+import UserAvatar from '../components/UserAvatar.tsx';
+import { AvatarSkeleton } from '../components/Skeletons.tsx';
+
+export default function Page() {
+  return (
+    <div>
+      <h1>Dashboard</h1>
+      <UserAvatar server={{ fallback: <AvatarSkeleton /> }} userId={session.id} />
+    </div>
+  );
+}
+```
+
+The component won't render during the initial page build. Instead, the fallback content is shown while the browser fetches the rendered HTML from the server.
+
+### `ServerIslandProp` interface
+
+```ts
+interface ServerIslandProp {
+  /** JSX to render as placeholder until the server response arrives */
+  fallback?: JSX.Element;
+  /** Cache-Control header for the island endpoint response */
+  cache?: string;
+  /** Fetch timeout in milliseconds (default: 10000) */
+  timeout?: number;
+}
+```
+
+## Fallback content
+
+The `fallback` field accepts any JSX. It renders immediately during SSR/SSG and stays visible until the server island response arrives — or permanently if the request fails.
+
+```tsx
+<UserAvatar
+  server={{
+    fallback: <div class="avatar-placeholder" aria-busy="true" />,
+  }}
+  userId={session.id}
+/>
+```
+
+If you omit `fallback`, the slot is empty until the server responds.
+
+## Combined server + client islands
+
+When a component needs both personalized server rendering **and** client-side interactivity, combine the `server` and `island` props:
+
+```tsx
+import NotificationBell from '../islands/NotificationBell.tsx';
+import { BellIcon } from '../components/Icons.tsx';
+
+export default function Page() {
+  return (
+    <NotificationBell
+      server={{ fallback: <BellIcon /> }}
+      island={{ condition: "on:client" }}
+      userId={session.id}
+    />
+  );
+}
+```
+
+The lifecycle is:
+
+1. Page renders with the fallback (`<BellIcon />`)
+2. Browser fetches the server island HTML (personalized notification count)
+3. HTML is injected into the DOM
+4. The hydration strategy (`on:client`, `on:visible`, etc.) kicks in and the component becomes interactive
+
+When only `server` is present, the component is pure server-rendered HTML with zero client JavaScript.
+
+## Prop encryption and security
+
+Props passed to server islands are encrypted with AES-256-GCM before being sent to the browser. This prevents clients from reading or tampering with sensitive values like user IDs or session tokens.
+
+The flow:
+
+1. During SSR, props are serialized to JSON and encrypted
+2. The encrypted payload is embedded in the page as a data attribute
+3. The browser sends the payload back to the server endpoint
+4. The endpoint decrypts, validates, and renders the component
+
+If the payload is tampered with, the endpoint returns a 400 error and the fallback stays in place.
+
+### Key management
+
+By default, Avalon generates a random encryption key at build time and embeds it in the server bundle. This works for single-instance deployments.
+
+For multi-instance or rolling deployments, set a stable key via environment variable:
+
+```bash
+AVALON_KEY=<base64-encoded-key>
+```
+
+Generate a key with the CLI:
+
+```bash
+npx avalon key
+```
+
+This outputs a cryptographically random AES-256-GCM key encoded as base64, ready to set as `AVALON_KEY`.
+
+## Caching configuration
+
+Server island responses include `Cache-Control: private, no-store` by default. Override this with the `cache` field:
+
+```tsx
+<ProductPrice
+  server={{
+    fallback: <PriceSkeleton />,
+    cache: "public, max-age=60",
+  }}
+  productId={product.id}
+/>
+```
+
+Caching behavior depends on the HTTP method:
+
+- **GET** — used when the encrypted props fit in the URL (~2048 bytes). CDN-cacheable.
+- **POST** — used for larger payloads. Not CDN-cacheable.
+
+The fetch script picks the method automatically based on payload size.
+
+## The `avalon key` CLI command
+
+For multi-instance deployments (load-balanced servers, edge workers, rolling deploys), all instances need the same encryption key to decrypt server island requests.
+
+```bash
+# Generate a new key
+npx avalon key
+
+# Output example:
+# AVALON_KEY=k7G2xP9mQ4vR1nB8wF5jL0hT3yA6cE2dS8uI4oN7pM=
+```
+
+Set the output as an environment variable in your deployment platform. Without a shared key, instances that didn't build the page can't decrypt the props and will return 400 errors.
+
+## Limitations
+
+- **Props must be JSON-serializable** — no functions, class instances, or circular references
+- **GET requests are limited to ~2048 bytes** of encrypted payload; larger payloads fall back to POST (not CDN-cacheable)
+- **Network round-trip** — server islands add latency; use them only for content that genuinely can't be in the initial render
+- **No streaming** — the entire component HTML is returned in one response
+- **Server context required** — the island endpoint needs access to the same server context (database, auth) as a normal SSR render

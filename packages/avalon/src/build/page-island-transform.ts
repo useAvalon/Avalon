@@ -51,6 +51,7 @@ interface ComponentImport {
 interface ParsedJSXElement {
 	endIdx: number;
 	islandProp: string | null;
+	serverProp: string | null;
 	otherProps: string[];
 }
 
@@ -234,6 +235,14 @@ function hasIslandPropUsage(code: string, componentNames: string[]): boolean {
 	});
 }
 
+/** Check if any components are used with the `server` prop */
+function hasServerPropUsage(code: string, componentNames: string[]): boolean {
+	return componentNames.some((name) => {
+		const pattern = new RegExp(`<${name}${String.raw`[\s][^>]*server[\s]*[={]`}`);
+		return pattern.test(code);
+	});
+}
+
 /** Check if any auto-island components are used as JSX elements */
 function hasAutoIslandUsage(code: string, imports: ComponentImport[]): boolean {
 	return imports.some((imp) => {
@@ -253,11 +262,23 @@ function buildIslandMeta(
 	aliases: Array<{ find: string | RegExp; replacement: string }> = [],
 ): Map<
 	string,
-	{ srcPath: string; framework: string | undefined; importPath: string; autoIsland: boolean }
+	{
+		srcPath: string;
+		framework: string | undefined;
+		importPath: string;
+		autoIsland: boolean;
+		hasServerProp: boolean;
+	}
 > {
 	const meta = new Map<
 		string,
-		{ srcPath: string; framework: string | undefined; importPath: string; autoIsland: boolean }
+		{
+			srcPath: string;
+			framework: string | undefined;
+			importPath: string;
+			autoIsland: boolean;
+			hasServerProp: boolean;
+		}
 	>();
 	for (const imp of imports) {
 		const srcPath = resolveIslandSrc(imp.importPath, fileId, aliases);
@@ -265,12 +286,18 @@ function buildIslandMeta(
 
 		// Check for explicit island prop usage
 		const islandPattern = new RegExp(`<${imp.localName}${String.raw`[\s][^>]*island[\s]*[={]`}`);
-		if (islandPattern.test(code)) {
+		// Check for server prop usage
+		const serverPattern = new RegExp(`<${imp.localName}${String.raw`[\s][^>]*server[\s]*[={]`}`);
+		const hasIsland = islandPattern.test(code);
+		const hasServer = serverPattern.test(code);
+
+		if (hasIsland || hasServer) {
 			meta.set(imp.localName, {
 				srcPath,
 				framework,
 				importPath: imp.importPath,
 				autoIsland: false,
+				hasServerProp: hasServer,
 			});
 			continue;
 		}
@@ -284,6 +311,7 @@ function buildIslandMeta(
 					framework,
 					importPath: imp.importPath,
 					autoIsland: true,
+					hasServerProp: false,
 				});
 			}
 		}
@@ -432,6 +460,7 @@ function parseJSXElement(
 	let i = skipWhitespace(code, startIdx + 1 + componentName.length);
 
 	let islandProp: string | null = null;
+	let serverProp: string | null = null;
 	const otherProps: string[] = [];
 
 	while (i < code.length) {
@@ -440,7 +469,7 @@ function parseJSXElement(
 		// Check for end of opening tag
 		const tagEnd = findTagEnd(code, i, componentName);
 		if (tagEnd) {
-			return { endIdx: tagEnd.endIdx, islandProp, otherProps };
+			return { endIdx: tagEnd.endIdx, islandProp, serverProp, otherProps };
 		}
 
 		// Parse next attribute
@@ -450,6 +479,8 @@ function parseJSXElement(
 
 		if (attr.name === "island") {
 			islandProp = attr.value ?? "{}";
+		} else if (attr.name === "server") {
+			serverProp = attr.value ?? "{}";
 		} else {
 			const propValue = attr.value === null ? `${attr.name}: true` : `${attr.name}: ${attr.value}`;
 			otherProps.push(propValue);
@@ -488,6 +519,23 @@ function buildRenderCall(
 			compArg +
 			propsArg +
 			", ssr: true, ssrOnly: true" +
+			" })}"
+		);
+	}
+
+	// Server island (with or without island prop for combined islands)
+	if (parsed.serverProp) {
+		const serverArg = `, server: (${parsed.serverProp})`;
+		const islandArg = parsed.islandProp ? `, island: (${parsed.islandProp})` : "";
+		return (
+			'{await __pageRenderIsland({ src: "' +
+			srcPath +
+			'"' +
+			fwArg +
+			compArg +
+			serverArg +
+			islandArg +
+			propsArg +
 			" })}"
 		);
 	}
@@ -588,8 +636,8 @@ function replaceIslandJSX(
 		}
 
 		const parsed = parseJSXElement(code, i, componentName);
-		if (!parsed || (!parsed.islandProp && !autoIsland)) {
-			// Not parseable, or no island prop and not an auto-island — emit as-is
+		if (!parsed || (!parsed.islandProp && !parsed.serverProp && !autoIsland)) {
+			// Not parseable, or no island/server prop and not an auto-island — emit as-is
 			const end = parsed ? parsed.endIdx : i + 1;
 			result += code.slice(i, end);
 			i = end;
@@ -633,7 +681,11 @@ export function pageIslandTransform(options: PageIslandTransformOptions = {}): P
 			if (componentImports.length === 0) return null;
 
 			const componentNames = componentImports.map((i) => i.localName);
-			if (!hasIslandPropUsage(code, componentNames) && !hasAutoIslandUsage(code, componentImports))
+			if (
+				!hasIslandPropUsage(code, componentNames) &&
+				!hasServerPropUsage(code, componentNames) &&
+				!hasAutoIslandUsage(code, componentImports)
+			)
 				return null;
 
 			// Build metadata only for components actually used with island prop
