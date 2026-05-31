@@ -4,7 +4,7 @@
  * functions used throughout the codebase.
  */
 
-import { readdirSync, statSync } from "node:fs";
+import { type Dirent, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 export interface WalkEntry {
@@ -66,7 +66,7 @@ function matchesDir(fullPath: string, match?: RegExp[]): boolean {
 function* walkSync(dir: string, depth: number, opts: WalkSyncState): Generator<WalkEntry> {
 	if (depth > opts.maxDepth) return;
 
-	let entries: ReturnType<typeof readdirSync>;
+	let entries: Dirent[];
 	try {
 		entries = readdirSync(dir, { withFileTypes: true });
 	} catch {
