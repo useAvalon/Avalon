@@ -5,6 +5,7 @@ export default defineConfig({
 		include: ["zod"],
 	},
 	test: {
+		setupFiles: ["./packages/avalon/vitest.setup.ts"],
 		include: [
 			"packages/avalon/src/**/tests/**/*.test.ts",
 			"packages/avalon/src/**/__tests__/**/*.test.ts",
