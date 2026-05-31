@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/core",
-	"version": "0.1.7",
+	"version": "0.1.8",
 	"description": "Core types and utilities for Avalon framework integrations",
 	"license": "MIT",
 	"type": "module",
