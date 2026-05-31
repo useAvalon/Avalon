@@ -87,25 +87,22 @@ export class HMRCoordinator {
 	 * Sets up Vite HMR listeners and accepts updates
 	 */
 	initialize(): void {
-		// @ts-expect-error - Vite HMR is available in browser context
 		if (!import.meta.hot) {
 			return;
 		}
 
-		// @ts-expect-error - Vite HMR API
 		import.meta.hot.accept();
 
-		// @ts-expect-error - Vite HMR event types
+		// @ts-expect-error - build tsconfig resolves import.meta.hot to Vite's stricter on() signature
 		import.meta.hot.on("vite:beforeUpdate", (payload: HMRPayload) => {
 			this.handleUpdate(payload as HMRUpdatePayload);
 		});
 
-		// @ts-expect-error - Vite HMR event types
 		import.meta.hot.on("vite:beforeFullReload", () => {
 			this.handleBeforeFullReload();
 		});
 
-		// @ts-expect-error - Vite HMR event types
+		// @ts-expect-error - build tsconfig resolves import.meta.hot to Vite's stricter on() signature
 		import.meta.hot.on("vite:error", (payload: ErrorPayload) => {
 			console.error("[HMR] error:", payload);
 			this.handleError(payload);
@@ -340,7 +337,6 @@ export class HMRCoordinator {
 		console.error("[HMR] Error:", error);
 
 		if (globalThis.window !== undefined) {
-			// @ts-expect-error - dynamic import of JS file
 			import("./hmr-error-overlay.js")
 				.then(
 					({
@@ -396,7 +392,6 @@ export function getHMRCoordinator(): HMRCoordinator {
 }
 
 export function initializeHMR(): void {
-	// @ts-expect-error - Vite HMR is available in browser context
 	if (!import.meta.hot) {
 		return;
 	}
