@@ -1,58 +1,68 @@
 /** @jsxImportSource preact */
-import { useState, useEffect } from 'preact/hooks';
-import { getResourceInfo, type ResourceInfo } from '@shared/utils/resource-timing';
+
+import { getResourceInfo, type ResourceInfo } from "@shared/utils/resource-timing";
+import { useEffect, useState } from "preact/hooks";
 
 export default function PreactCounter() {
-  const [count, setCount] = useState(0);
-  const [hydrated, setHydrated] = useState(false);
-  const [resourceInfo, setResourceInfo] = useState<ResourceInfo | null>(null);
+	const [count, setCount] = useState(0);
+	const [hydrated, setHydrated] = useState(false);
+	const [resourceInfo, setResourceInfo] = useState<ResourceInfo | null>(null);
 
-  useEffect(() => {
-    setHydrated(true);
-    
-    const timer = setTimeout(() => {
-      const info = getResourceInfo('Counter.preact');
-      setResourceInfo(info || { loadTime: 8, size: '1.8 kB', sizeBytes: 1843 });
-    }, 50);
-    
-    return () => clearTimeout(timer);
-  }, []);
+	useEffect(() => {
+		setHydrated(true);
 
-  return (
-    <div class="counter-card preact">
-      <div class="header">
-        <span class="label">Preact Island</span>
-        <span class="badge preact" style={{ visibility: hydrated ? 'visible' : 'hidden' }}>Interactive</span>
-      </div>
-      
-      <div class="content">
-        <h3 class="title preact">Preact Counter</h3>
-        <p class="subtitle">Hydrates on interaction</p>
-        <div class="count">{count}</div>
-        <div class="buttons">
-          <button class="btn preact" onClick={() => setCount(c => c - 1)} disabled={!hydrated}>−</button>
-          <button class="btn preact" onClick={() => setCount(c => c + 1)} disabled={!hydrated}>+</button>
-        </div>
+		const timer = setTimeout(() => {
+			const info = getResourceInfo("Counter.preact");
+			setResourceInfo(info || { loadTime: 8, size: "1.8 kB", sizeBytes: 1843 });
+		}, 50);
 
-      </div>
+		return () => clearTimeout(timer);
+	}, []);
 
-      <div class="network-panel preact">
-        <div class="network-header">
-          <span class="network-title">Network</span>
-          <span class="network-filter preact">JS</span>
-        </div>
-        <div class="network-body">
-          <div class="network-row">
-            <span class={hydrated ? "status" : "pending"}>{hydrated ? "200" : "pending"}</span>
-            <span class={hydrated ? "file preact" : "file-pending"}>Counter.preact.tsx</span>
-            <span class="type">script</span>
-            <span class={hydrated ? "size" : "size-pending"}>{hydrated ? (resourceInfo?.size ?? '...') : '—'}</span>
-            <span class={hydrated ? "time" : "time-pending"}>{hydrated ? `${resourceInfo?.loadTime ?? '...'}ms` : '—'}</span>
-          </div>
-        </div>
-      </div>
+	return (
+		<div class="counter-card preact">
+			<div class="header">
+				<span class="label">Preact Island</span>
+				<span class="badge preact" style={{ visibility: hydrated ? "visible" : "hidden" }}>
+					Interactive
+				</span>
+			</div>
 
-      <style>{`
+			<div class="content">
+				<h3 class="title preact">Preact Counter</h3>
+				<p class="subtitle">Hydrates on interaction</p>
+				<div class="count">{count}</div>
+				<div class="buttons">
+					<button class="btn preact" onClick={() => setCount((c) => c - 1)} disabled={!hydrated}>
+						−
+					</button>
+					<button class="btn preact" onClick={() => setCount((c) => c + 1)} disabled={!hydrated}>
+						+
+					</button>
+				</div>
+			</div>
+
+			<div class="network-panel preact">
+				<div class="network-header">
+					<span class="network-title">Network</span>
+					<span class="network-filter preact">JS</span>
+				</div>
+				<div class="network-body">
+					<div class="network-row">
+						<span class={hydrated ? "status" : "pending"}>{hydrated ? "200" : "pending"}</span>
+						<span class={hydrated ? "file preact" : "file-pending"}>Counter.preact.tsx</span>
+						<span class="type">script</span>
+						<span class={hydrated ? "size" : "size-pending"}>
+							{hydrated ? (resourceInfo?.size ?? "...") : "—"}
+						</span>
+						<span class={hydrated ? "time" : "time-pending"}>
+							{hydrated ? `${resourceInfo?.loadTime ?? "..."}ms` : "—"}
+						</span>
+					</div>
+				</div>
+			</div>
+
+			<style>{`
         .counter-card { border-radius: 12px; overflow: hidden; font-family: system-ui, sans-serif; color: #e0e0e0; display: flex; flex-direction: column; height: 100%; }
         .counter-card.preact { background: linear-gradient(135deg, #1a2e1a 0%, #162e21 100%); border: 1px solid rgba(74, 222, 128, 0.2); }
         .header { padding: 0.75rem 1rem; border-bottom: 1px solid rgba(74, 222, 128, 0.15); display: flex; justify-content: space-between; align-items: center; }
@@ -88,6 +98,6 @@ export default function PreactCounter() {
         .time { color: #4ade80; text-align: right; }
         .time-pending { color: #6b7280; text-align: right; }
       `}</style>
-    </div>
-  );
+		</div>
+	);
 }

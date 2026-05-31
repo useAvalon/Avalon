@@ -286,7 +286,10 @@ async function ensureIsolatedIslands(cwd: string, distDir: string): Promise<void
 				// Try common extensions in order of likelihood.
 				const basePath = bundleKey;
 				const candidates = [
-					`${basePath}.tsx`, `${basePath}.ts`, `${basePath}.jsx`, `${basePath}.js`,
+					`${basePath}.tsx`,
+					`${basePath}.ts`,
+					`${basePath}.jsx`,
+					`${basePath}.js`,
 					`${basePath}`, // .vue and .svelte have no extra extension
 				];
 				const found = candidates.find((c) => existsSync(join(cwd, c)));

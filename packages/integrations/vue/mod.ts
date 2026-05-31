@@ -6,10 +6,10 @@
  * seamlessly with Avalon's islands architecture.
  */
 
-import type { Plugin } from 'vite';
-import type { Integration, IntegrationConfig } from '@useavalon/core/types';
-import { render } from './server/renderer.ts';
-import { getHydrationScript } from './client/hydration.ts';
+import type { Integration, IntegrationConfig } from "@useavalon/core/types";
+import type { Plugin } from "vite";
+import { getHydrationScript } from "./client/hydration.ts";
+import { render } from "./server/renderer.ts";
 
 /**
  * Vue integration instance
@@ -17,20 +17,27 @@ import { getHydrationScript } from './client/hydration.ts';
  * Implements the standard Integration interface for Vue components.
  */
 export const vueIntegration: Integration = {
-	name: 'vue',
-	version: '0.1.0',
+	name: "vue",
+	version: "0.1.0",
 
 	render,
 	getHydrationScript,
 
 	config(): IntegrationConfig {
 		return {
-			name: 'vue',
-			fileExtensions: ['.vue'],
+			name: "vue",
+			fileExtensions: [".vue"],
 			jsxImportSources: [],
 			detectionPatterns: {
 				imports: [/^vue$/, /^vue\//, /from\s+['"]vue['"]/],
-				content: [/<template>/, /<script.*setup>/, /\bdefineComponent\b/, /\bref\b/, /\breactive\b/, /\bcomputed\b/],
+				content: [
+					/<template>/,
+					/<script.*setup>/,
+					/\bdefineComponent\b/,
+					/\bref\b/,
+					/\breactive\b/,
+					/\bcomputed\b/,
+				],
 			},
 		};
 	},
@@ -40,20 +47,20 @@ export const vueIntegration: Integration = {
 	 * This allows Vue components to work seamlessly with Avalon's islands architecture.
 	 */
 	async vitePlugin(): Promise<Plugin | Plugin[]> {
-		const { default: vue } = await import('@vitejs/plugin-vue');
+		const { default: vue } = await import("@vitejs/plugin-vue");
 		return vue({
 			template: {
 				compilerOptions: {
 					// Treat avalon-island as a custom element so Vue doesn't try to resolve it
-					isCustomElement: (tag: string) => tag === 'avalon-island',
+					isCustomElement: (tag: string) => tag === "avalon-island",
 				},
 			},
 		});
 	},
 };
 
+export { getHydrationScript, hydrate } from "./client/hydration.ts";
+export { applyScopedCSS, extractCSS, generateScopeId } from "./server/css-extractor.ts";
 // Re-export public API
-export { render } from './server/renderer.ts';
-export { hydrate, getHydrationScript } from './client/hydration.ts';
-export { extractCSS, applyScopedCSS, generateScopeId } from './server/css-extractor.ts';
-export type * from './types.ts';
+export { render } from "./server/renderer.ts";
+export type * from "./types.ts";

@@ -7,8 +7,8 @@
  */
 
 export interface FrameworkDetectionResult {
-	framework: 'preact' | 'solid' | 'vue' | 'svelte' | 'react' | 'lit' | 'qwik' | 'unknown';
-	confidence: 'high' | 'medium' | 'low';
+	framework: "preact" | "solid" | "vue" | "svelte" | "react" | "lit" | "qwik" | "unknown";
+	confidence: "high" | "medium" | "low";
 	evidence: string[];
 	warnings: string[];
 }
@@ -58,51 +58,51 @@ export class EnhancedFrameworkDetector {
 		const warnings: string[] = [];
 
 		// Check for explicit naming conventions first (highest priority)
-		if (filePath.includes('.solid.')) {
-			evidence.push('Explicit Solid naming convention (.solid.tsx/.solid.jsx)');
+		if (filePath.includes(".solid.")) {
+			evidence.push("Explicit Solid naming convention (.solid.tsx/.solid.jsx)");
 			return {
-				framework: 'solid',
-				confidence: 'high',
+				framework: "solid",
+				confidence: "high",
 				evidence,
 				warnings,
 			};
 		}
 
-		if (filePath.includes('.preact.')) {
-			evidence.push('Explicit Preact naming convention (.preact.tsx/.preact.jsx)');
+		if (filePath.includes(".preact.")) {
+			evidence.push("Explicit Preact naming convention (.preact.tsx/.preact.jsx)");
 			return {
-				framework: 'preact',
-				confidence: 'high',
+				framework: "preact",
+				confidence: "high",
 				evidence,
 				warnings,
 			};
 		}
 
-		if (filePath.includes('.react.')) {
-			evidence.push('Explicit React naming convention (.react.tsx/.react.jsx)');
+		if (filePath.includes(".react.")) {
+			evidence.push("Explicit React naming convention (.react.tsx/.react.jsx)");
 			return {
-				framework: 'react',
-				confidence: 'high',
+				framework: "react",
+				confidence: "high",
 				evidence,
 				warnings,
 			};
 		}
 
-		if (filePath.includes('.lit.')) {
-			evidence.push('Explicit Lit naming convention (.lit.ts/.lit.js)');
+		if (filePath.includes(".lit.")) {
+			evidence.push("Explicit Lit naming convention (.lit.ts/.lit.js)");
 			return {
-				framework: 'lit',
-				confidence: 'high',
+				framework: "lit",
+				confidence: "high",
 				evidence,
 				warnings,
 			};
 		}
 
-		if (filePath.includes('.qwik.')) {
-			evidence.push('Explicit Qwik naming convention (.qwik.tsx/.qwik.jsx)');
+		if (filePath.includes(".qwik.")) {
+			evidence.push("Explicit Qwik naming convention (.qwik.tsx/.qwik.jsx)");
 			return {
-				framework: 'qwik',
-				confidence: 'high',
+				framework: "qwik",
+				confidence: "high",
 				evidence,
 				warnings,
 			};
@@ -119,32 +119,32 @@ export class EnhancedFrameworkDetector {
 		// Find the highest scoring framework
 		const sortedFrameworks = Array.from(frameworkScores.entries()).sort(([, a], [, b]) => b - a);
 
-		const [topFramework, topScore] = sortedFrameworks[0] || ['unknown', 0];
-		const [secondFramework, secondScore] = sortedFrameworks[1] || ['unknown', 0];
+		const [topFramework, topScore] = sortedFrameworks[0] || ["unknown", 0];
+		const [secondFramework, secondScore] = sortedFrameworks[1] || ["unknown", 0];
 
 		// Determine confidence based on score and evidence
-		let confidence: FrameworkDetectionResult['confidence'];
+		let confidence: FrameworkDetectionResult["confidence"];
 		if (topScore >= 3 && topScore - secondScore >= 2) {
-			confidence = 'high';
+			confidence = "high";
 		} else if (topScore >= 2) {
-			confidence = 'medium';
+			confidence = "medium";
 		} else {
-			confidence = 'low';
+			confidence = "low";
 			warnings.push(
-				'Framework detection has low confidence - consider adding explicit JSX import source or use naming convention (.solid.tsx, .preact.tsx)'
+				"Framework detection has low confidence - consider adding explicit JSX import source or use naming convention (.solid.tsx, .preact.tsx)",
 			);
 		}
 
 		// Handle ambiguous cases
 		if (topScore === secondScore && topScore > 0) {
 			warnings.push(
-				`Ambiguous detection between ${topFramework} and ${secondFramework} - consider using naming convention`
+				`Ambiguous detection between ${topFramework} and ${secondFramework} - consider using naming convention`,
 			);
-			confidence = 'low';
+			confidence = "low";
 		}
 
 		return {
-			framework: topScore > 0 ? (topFramework as FrameworkDetectionResult['framework']) : 'unknown',
+			framework: topScore > 0 ? (topFramework as FrameworkDetectionResult["framework"]) : "unknown",
 			confidence,
 			evidence,
 			warnings,
@@ -170,7 +170,11 @@ export class EnhancedFrameworkDetector {
 	/**
 	 * Calculates framework score based on multiple evidence points
 	 */
-	private calculateFrameworkScore(criteria: DetectionCriteria, config: FrameworkConfig, evidence: string[]): number {
+	private calculateFrameworkScore(
+		criteria: DetectionCriteria,
+		config: FrameworkConfig,
+		evidence: string[],
+	): number {
 		let score = 0;
 
 		// JSX Import Source (highest priority - 3 points)
@@ -181,7 +185,7 @@ export class EnhancedFrameworkDetector {
 
 		// Import statements (2 points each)
 		for (const importPattern of config.detectionPatterns.imports) {
-			if (criteria.imports.some(imp => importPattern.test(imp))) {
+			if (criteria.imports.some((imp) => importPattern.test(imp))) {
 				score += 2;
 				evidence.push(`Framework import detected: ${importPattern.source}`);
 			}
@@ -232,14 +236,22 @@ export class EnhancedFrameworkDetector {
 		// Match require statements: require('module')
 		const requireRegex = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 
-		let match;
-		while ((match = importFromRegex.exec(content)) !== null) {
+		let match: RegExpExecArray | null;
+		for (
+			match = importFromRegex.exec(content);
+			match !== null;
+			match = importFromRegex.exec(content)
+		) {
 			imports.push(match[1]);
 		}
-		while ((match = sideEffectRegex.exec(content)) !== null) {
+		for (
+			match = sideEffectRegex.exec(content);
+			match !== null;
+			match = sideEffectRegex.exec(content)
+		) {
 			imports.push(match[1]);
 		}
-		while ((match = requireRegex.exec(content)) !== null) {
+		for (match = requireRegex.exec(content); match !== null; match = requireRegex.exec(content)) {
 			imports.push(match[1]);
 		}
 
@@ -251,21 +263,21 @@ export class EnhancedFrameworkDetector {
 	 */
 	private getFileExtension(filePath: string): string {
 		// Handle framework-specific naming conventions first
-		if (filePath.includes('.solid.')) {
-			return '.solid.tsx'; // Treat as special Solid extension
+		if (filePath.includes(".solid.")) {
+			return ".solid.tsx"; // Treat as special Solid extension
 		}
-		if (filePath.includes('.preact.')) {
-			return '.preact.tsx'; // Treat as special Preact extension
+		if (filePath.includes(".preact.")) {
+			return ".preact.tsx"; // Treat as special Preact extension
 		}
-		if (filePath.includes('.react.')) {
-			return '.react.tsx'; // Treat as special React extension
+		if (filePath.includes(".react.")) {
+			return ".react.tsx"; // Treat as special React extension
 		}
-		if (filePath.includes('.lit.')) {
-			return '.lit.ts'; // Treat as special Lit extension
+		if (filePath.includes(".lit.")) {
+			return ".lit.ts"; // Treat as special Lit extension
 		}
 
-		const lastDot = filePath.lastIndexOf('.');
-		return lastDot === -1 ? '' : filePath.substring(lastDot);
+		const lastDot = filePath.lastIndexOf(".");
+		return lastDot === -1 ? "" : filePath.substring(lastDot);
 	}
 
 	/**
@@ -274,11 +286,11 @@ export class EnhancedFrameworkDetector {
 	private getDefaultFrameworkConfigs(): Record<string, FrameworkConfig> {
 		return {
 			preact: {
-				name: 'preact',
-				fileExtensions: ['.tsx', '.jsx', '.preact.tsx', '.preact.jsx'],
-				jsxImportSources: ['preact'],
-				ssrModules: ['preact-render-to-string'],
-				hydrationModules: ['preact'],
+				name: "preact",
+				fileExtensions: [".tsx", ".jsx", ".preact.tsx", ".preact.jsx"],
+				jsxImportSources: ["preact"],
+				ssrModules: ["preact-render-to-string"],
+				hydrationModules: ["preact"],
 				detectionPatterns: {
 					imports: [/^preact$/, /^preact\//, /preact-render-to-string/],
 					content: [
@@ -289,15 +301,15 @@ export class EnhancedFrameworkDetector {
 						/\buseRef\b/,
 						/from\s+['"]preact['"]/,
 					],
-					jsxPragmas: ['@jsxImportSource preact'],
+					jsxPragmas: ["@jsxImportSource preact"],
 				},
 			},
 			solid: {
-				name: 'solid',
-				fileExtensions: ['.tsx', '.jsx', '.solid.tsx', '.solid.jsx'],
-				jsxImportSources: ['solid-js'],
-				ssrModules: ['solid-js/web'],
-				hydrationModules: ['solid-js/web'],
+				name: "solid",
+				fileExtensions: [".tsx", ".jsx", ".solid.tsx", ".solid.jsx"],
+				jsxImportSources: ["solid-js"],
+				ssrModules: ["solid-js/web"],
+				hydrationModules: ["solid-js/web"],
 				detectionPatterns: {
 					imports: [/^solid-js$/, /^solid-js\//, /solid-js\/web/],
 					content: [
@@ -309,15 +321,15 @@ export class EnhancedFrameworkDetector {
 						/\bonCleanup\b/,
 						/from\s+['"]solid-js['"]/,
 					],
-					jsxPragmas: ['@jsxImportSource solid-js'],
+					jsxPragmas: ["@jsxImportSource solid-js"],
 				},
 			},
 			vue: {
-				name: 'vue',
-				fileExtensions: ['.vue'],
-				jsxImportSources: ['vue'],
-				ssrModules: ['vue/server-renderer'],
-				hydrationModules: ['vue'],
+				name: "vue",
+				fileExtensions: [".vue"],
+				jsxImportSources: ["vue"],
+				ssrModules: ["vue/server-renderer"],
+				hydrationModules: ["vue"],
 				detectionPatterns: {
 					imports: [/^vue$/, /^@vue\//, /vue\/server-renderer/],
 					content: [
@@ -330,15 +342,15 @@ export class EnhancedFrameworkDetector {
 						/\bwatchEffect\b/,
 						/from\s+['"]vue['"]/,
 					],
-					jsxPragmas: ['@jsxImportSource vue'],
+					jsxPragmas: ["@jsxImportSource vue"],
 				},
 			},
 			svelte: {
-				name: 'svelte',
-				fileExtensions: ['.svelte'],
-				jsxImportSources: ['svelte'],
-				ssrModules: ['svelte/server'],
-				hydrationModules: ['svelte'],
+				name: "svelte",
+				fileExtensions: [".svelte"],
+				jsxImportSources: ["svelte"],
+				ssrModules: ["svelte/server"],
+				hydrationModules: ["svelte"],
 				detectionPatterns: {
 					imports: [/^svelte$/, /^svelte\//, /svelte\/store/],
 					content: [
@@ -350,15 +362,15 @@ export class EnhancedFrameworkDetector {
 						/\bbeforeUpdate\b/,
 						/from\s+['"]svelte['"]/,
 					],
-					jsxPragmas: ['@jsxImportSource svelte'],
+					jsxPragmas: ["@jsxImportSource svelte"],
 				},
 			},
 			react: {
-				name: 'react',
-				fileExtensions: ['.jsx', '.tsx', '.react.jsx', '.react.tsx'],
-				jsxImportSources: ['react'],
-				ssrModules: ['react-dom/server'],
-				hydrationModules: ['react-dom/client'],
+				name: "react",
+				fileExtensions: [".jsx", ".tsx", ".react.jsx", ".react.tsx"],
+				jsxImportSources: ["react"],
+				ssrModules: ["react-dom/server"],
+				hydrationModules: ["react-dom/client"],
 				detectionPatterns: {
 					imports: [
 						/^react$/,
@@ -387,15 +399,15 @@ export class EnhancedFrameworkDetector {
 						/from\s+['"]react['"]/,
 						/import\s+.*\s+from\s+['"]react['"]/,
 					],
-					jsxPragmas: ['@jsxImportSource react'],
+					jsxPragmas: ["@jsxImportSource react"],
 				},
 			},
 			lit: {
-				name: 'lit',
-				fileExtensions: ['.ts', '.js', '.lit.ts', '.lit.js'],
-				jsxImportSources: ['lit'],
-				ssrModules: ['@lit-labs/ssr'],
-				hydrationModules: ['lit'],
+				name: "lit",
+				fileExtensions: [".ts", ".js", ".lit.ts", ".lit.js"],
+				jsxImportSources: ["lit"],
+				ssrModules: ["@lit-labs/ssr"],
+				hydrationModules: ["lit"],
 				detectionPatterns: {
 					imports: [
 						/^lit$/,
@@ -420,15 +432,15 @@ export class EnhancedFrameworkDetector {
 						/from\s+['"]lit['"]/,
 						/import\s+.*\s+from\s+['"]lit['"]/,
 					],
-					jsxPragmas: ['@jsxImportSource lit'],
+					jsxPragmas: ["@jsxImportSource lit"],
 				},
 			},
 			qwik: {
-				name: 'qwik',
-				fileExtensions: ['.tsx', '.jsx', '.qwik.tsx', '.qwik.jsx'],
-				jsxImportSources: ['@builder.io/qwik'],
-				ssrModules: ['@builder.io/qwik/server'],
-				hydrationModules: ['@builder.io/qwik'],
+				name: "qwik",
+				fileExtensions: [".tsx", ".jsx", ".qwik.tsx", ".qwik.jsx"],
+				jsxImportSources: ["@builder.io/qwik"],
+				ssrModules: ["@builder.io/qwik/server"],
+				hydrationModules: ["@builder.io/qwik"],
 				detectionPatterns: {
 					imports: [
 						/^@builder\.io\/qwik$/,
@@ -449,7 +461,7 @@ export class EnhancedFrameworkDetector {
 						/from\s+['"]@builder\.io\/qwik['"]/,
 						/import\s+.*\s+from\s+['"]@builder\.io\/qwik['"]/,
 					],
-					jsxPragmas: ['@jsxImportSource @builder.io/qwik'],
+					jsxPragmas: ["@jsxImportSource @builder.io/qwik"],
 				},
 			},
 		};
@@ -475,24 +487,24 @@ export class EnhancedFrameworkDetector {
 	validateFrameworkConfig(config: FrameworkConfig): string[] {
 		const errors: string[] = [];
 
-		if (!config.name || config.name.trim() === '') {
-			errors.push('Framework name is required');
+		if (!config.name || config.name.trim() === "") {
+			errors.push("Framework name is required");
 		}
 
 		if (!config.fileExtensions || config.fileExtensions.length === 0) {
-			errors.push('At least one file extension is required');
+			errors.push("At least one file extension is required");
 		}
 
 		if (!config.detectionPatterns.imports || config.detectionPatterns.imports.length === 0) {
-			errors.push('At least one import pattern is required for detection');
+			errors.push("At least one import pattern is required for detection");
 		}
 
 		if (!config.ssrModules || config.ssrModules.length === 0) {
-			errors.push('At least one SSR module is required');
+			errors.push("At least one SSR module is required");
 		}
 
 		if (!config.hydrationModules || config.hydrationModules.length === 0) {
-			errors.push('At least one hydration module is required');
+			errors.push("At least one hydration module is required");
 		}
 
 		return errors;

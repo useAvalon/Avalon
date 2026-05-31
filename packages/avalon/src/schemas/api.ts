@@ -1,17 +1,9 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 /**
  * Supported HTTP methods for API routes
  */
-export const ApiMethodSchema = z.enum([
-	'GET',
-	'POST',
-	'PUT',
-	'DELETE',
-	'PATCH',
-	'HEAD',
-	'OPTIONS',
-]);
+export const ApiMethodSchema = z.enum(["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]);
 
 export type ApiMethod = z.infer<typeof ApiMethodSchema>;
 

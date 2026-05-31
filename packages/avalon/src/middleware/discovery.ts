@@ -14,17 +14,17 @@
  * Requirements: 3.1, 3.2, 3.3, 3.4
  */
 
-import { join, relative, resolve } from 'node:path';
-import { stat as fsStat, readdir } from 'node:fs/promises';
-import type { MiddlewareRoute, MiddlewareDiscoveryOptions } from './types.ts';
+import { stat as fsStat, readdir } from "node:fs/promises";
+import { join, relative, resolve } from "node:path";
+import type { MiddlewareDiscoveryOptions, MiddlewareRoute } from "./types.ts";
 
 /**
  * Default options for middleware discovery
  */
-const DEFAULT_OPTIONS: Required<Omit<MiddlewareDiscoveryOptions, 'baseDir'>> = {
-  filePattern: '_middleware.ts',
-  excludeDirs: ['node_modules', '.git', 'dist', '.output', '.vite'],
-  devMode: false,
+const DEFAULT_OPTIONS: Required<Omit<MiddlewareDiscoveryOptions, "baseDir">> = {
+	filePattern: "_middleware.ts",
+	excludeDirs: ["node_modules", ".git", "dist", ".output", ".vite"],
+	devMode: false,
 };
 
 /**
@@ -32,8 +32,8 @@ const DEFAULT_OPTIONS: Required<Omit<MiddlewareDiscoveryOptions, 'baseDir'>> = {
  * Lower values execute first
  */
 const PRIORITY_BASE = {
-  /** Page middleware base priority */
-  pages: 50,
+	/** Page middleware base priority */
+	pages: 50,
 } as const;
 
 /**
@@ -64,33 +64,33 @@ const PRIORITY_BASE = {
  * ```
  */
 export async function discoverScopedMiddleware(
-  options: MiddlewareDiscoveryOptions
+	options: MiddlewareDiscoveryOptions,
 ): Promise<MiddlewareRoute[]> {
-  const {
-    baseDir,
-    filePattern = DEFAULT_OPTIONS.filePattern,
-    excludeDirs = DEFAULT_OPTIONS.excludeDirs,
-    devMode = DEFAULT_OPTIONS.devMode,
-  } = options;
+	const {
+		baseDir,
+		filePattern = DEFAULT_OPTIONS.filePattern,
+		excludeDirs = DEFAULT_OPTIONS.excludeDirs,
+		devMode = DEFAULT_OPTIONS.devMode,
+	} = options;
 
-  const resolvedBaseDir = resolve(baseDir);
-  const routes: MiddlewareRoute[] = [];
+	const resolvedBaseDir = resolve(baseDir);
+	const routes: MiddlewareRoute[] = [];
 
-  // Scan pages directory for page middleware
-  const pagesDir = join(resolvedBaseDir, 'pages');
-  await scanDirectory(pagesDir, 'pages', filePattern, excludeDirs, routes, devMode);
+	// Scan pages directory for page middleware
+	const pagesDir = join(resolvedBaseDir, "pages");
+	await scanDirectory(pagesDir, "pages", filePattern, excludeDirs, routes, devMode);
 
-  // Sort by priority (lower numbers execute first)
-  routes.sort((a, b) => a.priority - b.priority);
+	// Sort by priority (lower numbers execute first)
+	routes.sort((a, b) => a.priority - b.priority);
 
-  if (devMode && routes.length > 0) {
-    console.log(`[middleware] Discovered ${routes.length} route-scoped middleware:`);
-    for (const route of routes) {
-      console.log(`  - ${route.type}: ${route.filePath} (priority: ${route.priority})`);
-    }
-  }
+	if (devMode && routes.length > 0) {
+		console.log(`[middleware] Discovered ${routes.length} route-scoped middleware:`);
+		for (const route of routes) {
+			console.log(`  - ${route.type}: ${route.filePath} (priority: ${route.priority})`);
+		}
+	}
 
-  return routes;
+	return routes;
 }
 
 /**
@@ -104,28 +104,33 @@ export async function discoverScopedMiddleware(
  * @param devMode - Whether to log debug information
  */
 async function scanDirectory(
-  dir: string,
-  type: 'pages',
-  filePattern: string,
-  excludeDirs: string[],
-  routes: MiddlewareRoute[],
-  devMode: boolean
+	dir: string,
+	type: "pages",
+	filePattern: string,
+	excludeDirs: string[],
+	routes: MiddlewareRoute[],
+	devMode: boolean,
 ): Promise<void> {
-  try {
-    // Check if directory exists
-    const dirInfo = await fsStat(dir).catch(() => null);
-    if (!dirInfo?.isDirectory()) {
-      return;
-    }
+	try {
+		// Check if directory exists
+		const dirInfo = await fsStat(dir).catch(() => null);
+		if (!dirInfo?.isDirectory()) {
+			return;
+		}
 
-    // Recursively scan directory
-    await scanDirectoryRecursive(dir, dir, type, filePattern, excludeDirs, routes, devMode);
-  } catch (error) {
-    // Directory doesn't exist or can't be read - skip silently
-    if (devMode && (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'ENOENT')) {
-      console.warn(`[middleware] Error scanning ${dir}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
+		// Recursively scan directory
+		await scanDirectoryRecursive(dir, dir, type, filePattern, excludeDirs, routes, devMode);
+	} catch (error) {
+		// Directory doesn't exist or can't be read - skip silently
+		if (
+			devMode &&
+			(!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== "ENOENT")
+		) {
+			console.warn(
+				`[middleware] Error scanning ${dir}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+		}
+	}
 }
 
 /**
@@ -140,39 +145,52 @@ async function scanDirectory(
  * @param devMode - Whether to log debug information
  */
 async function scanDirectoryRecursive(
-  rootDir: string,
-  currentDir: string,
-  type: 'pages',
-  filePattern: string,
-  excludeDirs: string[],
-  routes: MiddlewareRoute[],
-  devMode: boolean
+	rootDir: string,
+	currentDir: string,
+	type: "pages",
+	filePattern: string,
+	excludeDirs: string[],
+	routes: MiddlewareRoute[],
+	devMode: boolean,
 ): Promise<void> {
-  try {
-    const entries = await readdir(currentDir, { withFileTypes: true });
-    for (const entry of entries) {
-      const fullPath = join(currentDir, entry.name);
+	try {
+		const entries = await readdir(currentDir, { withFileTypes: true });
+		for (const entry of entries) {
+			const fullPath = join(currentDir, entry.name);
 
-      // Skip excluded directories
-      if (entry.isDirectory() && excludeDirs.includes(entry.name)) {
-        continue;
-      }
+			// Skip excluded directories
+			if (entry.isDirectory() && excludeDirs.includes(entry.name)) {
+				continue;
+			}
 
-      if (entry.isDirectory()) {
-        // Recursively scan subdirectories
-        await scanDirectoryRecursive(rootDir, fullPath, type, filePattern, excludeDirs, routes, devMode);
-      } else if (entry.name === filePattern) {
-        // Found a middleware file
-        const relativePath = relative(rootDir, currentDir);
-        const route = createMiddlewareRoute(fullPath, relativePath, type);
-        routes.push(route);
-      }
-    }
-  } catch (error) {
-    if (devMode && (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'ENOENT')) {
-      console.warn(`[middleware] Error reading ${currentDir}: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
+			if (entry.isDirectory()) {
+				// Recursively scan subdirectories
+				await scanDirectoryRecursive(
+					rootDir,
+					fullPath,
+					type,
+					filePattern,
+					excludeDirs,
+					routes,
+					devMode,
+				);
+			} else if (entry.name === filePattern) {
+				// Found a middleware file
+				const relativePath = relative(rootDir, currentDir);
+				const route = createMiddlewareRoute(fullPath, relativePath, type);
+				routes.push(route);
+			}
+		}
+	} catch (error) {
+		if (
+			devMode &&
+			(!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== "ENOENT")
+		) {
+			console.warn(
+				`[middleware] Error reading ${currentDir}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+		}
+	}
 }
 
 /**
@@ -191,30 +209,30 @@ async function scanDirectoryRecursive(
  * ```
  */
 function createMiddlewareRoute(
-  filePath: string,
-  relativePath: string,
-  type: 'pages'
+	filePath: string,
+	relativePath: string,
+	type: "pages",
 ): MiddlewareRoute {
-  // Calculate URL pattern from relative path
-  // relativePath is the directory path relative to pages/
-  // e.g., 'blog' for src/pages/blog/_middleware.ts
-  // e.g., '' for src/pages/_middleware.ts (root middleware)
+	// Calculate URL pattern from relative path
+	// relativePath is the directory path relative to pages/
+	// e.g., 'blog' for src/pages/blog/_middleware.ts
+	// e.g., '' for src/pages/_middleware.ts (root middleware)
 
-  // Page middleware: /* or /blog{/*}?
-  // Use {/*}? to match both /blog and /blog/anything
-  const urlPattern = relativePath ? `/${relativePath}{/*}?` : '/*';
+	// Page middleware: /* or /blog{/*}?
+	// Use {/*}? to match both /blog and /blog/anything
+	const urlPattern = relativePath ? `/${relativePath}{/*}?` : "/*";
 
-  // Calculate priority based on directory depth
-  // Shallower directories have lower priority (execute first)
-  const depth = relativePath ? relativePath.split('/').filter(Boolean).length : 0;
-  const priority = PRIORITY_BASE[type] + depth;
+	// Calculate priority based on directory depth
+	// Shallower directories have lower priority (execute first)
+	const depth = relativePath ? relativePath.split("/").filter(Boolean).length : 0;
+	const priority = PRIORITY_BASE[type] + depth;
 
-  return {
-    pattern: new URLPattern({ pathname: urlPattern }),
-    filePath,
-    priority,
-    type,
-  };
+	return {
+		pattern: new URLPattern({ pathname: urlPattern }),
+		filePath,
+		priority,
+		type,
+	};
 }
 
 /**
@@ -234,25 +252,22 @@ function createMiddlewareRoute(
  * const matchingRoutes = getMatchingMiddleware(allRoutes, new URL('http://localhost/blog/post-1'));
  * ```
  */
-export function getMatchingMiddleware(
-  routes: MiddlewareRoute[],
-  url: URL
-): MiddlewareRoute[] {
-  const isApiRoute = url.pathname.startsWith('/api');
+export function getMatchingMiddleware(routes: MiddlewareRoute[], url: URL): MiddlewareRoute[] {
+	const isApiRoute = url.pathname.startsWith("/api");
 
-  return routes.filter(route => {
-    // Check if pattern matches the URL
-    if (!route.pattern.test(url)) {
-      return false;
-    }
+	return routes.filter((route) => {
+		// Check if pattern matches the URL
+		if (!route.pattern.test(url)) {
+			return false;
+		}
 
-    // Type isolation: page middleware doesn't run for API routes
-    if (route.type === 'pages' && isApiRoute) {
-      return false;
-    }
+		// Type isolation: page middleware doesn't run for API routes
+		if (route.type === "pages" && isApiRoute) {
+			return false;
+		}
 
-    return true;
-  });
+		return true;
+	});
 }
 
 /**
@@ -263,6 +278,6 @@ export function getMatchingMiddleware(
  * compatibility with the executor module.
  */
 export function clearDiscoveryCache(): void {
-  // No-op: simplified discovery doesn't maintain a persistent cache
-  // Each call to discoverScopedMiddleware scans the file system
+	// No-op: simplified discovery doesn't maintain a persistent cache
+	// Each call to discoverScopedMiddleware scans the file system
 }

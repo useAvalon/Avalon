@@ -3,21 +3,21 @@
  * GET /api/github/:owner/:repo/stars
  */
 
-import { defineHandler, getRouterParam, HTTPError } from 'nitro/h3';
+import { defineHandler, getRouterParam, HTTPError } from "nitro/h3";
 
-export default defineHandler(async event => {
-	const owner = getRouterParam(event, 'owner');
-	const repo = getRouterParam(event, 'repo');
+export default defineHandler(async (event) => {
+	const owner = getRouterParam(event, "owner");
+	const repo = getRouterParam(event, "repo");
 
 	if (!owner || !repo) {
-		throw new HTTPError('Owner and repo parameters are required', { status: 400 });
+		throw new HTTPError("Owner and repo parameters are required", { status: 400 });
 	}
 
 	try {
 		const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
 			headers: {
-				Accept: 'application/vnd.github.v3+json',
-				'User-Agent': 'Avalon-Demo',
+				Accept: "application/vnd.github.v3+json",
+				"User-Agent": "Avalon-Demo",
 			},
 		});
 
@@ -34,8 +34,11 @@ export default defineHandler(async event => {
 			fetchedAt: new Date().toISOString(),
 		};
 	} catch (error) {
-		throw new HTTPError(`Failed to fetch GitHub data: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-			status: 502,
-		});
+		throw new HTTPError(
+			`Failed to fetch GitHub data: ${error instanceof Error ? error.message : "Unknown error"}`,
+			{
+				status: 502,
+			},
+		);
 	}
 });

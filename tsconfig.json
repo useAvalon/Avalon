@@ -1,18 +1,18 @@
 {
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "preact",
-    "lib": ["dom", "dom.iterable", "esnext"],
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
-    "target": "esnext",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "types": ["react", "react-dom"]
-  },
-  "include": ["packages/avalon/src/types/island-jsx.d.ts"]
+	"compilerOptions": {
+		"jsx": "react-jsx",
+		"jsxImportSource": "preact",
+		"lib": ["dom", "dom.iterable", "esnext"],
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"noEmit": true,
+		"target": "esnext",
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"resolveJsonModule": true,
+		"types": ["react", "react-dom"]
+	},
+	"include": ["packages/avalon/src/types/island-jsx.d.ts"]
 }

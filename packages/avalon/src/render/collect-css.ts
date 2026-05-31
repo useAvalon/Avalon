@@ -7,7 +7,7 @@
  * injected into the SSR HTML as <style> tags — preventing FOUC.
  */
 
-import type { ViteDevServer, ModuleNode } from "vite";
+import type { ModuleNode, ViteDevServer } from "vite";
 
 /**
  * Collect all CSS imported (directly or transitively) by a given module URL.
@@ -80,10 +80,7 @@ function isCssModule(id: string): boolean {
  * Uses Vite's transformRequest to get the processed CSS (with module
  * class name hashing, PostCSS transforms, etc. already applied).
  */
-async function getCssContent(
-	server: ViteDevServer,
-	mod: ModuleNode,
-): Promise<string | null> {
+async function getCssContent(server: ViteDevServer, mod: ModuleNode): Promise<string | null> {
 	try {
 		// Use the module's URL for transform (includes query params Vite needs)
 		const url = mod.url;
@@ -120,7 +117,9 @@ function extractCssFromTransformedModule(code: string): string | null {
 	}
 
 	// Pattern 2: __vite_ssr_exports__.default = "..."
-	const ssrExportMatch = new RegExp(/__vite_ssr_exports__\.default\s*=\s*"((?:[^"\\]|\\.)*)"/).exec(code);
+	const ssrExportMatch = new RegExp(/__vite_ssr_exports__\.default\s*=\s*"((?:[^"\\]|\\.)*)"/).exec(
+		code,
+	);
 	if (ssrExportMatch) {
 		return unescapeJsString(ssrExportMatch[1]);
 	}
@@ -148,7 +147,7 @@ function unescapeJsString(str: string): string {
 		.replaceAll(String.raw`\t`, "\t")
 		.replaceAll(String.raw`\r`, "\r")
 		.replaceAll(String.raw`\"`, '"')
-		.replaceAll('\\\\', "\\");
+		.replaceAll("\\\\", "\\");
 }
 
 /**

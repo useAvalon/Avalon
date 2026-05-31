@@ -24,34 +24,62 @@
  * ```
  */
 
-import type { Plugin } from 'vite';
-import type { ResolvedImageConfig } from './types.ts';
-import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import { createRequire } from "node:module";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import type { Plugin } from "vite";
+import type { ResolvedImageConfig } from "./types.ts";
+
+/** The shape of the vite-imagetools module we rely on. */
+interface ImagetoolsModule {
+	imagetools: (opts: unknown) => Plugin;
+}
+
+/**
+ * Resolve and import `vite-imagetools`.
+ *
+ * Prefers the consuming project's `node_modules` (resolved from `process.cwd()`)
+ * so the user's installed version is used, then falls back to a bare dynamic
+ * import using avalon's own resolution context. Using `import()` keeps standard
+ * ESM resolution semantics and allows the module to be mocked in tests.
+ */
+async function importImagetools(): Promise<ImagetoolsModule> {
+	try {
+		const require = createRequire(join(process.cwd(), "package.json"));
+		const resolved = require.resolve("vite-imagetools");
+		return (await import(pathToFileURL(resolved).href)) as ImagetoolsModule;
+	} catch {
+		return (await import("vite-imagetools")) as unknown as ImagetoolsModule;
+	}
+}
 
 /**
  * Creates the vite-imagetools plugin with Avalon's configuration
  */
-export async function createImagePlugin(config: ResolvedImageConfig, verbose: boolean): Promise<Plugin[]> {
+export async function createImagePlugin(
+	config: ResolvedImageConfig,
+	verbose: boolean,
+): Promise<Plugin[]> {
 	if (!config.enabled) {
 		if (verbose) {
-			console.log('   ⏭️  Image optimization disabled');
+			console.log("   ⏭️  Image optimization disabled");
 		}
 		return [];
 	}
 
 	try {
-		// Dynamic import to avoid hard dependency if user disables images.
-		// Use createRequire from the project root so we resolve the package
-		// from the consuming project's node_modules, not avalon's own context.
-		const require = createRequire(join(process.cwd(), 'package.json'));
-		const { imagetools } = require('vite-imagetools');
+		// Dynamic import to avoid a hard dependency when the user disables images.
+		// Resolve via the project root first (the consuming project's node_modules),
+		// falling back to normal resolution from avalon's own context. Using import()
+		// (rather than createRequire) means standard ESM resolution applies and the
+		// module can be mocked in tests.
+		const { imagetools } = await importImagetools();
 
 		if (verbose) {
-			console.log('   🖼️  Image optimization enabled');
+			console.log("   🖼️  Image optimization enabled");
 			console.log(`      Format: ${config.defaultFormat}`);
 			console.log(`      Quality: ${config.quality}`);
-			console.log(`      Widths: ${config.widths.join(', ')}`);
+			console.log(`      Widths: ${config.widths.join(", ")}`);
 		}
 
 		const plugin = imagetools({
@@ -64,22 +92,22 @@ export async function createImagePlugin(config: ResolvedImageConfig, verbose: bo
 				const params = new URLSearchParams();
 
 				// Only apply defaults if no format specified
-				if (!url.searchParams.has('format')) {
-					params.set('format', config.defaultFormat);
+				if (!url.searchParams.has("format")) {
+					params.set("format", config.defaultFormat);
 				}
 
 				// Only apply quality if not specified
-				if (!url.searchParams.has('quality')) {
-					params.set('quality', String(config.quality));
+				if (!url.searchParams.has("quality")) {
+					params.set("quality", String(config.quality));
 				}
 
 				// If ?jsx is used, generate responsive srcset like Qwik
-				if (url.searchParams.has('jsx')) {
+				if (url.searchParams.has("jsx")) {
 					// Generate widths for srcset if not specified
-					if (!url.searchParams.has('w') && !url.searchParams.has('width')) {
-						params.set('w', config.widths.join(';'));
+					if (!url.searchParams.has("w") && !url.searchParams.has("width")) {
+						params.set("w", config.widths.join(";"));
 					}
-					params.set('as', 'picture');
+					params.set("as", "picture");
 				}
 
 				return params;
@@ -91,11 +119,11 @@ export async function createImagePlugin(config: ResolvedImageConfig, verbose: bo
 		// vite-imagetools not installed
 		const message = error instanceof Error ? error.message : String(error);
 
-		if (message.includes('Cannot find package') || message.includes('MODULE_NOT_FOUND')) {
+		if (message.includes("Cannot find package") || message.includes("MODULE_NOT_FOUND")) {
 			console.warn(
-				'⚠️  Avalon: Image optimization is enabled but vite-imagetools is not installed.\n' +
-					'   Install it with: bun add -d vite-imagetools\n' +
-					'   Or disable image optimization: image: false',
+				"⚠️  Avalon: Image optimization is enabled but vite-imagetools is not installed.\n" +
+					"   Install it with: bun add -d vite-imagetools\n" +
+					"   Or disable image optimization: image: false",
 			);
 			return [];
 		}

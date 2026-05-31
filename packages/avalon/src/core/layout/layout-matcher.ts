@@ -1,4 +1,4 @@
-import type { LayoutRule, RouteInfo } from './layout-types.ts';
+import type { LayoutRule, RouteInfo } from "./layout-types.ts";
 
 /**
  * Built-in layout rules for common scenarios
@@ -10,7 +10,7 @@ export class BuiltInLayoutRules {
 	 */
 	static readonly API_ROUTES_SKIP_LAYOUTS: LayoutRule = {
 		matches: (route: RouteInfo): boolean => {
-			return route.path.startsWith('/api/');
+			return route.path.startsWith("/api/");
 		},
 		apply: false,
 		priority: 100,
@@ -22,9 +22,9 @@ export class BuiltInLayoutRules {
 	 */
 	static readonly MOBILE_LAYOUT_DETECTION: LayoutRule = {
 		matches: (route: RouteInfo, layoutPath?: string): boolean => {
-			const userAgent = route.headers.get('user-agent')?.toLowerCase() || '';
+			const userAgent = route.headers.get("user-agent")?.toLowerCase() || "";
 			const isMobile = /mobile|android|iphone|ipad|phone|tablet/i.test(userAgent);
-			const isMobileLayout = layoutPath?.includes('/mobile/') ?? false;
+			const isMobileLayout = layoutPath?.includes("/mobile/") ?? false;
 			// Skip mobile layouts for non-mobile user agents; skip non-mobile layouts for mobile users
 			if (isMobileLayout) return !isMobile;
 			return isMobile;
@@ -39,8 +39,8 @@ export class BuiltInLayoutRules {
 	 */
 	static readonly HEADER_BASED_SKIP: LayoutRule = {
 		matches: (route: RouteInfo): boolean => {
-			const skipLayout = route.headers.get('x-skip-layout');
-			return skipLayout === 'true' || skipLayout === '1';
+			const skipLayout = route.headers.get("x-skip-layout");
+			return skipLayout === "true" || skipLayout === "1";
 		},
 		apply: false,
 		priority: 90,
@@ -53,9 +53,9 @@ export class BuiltInLayoutRules {
 	static readonly ADMIN_LAYOUT_RESTRICTION: LayoutRule = {
 		matches: (route: RouteInfo, layoutPath?: string): boolean => {
 			// Only restrict admin layouts — if no layoutPath or not an admin layout, don't match
-			if (!layoutPath?.includes('/admin/')) return false;
+			if (!layoutPath?.includes("/admin/")) return false;
 			// Admin layout should only apply to admin routes
-			return !route.path.startsWith('/admin/');
+			return !route.path.startsWith("/admin/");
 		},
 		apply: false,
 		priority: 60,
@@ -63,10 +63,10 @@ export class BuiltInLayoutRules {
 
 	static getAllRules(): LayoutRule[] {
 		return [
-			this.API_ROUTES_SKIP_LAYOUTS,
-			this.MOBILE_LAYOUT_DETECTION,
-			this.HEADER_BASED_SKIP,
-			this.ADMIN_LAYOUT_RESTRICTION,
+			BuiltInLayoutRules.API_ROUTES_SKIP_LAYOUTS,
+			BuiltInLayoutRules.MOBILE_LAYOUT_DETECTION,
+			BuiltInLayoutRules.HEADER_BASED_SKIP,
+			BuiltInLayoutRules.ADMIN_LAYOUT_RESTRICTION,
 		];
 	}
 }
@@ -89,14 +89,14 @@ export class LayoutMatcher {
 	 * Requirements: 4.3
 	 */
 	addRule(rule: LayoutRule): void {
-		if (!rule.matches || typeof rule.matches !== 'function') {
-			throw new Error('Layout rule must have a valid matches function');
+		if (!rule.matches || typeof rule.matches !== "function") {
+			throw new Error("Layout rule must have a valid matches function");
 		}
-		if (typeof rule.apply !== 'boolean') {
-			throw new TypeError('Layout rule must have a boolean apply property');
+		if (typeof rule.apply !== "boolean") {
+			throw new TypeError("Layout rule must have a boolean apply property");
 		}
-		if (typeof rule.priority !== 'number') {
-			throw new TypeError('Layout rule must have a numeric priority');
+		if (typeof rule.priority !== "number") {
+			throw new TypeError("Layout rule must have a numeric priority");
 		}
 
 		this.rules.push(rule);
@@ -137,7 +137,7 @@ export class LayoutMatcher {
 
 			if (this.developmentMode) {
 				console.log(
-					`[LayoutMatcher] Layout ${layoutPath} for route ${route.path}: ${result ? 'APPLY' : 'SKIP'} ` +
+					`[LayoutMatcher] Layout ${layoutPath} for route ${route.path}: ${result ? "APPLY" : "SKIP"} ` +
 						`(${matchingRules.length} rules matched)`,
 				);
 			}
@@ -162,7 +162,7 @@ export class LayoutMatcher {
 	clearRules(): void {
 		this.rules = [];
 		if (this.developmentMode) {
-			console.log('[LayoutMatcher] Cleared all rules');
+			console.log("[LayoutMatcher] Cleared all rules");
 		}
 	}
 
@@ -221,8 +221,8 @@ export class LayoutMatcher {
 	}
 
 	private resolveEqualPriorityConflicts(rules: LayoutRule[]): boolean {
-		const applyCount = rules.filter(rule => rule.apply).length;
-		const skipCount = rules.filter(rule => !rule.apply).length;
+		const applyCount = rules.filter((rule) => rule.apply).length;
+		const skipCount = rules.filter((rule) => !rule.apply).length;
 
 		if (skipCount > applyCount) {
 			if (this.developmentMode) console.log(`[LayoutMatcher] Conflict resolution: SKIP`);
@@ -231,7 +231,8 @@ export class LayoutMatcher {
 			if (this.developmentMode) console.log(`[LayoutMatcher] Conflict resolution: APPLY`);
 			return true;
 		} else {
-			if (this.developmentMode) console.log(`[LayoutMatcher] Conflict resolution: SKIP (tie-breaker)`);
+			if (this.developmentMode)
+				console.log(`[LayoutMatcher] Conflict resolution: SKIP (tie-breaker)`);
 			return false;
 		}
 	}
@@ -240,13 +241,21 @@ export class LayoutMatcher {
 	 * Create a custom rule
 	 * Requirements: 4.3
 	 */
-	static createCustomRule(matcher: (route: RouteInfo) => boolean, apply: boolean, priority: number = 10): LayoutRule {
+	static createCustomRule(
+		matcher: (route: RouteInfo) => boolean,
+		apply: boolean,
+		priority: number = 10,
+	): LayoutRule {
 		return { matches: matcher, apply, priority };
 	}
 
-	static createPathRule(pathPattern: string | RegExp, apply: boolean, priority: number = 10): LayoutRule {
+	static createPathRule(
+		pathPattern: string | RegExp,
+		apply: boolean,
+		priority: number = 10,
+	): LayoutRule {
 		const matches =
-			typeof pathPattern === 'string'
+			typeof pathPattern === "string"
 				? (route: RouteInfo) => route.path.includes(pathPattern)
 				: (route: RouteInfo) => pathPattern.test(route.path);
 		return { matches, apply, priority };
@@ -262,15 +271,21 @@ export class LayoutMatcher {
 			matches: (route: RouteInfo) => {
 				const val = route.headers.get(headerName.toLowerCase());
 				if (!val) return false;
-				return typeof headerValue === 'string' ? val === headerValue : headerValue.test(val);
+				return typeof headerValue === "string" ? val === headerValue : headerValue.test(val);
 			},
 			apply,
 			priority,
 		};
 	}
 
-	static createMethodRule(methods: string | string[], apply: boolean, priority: number = 10): LayoutRule {
-		const normalizedMethods = new Set((Array.isArray(methods) ? methods : [methods]).map(m => m.toUpperCase()));
+	static createMethodRule(
+		methods: string | string[],
+		apply: boolean,
+		priority: number = 10,
+	): LayoutRule {
+		const normalizedMethods = new Set(
+			(Array.isArray(methods) ? methods : [methods]).map((m) => m.toUpperCase()),
+		);
 		return {
 			matches: (route: RouteInfo) => normalizedMethods.has(route.method.toUpperCase()),
 			apply,
@@ -291,9 +306,9 @@ export class LayoutMatcher {
 		const finalDecision = this.shouldApplyLayout(layoutPath, route);
 		return {
 			totalRules: this.rules.length,
-			matchingRules: matchingRules.map(rule => ({ priority: rule.priority, apply: rule.apply })),
+			matchingRules: matchingRules.map((rule) => ({ priority: rule.priority, apply: rule.apply })),
 			finalDecision,
-			conflictResolution: matchingRules.length > 1 ? 'priority-based' : 'single-rule',
+			conflictResolution: matchingRules.length > 1 ? "priority-based" : "single-rule",
 		};
 	}
 }

@@ -1,6 +1,6 @@
 /**
  * HMR Error Overlay
- * 
+ *
  * Provides detailed error feedback when HMR fails for island components.
  * Displays file paths, error details, and suggestions for fixing issues.
  */
@@ -16,12 +16,12 @@
  * @param {number} [options.column] - The column number (if available)
  */
 export function showHMRErrorOverlay({ framework, src, error, filePath, line, column }) {
-  // Remove existing overlay
-  removeHMRErrorOverlay();
+	// Remove existing overlay
+	removeHMRErrorOverlay();
 
-  const overlay = document.createElement('div');
-  overlay.id = 'avalon-hmr-error-overlay';
-  overlay.style.cssText = `
+	const overlay = document.createElement("div");
+	overlay.id = "avalon-hmr-error-overlay";
+	overlay.style.cssText = `
     position: fixed;
     top: 0;
     left: 0;
@@ -36,8 +36,8 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
     backdrop-filter: blur(4px);
   `;
 
-  const container = document.createElement('div');
-  container.style.cssText = `
+	const container = document.createElement("div");
+	container.style.cssText = `
     background: #1a1a2e;
     border-radius: 12px;
     max-width: 700px;
@@ -48,9 +48,9 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
     border: 1px solid rgba(255, 255, 255, 0.1);
   `;
 
-  // Header
-  const header = document.createElement('div');
-  header.style.cssText = `
+	// Header
+	const header = document.createElement("div");
+	header.style.cssText = `
     background: linear-gradient(135deg, #e74c3c, #c0392b);
     padding: 16px 20px;
     display: flex;
@@ -59,8 +59,8 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
     border-radius: 12px 12px 0 0;
   `;
 
-  const title = document.createElement('div');
-  title.style.cssText = `
+	const title = document.createElement("div");
+	title.style.cssText = `
     display: flex;
     align-items: center;
     gap: 10px;
@@ -68,13 +68,13 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
     font-weight: 600;
     font-size: 16px;
   `;
-  title.innerHTML = `
+	title.innerHTML = `
     <span style="font-size: 20px;">⚠️</span>
     <span>HMR Update Failed</span>
   `;
 
-  const closeBtn = document.createElement('button');
-  closeBtn.style.cssText = `
+	const closeBtn = document.createElement("button");
+	closeBtn.style.cssText = `
     background: rgba(255, 255, 255, 0.2);
     border: none;
     color: white;
@@ -88,24 +88,24 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
     justify-content: center;
     transition: background 0.2s;
   `;
-  closeBtn.textContent = '×';
-  closeBtn.onmouseover = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.3)';
-  closeBtn.onmouseout = () => closeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
-  closeBtn.onclick = removeHMRErrorOverlay;
+	closeBtn.textContent = "×";
+	closeBtn.onmouseover = () => (closeBtn.style.background = "rgba(255, 255, 255, 0.3)");
+	closeBtn.onmouseout = () => (closeBtn.style.background = "rgba(255, 255, 255, 0.2)");
+	closeBtn.onclick = removeHMRErrorOverlay;
 
-  header.appendChild(title);
-  header.appendChild(closeBtn);
+	header.appendChild(title);
+	header.appendChild(closeBtn);
 
-  // Content
-  const content = document.createElement('div');
-  content.style.cssText = `
+	// Content
+	const content = document.createElement("div");
+	content.style.cssText = `
     padding: 20px;
     color: #e0e0e0;
   `;
 
-  // File info section
-  const fileInfo = document.createElement('div');
-  fileInfo.style.cssText = `
+	// File info section
+	const fileInfo = document.createElement("div");
+	fileInfo.style.cssText = `
     background: rgba(255, 255, 255, 0.05);
     border-radius: 8px;
     padding: 12px 16px;
@@ -114,10 +114,10 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
     font-size: 13px;
   `;
 
-  const displayPath = filePath || src;
-  const locationInfo = line ? `:${line}${column ? `:${column}` : ''}` : '';
-  
-  fileInfo.innerHTML = `
+	const displayPath = filePath || src;
+	const locationInfo = line ? `:${line}${column ? `:${column}` : ""}` : "";
+
+	fileInfo.innerHTML = `
     <div style="color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">
       Component
     </div>
@@ -132,24 +132,24 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
     </div>
   `;
 
-  // Error message section
-  const errorSection = document.createElement('div');
-  errorSection.style.cssText = `
+	// Error message section
+	const errorSection = document.createElement("div");
+	errorSection.style.cssText = `
     margin-bottom: 16px;
   `;
 
-  const errorLabel = document.createElement('div');
-  errorLabel.style.cssText = `
+	const errorLabel = document.createElement("div");
+	errorLabel.style.cssText = `
     color: #888;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin-bottom: 8px;
   `;
-  errorLabel.textContent = 'Error Message';
+	errorLabel.textContent = "Error Message";
 
-  const errorMessage = document.createElement('div');
-  errorMessage.style.cssText = `
+	const errorMessage = document.createElement("div");
+	errorMessage.style.cssText = `
     background: rgba(231, 76, 60, 0.1);
     border: 1px solid rgba(231, 76, 60, 0.3);
     border-radius: 8px;
@@ -160,20 +160,20 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
     white-space: pre-wrap;
     word-break: break-word;
   `;
-  errorMessage.textContent = error.message || String(error);
+	errorMessage.textContent = error.message || String(error);
 
-  errorSection.appendChild(errorLabel);
-  errorSection.appendChild(errorMessage);
+	errorSection.appendChild(errorLabel);
+	errorSection.appendChild(errorMessage);
 
-  // Stack trace section (if available)
-  if (error.stack) {
-    const stackSection = document.createElement('div');
-    stackSection.style.cssText = `
+	// Stack trace section (if available)
+	if (error.stack) {
+		const stackSection = document.createElement("div");
+		stackSection.style.cssText = `
       margin-bottom: 16px;
     `;
 
-    const stackLabel = document.createElement('div');
-    stackLabel.style.cssText = `
+		const stackLabel = document.createElement("div");
+		stackLabel.style.cssText = `
       color: #888;
       font-size: 11px;
       text-transform: uppercase;
@@ -184,11 +184,11 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
       justify-content: space-between;
     `;
 
-    const stackLabelText = document.createElement('span');
-    stackLabelText.textContent = 'Stack Trace';
+		const stackLabelText = document.createElement("span");
+		stackLabelText.textContent = "Stack Trace";
 
-    const toggleBtn = document.createElement('button');
-    toggleBtn.style.cssText = `
+		const toggleBtn = document.createElement("button");
+		toggleBtn.style.cssText = `
       background: rgba(255, 255, 255, 0.1);
       border: none;
       color: #888;
@@ -197,13 +197,13 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
       cursor: pointer;
       font-size: 11px;
     `;
-    toggleBtn.textContent = 'Show';
+		toggleBtn.textContent = "Show";
 
-    stackLabel.appendChild(stackLabelText);
-    stackLabel.appendChild(toggleBtn);
+		stackLabel.appendChild(stackLabelText);
+		stackLabel.appendChild(toggleBtn);
 
-    const stackTrace = document.createElement('div');
-    stackTrace.style.cssText = `
+		const stackTrace = document.createElement("div");
+		stackTrace.style.cssText = `
       background: rgba(0, 0, 0, 0.3);
       border-radius: 8px;
       padding: 12px 16px;
@@ -216,32 +216,32 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
       overflow: auto;
       display: none;
     `;
-    stackTrace.textContent = formatStackTrace(error.stack);
+		stackTrace.textContent = formatStackTrace(error.stack);
 
-    toggleBtn.onclick = () => {
-      const isHidden = stackTrace.style.display === 'none';
-      stackTrace.style.display = isHidden ? 'block' : 'none';
-      toggleBtn.textContent = isHidden ? 'Hide' : 'Show';
-    };
+		toggleBtn.onclick = () => {
+			const isHidden = stackTrace.style.display === "none";
+			stackTrace.style.display = isHidden ? "block" : "none";
+			toggleBtn.textContent = isHidden ? "Hide" : "Show";
+		};
 
-    stackSection.appendChild(stackLabel);
-    stackSection.appendChild(stackTrace);
-    content.appendChild(stackSection);
-  }
+		stackSection.appendChild(stackLabel);
+		stackSection.appendChild(stackTrace);
+		content.appendChild(stackSection);
+	}
 
-  // Suggestions section
-  const suggestions = getSuggestions(error, framework);
-  if (suggestions.length > 0) {
-    const suggestionsSection = document.createElement('div');
-    suggestionsSection.style.cssText = `
+	// Suggestions section
+	const suggestions = getSuggestions(error, framework);
+	if (suggestions.length > 0) {
+		const suggestionsSection = document.createElement("div");
+		suggestionsSection.style.cssText = `
       background: rgba(46, 204, 113, 0.1);
       border: 1px solid rgba(46, 204, 113, 0.3);
       border-radius: 8px;
       padding: 12px 16px;
     `;
 
-    const suggestionsLabel = document.createElement('div');
-    suggestionsLabel.style.cssText = `
+		const suggestionsLabel = document.createElement("div");
+		suggestionsLabel.style.cssText = `
       color: #2ecc71;
       font-size: 12px;
       font-weight: 600;
@@ -250,10 +250,10 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
       align-items: center;
       gap: 6px;
     `;
-    suggestionsLabel.innerHTML = '<span>💡</span><span>Suggestions</span>';
+		suggestionsLabel.innerHTML = "<span>💡</span><span>Suggestions</span>";
 
-    const suggestionsList = document.createElement('ul');
-    suggestionsList.style.cssText = `
+		const suggestionsList = document.createElement("ul");
+		suggestionsList.style.cssText = `
       margin: 0;
       padding-left: 20px;
       color: #a0a0a0;
@@ -261,20 +261,20 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
       line-height: 1.6;
     `;
 
-    for (const suggestion of suggestions) {
-      const li = document.createElement('li');
-      li.textContent = suggestion;
-      suggestionsList.appendChild(li);
-    }
+		for (const suggestion of suggestions) {
+			const li = document.createElement("li");
+			li.textContent = suggestion;
+			suggestionsList.appendChild(li);
+		}
 
-    suggestionsSection.appendChild(suggestionsLabel);
-    suggestionsSection.appendChild(suggestionsList);
-    content.appendChild(suggestionsSection);
-  }
+		suggestionsSection.appendChild(suggestionsLabel);
+		suggestionsSection.appendChild(suggestionsList);
+		content.appendChild(suggestionsSection);
+	}
 
-  // Footer
-  const footer = document.createElement('div');
-  footer.style.cssText = `
+	// Footer
+	const footer = document.createElement("div");
+	footer.style.cssText = `
     padding: 12px 20px;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
@@ -284,17 +284,17 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
     color: #666;
   `;
 
-  const timestamp = document.createElement('span');
-  timestamp.textContent = `${new Date().toLocaleTimeString()}`;
+	const timestamp = document.createElement("span");
+	timestamp.textContent = `${new Date().toLocaleTimeString()}`;
 
-  const actions = document.createElement('div');
-  actions.style.cssText = `
+	const actions = document.createElement("div");
+	actions.style.cssText = `
     display: flex;
     gap: 8px;
   `;
 
-  const reloadBtn = document.createElement('button');
-  reloadBtn.style.cssText = `
+	const reloadBtn = document.createElement("button");
+	reloadBtn.style.cssText = `
     background: #3498db;
     border: none;
     color: white;
@@ -304,11 +304,11 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
     font-size: 12px;
     font-weight: 500;
   `;
-  reloadBtn.textContent = 'Reload Page';
-  reloadBtn.onclick = () => globalThis.location.reload();
+	reloadBtn.textContent = "Reload Page";
+	reloadBtn.onclick = () => globalThis.location.reload();
 
-  const dismissBtn = document.createElement('button');
-  dismissBtn.style.cssText = `
+	const dismissBtn = document.createElement("button");
+	dismissBtn.style.cssText = `
     background: rgba(255, 255, 255, 0.1);
     border: none;
     color: #888;
@@ -317,47 +317,47 @@ export function showHMRErrorOverlay({ framework, src, error, filePath, line, col
     cursor: pointer;
     font-size: 12px;
   `;
-  dismissBtn.textContent = 'Dismiss';
-  dismissBtn.onclick = removeHMRErrorOverlay;
+	dismissBtn.textContent = "Dismiss";
+	dismissBtn.onclick = removeHMRErrorOverlay;
 
-  actions.appendChild(dismissBtn);
-  actions.appendChild(reloadBtn);
+	actions.appendChild(dismissBtn);
+	actions.appendChild(reloadBtn);
 
-  footer.appendChild(timestamp);
-  footer.appendChild(actions);
+	footer.appendChild(timestamp);
+	footer.appendChild(actions);
 
-  // Assemble
-  content.insertBefore(fileInfo, content.firstChild);
-  content.insertBefore(errorSection, content.children[1]);
+	// Assemble
+	content.insertBefore(fileInfo, content.firstChild);
+	content.insertBefore(errorSection, content.children[1]);
 
-  container.appendChild(header);
-  container.appendChild(content);
-  container.appendChild(footer);
-  overlay.appendChild(container);
+	container.appendChild(header);
+	container.appendChild(content);
+	container.appendChild(footer);
+	overlay.appendChild(container);
 
-  // Add keyboard handler
-  const handleKeydown = (e) => {
-    if (e.key === 'Escape') {
-      removeHMRErrorOverlay();
-    }
-  };
-  document.addEventListener('keydown', handleKeydown);
-  overlay._keydownHandler = handleKeydown;
+	// Add keyboard handler
+	const handleKeydown = (e) => {
+		if (e.key === "Escape") {
+			removeHMRErrorOverlay();
+		}
+	};
+	document.addEventListener("keydown", handleKeydown);
+	overlay._keydownHandler = handleKeydown;
 
-  document.body.appendChild(overlay);
+	document.body.appendChild(overlay);
 }
 
 /**
  * Remove the HMR error overlay
  */
 export function removeHMRErrorOverlay() {
-  const overlay = document.getElementById('avalon-hmr-error-overlay');
-  if (overlay) {
-    if (overlay._keydownHandler) {
-      document.removeEventListener('keydown', overlay._keydownHandler);
-    }
-    overlay.remove();
-  }
+	const overlay = document.getElementById("avalon-hmr-error-overlay");
+	if (overlay) {
+		if (overlay._keydownHandler) {
+			document.removeEventListener("keydown", overlay._keydownHandler);
+		}
+		overlay.remove();
+	}
 }
 
 /**
@@ -366,9 +366,9 @@ export function removeHMRErrorOverlay() {
  * @returns {string} Escaped string
  */
 function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+	const div = document.createElement("div");
+	div.textContent = str;
+	return div.innerHTML;
 }
 
 /**
@@ -377,11 +377,11 @@ function escapeHtml(str) {
  * @returns {string} Formatted stack trace
  */
 function formatStackTrace(stack) {
-  return stack
-    .split('\n')
-    .map(line => line.trim())
-    .filter(line => line.length > 0)
-    .join('\n');
+	return stack
+		.split("\n")
+		.map((line) => line.trim())
+		.filter((line) => line.length > 0)
+		.join("\n");
 }
 
 /**
@@ -391,63 +391,63 @@ function formatStackTrace(stack) {
  * @returns {string[]} Array of suggestions
  */
 function getSuggestions(error, framework) {
-  const suggestions = [];
-  const message = error.message?.toLowerCase() || '';
+	const suggestions = [];
+	const message = error.message?.toLowerCase() || "";
 
-  // Common error patterns
-  if (message.includes('no default export')) {
-    suggestions.push('Ensure your component has a default export');
-    suggestions.push('Check that the export statement is correct: export default ComponentName');
-  }
+	// Common error patterns
+	if (message.includes("no default export")) {
+		suggestions.push("Ensure your component has a default export");
+		suggestions.push("Check that the export statement is correct: export default ComponentName");
+	}
 
-  if (message.includes('cannot find module') || message.includes('module not found')) {
-    suggestions.push('Check that the import path is correct');
-    suggestions.push('Verify the file exists at the specified location');
-    suggestions.push('Check for typos in the file name or path');
-  }
+	if (message.includes("cannot find module") || message.includes("module not found")) {
+		suggestions.push("Check that the import path is correct");
+		suggestions.push("Verify the file exists at the specified location");
+		suggestions.push("Check for typos in the file name or path");
+	}
 
-  if (message.includes('syntax error') || message.includes('unexpected token')) {
-    suggestions.push('Check for syntax errors in your component');
-    suggestions.push('Ensure all brackets and parentheses are properly closed');
-  }
+	if (message.includes("syntax error") || message.includes("unexpected token")) {
+		suggestions.push("Check for syntax errors in your component");
+		suggestions.push("Ensure all brackets and parentheses are properly closed");
+	}
 
-  if (message.includes('hydration') || message.includes('mismatch')) {
-    suggestions.push('Ensure server and client render the same initial content');
-    suggestions.push('Check for browser-only code that runs during SSR');
-  }
+	if (message.includes("hydration") || message.includes("mismatch")) {
+		suggestions.push("Ensure server and client render the same initial content");
+		suggestions.push("Check for browser-only code that runs during SSR");
+	}
 
-  // Framework-specific suggestions
-  switch (framework) {
-    case 'vue':
-      if (message.includes('template')) {
-        suggestions.push('Check your Vue template syntax');
-      }
-      break;
-    case 'svelte':
-      if (message.includes('compile')) {
-        suggestions.push('Check your Svelte component syntax');
-        suggestions.push('Ensure reactive statements use $: prefix');
-      }
-      break;
-    case 'solid':
-      if (message.includes('signal') || message.includes('reactive')) {
-        suggestions.push('Check your Solid.js signal usage');
-      }
-      break;
-    case 'lit':
-      if (message.includes('custom element') || message.includes('define')) {
-        suggestions.push('Ensure your Lit element is properly decorated with @customElement');
-      }
-      break;
-  }
+	// Framework-specific suggestions
+	switch (framework) {
+		case "vue":
+			if (message.includes("template")) {
+				suggestions.push("Check your Vue template syntax");
+			}
+			break;
+		case "svelte":
+			if (message.includes("compile")) {
+				suggestions.push("Check your Svelte component syntax");
+				suggestions.push("Ensure reactive statements use $: prefix");
+			}
+			break;
+		case "solid":
+			if (message.includes("signal") || message.includes("reactive")) {
+				suggestions.push("Check your Solid.js signal usage");
+			}
+			break;
+		case "lit":
+			if (message.includes("custom element") || message.includes("define")) {
+				suggestions.push("Ensure your Lit element is properly decorated with @customElement");
+			}
+			break;
+	}
 
-  // Generic suggestions if none matched
-  if (suggestions.length === 0) {
-    suggestions.push('Check the browser console for more details');
-    suggestions.push('Try reloading the page');
-  }
+	// Generic suggestions if none matched
+	if (suggestions.length === 0) {
+		suggestions.push("Check the browser console for more details");
+		suggestions.push("Try reloading the page");
+	}
 
-  return suggestions;
+	return suggestions;
 }
 
 /**
@@ -457,24 +457,24 @@ function getSuggestions(error, framework) {
  * @param {string} [options.type='info'] - The type: 'success', 'error', 'info'
  * @param {number} [options.duration=3000] - Duration in milliseconds
  */
-export function showHMRToast({ message, type = 'info', duration = 3000 }) {
-  // Remove existing toast
-  const existing = document.getElementById('avalon-hmr-toast');
-  if (existing) {
-    existing.remove();
-  }
+export function showHMRToast({ message, type = "info", duration = 3000 }) {
+	// Remove existing toast
+	const existing = document.getElementById("avalon-hmr-toast");
+	if (existing) {
+		existing.remove();
+	}
 
-  const colors = {
-    success: { bg: '#2ecc71', icon: '✓' },
-    error: { bg: '#e74c3c', icon: '✕' },
-    info: { bg: '#3498db', icon: 'ℹ' },
-  };
+	const colors = {
+		success: { bg: "#2ecc71", icon: "✓" },
+		error: { bg: "#e74c3c", icon: "✕" },
+		info: { bg: "#3498db", icon: "ℹ" },
+	};
 
-  const { bg, icon } = colors[type] || colors.info;
+	const { bg, icon } = colors[type] || colors.info;
 
-  const toast = document.createElement('div');
-  toast.id = 'avalon-hmr-toast';
-  toast.style.cssText = `
+	const toast = document.createElement("div");
+	toast.id = "avalon-hmr-toast";
+	toast.style.cssText = `
     position: fixed;
     bottom: 20px;
     right: 20px;
@@ -492,14 +492,14 @@ export function showHMRToast({ message, type = 'info', duration = 3000 }) {
     animation: slideIn 0.3s ease;
   `;
 
-  toast.innerHTML = `
+	toast.innerHTML = `
     <span style="font-weight: bold;">${icon}</span>
     <span>${escapeHtml(message)}</span>
   `;
 
-  // Add animation styles
-  const style = document.createElement('style');
-  style.textContent = `
+	// Add animation styles
+	const style = document.createElement("style");
+	style.textContent = `
     @keyframes slideIn {
       from {
         transform: translateX(100%);
@@ -521,13 +521,13 @@ export function showHMRToast({ message, type = 'info', duration = 3000 }) {
       }
     }
   `;
-  toast.appendChild(style);
+	toast.appendChild(style);
 
-  document.body.appendChild(toast);
+	document.body.appendChild(toast);
 
-  // Auto-remove after duration
-  setTimeout(() => {
-    toast.style.animation = 'slideOut 0.3s ease';
-    setTimeout(() => toast.remove(), 300);
-  }, duration);
+	// Auto-remove after duration
+	setTimeout(() => {
+		toast.style.animation = "slideOut 0.3s ease";
+		setTimeout(() => toast.remove(), 300);
+	}, duration);
 }

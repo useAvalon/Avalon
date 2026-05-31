@@ -22,7 +22,7 @@ export type LayoutData = Record<string, unknown>;
 export type LayoutLoader = (ctx: LayoutContext) => Promise<LayoutData>;
 
 export interface LayoutProps {
-	children: import('preact').ComponentChildren;
+	children: import("preact").ComponentChildren;
 	data: LayoutData;
 	frontmatter?: Record<string, unknown>;
 	route: {
@@ -43,7 +43,7 @@ export interface LayoutRoute {
 	pattern: URLPattern;
 	layoutPath: string;
 	priority: number;
-	type: 'root' | 'nested';
+	type: "root" | "nested";
 	depth: number;
 }
 
@@ -77,7 +77,7 @@ export interface LayoutRule {
 
 export interface LayoutErrorInfo {
 	layoutPath: string;
-	errorType: 'component' | 'loader' | 'rendering' | 'island';
+	errorType: "component" | "loader" | "rendering" | "island";
 	timestamp: number;
 	componentStack?: string;
 	errorBoundary?: string;

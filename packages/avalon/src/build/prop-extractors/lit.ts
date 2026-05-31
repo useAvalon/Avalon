@@ -34,9 +34,7 @@ export function extractLitProps(source: string): PropExtractionResult {
 		const propsType = "{ " + fields + " }";
 		return { propsType, fallback: false };
 	} catch {
-		console.warn(
-			"[avalon] Failed to extract Lit props — falling back to Record<string, unknown>",
-		);
+		console.warn("[avalon] Failed to extract Lit props — falling back to Record<string, unknown>");
 		return { propsType: FALLBACK_PROPS, fallback: true };
 	}
 }
@@ -88,9 +86,12 @@ function parsePropertyEntries(block: string): ParsedProp[] {
 	// Match each property entry: name: { ... }
 	// We use a regex to find property names followed by `{`, then brace-count
 	const entryRegex = /(\w+)\s*:\s*\{/g;
-	let entryMatch: RegExpExecArray | null;
 
-	while ((entryMatch = entryRegex.exec(block)) !== null) {
+	for (
+		let entryMatch = entryRegex.exec(block);
+		entryMatch !== null;
+		entryMatch = entryRegex.exec(block)
+	) {
 		const name = entryMatch[1];
 		const openIdx = entryMatch.index + entryMatch[0].length - 1;
 
@@ -104,14 +105,12 @@ function parsePropertyEntries(block: string): ParsedProp[] {
 		// Extract the type constructor
 		const typeMatch = new RegExp(/\btype\s*:\s*(\w+)/).exec(entryBody);
 		const litType = typeMatch ? typeMatch[1] : null;
-		const tsType = litType && litType in LIT_TYPE_MAP
-			? LIT_TYPE_MAP[litType]
-			: "unknown";
+		const tsType = litType && litType in LIT_TYPE_MAP ? LIT_TYPE_MAP[litType] : "unknown";
 
 		props.push({ name, tsType });
 
 		// Advance regex past this entry to avoid re-matching nested braces
-		entryRegex.lastIndex = openIdx + (entryBody.length);
+		entryRegex.lastIndex = openIdx + entryBody.length;
 	}
 
 	return props;

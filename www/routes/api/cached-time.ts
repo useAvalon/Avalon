@@ -3,7 +3,7 @@
  * GET /api/cached-time
  */
 
-import { defineHandler } from 'nitro/h3';
+import { defineHandler } from "nitro/h3";
 
 export default defineHandler(() => {
 	const now = new Date();
@@ -11,7 +11,7 @@ export default defineHandler(() => {
 	return {
 		timestamp: now.toISOString(),
 		unix: now.getTime(),
-		message: 'Current server time',
+		message: "Current server time",
 		generatedAt: now.toISOString(),
 	};
 });

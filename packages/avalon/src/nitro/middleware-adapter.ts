@@ -13,9 +13,9 @@
  * Requirements: 6.1, 6.2, 6.3, 6.4
  */
 
-import type { AvalonEventContext } from './types.ts';
-import type { H3Event } from 'h3';
-import { getRequestURL as h3GetRequestURL } from 'h3';
+import type { H3Event } from "h3";
+import { getRequestURL as h3GetRequestURL } from "h3";
+import type { AvalonEventContext } from "./types.ts";
 
 /**
  * Context object passed through the middleware chain
@@ -44,8 +44,8 @@ export interface MiddlewareContextOptions {
  * Requirements: 6.3
  */
 export function getRequestURL(event: H3Event): URL {
-	const protocol = 'http';
-	const host = 'localhost';
+	const protocol = "http";
+	const host = "localhost";
 	return new URL(h3GetRequestURL(event).pathname, `${protocol}://${host}`);
 }
 
@@ -91,7 +91,10 @@ export function getRouterParams(event: H3Event): Record<string, string> {
  * @param options - Optional configuration
  * @returns MiddlewareContext for use in handlers
  */
-export function createMiddlewareContext(event: H3Event, options: MiddlewareContextOptions = {}): MiddlewareContext {
+export function createMiddlewareContext(
+	event: H3Event,
+	options: MiddlewareContextOptions = {},
+): MiddlewareContext {
 	const { enableLogging = false } = options;
 
 	const url = getRequestURL(event);
@@ -112,7 +115,9 @@ export function createMiddlewareContext(event: H3Event, options: MiddlewareConte
 	}
 
 	if (enableLogging) {
-		console.log(`[Middleware Context] Created for ${event.req.method} ${h3GetRequestURL(event).pathname}`);
+		console.log(
+			`[Middleware Context] Created for ${event.req.method} ${h3GetRequestURL(event).pathname}`,
+		);
 	}
 
 	return {

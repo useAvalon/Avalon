@@ -1,13 +1,19 @@
-import { type JSX, h } from 'preact';
-import { render as preactRenderToString } from 'preact-render-to-string';
-import { readFile } from 'node:fs/promises';
-import type { RenderOptions } from '../schemas/core.ts';
-import { getUniversalCSSForHead } from '../islands/universal-css-collector.ts';
-import { getUniversalHeadForInjection, injectSolidHydrationScriptIfNeeded } from '../islands/universal-head-collector.ts';
-import { analyzeComponentContent, type AnalyzerOptions } from '../core/components/component-analyzer.ts';
-import type { EnhancedLayoutResolver } from '../core/layout/enhanced-layout-resolver.ts';
-import type { LayoutContext, PageModule } from '../types/layout.ts';
-import { IsolatedSSRRenderer, type SSRIsolationConfig } from './isolated-ssr-renderer.ts';
+import { readFile } from "node:fs/promises";
+import { h, type JSX } from "preact";
+import { render as preactRenderToString } from "preact-render-to-string";
+import {
+	type AnalyzerOptions,
+	analyzeComponentContent,
+} from "../core/components/component-analyzer.ts";
+import type { EnhancedLayoutResolver } from "../core/layout/enhanced-layout-resolver.ts";
+import { getUniversalCSSForHead } from "../islands/universal-css-collector.ts";
+import {
+	getUniversalHeadForInjection,
+	injectSolidHydrationScriptIfNeeded,
+} from "../islands/universal-head-collector.ts";
+import type { RenderOptions } from "../schemas/core.ts";
+import type { LayoutContext, PageModule } from "../types/layout.ts";
+import { IsolatedSSRRenderer, type SSRIsolationConfig } from "./isolated-ssr-renderer.ts";
 
 export interface RouteConfig {
 	component: () => JSX.Element | Promise<JSX.Element>;
@@ -16,7 +22,7 @@ export interface RouteConfig {
 }
 
 export interface RenderStrategy {
-	type: 'hydrate' | 'ssr-only';
+	type: "hydrate" | "ssr-only";
 	reason: string;
 	warnings?: string[];
 }
@@ -28,7 +34,7 @@ function injectClientScript(html: string): string {
 	let modifiedHtml = html;
 
 	// Check if there are any islands that need hydration
-	const hasIslands = html.includes('data-framework=') || html.includes('data-src=');
+	const hasIslands = html.includes("data-framework=") || html.includes("data-src=");
 
 	if (!hasIslands) {
 		// No islands found, no need to inject anything
@@ -38,30 +44,30 @@ function injectClientScript(html: string): string {
 	// Inject universal CSS into the head if not already present
 	if (!html.includes('data-universal-ssr="true"')) {
 		const universalCSS = getUniversalCSSForHead(true); // Clear after collecting
-		if (universalCSS && html.includes('</head>')) {
-			modifiedHtml = modifiedHtml.replace('</head>', `${universalCSS}\n</head>`);
+		if (universalCSS && html.includes("</head>")) {
+			modifiedHtml = modifiedHtml.replace("</head>", `${universalCSS}\n</head>`);
 		}
 	}
 
 	// Inject universal head content (hydration scripts, etc.) into the head
 	const universalHead = getUniversalHeadForInjection(true); // Clear after collecting
-	if (universalHead && html.includes('</head>')) {
-		modifiedHtml = modifiedHtml.replace('</head>', `    ${universalHead}\n</head>`);
+	if (universalHead && html.includes("</head>")) {
+		modifiedHtml = modifiedHtml.replace("</head>", `    ${universalHead}\n</head>`);
 	}
 
 	// Conditionally inject Solid hydration bootstrap only when Solid islands are present
 	modifiedHtml = injectSolidHydrationScriptIfNeeded(modifiedHtml);
 
 	// Check if the client script is already included
-	if (html.includes('/src/client/main.js') || html.includes('main.js')) {
+	if (html.includes("/src/client/main.js") || html.includes("main.js")) {
 		return modifiedHtml;
 	}
 
 	// Inject the client script before the closing </body> tag
 	const clientScript = '<script type="module" src="/src/client/main.js"></script>';
 
-	if (modifiedHtml.includes('</body>')) {
-		return modifiedHtml.replace('</body>', `${clientScript}\n</body>`);
+	if (modifiedHtml.includes("</body>")) {
+		return modifiedHtml.replace("</body>", `${clientScript}\n</body>`);
 	}
 
 	// Fallback: append to the end if no </body> tag found
@@ -83,9 +89,9 @@ interface FrameworkDetection {
 
 // Framework detection patterns
 const FRAMEWORK_PATTERNS = {
-	solid: ['solid-js', 'SolidIsland', 'createSignal', '.solid.', 'data-solid-hydrate'],
-	vue: ['data-vue-hydrate', '.vue', 'Vue'],
-	svelte: ['data-framework="svelte"', '.svelte', 's-'],
+	solid: ["solid-js", "SolidIsland", "createSignal", ".solid.", "data-solid-hydrate"],
+	vue: ["data-vue-hydrate", ".vue", "Vue"],
+	svelte: ['data-framework="svelte"', ".svelte", "s-"],
 } as const;
 
 // Global isolated SSR renderer instance
@@ -98,9 +104,9 @@ function getIsolatedRenderer(): IsolatedSSRRenderer {
 	if (!isolatedRenderer) {
 		const config: Partial<SSRIsolationConfig> = {
 			enableStrictIsolation: true,
-			allowedCrossFrameworkImports: ['preact', 'preact-render-to-string'],
-			errorHandling: 'fallback',
-			debugLogging: process.env.NODE_ENV !== 'production',
+			allowedCrossFrameworkImports: ["preact", "preact-render-to-string"],
+			errorHandling: "fallback",
+			debugLogging: process.env.NODE_ENV !== "production",
 		};
 		isolatedRenderer = new IsolatedSSRRenderer(config);
 	}
@@ -109,41 +115,44 @@ function getIsolatedRenderer(): IsolatedSSRRenderer {
 
 function detectFrameworks(content: string): FrameworkDetection {
 	return {
-		solid: FRAMEWORK_PATTERNS.solid.some(pattern => content.includes(pattern)),
-		vue: FRAMEWORK_PATTERNS.vue.some(pattern => content.includes(pattern)),
-		svelte: FRAMEWORK_PATTERNS.svelte.some(pattern => content.includes(pattern)),
+		solid: FRAMEWORK_PATTERNS.solid.some((pattern) => content.includes(pattern)),
+		vue: FRAMEWORK_PATTERNS.vue.some((pattern) => content.includes(pattern)),
+		svelte: FRAMEWORK_PATTERNS.svelte.some((pattern) => content.includes(pattern)),
 	};
 }
 
 /**
  * Validates that imports are allowed for the detected framework
  */
-function validateFrameworkImports(componentPath: string, content: string, detectedFramework: string): string[] {
+function validateFrameworkImports(
+	componentPath: string,
+	content: string,
+	detectedFramework: string,
+): string[] {
 	const warnings: string[] = [];
 
 	// Extract import statements — match the quoted module specifier at the end of any import line
 	const importRegex = /^import\s[^'"]*['"]([^'"]+)['"]/gm;
 	const imports: string[] = [];
 
-	let match;
-	while ((match = importRegex.exec(content)) !== null) {
+	for (let match = importRegex.exec(content); match !== null; match = importRegex.exec(content)) {
 		imports.push(match[1]);
 	}
 
 	// Override framework detection based on naming convention
 	let actualFramework = detectedFramework;
-	if (componentPath.includes('.solid.')) {
-		actualFramework = 'solid';
-	} else if (componentPath.includes('.preact.')) {
-		actualFramework = 'preact';
+	if (componentPath.includes(".solid.")) {
+		actualFramework = "solid";
+	} else if (componentPath.includes(".preact.")) {
+		actualFramework = "preact";
 	}
 
 	// Check for problematic cross-framework imports
 	const problematicImports = new Map<string, string[]>([
-		['preact', ['solid-js', 'solid-js/web', 'vue', 'svelte']],
-		['solid', ['preact', 'preact-render-to-string', 'vue', 'svelte']],
-		['vue', ['preact', 'solid-js', 'svelte']],
-		['svelte', ['preact', 'solid-js', 'vue']],
+		["preact", ["solid-js", "solid-js/web", "vue", "svelte"]],
+		["solid", ["preact", "preact-render-to-string", "vue", "svelte"]],
+		["vue", ["preact", "solid-js", "svelte"]],
+		["svelte", ["preact", "solid-js", "vue"]],
 	]);
 
 	const forbidden = problematicImports.get(actualFramework) || [];
@@ -162,12 +171,18 @@ function validateFrameworkImports(componentPath: string, content: string, detect
 }
 
 function applyStrategyToTag(fullMatch: string, strategy: RenderStrategy): string {
-	if (strategy.type === 'ssr-only') {
+	if (strategy.type === "ssr-only") {
 		return fullMatch
-			.replaceAll(/data-hydrate="[^"]*"\s*/g, '')
-			.replace('>', ` data-render-strategy="${strategy.type}" data-ssr-reason="${strategy.reason}">`);
+			.replaceAll(/data-hydrate="[^"]*"\s*/g, "")
+			.replace(
+				">",
+				` data-render-strategy="${strategy.type}" data-ssr-reason="${strategy.reason}">`,
+			);
 	}
-	return fullMatch.replace('>', ` data-render-strategy="${strategy.type}" data-hydrate-reason="${strategy.reason}">`);
+	return fullMatch.replace(
+		">",
+		` data-render-strategy="${strategy.type}" data-hydrate-reason="${strategy.reason}">`,
+	);
 }
 
 /**
@@ -186,7 +201,7 @@ async function enhanceContentWithRenderingStrategy(
 		const [fullMatch, _elementTag, componentPath] = match;
 
 		try {
-			if (fullMatch.includes('data-render-strategy')) {
+			if (fullMatch.includes("data-render-strategy")) {
 				continue;
 			}
 
@@ -196,14 +211,21 @@ async function enhanceContentWithRenderingStrategy(
 			enhancedContent = enhancedContent.replace(fullMatch, applyStrategyToTag(fullMatch, strategy));
 
 			if (renderOptions.logDecisions === true) {
-				console.log(`[SSR Strategy] ${componentPath} -> ${strategy.type.toUpperCase()}: ${strategy.reason}`);
+				console.log(
+					`[SSR Strategy] ${componentPath} -> ${strategy.type.toUpperCase()}: ${strategy.reason}`,
+				);
 				if (strategy.warnings && strategy.warnings.length > 0 && !renderOptions.suppressWarnings) {
-					strategy.warnings.forEach(warning => console.warn(`[SSR Warning] ${componentPath}: ${warning}`));
+					strategy.warnings.forEach((warning) =>
+						console.warn(`[SSR Warning] ${componentPath}: ${warning}`),
+					);
 				}
 			}
 		} catch (error) {
 			console.warn(`Failed to analyze component ${componentPath}:`, error);
-			const enhancedTag = fullMatch.replace('>', ` data-render-strategy="hydrate" data-error="analysis-failed">`);
+			const enhancedTag = fullMatch.replace(
+				">",
+				` data-render-strategy="hydrate" data-error="analysis-failed">`,
+			);
 			enhancedContent = enhancedContent.replace(fullMatch, enhancedTag);
 		}
 	}
@@ -224,28 +246,25 @@ async function validateComponentImports(
 		let resolvedPath = componentPath;
 
 		// Handle different path formats
-		if (componentPath.startsWith('/')) {
+		if (componentPath.startsWith("/")) {
 			resolvedPath = componentPath.substring(1);
 		}
 
 		// Try multiple path variations
 		const pathVariations = [
 			resolvedPath,
-			`examples/${resolvedPath.split('/').pop()}`,
-			`src/islands/${resolvedPath.split('/').pop()}`,
-			`islands/${resolvedPath.split('/').pop()}`,
+			`examples/${resolvedPath.split("/").pop()}`,
+			`src/islands/${resolvedPath.split("/").pop()}`,
+			`islands/${resolvedPath.split("/").pop()}`,
 		];
 
-		let foundPath = '';
+		let foundPath = "";
 		for (const pathVariation of pathVariations) {
 			try {
-				componentContent = await readFile(pathVariation, 'utf-8');
+				componentContent = await readFile(pathVariation, "utf-8");
 				foundPath = pathVariation;
 				break;
-			} catch {
-				// Continue to next path variation
-				continue;
-			}
+			} catch {}
 		}
 
 		if (!foundPath || !componentContent) {
@@ -255,18 +274,18 @@ async function validateComponentImports(
 
 		// Detect framework from content patterns
 		const frameworks = detectFrameworks(componentContent);
-		let detectedFramework = 'preact'; // default
+		let detectedFramework = "preact"; // default
 
-		if (frameworks.solid) detectedFramework = 'solid';
-		else if (frameworks.vue) detectedFramework = 'vue';
-		else if (frameworks.svelte) detectedFramework = 'svelte';
+		if (frameworks.solid) detectedFramework = "solid";
+		else if (frameworks.vue) detectedFramework = "vue";
+		else if (frameworks.svelte) detectedFramework = "svelte";
 
 		// Validate imports for this framework
 		const importWarnings = validateFrameworkImports(foundPath, componentContent, detectedFramework);
 
 		// Log import validation warnings
 		if (importWarnings.length > 0 && !renderOptions.suppressWarnings) {
-			importWarnings.forEach(warning => console.warn(`[Import Validation] ${warning}`));
+			importWarnings.forEach((warning) => console.warn(`[Import Validation] ${warning}`));
 		}
 	} catch (error) {
 		// Validation failed, but don't break the rendering process
@@ -286,24 +305,28 @@ async function determineRenderStrategy(
 	// Handle explicit SSR-only override
 	if (options.forceSSROnly) {
 		return {
-			type: 'ssr-only',
-			reason: 'Explicitly configured for SSR-only rendering',
+			type: "ssr-only",
+			reason: "Explicitly configured for SSR-only rendering",
 		};
 	}
 
 	// Quick heuristic checks for known naming patterns that explicitly indicate SSR-only
-	if (componentPath.includes('NoHydrate') || componentPath.includes('Static') || componentPath.includes('SSROnly')) {
+	if (
+		componentPath.includes("NoHydrate") ||
+		componentPath.includes("Static") ||
+		componentPath.includes("SSROnly")
+	) {
 		return {
-			type: 'ssr-only',
-			reason: 'Component name explicitly indicates SSR-only rendering',
+			type: "ssr-only",
+			reason: "Component name explicitly indicates SSR-only rendering",
 		};
 	}
 
 	// If script detection is disabled, default to hydration
 	if (options.detectScripts === false) {
 		return {
-			type: 'hydrate',
-			reason: 'Script detection disabled, defaulting to hydration',
+			type: "hydrate",
+			reason: "Script detection disabled, defaulting to hydration",
 		};
 	}
 
@@ -313,22 +336,22 @@ async function determineRenderStrategy(
 		let resolvedPath = componentPath;
 
 		// Handle different path formats
-		if (componentPath.startsWith('/')) {
+		if (componentPath.startsWith("/")) {
 			resolvedPath = componentPath.substring(1);
 		}
 
 		// Try multiple path variations
 		const pathVariations = [
 			resolvedPath,
-			`examples/${resolvedPath.split('/').pop()}`,
-			`src/islands/${resolvedPath.split('/').pop()}`,
-			`islands/${resolvedPath.split('/').pop()}`,
+			`examples/${resolvedPath.split("/").pop()}`,
+			`src/islands/${resolvedPath.split("/").pop()}`,
+			`islands/${resolvedPath.split("/").pop()}`,
 		];
 
 		let analysisResult = null;
 		for (const pathVariation of pathVariations) {
 			try {
-				componentContent = await readFile(pathVariation, 'utf-8');
+				componentContent = await readFile(pathVariation, "utf-8");
 
 				// Perform intelligent component analysis
 				const analyzerOptions: AnalyzerOptions = {
@@ -340,15 +363,12 @@ async function determineRenderStrategy(
 
 				analysisResult = analyzeComponentContent(pathVariation, componentContent, analyzerOptions);
 				break;
-			} catch {
-				// Continue to next path variation
-				continue;
-			}
+			} catch {}
 		}
 
 		if (analysisResult) {
 			return {
-				type: analysisResult.decision.shouldHydrate ? 'hydrate' : 'ssr-only',
+				type: analysisResult.decision.shouldHydrate ? "hydrate" : "ssr-only",
 				reason: analysisResult.decision.reason,
 				warnings: analysisResult.decision.warnings,
 			};
@@ -359,9 +379,11 @@ async function determineRenderStrategy(
 	} catch (error) {
 		console.warn(`Component analysis failed for ${componentPath}:`, error);
 		return {
-			type: 'ssr-only',
-			reason: 'Analysis failed, defaulting to SSR-only for safety',
-			warnings: [`Component analysis error: ${error instanceof Error ? error.message : String(error)}`],
+			type: "ssr-only",
+			reason: "Analysis failed, defaulting to SSR-only for safety",
+			warnings: [
+				`Component analysis error: ${error instanceof Error ? error.message : String(error)}`,
+			],
 		};
 	}
 }
@@ -372,31 +394,37 @@ async function determineRenderStrategy(
 function determineStrategyFromPath(componentPath: string): RenderStrategy {
 	// Check file extension patterns - but default to SSR-only unless we can confirm hydration is needed
 	if (
-		componentPath.endsWith('.vue') ||
-		componentPath.endsWith('.svelte') ||
-		componentPath.endsWith('.tsx') ||
-		componentPath.endsWith('.jsx')
+		componentPath.endsWith(".vue") ||
+		componentPath.endsWith(".svelte") ||
+		componentPath.endsWith(".tsx") ||
+		componentPath.endsWith(".jsx")
 	) {
 		// Framework components default to SSR-only unless they have explicit hydrate functions
 		return {
-			type: 'ssr-only',
-			reason: 'Framework component detected, defaulting to SSR-only (hydration requires explicit hydrate function)',
+			type: "ssr-only",
+			reason:
+				"Framework component detected, defaulting to SSR-only (hydration requires explicit hydrate function)",
 		};
 	}
 
 	// Unknown file type, default to SSR-only for safety
 	return {
-		type: 'ssr-only',
-		reason: 'Unknown component type, defaulting to SSR-only for safety',
+		type: "ssr-only",
+		reason: "Unknown component type, defaulting to SSR-only for safety",
 	};
 }
 
 function generateMetaTags(options: Partial<RenderOptions>): string {
-	return options.meta?.map(({ name, content }) => `<meta name="${name}" content="${content}">`).join('\n    ') || '';
+	return (
+		options.meta
+			?.map(({ name, content }) => `<meta name="${name}" content="${content}">`)
+			.join("\n    ") || ""
+	);
 }
 
 function generateStyleTags(options: Partial<RenderOptions>): string {
-	const styleTags = options.styles?.map(href => `<link rel="stylesheet" href="${href}">`).join('\n    ') || '';
+	const styleTags =
+		options.styles?.map((href) => `<link rel="stylesheet" href="${href}">`).join("\n    ") || "";
 
 	// Note: CSS from all frameworks (including Svelte) is now handled by the universal CSS collector
 	// which is injected in generateHead() via getUniversalCSSForHead()
@@ -407,21 +435,21 @@ function generateStyleTags(options: Partial<RenderOptions>): string {
 function generateScriptTags(options: Partial<RenderOptions>): string {
 	return (
 		options.scripts
-			?.map(script => {
-				if (typeof script === 'string') {
+			?.map((script) => {
+				if (typeof script === "string") {
 					return `<script src="${script}" defer></script>`;
 				}
-				const attrs = script.src ? `src="${script.src}"` : '';
-				const type = script.type ? `type="${script.type}"` : '';
-				const content = script.content || '';
+				const attrs = script.src ? `src="${script.src}"` : "";
+				const type = script.type ? `type="${script.type}"` : "";
+				const content = script.content || "";
 				return `<script ${attrs} ${type}>${content}</script>`;
 			})
-			.join('\n    ') || ''
+			.join("\n    ") || ""
 	);
 }
 
 function generateClientScripts(isDev: boolean, _frameworks: FrameworkDetection): string {
-	const baseScript = isDev ? '/src/client/main.js' : '/dist/client.js';
+	const baseScript = isDev ? "/src/client/main.js" : "/dist/client.js";
 
 	return `
     <script type="module" src="${baseScript}"></script>`;
@@ -435,21 +463,25 @@ function generateHMRScript(isDev: boolean, viteHmrPort?: number): string {
         import.meta.hot.accept();
       }
     </script>`
-		: '';
+		: "";
 }
 
 /** Escape HTML special characters for safe interpolation into HTML */
 function escapeHtml(str: string): string {
 	return str
-		.replaceAll('&', '&amp;')
-		.replaceAll('<', '&lt;')
-		.replaceAll('>', '&gt;')
-		.replaceAll('"', '&quot;')
-		.replaceAll("'", '&#039;');
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;")
+		.replaceAll("'", "&#039;");
 }
 
-function generateHead(options: Partial<RenderOptions>, frameworks: FrameworkDetection, viteHmrPort?: number): string {
-	const isDev = process.env.NODE_ENV !== 'production';
+function generateHead(
+	options: Partial<RenderOptions>,
+	frameworks: FrameworkDetection,
+	viteHmrPort?: number,
+): string {
+	const isDev = process.env.NODE_ENV !== "production";
 
 	const metaTags = generateMetaTags(options);
 	const styleTags = generateStyleTags(options);
@@ -482,7 +514,7 @@ function generateHead(options: Partial<RenderOptions>, frameworks: FrameworkDete
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
       ${metaTags}
-      <title>${escapeHtml(String(options.title || 'Avalon App'))}</title>
+      <title>${escapeHtml(String(options.title || "Avalon App"))}</title>
       ${importMap}
       ${styleTags}
       ${universalCSS}
@@ -503,7 +535,8 @@ export async function renderToHtml(
 
 		if (renderOptions.forceSSROnly === true) {
 			const componentResult = routeConfig.component();
-			const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
+			const resolvedComponent =
+				componentResult instanceof Promise ? await componentResult : componentResult;
 			content = preactRenderToString(resolvedComponent);
 			frameworks = detectFrameworks(content);
 		} else {
@@ -518,8 +551,8 @@ export async function renderToHtml(
 		html = injectSolidHydrationScriptIfNeeded(html);
 		return html;
 	} catch (error) {
-		console.error('Error rendering component:', error);
-		throw new Error('Failed to render component');
+		console.error("Error rendering component:", error);
+		throw new Error("Failed to render component");
 	}
 }
 
@@ -544,24 +577,37 @@ export async function renderToHtmlWithLayouts(
 			frontmatter: routeConfig.frontmatter,
 		};
 
-		const resolvedLayout = await layoutResolver.resolveAndRender(routePath, pageModule, layoutContext);
+		const resolvedLayout = await layoutResolver.resolveAndRender(
+			routePath,
+			pageModule,
+			layoutContext,
+		);
 
 		if (resolvedLayout.handlers.length === 0) {
 			return await renderToHtml(routeConfig, defaultOptions, viteHmrPort, renderOptions);
 		}
 
 		const pageContent = await renderPageContent(routeConfig, routePath, renderOptions);
-		const wrappedContent = await applyLayoutChain(pageContent, resolvedLayout, pageModule, layoutContext, routePath);
-		const enhancedContent = await enhanceContentWithRenderingStrategy(wrappedContent, renderOptions);
+		const wrappedContent = await applyLayoutChain(
+			pageContent,
+			resolvedLayout,
+			pageModule,
+			layoutContext,
+			routePath,
+		);
+		const enhancedContent = await enhanceContentWithRenderingStrategy(
+			wrappedContent,
+			renderOptions,
+		);
 
 		return assembleLayoutHtml(enhancedContent, routeConfig, defaultOptions, viteHmrPort);
 	} catch (error) {
-		console.error('Error rendering component with layouts:', error);
+		console.error("Error rendering component with layouts:", error);
 		try {
 			return await renderToHtml(routeConfig, defaultOptions, viteHmrPort, renderOptions);
 		} catch (fallbackError) {
-			console.error('Fallback rendering also failed:', fallbackError);
-			throw new Error('Failed to render component with layouts and fallback failed');
+			console.error("Fallback rendering also failed:", fallbackError);
+			throw new Error("Failed to render component with layouts and fallback failed");
 		}
 	}
 }
@@ -573,14 +619,17 @@ function assembleLayoutHtml(
 	viteHmrPort: number | undefined,
 ): string {
 	const isCompleteDoc =
-		enhancedContent.trim().startsWith('<!DOCTYPE html>') || enhancedContent.trim().startsWith('<html');
+		enhancedContent.trim().startsWith("<!DOCTYPE html>") ||
+		enhancedContent.trim().startsWith("<html");
 	if (isCompleteDoc) {
 		return injectClientScript(enhancedContent);
 	}
 	const frameworks = detectFrameworks(enhancedContent);
 	const options = { ...defaultOptions, ...routeConfig.options };
 	const head = generateHead(options, frameworks, viteHmrPort);
-	return injectClientScript(`<!DOCTYPE html>\n<html lang="en">\n${head}\n<body>\n${enhancedContent}\n</body>\n</html>`);
+	return injectClientScript(
+		`<!DOCTYPE html>\n<html lang="en">\n${head}\n<body>\n${enhancedContent}\n</body>\n</html>`,
+	);
 }
 
 /**
@@ -622,7 +671,8 @@ async function renderStreamContent(
 
 	if (renderOptions.forceSSROnly === true) {
 		const componentResult = routeConfig.component();
-		const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
+		const resolvedComponent =
+			componentResult instanceof Promise ? await componentResult : componentResult;
 		content = preactRenderToString(resolvedComponent);
 		frameworks = detectFrameworks(content);
 	} else {
@@ -642,23 +692,27 @@ async function renderWithIsolationOrFallback(
 	try {
 		const renderer = getIsolatedRenderer();
 		const isolatedResult = await renderer.renderWithIsolation({
-			componentPath: 'route-component',
+			componentPath: "route-component",
 			component: routeConfig.component,
 		});
 
 		if (!isolatedResult.success) {
-			throw new Error(`Isolated rendering failed: ${isolatedResult.errors.join(', ')}`);
+			throw new Error(`Isolated rendering failed: ${isolatedResult.errors.join(", ")}`);
 		}
 
 		if (isolatedResult.warnings.length > 0 && !renderOptions.suppressWarnings) {
-			isolatedResult.warnings.forEach(w => console.warn(`[SSR Isolation] ${w}`));
+			isolatedResult.warnings.forEach((w) => console.warn(`[SSR Isolation] ${w}`));
 		}
 
 		return { content: isolatedResult.html, frameworks: detectFrameworks(isolatedResult.html) };
 	} catch (isolatedError) {
-		console.warn('[SSR] Isolated rendering failed, falling back to standard rendering:', isolatedError);
+		console.warn(
+			"[SSR] Isolated rendering failed, falling back to standard rendering:",
+			isolatedError,
+		);
 		const componentResult = routeConfig.component();
-		const resolvedComponent = componentResult instanceof Promise ? await componentResult : componentResult;
+		const resolvedComponent =
+			componentResult instanceof Promise ? await componentResult : componentResult;
 		const content = preactRenderToString(resolvedComponent);
 		return { content, frameworks: detectFrameworks(content) };
 	}
@@ -670,8 +724,8 @@ function handleStreamError(
 	controller: ReadableStreamDefaultController<Uint8Array>,
 	encoder: TextEncoder,
 	renderOptions: StreamingRenderOptions,
-	label = 'Streaming Error',
-	componentId = 'route-component',
+	label = "Streaming Error",
+	componentId = "route-component",
 ): void {
 	console.error(`[${label}]`, {
 		message: err.message,
@@ -685,7 +739,7 @@ function handleStreamError(
 		console.log(`[${label}] Mid-stream error detected, injecting error boundary`);
 		try {
 			controller.enqueue(encoder.encode(generateMidStreamErrorBoundary(err, componentId)));
-			controller.enqueue(encoder.encode('\n</body>\n</html>'));
+			controller.enqueue(encoder.encode("\n</body>\n</html>"));
 		} catch (injectError) {
 			console.error(`[${label}] Failed to inject error boundary:`, injectError);
 		}
@@ -714,14 +768,19 @@ export async function renderToHtmlStream(
 		async start(ctrl) {
 			controller = ctrl;
 			try {
-				const { head, content } = await renderStreamContent(routeConfig, defaultOptions, viteHmrPort, renderOptions);
+				const { head, content } = await renderStreamContent(
+					routeConfig,
+					defaultOptions,
+					viteHmrPort,
+					renderOptions,
+				);
 
 				controller.enqueue(encoder.encode(`<!DOCTYPE html>\n<html lang="en">\n${head}\n<body>\n`));
 				shellSent = true;
 				renderOptions.onShellReady?.();
 
 				controller.enqueue(encoder.encode(content));
-				controller.enqueue(encoder.encode('\n</body>\n</html>'));
+				controller.enqueue(encoder.encode("\n</body>\n</html>"));
 				renderOptions.onAllReady?.();
 				controller.close();
 			} catch (error) {
@@ -775,10 +834,19 @@ export async function renderToHtmlStreamWithLayouts(
 					frontmatter: routeConfig.frontmatter,
 				};
 
-				const resolvedLayout = await layoutResolver.resolveAndRender(routePath, pageModule, layoutContext);
+				const resolvedLayout = await layoutResolver.resolveAndRender(
+					routePath,
+					pageModule,
+					layoutContext,
+				);
 
 				if (resolvedLayout.handlers.length === 0) {
-					const fallbackStream = await renderToHtmlStream(routeConfig, defaultOptions, viteHmrPort, renderOptions);
+					const fallbackStream = await renderToHtmlStream(
+						routeConfig,
+						defaultOptions,
+						viteHmrPort,
+						renderOptions,
+					);
 					const reader = fallbackStream.getReader();
 					try {
 						while (true) {
@@ -801,10 +869,14 @@ export async function renderToHtmlStreamWithLayouts(
 					layoutContext,
 					routePath,
 				);
-				const enhancedContent = await enhanceContentWithRenderingStrategy(wrappedContent, renderOptions);
+				const enhancedContent = await enhanceContentWithRenderingStrategy(
+					wrappedContent,
+					renderOptions,
+				);
 
 				const isCompleteDoc =
-					enhancedContent.trim().startsWith('<!DOCTYPE html>') || enhancedContent.trim().startsWith('<html');
+					enhancedContent.trim().startsWith("<!DOCTYPE html>") ||
+					enhancedContent.trim().startsWith("<html");
 				if (isCompleteDoc) {
 					const finalHtml = injectClientScript(enhancedContent);
 					controller.enqueue(encoder.encode(finalHtml));
@@ -824,7 +896,7 @@ export async function renderToHtmlStreamWithLayouts(
 				renderOptions.onShellReady?.();
 
 				controller.enqueue(encoder.encode(enhancedContent));
-				controller.enqueue(encoder.encode('\n</body>\n</html>'));
+				controller.enqueue(encoder.encode("\n</body>\n</html>"));
 				renderOptions.onAllReady?.();
 				controller.close();
 			} catch (error) {
@@ -834,7 +906,7 @@ export async function renderToHtmlStreamWithLayouts(
 					controller,
 					encoder,
 					renderOptions,
-					'Streaming Error with Layouts',
+					"Streaming Error with Layouts",
 					`layout-${routePath}`,
 				);
 			}
@@ -867,13 +939,17 @@ async function renderPageContent(
 			componentPath: routePath,
 			component: routeConfig.component,
 		});
-		if (!isolatedResult.success) throw new Error(`Isolated rendering failed: ${isolatedResult.errors.join(', ')}`);
+		if (!isolatedResult.success)
+			throw new Error(`Isolated rendering failed: ${isolatedResult.errors.join(", ")}`);
 		if (isolatedResult.warnings.length > 0 && !renderOptions.suppressWarnings) {
-			isolatedResult.warnings.forEach(w => console.warn(`[SSR Isolation] ${w}`));
+			isolatedResult.warnings.forEach((w) => console.warn(`[SSR Isolation] ${w}`));
 		}
 		return isolatedResult.html;
 	} catch (isolatedError) {
-		console.warn('[SSR] Isolated page rendering failed, falling back to standard rendering:', isolatedError);
+		console.warn(
+			"[SSR] Isolated page rendering failed, falling back to standard rendering:",
+			isolatedError,
+		);
 		const componentResult = routeConfig.component();
 		const resolved = componentResult instanceof Promise ? await componentResult : componentResult;
 		return preactRenderToString(resolved);
@@ -882,7 +958,7 @@ async function renderPageContent(
 
 async function applyLayoutChain(
 	pageContent: string,
-	resolvedLayout: Awaited<ReturnType<EnhancedLayoutResolver['resolveAndRender']>>,
+	resolvedLayout: Awaited<ReturnType<EnhancedLayoutResolver["resolveAndRender"]>>,
 	pageModule: PageModule,
 	layoutContext: LayoutContext,
 	routePath: string,
@@ -897,7 +973,9 @@ async function applyLayoutChain(
 	// Start with the page content as a raw-HTML JSX node.
 	// Preact's `dangerouslySetInnerHTML` is used here at the framework level
 	// so layout authors never need to use it themselves.
-	let tree: JSX.Element = h('avalon-page-content', { dangerouslySetInnerHTML: { __html: pageContent } });
+	let tree: JSX.Element = h("avalon-page-content", {
+		dangerouslySetInnerHTML: { __html: pageContent },
+	});
 
 	// Track whether the final output was already rendered to HTML by an async
 	// layout (e.g. the root layout that produces a full <html> document).
@@ -906,7 +984,9 @@ async function applyLayoutChain(
 	// Wrap from innermost to outermost layout
 	for (let i = resolvedLayout.handlers.length - 1; i >= 0; i--) {
 		const handler = resolvedLayout.handlers[i];
-		const layoutData = resolvedLayout.dataLoaders[i] ? await resolvedLayout.dataLoaders[i](layoutContext) : {};
+		const layoutData = resolvedLayout.dataLoaders[i]
+			? await resolvedLayout.dataLoaders[i](layoutContext)
+			: {};
 		const layoutProps = {
 			data: layoutData,
 			frontmatter: pageModule.frontmatter || {},
@@ -930,7 +1010,7 @@ async function applyLayoutChain(
 			if (i === 0) {
 				preRenderedHtml = html;
 			} else {
-				tree = h('avalon-layout-fragment', { dangerouslySetInnerHTML: { __html: html } });
+				tree = h("avalon-layout-fragment", { dangerouslySetInnerHTML: { __html: html } });
 			}
 		} else {
 			// Synchronous layout — use standard Preact composition
@@ -963,7 +1043,7 @@ async function applyLayoutChain(
  * Generates an error page for streaming errors
  */
 function generateErrorPage(error: Error): string {
-	const isDev = process.env.NODE_ENV !== 'production';
+	const isDev = process.env.NODE_ENV !== "production";
 
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -1003,22 +1083,22 @@ function generateErrorPage(error: Error): string {
       <h1>Server Error</h1>
       <p>An error occurred while rendering the page:</p>
       <pre>${error.message}</pre>
-      ${isDev && error.stack ? `<pre>${error.stack}</pre>` : ''}
+      ${isDev && error.stack ? `<pre>${error.stack}</pre>` : ""}
     </div>
   </body>
 </html>`;
 }
 
 function generateMidStreamErrorBoundary(error: Error, componentId?: string): string {
-	const isDev = process.env.NODE_ENV !== 'production';
-	const componentIdHtml = componentId ? `<p><strong>Component ID:</strong> ${componentId}</p>` : '';
+	const isDev = process.env.NODE_ENV !== "production";
+	const componentIdHtml = componentId ? `<p><strong>Component ID:</strong> ${componentId}</p>` : "";
 	const stackHtml = error.stack
 		? `<pre style="background:#f5f5f5;padding:10px;border-radius:4px;overflow-x:auto;font-size:12px;margin-top:10px">${error.stack}</pre>`
-		: '';
+		: "";
 	const devDetails = isDev
 		? `<details style="margin-top:15px"><summary style="cursor:pointer;color:#856404;font-weight:bold">Error Details (Development Mode)</summary><div style="margin-top:10px">${componentIdHtml}<p><strong>Error:</strong> ${error.message}</p>${stackHtml}</div></details>`
-		: '';
-	const componentAttr = componentId ? ` data-component-id="${componentId}"` : '';
+		: "";
+	const componentAttr = componentId ? ` data-component-id="${componentId}"` : "";
 
 	return `
 <div class="streaming-error-boundary" data-error-boundary="true"${componentAttr}>

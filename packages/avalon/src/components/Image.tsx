@@ -27,97 +27,97 @@
 import type { JSX } from "preact";
 
 export interface ImageProps {
-  /** 
-   * Image source - can be:
-   * - A string URL (single image)
-   * - A srcset string from ?as=srcset (contains " Xw" width descriptors)
-   * - An object with src/srcset/width/height from vite-imagetools
-   */
-  src: string | { src: string; srcset?: string; width?: number; height?: number };
+	/**
+	 * Image source - can be:
+	 * - A string URL (single image)
+	 * - A srcset string from ?as=srcset (contains " Xw" width descriptors)
+	 * - An object with src/srcset/width/height from vite-imagetools
+	 */
+	src: string | { src: string; srcset?: string; width?: number; height?: number };
 
-  /** Alt text for accessibility (required) */
-  alt: string;
+	/** Alt text for accessibility (required) */
+	alt: string;
 
-  /** Sizes attribute for responsive images (required when using srcset) */
-  sizes?: string;
+	/** Sizes attribute for responsive images (required when using srcset) */
+	sizes?: string;
 
-  /** Loading strategy */
-  loading?: "lazy" | "eager";
+	/** Loading strategy */
+	loading?: "lazy" | "eager";
 
-  /** Decoding hint */
-  decoding?: "async" | "sync" | "auto";
+	/** Decoding hint */
+	decoding?: "async" | "sync" | "auto";
 
-  /** Optional width (auto-detected from srcset if available) */
-  width?: number | string;
+	/** Optional width (auto-detected from srcset if available) */
+	width?: number | string;
 
-  /** Optional height (auto-detected from srcset if available) */
-  height?: number | string;
+	/** Optional height (auto-detected from srcset if available) */
+	height?: number | string;
 
-  /** CSS class name */
-  className?: string;
+	/** CSS class name */
+	className?: string;
 
-  /** Inline styles */
-  style?: string | Record<string, string | number>;
+	/** Inline styles */
+	style?: string | Record<string, string | number>;
 }
 
 /**
  * Check if a string looks like a srcset (contains width descriptors like "400w")
  */
 function isSrcsetString(value: string): boolean {
-  return /\s\d+w/.test(value);
+	return /\s\d+w/.test(value);
 }
 
 /**
  * Responsive image component with built-in optimization support
  */
 export function Image({
-  src,
-  alt,
-  sizes,
-  loading = "lazy",
-  decoding = "async",
-  width,
-  height,
-  className,
-  style,
+	src,
+	alt,
+	sizes,
+	loading = "lazy",
+	decoding = "async",
+	width,
+	height,
+	className,
+	style,
 }: Readonly<ImageProps>): JSX.Element {
-  let imgSrc: string | undefined;
-  let srcSet: string | undefined;
-  let autoWidth: number | undefined;
-  let autoHeight: number | undefined;
+	let imgSrc: string | undefined;
+	let srcSet: string | undefined;
+	let autoWidth: number | undefined;
+	let autoHeight: number | undefined;
 
-  if (typeof src === "object" && src !== null) {
-    // Object from vite-imagetools (e.g., ?as=metadata or custom output)
-    imgSrc = src.src;
-    srcSet = src.srcset;
-    autoWidth = src.width;
-    autoHeight = src.height;
-  } else if (typeof src === "string") {
-    if (isSrcsetString(src)) {
-      // srcset string from ?as=srcset - use first URL as fallback src
-      srcSet = src;
-      const firstUrl = src.split(",")[0]?.trim().split(" ")[0];
-      imgSrc = firstUrl;
-    } else {
-      // Regular URL string
-      imgSrc = src;
-    }
-  }
+	if (typeof src === "object" && src !== null) {
+		// Object from vite-imagetools (e.g., ?as=metadata or custom output)
+		imgSrc = src.src;
+		srcSet = src.srcset;
+		autoWidth = src.width;
+		autoHeight = src.height;
+	} else if (typeof src === "string") {
+		if (isSrcsetString(src)) {
+			// srcset string from ?as=srcset - use first URL as fallback src
+			srcSet = src;
+			const firstUrl = src.split(",")[0]?.trim().split(" ")[0];
+			imgSrc = firstUrl;
+		} else {
+			// Regular URL string
+			imgSrc = src;
+		}
+	}
 
-  return (
-    <img
-      src={imgSrc}
-      srcSet={srcSet}
-      sizes={sizes}
-      alt={alt}
-      loading={loading}
-      decoding={decoding}
-      width={width ?? autoWidth}
-      height={height ?? autoHeight}
-      className={className}
-      style={style}
-    />
-  );
+	return (
+		<img
+			src={imgSrc}
+			srcSet={srcSet}
+			sizes={sizes}
+			alt={alt}
+			loading={loading}
+			decoding={decoding}
+			width={width ?? autoWidth}
+			height={height ?? autoHeight}
+			className={className}
+			style={style}
+		/>
+	);
 }
 
 export default Image;

@@ -3,10 +3,11 @@
  * Handles component resolution in both development and production
  */
 
-import type { SolidComponent } from '../types.ts';
-import { toImportSpecifier } from '@useavalon/core/utils';
-import { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection';
-export { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection';
+import { resolveIslandPath } from "@useavalon/avalon/islands/framework-detection";
+import { toImportSpecifier } from "@useavalon/core/utils";
+import type { SolidComponent } from "../types.ts";
+
+export { resolveIslandPath } from "@useavalon/avalon/islands/framework-detection";
 
 /**
  * Load a Solid component from the given source path
@@ -16,7 +17,7 @@ export { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection
  * @returns Loaded Solid component
  */
 export async function loadComponent(src: string) {
-	const isDev = process.env.NODE_ENV !== 'production';
+	const isDev = process.env.NODE_ENV !== "production";
 
 	if (isDev) {
 		return await loadComponentDev(src);
@@ -33,9 +34,11 @@ export async function loadComponent(src: string) {
  */
 async function loadComponentDev(src: string) {
 	const viteServer = (
-		globalThis as { __viteDevServer?: { 
-			ssrLoadModule: (path: string) => Promise<Record<string, unknown>>;
-		} }
+		globalThis as {
+			__viteDevServer?: {
+				ssrLoadModule: (path: string) => Promise<Record<string, unknown>>;
+			};
+		}
 	).__viteDevServer;
 
 	if (viteServer) {
@@ -55,7 +58,9 @@ async function loadComponentDev(src: string) {
  * @returns Loaded component
  */
 async function loadComponentProd(src: string) {
-	const ssrPath = src.replace('/islands/', '/dist/ssr/islands/').replace(/\.(tsx|jsx|ts|js)$/, '.js');
+	const ssrPath = src
+		.replace("/islands/", "/dist/ssr/islands/")
+		.replace(/\.(tsx|jsx|ts|js)$/, ".js");
 
 	const module = await import(
 		/* @vite-ignore */
@@ -72,7 +77,7 @@ async function loadComponentProd(src: string) {
  */
 async function loadComponentDirect(src: string) {
 	const resolvedPath = await resolveIslandPath(src);
-	const filePath = resolvedPath.startsWith('/') ? `.${resolvedPath}` : `./${resolvedPath}`;
+	const filePath = resolvedPath.startsWith("/") ? `.${resolvedPath}` : `./${resolvedPath}`;
 
 	try {
 		const module = await import(
@@ -99,8 +104,10 @@ async function loadComponentDirect(src: string) {
 function extractComponent(module: Record<string, unknown>, src: string) {
 	const component = module.default || module;
 
-	if (!component || typeof component !== 'function') {
-		throw new Error(`Invalid Solid component in ${src}: expected function, got ${typeof component}`);
+	if (!component || typeof component !== "function") {
+		throw new Error(
+			`Invalid Solid component in ${src}: expected function, got ${typeof component}`,
+		);
 	}
 
 	return component as SolidComponent;
@@ -113,7 +120,7 @@ function extractComponent(module: Record<string, unknown>, src: string) {
  * @returns True if value is a Solid component
  */
 export function isSolidComponent(value: unknown) {
-	return typeof value === 'function';
+	return typeof value === "function";
 }
 
 /**
@@ -124,7 +131,7 @@ export function isSolidComponent(value: unknown) {
  * @returns Normalized props
  */
 export function normalizeProps(props: unknown) {
-	if (!props || typeof props !== 'object') {
+	if (!props || typeof props !== "object") {
 		return {};
 	}
 

@@ -34,9 +34,7 @@ export function extractVueProps(source: string): PropExtractionResult {
 
 		return { propsType, fallback: false };
 	} catch {
-		console.warn(
-			"[avalon] Failed to extract Vue props — falling back to Record<string, unknown>",
-		);
+		console.warn("[avalon] Failed to extract Vue props — falling back to Record<string, unknown>");
 		return { propsType: FALLBACK_PROPS, fallback: true };
 	}
 }
@@ -48,8 +46,7 @@ export function extractVueProps(source: string): PropExtractionResult {
 function extractScriptSetupContent(source: string): string | null {
 	// Match <script setup> or <script setup lang="ts"> (and other attrs)
 	// The 's' flag makes . match newlines
-	const scriptSetupRegex =
-		/<script\b[^>]*\bsetup\b[^>]*>([\s\S]*?)<\/script>/i;
+	const scriptSetupRegex = /<script\b[^>]*\bsetup\b[^>]*>([\s\S]*?)<\/script>/i;
 	const match = new RegExp(scriptSetupRegex).exec(source);
 	return match ? match[1] : null;
 }
@@ -107,5 +104,3 @@ function extractDefinePropsType(scriptContent: string): string | null {
 
 	return typeStr;
 }
-
-

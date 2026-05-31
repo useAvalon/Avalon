@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
 	addModulepreload,
-	getModulepreloadPaths,
-	generateModulepreloadTags,
-	injectModulepreloadLinks,
 	clearModulepreloads,
+	generateModulepreloadTags,
 	getModulepreloadCount,
+	getModulepreloadPaths,
+	injectModulepreloadLinks,
 } from "../modulepreload-collector.ts";
 
 describe("addModulepreload", () => {

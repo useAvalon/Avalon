@@ -10,30 +10,35 @@
 
 declare module "*.vue" {
 	import type { ComponentType } from "preact";
+
 	const component: ComponentType<Record<string, unknown>>;
 	export default component;
 }
 
 declare module "*.svelte" {
 	import type { ComponentType } from "preact";
+
 	const component: ComponentType<Record<string, unknown>>;
 	export default component;
 }
 
 declare module "*.solid.tsx" {
 	import type { ComponentType } from "preact";
+
 	const component: ComponentType<Record<string, unknown>>;
 	export default component;
 }
 
 declare module "*.lit.ts" {
 	import type { ComponentType } from "preact";
+
 	const component: ComponentType<Record<string, unknown>>;
 	export default component;
 }
 
 declare module "*.qwik.tsx" {
 	import type { ComponentType } from "preact";
+
 	const component: ComponentType<Record<string, unknown>>;
 	export default component;
 }

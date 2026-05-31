@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { generatePerIslandScript } from "../per-island-script.ts";
+import { describe, expect, it } from "vitest";
 import type { PerIslandScriptOptions } from "../per-island-script.ts";
+import { generatePerIslandScript } from "../per-island-script.ts";
 
 function makeOpts(overrides: Partial<PerIslandScriptOptions> = {}): PerIslandScriptOptions {
 	return {
@@ -55,10 +55,13 @@ describe("generatePerIslandScript", () => {
 	});
 
 	describe("on:client strategy", () => {
-		it("uses requestIdleCallback or requestAnimationFrame", () => {
+		it("hydrates immediately when the module loads", () => {
 			const result = generatePerIslandScript(makeOpts({ condition: "on:client" }));
-			expect(result).toContain("requestIdleCallback");
-			expect(result).toContain("requestAnimationFrame");
+			// on:client means hydrate as soon as the module loads — the script calls h()
+			// directly with no deferral (no requestIdleCallback / IntersectionObserver wrapper).
+			expect(result).toContain("h();");
+			expect(result).not.toContain("requestIdleCallback");
+			expect(result).not.toContain("IntersectionObserver");
 		});
 	});
 

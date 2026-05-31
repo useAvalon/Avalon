@@ -82,10 +82,13 @@ export interface BundleAuditOptions {
 export const BenchmarkBaselineSchema = z.object({
 	version: z.number(),
 	timestamp: z.string(),
-	islands: z.record(z.string(), z.object({
-		size: z.number(),
-		framework: z.string(),
-	})),
+	islands: z.record(
+		z.string(),
+		z.object({
+			size: z.number(),
+			framework: z.string(),
+		}),
+	),
 	references: z.object({
 		astroSolidCounter: z.number(),
 	}),
@@ -632,7 +635,10 @@ export function bundleAuditPlugin(options: BundleAuditOptions = {}): Plugin {
 					// Log benchmark results
 					for (const r of results) {
 						const baselineStr = r.baselineSize != null ? formatKiB(r.baselineSize) : "N/A";
-						const deltaStr = r.baselineSize != null ? `${r.deltaBytes > 0 ? "+" : ""}${r.deltaBytes}B (${r.deltaPercent.toFixed(1)}%)` : "new";
+						const deltaStr =
+							r.baselineSize != null
+								? `${r.deltaBytes > 0 ? "+" : ""}${r.deltaBytes}B (${r.deltaPercent.toFixed(1)}%)`
+								: "new";
 						console.log(
 							`📊 [benchmark] ${r.island}: ${formatKiB(r.currentSize)} (baseline: ${baselineStr}, delta: ${deltaStr})`,
 						);

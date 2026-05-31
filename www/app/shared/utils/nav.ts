@@ -4,7 +4,7 @@
  */
 export function getActiveNavLinks(currentPath: string): string[] {
 	const active: string[] = [];
-	if (currentPath === '/docs' || currentPath.startsWith('/docs/')) active.push('docs');
-	if (currentPath === '/blog' || currentPath.startsWith('/blog/')) active.push('blog');
+	if (currentPath === "/docs" || currentPath.startsWith("/docs/")) active.push("docs");
+	if (currentPath === "/blog" || currentPath.startsWith("/blog/")) active.push("blog");
 	return active;
 }

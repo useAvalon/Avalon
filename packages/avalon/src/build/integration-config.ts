@@ -25,89 +25,80 @@ export interface IntegrationBuildConfig {
  */
 export const INTEGRATION_BUILD_CONFIGS: Record<string, IntegrationBuildConfig> = {
 	preact: {
-		name: 'preact',
-		extensions: ['.tsx', '.jsx'],
-		optimizeDeps: [
-			'preact',
-			'preact/hooks',
-			'preact/jsx-runtime',
-			'preact/jsx-dev-runtime',
-		],
+		name: "preact",
+		extensions: [".tsx", ".jsx"],
+		optimizeDeps: ["preact", "preact/hooks", "preact/jsx-runtime", "preact/jsx-dev-runtime"],
 		ssrExternal: [],
-		ssrNoExternal: ['preact', 'preact-render-to-string'],
+		ssrNoExternal: ["preact", "preact-render-to-string"],
 		requiresPlugin: false,
 	},
 
 	vue: {
-		name: 'vue',
-		extensions: ['.vue'],
-		optimizeDeps: ['vue'],
+		name: "vue",
+		extensions: [".vue"],
+		optimizeDeps: ["vue"],
 		ssrExternal: [],
-		ssrNoExternal: ['vue', '@vue/server-renderer', '@vue/shared'],
+		ssrNoExternal: ["vue", "@vue/server-renderer", "@vue/shared"],
 		requiresPlugin: true,
-		pluginPackage: '@vitejs/plugin-vue',
+		pluginPackage: "@vitejs/plugin-vue",
 	},
 
 	solid: {
-		name: 'solid',
-		extensions: ['.tsx', '.jsx'],
-		optimizeDeps: [
-			'solid-js',
-			'solid-js/web',
-			'solid-js/store',
-		],
+		name: "solid",
+		extensions: [".tsx", ".jsx"],
+		optimizeDeps: ["solid-js", "solid-js/web", "solid-js/store"],
 		ssrExternal: [],
-		ssrNoExternal: ['solid-js', 'solid-js/web', 'solid-js/store'],
+		ssrNoExternal: ["solid-js", "solid-js/web", "solid-js/store"],
 		requiresPlugin: true,
-		pluginPackage: 'vite-plugin-solid',
+		pluginPackage: "vite-plugin-solid",
 	},
 
 	svelte: {
-		name: 'svelte',
-		extensions: ['.svelte'],
+		name: "svelte",
+		extensions: [".svelte"],
 		optimizeDeps: [
-			'svelte',
-			'svelte/internal',
-			'svelte/store',
-			'svelte/animate',
-			'svelte/easing',
-			'svelte/motion',
-			'svelte/transition',
+			"svelte",
+			"svelte/internal",
+			"svelte/store",
+			"svelte/animate",
+			"svelte/easing",
+			"svelte/motion",
+			"svelte/transition",
 		],
 		ssrExternal: [],
-		ssrNoExternal: ['svelte', 'svelte/server', 'svelte/internal', 'svelte/store'],
+		ssrNoExternal: ["svelte", "svelte/server", "svelte/internal", "svelte/store"],
 		requiresPlugin: true,
-		pluginPackage: '@sveltejs/vite-plugin-svelte',
+		pluginPackage: "@sveltejs/vite-plugin-svelte",
 	},
 
 	react: {
-		name: 'react',
-		extensions: ['.jsx', '.tsx'],
+		name: "react",
+		extensions: [".jsx", ".tsx"],
 		optimizeDeps: [
-			'react',
-			'react/jsx-runtime',
-			'react/jsx-dev-runtime',
-			'react-dom',
-			'react-dom/client',
+			"react",
+			"react/jsx-runtime",
+			"react/jsx-dev-runtime",
+			"react-dom",
+			"react-dom/client",
 		],
 		ssrExternal: [],
-		ssrNoExternal: ['react', 'react-dom', 'react-dom/server'],
+		ssrNoExternal: ["react", "react-dom", "react-dom/server"],
 		requiresPlugin: true,
-		pluginPackage: '@vitejs/plugin-react',
+		pluginPackage: "@vitejs/plugin-react",
 	},
 
 	lit: {
-		name: 'lit',
-		extensions: ['.ts', '.js'],
+		name: "lit",
+		extensions: [".ts", ".js"],
 		optimizeDeps: [
-			'lit',
-			'lit/decorators.js',
-			'lit/directives/class-map.js',
-			'lit/directives/style-map.js',
-			'@lit/reactive-element',
+			"lit",
+			"lit/decorators.js",
+			"lit/directives/class-map.js",
+			"lit/directives/style-map.js",
+			"@lit/reactive-element",
 		],
 		ssrExternal: [],
-		ssrNoExternal: ['lit', '@lit-labs/ssr', '@lit/reactive-element', 'lit-html'],
+		ssrNoExternal: ["lit", "@lit-labs/ssr", "@lit/reactive-element", "lit-html"],
 		requiresPlugin: false,
 	},
 };
@@ -124,14 +115,14 @@ export function getIntegrationBuildConfig(framework: string) {
  */
 export function getOptimizeDepsForIntegrations(integrations: string[]) {
 	const deps = new Set<string>();
-	
+
 	for (const integration of integrations) {
 		const config = INTEGRATION_BUILD_CONFIGS[integration];
 		if (config) {
-			config.optimizeDeps.forEach(dep => deps.add(dep));
+			config.optimizeDeps.forEach((dep) => deps.add(dep));
 		}
 	}
-	
+
 	return Array.from(deps);
 }
 
@@ -140,14 +131,14 @@ export function getOptimizeDepsForIntegrations(integrations: string[]) {
  */
 export function getSSRNoExternalForIntegrations(integrations: string[]) {
 	const packages = new Set<string>();
-	
+
 	for (const integration of integrations) {
 		const config = INTEGRATION_BUILD_CONFIGS[integration];
 		if (config) {
-			config.ssrNoExternal.forEach(pkg => packages.add(pkg));
+			config.ssrNoExternal.forEach((pkg) => packages.add(pkg));
 		}
 	}
-	
+
 	return Array.from(packages);
 }
 

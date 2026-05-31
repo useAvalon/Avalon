@@ -23,8 +23,8 @@
  */
 
 import type { Plugin } from "vite";
-import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
 import type { AvalonNitroConfig } from "../nitro/config.ts";
+import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
 
 /** Default size threshold (in bytes) below which island chunks are consolidated. */
 export const DEFAULT_CHUNK_SIZE_THRESHOLD = 4096; // 4 KiB

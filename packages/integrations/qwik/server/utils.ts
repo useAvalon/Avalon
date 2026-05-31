@@ -3,10 +3,11 @@
  * Handles component resolution in both development and production
  */
 
-import type { QwikComponent } from '../types.ts';
-import { toImportSpecifier } from '@useavalon/core/utils';
-import { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection';
-export { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection';
+import { resolveIslandPath } from "@useavalon/avalon/islands/framework-detection";
+import { toImportSpecifier } from "@useavalon/core/utils";
+import type { QwikComponent } from "../types.ts";
+
+export { resolveIslandPath } from "@useavalon/avalon/islands/framework-detection";
 
 /**
  * Load a Qwik component from the given source path
@@ -16,7 +17,7 @@ export { resolveIslandPath } from '@useavalon/avalon/islands/framework-detection
  * @returns Loaded Qwik component
  */
 export async function loadComponent(src: string) {
-	const isDev = process.env.NODE_ENV !== 'production';
+	const isDev = process.env.NODE_ENV !== "production";
 
 	if (isDev) {
 		return await loadComponentDev(src);
@@ -30,7 +31,9 @@ export async function loadComponent(src: string) {
  */
 async function loadComponentDev(src: string) {
 	const viteServer = (
-		globalThis as { __viteDevServer?: { ssrLoadModule: (path: string) => Promise<Record<string, unknown>> } }
+		globalThis as {
+			__viteDevServer?: { ssrLoadModule: (path: string) => Promise<Record<string, unknown>> };
+		}
 	).__viteDevServer;
 
 	if (viteServer) {
@@ -46,7 +49,9 @@ async function loadComponentDev(src: string) {
  * Load component in production mode from built SSR bundle
  */
 async function loadComponentProd(src: string) {
-	const ssrPath = src.replace('/islands/', '/dist/ssr/islands/').replace(/\.(tsx|jsx|ts|js)$/, '.js');
+	const ssrPath = src
+		.replace("/islands/", "/dist/ssr/islands/")
+		.replace(/\.(tsx|jsx|ts|js)$/, ".js");
 
 	const module = await import(
 		/* @vite-ignore */
@@ -60,7 +65,7 @@ async function loadComponentProd(src: string) {
  */
 async function loadComponentDirect(src: string) {
 	const resolvedPath = await resolveIslandPath(src);
-	const filePath = resolvedPath.startsWith('/') ? `.${resolvedPath}` : `./${resolvedPath}`;
+	const filePath = resolvedPath.startsWith("/") ? `.${resolvedPath}` : `./${resolvedPath}`;
 
 	try {
 		const module = await import(
@@ -90,10 +95,10 @@ function extractComponent(module: Record<string, unknown>, src: string) {
 	// Look for any export that could be a component
 	// Named exports are less common but supported
 	for (const [key, value] of Object.entries(module)) {
-		if (key.startsWith('_')) continue;
-		
+		if (key.startsWith("_")) continue;
+
 		// Any function or object could be a Qwik component/QRL
-		if (typeof value === 'function' || (value && typeof value === 'object')) {
+		if (typeof value === "function" || (value && typeof value === "object")) {
 			return value as QwikComponent;
 		}
 	}
@@ -113,21 +118,21 @@ function extractComponent(module: Record<string, unknown>, src: string) {
  */
 export function isQwikComponent(value: unknown): boolean {
 	if (!value) return false;
-	
+
 	// Plain function component
-	if (typeof value === 'function') return true;
-	
+	if (typeof value === "function") return true;
+
 	// QRL-wrapped component (object form)
-	if (typeof value === 'object') {
+	if (typeof value === "object") {
 		const comp = value as Record<string, unknown>;
 		// Check for Qwik component markers
-		if (comp.__brand === 'QwikComponent') return true;
+		if (comp.__brand === "QwikComponent") return true;
 		if (comp.__qrl) return true;
-		if (typeof comp.$ === 'function') return true;
+		if (typeof comp.$ === "function") return true;
 		// Transformed component$ result
 		if (comp._qrl || comp.qrl) return true;
 	}
-	
+
 	return false;
 }
 
@@ -137,7 +142,7 @@ export function isQwikComponent(value: unknown): boolean {
  * (Qwik requires all props to be serializable for resumability)
  */
 export function normalizeProps(props: unknown) {
-	if (!props || typeof props !== 'object') {
+	if (!props || typeof props !== "object") {
 		return {};
 	}
 

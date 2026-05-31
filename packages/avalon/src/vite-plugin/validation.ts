@@ -6,35 +6,35 @@
  * `validateIntegrations` configuration option.
  */
 
-import type { IntegrationName } from "./types.ts";
 import { registry } from "../core/integrations/registry.ts";
+import type { IntegrationName } from "./types.ts";
 
 /**
  * Result of validating a single integration
  */
 export interface ValidationResult {
-  /** The integration name that was validated */
-  integration: IntegrationName;
-  /** Whether the integration passed all required checks */
-  valid: boolean;
-  /** Critical errors that prevent the integration from working */
-  errors: string[];
-  /** Non-critical warnings about the integration */
-  warnings: string[];
+	/** The integration name that was validated */
+	integration: IntegrationName;
+	/** Whether the integration passed all required checks */
+	valid: boolean;
+	/** Critical errors that prevent the integration from working */
+	errors: string[];
+	/** Non-critical warnings about the integration */
+	warnings: string[];
 }
 
 /**
  * Result of validating all active integrations
  */
 export interface ValidationSummary {
-  /** Whether all integrations passed validation */
-  allValid: boolean;
-  /** Individual validation results for each integration */
-  results: ValidationResult[];
-  /** Total number of errors across all integrations */
-  totalErrors: number;
-  /** Total number of warnings across all integrations */
-  totalWarnings: number;
+	/** Whether all integrations passed validation */
+	allValid: boolean;
+	/** Individual validation results for each integration */
+	results: ValidationResult[];
+	/** Total number of errors across all integrations */
+	totalErrors: number;
+	/** Total number of warnings across all integrations */
+	totalWarnings: number;
 }
 
 /**
@@ -62,51 +62,64 @@ export interface ValidationSummary {
  * ```
  */
 export function validateIntegration(integration: unknown): ValidationResult {
-  if (integration === null || integration === undefined) {
-    return { integration: "unknown" as IntegrationName, valid: false, errors: ["Integration is null or undefined"], warnings: [] };
-  }
-  if (typeof integration !== "object") {
-    return { integration: "unknown" as IntegrationName, valid: false, errors: [`Integration must be an object, got ${typeof integration}`], warnings: [] };
-  }
+	if (integration === null || integration === undefined) {
+		return {
+			integration: "unknown" as IntegrationName,
+			valid: false,
+			errors: ["Integration is null or undefined"],
+			warnings: [],
+		};
+	}
+	if (typeof integration !== "object") {
+		return {
+			integration: "unknown" as IntegrationName,
+			valid: false,
+			errors: [`Integration must be an object, got ${typeof integration}`],
+			warnings: [],
+		};
+	}
 
-  const obj = integration as Record<string, unknown>;
-  const errors: string[] = [];
-  const warnings: string[] = [];
+	const obj = integration as Record<string, unknown>;
+	const errors: string[] = [];
+	const warnings: string[] = [];
 
-  checkStringProp(obj, "name", errors);
-  checkStringProp(obj, "version", errors);
-  checkFunctionProp(obj, "render", errors);
-  checkFunctionProp(obj, "getHydrationScript", errors);
-  checkFunctionProp(obj, "config", errors);
+	checkStringProp(obj, "name", errors);
+	checkStringProp(obj, "version", errors);
+	checkFunctionProp(obj, "render", errors);
+	checkFunctionProp(obj, "getHydrationScript", errors);
+	checkFunctionProp(obj, "config", errors);
 
-  if (obj.vitePlugin !== undefined && typeof obj.vitePlugin !== "function") {
-    warnings.push(`'vitePlugin' should be a function if provided, got ${typeof obj.vitePlugin}`);
-  }
+	if (obj.vitePlugin !== undefined && typeof obj.vitePlugin !== "function") {
+		warnings.push(`'vitePlugin' should be a function if provided, got ${typeof obj.vitePlugin}`);
+	}
 
-  const integrationName = typeof obj.name === "string"
-    ? (obj.name as IntegrationName)
-    : ("unknown" as IntegrationName);
+	const integrationName =
+		typeof obj.name === "string" ? (obj.name as IntegrationName) : ("unknown" as IntegrationName);
 
-  return { integration: integrationName, valid: errors.length === 0, errors, warnings };
+	return { integration: integrationName, valid: errors.length === 0, errors, warnings };
 }
 
 function checkStringProp(obj: Record<string, unknown>, key: string, errors: string[]): void {
-  const val = obj[key];
-  if (typeof val !== "string") {
-    errors.push(val === undefined
-      ? `Missing required '${key}' property`
-      : `Invalid '${key}' property: expected string, got ${typeof val}`);
-  } else if (val.trim() === "") {
-    errors.push(`'${key}' property cannot be empty`);
-  }
+	const val = obj[key];
+	if (typeof val !== "string") {
+		errors.push(
+			val === undefined
+				? `Missing required '${key}' property`
+				: `Invalid '${key}' property: expected string, got ${typeof val}`,
+		);
+	} else if (val.trim() === "") {
+		errors.push(`'${key}' property cannot be empty`);
+	}
 }
 
 function checkFunctionProp(obj: Record<string, unknown>, key: string, errors: string[]): void {
-  if (typeof obj[key] !== "function") {
-    errors.push(obj[key] === undefined
-      ? `Missing required '${key}' method`
-      : `Invalid '${key}' method: expected function, got ${typeof obj[key]}`);
-  }
+	if (typeof obj[key] !== "function") {
+		errors.push(
+			obj[key] === undefined
+				? `Missing required '${key}' method`
+				: `Invalid '${key}' method: expected function, got ${typeof obj[key]}`,
+		);
+	}
 }
 
 /**
@@ -129,42 +142,42 @@ function checkFunctionProp(obj: Record<string, unknown>, key: string, errors: st
  * ```
  */
 export function validateActiveIntegrations(
-  activeIntegrations: Set<IntegrationName>,
-  showWarnings: boolean = true
+	activeIntegrations: Set<IntegrationName>,
+	showWarnings: boolean = true,
 ): ValidationSummary {
-  const results: ValidationResult[] = [];
-  let totalErrors = 0;
-  let totalWarnings = 0;
+	const results: ValidationResult[] = [];
+	let totalErrors = 0;
+	let totalWarnings = 0;
 
-  for (const name of activeIntegrations) {
-    const integration = registry.get(name);
+	for (const name of activeIntegrations) {
+		const integration = registry.get(name);
 
-    if (!integration) {
-      // Integration was marked as active but not found in registry
-      results.push({
-        integration: name,
-        valid: false,
-        errors: [`Integration '${name}' is marked as active but not found in registry`],
-        warnings: [],
-      });
-      totalErrors++;
-      continue;
-    }
+		if (!integration) {
+			// Integration was marked as active but not found in registry
+			results.push({
+				integration: name,
+				valid: false,
+				errors: [`Integration '${name}' is marked as active but not found in registry`],
+				warnings: [],
+			});
+			totalErrors++;
+			continue;
+		}
 
-    const result = validateIntegration(integration);
-    results.push(result);
-    totalErrors += result.errors.length;
-    if (showWarnings) {
-      totalWarnings += result.warnings.length;
-    }
-  }
+		const result = validateIntegration(integration);
+		results.push(result);
+		totalErrors += result.errors.length;
+		if (showWarnings) {
+			totalWarnings += result.warnings.length;
+		}
+	}
 
-  return {
-    allValid: totalErrors === 0,
-    results,
-    totalErrors,
-    totalWarnings: showWarnings ? totalWarnings : 0,
-  };
+	return {
+		allValid: totalErrors === 0,
+		results,
+		totalErrors,
+		totalWarnings: showWarnings ? totalWarnings : 0,
+	};
 }
 
 /**
@@ -174,39 +187,39 @@ export function validateActiveIntegrations(
  * @returns Formatted string for console output
  */
 export function formatValidationResults(summary: ValidationSummary): string {
-  if (summary.allValid && summary.totalWarnings === 0) {
-    return `✅ All ${summary.results.length} integration(s) passed validation`;
-  }
+	if (summary.allValid && summary.totalWarnings === 0) {
+		return `✅ All ${summary.results.length} integration(s) passed validation`;
+	}
 
-  const lines: string[] = [];
+	const lines: string[] = [];
 
-  if (!summary.allValid) {
-    lines.push(`❌ Integration validation failed with ${summary.totalErrors} error(s)`);
-  }
+	if (!summary.allValid) {
+		lines.push(`❌ Integration validation failed with ${summary.totalErrors} error(s)`);
+	}
 
-  if (summary.totalWarnings > 0) {
-    lines.push(`⚠️  ${summary.totalWarnings} warning(s) found`);
-  }
+	if (summary.totalWarnings > 0) {
+		lines.push(`⚠️  ${summary.totalWarnings} warning(s) found`);
+	}
 
-  lines.push("");
+	lines.push("");
 
-  for (const result of summary.results) {
-    if (result.errors.length > 0 || result.warnings.length > 0) {
-      lines.push(`Integration: ${result.integration}`);
+	for (const result of summary.results) {
+		if (result.errors.length > 0 || result.warnings.length > 0) {
+			lines.push(`Integration: ${result.integration}`);
 
-      for (const error of result.errors) {
-        lines.push(`  ❌ ${error}`);
-      }
+			for (const error of result.errors) {
+				lines.push(`  ❌ ${error}`);
+			}
 
-      for (const warning of result.warnings) {
-        lines.push(`  ⚠️  ${warning}`);
-      }
+			for (const warning of result.warnings) {
+				lines.push(`  ⚠️  ${warning}`);
+			}
 
-      lines.push("");
-    }
-  }
+			lines.push("");
+		}
+	}
 
-  return lines.join("\n");
+	return lines.join("\n");
 }
 
 /**
@@ -215,14 +228,12 @@ export function formatValidationResults(summary: ValidationSummary): string {
  * @param name - The integration name to validate
  * @returns ValidationResult or null if integration not found
  */
-export function validateIntegrationByName(
-  name: IntegrationName
-): ValidationResult | null {
-  const integration = registry.get(name);
+export function validateIntegrationByName(name: IntegrationName): ValidationResult | null {
+	const integration = registry.get(name);
 
-  if (!integration) {
-    return null;
-  }
+	if (!integration) {
+		return null;
+	}
 
-  return validateIntegration(integration);
+	return validateIntegration(integration);
 }

@@ -5,14 +5,11 @@
  * for the file-system routing system, ensuring type safety throughout the routing pipeline.
  */
 
-import type { ComponentType } from 'preact';
-import { h } from 'preact';
-import type {
-	LoaderContext,
-	Metadata
-} from '../schemas/routing.ts';
-import type { LayoutConfig } from '../schemas/layout.ts';
 import process from "node:process";
+import type { ComponentType } from "preact";
+import { h } from "preact";
+import type { LayoutConfig } from "../schemas/layout.ts";
+import type { LoaderContext, Metadata } from "../schemas/routing.ts";
 
 // === Route Parameter Type Extraction ===
 
@@ -26,13 +23,14 @@ import process from "node:process";
  * type CatchAllParams = ExtractRouteParams<'/docs/[...path]'>; // { path: string[] }
  * ```
  */
-export type ExtractRouteParams<T extends string> = T extends `${string}[${infer Param}]${infer Rest}`
-	? Param extends `...${infer RestParam}`
-		? { [K in RestParam]: string[] } & ExtractRouteParams<Rest>
-		: Param extends `${infer OptionalParam}?`
-		? { [K in OptionalParam]?: string } & ExtractRouteParams<Rest>
-		: { [K in Param]: string } & ExtractRouteParams<Rest>
-	: Record<PropertyKey, never>;
+export type ExtractRouteParams<T extends string> =
+	T extends `${string}[${infer Param}]${infer Rest}`
+		? Param extends `...${infer RestParam}`
+			? { [K in RestParam]: string[] } & ExtractRouteParams<Rest>
+			: Param extends `${infer OptionalParam}?`
+				? { [K in OptionalParam]?: string } & ExtractRouteParams<Rest>
+				: { [K in Param]: string } & ExtractRouteParams<Rest>
+		: Record<PropertyKey, never>;
 
 /**
  * Extract optional route parameters from a route pattern string
@@ -42,11 +40,12 @@ export type ExtractRouteParams<T extends string> = T extends `${string}[${infer 
  * type OptionalParams = ExtractOptionalParams<'/blog/[[...slug]]'>; // { slug?: string[] }
  * ```
  */
-export type ExtractOptionalParams<T extends string> = T extends `${string}[[${infer Param}]]${infer Rest}`
-	? Param extends `...${infer RestParam}`
-		? { [K in RestParam]?: string[] } & ExtractOptionalParams<Rest>
-		: { [K in Param]?: string } & ExtractOptionalParams<Rest>
-	: Record<PropertyKey, never>;
+export type ExtractOptionalParams<T extends string> =
+	T extends `${string}[[${infer Param}]]${infer Rest}`
+		? Param extends `...${infer RestParam}`
+			? { [K in RestParam]?: string[] } & ExtractOptionalParams<Rest>
+			: { [K in Param]?: string } & ExtractOptionalParams<Rest>
+		: Record<PropertyKey, never>;
 
 /**
  * Combine required and optional route parameters
@@ -110,14 +109,16 @@ export type TypedPageComponentWithData<TRoute extends string, TData> = Component
  * };
  * ```
  */
-export type TypedMetadataGenerator<TRoute extends string> = (params: RouteParameters<TRoute>) => Promise<Metadata>;
+export type TypedMetadataGenerator<TRoute extends string> = (
+	params: RouteParameters<TRoute>,
+) => Promise<Metadata>;
 
 /**
  * Metadata generator with custom context
  */
 export type TypedMetadataGeneratorWithContext<TRoute extends string, TContext = unknown> = (
 	params: RouteParameters<TRoute>,
-	context: TContext
+	context: TContext,
 ) => Promise<Metadata>;
 
 // === Strongly Typed Page Loaders ===
@@ -135,15 +136,19 @@ export type TypedMetadataGeneratorWithContext<TRoute extends string, TContext = 
  * ```
  */
 export type TypedPageLoader<TRoute extends string, TData = unknown> = (
-	context: LoaderContext & { params: RouteParameters<TRoute> }
+	context: LoaderContext & { params: RouteParameters<TRoute> },
 ) => Promise<TData>;
 
 /**
  * Page loader with custom context
  */
-export type TypedPageLoaderWithContext<TRoute extends string, TData = unknown, TContext = unknown> = (
+export type TypedPageLoaderWithContext<
+	TRoute extends string,
+	TData = unknown,
+	TContext = unknown,
+> = (
 	context: LoaderContext & { params: RouteParameters<TRoute> },
-	customContext: TContext
+	customContext: TContext,
 ) => Promise<TData>;
 
 // === Strongly Typed Route Modules ===
@@ -183,7 +188,7 @@ export type TypedRoutePageModule<TRoute extends string, TData = unknown> = {
  */
 export type TypedApiHandler<TRoute extends string> = (
 	request: Request,
-	context: LoaderContext & { params: RouteParameters<TRoute> }
+	context: LoaderContext & { params: RouteParameters<TRoute> },
 ) => Promise<Response>;
 
 /**
@@ -207,15 +212,15 @@ export type TypedApiModule<TRoute extends string> = {
 export type ValidRoutePattern<T extends string> = T extends `${string}[${string}]${string}`
 	? T
 	: T extends `${string}(${string})${string}`
-	? T
-	: T extends `${string}_${string}`
-	? never // Private files/folders
-	: T;
+		? T
+		: T extends `${string}_${string}`
+			? never // Private files/folders
+			: T;
 
 /**
  * Valid file extensions for routes
  */
-export type ValidRouteExtension = '.tsx' | '.ts' | '.jsx' | '.js';
+export type ValidRouteExtension = ".tsx" | ".ts" | ".jsx" | ".js";
 
 /**
  * Route file path validation
@@ -231,11 +236,12 @@ export type ValidRouteFile<T extends string> = T extends `${string}${ValidRouteE
 /**
  * Validate that a component accepts the correct props for a route
  */
-export type ValidatePageComponent<TRoute extends string, TComponent> = TComponent extends ComponentType<infer TProps>
-	? TProps extends { params: RouteParameters<TRoute> }
-		? TComponent
-		: never
-	: never;
+export type ValidatePageComponent<TRoute extends string, TComponent> =
+	TComponent extends ComponentType<infer TProps>
+		? TProps extends { params: RouteParameters<TRoute> }
+			? TComponent
+			: never
+		: never;
 
 /**
  * Props validation for page components
@@ -249,26 +255,31 @@ export interface PageComponentProps<TRoute extends string = string, TData = unkn
 /**
  * Validate page component props
  */
-export type ValidatePageProps<TRoute extends string, TProps> = TProps extends PageComponentProps<TRoute>
-	? TProps
-	: never;
+export type ValidatePageProps<TRoute extends string, TProps> =
+	TProps extends PageComponentProps<TRoute> ? TProps : never;
 
 // === Utility Types for Route Analysis ===
 
 /**
  * Check if a route has dynamic segments
  */
-export type HasDynamicSegments<T extends string> = T extends `${string}[${string}]${string}` ? true : false;
+export type HasDynamicSegments<T extends string> = T extends `${string}[${string}]${string}`
+	? true
+	: false;
 
 /**
  * Check if a route has catch-all segments
  */
-export type HasCatchAllSegments<T extends string> = T extends `${string}[...${string}]${string}` ? true : false;
+export type HasCatchAllSegments<T extends string> = T extends `${string}[...${string}]${string}`
+	? true
+	: false;
 
 /**
  * Check if a route has optional segments
  */
-export type HasOptionalSegments<T extends string> = T extends `${string}[[${string}]]${string}` ? true : false;
+export type HasOptionalSegments<T extends string> = T extends `${string}[[${string}]]${string}`
+	? true
+	: false;
 
 /**
  * Get the static parts of a route
@@ -282,8 +293,10 @@ export type GetStaticParts<T extends string> = T extends `${infer Static}[${stri
  */
 export type CountDynamicSegments<
 	T extends string,
-	Count extends readonly unknown[] = []
-> = T extends `${string}[${string}]${infer Rest}` ? CountDynamicSegments<Rest, [...Count, unknown]> : Count['length'];
+	Count extends readonly unknown[] = [],
+> = T extends `${string}[${string}]${infer Rest}`
+	? CountDynamicSegments<Rest, [...Count, unknown]>
+	: Count["length"];
 
 // === Error Handling Types ===
 
@@ -291,12 +304,12 @@ export type CountDynamicSegments<
  * Route error types
  */
 export type RouteErrorType =
-	| 'ROUTE_NOT_FOUND'
-	| 'INVALID_PARAMS'
-	| 'LOADER_ERROR'
-	| 'METADATA_ERROR'
-	| 'COMPONENT_ERROR'
-	| 'VALIDATION_ERROR';
+	| "ROUTE_NOT_FOUND"
+	| "INVALID_PARAMS"
+	| "LOADER_ERROR"
+	| "METADATA_ERROR"
+	| "COMPONENT_ERROR"
+	| "VALIDATION_ERROR";
 
 /**
  * Route error with context
@@ -354,9 +367,9 @@ export interface RoutePerformanceMetrics {
  */
 export function isValidRouteParams<TRoute extends string>(
 	params: unknown,
-	expectedParams: (keyof RouteParameters<TRoute>)[]
+	expectedParams: (keyof RouteParameters<TRoute>)[],
 ): params is RouteParameters<TRoute> {
-	if (!params || typeof params !== 'object') {
+	if (!params || typeof params !== "object") {
 		return false;
 	}
 
@@ -368,10 +381,10 @@ export function isValidRouteParams<TRoute extends string>(
 		if (value === undefined) {
 			return false;
 		}
-		if (typeof value !== 'string' && !Array.isArray(value)) {
+		if (typeof value !== "string" && !Array.isArray(value)) {
 			return false;
 		}
-		if (Array.isArray(value) && !value.every(item => typeof item === 'string')) {
+		if (Array.isArray(value) && !value.every((item) => typeof item === "string")) {
 			return false;
 		}
 	}
@@ -384,9 +397,9 @@ export function isValidRouteParams<TRoute extends string>(
  */
 export function isValidPageProps<TRoute extends string>(
 	props: unknown,
-	expectedParams: (keyof RouteParameters<TRoute>)[]
+	expectedParams: (keyof RouteParameters<TRoute>)[],
 ): props is PageComponentProps<TRoute> {
-	if (!props || typeof props !== 'object') {
+	if (!props || typeof props !== "object") {
 		return false;
 	}
 
@@ -454,18 +467,18 @@ export function isValidRoutePattern(pattern: string): boolean {
  */
 export function createTypedPageComponent<TRoute extends string>(
 	component: TypedPageComponent<TRoute>,
-	expectedParams: (keyof RouteParameters<TRoute>)[]
+	expectedParams: (keyof RouteParameters<TRoute>)[],
 ): TypedPageComponent<TRoute> {
 	// Return a wrapper component that validates props
 	const WrappedComponent: TypedPageComponent<TRoute> = (props) => {
-		if (process.env?.NODE_ENV === 'development') {
+		if (process.env?.NODE_ENV === "development") {
 			if (!isValidPageProps<TRoute>(props, expectedParams)) {
-				console.warn('Invalid props passed to typed page component:', props);
+				console.warn("Invalid props passed to typed page component:", props);
 			}
 		}
 		return h(component, props);
 	};
-	
+
 	return WrappedComponent;
 }
 
@@ -474,13 +487,13 @@ export function createTypedPageComponent<TRoute extends string>(
  */
 export function createTypedMetadataGenerator<TRoute extends string>(
 	generator: TypedMetadataGenerator<TRoute>,
-	expectedParams: (keyof RouteParameters<TRoute>)[]
+	expectedParams: (keyof RouteParameters<TRoute>)[],
 ): TypedMetadataGenerator<TRoute> {
-	return async params => {
+	return async (params) => {
 		// Validate params in development
-		if (process.env?.NODE_ENV === 'development') {
+		if (process.env?.NODE_ENV === "development") {
 			if (!isValidRouteParams<TRoute>(params, expectedParams)) {
-				console.warn('Invalid params passed to typed metadata generator:', params);
+				console.warn("Invalid params passed to typed metadata generator:", params);
 			}
 		}
 
@@ -493,13 +506,13 @@ export function createTypedMetadataGenerator<TRoute extends string>(
  */
 export function createTypedPageLoader<TRoute extends string, TData = unknown>(
 	loader: TypedPageLoader<TRoute, TData>,
-	expectedParams: (keyof RouteParameters<TRoute>)[]
+	expectedParams: (keyof RouteParameters<TRoute>)[],
 ): TypedPageLoader<TRoute, TData> {
-	return async context => {
+	return async (context) => {
 		// Validate params in development
-		if (process.env?.NODE_ENV === 'development') {
+		if (process.env?.NODE_ENV === "development") {
 			if (!isValidRouteParams<TRoute>(context.params, expectedParams)) {
-				console.warn('Invalid params passed to typed page loader:', context.params);
+				console.warn("Invalid params passed to typed page loader:", context.params);
 			}
 		}
 
@@ -512,11 +525,11 @@ export function createTypedPageLoader<TRoute extends string, TData = unknown>(
  */
 export function validatePageComponent<TRoute extends string>(
 	component: unknown,
-	_expectedParams: (keyof RouteParameters<TRoute>)[]
+	_expectedParams: (keyof RouteParameters<TRoute>)[],
 ): component is TypedPageComponent<TRoute> {
 	// In TypeScript, we can't really validate function signatures at runtime
 	// This is more of a development-time helper
-	if (typeof component !== 'function') {
+	if (typeof component !== "function") {
 		return false;
 	}
 
@@ -529,13 +542,13 @@ export function validatePageComponent<TRoute extends string>(
  */
 export function createTypedApiHandler<TRoute extends string>(
 	handler: TypedApiHandler<TRoute>,
-	expectedParams: (keyof RouteParameters<TRoute>)[]
+	expectedParams: (keyof RouteParameters<TRoute>)[],
 ): TypedApiHandler<TRoute> {
 	return async (request, context) => {
 		// Validate params in development
-		if (process.env?.NODE_ENV === 'development') {
+		if (process.env?.NODE_ENV === "development") {
 			if (!isValidRouteParams<TRoute>(context.params, expectedParams)) {
-				console.warn('Invalid params passed to typed API handler:', context.params);
+				console.warn("Invalid params passed to typed API handler:", context.params);
 			}
 		}
 
@@ -545,11 +558,11 @@ export function createTypedApiHandler<TRoute extends string>(
 
 // === Re-export commonly used types ===
 export type {
-	RouteParams,
+	FileSystemRoute,
 	LoaderContext,
 	Metadata,
 	PageProps,
-	RoutePageModule,
-	FileSystemRoute,
 	ResolvedMetadata,
-} from '../schemas/routing.ts';
+	RoutePageModule,
+	RouteParams,
+} from "../schemas/routing.ts";

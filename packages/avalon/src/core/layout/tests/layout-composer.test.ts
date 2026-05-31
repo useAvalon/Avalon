@@ -1,14 +1,14 @@
-import { describe, it, expect } from 'vitest';
-import { join, resolve } from 'node:path';
-import { existsSync } from 'node:fs';
-import { mkdir, writeFile, rm } from 'node:fs/promises';
-import { LayoutComposer } from '../layout-composer.ts';
-import type { LayoutConfig, LayoutDiscoveryOptions } from '../layout-types.ts';
+import { existsSync } from "node:fs";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+import { LayoutComposer } from "../layout-composer.ts";
+import type { LayoutConfig, LayoutDiscoveryOptions } from "../layout-types.ts";
 
 // Test fixtures directory
-const TEST_FIXTURES_DIR = resolve('tests/fixtures/layout-composer');
-const TEST_PAGES_DIR = join(TEST_FIXTURES_DIR, 'src/pages');
-const TEST_LAYOUTS_DIR = join(TEST_FIXTURES_DIR, 'src/layouts');
+const TEST_FIXTURES_DIR = resolve("tests/fixtures/layout-composer");
+const TEST_PAGES_DIR = join(TEST_FIXTURES_DIR, "src/pages");
+const TEST_LAYOUTS_DIR = join(TEST_FIXTURES_DIR, "src/layouts");
 
 // Mock page module interface
 interface MockPageModule {
@@ -49,12 +49,12 @@ export async function layoutLoader(ctx) {
 }
 `;
 
-	await writeFile(join(TEST_PAGES_DIR, '_layout.js'), rootLayoutContent);
+	await writeFile(join(TEST_PAGES_DIR, "_layout.js"), rootLayoutContent);
 
-	await mkdir(join(TEST_PAGES_DIR, 'blog'), { recursive: true });
-	await writeFile(join(TEST_PAGES_DIR, 'blog', '_layout.js'), blogLayoutContent);
+	await mkdir(join(TEST_PAGES_DIR, "blog"), { recursive: true });
+	await writeFile(join(TEST_PAGES_DIR, "blog", "_layout.js"), blogLayoutContent);
 
-	await writeFile(join(TEST_LAYOUTS_DIR, 'custom.js'), customLayoutContent);
+	await writeFile(join(TEST_LAYOUTS_DIR, "custom.js"), customLayoutContent);
 }
 
 async function setupTestFixtures(): Promise<LayoutComposer> {
@@ -68,9 +68,9 @@ async function setupTestFixtures(): Promise<LayoutComposer> {
 	await createTestLayouts();
 
 	const options: LayoutDiscoveryOptions = {
-		baseDirectory: join(TEST_FIXTURES_DIR, 'src'),
-		filePattern: '_layout.js',
-		excludeDirectories: ['node_modules', '.git'],
+		baseDirectory: join(TEST_FIXTURES_DIR, "src"),
+		filePattern: "_layout.js",
+		excludeDirectories: ["node_modules", ".git"],
 		enableWatching: false,
 		developmentMode: true,
 	};
@@ -84,16 +84,16 @@ async function cleanupTestFixtures() {
 	}
 }
 
-describe('LayoutComposer - Basic Layout Resolution', () => {
-	it('should resolve layouts', async () => {
+describe("LayoutComposer - Basic Layout Resolution", () => {
+	it("should resolve layouts", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
 			const pageModule: MockPageModule = {
-				default: () => 'Page Component',
+				default: () => "Page Component",
 			};
 
-			const layouts = await composer.resolveLayouts('/blog/post', pageModule);
+			const layouts = await composer.resolveLayouts("/blog/post", pageModule);
 
 			expect(layouts).toBeDefined();
 			expect(Array.isArray(layouts)).toEqual(true);
@@ -103,19 +103,19 @@ describe('LayoutComposer - Basic Layout Resolution', () => {
 	});
 });
 
-describe('LayoutComposer - replaceLayout Configuration', () => {
-	it('should skip all parent layouts', async () => {
+describe("LayoutComposer - replaceLayout Configuration", () => {
+	it("should skip all parent layouts", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
 			const pageModule: MockPageModule = {
-				default: () => 'Page Component',
+				default: () => "Page Component",
 				layoutConfig: {
 					replaceLayout: true,
 				},
 			};
 
-			const layouts = await composer.resolveLayouts('/blog/post', pageModule);
+			const layouts = await composer.resolveLayouts("/blog/post", pageModule);
 
 			expect(layouts.length).toEqual(0);
 		} finally {
@@ -123,21 +123,21 @@ describe('LayoutComposer - replaceLayout Configuration', () => {
 		}
 	});
 
-	it('should use only the custom layout with replaceLayout', async () => {
+	it("should use only the custom layout with replaceLayout", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
-			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.js');
+			const customLayoutPath = join(TEST_LAYOUTS_DIR, "custom.js");
 
 			const pageModule: MockPageModule = {
-				default: () => 'Page Component',
+				default: () => "Page Component",
 				layoutConfig: {
 					replaceLayout: true,
 					customLayout: customLayoutPath,
 				},
 			};
 
-			const layouts = await composer.resolveLayouts('/blog/post', pageModule);
+			const layouts = await composer.resolveLayouts("/blog/post", pageModule);
 
 			expect(layouts.length).toEqual(1);
 			expect(layouts[0].path).toEqual(customLayoutPath);
@@ -147,20 +147,20 @@ describe('LayoutComposer - replaceLayout Configuration', () => {
 	});
 });
 
-describe('LayoutComposer - skipLayouts Configuration', () => {
-	it('should exclude specified layouts', async () => {
+describe("LayoutComposer - skipLayouts Configuration", () => {
+	it("should exclude specified layouts", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
 			const pageModule: MockPageModule = {
-				default: () => 'Page Component',
+				default: () => "Page Component",
 				layoutConfig: {
-					skipLayouts: ['_layout.js'],
+					skipLayouts: ["_layout.js"],
 				},
 			};
 
-			const allLayouts = await composer.resolveLayouts('/blog/post', { default: () => 'Page' });
-			const filteredLayouts = await composer.resolveLayouts('/blog/post', pageModule);
+			const allLayouts = await composer.resolveLayouts("/blog/post", { default: () => "Page" });
+			const filteredLayouts = await composer.resolveLayouts("/blog/post", pageModule);
 
 			expect(filteredLayouts.length <= allLayouts.length).toEqual(true);
 		} finally {
@@ -168,20 +168,20 @@ describe('LayoutComposer - skipLayouts Configuration', () => {
 		}
 	});
 
-	it('should support pattern matching', async () => {
+	it("should support pattern matching", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
 			const pageModule: MockPageModule = {
-				default: () => 'Page Component',
+				default: () => "Page Component",
 				layoutConfig: {
-					skipLayouts: ['*blog*'],
+					skipLayouts: ["*blog*"],
 				},
 			};
 
-			const layouts = await composer.resolveLayouts('/blog/post', pageModule);
+			const layouts = await composer.resolveLayouts("/blog/post", pageModule);
 
-			const blogLayouts = layouts.filter(layout => layout.path.includes('blog'));
+			const blogLayouts = layouts.filter((layout) => layout.path.includes("blog"));
 			expect(blogLayouts.length).toEqual(0);
 		} finally {
 			await cleanupTestFixtures();
@@ -189,98 +189,98 @@ describe('LayoutComposer - skipLayouts Configuration', () => {
 	});
 });
 
-describe('LayoutComposer - onlyLayouts Configuration', () => {
-	it('should only apply specified layouts', async () => {
+describe("LayoutComposer - onlyLayouts Configuration", () => {
+	it("should only apply specified layouts", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
 			const pageModule: MockPageModule = {
-				default: () => 'Page Component',
+				default: () => "Page Component",
 				layoutConfig: {
-					onlyLayouts: ['_layout.js'],
+					onlyLayouts: ["_layout.js"],
 				},
 			};
 
-			const layouts = await composer.resolveLayouts('/blog/post', pageModule);
+			const layouts = await composer.resolveLayouts("/blog/post", pageModule);
 
-			expect(layouts.every(layout => layout.path.includes('_layout.js'))).toEqual(true);
+			expect(layouts.every((layout) => layout.path.includes("_layout.js"))).toEqual(true);
 		} finally {
 			await cleanupTestFixtures();
 		}
 	});
 
-	it('should support custom layout paths', async () => {
+	it("should support custom layout paths", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
-			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.js');
+			const customLayoutPath = join(TEST_LAYOUTS_DIR, "custom.js");
 
 			const pageModule: MockPageModule = {
-				default: () => 'Page Component',
+				default: () => "Page Component",
 				layoutConfig: {
 					onlyLayouts: [customLayoutPath],
 				},
 			};
 
-			const layouts = await composer.resolveLayouts('/blog/post', pageModule);
+			const layouts = await composer.resolveLayouts("/blog/post", pageModule);
 
-			expect(layouts.some(layout => layout.path === customLayoutPath)).toEqual(true);
+			expect(layouts.some((layout) => layout.path === customLayoutPath)).toEqual(true);
 		} finally {
 			await cleanupTestFixtures();
 		}
 	});
 });
 
-describe('LayoutComposer - customLayout Configuration', () => {
-	it('should add specified layout file', async () => {
+describe("LayoutComposer - customLayout Configuration", () => {
+	it("should add specified layout file", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
-			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.js');
+			const customLayoutPath = join(TEST_LAYOUTS_DIR, "custom.js");
 
 			const pageModule: MockPageModule = {
-				default: () => 'Page Component',
+				default: () => "Page Component",
 				layoutConfig: {
 					customLayout: customLayoutPath,
 				},
 			};
 
-			const layouts = await composer.resolveLayouts('/blog/post', pageModule);
+			const layouts = await composer.resolveLayouts("/blog/post", pageModule);
 
-			expect(layouts.some(layout => layout.path === customLayoutPath)).toEqual(true);
+			expect(layouts.some((layout) => layout.path === customLayoutPath)).toEqual(true);
 		} finally {
 			await cleanupTestFixtures();
 		}
 	});
 
-	it('should support relative paths', async () => {
+	it("should support relative paths", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
 			const pageModule: MockPageModule = {
-				default: () => 'Page Component',
+				default: () => "Page Component",
 				layoutConfig: {
-					customLayout: 'src/layouts/custom.js',
+					customLayout: "src/layouts/custom.js",
 				},
 			};
 
-			const layouts = await composer.resolveLayouts('/blog/post', pageModule);
+			const layouts = await composer.resolveLayouts("/blog/post", pageModule);
 
-			expect(layouts.some(layout => layout.path.includes('custom.js'))).toEqual(true);
+			expect(layouts.some((layout) => layout.path.includes("custom.js"))).toEqual(true);
 		} finally {
 			await cleanupTestFixtures();
 		}
 	});
 });
 
-describe('LayoutComposer - Configuration Validation', () => {
-	it('should validate valid config', async () => {
+describe("LayoutComposer - Configuration Validation", () => {
+	it("should validate valid config", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
 			const validConfig: LayoutConfig = {
-				skipLayouts: ['layout1.tsx'],
-				customLayout: 'custom.tsx',
+				skipLayouts: ["layout1.tsx"],
+				customLayout: "custom.tsx",
 			};
 
 			const result = composer.validateLayoutConfig(validConfig);
@@ -292,62 +292,66 @@ describe('LayoutComposer - Configuration Validation', () => {
 		}
 	});
 
-	it('should detect conflicting replaceLayout and onlyLayouts', async () => {
+	it("should detect conflicting replaceLayout and onlyLayouts", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
 			const invalidConfig: LayoutConfig = {
 				replaceLayout: true,
-				onlyLayouts: ['layout1.tsx'],
+				onlyLayouts: ["layout1.tsx"],
 			};
 
 			const result = composer.validateLayoutConfig(invalidConfig);
 
 			expect(result.valid).toEqual(false);
-			expect(result.errors.includes('replaceLayout and onlyLayouts cannot be used together')).toEqual(true);
+			expect(
+				result.errors.includes("replaceLayout and onlyLayouts cannot be used together"),
+			).toEqual(true);
 		} finally {
 			await cleanupTestFixtures();
 		}
 	});
 
-	it('should detect conflicting replaceLayout and skipLayouts', async () => {
+	it("should detect conflicting replaceLayout and skipLayouts", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
 			const invalidConfig: LayoutConfig = {
 				replaceLayout: true,
-				skipLayouts: ['layout1.tsx'],
+				skipLayouts: ["layout1.tsx"],
 			};
 
 			const result = composer.validateLayoutConfig(invalidConfig);
 
 			expect(result.valid).toEqual(false);
-			expect(result.errors.includes('replaceLayout and skipLayouts cannot be used together')).toEqual(true);
+			expect(
+				result.errors.includes("replaceLayout and skipLayouts cannot be used together"),
+			).toEqual(true);
 		} finally {
 			await cleanupTestFixtures();
 		}
 	});
 
-	it('should validate array types', async () => {
+	it("should validate array types", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
 			const invalidConfig: any = {
-				skipLayouts: 'not-an-array',
+				skipLayouts: "not-an-array",
 				onlyLayouts: 123,
 			};
 
 			const result = composer.validateLayoutConfig(invalidConfig);
 
 			expect(result.valid).toEqual(false);
-			expect(result.errors.includes('skipLayouts must be an array of strings')).toEqual(true);
-			expect(result.errors.includes('onlyLayouts must be an array of strings')).toEqual(true);
+			expect(result.errors.includes("skipLayouts must be an array of strings")).toEqual(true);
+			expect(result.errors.includes("onlyLayouts must be an array of strings")).toEqual(true);
 		} finally {
 			await cleanupTestFixtures();
 		}
 	});
 
-	it('should validate customLayout type', async () => {
+	it("should validate customLayout type", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
@@ -358,56 +362,56 @@ describe('LayoutComposer - Configuration Validation', () => {
 			const result = composer.validateLayoutConfig(invalidConfig);
 
 			expect(result.valid).toEqual(false);
-			expect(result.errors.includes('customLayout must be a string path')).toEqual(true);
+			expect(result.errors.includes("customLayout must be a string path")).toEqual(true);
 		} finally {
 			await cleanupTestFixtures();
 		}
 	});
 });
 
-describe('LayoutComposer - Complex Configuration', () => {
-	it('skipLayouts with customLayout should work together', async () => {
+describe("LayoutComposer - Complex Configuration", () => {
+	it("skipLayouts with customLayout should work together", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
-			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.js');
+			const customLayoutPath = join(TEST_LAYOUTS_DIR, "custom.js");
 
 			const pageModule: MockPageModule = {
-				default: () => 'Page Component',
+				default: () => "Page Component",
 				layoutConfig: {
-					skipLayouts: ['*blog*'],
+					skipLayouts: ["*blog*"],
 					customLayout: customLayoutPath,
 				},
 			};
 
-			const layouts = await composer.resolveLayouts('/blog/post', pageModule);
+			const layouts = await composer.resolveLayouts("/blog/post", pageModule);
 
-			expect(layouts.some(layout => layout.path === customLayoutPath)).toEqual(true);
-			expect(layouts.filter(layout => layout.path.includes('blog')).length).toEqual(0);
+			expect(layouts.some((layout) => layout.path === customLayoutPath)).toEqual(true);
+			expect(layouts.filter((layout) => layout.path.includes("blog")).length).toEqual(0);
 		} finally {
 			await cleanupTestFixtures();
 		}
 	});
 });
 
-describe('LayoutComposer - Cache Management', () => {
-	it('should cache custom layouts', async () => {
+describe("LayoutComposer - Cache Management", () => {
+	it("should cache custom layouts", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
-			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.js');
+			const customLayoutPath = join(TEST_LAYOUTS_DIR, "custom.js");
 
 			const pageModule: MockPageModule = {
-				default: () => 'Page Component',
+				default: () => "Page Component",
 				layoutConfig: {
 					customLayout: customLayoutPath,
 				},
 			};
 
-			await composer.resolveLayouts('/blog/post', pageModule);
+			await composer.resolveLayouts("/blog/post", pageModule);
 			const stats1 = composer.getCompositionStats();
 
-			await composer.resolveLayouts('/blog/post', pageModule);
+			await composer.resolveLayouts("/blog/post", pageModule);
 			const stats2 = composer.getCompositionStats();
 
 			expect(stats1.customLayoutCacheSize > 0).toEqual(true);
@@ -417,20 +421,20 @@ describe('LayoutComposer - Cache Management', () => {
 		}
 	});
 
-	it('should clear cache', async () => {
+	it("should clear cache", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
-			const customLayoutPath = join(TEST_LAYOUTS_DIR, 'custom.js');
+			const customLayoutPath = join(TEST_LAYOUTS_DIR, "custom.js");
 
 			const pageModule: MockPageModule = {
-				default: () => 'Page Component',
+				default: () => "Page Component",
 				layoutConfig: {
 					customLayout: customLayoutPath,
 				},
 			};
 
-			await composer.resolveLayouts('/blog/post', pageModule);
+			await composer.resolveLayouts("/blog/post", pageModule);
 
 			composer.clearCache();
 			const stats = composer.getCompositionStats();
@@ -442,21 +446,21 @@ describe('LayoutComposer - Cache Management', () => {
 	});
 });
 
-describe('LayoutComposer - Development Mode', () => {
-	it('should not throw in development mode', async () => {
+describe("LayoutComposer - Development Mode", () => {
+	it("should not throw in development mode", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
 			expect(composer.isDevelopmentMode()).toEqual(true);
 
 			const pageModule: MockPageModule = {
-				default: () => 'Page Component',
+				default: () => "Page Component",
 				layoutConfig: {
 					replaceLayout: true,
 				},
 			};
 
-			const layouts = await composer.resolveLayouts('/blog/post', pageModule);
+			const layouts = await composer.resolveLayouts("/blog/post", pageModule);
 			expect(layouts).toBeDefined();
 		} finally {
 			await cleanupTestFixtures();
@@ -464,19 +468,19 @@ describe('LayoutComposer - Development Mode', () => {
 	});
 });
 
-describe('LayoutComposer - Error Handling', () => {
-	it('should handle invalid custom layout path', async () => {
+describe("LayoutComposer - Error Handling", () => {
+	it("should handle invalid custom layout path", async () => {
 		const composer = await setupTestFixtures();
 
 		try {
 			const pageModule: MockPageModule = {
-				default: () => 'Page Component',
+				default: () => "Page Component",
 				layoutConfig: {
-					customLayout: '/invalid/path/that/does/not/exist.tsx',
+					customLayout: "/invalid/path/that/does/not/exist.tsx",
 				},
 			};
 
-			const layouts = await composer.resolveLayouts('/blog/post', pageModule);
+			const layouts = await composer.resolveLayouts("/blog/post", pageModule);
 			expect(layouts).toBeDefined();
 			expect(Array.isArray(layouts)).toEqual(true);
 		} finally {

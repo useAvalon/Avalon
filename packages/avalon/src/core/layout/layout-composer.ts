@@ -1,17 +1,17 @@
-import { resolve, relative } from 'node:path';
-import { statSync } from 'node:fs';
-import process from 'node:process';
-import { LayoutDiscovery } from './layout-discovery.ts';
+import { statSync } from "node:fs";
+import { relative, resolve } from "node:path";
+import process from "node:process";
+import { LayoutDiscovery } from "./layout-discovery.ts";
 import type {
 	ComponentType,
-	LayoutHandler,
 	LayoutConfig,
 	LayoutContext,
 	LayoutData,
 	LayoutDiscoveryOptions,
+	LayoutHandler,
 	LayoutProps,
 	PageModule,
-} from './layout-types.ts';
+} from "./layout-types.ts";
 
 interface LayoutFileExport {
 	default: ComponentType<LayoutProps>;
@@ -24,7 +24,7 @@ interface LayoutFileExport {
  */
 function toImportSpecifier(filePath: string): string {
 	if (/^[A-Za-z]:[\\/]/.test(filePath)) {
-		return `file:///${filePath.replaceAll('\\', '/')}`;
+		return `file:///${filePath.replaceAll("\\", "/")}`;
 	}
 	return filePath;
 }
@@ -45,7 +45,7 @@ function fileExists(path: string): boolean {
  * Converts a glob-style pattern (with *) to a RegExp.
  */
 function globToRegex(pattern: string): RegExp {
-	return new RegExp(pattern.replaceAll('*', '.*'));
+	return new RegExp(pattern.replaceAll("*", ".*"));
 }
 
 /**
@@ -83,7 +83,9 @@ export class LayoutComposer {
 				return await this.handleReplaceLayout(routePath, layoutConfig);
 			}
 
-			const standardLayouts = await this.layoutDiscovery.buildLayoutChain(new URL(`http://localhost${routePath}`));
+			const standardLayouts = await this.layoutDiscovery.buildLayoutChain(
+				new URL(`http://localhost${routePath}`),
+			);
 			return await this.applyConfiguration(standardLayouts, layoutConfig);
 		} catch (error) {
 			if (this.developmentMode) {
@@ -101,7 +103,10 @@ export class LayoutComposer {
 	 * Applies layout configuration to a layout chain
 	 * Requirements: 5.2, 5.3, 5.4, 5.5
 	 */
-	async applyConfiguration(layouts: LayoutHandler[], config: LayoutConfig): Promise<LayoutHandler[]> {
+	async applyConfiguration(
+		layouts: LayoutHandler[],
+		config: LayoutConfig,
+	): Promise<LayoutHandler[]> {
 		let resultLayouts = [...layouts];
 
 		if (config.onlyLayouts && config.onlyLayouts.length > 0) {
@@ -120,7 +125,10 @@ export class LayoutComposer {
 	}
 
 	/** Handles replaceLayout: returns only custom layout or empty array */
-	private async handleReplaceLayout(_routePath: string, config: LayoutConfig): Promise<LayoutHandler[]> {
+	private async handleReplaceLayout(
+		_routePath: string,
+		config: LayoutConfig,
+	): Promise<LayoutHandler[]> {
 		if (config.customLayout) {
 			const customHandler = await this.loadCustomLayout(config.customLayout);
 			return customHandler ? [customHandler] : [];
@@ -130,7 +138,7 @@ export class LayoutComposer {
 
 	/** Checks if a layout matches a glob or exact path pattern */
 	private matchesLayoutPattern(layout: LayoutHandler, pattern: string): boolean {
-		if (pattern.includes('*')) {
+		if (pattern.includes("*")) {
 			const regex = globToRegex(pattern);
 			return regex.test(layout.path) || regex.test(relative(process.cwd(), layout.path));
 		}
@@ -144,8 +152,8 @@ export class LayoutComposer {
 
 	/** Removes layouts matching skipLayouts patterns */
 	private applySkipLayouts(layouts: LayoutHandler[], skipLayouts: string[]): LayoutHandler[] {
-		return layouts.filter(layout => {
-			const shouldSkip = skipLayouts.some(pattern => this.matchesLayoutPattern(layout, pattern));
+		return layouts.filter((layout) => {
+			const shouldSkip = skipLayouts.some((pattern) => this.matchesLayoutPattern(layout, pattern));
 
 			if (shouldSkip && this.developmentMode) {
 				console.log(`[LayoutComposer] Skipping layout: ${relative(process.cwd(), layout.path)}`);
@@ -156,19 +164,24 @@ export class LayoutComposer {
 	}
 
 	/** Keeps only layouts matching onlyLayouts patterns */
-	private async applyOnlyLayouts(layouts: LayoutHandler[], onlyLayouts: string[]): Promise<LayoutHandler[]> {
+	private async applyOnlyLayouts(
+		layouts: LayoutHandler[],
+		onlyLayouts: string[],
+	): Promise<LayoutHandler[]> {
 		const filteredLayouts: LayoutHandler[] = [];
 
 		for (const onlyPattern of onlyLayouts) {
-			const matchingLayouts = layouts.filter(layout => this.matchesLayoutPattern(layout, onlyPattern));
+			const matchingLayouts = layouts.filter((layout) =>
+				this.matchesLayoutPattern(layout, onlyPattern),
+			);
 
 			if (matchingLayouts.length > 0) {
 				filteredLayouts.push(...matchingLayouts);
 				if (this.developmentMode) {
 					console.log(
 						`[LayoutComposer] Kept layouts from onlyLayouts: ${matchingLayouts
-							.map(l => relative(process.cwd(), l.path))
-							.join(', ')}`,
+							.map((l) => relative(process.cwd(), l.path))
+							.join(", ")}`,
 					);
 				}
 			} else {
@@ -188,7 +201,10 @@ export class LayoutComposer {
 	}
 
 	/** Adds a custom layout to the layout chain */
-	private async addCustomLayout(layouts: LayoutHandler[], customLayoutPath: string): Promise<LayoutHandler[]> {
+	private async addCustomLayout(
+		layouts: LayoutHandler[],
+		customLayoutPath: string,
+	): Promise<LayoutHandler[]> {
 		try {
 			const customHandler = await this.loadCustomLayout(customLayoutPath);
 			if (!customHandler) {
@@ -200,14 +216,16 @@ export class LayoutComposer {
 
 			const customLayoutWithPriority: LayoutHandler = {
 				...customHandler,
-				priority: Math.max(...layouts.map(l => l.priority), 0) + 10,
+				priority: Math.max(...layouts.map((l) => l.priority), 0) + 10,
 			};
 
 			const resultLayouts = [...layouts, customLayoutWithPriority];
 			resultLayouts.sort((a, b) => a.priority - b.priority);
 
 			if (this.developmentMode) {
-				console.log(`[LayoutComposer] Added custom layout: ${relative(process.cwd(), customLayoutPath)}`);
+				console.log(
+					`[LayoutComposer] Added custom layout: ${relative(process.cwd(), customLayoutPath)}`,
+				);
 			}
 
 			return resultLayouts;
@@ -227,21 +245,25 @@ export class LayoutComposer {
 	 * Resolves a layout path to an absolute path, trying multiple resolution strategies.
 	 */
 	private resolveLayoutPath(layoutPath: string): string {
-		if (layoutPath.startsWith('/') || layoutPath.startsWith('file://') || /^[A-Za-z]:[\\/]/.test(layoutPath)) {
+		if (
+			layoutPath.startsWith("/") ||
+			layoutPath.startsWith("file://") ||
+			/^[A-Za-z]:[\\/]/.test(layoutPath)
+		) {
 			return layoutPath;
 		}
 
 		const baseDir = this.layoutDiscovery.getOptions().baseDirectory;
 		const candidates = [
 			resolve(layoutPath),
-			resolve('src', layoutPath),
-			resolve('src/pages', layoutPath),
-			resolve('src/layouts', layoutPath),
-			resolve(baseDir, '..', layoutPath),
+			resolve("src", layoutPath),
+			resolve("src/pages", layoutPath),
+			resolve("src/layouts", layoutPath),
+			resolve(baseDir, "..", layoutPath),
 			resolve(baseDir, layoutPath),
 		];
 
-		return candidates.find(p => fileExists(p)) || layoutPath;
+		return candidates.find((p) => fileExists(p)) || layoutPath;
 	}
 
 	/** Loads a custom layout from a file path */
@@ -263,9 +285,11 @@ export class LayoutComposer {
 			const importPath = toImportSpecifier(resolvedPath);
 			const layoutModule = (await import(/* @vite-ignore */ importPath)) as LayoutFileExport;
 
-			if (!layoutModule.default || typeof layoutModule.default !== 'function') {
+			if (!layoutModule.default || typeof layoutModule.default !== "function") {
 				if (this.developmentMode) {
-					console.warn(`[LayoutComposer] Custom layout file does not export a default component: ${resolvedPath}`);
+					console.warn(
+						`[LayoutComposer] Custom layout file does not export a default component: ${resolvedPath}`,
+					);
 				}
 				return null;
 			}
@@ -296,23 +320,23 @@ export class LayoutComposer {
 		const errors: string[] = [];
 
 		if (config.replaceLayout && config.onlyLayouts && config.onlyLayouts.length > 0) {
-			errors.push('replaceLayout and onlyLayouts cannot be used together');
+			errors.push("replaceLayout and onlyLayouts cannot be used together");
 		}
 
 		if (config.replaceLayout && config.skipLayouts && config.skipLayouts.length > 0) {
-			errors.push('replaceLayout and skipLayouts cannot be used together');
+			errors.push("replaceLayout and skipLayouts cannot be used together");
 		}
 
 		if (config.skipLayouts && !Array.isArray(config.skipLayouts)) {
-			errors.push('skipLayouts must be an array of strings');
+			errors.push("skipLayouts must be an array of strings");
 		}
 
 		if (config.onlyLayouts && !Array.isArray(config.onlyLayouts)) {
-			errors.push('onlyLayouts must be an array of strings');
+			errors.push("onlyLayouts must be an array of strings");
 		}
 
-		if (config.customLayout && typeof config.customLayout !== 'string') {
-			errors.push('customLayout must be a string path');
+		if (config.customLayout && typeof config.customLayout !== "string") {
+			errors.push("customLayout must be a string path");
 		}
 
 		return { valid: errors.length === 0, errors };

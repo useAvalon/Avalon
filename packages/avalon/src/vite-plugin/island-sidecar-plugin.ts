@@ -1,15 +1,15 @@
-import type { Plugin } from "vite";
-import { readFile, access } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import path from "node:path";
-import { detectFrameworkFromPath } from "../islands/integration-loader.ts";
+import type { Plugin } from "vite";
 import { EXTRACTOR_MAP } from "../build/prop-extractors/index.ts";
-import { renderSidecarContent } from "../build/sidecar-renderer.ts";
 import {
-	getSidecarPath,
-	writeSidecarIfChanged,
 	deleteSidecar,
+	getSidecarPath,
 	isSidecarFresh,
+	writeSidecarIfChanged,
 } from "../build/sidecar-file-manager.ts";
+import { renderSidecarContent } from "../build/sidecar-renderer.ts";
+import { detectFrameworkFromPath } from "../islands/integration-loader.ts";
 
 export interface SidecarPluginOptions {
 	/** Whether to log verbose output */
@@ -25,9 +25,7 @@ const ISLAND_EXTENSIONS = [".vue", ".svelte", ".lit.ts", ".solid.tsx", ".qwik.ts
 /**
  * Check tsconfig.json for `allowArbitraryExtensions` and warn if missing.
  */
-export async function checkTsConfigForArbitraryExtensions(
-	projectRoot: string,
-): Promise<void> {
+export async function checkTsConfigForArbitraryExtensions(projectRoot: string): Promise<void> {
 	const tsconfigPath = path.join(projectRoot, "tsconfig.json");
 	try {
 		const raw = await readFile(tsconfigPath, "utf-8");
@@ -97,7 +95,7 @@ async function generateSidecarForFile(filePath: string, verbose?: boolean): Prom
 /**
  * Vite plugin that auto-generates `.d.[ext].ts` sidecar declaration files
  * for non-React/Preact components when they are used as islands.
- * 
+ *
  * Sidecars are generated on-demand when component files are loaded,
  * rather than scanning a fixed directory at startup.
  */

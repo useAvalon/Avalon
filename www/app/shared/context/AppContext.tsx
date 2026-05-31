@@ -1,6 +1,6 @@
-import { createContext } from 'preact';
-import type { ComponentChildren } from 'preact';
-import { useContext } from 'preact/hooks';
+import type { ComponentChildren } from "preact";
+import { createContext } from "preact";
+import { useContext } from "preact/hooks";
 
 /**
  * App-wide context for sharing data across layouts and pages.
@@ -19,11 +19,12 @@ export interface AppContextValue {
 }
 
 const defaultValue: AppContextValue = {
-	siteName: 'Avalon Demo',
-	version: '1.0.0',
-	environment: typeof process !== 'undefined' ? process.env.NODE_ENV || 'development' : 'development',
+	siteName: "Avalon Demo",
+	version: "1.0.0",
+	environment:
+		typeof process !== "undefined" ? process.env.NODE_ENV || "development" : "development",
 	buildTime: new Date().toISOString(),
-	features: ['islands', 'streaming', 'multi-framework', 'file-routing', 'layouts'],
+	features: ["islands", "streaming", "multi-framework", "file-routing", "layouts"],
 	initialCount: 42,
 };
 

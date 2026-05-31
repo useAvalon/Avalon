@@ -18,8 +18,7 @@
  * so any user CSS that sets a different `display` value naturally wins.
  */
 
-const FRAMEWORK_BASE_CSS =
-	"avalon-island,avalon-page,avalon-page-content{display:contents}";
+const FRAMEWORK_BASE_CSS = "avalon-island,avalon-page,avalon-page-content{display:contents}";
 
 const STYLE_TAG = `<style data-avalon-base="true">${FRAMEWORK_BASE_CSS}</style>`;
 

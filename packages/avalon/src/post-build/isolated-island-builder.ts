@@ -242,7 +242,9 @@ export async function buildIsolatedIslands(
 
 	const skippedFrameworks = new Set(["qwik", "lit", "preact", "react"]);
 	const toBuild = [...islands.values()].filter((i) => !skippedFrameworks.has(i.framework));
-	console.log(`🏝️  Building ${toBuild.length} island(s) in isolation (${islands.size - toBuild.length} skipped)...`);
+	console.log(
+		`🏝️  Building ${toBuild.length} island(s) in isolation (${islands.size - toBuild.length} skipped)...`,
+	);
 	const startTime = performance.now();
 	const treeshakeConfig = options?.treeshake
 		? mergeTreeshakeConfig(DEFAULT_TREESHAKE_CONFIG, options.treeshake)
@@ -253,7 +255,12 @@ export async function buildIsolatedIslands(
 		const { filePath, bundleKey, framework } = island;
 		const outputFile = `islands/${bundleKey}.js`;
 
-		if (framework === "qwik" || framework === "lit" || framework === "preact" || framework === "react") {
+		if (
+			framework === "qwik" ||
+			framework === "lit" ||
+			framework === "preact" ||
+			framework === "react"
+		) {
 			results.push({ island: outputFile, success: true, skipped: true });
 			continue;
 		}

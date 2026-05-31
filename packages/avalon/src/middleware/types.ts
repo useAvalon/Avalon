@@ -12,7 +12,7 @@
  * Requirements: 1.1
  */
 
-import type { H3Event } from 'h3';
+import type { H3Event } from "h3";
 
 /**
  * Nitro-aligned middleware handler signature
@@ -33,9 +33,7 @@ import type { H3Event } from 'h3';
  * };
  * ```
  */
-export type MiddlewareHandler = (
-  event: H3Event
-) => void | Response | Promise<void | Response>;
+export type MiddlewareHandler = (event: H3Event) => void | Response | Promise<void | Response>;
 
 /**
  * Route-scoped middleware file export interface
@@ -51,8 +49,8 @@ export type MiddlewareHandler = (
  * ```
  */
 export interface MiddlewareFileExport {
-  /** Default export must be a MiddlewareHandler function */
-  default: MiddlewareHandler;
+	/** Default export must be a MiddlewareHandler function */
+	default: MiddlewareHandler;
 }
 
 /**
@@ -62,38 +60,36 @@ export interface MiddlewareFileExport {
  * URL pattern, file path, execution priority, and type.
  */
 export interface MiddlewareRoute {
-  /** URL pattern for matching requests */
-  pattern: URLPattern;
-  /** Absolute path to the middleware file */
-  filePath: string;
-  /** Execution priority (lower numbers execute first) */
-  priority: number;
-  /** Middleware type - determines which routes it applies to */
-  type: 'global' | 'pages';
+	/** URL pattern for matching requests */
+	pattern: URLPattern;
+	/** Absolute path to the middleware file */
+	filePath: string;
+	/** Execution priority (lower numbers execute first) */
+	priority: number;
+	/** Middleware type - determines which routes it applies to */
+	type: "global" | "pages";
 }
 
 /**
  * Middleware discovery options
  */
 export interface MiddlewareDiscoveryOptions {
-  /** Base directory to scan (e.g., 'src') */
-  baseDir: string;
-  /** File pattern to match (default: '_middleware.ts') */
-  filePattern?: string;
-  /** Directories to exclude from scanning */
-  excludeDirs?: string[];
-  /** Enable development mode logging */
-  devMode?: boolean;
+	/** Base directory to scan (e.g., 'src') */
+	baseDir: string;
+	/** File pattern to match (default: '_middleware.ts') */
+	filePattern?: string;
+	/** Directories to exclude from scanning */
+	excludeDirs?: string[];
+	/** Enable development mode logging */
+	devMode?: boolean;
 }
 
 /**
  * Middleware execution options
  */
 export interface MiddlewareExecutorOptions {
-  /** Enable development mode logging */
-  devMode?: boolean;
-  /** Timeout for middleware execution in milliseconds */
-  timeout?: number;
+	/** Enable development mode logging */
+	devMode?: boolean;
+	/** Timeout for middleware execution in milliseconds */
+	timeout?: number;
 }
-
-

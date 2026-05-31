@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from "vitest";
 import {
 	addUniversalHead,
-	getUniversalHeadForInjection,
 	clearUniversalHead,
-	setSolidHydrationScript,
+	getUniversalHeadForInjection,
 	injectSolidHydrationScriptIfNeeded,
-} from '../universal-head-collector.ts';
+	setSolidHydrationScript,
+} from "../universal-head-collector.ts";
 
-describe('injectSolidHydrationScriptIfNeeded', () => {
-	const mockHydrationScript = '<script>window._$HY={events:[],completed:new WeakSet}</script>';
+describe("injectSolidHydrationScriptIfNeeded", () => {
+	const mockHydrationScript = "<script>window._$HY={events:[],completed:new WeakSet}</script>";
 
 	beforeEach(() => {
 		clearUniversalHead();
@@ -16,7 +16,7 @@ describe('injectSolidHydrationScriptIfNeeded', () => {
 		globalThis.__solidHydrationScript = undefined;
 	});
 
-	it('should not inject script when no Solid islands are present', () => {
+	it("should not inject script when no Solid islands are present", () => {
 		setSolidHydrationScript(mockHydrationScript);
 
 		const html = `<!DOCTYPE html>
@@ -25,10 +25,10 @@ describe('injectSolidHydrationScriptIfNeeded', () => {
 
 		const result = injectSolidHydrationScriptIfNeeded(html);
 		expect(result).toBe(html);
-		expect(result).not.toContain('_$HY');
+		expect(result).not.toContain("_$HY");
 	});
 
-	it('should inject script when Solid islands are present', () => {
+	it("should inject script when Solid islands are present", () => {
 		setSolidHydrationScript(mockHydrationScript);
 
 		const html = `<!DOCTYPE html>
@@ -36,23 +36,23 @@ describe('injectSolidHydrationScriptIfNeeded', () => {
 <body><avalon-island data-framework="solid" data-src="/islands/Counter.tsx"></avalon-island></body></html>`;
 
 		const result = injectSolidHydrationScriptIfNeeded(html);
-		expect(result).toContain('window._$HY');
+		expect(result).toContain("window._$HY");
 		expect(result).toContain(mockHydrationScript);
 	});
 
-	it('should inject script before </head>', () => {
+	it("should inject script before </head>", () => {
 		setSolidHydrationScript(mockHydrationScript);
 
 		const html = `<html><head><title>Test</title></head>
 <body><avalon-island data-framework="solid"></avalon-island></body></html>`;
 
 		const result = injectSolidHydrationScriptIfNeeded(html);
-		const headCloseIdx = result.indexOf('</head>');
+		const headCloseIdx = result.indexOf("</head>");
 		const scriptIdx = result.indexOf(mockHydrationScript);
 		expect(scriptIdx).toBeLessThan(headCloseIdx);
 	});
 
-	it('should not inject if script is already present in HTML', () => {
+	it("should not inject if script is already present in HTML", () => {
 		setSolidHydrationScript(mockHydrationScript);
 
 		const html = `<html><head><script>window._$HY={}</script></head>
@@ -63,7 +63,7 @@ describe('injectSolidHydrationScriptIfNeeded', () => {
 		expect(result).toBe(html);
 	});
 
-	it('should not inject if no hydration script has been cached', () => {
+	it("should not inject if no hydration script has been cached", () => {
 		// Don't call setSolidHydrationScript
 
 		const html = `<html><head></head>
@@ -73,7 +73,7 @@ describe('injectSolidHydrationScriptIfNeeded', () => {
 		expect(result).toBe(html);
 	});
 
-	it('should not inject for non-Solid framework islands', () => {
+	it("should not inject for non-Solid framework islands", () => {
 		setSolidHydrationScript(mockHydrationScript);
 
 		const html = `<html><head></head>
@@ -81,10 +81,10 @@ describe('injectSolidHydrationScriptIfNeeded', () => {
 
 		const result = injectSolidHydrationScriptIfNeeded(html);
 		expect(result).toBe(html);
-		expect(result).not.toContain('_$HY');
+		expect(result).not.toContain("_$HY");
 	});
 
-	it('should handle pages with multiple Solid islands (inject only once)', () => {
+	it("should handle pages with multiple Solid islands (inject only once)", () => {
 		setSolidHydrationScript(mockHydrationScript);
 
 		const html = `<html><head></head>
@@ -99,32 +99,32 @@ describe('injectSolidHydrationScriptIfNeeded', () => {
 	});
 });
 
-describe('setSolidHydrationScript', () => {
+describe("setSolidHydrationScript", () => {
 	beforeEach(() => {
 		globalThis.__solidHydrationScript = undefined;
 	});
 
-	it('should cache the hydration script globally', () => {
-		const script = '<script>window._$HY={}</script>';
+	it("should cache the hydration script globally", () => {
+		const script = "<script>window._$HY={}</script>";
 		setSolidHydrationScript(script);
 		expect(globalThis.__solidHydrationScript).toBe(script);
 	});
 });
 
-describe('Solid hydration script is not in universal head collector', () => {
+describe("Solid hydration script is not in universal head collector", () => {
 	beforeEach(() => {
 		clearUniversalHead();
 		globalThis.__solidHydrationScript = undefined;
 	});
 
-	it('should not include Solid hydration script in universal head output', () => {
+	it("should not include Solid hydration script in universal head output", () => {
 		// Simulate what used to happen: adding the script to the universal head collector
 		// After the fix, the Solid renderer no longer adds it there
 		// This test verifies the collector doesn't contain Solid hydration scripts
-		addUniversalHead('<meta name="test" content="value">', '/test', 'preact', 'meta');
+		addUniversalHead('<meta name="test" content="value">', "/test", "preact", "meta");
 
 		const headContent = getUniversalHeadForInjection(true);
-		expect(headContent).not.toContain('_$HY');
+		expect(headContent).not.toContain("_$HY");
 		expect(headContent).toContain('meta name="test"');
 	});
 });

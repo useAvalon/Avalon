@@ -7,8 +7,7 @@
  * ensuring proper type checking and IntelliSense support.
  */
 
-import type { ComponentType, ComponentChildren } from 'preact';
-import type { Component } from 'preact';
+import type { Component, ComponentChildren, ComponentType } from "preact";
 
 // === Core Layout Types ===
 
@@ -28,7 +27,7 @@ export interface LayoutRoute {
 	pattern: URLPattern;
 	layoutPath: string;
 	priority: number;
-	type: 'root' | 'nested';
+	type: "root" | "nested";
 	depth: number;
 }
 
@@ -83,7 +82,10 @@ export type LayoutLoader = (ctx: LayoutContext) => Promise<LayoutData>;
 export type LayoutMatcherFunction = (route: RouteInfo, layoutPath?: string) => boolean;
 export type LayoutErrorHandler = (error: Error, errorInfo: LayoutErrorInfo) => void;
 export type LayoutRetryFunction = () => void;
-export type LayoutFallbackRenderer = (error: Error, retry: LayoutRetryFunction) => ComponentChildren;
+export type LayoutFallbackRenderer = (
+	error: Error,
+	retry: LayoutRetryFunction,
+) => ComponentChildren;
 
 // === Persistent Islands Types ===
 
@@ -110,7 +112,7 @@ export type IslandStateClearer = () => void;
 
 export interface LayoutErrorInfo {
 	layoutPath: string;
-	errorType: 'component' | 'loader' | 'rendering' | 'island';
+	errorType: "component" | "loader" | "rendering" | "island";
 	timestamp: number;
 	componentStack?: string;
 	errorBoundary?: string;
@@ -122,11 +124,11 @@ export interface LayoutErrorBoundaryProps {
 	onError?: (error: Error, errorInfo: LayoutErrorInfo) => void;
 	recoveryStrategy?: ErrorRecoveryStrategy;
 	layoutPath?: string;
-	errorType?: 'component' | 'loader' | 'rendering' | 'island';
+	errorType?: "component" | "loader" | "rendering" | "island";
 }
 
 export interface ErrorRecoveryStrategy {
-	type: 'retry' | 'fallback' | 'skip' | 'redirect';
+	type: "retry" | "fallback" | "skip" | "redirect";
 	maxRetries?: number;
 	fallbackComponent?: ComponentType;
 	redirectUrl?: string;
@@ -137,7 +139,7 @@ export interface ErrorRecoveryStrategy {
 export interface StreamingLayoutProps {
 	children: ComponentChildren;
 	fallback?: ComponentChildren;
-	priority?: 'high' | 'medium' | 'low';
+	priority?: "high" | "medium" | "low";
 }
 
 export interface StreamingComponent {
@@ -229,7 +231,11 @@ export interface ILayoutStreaming {
 }
 
 export interface IEnhancedLayoutResolver {
-	resolveAndRender(routePath: string, pageModule: PageModule, context: LayoutContext): Promise<ResolvedLayout>;
+	resolveAndRender(
+		routePath: string,
+		pageModule: PageModule,
+		context: LayoutContext,
+	): Promise<ResolvedLayout>;
 	getCachedResolution(routePath: string): ResolvedLayout | null;
 	clearCache(): void;
 	setCaching(enabled: boolean): void;
@@ -314,15 +320,15 @@ export interface LayoutDebugInfo {
 // === Event Type Definitions ===
 
 export type LayoutEventType =
-	| 'layout-discovered'
-	| 'layout-loaded'
-	| 'layout-rendered'
-	| 'layout-error'
-	| 'layout-cached'
-	| 'island-state-saved'
-	| 'island-state-loaded'
-	| 'streaming-started'
-	| 'streaming-completed';
+	| "layout-discovered"
+	| "layout-loaded"
+	| "layout-rendered"
+	| "layout-error"
+	| "layout-cached"
+	| "island-state-saved"
+	| "island-state-loaded"
+	| "streaming-started"
+	| "streaming-completed";
 
 export interface LayoutEventData {
 	type: LayoutEventType;
@@ -366,7 +372,7 @@ export interface CacheConfig {
 
 export interface DebugConfig {
 	enabled?: boolean;
-	logLevel?: 'error' | 'warn' | 'info' | 'debug';
+	logLevel?: "error" | "warn" | "info" | "debug";
 	includeStackTrace?: boolean;
 }
 
@@ -470,7 +476,11 @@ export declare class LayoutStreaming implements ILayoutStreaming {
 
 export declare class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 	constructor(options?: LayoutDiscoveryOptions);
-	resolveAndRender(routePath: string, pageModule: PageModule, context: LayoutContext): Promise<ResolvedLayout>;
+	resolveAndRender(
+		routePath: string,
+		pageModule: PageModule,
+		context: LayoutContext,
+	): Promise<ResolvedLayout>;
 	getCachedResolution(routePath: string): ResolvedLayout | null;
 	clearCache(): void;
 	setCaching(enabled: boolean): void;
@@ -489,7 +499,10 @@ export declare class LayoutErrorBoundary
 	resetErrorState(): void;
 }
 
-export declare class PersistentIsland extends Component<PersistentIslandProps> implements IPersistentIslandComponent {
+export declare class PersistentIsland
+	extends Component<PersistentIslandProps>
+	implements IPersistentIslandComponent
+{
 	constructor(props: PersistentIslandProps);
 	render(): ComponentChildren;
 	saveState(): void;
@@ -502,7 +515,9 @@ export declare function StreamingLayout(props: StreamingLayoutProps): ComponentC
 
 // === Factory Functions ===
 
-export declare function createEnhancedLayoutResolver(options?: LayoutDiscoveryOptions): EnhancedLayoutResolver;
+export declare function createEnhancedLayoutResolver(
+	options?: LayoutDiscoveryOptions,
+): EnhancedLayoutResolver;
 export declare function createLayoutDataLoader(options?: LayoutDiscoveryOptions): LayoutLoader;
 export declare function createLayoutUtilities(config?: LayoutUtilitiesConfig): LayoutUtilitiesSuite;
 export declare function createPersistentIslandContext(
@@ -523,8 +538,12 @@ export declare function getLayoutSystemHealthReport(): {
 	metrics: LayoutPerformanceMetrics;
 	errors: LayoutErrorInfo[];
 };
-export declare function withLayoutUtilities<P = Record<string, unknown>>(component: ComponentType<P>): ComponentType<P>;
-export declare function withStreaming<P = Record<string, unknown>>(component: ComponentType<P>): ComponentType<P>;
+export declare function withLayoutUtilities<P = Record<string, unknown>>(
+	component: ComponentType<P>,
+): ComponentType<P>;
+export declare function withStreaming<P = Record<string, unknown>>(
+	component: ComponentType<P>,
+): ComponentType<P>;
 export declare function withIslandErrorBoundary<P = Record<string, unknown>>(
 	component: ComponentType<P>,
 ): ComponentType<P>;
@@ -547,9 +566,9 @@ export declare const LAYOUT_SYSTEM_FEATURES: {
 
 export declare const LAYOUT_SYSTEM_DEFAULTS: {
 	readonly DISCOVERY: {
-		readonly baseDirectory: 'src/pages';
-		readonly filePattern: '_layout.tsx';
-		readonly excludeDirectories: readonly ['node_modules', '.git', 'dist'];
+		readonly baseDirectory: "src/pages";
+		readonly filePattern: "_layout.tsx";
+		readonly excludeDirectories: readonly ["node_modules", ".git", "dist"];
 		readonly enableWatching: false;
 		readonly developmentMode: false;
 	};
@@ -561,13 +580,13 @@ export declare const LAYOUT_SYSTEM_DEFAULTS: {
 	};
 	readonly STREAMING: {
 		readonly enabled: true;
-		readonly priority: 'medium';
+		readonly priority: "medium";
 		readonly timeout: 5000;
 	};
 	readonly ERROR_BOUNDARIES: {
 		readonly enabled: true;
 		readonly maxRetries: 3;
-		readonly fallbackStrategy: 'component';
+		readonly fallbackStrategy: "component";
 	};
 	readonly PERFORMANCE: {
 		readonly monitoring: true;
@@ -588,5 +607,7 @@ export declare const defaultUtilities: LayoutUtilitiesSuite;
 
 // === Convenience Aliases ===
 
-export { EnhancedLayoutResolver as LayoutSystem };
-export { createEnhancedLayoutResolver as createLayoutSystem };
+export {
+	createEnhancedLayoutResolver as createLayoutSystem,
+	EnhancedLayoutResolver as LayoutSystem,
+};

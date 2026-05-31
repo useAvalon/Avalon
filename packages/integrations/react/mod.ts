@@ -6,18 +6,18 @@
  * including React Server Components (RSC) support.
  */
 
-import type { Plugin } from 'vite';
-import type { Integration, IntegrationConfig } from '@useavalon/core/types';
-import { render } from './server/renderer.ts';
-import { getHydrationScript } from './client/hydration.ts';
+import type { Integration, IntegrationConfig } from "@useavalon/core/types";
+import type { Plugin } from "vite";
+import { getHydrationScript } from "./client/hydration.ts";
+import { render } from "./server/renderer.ts";
 
 /**
  * React integration configuration
  */
 const config: IntegrationConfig = {
-	name: 'react',
-	fileExtensions: ['.jsx', '.tsx'],
-	jsxImportSources: ['react'],
+	name: "react",
+	fileExtensions: [".jsx", ".tsx"],
+	jsxImportSources: ["react"],
 	detectionPatterns: {
 		imports: [/^react$/, /^react\//, /from\s+['"]react['"]/, /from\s+['"]react\/[^'"]+['"]/],
 		content: [
@@ -47,8 +47,8 @@ const config: IntegrationConfig = {
  * Implements the Integration interface
  */
 export const reactIntegration: Integration = {
-	name: 'react',
-	version: '0.1.0',
+	name: "react",
+	version: "0.1.0",
 
 	render,
 
@@ -63,25 +63,27 @@ export const reactIntegration: Integration = {
 	 * Excludes .solid.tsx files and files without React imports to avoid conflicts with other frameworks.
 	 */
 	async vitePlugin(): Promise<Plugin | Plugin[]> {
-		const { default: react } = await import('@vitejs/plugin-react');
+		const { default: react } = await import("@vitejs/plugin-react");
 		const plugins = react({ disableOxcRecommendation: true } as any);
 		const pluginArray = Array.isArray(plugins) ? plugins : [plugins];
 
 		// Patch deprecated Vite config options (esbuild → oxc, rollupOptions → rolldownOptions)
 		// from @vitejs/plugin-react which hasn't fully updated for Vite 8 / Rolldown yet.
-		const patchedArray = pluginArray.map(p => {
-			if (typeof p.config !== 'function') return p;
+		const patchedArray = pluginArray.map((p) => {
+			if (typeof p.config !== "function") return p;
 			const origConfig = p.config;
 			return {
 				...p,
 				config(...args: Parameters<typeof origConfig>) {
-					const result = (origConfig as Function).apply(this, args) as Record<string, unknown> | undefined;
-					if (!result || typeof result !== 'object') return result;
+					const result = (origConfig as Function).apply(this, args) as
+						| Record<string, unknown>
+						| undefined;
+					if (!result || typeof result !== "object") return result;
 					const patched = { ...result };
 					// esbuild → oxc (strip jsx key — OXC uses a different config format)
-					if ('esbuild' in patched) {
+					if ("esbuild" in patched) {
 						const esbuildConfig = patched.esbuild as Record<string, unknown> | undefined;
-						if (esbuildConfig && typeof esbuildConfig === 'object') {
+						if (esbuildConfig && typeof esbuildConfig === "object") {
 							const { jsx, ...oxcSafe } = esbuildConfig;
 							patched.oxc = oxcSafe;
 						} else {
@@ -91,7 +93,7 @@ export const reactIntegration: Integration = {
 					}
 					// optimizeDeps.rollupOptions → rolldownOptions
 					const od = patched.optimizeDeps as Record<string, unknown> | undefined;
-					if (od && 'rollupOptions' in od) {
+					if (od && "rollupOptions" in od) {
 						const { rollupOptions, ...odRest } = od;
 						patched.optimizeDeps = { ...odRest, rolldownOptions: rollupOptions };
 					}
@@ -101,19 +103,19 @@ export const reactIntegration: Integration = {
 		});
 
 		// Find the main React babel plugin and wrap its transform
-		const mainPlugin = patchedArray.find(p => p.name === 'vite:react-babel');
+		const mainPlugin = patchedArray.find((p) => p.name === "vite:react-babel");
 		if (mainPlugin?.transform) {
 			const originalTransform = mainPlugin.transform;
 			const wrappedPlugin: Plugin = {
 				...mainPlugin,
-				name: 'avalon:react-wrapper',
+				name: "avalon:react-wrapper",
 				async transform(code: string, id: string, options?: { ssr?: boolean }) {
 					// Skip non-JSX/TSX files
 					if (!/\.(tsx|jsx)$/.test(id)) {
 						return null;
 					}
 					// Skip node_modules
-					if (id.includes('node_modules')) {
+					if (id.includes("node_modules")) {
 						return null;
 					}
 					// Skip Solid files (they use .solid.tsx/.solid.jsx convention)
@@ -122,12 +124,13 @@ export const reactIntegration: Integration = {
 					}
 
 					// Check if file imports from React
-					const hasReactImport = /from\s+['"]react['"]/.test(code) || /from\s+['"]react\//.test(code);
+					const hasReactImport =
+						/from\s+['"]react['"]/.test(code) || /from\s+['"]react\//.test(code);
 					// Check if file imports from Preact (to avoid conflicts)
 					const hasPreactImport = /from\s+['"]preact['"]/.test(code);
 
 					// Only process files that import React and don't import Preact
-					if (hasReactImport && !hasPreactImport && typeof originalTransform === 'function') {
+					if (hasReactImport && !hasPreactImport && typeof originalTransform === "function") {
 						return await (originalTransform as any).call(this, code, id, options);
 					}
 
@@ -136,7 +139,7 @@ export const reactIntegration: Integration = {
 			};
 
 			// Replace the original plugin with our wrapped version
-			return patchedArray.map(p => (p.name === 'vite:react-babel' ? wrappedPlugin : p));
+			return patchedArray.map((p) => (p.name === "vite:react-babel" ? wrappedPlugin : p));
 		}
 
 		return patchedArray;
@@ -145,25 +148,33 @@ export const reactIntegration: Integration = {
 
 // Re-export public API
 
-// Server-side exports
-export { render, renderWithErrorBoundary } from './server/renderer.ts';
-export { renderServerComponent } from './server/rsc-renderer.ts';
-export { loadComponent, hasUseClientDirective, analyzeComponent, serializeProps } from './server/utils.ts';
-
+export type { Integration, IntegrationConfig } from "@useavalon/core/types";
 // Client-side exports
-export { hydrate, getHydrationScript, isHydrationReady, cleanupHydration } from './client/hydration.ts';
-
+export {
+	cleanupHydration,
+	getHydrationScript,
+	hydrate,
+	isHydrationReady,
+} from "./client/hydration.ts";
+// Server-side exports
+export { render, renderWithErrorBoundary } from "./server/renderer.ts";
+export { renderServerComponent } from "./server/rsc-renderer.ts";
+export {
+	analyzeComponent,
+	hasUseClientDirective,
+	loadComponent,
+	serializeProps,
+} from "./server/utils.ts";
 // Re-export types
 export type {
+	ComponentMetadata,
+	HydrationData,
+	ReactHydrationOptions,
 	ReactRenderParams,
 	ReactRenderResult,
-	ReactHydrationOptions,
-	ComponentMetadata,
 	RenderParams,
 	RenderResult,
-	HydrationData,
-} from './types.ts';
-export type { Integration, IntegrationConfig } from '@useavalon/core/types';
+} from "./types.ts";
 
 // Default export
 export default reactIntegration;

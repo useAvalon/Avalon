@@ -2,7 +2,7 @@
  * Route Discovery Module for Nitro
  *
  * This module provides minimal route discovery for Avalon's SSR pages.
- * 
+ *
  * IMPORTANT: This module is simplified to complement Nitro's native routing:
  * - API routes: Handled by Nitro's auto-discovery from `api/` directory
  * - Page routes: Discovered here for SSR rendering (pages are components, not h3 handlers)
@@ -22,42 +22,33 @@ import type { DiscoveredRoute } from "./types.ts";
 /**
  * Supported page file extensions
  */
-export const PAGE_EXTENSIONS = [
-  ".tsx",
-  ".ts",
-  ".jsx",
-  ".js",
-  ".vue",
-  ".svelte",
-  ".md",
-  ".mdx",
-];
+export const PAGE_EXTENSIONS = [".tsx", ".ts", ".jsx", ".js", ".vue", ".svelte", ".md", ".mdx"];
 
 /**
  * Options for page route discovery
  */
 export interface PageDiscoveryOptions {
-  /** Pages directory path (absolute or relative to project root) */
-  pagesDir: string;
-  /** Enable development mode logging */
-  developmentMode?: boolean;
-  /** Directories to exclude from scanning */
-  excludeDirectories?: string[];
+	/** Pages directory path (absolute or relative to project root) */
+	pagesDir: string;
+	/** Enable development mode logging */
+	developmentMode?: boolean;
+	/** Directories to exclude from scanning */
+	excludeDirectories?: string[];
 }
 
 /**
  * Result of file path to pattern conversion
  */
 export interface FilePathPatternResult {
-  /** Route pattern (e.g., /users/:id) */
-  pattern: string;
-  /** Extracted parameter names */
-  params: string[];
+	/** Route pattern (e.g., /users/:id) */
+	pattern: string;
+	/** Extracted parameter names */
+	params: string[];
 }
 
 /**
  * Discovers page routes from multiple directories with route prefixes
- * 
+ *
  * This supports modular architecture where pages can be in different modules,
  * each with their own route prefix.
  *
@@ -66,31 +57,29 @@ export interface FilePathPatternResult {
  * @returns Array of discovered page routes
  */
 export async function discoverPageRoutesFromMultipleDirs(
-  pageDirs: Array<{ dir: string; prefix: string }>,
-  options?: Pick<PageDiscoveryOptions, "developmentMode" | "excludeDirectories">
+	pageDirs: Array<{ dir: string; prefix: string }>,
+	options?: Pick<PageDiscoveryOptions, "developmentMode" | "excludeDirectories">,
 ): Promise<DiscoveredRoute[]> {
-  const allRoutes: DiscoveredRoute[] = [];
+	const allRoutes: DiscoveredRoute[] = [];
 
-  for (const { dir, prefix } of pageDirs) {
-    const routes = await discoverPageRoutes(dir, options);
-    
-    // Apply prefix to routes (except for root prefix '/')
-    for (const route of routes) {
-      if (prefix !== '/') {
-        // Combine prefix with pattern
-        // /prefix + /path -> /prefix/path
-        // /prefix + / -> /prefix
-        const combinedPattern = route.pattern === '/' 
-          ? prefix 
-          : prefix + route.pattern;
-        route.pattern = combinedPattern;
-      }
-      allRoutes.push(route);
-    }
-  }
+	for (const { dir, prefix } of pageDirs) {
+		const routes = await discoverPageRoutes(dir, options);
 
-  // Sort all routes by specificity
-  return sortRoutesBySpecificity(allRoutes);
+		// Apply prefix to routes (except for root prefix '/')
+		for (const route of routes) {
+			if (prefix !== "/") {
+				// Combine prefix with pattern
+				// /prefix + /path -> /prefix/path
+				// /prefix + / -> /prefix
+				const combinedPattern = route.pattern === "/" ? prefix : prefix + route.pattern;
+				route.pattern = combinedPattern;
+			}
+			allRoutes.push(route);
+		}
+	}
+
+	// Sort all routes by specificity
+	return sortRoutesBySpecificity(allRoutes);
 }
 
 /**
@@ -112,72 +101,66 @@ export async function discoverPageRoutesFromMultipleDirs(
  * ```
  */
 export async function discoverPageRoutes(
-  pagesDir: string,
-  options?: Pick<PageDiscoveryOptions, "developmentMode" | "excludeDirectories">
+	pagesDir: string,
+	options?: Pick<PageDiscoveryOptions, "developmentMode" | "excludeDirectories">,
 ): Promise<DiscoveredRoute[]> {
-  const routes: DiscoveredRoute[] = [];
-  const excludeDirs = options?.excludeDirectories ?? ["node_modules", ".git"];
+	const routes: DiscoveredRoute[] = [];
+	const excludeDirs = options?.excludeDirectories ?? ["node_modules", ".git"];
 
-  try {
-    // Check if directory exists
-    const statResult = await stat(pagesDir);
-    if (!statResult.isDirectory()) {
-      if (options?.developmentMode) {
-        console.warn(
-          `[route-discovery] Pages path is not a directory: ${pagesDir}`
-        );
-      }
-      return [];
-    }
-  } catch (error) {
-    if (error instanceof Error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
-      if (options?.developmentMode) {
-        console.warn(
-          `[route-discovery] Pages directory not found: ${pagesDir}`
-        );
-      }
-      return [];
-    }
-    throw error;
-  }
+	try {
+		// Check if directory exists
+		const statResult = await stat(pagesDir);
+		if (!statResult.isDirectory()) {
+			if (options?.developmentMode) {
+				console.warn(`[route-discovery] Pages path is not a directory: ${pagesDir}`);
+			}
+			return [];
+		}
+	} catch (error) {
+		if (error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT") {
+			if (options?.developmentMode) {
+				console.warn(`[route-discovery] Pages directory not found: ${pagesDir}`);
+			}
+			return [];
+		}
+		throw error;
+	}
 
-  // Walk through the pages directory
-  const extensions = PAGE_EXTENSIONS.map((e) => e.slice(1)); // Remove leading dot
+	// Walk through the pages directory
+	const extensions = PAGE_EXTENSIONS.map((e) => e.slice(1)); // Remove leading dot
 
-  for await (
-    const entry of walk(pagesDir, {
-      includeDirs: false,
-      includeSymlinks: false,
-      exts: extensions,
-    })
-  ) {
-    if (!entry.isFile) continue;
+	for await (const entry of walk(pagesDir, {
+		includeDirs: false,
+		includeSymlinks: false,
+		exts: extensions,
+	})) {
+		if (!entry.isFile) continue;
 
-    const relativePath = relative(pagesDir, entry.path);
+		const relativePath = relative(pagesDir, entry.path);
 
-    // Skip files in excluded directories
-    if (excludeDirs.some((dir) => relativePath.includes(dir))) {
-      continue;
-    }
+		// Skip files in excluded directories
+		if (excludeDirs.some((dir) => relativePath.includes(dir))) {
+			continue;
+		}
 
-    // Skip private files (in folders starting with _)
-    if (isPrivateFile(relativePath)) {
-      continue;
-    }
+		// Skip private files (in folders starting with _)
+		if (isPrivateFile(relativePath)) {
+			continue;
+		}
 
-    // Convert file path to route pattern
-    const { pattern, params } = filePathToPattern(relativePath);
+		// Convert file path to route pattern
+		const { pattern, params } = filePathToPattern(relativePath);
 
-    routes.push({
-      type: "page",
-      filePath: entry.path,
-      pattern,
-      params,
-    });
-  }
+		routes.push({
+			type: "page",
+			filePath: entry.path,
+			pattern,
+			params,
+		});
+	}
 
-  // Sort routes by specificity (more specific routes first)
-  return sortRoutesBySpecificity(routes);
+	// Sort routes by specificity (more specific routes first)
+	return sortRoutesBySpecificity(routes);
 }
 
 /**
@@ -202,56 +185,56 @@ export async function discoverPageRoutes(
  * ```
  */
 export function filePathToPattern(filePath: string): FilePathPatternResult {
-  const params: string[] = [];
+	const params: string[] = [];
 
-  let pattern = filePath
-    // Normalize path separators
-    .replace(/\\/g, "/")
-    // Remove file extension
-    .replace(/\.(tsx|ts|jsx|js|vue|svelte|md|mdx)$/, "")
-    // Remove route groups (parentheses)
-    .replace(/\([^)]+\)\//g, "")
-    .replace(/\([^)]+\)$/, "");
+	let pattern = filePath
+		// Normalize path separators
+		.replace(/\\/g, "/")
+		// Remove file extension
+		.replace(/\.(tsx|ts|jsx|js|vue|svelte|md|mdx)$/, "")
+		// Remove route groups (parentheses)
+		.replace(/\([^)]+\)\//g, "")
+		.replace(/\([^)]+\)$/, "");
 
-  // Handle index files
-  if (basename(pattern) === "index") {
-    pattern = dirname(pattern);
-    if (pattern === ".") {
-      pattern = "";
-    }
-  }
+	// Handle index files
+	if (basename(pattern) === "index") {
+		pattern = dirname(pattern);
+		if (pattern === ".") {
+			pattern = "";
+		}
+	}
 
-  // Convert dynamic segments [param] to :param
-  // Convert catch-all segments [...slug] to **
-  pattern = pattern.replace(/\[([^\]]+)\]/g, (_, param) => {
-    if (param.startsWith("...")) {
-      // Catch-all segment
-      const paramName = param.slice(3);
-      params.push(paramName);
-      return "**";
-    } else {
-      // Dynamic segment
-      params.push(param);
-      return `:${param}`;
-    }
-  });
+	// Convert dynamic segments [param] to :param
+	// Convert catch-all segments [...slug] to **
+	pattern = pattern.replace(/\[([^\]]+)\]/g, (_, param) => {
+		if (param.startsWith("...")) {
+			// Catch-all segment
+			const paramName = param.slice(3);
+			params.push(paramName);
+			return "**";
+		} else {
+			// Dynamic segment
+			params.push(param);
+			return `:${param}`;
+		}
+	});
 
-  // Ensure leading slash
-  if (!pattern.startsWith("/")) {
-    pattern = "/" + pattern;
-  }
+	// Ensure leading slash
+	if (!pattern.startsWith("/")) {
+		pattern = "/" + pattern;
+	}
 
-  // Handle root path
-  if (pattern === "/" || pattern === "") {
-    pattern = "/";
-  }
+	// Handle root path
+	if (pattern === "/" || pattern === "") {
+		pattern = "/";
+	}
 
-  // Remove trailing slash (except for root)
-  if (pattern.length > 1 && pattern.endsWith("/")) {
-    pattern = pattern.slice(0, -1);
-  }
+	// Remove trailing slash (except for root)
+	if (pattern.length > 1 && pattern.endsWith("/")) {
+		pattern = pattern.slice(0, -1);
+	}
 
-  return { pattern, params };
+	return { pattern, params };
 }
 
 /**
@@ -261,8 +244,8 @@ export function filePathToPattern(filePath: string): FilePathPatternResult {
  * @returns True if the file is private
  */
 export function isPrivateFile(relativePath: string): boolean {
-  const pathParts = relativePath.split(/[/\\]/);
-  return pathParts.some((part) => part.startsWith("_"));
+	const pathParts = relativePath.split(/[/\\]/);
+	return pathParts.some((part) => part.startsWith("_"));
 }
 
 /**
@@ -273,26 +256,26 @@ export function isPrivateFile(relativePath: string): boolean {
  * @returns Specificity score
  */
 export function calculateRouteSpecificity(route: DiscoveredRoute): number {
-  const segments = route.pattern.split("/").filter((s) => s.length > 0);
-  let score = 0;
+	const segments = route.pattern.split("/").filter((s) => s.length > 0);
+	let score = 0;
 
-  for (const segment of segments) {
-    if (segment === "**") {
-      // Catch-all has lowest priority
-      score += 1000;
-    } else if (segment.startsWith(":")) {
-      // Dynamic segment has medium priority
-      score += 100;
-    } else {
-      // Static segment has highest priority
-      score += 1;
-    }
-  }
+	for (const segment of segments) {
+		if (segment === "**") {
+			// Catch-all has lowest priority
+			score += 1000;
+		} else if (segment.startsWith(":")) {
+			// Dynamic segment has medium priority
+			score += 100;
+		} else {
+			// Static segment has highest priority
+			score += 1;
+		}
+	}
 
-  // Shorter paths are more specific (for same type of segments)
-  score += segments.length;
+	// Shorter paths are more specific (for same type of segments)
+	score += segments.length;
 
-  return score;
+	return score;
 }
 
 /**
@@ -301,14 +284,12 @@ export function calculateRouteSpecificity(route: DiscoveredRoute): number {
  * @param routes - Array of discovered routes
  * @returns Sorted array of routes
  */
-export function sortRoutesBySpecificity(
-  routes: DiscoveredRoute[]
-): DiscoveredRoute[] {
-  return [...routes].sort((a, b) => {
-    const scoreA = calculateRouteSpecificity(a);
-    const scoreB = calculateRouteSpecificity(b);
-    return scoreA - scoreB;
-  });
+export function sortRoutesBySpecificity(routes: DiscoveredRoute[]): DiscoveredRoute[] {
+	return [...routes].sort((a, b) => {
+		const scoreA = calculateRouteSpecificity(a);
+		const scoreB = calculateRouteSpecificity(b);
+		return scoreA - scoreB;
+	});
 }
 
 /**
@@ -318,38 +299,36 @@ export function sortRoutesBySpecificity(
  * @returns Array of validation errors (empty if valid)
  */
 export function validateRoutePattern(pattern: string): string[] {
-  const errors: string[] = [];
+	const errors: string[] = [];
 
-  // Check for leading slash
-  if (!pattern.startsWith("/")) {
-    errors.push("Route pattern must start with /");
-  }
+	// Check for leading slash
+	if (!pattern.startsWith("/")) {
+		errors.push("Route pattern must start with /");
+	}
 
-  // Check for malformed dynamic segments
-  const malformedSegments = pattern.match(/\[[^\]]*$/g);
-  if (malformedSegments) {
-    errors.push(
-      `Malformed dynamic segments: ${malformedSegments.join(", ")}. Dynamic segments must be properly closed with ]`
-    );
-  }
+	// Check for malformed dynamic segments
+	const malformedSegments = pattern.match(/\[[^\]]*$/g);
+	if (malformedSegments) {
+		errors.push(
+			`Malformed dynamic segments: ${malformedSegments.join(", ")}. Dynamic segments must be properly closed with ]`,
+		);
+	}
 
-  // Check for empty dynamic segments
-  const emptySegments = pattern.match(/\[\]/g);
-  if (emptySegments) {
-    errors.push(
-      "Empty dynamic segments [] are not allowed. Use [param] for dynamic segments or [...rest] for catch-all"
-    );
-  }
+	// Check for empty dynamic segments
+	const emptySegments = pattern.match(/\[\]/g);
+	if (emptySegments) {
+		errors.push(
+			"Empty dynamic segments [] are not allowed. Use [param] for dynamic segments or [...rest] for catch-all",
+		);
+	}
 
-  // Check for nested dynamic segments
-  const nestedSegments = pattern.match(/\[[^\]]*\[[^\]]*\]/g);
-  if (nestedSegments) {
-    errors.push(
-      `Nested dynamic segments are not supported: ${nestedSegments.join(", ")}`
-    );
-  }
+	// Check for nested dynamic segments
+	const nestedSegments = pattern.match(/\[[^\]]*\[[^\]]*\]/g);
+	if (nestedSegments) {
+		errors.push(`Nested dynamic segments are not supported: ${nestedSegments.join(", ")}`);
+	}
 
-  return errors;
+	return errors;
 }
 
 /**
@@ -359,20 +338,20 @@ export function validateRoutePattern(pattern: string): string[] {
  * @returns Array of parameter names
  */
 export function extractParamsFromPattern(pattern: string): string[] {
-  const params: string[] = [];
+	const params: string[] = [];
 
-  // Match :param patterns
-  const dynamicMatches = pattern.matchAll(/:([^/]+)/g);
-  for (const match of dynamicMatches) {
-    params.push(match[1]);
-  }
+	// Match :param patterns
+	const dynamicMatches = pattern.matchAll(/:([^/]+)/g);
+	for (const match of dynamicMatches) {
+		params.push(match[1]);
+	}
 
-  // Match ** catch-all (represented as unnamed param)
-  if (pattern.includes("**")) {
-    params.push("slug");
-  }
+	// Match ** catch-all (represented as unnamed param)
+	if (pattern.includes("**")) {
+		params.push("slug");
+	}
 
-  return params;
+	return params;
 }
 
 /**
@@ -383,57 +362,55 @@ export function extractParamsFromPattern(pattern: string): string[] {
  * @returns True if the pattern matches the path
  */
 export function matchRoutePattern(
-  pattern: string,
-  path: string
+	pattern: string,
+	path: string,
 ): { matches: boolean; params: Record<string, string> } {
-  const params: Record<string, string> = {};
+	const params: Record<string, string> = {};
 
-  // Normalize paths
-  const normalizedPattern = pattern.replace(/\/$/, "") || "/";
-  const normalizedPath = path.replace(/\/$/, "") || "/";
+	// Normalize paths
+	const normalizedPattern = pattern.replace(/\/$/, "") || "/";
+	const normalizedPath = path.replace(/\/$/, "") || "/";
 
-  const patternSegments = normalizedPattern.split("/").filter((s) => s);
-  const pathSegments = normalizedPath.split("/").filter((s) => s);
+	const patternSegments = normalizedPattern.split("/").filter((s) => s);
+	const pathSegments = normalizedPath.split("/").filter((s) => s);
 
-  let patternIndex = 0;
-  let pathIndex = 0;
+	let patternIndex = 0;
+	let pathIndex = 0;
 
-  while (patternIndex < patternSegments.length) {
-    const patternSegment = patternSegments[patternIndex];
+	while (patternIndex < patternSegments.length) {
+		const patternSegment = patternSegments[patternIndex];
 
-    if (patternSegment === "**") {
-      // Catch-all: match remaining path segments
-      const remainingPath = pathSegments.slice(pathIndex).join("/");
-      params["slug"] = remainingPath;
-      return { matches: true, params };
-    }
+		if (patternSegment === "**") {
+			// Catch-all: match remaining path segments
+			const remainingPath = pathSegments.slice(pathIndex).join("/");
+			params["slug"] = remainingPath;
+			return { matches: true, params };
+		}
 
-    if (pathIndex >= pathSegments.length) {
-      // No more path segments but pattern has more
-      return { matches: false, params: {} };
-    }
+		if (pathIndex >= pathSegments.length) {
+			// No more path segments but pattern has more
+			return { matches: false, params: {} };
+		}
 
-    const pathSegment = pathSegments[pathIndex];
+		const pathSegment = pathSegments[pathIndex];
 
-    if (patternSegment.startsWith(":")) {
-      // Dynamic segment: extract param value
-      const paramName = patternSegment.slice(1);
-      params[paramName] = pathSegment;
-    } else if (patternSegment !== pathSegment) {
-      // Static segment: must match exactly
-      return { matches: false, params: {} };
-    }
+		if (patternSegment.startsWith(":")) {
+			// Dynamic segment: extract param value
+			const paramName = patternSegment.slice(1);
+			params[paramName] = pathSegment;
+		} else if (patternSegment !== pathSegment) {
+			// Static segment: must match exactly
+			return { matches: false, params: {} };
+		}
 
-    patternIndex++;
-    pathIndex++;
-  }
+		patternIndex++;
+		pathIndex++;
+	}
 
-  // Check if all path segments were consumed
-  if (pathIndex < pathSegments.length) {
-    return { matches: false, params: {} };
-  }
+	// Check if all path segments were consumed
+	if (pathIndex < pathSegments.length) {
+		return { matches: false, params: {} };
+	}
 
-  return { matches: true, params };
+	return { matches: true, params };
 }
-
-

@@ -7,12 +7,12 @@
 
 import {
 	analyzeComponent,
-	shouldHydrateComponent,
-	createComponentMetadata,
 	type ComponentAnalysis,
-	type DetectionResult,
 	type ComponentMetadata,
-} from './component-detection.ts';
+	createComponentMetadata,
+	type DetectionResult,
+	shouldHydrateComponent,
+} from "./component-detection.ts";
 
 export interface AnalyzerOptions {
 	forceSSROnly?: boolean;
@@ -30,11 +30,14 @@ export interface AnalysisReport {
 /**
  * Analyzes a component file and returns comprehensive analysis report
  */
-export async function analyzeComponentFile(filePath: string, options: AnalyzerOptions = {}): Promise<AnalysisReport> {
+export async function analyzeComponentFile(
+	filePath: string,
+	options: AnalyzerOptions = {},
+): Promise<AnalysisReport> {
 	try {
 		// Read component file
-		const { readFile } = await import('node:fs/promises');
-		const content = await readFile(filePath, 'utf-8');
+		const { readFile } = await import("node:fs/promises");
+		const content = await readFile(filePath, "utf-8");
 
 		// Perform analysis
 		const analysis = analyzeComponent(filePath, content);
@@ -63,7 +66,7 @@ export async function analyzeComponentFile(filePath: string, options: AnalyzerOp
 export function analyzeComponentContent(
 	filePath: string,
 	content: string,
-	options: AnalyzerOptions = {}
+	options: AnalyzerOptions = {},
 ): AnalysisReport {
 	const analysis = analyzeComponent(filePath, content);
 	const decision = shouldHydrateComponent(analysis, options);
@@ -86,7 +89,7 @@ export function analyzeComponentContent(
  */
 export async function analyzeComponents(
 	filePaths: string[],
-	options: AnalyzerOptions = {}
+	options: AnalyzerOptions = {},
 ): Promise<Map<string, AnalysisReport>> {
 	const results = new Map<string, AnalysisReport>();
 
@@ -106,7 +109,10 @@ export async function analyzeComponents(
 /**
  * Quick check if a component should be hydrated
  */
-export async function shouldHydrate(filePath: string, options: AnalyzerOptions = {}): Promise<boolean> {
+export async function shouldHydrate(
+	filePath: string,
+	options: AnalyzerOptions = {},
+): Promise<boolean> {
 	try {
 		const report = await analyzeComponentFile(filePath, options);
 		return report.decision.shouldHydrate;
@@ -121,23 +127,29 @@ export async function shouldHydrate(filePath: string, options: AnalyzerOptions =
 /**
  * Get component framework type
  */
-export async function getComponentFramework(filePath: string): Promise<ComponentAnalysis['framework']> {
+export async function getComponentFramework(
+	filePath: string,
+): Promise<ComponentAnalysis["framework"]> {
 	try {
 		const report = await analyzeComponentFile(filePath);
 		return report.analysis.framework;
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		console.error(`Error detecting framework for ${filePath}:`, errorMessage);
-		return 'unknown';
+		return "unknown";
 	}
 }
 
 /**
  * Logs analysis decision for debugging
  */
-function logAnalysisDecision(filePath: string, analysis: ComponentAnalysis, decision: DetectionResult): void {
+function logAnalysisDecision(
+	filePath: string,
+	analysis: ComponentAnalysis,
+	decision: DetectionResult,
+): void {
 	const framework = analysis.framework.toUpperCase();
-	const strategy = decision.shouldHydrate ? 'HYDRATE' : 'SSR-ONLY';
+	const strategy = decision.shouldHydrate ? "HYDRATE" : "SSR-ONLY";
 
 	console.log(`[Component Analysis] ${filePath}`);
 	console.log(`  Framework: ${framework}`);
@@ -148,10 +160,10 @@ function logAnalysisDecision(filePath: string, analysis: ComponentAnalysis, deci
 
 	if (decision.warnings && decision.warnings.length > 0) {
 		console.log(`  Warnings:`);
-		decision.warnings.forEach(warning => console.log(`    - ${warning}`));
+		decision.warnings.forEach((warning) => console.log(`    - ${warning}`));
 	}
 
-	console.log('');
+	console.log("");
 }
 
 /**
@@ -176,7 +188,7 @@ export function generateAnalysisSummary(reports: Map<string, AnalysisReport>): {
 		summary.byFramework[framework] = (summary.byFramework[framework] || 0) + 1;
 
 		// Count by strategy
-		const strategy = report.decision.shouldHydrate ? 'hydrate' : 'ssr-only';
+		const strategy = report.decision.shouldHydrate ? "hydrate" : "ssr-only";
 		summary.byStrategy[strategy] = (summary.byStrategy[strategy] || 0) + 1;
 
 		// Count warnings
@@ -189,4 +201,8 @@ export function generateAnalysisSummary(reports: Map<string, AnalysisReport>): {
 }
 
 // Export types for external use
-export type { ComponentAnalysis, DetectionResult, ComponentMetadata } from './component-detection.ts';
+export type {
+	ComponentAnalysis,
+	ComponentMetadata,
+	DetectionResult,
+} from "./component-detection.ts";

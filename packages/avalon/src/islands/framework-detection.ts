@@ -1,11 +1,11 @@
-import type { Framework } from './types.ts';
-import { registry } from '../core/integrations/registry.ts';
-import { IslandRegistry, createIslandRegistry } from './discovery/index.ts';
-import { getCachedPath, setCachedPath } from './render-cache.ts';
-import { stat as fsStat, readFile } from 'node:fs/promises';
+import { stat as fsStat, readFile } from "node:fs/promises";
+import { registry } from "../core/integrations/registry.ts";
+import { createIslandRegistry, type IslandRegistry } from "./discovery/index.ts";
+import { getCachedPath, setCachedPath } from "./render-cache.ts";
+import type { Framework } from "./types.ts";
 
 /** Known synchronous framework types (excludes 'unknown') */
-type SyncFramework = 'solid' | 'vue' | 'svelte' | 'preact' | 'react' | 'lit' | 'qwik';
+type SyncFramework = "solid" | "vue" | "svelte" | "preact" | "react" | "lit" | "qwik";
 
 /**
  * Resolve an island path using the island registry.
@@ -26,17 +26,17 @@ function resolveIslandPathFromRegistry(src: string, registry: IslandRegistry): s
 	const island = registry.resolve(componentName);
 	if (island) {
 		// Return the relative path with leading slash
-		return '/' + island.relativePath;
+		return "/" + island.relativePath;
 	}
 
 	// Try to resolve by qualified name (namespace/name)
-	if (src.includes('/')) {
+	if (src.includes("/")) {
 		// Extract potential namespace from path
 		const namespace = extractNamespaceFromPath(src);
 		if (namespace) {
 			const islandByNamespace = registry.resolve(componentName, namespace);
 			if (islandByNamespace) {
-				return '/' + islandByNamespace.relativePath;
+				return "/" + islandByNamespace.relativePath;
 			}
 		}
 	}
@@ -53,7 +53,7 @@ function resolveIslandPathFromRegistry(src: string, registry: IslandRegistry): s
  */
 function extractComponentName(path: string): string | null {
 	// Get the filename from the path
-	const parts = path.split('/').filter(Boolean);
+	const parts = path.split("/").filter(Boolean);
 	if (parts.length === 0) {
 		return null;
 	}
@@ -61,17 +61,22 @@ function extractComponentName(path: string): string | null {
 	let filename = parts.at(-1)!;
 
 	// Remove framework-specific extensions first (e.g., .solid.tsx -> .tsx)
-	const frameworkPatterns = [/\.solid\.(tsx|jsx)$/, /\.react\.(tsx|jsx)$/, /\.lit\.(ts|js)$/, /\.preact\.(tsx|jsx)$/];
+	const frameworkPatterns = [
+		/\.solid\.(tsx|jsx)$/,
+		/\.react\.(tsx|jsx)$/,
+		/\.lit\.(ts|js)$/,
+		/\.preact\.(tsx|jsx)$/,
+	];
 
 	for (const pattern of frameworkPatterns) {
 		if (pattern.test(filename)) {
-			filename = filename.replace(pattern, '');
+			filename = filename.replace(pattern, "");
 			break;
 		}
 	}
 
 	// Remove standard extensions
-	filename = filename.replace(/\.(tsx|ts|jsx|js|vue|svelte)$/, '');
+	filename = filename.replace(/\.(tsx|ts|jsx|js|vue|svelte)$/, "");
 
 	return filename || null;
 }
@@ -88,7 +93,7 @@ function extractNamespaceFromPath(path: string): string {
 	if (match) {
 		return match[1];
 	}
-	return '';
+	return "";
 }
 
 /**
@@ -107,12 +112,12 @@ async function fileExists(path: string): Promise<boolean> {
  * Normalize nested island paths to include /src/ prefix.
  */
 function normalizeIslandPath(resolvedPath: string): string {
-	if (resolvedPath.includes('/islands/') && !resolvedPath.startsWith('/src/')) {
+	if (resolvedPath.includes("/islands/") && !resolvedPath.startsWith("/src/")) {
 		if (/^\/(?:modules\/)?[^/]+\/islands\//.test(resolvedPath)) {
-			return '/src' + resolvedPath;
+			return "/src" + resolvedPath;
 		}
-		if (resolvedPath.startsWith('/islands/')) {
-			return resolvedPath.replace('/islands/', '/src/islands/');
+		if (resolvedPath.startsWith("/islands/")) {
+			return resolvedPath.replace("/islands/", "/src/islands/");
 		}
 	}
 	return resolvedPath;
@@ -124,12 +129,12 @@ function normalizeIslandPath(resolvedPath: string): string {
 async function resolveFrameworkSpecificPath(resolvedPath: string): Promise<string | null> {
 	const integrations = registry.getAll();
 	const possiblePaths: string[] = [];
-	const basePath = resolvedPath.replace('.tsx', '');
+	const basePath = resolvedPath.replace(".tsx", "");
 
 	for (const integration of integrations) {
 		const config = integration.config();
 		for (const ext of config.fileExtensions) {
-			if (ext === '.tsx' || ext === '.jsx') {
+			if (ext === ".tsx" || ext === ".jsx") {
 				possiblePaths.push(`${basePath}.${config.name}${ext}`);
 			} else {
 				possiblePaths.push(`${basePath}${ext}`);
@@ -140,7 +145,7 @@ async function resolveFrameworkSpecificPath(resolvedPath: string): Promise<strin
 	possiblePaths.push(resolvedPath);
 
 	for (const possiblePath of possiblePaths) {
-		const pathVariation = possiblePath.startsWith('/') ? possiblePath.substring(1) : possiblePath;
+		const pathVariation = possiblePath.startsWith("/") ? possiblePath.substring(1) : possiblePath;
 		if (await fileExists(pathVariation)) {
 			return possiblePath;
 		}
@@ -166,7 +171,7 @@ export async function resolveIslandPath(src: string): Promise<string> {
 	}
 
 	// Normalize path separators and nested island paths
-	let resolvedPath = normalizeIslandPath(src.replaceAll('\\', '/'));
+	const resolvedPath = normalizeIslandPath(src.replaceAll("\\", "/"));
 
 	// Try to resolve using the island registry if available
 	const islandRegistry = _global.__islandRegistry;
@@ -179,7 +184,11 @@ export async function resolveIslandPath(src: string): Promise<string> {
 	}
 
 	// Handle framework-specific naming conventions
-	if (resolvedPath.endsWith('.tsx') && !resolvedPath.includes('.solid.') && !resolvedPath.includes('.preact.')) {
+	if (
+		resolvedPath.endsWith(".tsx") &&
+		!resolvedPath.includes(".solid.") &&
+		!resolvedPath.includes(".preact.")
+	) {
 		const frameworkPath = await resolveFrameworkSpecificPath(resolvedPath);
 		if (frameworkPath) {
 			setCachedPath(src, frameworkPath);
@@ -199,10 +208,10 @@ export async function resolveIslandPath(src: string): Promise<string> {
  * @returns True if the path is a nested island path
  */
 export function isNestedIslandPath(path: string): boolean {
-	const normalized = path.replaceAll('\\', '/');
+	const normalized = path.replaceAll("\\", "/");
 
 	// Check if it contains /islands/ but not at the root level
-	if (!normalized.includes('/islands/')) {
+	if (!normalized.includes("/islands/")) {
 		return false;
 	}
 
@@ -231,7 +240,9 @@ const _global = globalThis as unknown as {
  * @param projectRoot - The project root directory
  * @returns The island registry
  */
-export async function getOrCreateIslandRegistry(projectRoot: string = process.cwd()): Promise<IslandRegistry> {
+export async function getOrCreateIslandRegistry(
+	projectRoot: string = process.cwd(),
+): Promise<IslandRegistry> {
 	_global.__islandRegistry ??= await createIslandRegistry(projectRoot);
 	return _global.__islandRegistry;
 }
@@ -262,7 +273,7 @@ export function clearIslandRegistry(): void {
  */
 export function detectFrameworkFromSrc(src: string): SyncFramework {
 	// Normalize path separators
-	const normalizedSrc = src.replaceAll('\\', '/');
+	const normalizedSrc = src.replaceAll("\\", "/");
 
 	// Get all registered integrations
 	const integrations = registry.getAll();
@@ -296,24 +307,24 @@ export function detectFrameworkFromSrc(src: string): SyncFramework {
  * Fallback detection for when no integrations are loaded yet.
  */
 function detectFrameworkFromFallback(normalizedSrc: string): SyncFramework {
-	if (normalizedSrc.endsWith('.vue')) {
-		return 'vue';
+	if (normalizedSrc.endsWith(".vue")) {
+		return "vue";
 	}
-	if (normalizedSrc.endsWith('.svelte')) {
-		return 'svelte';
+	if (normalizedSrc.endsWith(".svelte")) {
+		return "svelte";
 	}
-	if (normalizedSrc.includes('.solid.') || normalizedSrc.toLowerCase().includes('solid')) {
-		return 'solid';
+	if (normalizedSrc.includes(".solid.") || normalizedSrc.toLowerCase().includes("solid")) {
+		return "solid";
 	}
-	if (normalizedSrc.includes('.qwik.') || normalizedSrc.toLowerCase().includes('qwik')) {
-		return 'qwik';
+	if (normalizedSrc.includes(".qwik.") || normalizedSrc.toLowerCase().includes("qwik")) {
+		return "qwik";
 	}
-	if (normalizedSrc.includes('react') || normalizedSrc.toLowerCase().includes('react')) {
-		return 'react';
+	if (normalizedSrc.includes("react") || normalizedSrc.toLowerCase().includes("react")) {
+		return "react";
 	}
 
 	// Default to preact for .tsx/.jsx files
-	return 'preact';
+	return "preact";
 }
 
 /**
@@ -347,12 +358,15 @@ function detectFrameworkFromContent(
  */
 function detectFrameworkFromContentFallback(fileContent: string): Framework {
 	const checks = [
-		{ pattern: /solid-js|@jsxImportSource solid-js/, framework: 'solid' as const },
-		{ pattern: /@builder\.io\/qwik|@jsxImportSource @builder\.io\/qwik/, framework: 'qwik' as const },
-		{ pattern: /vue|Vue/, framework: 'vue' as const },
-		{ pattern: /svelte/, framework: 'svelte' as const },
-		{ pattern: /react/, framework: 'react' as const },
-		{ pattern: /preact/, framework: 'preact' as const },
+		{ pattern: /solid-js|@jsxImportSource solid-js/, framework: "solid" as const },
+		{
+			pattern: /@builder\.io\/qwik|@jsxImportSource @builder\.io\/qwik/,
+			framework: "qwik" as const,
+		},
+		{ pattern: /vue|Vue/, framework: "vue" as const },
+		{ pattern: /svelte/, framework: "svelte" as const },
+		{ pattern: /react/, framework: "react" as const },
+		{ pattern: /preact/, framework: "preact" as const },
 	];
 
 	for (const check of checks) {
@@ -361,7 +375,7 @@ function detectFrameworkFromContentFallback(fileContent: string): Framework {
 		}
 	}
 
-	return 'preact';
+	return "preact";
 }
 
 /**
@@ -370,8 +384,8 @@ function detectFrameworkFromContentFallback(fileContent: string): Framework {
 async function readFileContentForDetection(src: string): Promise<string | null> {
 	try {
 		const resolvedPath = await resolveIslandPath(src);
-		const filePath = resolvedPath.replace(/^\//, '');
-		return await readFile(filePath, 'utf-8');
+		const filePath = resolvedPath.replace(/^\//, "");
+		return await readFile(filePath, "utf-8");
 	} catch {
 		const viteServer = _global.__viteDevServer;
 		if (viteServer) {
@@ -409,7 +423,7 @@ export async function detectFramework(src: string): Promise<Framework> {
 	try {
 		const fileContent = await readFileContentForDetection(src);
 		if (!fileContent) {
-			return 'unknown';
+			return "unknown";
 		}
 
 		const detected = detectFrameworkFromContent(fileContent, integrations);
@@ -421,8 +435,8 @@ export async function detectFramework(src: string): Promise<Framework> {
 			return detectFrameworkFromContentFallback(fileContent);
 		}
 
-		return 'preact';
+		return "preact";
 	} catch {
-		return 'unknown';
+		return "unknown";
 	}
 }

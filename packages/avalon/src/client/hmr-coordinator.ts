@@ -8,8 +8,12 @@
 /// <reference lib="dom" />
 /// <reference lib="dom.iterable" />
 
-import { type FrameworkHMRAdapter, type StateSnapshot, AdapterRegistry } from './framework-adapter.ts';
-import { getCSSHMRHandler } from './css-hmr-handler.ts';
+import { getCSSHMRHandler } from "./css-hmr-handler.ts";
+import {
+	AdapterRegistry,
+	type FrameworkHMRAdapter,
+	type StateSnapshot,
+} from "./framework-adapter.ts";
 
 /**
  * Vite HMR types (defined locally to avoid import issues)
@@ -21,7 +25,7 @@ export interface HMRPayload {
 }
 
 export interface ErrorPayload {
-	type: 'error';
+	type: "error";
 	err: {
 		message: string;
 		stack: string;
@@ -38,7 +42,7 @@ export interface ErrorPayload {
 }
 
 export interface Update {
-	type: 'js-update' | 'css-update';
+	type: "js-update" | "css-update";
 	path: string;
 	acceptedPath: string;
 	timestamp: number;
@@ -49,7 +53,7 @@ export interface Update {
  * HMR update payload from Vite
  */
 export interface HMRUpdatePayload extends HMRPayload {
-	type: 'update' | 'full-reload' | 'prune' | 'error';
+	type: "update" | "full-reload" | "prune" | "error";
 	updates?: ModuleUpdate[];
 	timestamp?: number;
 	err?: ErrorPayload;
@@ -59,14 +63,14 @@ export interface HMRUpdatePayload extends HMRPayload {
  * Individual module update information
  */
 export interface ModuleUpdate {
-	type: 'js-update' | 'css-update';
+	type: "js-update" | "css-update";
 	path: string;
 	acceptedPath: string;
 	timestamp: number;
 }
 
 // Re-export types for backward compatibility
-export type { FrameworkHMRAdapter, StateSnapshot } from './framework-adapter.ts';
+export type { FrameworkHMRAdapter, StateSnapshot } from "./framework-adapter.ts";
 
 /**
  * HMR Coordinator class
@@ -83,40 +87,40 @@ export class HMRCoordinator {
 	 * Sets up Vite HMR listeners and accepts updates
 	 */
 	initialize(): void {
-		// @ts-ignore - Vite HMR is available in browser context
+		// @ts-expect-error - Vite HMR is available in browser context
 		if (!import.meta.hot) {
 			return;
 		}
 
-		// @ts-ignore - Vite HMR API
+		// @ts-expect-error - Vite HMR API
 		import.meta.hot.accept();
 
-		// @ts-ignore - Vite HMR event types
-		import.meta.hot.on('vite:beforeUpdate', (payload: HMRPayload) => {
+		// @ts-expect-error - Vite HMR event types
+		import.meta.hot.on("vite:beforeUpdate", (payload: HMRPayload) => {
 			this.handleUpdate(payload as HMRUpdatePayload);
 		});
 
-		// @ts-ignore - Vite HMR event types
-		import.meta.hot.on('vite:beforeFullReload', () => {
+		// @ts-expect-error - Vite HMR event types
+		import.meta.hot.on("vite:beforeFullReload", () => {
 			this.handleBeforeFullReload();
 		});
 
-		// @ts-ignore - Vite HMR event types
-		import.meta.hot.on('vite:error', (payload: ErrorPayload) => {
-			console.error('[HMR] error:', payload);
+		// @ts-expect-error - Vite HMR event types
+		import.meta.hot.on("vite:error", (payload: ErrorPayload) => {
+			console.error("[HMR] error:", payload);
 			this.handleError(payload);
 		});
 
-		document.addEventListener('hmr-update-required', (event: Event) => {
+		document.addEventListener("hmr-update-required", (event: Event) => {
 			const customEvent = event as CustomEvent;
 			const { src, reason } = customEvent.detail;
 
-			if (reason === 'css-module-update') {
+			if (reason === "css-module-update") {
 				this.updateQueue.add(this.normalizePath(src));
 
 				if (!this.isProcessing) {
-					this.processUpdateQueue().catch(error => {
-						console.error('[HMR] Failed to process CSS module update:', error);
+					this.processUpdateQueue().catch((error) => {
+						console.error("[HMR] Failed to process CSS module update:", error);
 					});
 				}
 			}
@@ -132,7 +136,7 @@ export class HMRCoordinator {
 	}
 
 	async handleUpdate(payload: HMRUpdatePayload): Promise<void> {
-		if (payload.type !== 'update' || !payload.updates) {
+		if (payload.type !== "update" || !payload.updates) {
 			return;
 		}
 
@@ -140,7 +144,7 @@ export class HMRCoordinator {
 		const jsUpdates: ModuleUpdate[] = [];
 
 		for (const update of payload.updates) {
-			if (update.type === 'css-update') {
+			if (update.type === "css-update") {
 				cssUpdates.push(update);
 			} else {
 				jsUpdates.push(update);
@@ -163,7 +167,7 @@ export class HMRCoordinator {
 			try {
 				cssHandler.handleCSSUpdate(cssUpdate);
 			} catch (error) {
-				console.error('[HMR] CSS update failed:', error);
+				console.error("[HMR] CSS update failed:", error);
 			}
 		}
 	}
@@ -192,7 +196,7 @@ export class HMRCoordinator {
 					try {
 						await this.updateIsland(island);
 					} catch (error) {
-						console.error('[HMR] Failed to update island:', error);
+						console.error("[HMR] Failed to update island:", error);
 					}
 				}
 			}
@@ -204,7 +208,7 @@ export class HMRCoordinator {
 	findAffectedIslands(modulePath: string): HTMLElement[] {
 		const islands: HTMLElement[] = [];
 		const normalizedPath = this.normalizePath(modulePath);
-		const allIslands = document.querySelectorAll<HTMLElement>('[data-src]');
+		const allIslands = document.querySelectorAll<HTMLElement>("[data-src]");
 
 		for (const island of allIslands) {
 			const src = island.dataset.src;
@@ -215,7 +219,7 @@ export class HMRCoordinator {
 				normalizedSrc === normalizedPath ||
 				normalizedSrc.endsWith(normalizedPath) ||
 				normalizedPath.endsWith(normalizedSrc) ||
-				normalizedSrc.split('/').pop() === normalizedPath.split('/').pop();
+				normalizedSrc.split("/").pop() === normalizedPath.split("/").pop();
 
 			if (isMatch) {
 				islands.push(island);
@@ -231,7 +235,7 @@ export class HMRCoordinator {
 		const propsAttr = island.dataset.props;
 
 		if (!framework || !src) {
-			console.warn('[HMR] Island missing framework or src attribute', island);
+			console.warn("[HMR] Island missing framework or src attribute", island);
 			return;
 		}
 
@@ -252,10 +256,10 @@ export class HMRCoordinator {
 			delete island.dataset.hydrated;
 			delete island.dataset.hydrationStatus;
 
-			island.querySelector('.hydration-error-indicator, .hmr-error-indicator')?.remove();
+			island.querySelector(".hydration-error-indicator, .hmr-error-indicator")?.remove();
 
 			const timestamp = Date.now();
-			const freshSrc = src.includes('?') ? `${src}&t=${timestamp}` : `${src}?t=${timestamp}`;
+			const freshSrc = src.includes("?") ? `${src}&t=${timestamp}` : `${src}?t=${timestamp}`;
 			const componentModule = await import(/* @vite-ignore */ freshSrc);
 			const Component = this.resolveComponent(componentModule, src);
 
@@ -266,10 +270,10 @@ export class HMRCoordinator {
 				this.stateSnapshots.delete(this.getIslandId(island));
 			}
 
-			island.dataset.hydrated = 'true';
+			island.dataset.hydrated = "true";
 
 			island.dispatchEvent(
-				new CustomEvent('hmr-update', {
+				new CustomEvent("hmr-update", {
 					detail: { framework, src, timestamp: Date.now(), success: true },
 					bubbles: true,
 				}),
@@ -279,7 +283,7 @@ export class HMRCoordinator {
 			adapter.handleError(island, error as Error);
 
 			island.dispatchEvent(
-				new CustomEvent('hmr-error', {
+				new CustomEvent("hmr-error", {
 					detail: { framework, src, error: (error as Error).message, timestamp: Date.now() },
 					bubbles: true,
 				}),
@@ -293,9 +297,9 @@ export class HMRCoordinator {
 		if (componentModule.default) return componentModule.default;
 
 		for (const key of Object.keys(componentModule)) {
-			if (key === 'default') continue;
+			if (key === "default") continue;
 			const value = componentModule[key];
-			if (typeof value === 'function' && value.prototype) {
+			if (typeof value === "function" && value.prototype) {
 				return value;
 			}
 		}
@@ -323,9 +327,9 @@ export class HMRCoordinator {
 		}
 
 		try {
-			sessionStorage.setItem('__avalon_hmr_states__', JSON.stringify(states));
+			sessionStorage.setItem("__avalon_hmr_states__", JSON.stringify(states));
 		} catch (error) {
-			console.warn('[HMR] Failed to save states:', error);
+			console.warn("[HMR] Failed to save states:", error);
 		}
 	}
 
@@ -333,43 +337,49 @@ export class HMRCoordinator {
 		const error = new Error(payload.err.message);
 		error.stack = payload.err.stack;
 
-		console.error('[HMR] Error:', error);
+		console.error("[HMR] Error:", error);
 
 		if (globalThis.window !== undefined) {
-			// @ts-ignore - dynamic import of JS file
-			import('./hmr-error-overlay.js')
-				.then(({ showHMRErrorOverlay }: { showHMRErrorOverlay: (opts: Record<string, unknown>) => void }) => {
-					showHMRErrorOverlay({
-						framework: 'unknown',
-						src: 'unknown',
-						error,
-						filePath: payload.err.id || payload.err.loc?.file || 'unknown',
-						line: payload.err.loc?.line,
-						column: payload.err.loc?.column,
-					});
-				})
+			// @ts-expect-error - dynamic import of JS file
+			import("./hmr-error-overlay.js")
+				.then(
+					({
+						showHMRErrorOverlay,
+					}: {
+						showHMRErrorOverlay: (opts: Record<string, unknown>) => void;
+					}) => {
+						showHMRErrorOverlay({
+							framework: "unknown",
+							src: "unknown",
+							error,
+							filePath: payload.err.id || payload.err.loc?.file || "unknown",
+							line: payload.err.loc?.line,
+							column: payload.err.loc?.column,
+						});
+					},
+				)
 				.catch(() => {
-					console.error('[HMR] Failed to show error overlay');
+					console.error("[HMR] Failed to show error overlay");
 				});
 		}
 	}
 
 	private normalizePath(path: string): string {
 		return path
-			.replaceAll('\\', '/')
-			.replace(/^\//, '')
-			.replace(/\?.*$/, '')
-			.replace(/#.*$/, '')
-			.replace(/^src\//, '');
+			.replaceAll("\\", "/")
+			.replace(/^\//, "")
+			.replace(/\?.*$/, "")
+			.replace(/#.*$/, "")
+			.replace(/^src\//, "");
 	}
 
 	private isIslandModule(path: string): boolean {
-		return path.includes('/islands/') || path.includes('\\islands\\');
+		return path.includes("/islands/") || path.includes("\\islands\\");
 	}
 
 	private getIslandId(island: HTMLElement): string {
-		const src = island.dataset.src ?? '';
-		const framework = island.dataset.framework ?? '';
+		const src = island.dataset.src ?? "";
+		const framework = island.dataset.framework ?? "";
 		const index = Array.from(document.querySelectorAll(`[data-src="${src}"]`)).indexOf(island);
 		return `${framework}:${src}:${index}`;
 	}
@@ -386,7 +396,7 @@ export function getHMRCoordinator(): HMRCoordinator {
 }
 
 export function initializeHMR(): void {
-	// @ts-ignore - Vite HMR is available in browser context
+	// @ts-expect-error - Vite HMR is available in browser context
 	if (!import.meta.hot) {
 		return;
 	}

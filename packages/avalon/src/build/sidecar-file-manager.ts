@@ -1,5 +1,5 @@
+import { readFile, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { readFile, writeFile, unlink, stat } from "node:fs/promises";
 
 /**
  * Supported compound extensions for island files, ordered longest-first
@@ -61,10 +61,7 @@ export function getSidecarPath(islandFilePath: string): string {
  */
 export async function isSidecarFresh(sourcePath: string, sidecarPath: string): Promise<boolean> {
 	try {
-		const [sourceStat, sidecarStat] = await Promise.all([
-			stat(sourcePath),
-			stat(sidecarPath),
-		]);
+		const [sourceStat, sidecarStat] = await Promise.all([stat(sourcePath), stat(sidecarPath)]);
 		return sidecarStat.mtimeMs >= sourceStat.mtimeMs;
 	} catch {
 		return false;
@@ -75,7 +72,10 @@ export async function isSidecarFresh(sourcePath: string, sidecarPath: string): P
  * Write sidecar content only if it differs from the existing file.
  * Returns `true` if a write was performed, `false` if content was already up-to-date.
  */
-export async function writeSidecarIfChanged(sidecarPath: string, content: string): Promise<boolean> {
+export async function writeSidecarIfChanged(
+	sidecarPath: string,
+	content: string,
+): Promise<boolean> {
 	try {
 		const existing = await readFile(sidecarPath, "utf-8");
 		if (existing === content) {
@@ -101,4 +101,3 @@ export async function deleteSidecar(sidecarPath: string): Promise<boolean> {
 		return false;
 	}
 }
-

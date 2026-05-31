@@ -1,6 +1,9 @@
-import type { Plugin } from 'vite';
-import { resolve } from 'node:path';
-import { getOptimizeDepsForIntegrations, getSSRNoExternalForIntegrations } from './integration-config.ts';
+import { resolve } from "node:path";
+import type { Plugin } from "vite";
+import {
+	getOptimizeDepsForIntegrations,
+	getSSRNoExternalForIntegrations,
+} from "./integration-config.ts";
 
 export interface IntegrationBundlerOptions {
 	/** Integrations to include in the build */
@@ -18,34 +21,35 @@ export function integrationBundlerPlugin(options: IntegrationBundlerOptions): Pl
 	const cwd = process.cwd();
 
 	return {
-		name: 'avalon:integration-bundler',
-		enforce: 'post',
+		name: "avalon:integration-bundler",
+		enforce: "post",
 
 		config(config) {
 			// Add integration entry points to the build
 			const entries: Record<string, string> = {};
-			
+
 			for (const framework of integrations) {
 				if (ssr) {
 					// SSR build: include server-side integration code
 					entries[`integrations/${framework}/server`] = resolve(
 						cwd,
-						`packages/integrations/${framework}/server/renderer.ts`
+						`packages/integrations/${framework}/server/renderer.ts`,
 					);
 				} else {
 					// Client build: include client-side integration code
 					entries[`integrations/${framework}/client`] = resolve(
 						cwd,
-						`packages/integrations/${framework}/client/index.ts`
+						`packages/integrations/${framework}/client/index.ts`,
 					);
 				}
 			}
 
 			// Merge with existing rolldown input
 			const existingInput = config.build?.rolldownOptions?.input || {};
-			const mergedInput = typeof existingInput === 'string' 
-				? { main: existingInput, ...entries }
-				: { ...existingInput, ...entries };
+			const mergedInput =
+				typeof existingInput === "string"
+					? { main: existingInput, ...entries }
+					: { ...existingInput, ...entries };
 
 			return {
 				build: {
@@ -55,8 +59,6 @@ export function integrationBundlerPlugin(options: IntegrationBundlerOptions): Pl
 				},
 			};
 		},
-
-
 	};
 }
 
@@ -69,31 +71,31 @@ export function getIntegrationExternals(framework: string, ssr: boolean) {
 
 	// Framework-specific externals
 	switch (framework) {
-		case 'preact':
+		case "preact":
 			if (!ssr) {
 				// Client-side: preact should be bundled for hydration
 				return [];
 			}
 			// SSR: keep preact external if needed
-			externals.push('preact', 'preact/hooks', 'preact-render-to-string');
+			externals.push("preact", "preact/hooks", "preact-render-to-string");
 			break;
 
-		case 'vue':
+		case "vue":
 			if (ssr) {
 				// SSR: Vue server renderer should be external
-				externals.push('vue', 'vue/server-renderer', '@vue/server-renderer', '@vue/shared');
+				externals.push("vue", "vue/server-renderer", "@vue/server-renderer", "@vue/shared");
 			}
 			break;
 
-		case 'solid':
+		case "solid":
 			if (ssr) {
-				externals.push('solid-js', 'solid-js/web');
+				externals.push("solid-js", "solid-js/web");
 			}
 			break;
 
-		case 'svelte':
+		case "svelte":
 			if (ssr) {
-				externals.push('svelte', 'svelte/server', 'svelte/compiler', 'svelte/internal');
+				externals.push("svelte", "svelte/server", "svelte/compiler", "svelte/internal");
 			}
 			break;
 	}

@@ -45,8 +45,7 @@ interface IslandImport {
 function findAllDefaultImports(code: string): Map<string, string> {
 	const imports = new Map<string, string>();
 	const re = /import\s+([A-Z]\w*)\s+from\s+(['"][^'"]+['"])/g;
-	let m;
-	while ((m = re.exec(code)) !== null) {
+	for (let m = re.exec(code); m !== null; m = re.exec(code)) {
 		const localName = m[1];
 		const importPath = m[2].slice(1, -1);
 		imports.set(localName, importPath);
@@ -63,15 +62,14 @@ function findIslandPropUsage(code: string): Set<string> {
 
 	// Match raw JSX: <ComponentName ... island={...} or <ComponentName ... island ...
 	const rawJsxRe = /<([A-Z]\w*)\s+[^>]*\bisland\s*[={]/g;
-	let m;
-	while ((m = rawJsxRe.exec(code)) !== null) {
+	for (let m = rawJsxRe.exec(code); m !== null; m = rawJsxRe.exec(code)) {
 		components.add(m[1]);
 	}
 
 	// Match compiled JSX: _jsxDEV(ComponentName, { island: or jsxDEV(ComponentName, { island:
 	// Also handles jsx() and jsxs() variants
 	const compiledJsxRe = /(?:_?jsxs?(?:DEV)?)\s*\(\s*([A-Z]\w*)\s*,\s*\{[^}]*\bisland\s*:/g;
-	while ((m = compiledJsxRe.exec(code)) !== null) {
+	for (let m = compiledJsxRe.exec(code); m !== null; m = compiledJsxRe.exec(code)) {
 		components.add(m[1]);
 	}
 
@@ -331,9 +329,8 @@ function replaceJsxCalls(
 
 	let result = "";
 	let lastIndex = 0;
-	let match;
 
-	while ((match = jsxCallPattern.exec(code)) !== null) {
+	for (let match = jsxCallPattern.exec(code); match !== null; match = jsxCallPattern.exec(code)) {
 		const matchStart = match.index;
 		const _jsxFn = match[1];
 

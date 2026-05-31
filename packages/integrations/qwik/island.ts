@@ -17,7 +17,7 @@
  * ```
  */
 export function defineQwikIsland<P extends Record<string, any> = Record<string, unknown>>(
-  component: unknown,
+	component: unknown,
 ): (props: P) => any {
-  return component as unknown as (props: P) => any;
+	return component as unknown as (props: P) => any;
 }

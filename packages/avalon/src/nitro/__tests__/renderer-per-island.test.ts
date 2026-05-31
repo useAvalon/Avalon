@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { injectHydrationScript } from "../renderer.ts";
 
 describe("injectHydrationScript — per-island mode", () => {
@@ -61,13 +61,17 @@ describe("injectHydrationScript — entry-client mode (dev mode default)", () =>
 		globalThis.__avalonHydrationMode = savedMode;
 	});
 
-	it("injects the shared hydration script when islands are present", () => {
+	it("forces per-island mode in production regardless of the hydration flag", () => {
 		const html = `<html><body>
 <avalon-island data-framework="solid" data-src="/islands/Counter.js"></avalon-island>
 </body></html>`;
 
+		// In production (isDev=false), per-island mode is always used even when the
+		// __avalonHydrationMode flag is unset (the Nitro SSR runtime is a separate JS
+		// realm where the flag may not propagate). No shared runtime script is injected.
 		const result = injectHydrationScript(html, false);
-		expect(result).toContain('<script type="module" src="/dist/client.js"></script>');
+		expect(result).not.toContain("/dist/client.js");
+		expect(result).not.toContain("/src/client/main.js");
 	});
 
 	it("injects dev script in development mode", () => {

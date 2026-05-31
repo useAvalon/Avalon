@@ -1,20 +1,20 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
+import type { ResolvedAvalonConfig } from "../../vite-plugin/types.ts";
 import {
-	isIntegrationLoaderModule,
-	isFrameworkRuntimeModule,
-	isIslandModule,
-	shouldInlineIntoIsland,
-	findIslandImporter,
-	islandCodeSplittingPlugin,
-	detectChunkFramework,
-	findSmallIslandChunks,
-	groupChunksByFramework,
+	type BundleChunk,
 	buildConsolidatedChunk,
 	consolidateIslandChunks,
 	DEFAULT_CHUNK_SIZE_THRESHOLD,
-	type BundleChunk,
+	detectChunkFramework,
+	findIslandImporter,
+	findSmallIslandChunks,
+	groupChunksByFramework,
+	isFrameworkRuntimeModule,
+	isIntegrationLoaderModule,
+	isIslandModule,
+	islandCodeSplittingPlugin,
+	shouldInlineIntoIsland,
 } from "../island-code-splitting.ts";
-import type { ResolvedAvalonConfig } from "../../vite-plugin/types.ts";
 
 function makeConfig(overrides: Partial<ResolvedAvalonConfig> = {}): ResolvedAvalonConfig {
 	return {

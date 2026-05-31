@@ -1,6 +1,6 @@
 /**
  * Lit Client-Side Hydration
- * 
+ *
  * Uses official @lit-labs/ssr-client hydration support.
  */
 
@@ -17,73 +17,70 @@ import "./lit-hydrate-support.ts";
  * Hydrate a server-rendered Lit component
  */
 export function hydrate(
-  container: HTMLElement,
-  ElementClass: typeof LitElement,
-  props: Record<string, unknown>,
-  options?: LitHydrationOptions
+	container: HTMLElement,
+	ElementClass: typeof LitElement,
+	props: Record<string, unknown>,
+	options?: LitHydrationOptions,
 ): void {
-  if (Object.hasOwn(container.dataset, "litHydrated")) return;
+	if (Object.hasOwn(container.dataset, "litHydrated")) return;
 
-  const tagName =
-    container.dataset.tagName ||
-    
-    (ElementClass as any).elementName ||
-    ElementClass.name.replaceAll(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+	const tagName =
+		container.dataset.tagName ||
+		(ElementClass as any).elementName ||
+		ElementClass.name.replaceAll(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 
-  if (!tagName) {
-    throw new Error("Could not determine tag name for Lit component");
-  }
+	if (!tagName) {
+		throw new Error("Could not determine tag name for Lit component");
+	}
 
-  if (options?.defer) {
-    const trigger = () => performHydration(container, ElementClass, tagName, props);
-    if (typeof requestIdleCallback === "undefined") {
-      setTimeout(trigger, 0);
-    } else {
-      requestIdleCallback(trigger);
-    }
-    return;
-  }
+	if (options?.defer) {
+		const trigger = () => performHydration(container, ElementClass, tagName, props);
+		if (typeof requestIdleCallback === "undefined") {
+			setTimeout(trigger, 0);
+		} else {
+			requestIdleCallback(trigger);
+		}
+		return;
+	}
 
-  performHydration(container, ElementClass, tagName, props);
-  container.dataset.litHydrated = "true";
+	performHydration(container, ElementClass, tagName, props);
+	container.dataset.litHydrated = "true";
 }
 
 function performHydration(
-  container: HTMLElement,
-  ElementClass: typeof LitElement,
-  tagName: string,
-  props: Record<string, unknown>
+	container: HTMLElement,
+	ElementClass: typeof LitElement,
+	tagName: string,
+	props: Record<string, unknown>,
 ): void {
-  const element = container.querySelector(tagName);
+	const element = container.querySelector(tagName);
 
-  if (!element) {
-    // Client-only render
-    const newElement = document.createElement(tagName);
-    Object.entries(props).forEach(([key, value]) => {
-      
-      (newElement as any)[key] = value;
-    });
-    container.appendChild(newElement);
-    return;
-  }
+	if (!element) {
+		// Client-only render
+		const newElement = document.createElement(tagName);
+		Object.entries(props).forEach(([key, value]) => {
+			(newElement as any)[key] = value;
+		});
+		container.appendChild(newElement);
+		return;
+	}
 
-  // Register custom element if needed
-  if (!customElements.get(tagName)) {
-    
-    customElements.define(tagName, ElementClass as any);
-  }
+	// Register custom element if needed
+	if (!customElements.get(tagName)) {
+		customElements.define(tagName, ElementClass as any);
+	}
 
-  // Remove defer-hydration to trigger Lit's hydration
-  if (element.hasAttribute("defer-hydration")) {
-    element.removeAttribute("defer-hydration");
-  }
+	// Remove defer-hydration to trigger Lit's hydration
+	if (element.hasAttribute("defer-hydration")) {
+		element.removeAttribute("defer-hydration");
+	}
 }
 
 /**
  * Get hydration script for automatic island hydration
  */
 export function getHydrationScript(): string {
-  return `
+	return `
     import { hydrate } from '@useavalon/lit/client';
     
     document.querySelectorAll('[data-framework="lit"]').forEach(async (el) => {

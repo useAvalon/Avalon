@@ -10,7 +10,7 @@ import { FALLBACK_PROPS } from "./vue.ts";
  */
 export function extractQwikProps(_source: string): PropExtractionResult {
 	return {
-    propsType: FALLBACK_PROPS,
-    fallback: false
-};
+		propsType: FALLBACK_PROPS,
+		fallback: false,
+	};
 }

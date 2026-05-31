@@ -1,4 +1,4 @@
-import type { LayoutHandler, ResolvedLayout, LayoutData } from './layout-types.ts';
+import type { LayoutData, LayoutHandler, ResolvedLayout } from "./layout-types.ts";
 
 export interface CacheEntry<T> {
 	value: T;
@@ -44,7 +44,7 @@ export class LayoutCacheManager {
 
 	constructor(private readonly config: CacheConfig) {
 		// Don't start cleanup timer in test environment
-		if (process.env.NODE_ENV !== 'test') {
+		if (process.env.NODE_ENV !== "test") {
 			this.startCleanupTimer();
 		}
 	}
@@ -309,7 +309,7 @@ export class LayoutCacheManager {
 	}
 
 	private normalizePath(filePath: string): string {
-		return filePath.replaceAll('\\', '/').toLowerCase();
+		return filePath.replaceAll("\\", "/").toLowerCase();
 	}
 
 	private isKeyAffectedByPath(key: string, filePath: string): boolean {
@@ -317,8 +317,8 @@ export class LayoutCacheManager {
 		const normalizedKey = key.toLowerCase();
 		return (
 			normalizedKey.includes(filePath) ||
-			normalizedKey.includes(filePath.replace('_layout.tsx', '')) ||
-			normalizedKey.includes(filePath.replace('.tsx', ''))
+			normalizedKey.includes(filePath.replace("_layout.tsx", "")) ||
+			normalizedKey.includes(filePath.replace(".tsx", ""))
 		);
 	}
 
@@ -329,7 +329,8 @@ export class LayoutCacheManager {
 	private updateStats(): void {
 		if (!this.config.enableStats) return;
 
-		this.stats.totalEntries = this.resolvedLayouts.size + this.layoutHandlers.size + this.layoutData.size;
+		this.stats.totalEntries =
+			this.resolvedLayouts.size + this.layoutHandlers.size + this.layoutData.size;
 
 		// Estimate memory usage (rough calculation)
 		this.stats.memoryUsage = this.estimateMemoryUsage();
@@ -361,7 +362,8 @@ export class LayoutCacheManager {
 	}
 
 	private enforceMaxEntries(): void {
-		const totalEntries = this.resolvedLayouts.size + this.layoutHandlers.size + this.layoutData.size;
+		const totalEntries =
+			this.resolvedLayouts.size + this.layoutHandlers.size + this.layoutData.size;
 
 		if (totalEntries <= this.config.maxEntries) return;
 
@@ -442,7 +444,11 @@ export class LayoutCacheManager {
 
 		// Clean up orphaned access order entries
 		for (const key of this.accessOrder.keys()) {
-			if (!this.resolvedLayouts.has(key) && !this.layoutHandlers.has(key) && !this.layoutData.has(key)) {
+			if (
+				!this.resolvedLayouts.has(key) &&
+				!this.layoutHandlers.has(key) &&
+				!this.layoutData.has(key)
+			) {
 				this.accessOrder.delete(key);
 			}
 		}

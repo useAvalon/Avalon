@@ -8,8 +8,8 @@
  * Avalon-specific types that extend or complement Nitro's types are defined here.
  */
 
-import type { MiddlewareContext } from '../nitro/middleware-adapter.ts';
-import type { ApiMethod } from '../schemas/api.ts';
+import type { MiddlewareContext } from "../nitro/middleware-adapter.ts";
+import type { ApiMethod } from "../schemas/api.ts";
 
 /**
  * ServerRequest type reference from Nitro v3 (`nitro/types`).
@@ -98,7 +98,7 @@ export interface LayoutContext {
  */
 export interface DiscoveredRoute {
 	/** Route type: page or API */
-	type: 'page' | 'api';
+	type: "page" | "api";
 	/** Absolute file path to the route handler */
 	filePath: string;
 	/** Route pattern for matching (e.g., /users/:id) */
@@ -116,7 +116,7 @@ export interface NitroRouteConfig {
 	/** Route pattern (e.g., /users/:id) */
 	pattern: string;
 	/** Route handler type */
-	type: 'page' | 'api' | 'middleware';
+	type: "page" | "api" | "middleware";
 	/** File path to the handler */
 	filePath: string;
 	/** Extracted parameter names */
@@ -240,7 +240,7 @@ export class HttpError extends Error {
 
 	constructor(statusCode: number, message: string, data?: Record<string, unknown>) {
 		super(message);
-		this.name = 'HttpError';
+		this.name = "HttpError";
 		this.statusCode = statusCode;
 		this.data = data;
 	}
@@ -249,7 +249,7 @@ export class HttpError extends Error {
 /**
  * Create a 404 Not Found error
  */
-export function createNotFoundError(message = 'Not Found'): HttpError {
+export function createNotFoundError(message = "Not Found"): HttpError {
 	return new HttpError(404, message);
 }
 
@@ -257,13 +257,13 @@ export function createNotFoundError(message = 'Not Found'): HttpError {
  * Create a 405 Method Not Allowed error
  */
 export function createMethodNotAllowedError(allowedMethods: string[]): HttpError {
-	return new HttpError(405, 'Method Not Allowed', { allowed: allowedMethods });
+	return new HttpError(405, "Method Not Allowed", { allowed: allowedMethods });
 }
 
 /**
  * Create a 500 Internal Server Error
  */
-export function createInternalError(message = 'Internal Server Error'): HttpError {
+export function createInternalError(message = "Internal Server Error"): HttpError {
 	return new HttpError(500, message);
 }
 

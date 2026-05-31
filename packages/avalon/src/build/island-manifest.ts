@@ -1,10 +1,10 @@
-import { readFile } from 'node:fs/promises';
+import { readFile } from "node:fs/promises";
 import {
-	getQualifiedIslandName,
-	type IslandDirectory,
-	type IslandCollision,
 	createIslandRegistry,
-} from '../islands/discovery/index.ts';
+	getQualifiedIslandName,
+	type IslandCollision,
+	type IslandDirectory,
+} from "../islands/discovery/index.ts";
 
 export interface IslandManifest {
 	islands: Record<string, IslandEntry>;
@@ -30,7 +30,7 @@ export interface IslandEntry {
 	/** Bundle hash for cache busting */
 	hash: string;
 	/** Framework type (preact, solid, vue, svelte, qwik, lit, react) */
-	framework: 'preact' | 'solid' | 'vue' | 'svelte' | 'qwik' | 'lit' | 'react' | 'unknown';
+	framework: "preact" | "solid" | "vue" | "svelte" | "qwik" | "lit" | "react" | "unknown";
 	/** Import dependencies */
 	deps: string[];
 }
@@ -68,7 +68,7 @@ export async function generateIslandManifest(): Promise<ExtendedIslandManifest> 
 			const src = `/${island.relativePath}`;
 
 			// Read file content for analysis
-			const content = await readFile(island.filePath, 'utf-8');
+			const content = await readFile(island.filePath, "utf-8");
 			const framework = mapFrameworkType(island.framework);
 			const deps = extractDependencies(content);
 			const hash = await generateHash(content);
@@ -76,7 +76,9 @@ export async function generateIslandManifest(): Promise<ExtendedIslandManifest> 
 			// Generate bundle path based on qualified name.
 			// No /dist/ prefix — dist/ is the serve root so paths are relative to it.
 			const bundlePath =
-				island.namespace === '' ? `/islands/${island.name}.${hash}.js` : `/islands/${qualifiedName}.${hash}.js`;
+				island.namespace === ""
+					? `/islands/${island.name}.${hash}.js`
+					: `/islands/${qualifiedName}.${hash}.js`;
 
 			islands[qualifiedName] = {
 				src,
@@ -94,16 +96,16 @@ export async function generateIslandManifest(): Promise<ExtendedIslandManifest> 
 			islands,
 			directories,
 			collisions,
-			version: '1.0.0',
+			version: "1.0.0",
 			buildTime: Date.now(),
 		};
 	} catch (error) {
-		console.warn('Failed to generate island manifest:', error);
+		console.warn("Failed to generate island manifest:", error);
 		return {
 			islands: {},
 			directories: [],
 			collisions: [],
-			version: '1.0.0',
+			version: "1.0.0",
 			buildTime: Date.now(),
 		};
 	}
@@ -112,24 +114,24 @@ export async function generateIslandManifest(): Promise<ExtendedIslandManifest> 
 /**
  * Map the discovery service framework type to manifest framework type
  */
-function mapFrameworkType(framework: string): ExtendedIslandEntry['framework'] {
+function mapFrameworkType(framework: string): ExtendedIslandEntry["framework"] {
 	switch (framework) {
-		case 'preact':
-			return 'preact';
-		case 'react':
-			return 'react';
-		case 'solid':
-			return 'solid';
-		case 'vue':
-			return 'vue';
-		case 'svelte':
-			return 'svelte';
-		case 'lit':
-			return 'lit';
-		case 'qwik':
-			return 'qwik';
+		case "preact":
+			return "preact";
+		case "react":
+			return "react";
+		case "solid":
+			return "solid";
+		case "vue":
+			return "vue";
+		case "svelte":
+			return "svelte";
+		case "lit":
+			return "lit";
+		case "qwik":
+			return "qwik";
 		default:
-			return 'unknown';
+			return "unknown";
 	}
 }
 
@@ -140,11 +142,10 @@ function extractDependencies(content: string): string[] {
 	const deps: string[] = [];
 	const importRegex = /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g;
 
-	let match;
-	while ((match = importRegex.exec(content)) !== null) {
+	for (let match = importRegex.exec(content); match !== null; match = importRegex.exec(content)) {
 		const importPath = match[1];
 		// Only include external dependencies, not relative imports
-		if (!importPath.startsWith('.') && !importPath.startsWith('/')) {
+		if (!importPath.startsWith(".") && !importPath.startsWith("/")) {
 			deps.push(importPath);
 		}
 	}
@@ -158,9 +159,9 @@ function extractDependencies(content: string): string[] {
 async function generateHash(content: string): Promise<string> {
 	const encoder = new TextEncoder();
 	const data = encoder.encode(content);
-	const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+	const hashBuffer = await crypto.subtle.digest("SHA-256", data);
 	const hashArray = Array.from(new Uint8Array(hashBuffer));
-	const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+	const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 	return hashHex.slice(0, 8); // Use first 8 characters
 }
 
@@ -169,11 +170,11 @@ async function generateHash(content: string): Promise<string> {
  */
 export async function loadIslandManifest(): Promise<ExtendedIslandManifest | null> {
 	try {
-		const manifestPath = 'dist/island-manifest.json';
-		const content = await readFile(manifestPath, 'utf-8');
+		const manifestPath = "dist/island-manifest.json";
+		const content = await readFile(manifestPath, "utf-8");
 		return JSON.parse(content);
 	} catch (error) {
-		console.warn('Failed to load island manifest:', error);
+		console.warn("Failed to load island manifest:", error);
 		return null;
 	}
 }
@@ -182,14 +183,18 @@ export async function loadIslandManifest(): Promise<ExtendedIslandManifest | nul
  * Get bundle path for an island (development vs production)
  * Supports both simple names and qualified names (namespace/name)
  */
-export function getIslandBundlePath(src: string, manifest?: ExtendedIslandManifest | IslandManifest | null): string {
+export function getIslandBundlePath(
+	src: string,
+	manifest?: ExtendedIslandManifest | IslandManifest | null,
+): string {
 	// Use the same production detection as isPerIslandMode() in island.tsx:
 	// check the global hydration mode flag first, then fall back to NODE_ENV.
 	// In the Nitro SSR runtime, process.env.NODE_ENV may not be replaced by
 	// Vite's define config, but the hydration mode flag is always reliable.
-	const isDev = globalThis.__avalonHydrationMode !== undefined
-		? globalThis.__avalonHydrationMode === "entry-client"
-		: process.env.NODE_ENV !== "production";
+	const isDev =
+		globalThis.__avalonHydrationMode !== undefined
+			? globalThis.__avalonHydrationMode === "entry-client"
+			: process.env.NODE_ENV !== "production";
 
 	// Strip absolute filesystem paths to project-relative paths.
 	// Vite alias resolution can produce absolute paths like
@@ -206,7 +211,7 @@ export function getIslandBundlePath(src: string, manifest?: ExtendedIslandManife
 		if (extendedManifest.islands[qualifiedName]) {
 			return extendedManifest.islands[qualifiedName].bundle;
 		}
-		const simpleName = src.replace(/^\/islands\//, '').replace(/\.(tsx?|jsx?)$/, '');
+		const simpleName = src.replace(/^\/islands\//, "").replace(/\.(tsx?|jsx?)$/, "");
 		const island = manifest.islands[simpleName];
 		if (island) {
 			return island.bundle;
@@ -214,18 +219,18 @@ export function getIslandBundlePath(src: string, manifest?: ExtendedIslandManife
 	}
 
 	if (isDev) {
-		if (src.startsWith('/islands/')) {
-			return src.replaceAll('/islands/', '/src/islands/');
+		if (src.startsWith("/islands/")) {
+			return src.replaceAll("/islands/", "/src/islands/");
 		}
-		if (src.startsWith('/src/')) {
+		if (src.startsWith("/src/")) {
 			return src;
 		}
-		if (src.startsWith('/app/')) {
+		if (src.startsWith("/app/")) {
 			return src;
 		}
 		// For paths that don't start with /src/ or /app/, prefix with /src/
 		// but avoid double slashes
-		if (src.startsWith('/')) {
+		if (src.startsWith("/")) {
 			return src;
 		}
 		return `/src/${src}`;
@@ -239,8 +244,8 @@ export function getIslandBundlePath(src: string, manifest?: ExtendedIslandManife
  * Extract qualified name from a source path
  */
 function extractQualifiedNameFromSrc(src: string): string {
-	let path = src.replace(/^\//, '');
-	path = path.replace(/\.(tsx?|jsx?)$/, '');
+	let path = src.replace(/^\//, "");
+	path = path.replace(/\.(tsx?|jsx?)$/, "");
 
 	const nestedMatch = new RegExp(/^src\/(.+)\/islands\/([^/]+)$/).exec(path);
 	if (nestedMatch) {
@@ -270,7 +275,7 @@ export function getIslandEntry(
 	const extendedManifest = manifest as ExtendedIslandManifest;
 	if (extendedManifest.directories) {
 		for (const [qualifiedName, entry] of Object.entries(manifest.islands)) {
-			const simpleName = qualifiedName.split('/').pop();
+			const simpleName = qualifiedName.split("/").pop();
 			if (simpleName === nameOrQualified) {
 				return entry;
 			}

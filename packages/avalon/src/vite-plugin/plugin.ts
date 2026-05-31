@@ -10,24 +10,25 @@
  * or layouts is automatically treated as an island. No fixed islands directory required.
  */
 
-import type { Plugin, PluginOption, ResolvedConfig, ViteDevServer } from "vite";
-import type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig } from "./types.ts";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { resolveConfig, checkDirectoriesExist } from "./config.ts";
-import { activateIntegrations, activateSingleIntegration } from "./integration-activator.ts";
-import { discoverIntegrationsFromIslandUsage } from "./auto-discover.ts";
-import { validateActiveIntegrations, formatValidationResults } from "./validation.ts";
-import { createMDXPlugin } from "../build/mdx-plugin.ts";
-import { mdxIslandTransform } from "../build/mdx-island-transform.ts";
-import { pageIslandTransform } from "../build/page-island-transform.ts";
-import { registry } from "../core/integrations/registry.ts";
-import { createNitroIntegration } from "./nitro-integration.ts";
-import { islandSidecarPlugin } from "./island-sidecar-plugin.ts";
-import { createImagePlugin } from "./image-optimization.ts";
+import type { Plugin, PluginOption, ResolvedConfig, ViteDevServer } from "vite";
 import { islandClientBundlerPlugin } from "../build/island-client-bundler.ts";
 import { islandCodeSplittingPlugin } from "../build/island-code-splitting.ts";
+import { mdxIslandTransform } from "../build/mdx-island-transform.ts";
+import { createMDXPlugin } from "../build/mdx-plugin.ts";
+import { pageIslandTransform } from "../build/page-island-transform.ts";
+import { registry } from "../core/integrations/registry.ts";
 import type { NitroConfigOutput } from "../nitro/config.ts";
+import { discoverIntegrationsFromIslandUsage } from "./auto-discover.ts";
+import { checkDirectoriesExist, resolveConfig } from "./config.ts";
+import { createImagePlugin } from "./image-optimization.ts";
+import { activateIntegrations, activateSingleIntegration } from "./integration-activator.ts";
+import { islandSidecarPlugin } from "./island-sidecar-plugin.ts";
+import { createNitroIntegration } from "./nitro-integration.ts";
+import type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig } from "./types.ts";
+import { formatValidationResults, validateActiveIntegrations } from "./validation.ts";
+
 declare global {
 	var __avalonConfig: ResolvedAvalonConfig | undefined;
 	var __viteDevServer: ViteDevServer | undefined;
@@ -465,11 +466,11 @@ export function isNitroEnabled(): boolean {
 	return globalThis.__nitroConfig !== undefined;
 }
 
+export type { AvalonNitroConfig, NitroConfigOutput } from "../nitro/config.ts";
 export type {
 	AvalonPluginConfig,
+	ImageConfig,
 	IntegrationName,
 	ResolvedAvalonConfig,
-	ImageConfig,
 	ResolvedImageConfig,
 } from "./types.ts";
-export type { AvalonNitroConfig, NitroConfigOutput } from "../nitro/config.ts";

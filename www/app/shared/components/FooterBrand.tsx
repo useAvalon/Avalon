@@ -1,13 +1,13 @@
 /** @jsxImportSource preact */
-import { useEffect, useRef } from 'preact/hooks';
-import styles from './FooterBrand.module.css';
+import { useEffect, useRef } from "preact/hooks";
+import styles from "./FooterBrand.module.css";
 
 const AURORA_COLORS = [
-	{ r: 31,  g: 106, b: 211 },
-	{ r: 44,  g: 161, b: 179 },
-	{ r: 95,  g: 178, b: 182 },
-	{ r: 22,  g: 60,  b: 109 },
-	{ r: 31,  g: 106, b: 211 },
+	{ r: 31, g: 106, b: 211 },
+	{ r: 44, g: 161, b: 179 },
+	{ r: 95, g: 178, b: 182 },
+	{ r: 22, g: 60, b: 109 },
+	{ r: 31, g: 106, b: 211 },
 ];
 
 function lerpColor(
@@ -39,17 +39,16 @@ function sampleTextOutline(
 	h: number,
 	step = 2,
 ): Array<{ x: number; y: number }> {
-	const off = document.createElement('canvas');
+	const off = document.createElement("canvas");
 	off.width = w;
 	off.height = h;
-	const ctx = off.getContext('2d');
+	const ctx = off.getContext("2d");
 	if (!ctx) return [];
 	ctx.font = font;
-	ctx.textAlign = 'center';
-	ctx.textBaseline = 'middle';
-	ctx.fillStyle = '#fff';
+	ctx.textAlign = "center";
+	ctx.textBaseline = "middle";
+	ctx.fillStyle = "#fff";
 	ctx.fillText(text, w / 2, h / 2);
-
 
 	const { data } = ctx.getImageData(0, 0, w, h);
 	const points: Array<{ x: number; y: number }> = [];
@@ -64,7 +63,7 @@ function sampleTextOutline(
 				data[(y * w + (x - 1)) * 4 + 3],
 				data[(y * w + (x + 1)) * 4 + 3],
 			];
-			if (neighbours.some(a => a < 20)) {
+			if (neighbours.some((a) => a < 20)) {
 				points.push({ x, y });
 			}
 		}
@@ -93,7 +92,7 @@ export default function FooterBrand() {
 		const wrap = wrapRef.current;
 		if (!canvas || !wrap) return;
 
-		const ctx = canvas.getContext('2d');
+		const ctx = canvas.getContext("2d");
 		if (!ctx) return;
 
 		const cvs: HTMLCanvasElement = canvas;
@@ -109,13 +108,19 @@ export default function FooterBrand() {
 			const dpr = window.devicePixelRatio || 1;
 			cvs.width = rect.width * dpr;
 			cvs.height = rect.height * dpr;
-			cvs.style.width = rect.width + 'px';
-			cvs.style.height = rect.height + 'px';
+			cvs.style.width = rect.width + "px";
+			cvs.style.height = rect.height + "px";
 			c.setTransform(dpr, 0, 0, dpr, 0, 0);
 
 			const fontSize = Math.min(260, Math.max(100, rect.width * 0.24));
 			const font = `800 ${fontSize}px 'Instrument Sans', system-ui, sans-serif`;
-			points = sampleTextOutline('Avalon', font, Math.round(rect.width), Math.round(rect.height), 2);
+			points = sampleTextOutline(
+				"Avalon",
+				font,
+				Math.round(rect.width),
+				Math.round(rect.height),
+				2,
+			);
 
 			orbs = Array.from({ length: 5 }, (_, i) => ({
 				progress: i / 5,
@@ -125,7 +130,6 @@ export default function FooterBrand() {
 				trail: [],
 			}));
 		}
-
 
 		function draw() {
 			const rect = w.getBoundingClientRect();
@@ -143,7 +147,7 @@ export default function FooterBrand() {
 				orb.trail.push({ x: pt.x, y: pt.y });
 				if (orb.trail.length > 30) orb.trail.shift();
 
-				const colorT = ((orb.colorOffset + now * 0.12) % 1 + 1) % 1;
+				const colorT = (((orb.colorOffset + now * 0.12) % 1) + 1) % 1;
 				const rgb = getAuroraColor(colorT);
 
 				for (let t = 0; t < orb.trail.length; t++) {
@@ -171,7 +175,7 @@ export default function FooterBrand() {
 
 				c.beginPath();
 				c.arc(pt.x, pt.y, 2.5, 0, Math.PI * 2);
-				c.fillStyle = 'rgba(255,255,255,0.95)';
+				c.fillStyle = "rgba(255,255,255,0.95)";
 				c.fill();
 			}
 		}
@@ -194,9 +198,9 @@ export default function FooterBrand() {
 	}, []);
 
 	return (
-		<div className={styles.wrap} ref={wrapRef} aria-hidden="true">
-			<span className={styles.text}>Avalon</span>
-			<canvas className={styles.canvas} ref={canvasRef} />
+		<div class={styles.wrap} ref={wrapRef} aria-hidden="true">
+			<span class={styles.text}>Avalon</span>
+			<canvas class={styles.canvas} ref={canvasRef} />
 		</div>
 	);
 }
