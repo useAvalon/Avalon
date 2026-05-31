@@ -33,6 +33,7 @@ const PACKAGE_MAP: Record<string, string[]> = {
 	svelte: ["packages/integrations/svelte/package.json"],
 	solid: ["packages/integrations/solid/package.json"],
 	vue: ["packages/integrations/vue/package.json"],
+	qwik: ["packages/integrations/qwik/package.json"],
 };
 
 const ALL_PACKAGES = Object.values(PACKAGE_MAP).flat();

@@ -25,6 +25,7 @@ jobs:
       svelte: ${{ steps.changes.outputs.svelte }}
       solid: ${{ steps.changes.outputs.solid }}
       vue: ${{ steps.changes.outputs.vue }}
+      qwik: ${{ steps.changes.outputs.qwik }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -33,7 +34,7 @@ jobs:
           filters: |
             core:
               - 'packages/avalon/**'
-              - 'packages/integrations/shared/**'
+              - 'packages/integrations/core/**'
             lit:
               - 'packages/integrations/lit/**'
             react:
@@ -46,6 +47,8 @@ jobs:
               - 'packages/integrations/solid/**'
             vue:
               - 'packages/integrations/vue/**'
+            qwik:
+              - 'packages/integrations/qwik/**'
 
   canary:
     name: Publish Canary
@@ -67,6 +70,11 @@ jobs:
           SHA=$(git rev-parse --short HEAD)
           echo "suffix=canary.${DATE}.${SHA}" >> "$GITHUB_OUTPUT"
 
+      - name: Configure npm auth
+        env:
+          NPM_TOKEN: ${{ secrets.AVALON_RELEASE }}
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+
       - name: Bump and publish changed packages
         run: |
           SUFFIX="${{ steps.version.outputs.suffix }}"
@@ -85,14 +93,14 @@ jobs:
               echo "Publishing ${PKG_NAME}@${BASE_VERSION}-${SUFFIX}"
               PKG_DIR=$(dirname "$CONFIG")
               cd "$PKG_DIR"
-              npm publish --dry-run --tag canary
+              npm publish --tag canary --access public
               cd -
             fi
           }
 
           if [ "${{ needs.detect-changes.outputs.core }}" = "true" ]; then
+            publish_pkg "packages/integrations/core/package.json"
             publish_pkg "packages/avalon/package.json"
-            publish_pkg "packages/integrations/shared/package.json"
           fi
           if [ "${{ needs.detect-changes.outputs.lit }}" = "true" ]; then
             publish_pkg "packages/integrations/lit/package.json"
@@ -112,7 +120,6 @@ jobs:
           if [ "${{ needs.detect-changes.outputs.vue }}" = "true" ]; then
             publish_pkg "packages/integrations/vue/package.json"
           fi
-
-      # Uncomment when ready to actually publish (replace --dry-run with real publish):
-      # Change `npm publish --dry-run` to `npm publish --access public` above
-      # And add NPM_TOKEN secret to the environment
+          if [ "${{ needs.detect-changes.outputs.qwik }}" = "true" ]; then
+            publish_pkg "packages/integrations/qwik/package.json"
+          fi
