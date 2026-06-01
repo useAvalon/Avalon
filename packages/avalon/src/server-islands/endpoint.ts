@@ -10,6 +10,13 @@
  * @module server-islands/endpoint
  */
 
+// Static import so the bundler resolves the virtual module and includes the
+// server island component loaders in the server bundle. The Avalon Vite plugin
+// (`avalon:server-islands`) provides this module via resolveId/load; the Nitro
+// build receives it through `nitro.options.virtual` (see nitro-integration.ts).
+// In dev the endpoint is handled by middleware and this module resolves to an
+// empty manifest, so the static import is always safe.
+import { serverIslandLoaders } from "virtual:server-island-manifest";
 import type { H3Event } from "h3";
 import { h } from "preact";
 import preactRenderToString from "preact-render-to-string";
@@ -27,23 +34,14 @@ type HydrationCondition =
 	| `on:${string}`;
 
 /**
- * Lazily resolved server island loaders from the virtual module.
- * In production builds, the Vite plugin generates this module with static imports
- * to prevent tree-shaking. In dev mode, this will be an empty object and the
- * endpoint falls back to dynamic import().
+ * Server island component loaders, keyed by componentId. Generated at build time
+ * from the manifest. Each loader dynamically imports its component module so the
+ * bundler keeps the component reachable in the server bundle (no tree-shaking).
  */
-let _loadersResolved = false;
-let _loaders: Record<string, () => Promise<{ default: unknown }>> = {};
+const _loaders: Record<string, () => Promise<{ default: unknown }>> =
+	(serverIslandLoaders as Record<string, () => Promise<{ default: unknown }>>) ?? {};
 
-async function getLoaders(): Promise<Record<string, () => Promise<{ default: unknown }>>> {
-	if (_loadersResolved) return _loaders;
-	_loadersResolved = true;
-	try {
-		const manifest = await import(/* @vite-ignore */ "virtual:server-island-manifest");
-		_loaders = manifest.serverIslandLoaders ?? {};
-	} catch {
-		// Expected in dev mode — virtual module not available
-	}
+function getLoaders(): Record<string, () => Promise<{ default: unknown }>> {
 	return _loaders;
 }
 
@@ -179,7 +177,7 @@ export function defineServerIslandHandler(options: ServerIslandEndpointOptions =
 		// 5. Dynamically import the component module
 		let componentModule: { default?: unknown };
 		try {
-			const loaders = await getLoaders();
+			const loaders = getLoaders();
 			const loader = loaders[componentId];
 			if (loader) {
 				componentModule = await loader();

@@ -26,6 +26,7 @@
 
 import { dirname } from "node:path";
 import type { Plugin } from "vite";
+import { addToManifest, generateComponentId } from "../server-islands/manifest.ts";
 
 export interface PageIslandTransformOptions {
 	/** Directory containing page files (default: src/pages/) */
@@ -299,6 +300,14 @@ function buildIslandMeta(
 				autoIsland: false,
 				hasServerProp: hasServer,
 			});
+			// Register server islands in the manifest at transform time. This is the
+			// reliable detection point: it runs (enforce: "pre") before the JSX is
+			// compiled, on the same `srcPath` the runtime renderer hashes. The
+			// build-time manifest is read when generating the Nitro server bundle's
+			// `virtual:server-island-manifest`, so the endpoint can import components.
+			if (hasServer) {
+				addToManifest(generateComponentId(srcPath), srcPath);
+			}
 			continue;
 		}
 

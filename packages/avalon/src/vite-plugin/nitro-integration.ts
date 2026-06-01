@@ -7,7 +7,7 @@
  * - Middleware: Auto-discovered by Nitro from `middleware/` directory
  */
 
-import { existsSync, readdirSync, rmSync } from "node:fs";
+import { type Dirent, existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { stat as fsStat } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, join, relative, resolve } from "node:path";
@@ -40,7 +40,131 @@ import {
 import type { PageModule } from "../nitro/types.ts";
 import { collectCssFromModuleGraph, injectSsrCss } from "../render/collect-css.ts";
 import { generateErrorPage, generateFallback404 } from "../render/error-pages.ts";
+import { generateComponentId } from "../server-islands/manifest.ts";
+import { resolveToRelativePath } from "./server-islands-plugin.ts";
 import type { ResolvedAvalonConfig } from "./types.ts";
+
+/**
+ * Generates the source for the `virtual:server-island-manifest` module by
+ * SCANNING the project's source files from disk. This is provided to the Nitro
+ * server bundle via Nitro's `virtual` option (the Nitro bundle is a separate
+ * Rolldown pass that does not run Avalon's Vite `serverIslandsPlugin`, so the
+ * module must be seeded here).
+ *
+ * IMPORTANT: this MUST NOT depend on Vite `transform`-hook timing. The Nitro
+ * env evaluates this virtual module BEFORE the page-transform registrations run,
+ * so reading the in-memory `getManifest()` Map returns 0 entries at eval time.
+ * Instead we recompute the manifest by scanning `.tsx`/`.jsx` files under the
+ * project's `app/` and `src/` dirs, mirroring the detection logic in
+ * `serverIslandsPlugin` (PascalCase default imports used with a `server` prop).
+ *
+ * The resolved module path uses the EXACT same `resolveToRelativePath` logic the
+ * runtime uses, so `generateComponentId(relativePath)` here matches the id that
+ * `island.tsx` computes at runtime from `src`.
+ */
+function generateServerIslandManifestModule(projectRoot: string): string {
+	const manifest = scanServerIslandManifest(projectRoot);
+	const entries = Object.entries(manifest);
+	let code = `export const serverIslandManifest = ${JSON.stringify(manifest)};\n\n`;
+	code += "export const serverIslandLoaders = {\n";
+	for (const [componentId, modulePath] of entries) {
+		code += `  ${JSON.stringify(componentId)}: () => import(${JSON.stringify(modulePath)}),\n`;
+	}
+	code += "};\n";
+	return code;
+}
+
+/** Regex for PascalCase default imports — `import Foo from "..."`. Multiline. */
+const PASCAL_DEFAULT_IMPORT_RE = /^[ \t]*import\s+([A-Z]\w*)\s+from\s+(['"][^'"]+['"])/gm;
+
+/** Directory names skipped while scanning for server islands. */
+const SCAN_SKIP_DIRS = new Set([
+	"node_modules",
+	"dist",
+	".output",
+	".netlify",
+	".vercel",
+	".cloudflare",
+	".wrangler",
+	".firebase",
+	".amplify-hosting",
+	".git",
+]);
+
+/** Checks whether `localName` is used with a `server` prop in raw JSX. */
+function usesServerProp(code: string, localName: string): boolean {
+	// Non-greedy [\s\S]*? span (not [^>]*) so it still matches when an earlier
+	// attribute value contains a `>` character (e.g. label="a>b").
+	const pattern = new RegExp(String.raw`<${localName}\s[\s\S]*?\bserver\s*[={/>]`);
+	return pattern.test(code);
+}
+
+/**
+ * Recursively collects `.tsx`/`.jsx` source files under `dir`, skipping build
+ * output, dependency, and test files.
+ */
+function collectSourceFiles(dir: string, out: string[]): void {
+	let entries: Dirent[];
+	try {
+		entries = readdirSync(dir, { withFileTypes: true });
+	} catch {
+		return;
+	}
+	for (const entry of entries) {
+		const full = join(dir, entry.name);
+		if (entry.isDirectory()) {
+			if (SCAN_SKIP_DIRS.has(entry.name)) continue;
+			collectSourceFiles(full, out);
+		} else if (entry.isFile()) {
+			if (!/\.(tsx|jsx)$/.test(entry.name)) continue;
+			// Skip test files
+			if (/\.(test|spec)\.[jt]sx$/.test(entry.name)) continue;
+			if (full.includes("__tests__")) continue;
+			out.push(full);
+		}
+	}
+}
+
+/**
+ * Scans the project's source files and builds the server-island manifest
+ * (componentId → project-relative module path). De-duplicated by componentId.
+ */
+function scanServerIslandManifest(projectRoot: string): Record<string, string> {
+	const manifest: Record<string, string> = {};
+	const files: string[] = [];
+	for (const baseName of ["app", "src"]) {
+		const baseDir = join(projectRoot, baseName);
+		if (existsSync(baseDir)) collectSourceFiles(baseDir, files);
+	}
+
+	for (const file of files) {
+		let code: string;
+		try {
+			code = readFileSync(file, "utf8");
+		} catch {
+			continue;
+		}
+		// Quick bail — file must mention a `server` prop somewhere.
+		if (!/\bserver\s*[={/>]/.test(code)) continue;
+
+		PASCAL_DEFAULT_IMPORT_RE.lastIndex = 0;
+		let m: RegExpExecArray | null = PASCAL_DEFAULT_IMPORT_RE.exec(code);
+		for (; m !== null; m = PASCAL_DEFAULT_IMPORT_RE.exec(code)) {
+			const localName = m[1];
+			const importPath = m[2].slice(1, -1);
+			if (!usesServerProp(code, localName)) continue;
+
+			const relativePath = resolveToRelativePath(importPath, file, projectRoot);
+			const componentId = generateComponentId(relativePath);
+			// De-duplicate by componentId (first writer wins; paths are identical).
+			if (!(componentId in manifest)) {
+				manifest[componentId] = relativePath;
+			}
+		}
+	}
+
+	return manifest;
+}
 
 /**
  * Resolves the absolute path to a file inside @useavalon/avalon's source tree.
@@ -125,6 +249,11 @@ export function createNitroIntegration(
 ): NitroIntegrationResult {
 	const nitroOptions = createNitroConfig(nitroConfig, avalonConfig);
 
+	// Project root used by the server-island source scanner. `ResolvedAvalonConfig`
+	// carries no explicit root, and the Vite build runs from the project directory,
+	// so `process.cwd()` is the correct base for resolving `app/` and `src/`.
+	const serverIslandProjectRoot = process.cwd();
+
 	// Nitro v3 Vite plugin — only pass keys that Nitro actually accepts.
 	// Spreading the full nitroOptions leaks Avalon-specific keys (staticAssets,
 	// publicAssets, etc.) which Nitro forwards to Rolldown, causing
@@ -170,6 +299,17 @@ export function createNitroIntegration(
 				handler: serverIslandsRoutePath,
 			},
 		],
+		// Seed the server island manifest into the Nitro server bundle. The Nitro
+		// bundle is a separate Rolldown pass that does not run Avalon's
+		// `serverIslandsPlugin`, so `endpoint.ts`'s `import("virtual:server-island-manifest")`
+		// would otherwise be left unresolved. Nitro's `virtual` option is processed
+		// by its internal `nitro:virtual` plugin inside the server-bundle pass.
+		// The template is a function so it's evaluated lazily, after the manifest
+		// has been populated by the client/SSR passes.
+		virtual: {
+			"virtual:server-island-manifest": () =>
+				generateServerIslandManifestModule(serverIslandProjectRoot),
+		},
 	};
 
 	// Only pass renderer when explicitly configured — passing `undefined`
