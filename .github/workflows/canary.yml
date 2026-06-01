@@ -1,7 +1,16 @@
 name: Canary Release
 
-# Publishes canary releases only for packages that actually changed.
-# Canary versions look like: 0.1.1-canary.20260209.abc1234
+# Publishes a canary release on every push to main that touches packages.
+#
+# Model (Next.js style):
+# - A single "release train" is anchored to the flagship @useavalon/avalon
+#   package's next patch version, e.g. stable 0.1.92 -> train v0.1.93.
+# - Each merge publishes an incrementing pre-release: v0.1.93-canary.0,
+#   v0.1.93-canary.1, ... All canaries appear on the GitHub Releases page as
+#   pre-releases; the stable release keeps the "Latest" badge in the sidebar.
+# - When a stable 0.1.93 ships, the train advances to v0.1.94-canary.0.
+# - Each changed package publishes its own npm version under the canary tag,
+#   sharing the same -canary.N suffix.
 
 on:
   push:
@@ -10,7 +19,7 @@ on:
       - "packages/**"
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
 jobs:
@@ -26,6 +35,7 @@ jobs:
       solid: ${{ steps.changes.outputs.solid }}
       vue: ${{ steps.changes.outputs.vue }}
       qwik: ${{ steps.changes.outputs.qwik }}
+      any: ${{ steps.changes.outputs.core == 'true' || steps.changes.outputs.lit == 'true' || steps.changes.outputs.react == 'true' || steps.changes.outputs.preact == 'true' || steps.changes.outputs.svelte == 'true' || steps.changes.outputs.solid == 'true' || steps.changes.outputs.vue == 'true' || steps.changes.outputs.qwik == 'true' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -53,9 +63,13 @@ jobs:
   canary:
     name: Publish Canary
     needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.any == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -63,12 +77,34 @@ jobs:
 
       - run: bun install
 
-      - name: Generate canary suffix
-        id: version
+      - name: Compute canary train and counter
+        id: train
         run: |
-          DATE=$(date +%Y%m%d)
-          SHA=$(git rev-parse --short HEAD)
-          echo "suffix=canary.${DATE}.${SHA}" >> "$GITHUB_OUTPUT"
+          # Anchor the release train to the flagship @useavalon/avalon next patch.
+          AVALON_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('packages/avalon/package.json','utf-8')).version.split('-')[0])")
+          next_patch() {
+            local base="$1"
+            local maj min pat
+            IFS=. read -r maj min pat <<< "$base"
+            echo "${maj}.${min}.$((pat + 1))"
+          }
+          TRAIN="v$(next_patch "$AVALON_VERSION")"
+
+          # Find the highest existing canary counter for this train, then increment.
+          git fetch --tags --force --quiet
+          LAST_N=$(git tag --list "${TRAIN}-canary.*" \
+            | sed -E "s/.*-canary\.//" \
+            | sort -n | tail -1 || true)
+          if [ -z "$LAST_N" ]; then
+            N=0
+          else
+            N=$((LAST_N + 1))
+          fi
+
+          echo "train=$TRAIN" >> "$GITHUB_OUTPUT"
+          echo "counter=$N" >> "$GITHUB_OUTPUT"
+          echo "tag=${TRAIN}-canary.${N}" >> "$GITHUB_OUTPUT"
+          echo "Release train: ${TRAIN}-canary.${N}"
 
       - name: Configure npm auth
         env:
@@ -77,25 +113,34 @@ jobs:
 
       - name: Bump and publish changed packages
         run: |
-          SUFFIX="${{ steps.version.outputs.suffix }}"
+          N="${{ steps.train.outputs.counter }}"
+
+          next_patch() {
+            local base="$1"
+            local maj min pat
+            IFS=. read -r maj min pat <<< "$base"
+            echo "${maj}.${min}.$((pat + 1))"
+          }
 
           publish_pkg() {
             local CONFIG="$1"
-            if [ -f "$CONFIG" ]; then
-              BASE_VERSION=$(node -e "const c = JSON.parse(require('fs').readFileSync('$CONFIG', 'utf-8')); console.log(c.version.split('-')[0])")
-              node -e "
-                const fs = require('fs');
-                const config = JSON.parse(fs.readFileSync('$CONFIG', 'utf-8'));
-                config.version = '${BASE_VERSION}-${SUFFIX}';
-                fs.writeFileSync('$CONFIG', JSON.stringify(config, null, '\t') + '\n');
-              "
-              PKG_NAME=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$CONFIG', 'utf-8')).name)")
-              echo "Publishing ${PKG_NAME}@${BASE_VERSION}-${SUFFIX}"
-              PKG_DIR=$(dirname "$CONFIG")
-              cd "$PKG_DIR"
-              npm publish --tag canary --access public
-              cd -
+            if [ ! -f "$CONFIG" ]; then
+              return
             fi
+            BASE_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$CONFIG','utf-8')).version.split('-')[0])")
+            CANARY_VERSION="$(next_patch "$BASE_VERSION")-canary.${N}"
+            node -e "
+              const fs = require('fs');
+              const config = JSON.parse(fs.readFileSync('$CONFIG','utf-8'));
+              config.version = '${CANARY_VERSION}';
+              fs.writeFileSync('$CONFIG', JSON.stringify(config, null, '\t') + '\n');
+            "
+            PKG_NAME=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$CONFIG','utf-8')).name)")
+            echo "Publishing ${PKG_NAME}@${CANARY_VERSION}"
+            PKG_DIR=$(dirname "$CONFIG")
+            cd "$PKG_DIR"
+            npm publish --tag canary --access public
+            cd - > /dev/null
           }
 
           if [ "${{ needs.detect-changes.outputs.core }}" = "true" ]; then
@@ -123,3 +168,17 @@ jobs:
           if [ "${{ needs.detect-changes.outputs.qwik }}" = "true" ]; then
             publish_pkg "packages/integrations/qwik/package.json"
           fi
+
+      - name: Create canary tag and GitHub pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.train.outputs.tag }}"
+          # Tag the released commit (do not commit the canary version bumps to main).
+          git tag "$TAG"
+          git push origin "$TAG"
+
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --generate-notes \
+            --prerelease
