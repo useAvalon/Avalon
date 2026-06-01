@@ -73,8 +73,16 @@ function hasServerPropUsage(code: string, componentName: string): boolean {
 /**
  * Resolve an import path to a project-relative path suitable for manifest registration.
  * Handles relative imports, alias imports, and absolute imports.
+ *
+ * Exported so the Nitro integration's source-scanning manifest generator can reuse
+ * the EXACT same resolution logic — the resulting path must equal the `src` that
+ * `island.tsx` hashes at runtime via `generateComponentId(src)`.
  */
-function resolveToRelativePath(importPath: string, fileId: string, projectRoot: string): string {
+export function resolveToRelativePath(
+	importPath: string,
+	fileId: string,
+	projectRoot: string,
+): string {
 	// Already project-relative (starts with /src/ or /app/)
 	if (importPath.startsWith("/src/") || importPath.startsWith("/app/")) {
 		return importPath;
