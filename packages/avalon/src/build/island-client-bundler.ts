@@ -310,8 +310,10 @@ function extractIslandComponents(
 	cwd: string,
 	islands: Map<string, IslandSource>,
 ): void {
-	// Find components used with explicit island prop
-	const islandUsageRe = /<([A-Z]\w*)\s+[^>]*\bisland\b/g;
+	// Find components used with explicit island prop.
+	// Uses [\s\S]*? (non-greedy) instead of [^>]* so it still matches when an
+	// earlier attribute value contains `>` (e.g. server={{ fallback: <Foo /> }}).
+	const islandUsageRe = /<([A-Z]\w*)\s[\s\S]*?\bisland\s*[={]/g;
 	const usedComponents = new Set<string>();
 	let match: RegExpExecArray | null = null;
 	for (match = islandUsageRe.exec(content); match !== null; match = islandUsageRe.exec(content)) {
