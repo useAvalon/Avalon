@@ -25,6 +25,7 @@ vi.mock("virtual:server-island-key", () => ({
 vi.mock("virtual:server-island-manifest", () => ({
 	serverIslandManifest: {},
 	serverIslandLoaders: {},
+	serverIslandCSS: {},
 }));
 
 vi.mock("virtual:server-island-integrations", () => ({}));

@@ -70,7 +70,27 @@ function generateServerIslandManifestModule(projectRoot: string): string {
 	for (const [componentId, modulePath] of entries) {
 		code += `  ${JSON.stringify(componentId)}: () => import(${JSON.stringify(modulePath)}),\n`;
 	}
-	code += "};\n";
+	code += "};\n\n";
+
+	// Extract and embed CSS for Svelte components (their SSR render doesn't
+	// return CSS in production, and the source files aren't on disk at runtime).
+	const cssMap: Record<string, string> = {};
+	for (const [componentId, modulePath] of entries) {
+		if (!modulePath.endsWith(".svelte")) continue;
+		try {
+			const absPath = join(
+				projectRoot,
+				modulePath.startsWith("/") ? modulePath.slice(1) : modulePath,
+			);
+			const source = readFileSync(absPath, "utf8");
+			const styleMatch = source.match(/<style[^>]*>([\s\S]*?)<\/style>/);
+			if (styleMatch) {
+				cssMap[componentId] = styleMatch[1].trim();
+			}
+		} catch {}
+	}
+	code += `export const serverIslandCSS = ${JSON.stringify(cssMap)};\n`;
+
 	return code;
 }
 

@@ -66,6 +66,8 @@ declare module "virtual:server-island-manifest" {
 	export const serverIslandManifest: Record<string, string>;
 	/** Lazy loaders that dynamically import each server island component, preventing tree-shaking */
 	export const serverIslandLoaders: Record<string, () => Promise<{ default: unknown }>>;
+	/** Pre-extracted CSS for Svelte components (componentId → raw CSS string) */
+	export const serverIslandCSS: Record<string, string>;
 }
 
 declare module "virtual:server-island-key" {
