@@ -317,6 +317,31 @@ export function createNitroIntegration(
 				const key = process.env.AVALON_KEY ?? "";
 				return `export const serverIslandKey = ${JSON.stringify(key)};\n`;
 			},
+			// Bundle all framework SSR integrations into the Nitro server function.
+			// Without this, the integration registry's @vite-ignore dynamic imports
+			// leave bare specifiers unresolved in the bundle. This virtual module
+			// statically imports each integration and registers it, ensuring the
+			// bundler traces and inlines the full dependency tree.
+			"virtual:server-island-integrations": () => {
+				// Resolve integration packages to absolute paths so Nitro's bundler
+				// can trace and inline them regardless of the working directory.
+				const solidPath = resolveIntegrationPackagePath("solid", "mod.ts");
+				const vuePath = resolveIntegrationPackagePath("vue", "mod.ts");
+				const sveltePath = resolveIntegrationPackagePath("svelte", "mod.ts");
+				const litPath = resolveIntegrationPackagePath("lit", "mod.ts");
+				const registryPath = resolveAvalonPackagePath("src/core/integrations/registry.ts");
+				return `
+import { registry } from "${registryPath}";
+import { solidIntegration } from "${solidPath}";
+import { vueIntegration } from "${vuePath}";
+import { svelteIntegration } from "${sveltePath}";
+import { litIntegration } from "${litPath}";
+if (solidIntegration) registry.register(solidIntegration);
+if (vueIntegration) registry.register(vueIntegration);
+if (svelteIntegration) registry.register(svelteIntegration);
+if (litIntegration) registry.register(litIntegration);
+`;
+			},
 		},
 	};
 

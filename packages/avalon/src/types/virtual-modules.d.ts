@@ -72,3 +72,8 @@ declare module "virtual:server-island-key" {
 	/** The AES-256-GCM encryption key (base64-encoded) embedded at build time */
 	export const serverIslandKey: string;
 }
+
+declare module "virtual:server-island-integrations" {
+	// Side-effect module that registers framework integrations in the global registry.
+	// No exports — import for side effects only.
+}
