@@ -343,19 +343,17 @@ export function createNitroIntegration(
 			// statically imports each integration and registers it, ensuring the
 			// bundler traces and inlines the full dependency tree.
 			"virtual:server-island-integrations": () => {
-				// Resolve integration packages to absolute paths so Nitro's bundler
-				// can trace and inline them regardless of the working directory.
-				const solidPath = resolveIntegrationPackagePath("solid", "mod.ts");
-				const vuePath = resolveIntegrationPackagePath("vue", "mod.ts");
-				const sveltePath = resolveIntegrationPackagePath("svelte", "mod.ts");
-				const litPath = resolveIntegrationPackagePath("lit", "mod.ts");
 				const registryPath = resolveAvalonPackagePath("src/core/integrations/registry.ts");
+				// Use bare @useavalon/* specifiers — Nitro's noExternals config
+				// (/^@useavalon\//) ensures the bundler inlines them rather than
+				// leaving them as external requires. Absolute paths are fragile
+				// across build environments (local vs CI).
 				return `
 import { registry } from "${registryPath}";
-import { solidIntegration } from "${solidPath}";
-import { vueIntegration } from "${vuePath}";
-import { svelteIntegration } from "${sveltePath}";
-import { litIntegration } from "${litPath}";
+import { solidIntegration } from "@useavalon/solid";
+import { vueIntegration } from "@useavalon/vue";
+import { svelteIntegration } from "@useavalon/svelte";
+import { litIntegration } from "@useavalon/lit";
 if (solidIntegration) registry.register(solidIntegration);
 if (vueIntegration) registry.register(vueIntegration);
 if (svelteIntegration) registry.register(svelteIntegration);
