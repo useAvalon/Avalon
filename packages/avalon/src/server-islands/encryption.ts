@@ -1,4 +1,9 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+// The build-time key is embedded into the server bundle via a virtual module.
+// This allows single-instance deploys to work out-of-the-box without setting
+// AVALON_KEY in the environment. Multi-instance deploys should still set
+// AVALON_KEY so all instances share the same secret.
+import { serverIslandKey as embeddedKey } from "virtual:server-island-key";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
@@ -49,8 +54,22 @@ export function getKey(): string {
 		return envKey;
 	}
 
-	// No AVALON_KEY set.
-	if (env.NODE_ENV === "production" || globalThis.process?.env?.NODE_ENV === "production") {
+	// No AVALON_KEY in environment. Fall back to the build-time-embedded key.
+	// This works out-of-the-box for single-instance deploys (Netlify, Vercel, etc.)
+	// where the same process that rendered the page also handles the endpoint.
+	// For multi-instance deploys (multiple servers/lambdas), set AVALON_KEY so
+	// all instances share the same secret — otherwise one instance encrypts with
+	// its build key and another can't decrypt.
+	if (embeddedKey) {
+		const buf = Buffer.from(embeddedKey, "base64");
+		if (buf.length === KEY_LENGTH) {
+			return embeddedKey;
+		}
+	}
+
+	// No key available at all.
+	const nodeEnv = env.NODE_ENV ?? globalThis.process?.env?.NODE_ENV;
+	if (nodeEnv === "production") {
 		throw new Error(
 			"AVALON_KEY is required in production for server islands. " +
 				"Generate one with `npx avalon key` and set it as an environment variable " +

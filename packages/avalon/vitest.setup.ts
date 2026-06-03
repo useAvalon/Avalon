@@ -11,3 +11,18 @@ import { URLPattern as URLPatternPolyfill } from "urlpattern-polyfill";
 if (typeof (globalThis as { URLPattern?: unknown }).URLPattern === "undefined") {
 	(globalThis as { URLPattern?: unknown }).URLPattern = URLPatternPolyfill;
 }
+
+/**
+ * Mock virtual modules that are provided by Vite plugins at build time.
+ * These don't exist on disk, so vitest can't resolve them without mocking.
+ */
+import { vi } from "vitest";
+
+vi.mock("virtual:server-island-key", () => ({
+	serverIslandKey: "",
+}));
+
+vi.mock("virtual:server-island-manifest", () => ({
+	serverIslandManifest: {},
+	serverIslandLoaders: {},
+}));

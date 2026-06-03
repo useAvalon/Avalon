@@ -309,6 +309,14 @@ export function createNitroIntegration(
 		virtual: {
 			"virtual:server-island-manifest": () =>
 				generateServerIslandManifestModule(serverIslandProjectRoot),
+			// Embed the build-time encryption key so single-instance deploys work
+			// out-of-the-box without setting AVALON_KEY. The serverIslandsPlugin
+			// config() hook generates a key and sets process.env.AVALON_KEY if not
+			// already set by the user — this captures it at build time.
+			"virtual:server-island-key": () => {
+				const key = process.env.AVALON_KEY ?? "";
+				return `export const serverIslandKey = ${JSON.stringify(key)};\n`;
+			},
 		},
 	};
 
