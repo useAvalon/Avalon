@@ -33,7 +33,12 @@ export function generateKey(): string {
  * silently at request time.
  */
 export function getKey(): string {
-	const envKey = process.env.AVALON_KEY;
+	// Read AVALON_KEY via a dynamic pattern that Nitro's bundler does not
+	// statically replace. Nitro substitutes literal `process.env.X` with
+	// build-time values (or undefined), making runtime env vars unreachable.
+	// Using an indirect access preserves runtime resolution.
+	const env = globalThis.process?.env ?? {};
+	const envKey = env.AVALON_KEY;
 	if (envKey) {
 		const buf = Buffer.from(envKey, "base64");
 		if (buf.length !== KEY_LENGTH) {
@@ -45,7 +50,7 @@ export function getKey(): string {
 	}
 
 	// No AVALON_KEY set.
-	if (process.env.NODE_ENV === "production") {
+	if (env.NODE_ENV === "production" || globalThis.process?.env?.NODE_ENV === "production") {
 		throw new Error(
 			"AVALON_KEY is required in production for server islands. " +
 				"Generate one with `npx avalon key` and set it as an environment variable " +
