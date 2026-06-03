@@ -21,6 +21,7 @@ import type { H3Event } from "h3";
 import { h } from "preact";
 import preactRenderToString from "preact-render-to-string";
 import { loadIntegration } from "../islands/integration-loader.ts";
+import { generatePerIslandScript } from "../islands/per-island-script.ts";
 import { decrypt } from "./encryption.ts";
 import { lookupComponent } from "./manifest.ts";
 
@@ -299,9 +300,6 @@ hydrateServerIsland(${JSON.stringify(islandId)},${JSON.stringify(componentPath)}
 				html += hydrationScript;
 			} else {
 				// Production: use the per-island script infrastructure
-				const { generatePerIslandScript } = await import(
-					/* @vite-ignore */ "../islands/per-island-script.ts"
-				);
 				const hydrationScript = generatePerIslandScript({
 					islandId,
 					componentSrc: componentPath,
