@@ -1,9 +1,21 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-// The build-time key is embedded into the server bundle via a virtual module.
-// This allows single-instance deploys to work out-of-the-box without setting
-// AVALON_KEY in the environment. Multi-instance deploys should still set
-// AVALON_KEY so all instances share the same secret.
-import { serverIslandKey as embeddedKey } from "virtual:server-island-key";
+
+/**
+ * The build-time embedded key, loaded from the virtual module when available.
+ * In standalone scripts (e.g. `avalon key` CLI) the virtual module doesn't
+ * exist, so we fall back to empty string (no embedded key = must use env var
+ * or generate at runtime in dev).
+ */
+let embeddedKey = "";
+try {
+	// Dynamic import with a URL trick that defeats static analysis —
+	// this avoids Bun/Node throwing MODULE_NOT_FOUND when the virtual
+	// module isn't provided (CLI scripts, standalone execution).
+	const mod = await import(/* @vite-ignore */ "virtual:server-island-key");
+	embeddedKey = mod.serverIslandKey ?? "";
+} catch {
+	// Expected outside of bundled Nitro/Vite context
+}
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
