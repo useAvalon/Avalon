@@ -311,12 +311,18 @@ function extractIslandComponents(
 	islands: Map<string, IslandSource>,
 ): void {
 	// Find components used with explicit island prop.
-	// Uses [\s\S]*? (non-greedy) instead of [^>]* so it still matches when an
-	// earlier attribute value contains `>` (e.g. server={{ fallback: <Foo /> }}).
-	const islandUsageRe = /<([A-Z]\w*)\s[\s\S]*?\bisland\s*[={]/g;
+	// Two-pass: first [^>]* (can't cross element boundaries, handles 99% of cases),
+	// then a bounded [\s\S]{0,2000}? for multi-line cases where an attribute value
+	// contains `>` (e.g. server={{ fallback: <Foo /> }} island={{ ... }}).
+	// The bound prevents the regex from spanning across multiple JSX elements.
+	const islandUsageRe1 = /<([A-Z]\w*)\s[^>]*\bisland\s*[={]/g;
+	const islandUsageRe2 = /<([A-Z]\w*)\s[\s\S]{0,2000}?\bisland\s*[={]/g;
 	const usedComponents = new Set<string>();
 	let match: RegExpExecArray | null = null;
-	for (match = islandUsageRe.exec(content); match !== null; match = islandUsageRe.exec(content)) {
+	for (match = islandUsageRe1.exec(content); match !== null; match = islandUsageRe1.exec(content)) {
+		usedComponents.add(match[1]);
+	}
+	for (match = islandUsageRe2.exec(content); match !== null; match = islandUsageRe2.exec(content)) {
 		usedComponents.add(match[1]);
 	}
 
