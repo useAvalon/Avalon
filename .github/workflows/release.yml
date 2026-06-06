@@ -2,11 +2,13 @@ name: Release
 
 # Manual workflow for publishing beta, rc, and stable releases.
 # Supports releasing individual packages or everything at once.
+# Automatically detects the semver bump from conventional commit messages
+# since the last release tag. Use bump-override to force a specific bump.
 #
 # Examples:
-#   package=core,  channel=beta,  bump=minor → @useavalon/avalon@0.2.0-beta.1
-#   package=lit,   channel=stable, bump=patch → @useavalon/lit@0.1.1
-#   package=all,   channel=stable, bump=major → all packages to 1.0.0
+#   package=core,  channel=beta  → auto-detects bump from commits
+#   package=lit,   channel=stable, bump-override=major → forces major bump
+#   package=all,   channel=stable → auto-detects bump for all packages
 
 on:
   workflow_dispatch:
@@ -25,11 +27,13 @@ on:
           - vue
           - qwik
           - all
-      bump:
-        description: "Version bump type"
+      bump-override:
+        description: "Version bump override (auto = detect from commits)"
         required: true
         type: choice
+        default: auto
         options:
+          - auto
           - patch
           - minor
           - major
@@ -72,10 +76,93 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Detect semver bump
+        id: detect-bump
+        run: |
+          PACKAGE="${{ inputs.package }}"
+          OVERRIDE="${{ inputs.bump-override }}"
+
+          # If override is set, skip detection
+          if [ "$OVERRIDE" != "auto" ]; then
+            echo "bump=$OVERRIDE" >> "$GITHUB_OUTPUT"
+            echo "reason=manual override ($OVERRIDE)" >> "$GITHUB_OUTPUT"
+            echo "::notice::Detected bump: $OVERRIDE (manual override)"
+            exit 0
+          fi
+
+          # Find the last release tag for this package
+          if [ "$PACKAGE" = "core" ]; then
+            # Core uses avalon/v* or core/v* tags
+            LAST_TAG=$(git tag --list 'avalon/v*' --list 'core/v*' --sort=-v:refname | head -n 1)
+          elif [ "$PACKAGE" = "all" ]; then
+            # For "all", use the most recent tag across all packages
+            LAST_TAG=$(git tag --sort=-creatordate | grep -E '^(avalon|core|lit|react|preact|svelte|solid|vue|qwik)/v' | head -n 1)
+          else
+            # Integration packages use <name>/v* tags
+            LAST_TAG=$(git tag --list "${PACKAGE}/v*" --sort=-v:refname | head -n 1)
+          fi
+
+          # Get commits since last tag (or all commits if no tag exists)
+          if [ -z "$LAST_TAG" ]; then
+            echo "::notice::No previous release tag found for '$PACKAGE'. Defaulting to minor."
+            COMMITS=$(git log --oneline)
+            FULL_COMMITS=$(git log --format="%B---COMMIT_SEPARATOR---")
+          else
+            echo "::notice::Last release tag: $LAST_TAG"
+            COMMITS=$(git log "${LAST_TAG}..HEAD" --oneline)
+            FULL_COMMITS=$(git log "${LAST_TAG}..HEAD" --format="%B---COMMIT_SEPARATOR---")
+          fi
+
+          if [ -z "$COMMITS" ]; then
+            echo "::notice::No new commits since last release. Defaulting to patch."
+            echo "bump=patch" >> "$GITHUB_OUTPUT"
+            echo "reason=no new commits since $LAST_TAG" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Determine bump level from conventional commits
+          BUMP="patch"
+          REASON=""
+
+          # Check for BREAKING CHANGE in commit bodies/footers or ! suffix
+          BREAKING=$(echo "$FULL_COMMITS" | grep -iE '^BREAKING CHANGE:|^BREAKING-CHANGE:' || true)
+          BREAKING_BANG=$(echo "$COMMITS" | grep -E '^[a-f0-9]+ (feat|fix|chore|ci|docs|style|refactor|perf|test|build|revert)(\(.*\))?!:' || true)
+
+          if [ -n "$BREAKING" ] || [ -n "$BREAKING_BANG" ]; then
+            BUMP="major"
+            if [ -n "$BREAKING_BANG" ]; then
+              REASON=$(echo "$BREAKING_BANG" | head -n 1 | sed 's/^[a-f0-9]* //')
+            else
+              REASON="BREAKING CHANGE found in commit body"
+            fi
+          elif echo "$COMMITS" | grep -qE '^[a-f0-9]+ feat(\(.*\))?:'; then
+            BUMP="minor"
+            REASON=$(echo "$COMMITS" | grep -E '^[a-f0-9]+ feat(\(.*\))?:' | head -n 1 | sed 's/^[a-f0-9]* //')
+          else
+            REASON=$(echo "$COMMITS" | head -n 1 | sed 's/^[a-f0-9]* //')
+          fi
+
+          # Handle first release (no tag) — default to minor
+          if [ -z "$LAST_TAG" ] && [ "$BUMP" = "patch" ]; then
+            BUMP="minor"
+            REASON="first release (no previous tag)"
+          fi
+
+          echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+          echo "::notice::Detected bump: $BUMP (based on: $REASON)"
+
+      - name: Print detected bump
+        run: |
+          echo "╔══════════════════════════════════════════════════╗"
+          echo "║ Detected bump: ${{ steps.detect-bump.outputs.bump }}"
+          echo "║ Based on: ${{ steps.detect-bump.outputs.reason }}"
+          echo "╚══════════════════════════════════════════════════╝"
+
       - name: Bump version
         run: |
           bun run scripts/bump-version.ts \
-            --bump=${{ inputs.bump }} \
+            --bump=${{ steps.detect-bump.outputs.bump }} \
             --channel=${{ inputs.channel }} \
             --package=${{ inputs.package }}
 
