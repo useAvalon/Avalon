@@ -16,11 +16,12 @@
 // build receives it through `nitro.options.virtual` (see nitro-integration.ts).
 // In dev the endpoint is handled by middleware and this module resolves to an
 // empty manifest, so the static import is always safe.
-import { serverIslandLoaders } from "virtual:server-island-manifest";
+import { serverIslandCSS, serverIslandLoaders } from "virtual:server-island-manifest";
 import type { H3Event } from "h3";
 import { h } from "preact";
 import preactRenderToString from "preact-render-to-string";
 import { loadIntegration } from "../islands/integration-loader.ts";
+import { generatePerIslandScript } from "../islands/per-island-script.ts";
 import { decrypt } from "./encryption.ts";
 import { lookupComponent } from "./manifest.ts";
 
@@ -242,6 +243,10 @@ export function defineServerIslandHandler(options: ServerIslandEndpointOptions =
 					// Place after HTML to avoid hydration mismatch (Vue expects component root first)
 					if (renderResult.css) {
 						html = `${html}<style>${renderResult.css}</style>`;
+					} else if (serverIslandCSS[componentId]) {
+						// Fallback: use build-time-extracted CSS (Svelte's SSR render
+						// doesn't return CSS in production, so we embed it at build time).
+						html = `${html}<style>${serverIslandCSS[componentId]}</style>`;
 					}
 				}
 			} catch (err) {
@@ -299,9 +304,6 @@ hydrateServerIsland(${JSON.stringify(islandId)},${JSON.stringify(componentPath)}
 				html += hydrationScript;
 			} else {
 				// Production: use the per-island script infrastructure
-				const { generatePerIslandScript } = await import(
-					/* @vite-ignore */ "../islands/per-island-script.ts"
-				);
 				const hydrationScript = generatePerIslandScript({
 					islandId,
 					componentSrc: componentPath,

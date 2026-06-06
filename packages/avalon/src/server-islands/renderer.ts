@@ -9,7 +9,7 @@ import type { ServerIslandProp } from "./types.ts";
  * and Nitro's dev worker (they load separate module instances).
  * The payload is prefixed with "dev." so the endpoint can detect the mode.
  */
-const IS_DEV = process.env.NODE_ENV !== "production";
+const IS_DEV = (globalThis.process?.env ?? {}).NODE_ENV !== "production";
 
 function encodeProps(serializedProps: string): string {
 	if (IS_DEV) {

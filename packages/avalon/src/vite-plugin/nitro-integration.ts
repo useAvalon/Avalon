@@ -70,7 +70,27 @@ function generateServerIslandManifestModule(projectRoot: string): string {
 	for (const [componentId, modulePath] of entries) {
 		code += `  ${JSON.stringify(componentId)}: () => import(${JSON.stringify(modulePath)}),\n`;
 	}
-	code += "};\n";
+	code += "};\n\n";
+
+	// Extract and embed CSS for Svelte components (their SSR render doesn't
+	// return CSS in production, and the source files aren't on disk at runtime).
+	const cssMap: Record<string, string> = {};
+	for (const [componentId, modulePath] of entries) {
+		if (!modulePath.endsWith(".svelte")) continue;
+		try {
+			const absPath = join(
+				projectRoot,
+				modulePath.startsWith("/") ? modulePath.slice(1) : modulePath,
+			);
+			const source = readFileSync(absPath, "utf8");
+			const styleMatch = source.match(/<style[^>]*>([\s\S]*?)<\/style>/);
+			if (styleMatch) {
+				cssMap[componentId] = styleMatch[1].trim();
+			}
+		} catch {}
+	}
+	code += `export const serverIslandCSS = ${JSON.stringify(cssMap)};\n`;
+
 	return code;
 }
 
@@ -309,6 +329,37 @@ export function createNitroIntegration(
 		virtual: {
 			"virtual:server-island-manifest": () =>
 				generateServerIslandManifestModule(serverIslandProjectRoot),
+			// Embed the build-time encryption key so single-instance deploys work
+			// out-of-the-box without setting AVALON_KEY. The serverIslandsPlugin
+			// config() hook generates a key and sets process.env.AVALON_KEY if not
+			// already set by the user — this captures it at build time.
+			"virtual:server-island-key": () => {
+				const key = process.env.AVALON_KEY ?? "";
+				return `export const serverIslandKey = ${JSON.stringify(key)};\n`;
+			},
+			// Bundle all framework SSR integrations into the Nitro server function.
+			// Without this, the integration registry's @vite-ignore dynamic imports
+			// leave bare specifiers unresolved in the bundle. This virtual module
+			// statically imports each integration and registers it, ensuring the
+			// bundler traces and inlines the full dependency tree.
+			"virtual:server-island-integrations": () => {
+				const registryPath = resolveAvalonPackagePath("src/core/integrations/registry.ts");
+				// Use bare @useavalon/* specifiers — Nitro's noExternals config
+				// (/^@useavalon\//) ensures the bundler inlines them rather than
+				// leaving them as external requires. Absolute paths are fragile
+				// across build environments (local vs CI).
+				return `
+import { registry } from "${registryPath}";
+import { solidIntegration } from "@useavalon/solid";
+import { vueIntegration } from "@useavalon/vue";
+import { svelteIntegration } from "@useavalon/svelte";
+import { litIntegration } from "@useavalon/lit";
+if (solidIntegration) registry.register(solidIntegration);
+if (vueIntegration) registry.register(vueIntegration);
+if (svelteIntegration) registry.register(svelteIntegration);
+if (litIntegration) registry.register(litIntegration);
+`;
+			},
 		},
 	};
 

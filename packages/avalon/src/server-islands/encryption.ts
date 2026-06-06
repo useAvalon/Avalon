@@ -1,5 +1,22 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
+/**
+ * The build-time embedded key, loaded from the virtual module when available.
+ * In standalone scripts (e.g. `avalon key` CLI) the virtual module doesn't
+ * exist, so we fall back to empty string (no embedded key = must use env var
+ * or generate at runtime in dev).
+ */
+let embeddedKey = "";
+try {
+	// Dynamic import with a URL trick that defeats static analysis —
+	// this avoids Bun/Node throwing MODULE_NOT_FOUND when the virtual
+	// module isn't provided (CLI scripts, standalone execution).
+	const mod = await import(/* @vite-ignore */ "virtual:server-island-key");
+	embeddedKey = mod.serverIslandKey ?? "";
+} catch {
+	// Expected outside of bundled Nitro/Vite context
+}
+
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
 const KEY_LENGTH = 32;
@@ -33,7 +50,12 @@ export function generateKey(): string {
  * silently at request time.
  */
 export function getKey(): string {
-	const envKey = process.env.AVALON_KEY;
+	// Read AVALON_KEY via a dynamic pattern that Nitro's bundler does not
+	// statically replace. Nitro substitutes literal `process.env.X` with
+	// build-time values (or undefined), making runtime env vars unreachable.
+	// Using an indirect access preserves runtime resolution.
+	const env = globalThis.process?.env ?? {};
+	const envKey = env.AVALON_KEY;
 	if (envKey) {
 		const buf = Buffer.from(envKey, "base64");
 		if (buf.length !== KEY_LENGTH) {
@@ -44,8 +66,22 @@ export function getKey(): string {
 		return envKey;
 	}
 
-	// No AVALON_KEY set.
-	if (process.env.NODE_ENV === "production") {
+	// No AVALON_KEY in environment. Fall back to the build-time-embedded key.
+	// This works out-of-the-box for single-instance deploys (Netlify, Vercel, etc.)
+	// where the same process that rendered the page also handles the endpoint.
+	// For multi-instance deploys (multiple servers/lambdas), set AVALON_KEY so
+	// all instances share the same secret — otherwise one instance encrypts with
+	// its build key and another can't decrypt.
+	if (embeddedKey) {
+		const buf = Buffer.from(embeddedKey, "base64");
+		if (buf.length === KEY_LENGTH) {
+			return embeddedKey;
+		}
+	}
+
+	// No key available at all.
+	const nodeEnv = env.NODE_ENV ?? globalThis.process?.env?.NODE_ENV;
+	if (nodeEnv === "production") {
 		throw new Error(
 			"AVALON_KEY is required in production for server islands. " +
 				"Generate one with `npx avalon key` and set it as an environment variable " +
