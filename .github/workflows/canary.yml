@@ -17,6 +17,23 @@ on:
     branches: [main]
     paths:
       - "packages/**"
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: "Packages to publish a canary for (manual run)"
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - core
+          - lit
+          - react
+          - preact
+          - svelte
+          - solid
+          - vue
+          - qwik
 
 permissions:
   contents: write
@@ -27,19 +44,20 @@ jobs:
     name: Detect Changed Packages
     runs-on: ubuntu-latest
     outputs:
-      core: ${{ steps.changes.outputs.core }}
-      lit: ${{ steps.changes.outputs.lit }}
-      react: ${{ steps.changes.outputs.react }}
-      preact: ${{ steps.changes.outputs.preact }}
-      svelte: ${{ steps.changes.outputs.svelte }}
-      solid: ${{ steps.changes.outputs.solid }}
-      vue: ${{ steps.changes.outputs.vue }}
-      qwik: ${{ steps.changes.outputs.qwik }}
-      any: ${{ steps.changes.outputs.core == 'true' || steps.changes.outputs.lit == 'true' || steps.changes.outputs.react == 'true' || steps.changes.outputs.preact == 'true' || steps.changes.outputs.svelte == 'true' || steps.changes.outputs.solid == 'true' || steps.changes.outputs.vue == 'true' || steps.changes.outputs.qwik == 'true' }}
+      core: ${{ steps.resolve.outputs.core }}
+      lit: ${{ steps.resolve.outputs.lit }}
+      react: ${{ steps.resolve.outputs.react }}
+      preact: ${{ steps.resolve.outputs.preact }}
+      svelte: ${{ steps.resolve.outputs.svelte }}
+      solid: ${{ steps.resolve.outputs.solid }}
+      vue: ${{ steps.resolve.outputs.vue }}
+      qwik: ${{ steps.resolve.outputs.qwik }}
+      any: ${{ steps.resolve.outputs.any }}
     steps:
       - uses: actions/checkout@v5
       - uses: dorny/paths-filter@v3
         id: changes
+        if: github.event_name == 'push'
         with:
           filters: |
             core:
@@ -59,6 +77,41 @@ jobs:
               - 'packages/integrations/vue/**'
             qwik:
               - 'packages/integrations/qwik/**'
+      - name: Resolve publish targets
+        id: resolve
+        env:
+          # Empty on push; the selected option on manual dispatch.
+          SELECTION: ${{ inputs.packages }}
+        run: |
+          set -euo pipefail
+          declare -A VAL
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Manual run: honor the selected package (or "all").
+            for p in core lit react preact svelte solid vue qwik; do
+              if [ "$SELECTION" = "all" ] || [ "$SELECTION" = "$p" ]; then
+                VAL[$p]=true
+              else
+                VAL[$p]=false
+              fi
+            done
+          else
+            # Push run: mirror the paths-filter results (default missing → false).
+            VAL[core]='${{ steps.changes.outputs.core || 'false' }}'
+            VAL[lit]='${{ steps.changes.outputs.lit || 'false' }}'
+            VAL[react]='${{ steps.changes.outputs.react || 'false' }}'
+            VAL[preact]='${{ steps.changes.outputs.preact || 'false' }}'
+            VAL[svelte]='${{ steps.changes.outputs.svelte || 'false' }}'
+            VAL[solid]='${{ steps.changes.outputs.solid || 'false' }}'
+            VAL[vue]='${{ steps.changes.outputs.vue || 'false' }}'
+            VAL[qwik]='${{ steps.changes.outputs.qwik || 'false' }}'
+          fi
+
+          ANY=false
+          for p in core lit react preact svelte solid vue qwik; do
+            echo "${p}=${VAL[$p]}" >> "$GITHUB_OUTPUT"
+            if [ "${VAL[$p]}" = "true" ]; then ANY=true; fi
+          done
+          echo "any=${ANY}" >> "$GITHUB_OUTPUT"
 
   canary:
     name: Publish Canary
