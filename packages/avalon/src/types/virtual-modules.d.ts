@@ -79,3 +79,17 @@ declare module "virtual:server-island-integrations" {
 	// Side-effect module that registers framework integrations in the global registry.
 	// No exports — import for side effects only.
 }
+
+declare module "virtual:avalon-actions-manifest" {
+	/** The project's `server` export (tree of actions/namespaces), bundled into the Nitro server. */
+	export const server: Record<string, unknown>;
+}
+
+declare module "virtual:avalon/actions" {
+	/**
+	 * The typed action client proxy. This declaration is overridden by the
+	 * generated `avalon-actions.d.ts` when an actions entry exists, which types
+	 * `actions` against the project's `server` export.
+	 */
+	export const actions: Record<string, (input?: unknown) => Promise<unknown>>;
+}

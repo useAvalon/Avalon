@@ -6,6 +6,35 @@ export type {
 	RenderParams as IntegrationRenderParams,
 	RenderResult,
 } from "@useavalon/core";
+// Server Actions
+export {
+	ACTION_ERROR_STATUS,
+	ActionError,
+	type ActionErrorOptions,
+	createActionClient,
+	defineAction,
+	isAction,
+	isActionError,
+} from "./src/actions/define.ts";
+export type {
+	AcceptMode,
+	Action,
+	ActionClient,
+	ActionClientOptions,
+	ActionConfig,
+	ActionContext,
+	ActionErrorCode,
+	ActionNamespace,
+	ActionResult,
+	SerializedActionError,
+} from "./src/actions/types.ts";
+export type { ActionsTypeGenerationResult } from "./src/build/actions-types-generator.ts";
+// Server action type generation
+export {
+	findActionsEntryInfo,
+	generateActionTypes,
+	getActionsWatchDir,
+} from "./src/build/actions-types-generator.ts";
 export type {
 	ExtendedIslandEntry,
 	ExtendedIslandManifest,

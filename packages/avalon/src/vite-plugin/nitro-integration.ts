@@ -15,6 +15,7 @@ import type { H3Event } from "h3";
 import { nitro as nitroVitePlugin } from "nitro/vite";
 import type { Plugin, ViteDevServer } from "vite";
 import { isRunnableDevEnvironment } from "vite";
+import { generateActionTypes } from "../build/actions-types-generator.ts";
 import { getUniversalCSSForHead } from "../islands/universal-css-collector.ts";
 import {
 	getUniversalHeadForInjection,
@@ -187,6 +188,54 @@ function scanServerIslandManifest(projectRoot: string): Record<string, string> {
 }
 
 /**
+ * Locates the project's server-actions entry file, if any. Checks
+ * `app/actions/index.*` then `src/actions/index.*` under the project root and
+ * returns the path as a project-relative specifier (`/app/...` or `/src/...`),
+ * matching the convention Rolldown resolves in the Nitro bundle. Returns
+ * `undefined` when no actions entry exists.
+ */
+function findActionsEntry(projectRoot: string): string | undefined {
+	const exts = ["ts", "tsx", "js", "jsx", "mts", "mjs"];
+	for (const baseName of ["app", "src"]) {
+		for (const ext of exts) {
+			const rel = `/${baseName}/actions/index.${ext}`;
+			if (existsSync(join(projectRoot, rel.slice(1)))) return rel;
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Generates the source for `virtual:avalon-actions-manifest`. Provided to the
+ * Nitro server bundle via Nitro's `virtual` option (a separate Rolldown pass
+ * that does not run Avalon's Vite plugins). When an actions entry exists it
+ * statically re-exports the project's `server` object so the handlers are
+ * bundled into the server function; otherwise it emits an empty registry.
+ */
+function generateActionsManifestModule(projectRoot: string): string {
+	const entry = findActionsEntry(projectRoot);
+	if (!entry) {
+		return "export const server = {};\n";
+	}
+	return `export { server } from ${JSON.stringify(entry)};\n`;
+}
+
+/**
+ * Generates the runtime `virtual:avalon/actions` module: a ready-to-use typed
+ * action client proxy. Contains ONLY the fetch proxy (no handler source), so it
+ * is safe to include in the browser bundle. Types are supplied by the generated
+ * `avalon-actions.d.ts` ambient declaration.
+ */
+function generateActionsClientModule(): string {
+	return [
+		`import { createActionClient } from "@useavalon/avalon/actions";`,
+		`export const actions = createActionClient();`,
+		`export default actions;`,
+		"",
+	].join("\n");
+}
+
+/**
  * Resolves the absolute path to a file inside @useavalon/avalon's source tree.
  * Handles both workspace (.ts source) and published (.js compiled) layouts.
  */
@@ -230,6 +279,7 @@ export const VIRTUAL_MODULE_IDS = {
 	RENDERER: "virtual:avalon/renderer",
 	CLIENT_ENTRY: "virtual:avalon/client-entry",
 	INTEGRATION_LOADER: "virtual:avalon/integration-loader",
+	ACTIONS: "virtual:avalon/actions",
 } as const;
 
 export const RESOLVED_VIRTUAL_IDS = {
@@ -243,6 +293,7 @@ export const RESOLVED_VIRTUAL_IDS = {
 	RENDERER: `\0${VIRTUAL_MODULE_IDS.RENDERER}`,
 	CLIENT_ENTRY: `\0${VIRTUAL_MODULE_IDS.CLIENT_ENTRY}`,
 	INTEGRATION_LOADER: `\0${VIRTUAL_MODULE_IDS.INTEGRATION_LOADER}`,
+	ACTIONS: `\0${VIRTUAL_MODULE_IDS.ACTIONS}`,
 } as const;
 
 export interface NitroIntegrationResult {
@@ -285,6 +336,7 @@ export function createNitroIntegration(
 	// NOTE: Only registered for production builds. In dev mode, the server islands
 	// endpoint is handled by the coordination plugin's SSR middleware.
 	const serverIslandsRoutePath = resolveAvalonPackagePath("src/server-islands/route.ts");
+	const actionsRoutePath = resolveAvalonPackagePath("src/actions/route.ts");
 
 	const nitroVitePluginOptions: Record<string, unknown> = {
 		preset: nitroOptions.preset,
@@ -318,6 +370,10 @@ export function createNitroIntegration(
 				route: "/_server-islands/**",
 				handler: serverIslandsRoutePath,
 			},
+			{
+				route: "/_actions/**",
+				handler: actionsRoutePath,
+			},
 		],
 		// Seed the server island manifest into the Nitro server bundle. The Nitro
 		// bundle is a separate Rolldown pass that does not run Avalon's
@@ -329,6 +385,13 @@ export function createNitroIntegration(
 		virtual: {
 			"virtual:server-island-manifest": () =>
 				generateServerIslandManifestModule(serverIslandProjectRoot),
+			// Bundle the project's server actions into the Nitro server function.
+			// Like the server-island manifest, the Nitro bundle is a separate
+			// Rolldown pass that does not run Avalon's Vite plugins, so
+			// `actions/route.ts`'s `import("virtual:avalon-actions-manifest")`
+			// must be seeded here. Statically re-exports the user's `server` object.
+			"virtual:avalon-actions-manifest": () =>
+				generateActionsManifestModule(serverIslandProjectRoot),
 			// Embed the build-time encryption key so single-instance deploys work
 			// out-of-the-box without setting AVALON_KEY. The serverIslandsPlugin
 			// config() hook generates a key and sets process.env.AVALON_KEY if not
@@ -496,10 +559,31 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 			// __avalonConfig is set by the main avalon plugin with the resolved isDev value.
 			globalThis.__avalonHydrationMode =
 				_config.command === "serve" ? "entry-client" : "per-island";
+
+			// Generate the typed `virtual:avalon/actions` ambient declaration so the
+			// `actions` client proxy infers input/output from the project's `server`
+			// export. No-op when no actions entry exists.
+			try {
+				generateActionTypes(_config.root || process.cwd());
+			} catch {
+				// Type generation is best-effort — never block the build.
+			}
 		},
 
 		configureServer(server: ViteDevServer) {
 			globalThis.__viteDevServer = server;
+
+			// Regenerate the typed actions declaration when action files change.
+			const projectRoot = server.config.root || process.cwd();
+			const regenActionTypes = (file: string) => {
+				if (file.includes("/actions/")) {
+					try {
+						generateActionTypes(projectRoot);
+					} catch {}
+				}
+			};
+			server.watcher.on("add", regenActionTypes);
+			server.watcher.on("unlink", regenActionTypes);
 
 			// Clean stale build output that interferes with dev mode.
 			// The `dist/` directory (Vite's build outDir) contains prerendered HTML
@@ -739,6 +823,91 @@ hydrateServerIsland(${JSON.stringify(islandId)},${JSON.stringify(componentPath)}
 					res.setHeader("Content-Type", "text/plain");
 					res.end(
 						`Server island render failed: ${error instanceof Error ? error.message : String(error)}`,
+					);
+				}
+			});
+
+			// Server actions middleware — handles /_actions/ requests in dev mode.
+			// Loads the project's actions entry + endpoint via Vite's SSR module
+			// runner so the user's handlers, Zod schemas, and ActionError class all
+			// share the SSR module realm (keeping `instanceof` checks valid). This
+			// mirrors the production Nitro handler exactly — no silent fallbacks.
+			server.middlewares.use(async (req, res, next) => {
+				const url = req.url || "/";
+				if (!url.startsWith("/_actions/")) return next();
+				if (!ssrIsRunnable) return next();
+
+				try {
+					const root = server.config.root || process.cwd();
+					const entryRel = findActionsEntry(root);
+
+					const [endpointMod, registryMod, actionsMod] = await Promise.all([
+						server.ssrLoadModule(resolveAvalonPackagePath("src/actions/endpoint.ts")),
+						server.ssrLoadModule(resolveAvalonPackagePath("src/actions/registry.ts")),
+						entryRel
+							? server.ssrLoadModule(entryRel)
+							: Promise.resolve({ server: {} } as { server: unknown }),
+					]);
+
+					const registry = registryMod.flattenActions((actionsMod as { server?: unknown }).server);
+					const handler = endpointMod.defineActionHandler({ registry, isDev: true });
+
+					// Build a web Request from the Node request (only POST has a body).
+					const fullUrl = new URL(url, `http://${req.headers.host || "localhost"}`);
+					const method = (req.method || "GET").toUpperCase();
+					let body: string | undefined;
+					if (method === "POST") {
+						body = await new Promise<string>((resolve, reject) => {
+							const chunks: Buffer[] = [];
+							const onData = (chunk: Buffer) => chunks.push(chunk);
+							const onEnd = () => {
+								cleanup();
+								resolve(Buffer.concat(chunks).toString("utf8"));
+							};
+							const onError = (err: Error) => {
+								cleanup();
+								reject(err);
+							};
+							const timer = setTimeout(() => {
+								cleanup();
+								reject(new Error("Timed out reading action request body"));
+							}, 15000);
+							function cleanup() {
+								clearTimeout(timer);
+								req.off("data", onData);
+								req.off("end", onEnd);
+								req.off("error", onError);
+							}
+							req.on("data", onData);
+							req.on("end", onEnd);
+							req.on("error", onError);
+						});
+					}
+
+					const request = new Request(fullUrl, {
+						method,
+						headers: req.headers as Record<string, string>,
+						body,
+					});
+					const event = { url: fullUrl, web: { request }, context: {} };
+
+					const response = await handler(event);
+					res.statusCode = response.status;
+					response.headers.forEach((value: string, key: string) => {
+						res.setHeader(key, value);
+					});
+					res.end(await response.text());
+				} catch (error) {
+					console.error("[actions] Dev handler error:", error);
+					res.statusCode = 500;
+					res.setHeader("Content-Type", "application/json");
+					res.end(
+						JSON.stringify({
+							error: {
+								code: "INTERNAL_SERVER_ERROR",
+								message: error instanceof Error ? error.message : String(error),
+							},
+						}),
 					);
 				}
 			});
@@ -1040,6 +1209,7 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 			if (id === VIRTUAL_MODULE_IDS.CLIENT_ENTRY) return RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY;
 			if (id === VIRTUAL_MODULE_IDS.INTEGRATION_LOADER)
 				return RESOLVED_VIRTUAL_IDS.INTEGRATION_LOADER;
+			if (id === VIRTUAL_MODULE_IDS.ACTIONS) return RESOLVED_VIRTUAL_IDS.ACTIONS;
 			return null;
 		},
 
@@ -1069,6 +1239,7 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 				return await generateClientEntryModule(avalonConfig, nitroConfig);
 			if (id === RESOLVED_VIRTUAL_IDS.INTEGRATION_LOADER)
 				return generateIntegrationLoaderModule(avalonConfig);
+			if (id === RESOLVED_VIRTUAL_IDS.ACTIONS) return generateActionsClientModule();
 			return null;
 		},
 
