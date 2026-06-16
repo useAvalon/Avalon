@@ -90,16 +90,63 @@ jobs:
           }
           TRAIN="v$(next_patch "$AVALON_VERSION")"
 
-          # Find the highest existing canary counter for this train, then increment.
+          # Determine the next canary counter. The counter must be greater than
+          # any -canary.N already PUBLISHED to npm (the source of truth) as well
+          # as any existing git tag. Deriving from npm makes the workflow robust
+          # to partial failures: if a previous run published some packages but
+          # failed before tagging, we still advance past the published versions
+          # instead of colliding (npm 403 "cannot publish over existing version").
           git fetch --tags --force --quiet
-          LAST_N=$(git tag --list "${TRAIN}-canary.*" \
+
+          # Highest N among existing git tags for this train.
+          TAG_N=$(git tag --list "${TRAIN}-canary.*" \
             | sed -E "s/.*-canary\.//" \
-            | sort -n | tail -1 || true)
-          if [ -z "$LAST_N" ]; then
-            N=0
-          else
-            N=$((LAST_N + 1))
-          fi
+            | sort -n | tail -1)
+          [ -z "$TAG_N" ] && TAG_N=-1
+
+          # Highest published canary N for a package, matching its own canary
+          # base version (next patch of its current stable). Persisted canaries
+          # from older trains use a different base, so they're correctly ignored.
+          max_published_n() {
+            local cfg="$1"
+            [ -f "$cfg" ] || { echo -1; return; }
+            local name base
+            name=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$cfg','utf-8')).name)")
+            base=$(node -e "
+              const v = JSON.parse(require('fs').readFileSync('$cfg','utf-8')).version.split('-')[0];
+              const [a, b, c] = v.split('.').map(Number);
+              console.log(\`\${a}.\${b}.\${c + 1}\`);
+            ")
+            npm view "$name" versions --json 2>/dev/null | node -e "
+              const base = process.argv[1];
+              let s = '';
+              process.stdin.on('data', (d) => (s += d)).on('end', () => {
+                let v;
+                try { v = JSON.parse(s); } catch { v = []; }
+                if (!Array.isArray(v)) v = v ? [v] : [];
+                const re = new RegExp('^' + base.replace(/\./g, '\\\\.') + '-canary\\\\.(\\\\d+)\$');
+                const ns = v.map((x) => { const m = re.exec(x); return m ? +m[1] : -1; }).filter((n) => n >= 0);
+                console.log(ns.length ? Math.max(...ns) : -1);
+              });
+            " "$base"
+          }
+
+          MAX="$TAG_N"
+          for CFG in \
+            packages/avalon/package.json \
+            packages/integrations/core/package.json \
+            packages/integrations/lit/package.json \
+            packages/integrations/react/package.json \
+            packages/integrations/preact/package.json \
+            packages/integrations/svelte/package.json \
+            packages/integrations/solid/package.json \
+            packages/integrations/vue/package.json \
+            packages/integrations/qwik/package.json; do
+            PUB_N=$(max_published_n "$CFG")
+            if [ "$PUB_N" -gt "$MAX" ]; then MAX="$PUB_N"; fi
+          done
+
+          N=$((MAX + 1))
 
           echo "train=$TRAIN" >> "$GITHUB_OUTPUT"
           echo "counter=$N" >> "$GITHUB_OUTPUT"
@@ -136,6 +183,13 @@ jobs:
               fs.writeFileSync('$CONFIG', JSON.stringify(config, null, '\t') + '\n');
             "
             PKG_NAME=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$CONFIG','utf-8')).name)")
+            # Idempotency safety net: never attempt to publish over an existing
+            # version (npm returns 403). The counter is computed to avoid this,
+            # but a re-run of the same commit could otherwise collide.
+            if npm view "${PKG_NAME}@${CANARY_VERSION}" version >/dev/null 2>&1; then
+              echo "Skip: ${PKG_NAME}@${CANARY_VERSION} already published"
+              return
+            fi
             echo "Publishing ${PKG_NAME}@${CANARY_VERSION}"
             PKG_DIR=$(dirname "$CONFIG")
             cd "$PKG_DIR"
