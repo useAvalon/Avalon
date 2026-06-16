@@ -10,7 +10,13 @@
  * @module actions/define
  */
 
-import { ACTION_MARKER, type Action, type ActionConfig, type ActionErrorCode } from "./types.ts";
+import {
+	ACTION_MARKER,
+	type Action,
+	type ActionConfig,
+	type ActionContext,
+	type ActionErrorCode,
+} from "./types.ts";
 
 /** Maps each {@link ActionErrorCode} to its HTTP status code. */
 export const ACTION_ERROR_STATUS: Record<ActionErrorCode, number> = {
@@ -117,15 +123,16 @@ export function defineAction<TInput, TOutput>(
 	config: ActionConfig<TInput, TOutput>,
 ): Action<TInput, Awaited<TOutput>> {
 	const accept = config.accept ?? "json";
-	const handler = async (input: TInput, context: Parameters<typeof config.handler>[1]) =>
-		(await config.handler(input, context)) as Awaited<TOutput>;
+	const handler = async (input: TInput, context: ActionContext): Promise<Awaited<TOutput>> => {
+		return await config.handler(input, context);
+	};
 
 	return {
 		[ACTION_MARKER]: true,
 		input: config.input,
 		accept,
 		handler,
-	} satisfies Action<TInput, Awaited<TOutput>>;
+	};
 }
 
 export { createActionClient } from "./client.ts";
