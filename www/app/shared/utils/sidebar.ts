@@ -34,6 +34,7 @@ export const SIDEBAR: SidebarCategory[] = [
 			{ title: "Modules", href: "/docs/modules" },
 			{ title: "Client-Side Scripts", href: "/docs/client-scripts" },
 			{ title: "API Routes", href: "/docs/api-routes" },
+			{ title: "Server Actions", href: "/docs/server-actions" },
 			{ title: "Streaming SSR", href: "/docs/streaming-ssr" },
 			{ title: "Middleware", href: "/docs/middleware" },
 		],

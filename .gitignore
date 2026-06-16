@@ -37,6 +37,9 @@ packages/avalon/src/client/**/*.js
 *.solid.d.ts
 *.qwik.d.ts
 
+# Auto-generated server-actions client type declaration
+avalon-actions.d.ts
+
 # OS files
 .DS_Store
 Thumbs.db

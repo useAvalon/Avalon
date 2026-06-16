@@ -40,6 +40,7 @@
 	},
 	"exports": {
 		".": "./mod.ts",
+		"./actions": "./src/actions/define.ts",
 		"./client": "./src/client/components.ts",
 		"./client/main": "./src/client/main.js",
 		"./client/main-slim": "./src/client/main-slim.js",

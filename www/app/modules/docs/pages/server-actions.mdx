@@ -1,0 +1,131 @@
+---
+title: Server Actions
+description: Type-safe server functions with Zod validation, callable from the client via a typed proxy.
+---
+
+Server actions are type-safe server functions you call from the client without
+hand-writing an API route, `fetch`, or response validation. Define an action
+with `defineAction`, give it a [Zod](https://zod.dev) schema for input, and call
+it from the client through a typed proxy that returns a predictable
+`{ data, error }` result. Forms work too, with progressive enhancement.
+
+## Defining actions
+
+Create `app/actions/index.ts` (or `src/actions/index.ts`) and export a `server`
+object. Each action is created with `defineAction`:
+
+```ts
+// app/actions/index.ts
+import { defineAction, ActionError } from "@useavalon/avalon/actions";
+import { z } from "zod";
+
+export const server = {
+  greet: defineAction({
+    input: z.object({ name: z.string().min(1) }),
+    handler: async ({ name }) => {
+      return { message: `Hello, ${name}!` };
+    },
+  }),
+
+  // Nested namespaces become dotted names (e.g. "user.like").
+  user: {
+    like: defineAction({
+      input: z.object({ postId: z.string() }),
+      handler: async ({ postId }, ctx) => {
+        const uid = ctx.cookies.get("uid");
+        if (!uid) throw new ActionError({ code: "UNAUTHORIZED" });
+        return { liked: postId };
+      },
+    }),
+  },
+};
+```
+
+Each handler receives the validated `input` and a `context` with the raw
+`event`, the web `request`, `headers`, and a `cookies.get(name)` helper.
+
+## Calling actions from the client
+
+Import the typed `actions` proxy. Types are inferred from your `server` export
+automatically:
+
+```ts
+import { actions } from "virtual:avalon/actions";
+
+const { data, error } = await actions.greet({ name: "World" });
+if (error) {
+  console.error(error.code, error.message);
+} else {
+  console.log(data.message); // typed
+}
+```
+
+The proxy never throws for action failures — it always resolves to a
+`{ data, error }` result. On success `error` is `undefined`; on failure `data`
+is `undefined` and `error` is an `ActionError` with a `code`, `message`, and
+(for validation failures) `fields`.
+
+### Explicit client (no virtual module)
+
+If you prefer not to use the virtual import, build a typed client yourself:
+
+```ts
+import { createActionClient } from "@useavalon/avalon/actions";
+import type { server } from "@/actions";
+
+export const actions = createActionClient<typeof server>();
+```
+
+## Progressive form enhancement
+
+Set `accept: "form"` to parse `multipart/form-data` and
+`application/x-www-form-urlencoded` bodies. The form then works even without
+client JavaScript by posting directly to the endpoint:
+
+```ts
+export const server = {
+  subscribe: defineAction({
+    accept: "form",
+    input: z.object({ email: z.string().email() }),
+    handler: async ({ email }) => ({ subscribed: email }),
+  }),
+};
+```
+
+```tsx
+<form method="POST" action="/_actions/subscribe">
+  <input type="email" name="email" required />
+  <button type="submit">Subscribe</button>
+</form>
+```
+
+## Errors
+
+Throw an `ActionError` from a handler to return a structured failure:
+
+```ts
+throw new ActionError({ code: "FORBIDDEN", message: "Not allowed" });
+```
+
+| Code | Status |
+|------|--------|
+| `BAD_REQUEST` | 400 |
+| `UNAUTHORIZED` | 401 |
+| `FORBIDDEN` | 403 |
+| `NOT_FOUND` | 404 |
+| `METHOD_NOT_ALLOWED` | 405 |
+| `CONFLICT` | 409 |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 |
+| `INTERNAL_SERVER_ERROR` | 500 |
+
+Validation failures return `BAD_REQUEST` with a `fields` map of field name →
+messages. Unexpected errors return `INTERNAL_SERVER_ERROR`; the message is
+included in development and hidden in production.
+
+## How it works
+
+Actions are bundled into the Nitro server function and served from a single
+endpoint, `POST /_actions/:name`. The endpoint looks up the action by name,
+parses and validates the body, runs the handler, and returns JSON. Only actions
+present in your `server` export are callable — the client never executes
+arbitrary server code, and handler source never ships to the browser bundle.

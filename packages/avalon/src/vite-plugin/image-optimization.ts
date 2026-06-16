@@ -47,7 +47,7 @@ async function importImagetools(): Promise<ImagetoolsModule> {
 	try {
 		const require = createRequire(join(process.cwd(), "package.json"));
 		const resolved = require.resolve("vite-imagetools");
-		return (await import(pathToFileURL(resolved).href)) as ImagetoolsModule;
+		return (await import(/* @vite-ignore */ pathToFileURL(resolved).href)) as ImagetoolsModule;
 	} catch {
 		return (await import("vite-imagetools")) as unknown as ImagetoolsModule;
 	}
