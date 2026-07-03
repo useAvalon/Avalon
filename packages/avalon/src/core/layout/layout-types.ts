@@ -21,8 +21,19 @@ export type LayoutData = Record<string, unknown>;
 
 export type LayoutLoader = (ctx: LayoutContext) => Promise<LayoutData>;
 
+/**
+ * Framework-agnostic children type for layouts.
+ *
+ * Layouts can render under either shell engine (Preact `ComponentChildren` or
+ * React `ReactNode`). Those two types are mutually non-assignable, so we use a
+ * permissive type here to avoid cross-engine JSX friction — a layout's children
+ * are always renderable nodes produced by the active engine.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: intentional cross-engine children type
+export type LayoutChildren = any;
+
 export interface LayoutProps {
-	children: import("preact").ComponentChildren;
+	children: LayoutChildren;
 	data: LayoutData;
 	frontmatter?: Record<string, unknown>;
 	route: {
