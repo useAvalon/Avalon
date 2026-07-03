@@ -5,6 +5,7 @@ import { generatePackageJson } from "./package-json";
 describe("generatePackageJson", () => {
 	const baseConfig: ProjectConfig = {
 		projectName: "my-app",
+		core: "preact",
 		integrations: [],
 		styling: "css-modules",
 		plugins: [],

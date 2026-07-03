@@ -5,6 +5,7 @@ import { generateMainLayout, generateRootLayout } from "./layouts";
 describe("generateRootLayout", () => {
 	const baseConfig: ProjectConfig = {
 		projectName: "my-app",
+		core: "preact",
 		integrations: [],
 		styling: "css-modules",
 		plugins: [],
@@ -97,6 +98,7 @@ describe("generateRootLayout", () => {
 describe("generateMainLayout", () => {
 	const baseConfig: ProjectConfig = {
 		projectName: "my-app",
+		core: "preact",
 		integrations: [],
 		styling: "css-modules",
 		plugins: [],

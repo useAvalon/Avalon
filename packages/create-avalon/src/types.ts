@@ -1,5 +1,8 @@
 export type Integration = "preact" | "react" | "vue" | "svelte" | "solid" | "lit" | "qwik";
 
+/** Core rendering engine for the page/layout shell. */
+export type RenderEngine = "preact" | "react";
+
 export type StylingOption = "css-modules" | "tailwind" | "shadcn";
 
 export type Plugin = "seo" | "agent-optimization" | "syntax-highlighting";
@@ -10,6 +13,8 @@ export type DeployTarget = "netlify" | "none";
 
 export interface ProjectConfig {
 	projectName: string;
+	/** Core rendering engine for pages/layouts. Defaults to "preact". */
+	core: RenderEngine;
 	integrations: Integration[];
 	styling: StylingOption;
 	plugins: Plugin[];

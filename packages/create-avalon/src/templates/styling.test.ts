@@ -5,6 +5,7 @@ import { generateStylingFiles } from "./styling";
 describe("generateStylingFiles", () => {
 	const baseConfig: ProjectConfig = {
 		projectName: "my-app",
+		core: "preact",
 		integrations: [],
 		styling: "css-modules",
 		plugins: [],

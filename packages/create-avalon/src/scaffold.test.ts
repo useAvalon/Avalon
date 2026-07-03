@@ -11,6 +11,7 @@ describe("scaffoldProject", () => {
 
 	const baseConfig: ProjectConfig = {
 		projectName: "test-project",
+		core: "preact",
 		integrations: ["react"],
 		styling: "css-modules",
 		plugins: [],

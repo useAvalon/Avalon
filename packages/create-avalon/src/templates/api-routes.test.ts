@@ -5,6 +5,7 @@ import { generateHelloRoute } from "./api-routes";
 describe("generateHelloRoute", () => {
 	const baseConfig: ProjectConfig = {
 		projectName: "my-app",
+		core: "preact",
 		integrations: [],
 		styling: "css-modules",
 		plugins: [],

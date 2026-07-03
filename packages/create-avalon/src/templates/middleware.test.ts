@@ -5,6 +5,7 @@ import { generateSampleMiddleware } from "./middleware";
 describe("generateSampleMiddleware", () => {
 	const baseConfig: ProjectConfig = {
 		projectName: "my-app",
+		core: "preact",
 		integrations: [],
 		styling: "css-modules",
 		plugins: [],

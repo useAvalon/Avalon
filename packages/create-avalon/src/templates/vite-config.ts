@@ -70,6 +70,7 @@ export function generateViteConfig(config: ProjectConfig): string {
 		"",
 		`export default defineConfig(async (): Promise<UserConfig> => {`,
 		`  const avalonPlugins = await avalon({`,
+		`    core: '${config.core}',`,
 		`    integrations: [${integrationsList}],`,
 		`    modules: 'app/modules',`,
 		`    layoutsDir: 'app/shared/layouts',`,

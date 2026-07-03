@@ -60,7 +60,7 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 
 	// Generate and write core config files
 	await writeFile(join(targetDir, "package.json"), generatePackageJson(config));
-	await writeFile(join(targetDir, "tsconfig.json"), generateTsConfig());
+	await writeFile(join(targetDir, "tsconfig.json"), generateTsConfig(config.core));
 	await writeFile(join(targetDir, "vite.config.ts"), generateViteConfig(config));
 
 	// Generate and write layout and page files

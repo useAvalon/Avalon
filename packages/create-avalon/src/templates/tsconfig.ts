@@ -1,4 +1,4 @@
-export function generateTsConfig(): string {
+export function generateTsConfig(core: "preact" | "react" = "preact"): string {
 	const tsconfig = {
 		compilerOptions: {
 			target: "ESNext",
@@ -11,6 +11,9 @@ export function generateTsConfig(): string {
 			allowImportingTsExtensions: true,
 			noEmit: true,
 			jsx: "react-jsx",
+			// The page shell's JSX. React libraries (Radix/shadcn) typecheck
+			// natively under the React engine; under Preact they resolve via compat.
+			jsxImportSource: core,
 			paths: {
 				"@shared/*": ["./app/shared/*"],
 				"@modules/*": ["./app/modules/*"],

@@ -5,12 +5,22 @@ import { generateViteConfig } from "./vite-config";
 describe("generateViteConfig", () => {
 	const baseConfig: ProjectConfig = {
 		projectName: "my-app",
+		core: "preact",
 		integrations: [],
 		styling: "css-modules",
 		plugins: [],
 		middleware: "h3",
 		deploy: "none",
 	};
+
+	it("emits the core engine (preact by default)", () => {
+		expect(generateViteConfig(baseConfig)).toContain("core: 'preact'");
+	});
+
+	it("emits core: 'react' when the React engine is selected", () => {
+		const result = generateViteConfig({ ...baseConfig, core: "react", integrations: ["react"] });
+		expect(result).toContain("core: 'react'");
+	});
 
 	it("imports defineConfig from vite and avalon from @useavalon/avalon", () => {
 		const result = generateViteConfig(baseConfig);
@@ -141,6 +151,7 @@ describe("generateViteConfig", () => {
 	it("generates a full config with all options selected", () => {
 		const config: ProjectConfig = {
 			projectName: "full-app",
+			core: "preact",
 			integrations: ["react", "svelte", "qwik"],
 			styling: "shadcn",
 			plugins: ["seo", "agent-optimization"],
