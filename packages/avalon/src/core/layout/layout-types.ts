@@ -22,18 +22,21 @@ export type LayoutData = Record<string, unknown>;
 export type LayoutLoader = (ctx: LayoutContext) => Promise<LayoutData>;
 
 /**
- * Framework-agnostic children type for layouts.
+ * Props passed to a layout component.
  *
- * Layouts can render under either shell engine (Preact `ComponentChildren` or
- * React `ReactNode`). Those two types are mutually non-assignable, so we use a
- * permissive type here to avoid cross-engine JSX friction — a layout's children
- * are always renderable nodes produced by the active engine.
+ * `TChildren` is the shell engine's node type. It defaults to Preact's
+ * `ComponentChildren` (the default engine). Under `core: "react"`, type your
+ * layout with `LayoutProps<ReactNode>` so `children` matches react-dom:
+ *
+ * ```tsx
+ * import type { ReactNode } from "react";
+ * import type { LayoutProps } from "@useavalon/avalon";
+ *
+ * export default function RootLayout({ children }: LayoutProps<ReactNode>) { ... }
+ * ```
  */
-// biome-ignore lint/suspicious/noExplicitAny: intentional cross-engine children type
-export type LayoutChildren = any;
-
-export interface LayoutProps {
-	children: LayoutChildren;
+export interface LayoutProps<TChildren = import("preact").ComponentChildren> {
+	children: TChildren;
 	data: LayoutData;
 	frontmatter?: Record<string, unknown>;
 	route: {
