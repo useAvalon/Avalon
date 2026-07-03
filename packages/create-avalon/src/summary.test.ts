@@ -5,6 +5,7 @@ import type { ProjectConfig } from "./types";
 describe("formatSummary", () => {
 	const baseConfig: ProjectConfig = {
 		projectName: "my-app",
+		core: "preact",
 		integrations: [],
 		styling: "css-modules",
 		plugins: [],
@@ -124,6 +125,7 @@ describe("formatSummary", () => {
 	it("includes all selections for a fully configured project", () => {
 		const config: ProjectConfig = {
 			projectName: "full-app",
+			core: "preact",
 			integrations: ["react", "solid", "lit"],
 			styling: "tailwind",
 			plugins: ["agent-optimization"],

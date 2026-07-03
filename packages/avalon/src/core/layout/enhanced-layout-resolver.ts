@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import { render as preactRenderToString } from "preact-render-to-string";
+import { renderShell } from "../../render/shell-engine.ts";
 import { defaultCacheConfig, LayoutCacheManager } from "./layout-cache-manager.ts";
 import { LayoutComposer } from "./layout-composer.ts";
 import { LayoutDataLoader } from "./layout-data-loader.ts";
@@ -233,7 +233,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 					});
 			}
 
-			return preactRenderToString(
+			return renderShell(
 				callComponent(currentComponent, {
 					children: null,
 					data: {},
@@ -242,7 +242,7 @@ export class EnhancedLayoutResolver implements IEnhancedLayoutResolver {
 						params: context.params,
 						query: context.query,
 					},
-				}) as Parameters<typeof preactRenderToString>[0],
+				}),
 			);
 		} catch (error) {
 			if (this.options.developmentMode) {

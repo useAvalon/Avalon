@@ -3,7 +3,9 @@ import type {
 	DeployTarget,
 	Integration,
 	MiddlewareOption,
+	Plugin,
 	ProjectConfig,
+	RenderEngine,
 	StylingOption,
 } from "./types";
 
@@ -27,6 +29,28 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 		}
 
 		projectName = nameResult;
+	}
+
+	const coreResult = await select({
+		message: "Which rendering engine should render your pages (the shell)?",
+		options: [
+			{
+				value: "preact",
+				label: "Preact",
+				hint: "Smallest runtime (default). React libs run via preact/compat.",
+			},
+			{
+				value: "react",
+				label: "React",
+				hint: "Real react-dom/server. React libs like Radix/shadcn work natively.",
+			},
+		],
+		initialValue: "preact",
+	});
+
+	if (isCancel(coreResult)) {
+		cancel("Operation cancelled.");
+		process.exit(1);
 	}
 
 	const integrationsResult = await multiselect({
@@ -122,11 +146,19 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 		process.exit(1);
 	}
 
+	const core = coreResult as RenderEngine;
+	// A React shell requires the React integration; ensure it's present.
+	const integrations = integrationsResult as Integration[];
+	if (core === "react" && !integrations.includes("react")) {
+		integrations.push("react");
+	}
+
 	return {
 		projectName,
-		integrations: integrationsResult as Integration[],
+		core,
+		integrations,
 		styling: stylingResult as StylingOption,
-		plugins: pluginsResult,
+		plugins: pluginsResult as Plugin[],
 		middleware: middlewareResult as MiddlewareOption,
 		deploy: deployResult as DeployTarget,
 	};

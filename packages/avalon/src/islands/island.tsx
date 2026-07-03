@@ -1,9 +1,9 @@
 import type { Integration } from "@useavalon/core";
 import type { JSX } from "preact";
-import { Fragment, h } from "preact";
 import type { ViteDevServer } from "vite";
 import { getIslandBundlePath } from "../build/island-manifest.ts";
 import type { AnalyzerOptions } from "../core/components/component-analyzer.ts";
+import { shellH as h, shellFragment } from "../render/shell-engine.ts";
 import { addToManifest, generateComponentId } from "../server-islands/manifest.ts";
 import { renderServerIsland } from "../server-islands/renderer.ts";
 import type { ServerIslandProp } from "../server-islands/types.ts";
@@ -148,7 +148,7 @@ function wrapWithPerIslandScript(
 	// `unwrapPerIslandScripts` in the renderer; the global framework baseline
 	// CSS would also make it transparent if it ever leaked through.
 	return h(
-		Fragment,
+		shellFragment(),
 		null,
 		islandElement,
 		h("div", {
@@ -726,7 +726,7 @@ export async function renderIsland({
 			// (data-server-island-wrapper) instead of an inline style so it stays
 			// CSP-safe; the `display: contents` rule lives in the framework baseline CSS.
 			return h(
-				Fragment,
+				shellFragment(),
 				null,
 				h("div", {
 					dangerouslySetInnerHTML: { __html: serverIslandHtml },

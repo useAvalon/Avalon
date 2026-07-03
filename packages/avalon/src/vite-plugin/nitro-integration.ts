@@ -95,6 +95,38 @@ function generateServerIslandManifestModule(projectRoot: string): string {
 	return code;
 }
 
+/**
+ * Reads the full body of a Node request as a UTF-8 string, with a 15s timeout.
+ * Shared by the dev server-islands and server-actions middleware handlers.
+ */
+function readRequestBody(req: IncomingMessage, timeoutMessage: string): Promise<string> {
+	return new Promise<string>((resolve, reject) => {
+		const chunks: Buffer[] = [];
+		const onData = (chunk: Buffer) => chunks.push(chunk);
+		const onEnd = () => {
+			cleanup();
+			resolve(Buffer.concat(chunks).toString("utf8"));
+		};
+		const onError = (err: Error) => {
+			cleanup();
+			reject(err);
+		};
+		const timer = setTimeout(() => {
+			cleanup();
+			reject(new Error(timeoutMessage));
+		}, 15000);
+		function cleanup() {
+			clearTimeout(timer);
+			req.off("data", onData);
+			req.off("end", onEnd);
+			req.off("error", onError);
+		}
+		req.on("data", onData);
+		req.on("end", onEnd);
+		req.on("error", onError);
+	});
+}
+
 /** Regex for PascalCase default imports — `import Foo from "..."`. Multiline. */
 const PASCAL_DEFAULT_IMPORT_RE = /^[ \t]*import\s+([A-Z]\w*)\s+from\s+(['"][^'"]+['"])/gm;
 
@@ -120,6 +152,15 @@ function usesServerProp(code: string, localName: string): boolean {
 	return pattern.test(code);
 }
 
+/** True for `.tsx`/`.jsx` source files that aren't tests. */
+function isCollectableSourceFile(name: string, full: string): boolean {
+	if (!/\.(tsx|jsx)$/.test(name)) return false;
+	// Skip test files
+	if (/\.(test|spec)\.[jt]sx$/.test(name)) return false;
+	if (full.includes("__tests__")) return false;
+	return true;
+}
+
 /**
  * Recursively collects `.tsx`/`.jsx` source files under `dir`, skipping build
  * output, dependency, and test files.
@@ -134,14 +175,35 @@ function collectSourceFiles(dir: string, out: string[]): void {
 	for (const entry of entries) {
 		const full = join(dir, entry.name);
 		if (entry.isDirectory()) {
-			if (SCAN_SKIP_DIRS.has(entry.name)) continue;
-			collectSourceFiles(full, out);
-		} else if (entry.isFile()) {
-			if (!/\.(tsx|jsx)$/.test(entry.name)) continue;
-			// Skip test files
-			if (/\.(test|spec)\.[jt]sx$/.test(entry.name)) continue;
-			if (full.includes("__tests__")) continue;
+			if (!SCAN_SKIP_DIRS.has(entry.name)) collectSourceFiles(full, out);
+		} else if (entry.isFile() && isCollectableSourceFile(entry.name, full)) {
 			out.push(full);
+		}
+	}
+}
+
+/**
+ * Scans a single file's source for PascalCase default imports used with a
+ * `server` prop and records each as a server island in `manifest`.
+ */
+function collectIslandsFromFile(
+	file: string,
+	code: string,
+	projectRoot: string,
+	manifest: Record<string, string>,
+): void {
+	PASCAL_DEFAULT_IMPORT_RE.lastIndex = 0;
+	let m: RegExpExecArray | null = PASCAL_DEFAULT_IMPORT_RE.exec(code);
+	for (; m !== null; m = PASCAL_DEFAULT_IMPORT_RE.exec(code)) {
+		const localName = m[1];
+		const importPath = m[2].slice(1, -1);
+		if (!usesServerProp(code, localName)) continue;
+
+		const relativePath = resolveToRelativePath(importPath, file, projectRoot);
+		const componentId = generateComponentId(relativePath);
+		// De-duplicate by componentId (first writer wins; paths are identical).
+		if (!(componentId in manifest)) {
+			manifest[componentId] = relativePath;
 		}
 	}
 }
@@ -168,20 +230,7 @@ function scanServerIslandManifest(projectRoot: string): Record<string, string> {
 		// Quick bail — file must mention a `server` prop somewhere.
 		if (!/\bserver\s*[={/>]/.test(code)) continue;
 
-		PASCAL_DEFAULT_IMPORT_RE.lastIndex = 0;
-		let m: RegExpExecArray | null = PASCAL_DEFAULT_IMPORT_RE.exec(code);
-		for (; m !== null; m = PASCAL_DEFAULT_IMPORT_RE.exec(code)) {
-			const localName = m[1];
-			const importPath = m[2].slice(1, -1);
-			if (!usesServerProp(code, localName)) continue;
-
-			const relativePath = resolveToRelativePath(importPath, file, projectRoot);
-			const componentId = generateComponentId(relativePath);
-			// De-duplicate by componentId (first writer wins; paths are identical).
-			if (!(componentId in manifest)) {
-				manifest[componentId] = relativePath;
-			}
-		}
+		collectIslandsFromFile(file, code, projectRoot, manifest);
 	}
 
 	return manifest;
@@ -233,6 +282,66 @@ function generateActionsClientModule(): string {
 		`export default actions;`,
 		"",
 	].join("\n");
+}
+
+/** Decoded server-island payload (dev handler). */
+type DecodedIslandPayload =
+	| { ok: true; props: Record<string, unknown>; srcPath?: string; islandMeta: any }
+	| { ok: false };
+
+/**
+ * Decrypts (or, in dev, base64url-decodes) a server-island payload and extracts
+ * the island metadata + source path. Returns `{ ok: false }` on any failure.
+ */
+function decodeIslandPayload(
+	payload: string,
+	decrypt: (p: string) => string,
+): DecodedIslandPayload {
+	try {
+		let decrypted: string;
+		if (payload.startsWith("dev.")) {
+			// Dev mode: base64url-encoded (no encryption)
+			const encoded = payload.slice(4);
+			decrypted = Buffer.from(encoded, "base64url").toString("utf8");
+		} else {
+			decrypted = decrypt(payload);
+		}
+		const parsed = JSON.parse(decrypted);
+		let islandMeta: any;
+		let srcPath: string | undefined;
+		if (parsed.__island) {
+			islandMeta = parsed.__island;
+			delete parsed.__island;
+		}
+		if (parsed.__src) {
+			srcPath = parsed.__src;
+			delete parsed.__src;
+		}
+		return { ok: true, props: parsed, srcPath, islandMeta };
+	} catch {
+		return { ok: false };
+	}
+}
+
+/** Builds the dev-mode hydration `<script>` appended to a combined island render. */
+function buildDevIslandHydrationScript(
+	url: string,
+	islandMeta: any,
+	srcPath: string,
+	props: Record<string, unknown>,
+): string {
+	const pathSegments = url.split("/");
+	const cId = pathSegments[2]?.split("?")[0] || "";
+	const islandId = islandMeta.elementId ?? `si-${cId}`;
+	const componentPath = islandMeta.componentSrc ?? srcPath;
+	const propsJson = JSON.stringify(props);
+	const condition = islandMeta.condition ?? "on:client";
+	const fw = islandMeta.framework ?? "preact";
+	const helperPath = resolveAvalonPackagePath("src/client/server-island-hydrate.ts");
+	return `<script type="module">
+import{hydrateServerIsland}from"/@fs${helperPath}";
+hydrateServerIsland(${JSON.stringify(islandId)},${JSON.stringify(componentPath)},${propsJson},${JSON.stringify(condition)},${JSON.stringify(fw)});
+</script>`;
 }
 
 /**
@@ -314,6 +423,70 @@ export interface NitroCoordinationPluginOptions {
  * Uses the Nitro v3 Vite plugin from `nitro/vite` for server route discovery,
  * SSR rendering pipeline, and Rolldown-optimized bundling.
  */
+/**
+ * Packages Nitro should NOT inline for the configured shell engine.
+ *
+ * React is kept external (Node handles its CommonJS entry) when it's the shell
+ * engine; under the Preact engine `react` is aliased to preact/compat, so these
+ * patterns are moot. Extracted to keep `createNitroIntegration` simple.
+ */
+function shellEngineNoExternals(core: ResolvedAvalonConfig["core"]): Array<string | RegExp> {
+	return core === "react" ? [] : [/^react/, /^react-dom/];
+}
+
+/** Import lines for the layout renderer, per shell engine. */
+function layoutEngineImportLines(core: ResolvedAvalonConfig["core"]): string[] {
+	if (core === "react") {
+		return [
+			`import { createElement as h } from 'react';`,
+			`import { renderToString as preactRenderToString } from 'react-dom/server';`,
+		];
+	}
+	return [
+		`import { h } from 'preact';`,
+		`import preactRenderToString from 'preact-render-to-string';`,
+	];
+}
+
+/** Renderer-module lines that switch the shell engine to React (empty for Preact). */
+function reactShellSetupLines(core: ResolvedAvalonConfig["core"]): string[] {
+	if (core !== "react") return [];
+	return [
+		`import { setShellRenderToString, setShellElementFactory } from '@useavalon/avalon/render/shell-engine';`,
+		`import { renderToString as __reactRenderToString } from 'react-dom/server';`,
+		`import { createElement as __reactCreateElement, Fragment as __reactFragment } from 'react';`,
+		`setShellRenderToString((vnode) => __reactRenderToString(vnode));`,
+		`setShellElementFactory(__reactCreateElement, __reactFragment);`,
+	];
+}
+
+/** Client module used to hydrate React islands, per shell engine. */
+function reactClientModule(core: ResolvedAvalonConfig["core"]): string {
+	// React islands hydrate via preact/compat under the Preact engine, but on
+	// real React (@useavalon/react/client) when React is the shell engine.
+	return core === "react" ? "@useavalon/react/client" : "@useavalon/preact/client";
+}
+
+/**
+ * Generate the `virtual:server-island-integrations` module. Only statically
+ * registers the server-capable framework integrations the project actually
+ * configured — importing packages that aren't installed (e.g. @useavalon/solid
+ * in a React-only app) would break the bundle. react/preact are registered by
+ * the generated renderer module; this covers the rest.
+ */
+function generateServerIslandIntegrationsModule(integrations: readonly string[]): string {
+	const registryPath = resolveAvalonPackagePath("src/core/integrations/registry.ts");
+	const frameworks = (["solid", "vue", "svelte", "lit"] as const).filter((fw) =>
+		integrations.includes(fw),
+	);
+	const lines = [
+		`import { registry } from "${registryPath}";`,
+		...frameworks.map((fw) => `import { ${fw}Integration } from "@useavalon/${fw}";`),
+		...frameworks.map((fw) => `if (${fw}Integration) registry.register(${fw}Integration);`),
+	];
+	return `${lines.join("\n")}\n`;
+}
+
 export function createNitroIntegration(
 	avalonConfig: ResolvedAvalonConfig,
 	nitroConfig: AvalonNitroConfig = {},
@@ -352,13 +525,19 @@ export function createNitroIntegration(
 		// primary offender — it only exports via ESM "import" condition.
 		// Also inline @useavalon packages so their server renderers are
 		// bundled directly (they ship .ts source, not CJS).
+		//
+		// React is deliberately NOT inlined when it's the shell engine: React 19
+		// ships CommonJS, and inlining it makes Vite's dev SSR module runner
+		// execute its `module.exports`/`require` entry, which fails. Leaving it
+		// external lets Node's loader handle the CJS↔ESM interop in both dev and
+		// the node server preset. (For preact-core apps `react` is aliased to
+		// preact/compat, so these entries are moot there.)
 		noExternals: [
 			"estree-walker",
 			/^@useavalon\//,
 			/^estree-util/,
 			/^preact/,
-			/^react/,
-			/^react-dom/,
+			...shellEngineNoExternals(avalonConfig.core),
 			/^vue/,
 			/^@vue\//,
 		],
@@ -405,24 +584,8 @@ export function createNitroIntegration(
 			// leave bare specifiers unresolved in the bundle. This virtual module
 			// statically imports each integration and registers it, ensuring the
 			// bundler traces and inlines the full dependency tree.
-			"virtual:server-island-integrations": () => {
-				const registryPath = resolveAvalonPackagePath("src/core/integrations/registry.ts");
-				// Use bare @useavalon/* specifiers — Nitro's noExternals config
-				// (/^@useavalon\//) ensures the bundler inlines them rather than
-				// leaving them as external requires. Absolute paths are fragile
-				// across build environments (local vs CI).
-				return `
-import { registry } from "${registryPath}";
-import { solidIntegration } from "@useavalon/solid";
-import { vueIntegration } from "@useavalon/vue";
-import { svelteIntegration } from "@useavalon/svelte";
-import { litIntegration } from "@useavalon/lit";
-if (solidIntegration) registry.register(solidIntegration);
-if (vueIntegration) registry.register(vueIntegration);
-if (svelteIntegration) registry.register(svelteIntegration);
-if (litIntegration) registry.register(litIntegration);
-`;
-			},
+			"virtual:server-island-integrations": () =>
+				generateServerIslandIntegrationsModule(avalonConfig.integrations),
 		},
 	};
 
@@ -702,40 +865,17 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 					const { decrypt } = await server.ssrLoadModule(
 						resolveAvalonPackagePath("src/server-islands/encryption.ts"),
 					);
-					const { h } = await server.ssrLoadModule("preact");
-					const preactRenderToString = (await server.ssrLoadModule("preact-render-to-string"))
-						.default;
+					const { h, renderToString: preactRenderToString } = await loadDevShellEngine(
+						server,
+						avalonConfig.core,
+					);
 
 					// Extract encrypted props from query param or POST body
 					const fullUrl = new URL(url, `http://${req.headers.host || "localhost"}`);
 					let payload = fullUrl.searchParams.get("p") || "";
 
 					if (!payload && req.method === "POST") {
-						payload = await new Promise<string>((resolve, reject) => {
-							const chunks: Buffer[] = [];
-							const onData = (chunk: Buffer) => chunks.push(chunk);
-							const onEnd = () => {
-								cleanup();
-								resolve(Buffer.concat(chunks).toString("utf8"));
-							};
-							const onError = (err: Error) => {
-								cleanup();
-								reject(err);
-							};
-							const timer = setTimeout(() => {
-								cleanup();
-								reject(new Error("Timed out reading server island request body"));
-							}, 15000);
-							function cleanup() {
-								clearTimeout(timer);
-								req.off("data", onData);
-								req.off("end", onEnd);
-								req.off("error", onError);
-							}
-							req.on("data", onData);
-							req.on("end", onEnd);
-							req.on("error", onError);
-						});
+						payload = await readRequestBody(req, "Timed out reading server island request body");
 					}
 
 					if (!payload) {
@@ -746,34 +886,14 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 					}
 
 					// Decrypt props (or decode in dev mode)
-					let props: Record<string, unknown>;
-					let srcPath: string | undefined;
-					let islandMeta: any;
-					try {
-						let decrypted: string;
-						if (payload.startsWith("dev.")) {
-							// Dev mode: base64url-encoded (no encryption)
-							const encoded = payload.slice(4);
-							decrypted = Buffer.from(encoded, "base64url").toString("utf8");
-						} else {
-							decrypted = decrypt(payload);
-						}
-						const parsed = JSON.parse(decrypted);
-						if (parsed.__island) {
-							islandMeta = parsed.__island;
-							delete parsed.__island;
-						}
-						if (parsed.__src) {
-							srcPath = parsed.__src;
-							delete parsed.__src;
-						}
-						props = parsed;
-					} catch {
+					const decoded = decodeIslandPayload(payload, decrypt);
+					if (!decoded.ok) {
 						res.statusCode = 400;
 						res.setHeader("Content-Type", "text/plain");
 						res.end("Bad Request: decryption failed");
 						return;
 					}
+					const { props, srcPath, islandMeta } = decoded;
 
 					if (!srcPath) {
 						res.statusCode = 404;
@@ -798,19 +918,7 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 
 					// If combined island, append dev-mode hydration script
 					if (islandMeta) {
-						const pathSegments = url.split("/");
-						const cId = pathSegments[2]?.split("?")[0] || "";
-						const islandId = islandMeta.elementId ?? `si-${cId}`;
-						const componentPath = islandMeta.componentSrc ?? srcPath;
-						const propsJson = JSON.stringify(props);
-						const condition = islandMeta.condition ?? "on:client";
-						const fw = islandMeta.framework ?? "preact";
-						const helperPath = resolveAvalonPackagePath("src/client/server-island-hydrate.ts");
-						const hydrationScript = `<script type="module">
-import{hydrateServerIsland}from"/@fs${helperPath}";
-hydrateServerIsland(${JSON.stringify(islandId)},${JSON.stringify(componentPath)},${propsJson},${JSON.stringify(condition)},${JSON.stringify(fw)});
-</script>`;
-						html += hydrationScript;
+						html += buildDevIslandHydrationScript(url, islandMeta, srcPath, props);
 					}
 
 					res.statusCode = 200;
@@ -857,31 +965,7 @@ hydrateServerIsland(${JSON.stringify(islandId)},${JSON.stringify(componentPath)}
 					const method = (req.method || "GET").toUpperCase();
 					let body: string | undefined;
 					if (method === "POST") {
-						body = await new Promise<string>((resolve, reject) => {
-							const chunks: Buffer[] = [];
-							const onData = (chunk: Buffer) => chunks.push(chunk);
-							const onEnd = () => {
-								cleanup();
-								resolve(Buffer.concat(chunks).toString("utf8"));
-							};
-							const onError = (err: Error) => {
-								cleanup();
-								reject(err);
-							};
-							const timer = setTimeout(() => {
-								cleanup();
-								reject(new Error("Timed out reading action request body"));
-							}, 15000);
-							function cleanup() {
-								clearTimeout(timer);
-								req.off("data", onData);
-								req.off("end", onEnd);
-								req.off("error", onError);
-							}
-							req.on("data", onData);
-							req.on("end", onEnd);
-							req.on("error", onError);
-						});
+						body = await readRequestBody(req, "Timed out reading action request body");
 					}
 
 					const request = new Request(fullUrl, {
@@ -1246,28 +1330,18 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 		handleHotUpdate({ file, server }) {
 			// SSR pages/components/layouts/CSS: trigger a full browser reload.
 			// Nitro's own environment handles SSR module invalidation internally.
-			const isPage = file.includes("/pages/") && !file.endsWith(".css");
-			const isComponent = file.includes("/components/") && /\.[tj]sx?$/.test(file);
-			const isLayout =
-				(file.includes("/layouts/") || file.includes("_layout")) && /\.[tj]sx?$/.test(file);
-			const isCss = file.endsWith(".css");
+			const { isPage, isComponent, isLayout, isCss } = classifyHotFile(file);
 
 			if (isPage || isComponent || isLayout || isCss) {
 				if (isPage) {
-					const routesMod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
-					if (routesMod) server.moduleGraph.invalidateModule(routesMod);
-					const loaderMod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_IDS.PAGE_LOADER);
-					if (loaderMod) server.moduleGraph.invalidateModule(loaderMod);
+					invalidateModuleById(server, RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
+					invalidateModuleById(server, RESOLVED_VIRTUAL_IDS.PAGE_LOADER);
 				}
 				if (isLayout) {
 					cachedLayoutsModule = null;
 					rescanCss();
-					const layoutMod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_IDS.LAYOUTS);
-					if (layoutMod) server.moduleGraph.invalidateModule(layoutMod);
-					const clientEntryMod = server.moduleGraph.getModuleById(
-						RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY,
-					);
-					if (clientEntryMod) server.moduleGraph.invalidateModule(clientEntryMod);
+					invalidateModuleById(server, RESOLVED_VIRTUAL_IDS.LAYOUTS);
+					invalidateModuleById(server, RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY);
 				}
 				// Full page reload after Nitro's SSR worker has recompiled.
 				setTimeout(() => {
@@ -1276,16 +1350,40 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 			}
 
 			// Invalidate virtual:avalon/config when config-related files change
-			if (
-				file.includes("vite.config") ||
-				file.includes("avalon.config") ||
-				file.includes("nitro.config")
-			) {
-				const configMod = server.moduleGraph.getModuleById(RESOLVED_VIRTUAL_IDS.CONFIG);
-				if (configMod) server.moduleGraph.invalidateModule(configMod);
+			if (isAvalonConfigFile(file)) {
+				invalidateModuleById(server, RESOLVED_VIRTUAL_IDS.CONFIG);
 			}
 		},
 	};
+}
+
+/** Invalidates a Vite module graph entry by id, if it exists. */
+function invalidateModuleById(server: ViteDevServer, id: string): void {
+	const mod = server.moduleGraph.getModuleById(id);
+	if (mod) server.moduleGraph.invalidateModule(mod);
+}
+
+/** Classifies a changed file for HMR handling. */
+function classifyHotFile(file: string): {
+	isPage: boolean;
+	isComponent: boolean;
+	isLayout: boolean;
+	isCss: boolean;
+} {
+	const isCss = file.endsWith(".css");
+	return {
+		isPage: file.includes("/pages/") && !isCss,
+		isComponent: file.includes("/components/") && /\.[tj]sx?$/.test(file),
+		isLayout: (file.includes("/layouts/") || file.includes("_layout")) && /\.[tj]sx?$/.test(file),
+		isCss,
+	};
+}
+
+/** True when a changed file is a config file that seeds `virtual:avalon/config`. */
+function isAvalonConfigFile(file: string): boolean {
+	return (
+		file.includes("vite.config") || file.includes("avalon.config") || file.includes("nitro.config")
+	);
 }
 
 // ─── HMR Coordination ───────────────────────────────────────────────────────
@@ -1416,8 +1514,8 @@ async function generatePageLoaderModule(
 			`  // Exact match`,
 			`  if (pattern === pathname) return true;`,
 			`  // Normalize trailing slashes`,
-			`  const normPath = pathname === '/' ? '/' : pathname.replace(/\\/$/, '');`,
-			`  const normPattern = pattern === '/' ? '/' : pattern.replace(/\\/$/, '');`,
+			String.raw`  const normPath = pathname === '/' ? '/' : pathname.replace(/\/$/, '');`,
+			String.raw`  const normPattern = pattern === '/' ? '/' : pattern.replace(/\/$/, '');`,
 			`  if (normPath === normPattern) return true;`,
 			`  // Dynamic segments: /users/:id matches /users/123`,
 			`  if (paramNames.length > 0) {`,
@@ -1571,10 +1669,13 @@ async function generateLayoutsModule(
 	// to keep the virtual module load hook fast (avoids Nitro 503 timeout).
 	const cssLinksJson = JSON.stringify(devCssLinks);
 
+	// The shell engine (Preact by default, React when core: "react") determines
+	// how layout components are created and rendered to HTML.
+	const engineImports = layoutEngineImportLines(avalonConfig.core);
+
 	const code = [
 		`// Auto-generated by Avalon — do not edit`,
-		`import { h } from 'preact';`,
-		`import preactRenderToString from 'preact-render-to-string';`,
+		...engineImports,
 		`import { getUniversalCSSForHead } from '@useavalon/avalon/islands/universal-css-collector';`,
 		`import { getUniversalHeadForInjection, injectSolidHydrationScriptIfNeeded } from '@useavalon/avalon/islands/universal-head-collector';`,
 		...imports,
@@ -1602,18 +1703,18 @@ async function generateLayoutsModule(
 		`  if (process.env.NODE_ENV !== 'production' && _cssLinks.length > 0) {`,
 		`    var links = _cssLinks.map(function(href) {`,
 		`      return '<link rel="stylesheet" href="' + href + '?direct">';`,
-		`    }).join('\\n');`,
+		String.raw`    }).join('\n');`,
 		`    if (html.includes('</head>')) {`,
-		`      html = html.replace('</head>', links + '\\n</head>');`,
+		String.raw`      html = html.replace('</head>', links + '\n</head>');`,
 		`    }`,
 		`  }`,
 		`  const universalCSS = getUniversalCSSForHead(true);`,
 		`  if (universalCSS && html.includes('</head>')) {`,
-		`    html = html.replace('</head>', universalCSS + '\\n</head>');`,
+		String.raw`    html = html.replace('</head>', universalCSS + '\n</head>');`,
 		`  }`,
 		`  const universalHead = getUniversalHeadForInjection(true);`,
 		`  if (universalHead && html.includes('</head>')) {`,
-		`    html = html.replace('</head>', universalHead + '\\n</head>');`,
+		String.raw`    html = html.replace('</head>', universalHead + '\n</head>');`,
 		`  }`,
 		`  html = injectSolidHydrationScriptIfNeeded(html);`,
 		`  return html;`,
@@ -1643,11 +1744,11 @@ async function generateLayoutsModule(
 		`      };`,
 		`      const rootResult = RootLayoutComponent(rootProps);`,
 		`      const resolvedRoot = rootResult instanceof Promise ? await rootResult : rootResult;`,
-		`      html = '<!DOCTYPE html>\\n' + preactRenderToString(resolvedRoot);`,
+		String.raw`      html = '<!DOCTYPE html>\n' + preactRenderToString(resolvedRoot);`,
 		`    } else {`,
 		`      // skipAll is true — page provides its own HTML shell or needs a minimal one`,
 		`      if (pageHtml.trimStart().startsWith('<html')) {`,
-		`        html = '<!DOCTYPE html>\\n' + pageHtml;`,
+		String.raw`        html = '<!DOCTYPE html>\n' + pageHtml;`,
 		`      } else {`,
 		`        const title = String(frontmatter.title || 'Avalon');`,
 		`        html = [`,
@@ -1662,7 +1763,7 @@ async function generateLayoutsModule(
 		`          '<div id="app">' + pageHtml + '</div>',`,
 		`          '</body>',`,
 		`          '</html>',`,
-		`        ].join('\\n');`,
+		String.raw`        ].join('\n');`,
 		`      }`,
 		`    }`,
 		`  } else {`,
@@ -1692,7 +1793,7 @@ async function generateLayoutsModule(
 		`      wrappedHtml = preactRenderToString(resolvedRoot);`,
 		`    }`,
 		``,
-		`    html = '<!DOCTYPE html>\\n' + wrappedHtml;`,
+		String.raw`    html = '<!DOCTYPE html>\n' + wrappedHtml;`,
 		`  }`,
 		``,
 		`  if (injectAssets) {`,
@@ -1736,14 +1837,14 @@ function generateAssetsModule(nitroConfig: AvalonNitroConfig): string {
 		`      var hasSsrIndex = (clientAssets?.css ?? []).some(function(a) { return (a.href || '').includes('ssr-index'); });`,
 		`      if (hasSsrIndex) return href.includes('ssr-index');`,
 		`      if (href.includes('entry-client') && href.endsWith('.css')) return true;`,
-		`      if (/\\/index-[^/]+\\.css$/.test(href)) return true;`,
+		String.raw`      if (/\/index-[^/]+\.css$/.test(href)) return true;`,
 		`      return false;`,
 		`    })`,
 		`    .map(attr => '<link rel="stylesheet" href="' + attr.href + '">')`,
-		`    .join('\\n');`,
+		String.raw`    .join('\n');`,
 		`  const jsPreloads = (clientAssets?.js ?? [])`,
 		`    .map(attr => '<link rel="modulepreload" href="' + attr.href + '">')`,
-		`    .join('\\n');`,
+		String.raw`    .join('\n');`,
 		`  const entryScript = clientAssets?.entry`,
 		`    ? '<script type="module" src="' + clientAssets.entry + '"></script>'`,
 		`    : '';`,
@@ -1753,10 +1854,10 @@ function generateAssetsModule(nitroConfig: AvalonNitroConfig): string {
 		`export function injectAssets(html) {`,
 		`  const { cssLinks, jsPreloads, entryScript } = buildAssetTags();`,
 		`  if (html.includes('</head>')) {`,
-		`    html = html.replace('</head>', cssLinks + '\\n' + jsPreloads + '\\n</head>');`,
+		String.raw`    html = html.replace('</head>', cssLinks + '\n' + jsPreloads + '\n</head>');`,
 		`  }`,
 		`  if (html.includes('</body>')) {`,
-		`    html = html.replace('</body>', entryScript + '\\n</body>');`,
+		String.raw`    html = html.replace('</body>', entryScript + '\n</body>');`,
 		`  }`,
 		`  return html;`,
 		`}`,
@@ -1798,6 +1899,11 @@ function generateRendererModule(avalonConfig: ResolvedAvalonConfig): string {
 		registrationLines.push(`registry.register(${varName});`);
 	}
 
+	// When core: "react", override the shell renderer with react-dom/server so
+	// pages/layouts render on real React. Injected here (in the app SSR bundle,
+	// which has React) so the core package never hard-depends on React.
+	const shellEngineLines = reactShellSetupLines(avalonConfig.core);
+
 	return [
 		`// Auto-generated by Avalon — do not edit`,
 		`import { createNitroRenderer } from '@useavalon/avalon/nitro/renderer';`,
@@ -1808,6 +1914,8 @@ function generateRendererModule(avalonConfig: ResolvedAvalonConfig): string {
 		`import { wrapWithLayouts } from 'virtual:avalon/layouts';`,
 		`import { injectAssets } from 'virtual:avalon/assets';`,
 		...integrationImports,
+		``,
+		...shellEngineLines,
 		``,
 		`// Pre-register framework integrations for SSR`,
 		...registrationLines,
@@ -1828,7 +1936,7 @@ function generateRendererModule(avalonConfig: ResolvedAvalonConfig): string {
 		`    return { filePath: '[virtual:' + pathname + ']', pattern: pathname, params: {} };`,
 		`  },`,
 		`  loadPageModule: async (filePath) => {`,
-		`    const match = filePath.match(/^\\[virtual:(.+)\\]$/);`,
+		String.raw`    const match = filePath.match(/^\[virtual:(.+)\]$/);`,
 		`    const pathname = match ? match[1] : filePath;`,
 		`    const mod = loadPage(pathname);`,
 		`    if (mod) return mod;`,
@@ -1850,36 +1958,64 @@ function generateRendererModule(avalonConfig: ResolvedAvalonConfig): string {
  * hydration runtime + any global CSS specified in config. This means
  * consumers don't need to manually maintain a client entry file.
  */
+/** Collects `.css` files across the given layout directories as `/`-rooted import paths. */
+async function discoverLayoutCssImports(
+	layoutDirs: readonly { dir: string }[],
+	cwd: string,
+): Promise<string[]> {
+	const { readdir } = await import("node:fs/promises");
+	const { relative, join: pathJoin } = await import("node:path");
+	const cssImports: string[] = [];
+	for (const { dir } of layoutDirs) {
+		let entries: Dirent[];
+		try {
+			entries = await readdir(dir, { withFileTypes: true });
+		} catch {
+			// Directory doesn't exist or can't be read — skip
+			continue;
+		}
+		for (const entry of entries) {
+			if (!entry.isFile() || !entry.name.endsWith(".css")) continue;
+			const absPath = pathJoin(dir, entry.name);
+			const relPath = relative(cwd, absPath).replaceAll("\\", "/");
+			cssImports.push(relPath.startsWith("/") ? relPath : `/${relPath}`);
+		}
+	}
+	return cssImports;
+}
+
+/**
+ * Builds the layout-CSS import lines for the client entry module. CSS modules
+ * (`.module.css`) use a default import so Vite associates the extracted CSS with
+ * this entry chunk; a bare side-effect import would be code-split into an
+ * orphaned chunk that nothing references, so the styles never reach the page.
+ */
+function layoutCssImportLines(cssImports: string[]): string[] {
+	if (cssImports.length === 0) return [];
+	const out: string[] = [`// Layout CSS (auto-discovered)`];
+	let cssModIdx = 0;
+	for (const imp of cssImports) {
+		if (imp.includes(".module.")) {
+			out.push(`import _lcss${cssModIdx} from '${imp}';`);
+			cssModIdx++;
+		} else {
+			out.push(`import '${imp}';`);
+		}
+	}
+	return out;
+}
+
 async function generateClientEntryModule(
 	avalonConfig: ResolvedAvalonConfig,
 	nitroConfig: AvalonNitroConfig,
 ): Promise<string> {
 	const { getAllLayoutDirs } = await import("./module-discovery.ts");
-	const { readdir } = await import("node:fs/promises");
-	const { relative, join: pathJoin } = await import("node:path");
 
 	const cwd = process.cwd();
 
 	// Discover all CSS files in layout directories
 	const layoutDirs = await getAllLayoutDirs(avalonConfig.layoutsDir, avalonConfig.modules, cwd);
-
-	const cssImports: string[] = [];
-
-	for (const { dir } of layoutDirs) {
-		try {
-			const entries = await readdir(dir, { withFileTypes: true });
-			for (const entry of entries) {
-				if (!entry.isFile()) continue;
-				if (!entry.name.endsWith(".css")) continue;
-				const absPath = pathJoin(dir, entry.name);
-				const relPath = relative(cwd, absPath).replaceAll("\\", "/");
-				const importPath = relPath.startsWith("/") ? relPath : `/${relPath}`;
-				cssImports.push(importPath);
-			}
-		} catch {
-			// Directory doesn't exist or can't be read — skip
-		}
-	}
+	const cssImports = await discoverLayoutCssImports(layoutDirs, cwd);
 
 	// Build the module source
 	// Use the full runtime in dev (HMR support) and slim in production.
@@ -1910,31 +2046,12 @@ async function generateClientEntryModule(
 	const globalCSS = nitroConfig.globalCSS ?? [];
 	for (const cssPath of globalCSS) {
 		const importPath = cssPath.startsWith("/") ? cssPath : `/${cssPath}`;
-		lines.push(`// Global CSS`);
-		lines.push(`import '${importPath}';`);
+		lines.push(`// Global CSS`, `import '${importPath}';`);
 	}
 
 	if (globalCSS.length > 0) lines.push(``);
 
-	// Layout CSS (auto-discovered)
-	// CSS modules (.module.css) must use a default import so Vite associates
-	// the extracted CSS with this entry chunk. A bare side-effect import
-	// causes Vite/Rolldown to code-split the CSS into an orphaned chunk
-	// that nothing references, so the styles never reach the page.
-	if (cssImports.length > 0) {
-		lines.push(`// Layout CSS (auto-discovered)`);
-		let cssModIdx = 0;
-		for (const imp of cssImports) {
-			if (imp.includes(".module.")) {
-				lines.push(`import _lcss${cssModIdx} from '${imp}';`);
-				cssModIdx++;
-			} else {
-				lines.push(`import '${imp}';`);
-			}
-		}
-	}
-
-	lines.push(``);
+	lines.push(...layoutCssImportLines(cssImports), ``);
 	return lines.join("\n");
 }
 
@@ -1946,6 +2063,71 @@ async function generateClientEntryModule(
  * resolve @useavalon/vue/client, @useavalon/svelte/client, etc. when
  * only preact is configured.
  */
+/** Lines for the production-inlined Solid client adapter. */
+function solidInlineAdapterLines(): string[] {
+	return [
+		`// --- Inlined Solid adapter (production) ---`,
+		`// Eliminates a separate chunk + network request for the Solid client adapter.`,
+		`// Only imports hydrate/createComponent — no render() fallback (saves ~1-2 KiB).`,
+		`function _ensureHydrationContext() {`,
+		`  if (!globalThis._$HY) {`,
+		`    globalThis._$HY = { events: [], completed: new WeakSet(), r: {}, fe() {} };`,
+		`  }`,
+		`}`,
+		``,
+		`async function _solidHydrate(container, Component, props) {`,
+		`  if (!container) throw new Error("Container element is required for hydration");`,
+		`  if (!Component || typeof Component !== "function") {`,
+		`    throw new Error("Invalid Solid component: expected function, got " + typeof Component);`,
+		`  }`,
+		`  var el = container;`,
+		`  var renderId = el.dataset.solidRenderId || el.dataset.renderId;`,
+		`  var { hydrate: solidHydrate, createComponent } = await import("solid-js/web");`,
+		`  _ensureHydrationContext();`,
+		`  solidHydrate(function() { return createComponent(Component, props || {}); }, el, { renderId: renderId || "" });`,
+		`}`,
+		``,
+		`var _solidModule = { hydrate: _solidHydrate };`,
+		``,
+	];
+}
+
+/** Builds the `switch` cases for `loadIntegrationModule`. */
+function loadIntegrationCases(
+	frameworkNames: string[],
+	frameworkImports: Record<string, string>,
+	isDev: boolean,
+): string[] {
+	const out: string[] = [];
+	for (const fw of frameworkNames) {
+		const importPath = frameworkImports[fw];
+		if (!importPath) continue;
+		if (fw === "solid" && !isDev) {
+			// Production: return the inlined Solid adapter (no dynamic import)
+			out.push(`    case "solid":`, `      return _solidModule;`);
+		} else if (fw === "react") {
+			out.push(`    case "react":`);
+		} else {
+			out.push(`    case "${fw}":`, `      return import("${importPath}");`);
+		}
+	}
+	if (frameworkNames.includes("react") && !frameworkNames.includes("preact")) {
+		out.push(`      return import("${frameworkImports.react}");`);
+	}
+	return out;
+}
+
+/** Builds the `switch` cases for `loadHMRAdapter`. */
+function loadHMRCases(frameworkNames: string[], hmrImports: Record<string, string>): string[] {
+	const out: string[] = [];
+	for (const fw of frameworkNames) {
+		const hmrPath = hmrImports[fw];
+		if (!hmrPath) continue;
+		out.push(`    case "${fw}":`, `      return import("${hmrPath}").then(m => m.${fw}Adapter);`);
+	}
+	return out;
+}
+
 export function generateIntegrationLoaderModule(avalonConfig: ResolvedAvalonConfig): string {
 	const integrations = avalonConfig.integrations ?? [];
 	const frameworkNames = integrations.map((i: string | { name: string }) =>
@@ -1954,7 +2136,7 @@ export function generateIntegrationLoaderModule(avalonConfig: ResolvedAvalonConf
 
 	const frameworkImports: Record<string, string> = {
 		preact: "@useavalon/preact/client",
-		react: "@useavalon/preact/client",
+		react: reactClientModule(avalonConfig.core),
 		vue: "@useavalon/vue/client",
 		svelte: "@useavalon/svelte/client",
 		solid: "@useavalon/solid/client",
@@ -1985,93 +2167,44 @@ export function generateIntegrationLoaderModule(avalonConfig: ResolvedAvalonConf
 	// The inlined version only imports hydrate + createComponent from solid-js/web
 	// (no render() fallback), which avoids pulling in the extra DOM runtime code.
 	if (hasSolid && !isDev) {
-		lines.push(`// --- Inlined Solid adapter (production) ---`);
-		lines.push(`// Eliminates a separate chunk + network request for the Solid client adapter.`);
-		lines.push(`// Only imports hydrate/createComponent — no render() fallback (saves ~1-2 KiB).`);
-		lines.push(`function _ensureHydrationContext() {`);
-		lines.push(`  if (!globalThis._$HY) {`);
-		lines.push(`    globalThis._$HY = { events: [], completed: new WeakSet(), r: {}, fe() {} };`);
-		lines.push(`  }`);
-		lines.push(`}`);
-		lines.push(``);
-		lines.push(`async function _solidHydrate(container, Component, props) {`);
-		lines.push(`  if (!container) throw new Error("Container element is required for hydration");`);
-		lines.push(`  if (!Component || typeof Component !== "function") {`);
-		lines.push(
-			`    throw new Error("Invalid Solid component: expected function, got " + typeof Component);`,
-		);
-		lines.push(`  }`);
-		lines.push(`  var el = container;`);
-		lines.push(`  var renderId = el.dataset.solidRenderId || el.dataset.renderId;`);
-		lines.push(`  var { hydrate: solidHydrate, createComponent } = await import("solid-js/web");`);
-		lines.push(`  _ensureHydrationContext();`);
-		lines.push(
-			`  solidHydrate(function() { return createComponent(Component, props || {}); }, el, { renderId: renderId || "" });`,
-		);
-		lines.push(`}`);
-		lines.push(``);
-		lines.push(`var _solidModule = { hydrate: _solidHydrate };`);
-		lines.push(``);
+		lines.push(...solidInlineAdapterLines());
 	}
 
-	lines.push(`// --- loadIntegrationModule ---`);
-	lines.push(`export async function loadIntegrationModule(framework) {`);
-	lines.push(`  switch (framework) {`);
-
-	for (const fw of frameworkNames) {
-		const importPath = frameworkImports[fw];
-		if (!importPath) continue;
-		if (fw === "solid" && !isDev) {
-			// Production: return the inlined Solid adapter (no dynamic import)
-			lines.push(`    case "solid":`);
-			lines.push(`      return _solidModule;`);
-		} else if (fw === "react") {
-			lines.push(`    case "react":`);
-		} else if (fw === "preact") {
-			lines.push(`    case "preact":`);
-			lines.push(`      return import("${importPath}");`);
-		} else {
-			lines.push(`    case "${fw}":`);
-			lines.push(`      return import("${importPath}");`);
-		}
-	}
-
-	if (frameworkNames.includes("react") && !frameworkNames.includes("preact")) {
-		lines.push(`      return import("${frameworkImports.react}");`);
-	}
-
-	lines.push(`    default:`);
-	lines.push(`      throw new Error(\`Unknown or unconfigured framework: \${framework}\`);`);
-	lines.push(`  }`);
-	lines.push(`}`);
-	lines.push(``);
+	lines.push(
+		`// --- loadIntegrationModule ---`,
+		`export async function loadIntegrationModule(framework) {`,
+		`  switch (framework) {`,
+		...loadIntegrationCases(frameworkNames, frameworkImports, isDev),
+		`    default:`,
+		`      throw new Error(\`Unknown or unconfigured framework: \${framework}\`);`,
+		`  }`,
+		`}`,
+		``,
+		`// --- Lit hydration pre-load (only if Lit is configured) ---`,
+	);
 
 	// --- preLitHydration: only emitted if Lit is configured ---
-	lines.push(`// --- Lit hydration pre-load (only if Lit is configured) ---`);
 	if (hasLit) {
-		lines.push(`export async function preLitHydration() {`);
-		lines.push(`  await import("@useavalon/lit/client");`);
-		lines.push(`}`);
+		lines.push(
+			`export async function preLitHydration() {`,
+			`  await import("@useavalon/lit/client");`,
+			`}`,
+		);
 	} else {
 		lines.push(`export async function preLitHydration() {}`);
 	}
-	lines.push(``);
 
 	// --- loadHMRAdapter: only emitted for configured frameworks ---
-	lines.push(`// --- HMR adapter loader ---`);
-	lines.push(`export async function loadHMRAdapter(framework) {`);
-	lines.push(`  switch (framework) {`);
-
-	for (const fw of frameworkNames) {
-		const hmrPath = hmrImports[fw];
-		if (!hmrPath) continue;
-		lines.push(`    case "${fw}":`);
-		lines.push(`      return import("${hmrPath}").then(m => m.${fw}Adapter);`);
-	}
-
-	lines.push(`    default: return null;`);
-	lines.push(`  }`);
-	lines.push(`}`);
+	lines.push(
+		``,
+		`// --- HMR adapter loader ---`,
+		`export async function loadHMRAdapter(framework) {`,
+		`  switch (framework) {`,
+		...loadHMRCases(frameworkNames, hmrImports),
+		`    default: return null;`,
+		`  }`,
+		`}`,
+	);
 
 	return lines.join("\n");
 }
@@ -2116,6 +2249,248 @@ let cachedLayoutModule: unknown = null;
  * - No shell layout detected
  * - Page provides its own complete HTML document
  */
+/**
+ * Load the dev-mode shell renderer for the configured engine. Returns a
+ * createElement/`h` factory and a `renderToString` function from either Preact
+ * (default) or real React (`core: "react"`), loaded via Vite's SSR module graph.
+ */
+async function loadDevShellEngine(
+	server: ViteDevServer,
+	core: ResolvedAvalonConfig["core"],
+): Promise<{
+	h: (...args: unknown[]) => unknown;
+	renderToString: (vnode: unknown) => string;
+}> {
+	type CreateElement = (...args: unknown[]) => unknown;
+	type RenderToString = (vnode: unknown) => string;
+
+	if (core === "react") {
+		// Use native dynamic import (not ssrLoadModule): React ships CJS, and
+		// Node's ESM interop resolves it cleanly, whereas Vite's SSR module runner
+		// chokes on React's `module.exports` entry in dev.
+		const react = (await import("react")) as Record<string, unknown> & { default?: unknown };
+		const reactDomServer = (await import("react-dom/server")) as Record<string, unknown> & {
+			default?: unknown;
+		};
+		const reactDefault = (react.default ?? react) as Record<string, unknown>;
+		const rdsDefault = (reactDomServer.default ?? reactDomServer) as Record<string, unknown>;
+		return {
+			h: (react.createElement ?? reactDefault.createElement) as CreateElement,
+			renderToString: (reactDomServer.renderToString ??
+				rdsDefault.renderToString) as RenderToString,
+		};
+	}
+	const preact = await server.ssrLoadModule("preact");
+	const rts = await server.ssrLoadModule("preact-render-to-string");
+	return {
+		h: preact.h as CreateElement,
+		renderToString: (rts.render ?? rts.default) as RenderToString,
+	};
+}
+
+/** Runtime hyperscript factory from the active shell engine (dev). */
+type ShellHyperscript = (type: unknown, props: unknown, ...children: unknown[]) => unknown;
+/** Runtime render-to-string from the active shell engine (dev). */
+type ShellRenderFn = (vnode: unknown) => string;
+/** A discovered layout with its loaded module. */
+type DevLayoutEntry = { file: string; module: Record<string, unknown> };
+
+/** The base name of a layout file, without directory or extension. */
+function getLayoutBaseName(file: string): string {
+	return (
+		file
+			.split("/")
+			.pop()
+			?.replace(/\.[^.]+$/, "") || ""
+	);
+}
+
+/**
+ * Loads all layout modules and appends their CSS (from Vite's module graph)
+ * into `cssContents`. Modules are loaded first so their CSS enters the graph
+ * before collection.
+ */
+async function loadDevLayoutModulesWithCss(
+	server: ViteDevServer,
+	layoutFiles: string[],
+	cssContents: string[],
+): Promise<DevLayoutEntry[]> {
+	const layoutModules: DevLayoutEntry[] = [];
+	for (const layoutFile of layoutFiles) {
+		const layoutModule = await server.ssrLoadModule(layoutFile);
+		layoutModules.push({ file: layoutFile, module: layoutModule });
+	}
+	for (const layoutFile of layoutFiles) {
+		const layoutCss = await collectCssFromModuleGraph(server, layoutFile);
+		cssContents.push(...layoutCss);
+	}
+	return layoutModules;
+}
+
+/**
+ * Splits layouts into shell layouts (render a full `<html>`/`<!DOCTYPE>`
+ * document) and wrapper layouts (render a fragment) by test-rendering each.
+ */
+async function categorizeShellWrapperLayouts(
+	activeLayouts: DevLayoutEntry[],
+	layoutProps: Record<string, unknown>,
+	h: ShellHyperscript,
+	preactRender: ShellRenderFn,
+): Promise<{ shellLayouts: DevLayoutEntry[]; wrapperLayouts: DevLayoutEntry[] }> {
+	const shellLayouts: DevLayoutEntry[] = [];
+	const wrapperLayouts: DevLayoutEntry[] = [];
+	for (const layout of activeLayouts) {
+		const LayoutComponent = layout.module.default;
+		if (!LayoutComponent || typeof LayoutComponent !== "function") continue;
+		try {
+			const testProps = { ...layoutProps, children: h("div", null, "test") };
+			const testResult = (LayoutComponent as (props: unknown) => unknown)(testProps);
+			const resolvedTest = testResult instanceof Promise ? await testResult : testResult;
+			const testHtml = preactRender(resolvedTest);
+			if (testHtml.trim().startsWith("<html") || testHtml.includes("<!DOCTYPE")) {
+				shellLayouts.push(layout);
+			} else {
+				wrapperLayouts.push(layout);
+			}
+		} catch {
+			wrapperLayouts.push(layout);
+		}
+	}
+	return { shellLayouts, wrapperLayouts };
+}
+
+/** Renders the shell layout with the stream marker as children. Returns null on failure. */
+async function renderStreamingShell(
+	ShellComponent: (props: unknown) => unknown,
+	layoutProps: Record<string, unknown>,
+	h: ShellHyperscript,
+	preactRender: ShellRenderFn,
+): Promise<string | null> {
+	try {
+		const shellProps = {
+			...layoutProps,
+			children: h("div", { dangerouslySetInnerHTML: { __html: STREAM_MARKER } }),
+		};
+		const shellResult = ShellComponent(shellProps);
+		const resolvedShell = shellResult instanceof Promise ? await shellResult : shellResult;
+		return preactRender(resolvedShell);
+	} catch {
+		return null;
+	}
+}
+
+/** Injects CSS, DOCTYPE, and universal head content into the shell's leading HTML. */
+function buildStreamingShellHead(shellBefore: string, cssContents: string[]): string {
+	let shellHead = shellBefore;
+	if (cssContents.length > 0) {
+		const cssTag = `<style data-avalon-ssr-css>${cssContents.join("\n")}</style>`;
+		if (shellHead.includes("</head>")) {
+			shellHead = shellHead.replace("</head>", `${cssTag}\n</head>`);
+		} else {
+			shellHead = shellHead + cssTag;
+		}
+	}
+	if (!shellHead.trim().toLowerCase().startsWith("<!doctype")) {
+		shellHead = `<!DOCTYPE html>\n${shellHead}`;
+	}
+	const universalCSS = getUniversalCSSForHead(true);
+	if (universalCSS && shellHead.includes("</head>")) {
+		shellHead = shellHead.replace("</head>", `${universalCSS}\n</head>`);
+	}
+	const universalHead = getUniversalHeadForInjection(true);
+	if (universalHead && shellHead.includes("</head>")) {
+		shellHead = shellHead.replace("</head>", `${universalHead}\n</head>`);
+	}
+	return injectSolidHydrationScriptIfNeeded(shellHead);
+}
+
+/** Renders the page component to HTML, returning a fallback string on error. */
+async function renderPageComponentToHtml(
+	PageComponent: unknown,
+	preactRender: ShellRenderFn,
+	logLabel: string,
+): Promise<string> {
+	try {
+		const pageResult =
+			typeof PageComponent === "function" ? (PageComponent as () => unknown)() : PageComponent;
+		const resolvedPage = pageResult instanceof Promise ? await pageResult : pageResult;
+		return preactRender(resolvedPage);
+	} catch (error) {
+		console.error(`${logLabel} Error rendering page component:`, error);
+		return `<div>Error rendering page</div>`;
+	}
+}
+
+/** Wraps page content in each wrapper layout, innermost first. */
+async function applyWrapperLayouts(
+	pageContent: string,
+	wrapperLayouts: DevLayoutEntry[],
+	layoutProps: Record<string, unknown>,
+	h: ShellHyperscript,
+	preactRender: ShellRenderFn,
+	logLabel: string,
+): Promise<string> {
+	let content = pageContent;
+	for (const { module: layoutModule } of wrapperLayouts) {
+		const LayoutComponent = layoutModule.default;
+		if (!LayoutComponent || typeof LayoutComponent !== "function") continue;
+		try {
+			const props = {
+				...layoutProps,
+				children: h("div", { dangerouslySetInnerHTML: { __html: content } }),
+			};
+			const layoutResult = (LayoutComponent as (props: unknown) => unknown)(props);
+			const resolvedLayout = layoutResult instanceof Promise ? await layoutResult : layoutResult;
+			content = preactRender(resolvedLayout);
+		} catch (error) {
+			console.error(`${logLabel} Error rendering wrapper layout:`, error);
+		}
+	}
+	return content;
+}
+
+/**
+ * Applies the last shell layout (module-specific takes precedence over shared)
+ * around `content`. Returns `content` unchanged if there is no usable shell.
+ */
+async function applyShellLayout(
+	content: string,
+	shellLayouts: DevLayoutEntry[],
+	layoutProps: Record<string, unknown>,
+	h: ShellHyperscript,
+	preactRender: ShellRenderFn,
+): Promise<string> {
+	if (shellLayouts.length === 0) return content;
+	const { module: shellModule } = shellLayouts.at(-1)!;
+	const ShellComponent = shellModule.default;
+	if (!ShellComponent || typeof ShellComponent !== "function") return content;
+	try {
+		const props = {
+			...layoutProps,
+			children: h("div", { dangerouslySetInnerHTML: { __html: content } }),
+		};
+		const shellResult = (ShellComponent as (props: unknown) => unknown)(props);
+		const resolvedShell = shellResult instanceof Promise ? await shellResult : shellResult;
+		return preactRender(resolvedShell);
+	} catch (error) {
+		console.error("[SSR] Error rendering shell layout:", error);
+		return content;
+	}
+}
+
+/** Injects the dev client scripts before `</body>` if not already present. */
+function injectStreamingClientScripts(tail: string): string {
+	if (tail.includes("/src/client/main.js") || tail.includes("/@vite/client")) return tail;
+	const bodyCloseIndex = tail.lastIndexOf("</body>");
+	if (bodyCloseIndex === -1) return tail;
+	return (
+		tail.slice(0, bodyCloseIndex) +
+		'\n<script type="module" src="/@vite/client"></script>\n' +
+		'<script type="module" src="/src/client/main.js"></script>\n' +
+		tail.slice(bodyCloseIndex)
+	);
+}
+
 async function handleStreamingSSRRequest(
 	server: ViteDevServer,
 	url: string,
@@ -2140,31 +2515,16 @@ async function handleStreamingSSRRequest(
 		// Collect CSS
 		const cssContents = await collectCssFromModuleGraph(server, pageFile);
 		const layoutFiles = await discoverLayoutFiles(pathname, server);
-
-		const layoutModules: Array<{ file: string; module: Record<string, unknown> }> = [];
-		for (const layoutFile of layoutFiles) {
-			const layoutModule = await server.ssrLoadModule(layoutFile);
-			layoutModules.push({ file: layoutFile, module: layoutModule });
-		}
-		for (const layoutFile of layoutFiles) {
-			const layoutCss = await collectCssFromModuleGraph(server, layoutFile);
-			cssContents.push(...layoutCss);
-		}
+		const layoutModules = await loadDevLayoutModulesWithCss(server, layoutFiles, cssContents);
 
 		if (layoutModules.length === 0) return false;
 
-		const { render: preactRender } = await server.ssrLoadModule("preact-render-to-string");
-		const { h } = await server.ssrLoadModule("preact");
+		const { h, renderToString: preactRender } = await loadDevShellEngine(server, config.core);
 
 		const skipLayouts = layoutConfig?.skipLayouts || [];
-		const activeLayouts = layoutModules.filter(({ file }) => {
-			const layoutName =
-				file
-					.split("/")
-					.pop()
-					?.replace(/\.[^.]+$/, "") || "";
-			return !skipLayouts.includes(layoutName);
-		});
+		const activeLayouts = layoutModules.filter(
+			({ file }) => !skipLayouts.includes(getLayoutBaseName(file)),
+		);
 
 		const frontmatter = pageModule.frontmatter as Record<string, unknown> | undefined;
 		const metadata = pageModule.metadata as Record<string, unknown> | undefined;
@@ -2177,47 +2537,28 @@ async function handleStreamingSSRRequest(
 		};
 
 		// Categorize layouts into shell vs wrapper
-		const shellLayouts: Array<{ module: Record<string, unknown> }> = [];
-		const wrapperLayouts: Array<{ module: Record<string, unknown> }> = [];
-
-		for (const layout of activeLayouts) {
-			const LayoutComponent = layout.module.default;
-			if (!LayoutComponent || typeof LayoutComponent !== "function") continue;
-			try {
-				const testProps = { ...layoutProps, children: h("div", null, "test") };
-				const testResult = (LayoutComponent as (props: unknown) => unknown)(testProps);
-				const resolvedTest = testResult instanceof Promise ? await testResult : testResult;
-				const testHtml = preactRender(resolvedTest);
-				if (testHtml.trim().startsWith("<html") || testHtml.includes("<!DOCTYPE")) {
-					shellLayouts.push(layout);
-				} else {
-					wrapperLayouts.push(layout);
-				}
-			} catch {
-				wrapperLayouts.push(layout);
-			}
-		}
+		const { shellLayouts, wrapperLayouts } = await categorizeShellWrapperLayouts(
+			activeLayouts,
+			layoutProps,
+			h,
+			preactRender,
+		);
 
 		// Need a shell layout to stream
 		if (shellLayouts.length === 0) return false;
 
 		// Render shell layout with stream marker as children
-		const { module: shellModule } = shellLayouts[shellLayouts.length - 1];
+		const { module: shellModule } = shellLayouts.at(-1)!;
 		const ShellComponent = shellModule.default;
 		if (!ShellComponent || typeof ShellComponent !== "function") return false;
 
-		let shellHtml: string;
-		try {
-			const shellProps = {
-				...layoutProps,
-				children: h("div", { dangerouslySetInnerHTML: { __html: STREAM_MARKER } }),
-			};
-			const shellResult = (ShellComponent as (props: unknown) => unknown)(shellProps);
-			const resolvedShell = shellResult instanceof Promise ? await shellResult : shellResult;
-			shellHtml = preactRender(resolvedShell);
-		} catch {
-			return false;
-		}
+		const shellHtml = await renderStreamingShell(
+			ShellComponent as (props: unknown) => unknown,
+			layoutProps,
+			h,
+			preactRender,
+		);
+		if (shellHtml === null) return false;
 
 		// Split on marker
 		const markerIndex = shellHtml.indexOf(STREAM_MARKER);
@@ -2226,32 +2567,7 @@ async function handleStreamingSSRRequest(
 		const shellBefore = shellHtml.slice(0, markerIndex);
 		const shellAfter = shellHtml.slice(markerIndex + STREAM_MARKER.length);
 
-		// Inject CSS into the shell's <head>
-		let shellBeforeWithCss = shellBefore;
-		if (cssContents.length > 0) {
-			const cssTag = `<style data-avalon-ssr-css>${cssContents.join("\n")}</style>`;
-			if (shellBefore.includes("</head>")) {
-				shellBeforeWithCss = shellBefore.replace("</head>", `${cssTag}\n</head>`);
-			} else {
-				shellBeforeWithCss = shellBefore + cssTag;
-			}
-		}
-
-		// Ensure DOCTYPE
-		if (!shellBeforeWithCss.trim().toLowerCase().startsWith("<!doctype")) {
-			shellBeforeWithCss = `<!DOCTYPE html>\n${shellBeforeWithCss}`;
-		}
-
-		// Inject universal CSS and head content
-		const universalCSS = getUniversalCSSForHead(true);
-		if (universalCSS && shellBeforeWithCss.includes("</head>")) {
-			shellBeforeWithCss = shellBeforeWithCss.replace("</head>", `${universalCSS}\n</head>`);
-		}
-		const universalHead = getUniversalHeadForInjection(true);
-		if (universalHead && shellBeforeWithCss.includes("</head>")) {
-			shellBeforeWithCss = shellBeforeWithCss.replace("</head>", `${universalHead}\n</head>`);
-		}
-		shellBeforeWithCss = injectSolidHydrationScriptIfNeeded(shellBeforeWithCss);
+		const shellBeforeWithCss = buildStreamingShellHead(shellBefore, cssContents);
 
 		// ── FLUSH SHELL ──
 		res.statusCode = 200;
@@ -2262,16 +2578,11 @@ async function handleStreamingSSRRequest(
 		res.write(shellBeforeWithCss);
 
 		// ── RENDER PAGE CONTENT (this is where data fetching happens) ──
-		let pageContent: string;
-		try {
-			const pageResult =
-				typeof PageComponent === "function" ? (PageComponent as () => unknown)() : PageComponent;
-			const resolvedPage = pageResult instanceof Promise ? await pageResult : pageResult;
-			pageContent = preactRender(resolvedPage);
-		} catch (error) {
-			console.error("[SSR Streaming] Error rendering page component:", error);
-			pageContent = `<div>Error rendering page</div>`;
-		}
+		const pageContent = await renderPageComponentToHtml(
+			PageComponent,
+			preactRender,
+			"[SSR Streaming]",
+		);
 
 		// Check if page returned a complete HTML doc (shouldn't happen with layouts, but safety check)
 		const isCompleteDoc =
@@ -2283,36 +2594,18 @@ async function handleStreamingSSRRequest(
 		}
 
 		// Apply wrapper layouts around page content
-		let content = pageContent;
-		for (const { module: layoutModule } of wrapperLayouts) {
-			const LayoutComponent = layoutModule.default;
-			if (!LayoutComponent || typeof LayoutComponent !== "function") continue;
-			try {
-				const props = {
-					...layoutProps,
-					children: h("div", { dangerouslySetInnerHTML: { __html: content } }),
-				};
-				const layoutResult = (LayoutComponent as (props: unknown) => unknown)(props);
-				const resolvedLayout = layoutResult instanceof Promise ? await layoutResult : layoutResult;
-				content = preactRender(resolvedLayout);
-			} catch (error) {
-				console.error("[SSR Streaming] Error rendering wrapper layout:", error);
-			}
-		}
+		const content = await applyWrapperLayouts(
+			pageContent,
+			wrapperLayouts,
+			layoutProps,
+			h,
+			preactRender,
+			"[SSR Streaming]",
+		);
 
 		// ── FLUSH PAGE CONTENT + SHELL TAIL ──
 		// Inject client scripts before closing </body>
-		let tail = content + shellAfter;
-		if (!tail.includes("/src/client/main.js") && !tail.includes("/@vite/client")) {
-			const bodyCloseIndex = tail.lastIndexOf("</body>");
-			if (bodyCloseIndex !== -1) {
-				tail =
-					tail.slice(0, bodyCloseIndex) +
-					'\n<script type="module" src="/@vite/client"></script>\n' +
-					'<script type="module" src="/src/client/main.js"></script>\n' +
-					tail.slice(bodyCloseIndex);
-			}
-		}
+		const tail = injectStreamingClientScripts(content + shellAfter);
 
 		res.end(tail);
 		return true;
@@ -2352,19 +2645,7 @@ async function handleSSRRequest(
 		// Pre-load layout files via ssrLoadModule so their CSS modules enter
 		// Vite's module graph *before* we collect CSS from them.
 		const layoutFiles = await discoverLayoutFiles(pathname, server);
-
-		// Load all layout modules
-		const layoutModules: Array<{ file: string; module: Record<string, unknown> }> = [];
-		for (const layoutFile of layoutFiles) {
-			const layoutModule = await server.ssrLoadModule(layoutFile);
-			layoutModules.push({ file: layoutFile, module: layoutModule });
-		}
-
-		// Collect CSS from layout files and merge with page CSS
-		for (const layoutFile of layoutFiles) {
-			const layoutCss = await collectCssFromModuleGraph(server, layoutFile);
-			cssContents.push(...layoutCss);
-		}
+		const layoutModules = await loadDevLayoutModulesWithCss(server, layoutFiles, cssContents);
 
 		let html: string;
 
@@ -2410,37 +2691,22 @@ async function renderPageWithManualLayouts(
 	pageModule: Record<string, unknown>,
 	layoutModules: Array<{ file: string; module: Record<string, unknown> }>,
 	pathname: string,
-	_config: ResolvedAvalonConfig,
+	config: ResolvedAvalonConfig,
 	server: ViteDevServer,
 ): Promise<string> {
-	const { render: preactRender } = await server.ssrLoadModule("preact-render-to-string");
-	const { h } = await server.ssrLoadModule("preact");
+	const { h, renderToString: preactRender } = await loadDevShellEngine(server, config.core);
 
 	// Check if page wants to skip certain layouts
 	const layoutConfig = pageModule.layoutConfig as { skipLayouts?: string[] } | undefined;
 	const skipLayouts = layoutConfig?.skipLayouts || [];
 
 	// Filter out skipped layouts
-	const activeLayouts = layoutModules.filter(({ file }) => {
-		const layoutName =
-			file
-				.split("/")
-				.pop()
-				?.replace(/\.[^.]+$/, "") || "";
-		return !skipLayouts.includes(layoutName);
-	});
+	const activeLayouts = layoutModules.filter(
+		({ file }) => !skipLayouts.includes(getLayoutBaseName(file)),
+	);
 
 	// Render page content first
-	let pageContent: string;
-	try {
-		const pageResult =
-			typeof PageComponent === "function" ? (PageComponent as () => unknown)() : PageComponent;
-		const resolvedPage = pageResult instanceof Promise ? await pageResult : pageResult;
-		pageContent = preactRender(resolvedPage);
-	} catch (error) {
-		console.error("[SSR] Error rendering page component:", error);
-		pageContent = `<div>Error rendering page</div>`;
-	}
+	const pageContent = await renderPageComponentToHtml(PageComponent, preactRender, "[SSR]");
 
 	// Check if page content is a complete HTML document
 	const isCompleteDoc =
@@ -2466,79 +2732,25 @@ async function renderPageWithManualLayouts(
 	};
 
 	// Categorize layouts by rendering them with placeholder content
-	const shellLayouts: Array<{ module: Record<string, unknown> }> = [];
-	const wrapperLayouts: Array<{ module: Record<string, unknown> }> = [];
+	const { shellLayouts, wrapperLayouts } = await categorizeShellWrapperLayouts(
+		activeLayouts,
+		layoutProps,
+		h,
+		preactRender,
+	);
 
-	for (const layout of activeLayouts) {
-		const LayoutComponent = layout.module.default;
-		if (!LayoutComponent || typeof LayoutComponent !== "function") continue;
-
-		try {
-			// Render with placeholder to detect if it returns HTML shell
-			const testProps = {
-				...layoutProps,
-				children: h("div", null, "test"),
-			};
-			const testResult = (LayoutComponent as (props: unknown) => unknown)(testProps);
-			const resolvedTest = testResult instanceof Promise ? await testResult : testResult;
-			const testHtml = preactRender(resolvedTest);
-
-			if (testHtml.trim().startsWith("<html") || testHtml.includes("<!DOCTYPE")) {
-				shellLayouts.push(layout);
-			} else {
-				wrapperLayouts.push(layout);
-			}
-		} catch {
-			// If we can't determine, treat as wrapper
-			wrapperLayouts.push(layout);
-		}
-	}
-
-	// Apply wrapper layouts first (innermost to outermost)
-	// These are module-specific layouts that return <div> wrappers
-	let content = pageContent;
-
-	for (const { module: layoutModule } of wrapperLayouts) {
-		const LayoutComponent = layoutModule.default;
-		if (!LayoutComponent || typeof LayoutComponent !== "function") continue;
-
-		try {
-			const props = {
-				...layoutProps,
-				children: h("div", { dangerouslySetInnerHTML: { __html: content } }),
-			};
-
-			const layoutResult = (LayoutComponent as (props: unknown) => unknown)(props);
-			const resolvedLayout = layoutResult instanceof Promise ? await layoutResult : layoutResult;
-			content = preactRender(resolvedLayout);
-		} catch (error) {
-			console.error("[SSR] Error rendering wrapper layout:", error);
-		}
-	}
-
-	// Apply shell layout last (the one that provides <html>)
-	// If there are multiple shell layouts, prefer the module-specific one (last in array)
-	// since layouts are discovered in order: shared -> module-specific
-	if (shellLayouts.length > 0) {
-		// Use the last shell layout (module-specific takes precedence over shared)
-		const { module: shellModule } = shellLayouts[shellLayouts.length - 1];
-		const ShellComponent = shellModule.default;
-
-		if (ShellComponent && typeof ShellComponent === "function") {
-			try {
-				const props = {
-					...layoutProps,
-					children: h("div", { dangerouslySetInnerHTML: { __html: content } }),
-				};
-
-				const shellResult = (ShellComponent as (props: unknown) => unknown)(props);
-				const resolvedShell = shellResult instanceof Promise ? await shellResult : shellResult;
-				content = preactRender(resolvedShell);
-			} catch (error) {
-				console.error("[SSR] Error rendering shell layout:", error);
-			}
-		}
-	}
+	// Apply wrapper layouts first (innermost to outermost), then the shell layout
+	// last (the one that provides <html>). Shell precedence: module-specific
+	// (last in array) over shared.
+	const wrapped = await applyWrapperLayouts(
+		pageContent,
+		wrapperLayouts,
+		layoutProps,
+		h,
+		preactRender,
+		"[SSR]",
+	);
+	const content = await applyShellLayout(wrapped, shellLayouts, layoutProps, h, preactRender);
 
 	// Check if final content is a complete HTML document
 	const isFinalCompleteDoc =
@@ -2693,6 +2905,67 @@ async function discoverLayoutFiles(pathname: string, server: ViteDevServer): Pro
 	return layoutFiles;
 }
 
+/** Returns the `/`-rooted path if `relativePath` under `viteRoot` is a file, else null. */
+async function tryPageFile(viteRoot: string, relativePath: string): Promise<string | null> {
+	try {
+		const fullPath = `${viteRoot}/${relativePath}`;
+		const stat = await fsStat(fullPath);
+		if (stat.isFile()) return `/${relativePath}`;
+	} catch {
+		// File doesn't exist
+	}
+	return null;
+}
+
+/**
+ * Tries `${base}${ext}` for each extension, then `${base}/index${ext}` (unless
+ * `base` already ends with `/index`). Returns the first match, else null.
+ */
+async function resolvePageWithExtensions(
+	viteRoot: string,
+	base: string,
+	extensions: string[],
+): Promise<string | null> {
+	for (const ext of extensions) {
+		const result = await tryPageFile(viteRoot, `${base}${ext}`);
+		if (result) return result;
+	}
+	if (!base.endsWith("/index")) {
+		for (const ext of extensions) {
+			const result = await tryPageFile(viteRoot, `${base}/index${ext}`);
+			if (result) return result;
+		}
+	}
+	return null;
+}
+
+/** Computes the extension-less page base path within a module's pages directory. */
+function resolveModulePageBase(
+	modules: { dir: string; pagesDirName: string },
+	pathname: string,
+	normalizedPath: string,
+): string {
+	const segments = pathname.split("/").filter(Boolean);
+	const firstSegment = segments[0] || "";
+	const rootModules = ["home", "root", "main", "index"];
+
+	let moduleName: string;
+	let moduleRelativePath: string;
+	if (!firstSegment || rootModules.includes(firstSegment.toLowerCase())) {
+		// Root route - check home module
+		moduleName = "home";
+		moduleRelativePath = normalizedPath;
+	} else {
+		// First segment matches a module; strip it from the path
+		moduleName = firstSegment;
+		const remainingSegments = segments.slice(1);
+		moduleRelativePath =
+			remainingSegments.length > 0 ? `/${remainingSegments.join("/")}` : "/index";
+	}
+
+	return `${modules.dir}/${moduleName}/${modules.pagesDirName}${moduleRelativePath}`;
+}
+
 async function findPageFile(
 	pathname: string,
 	config: ResolvedAvalonConfig,
@@ -2709,85 +2982,129 @@ async function findPageFile(
 	const extensions = [".tsx", ".ts", ".jsx", ".js", ".mdx", ".md"];
 	const viteRoot = server.config.root || process.cwd();
 
-	// Helper to check if a file exists
-	async function tryFile(relativePath: string): Promise<string | null> {
-		try {
-			const fullPath = `${viteRoot}/${relativePath}`;
-			const stat = await fsStat(fullPath);
-			if (stat.isFile()) return `/${relativePath}`;
-		} catch {
-			// File doesn't exist
-		}
-		return null;
-	}
-
 	// 1. Check modular page directories first
 	if (config.modules) {
-		const modulesDir = config.modules.dir;
-		const pagesDirName = config.modules.pagesDirName;
-		const segments = pathname.split("/").filter(Boolean);
-		const firstSegment = segments[0] || "";
-		const rootModules = ["home", "root", "main", "index"];
-
-		// Determine which module and what the relative path within that module is
-		let moduleName: string;
-		let moduleRelativePath: string;
-
-		if (!firstSegment || rootModules.includes(firstSegment.toLowerCase())) {
-			// Root route - check home module
-			moduleName = "home";
-			moduleRelativePath = normalizedPath;
-		} else {
-			// Check if first segment matches a module
-			moduleName = firstSegment;
-			// Remove the module prefix from the path
-			const remainingSegments = segments.slice(1);
-			moduleRelativePath =
-				remainingSegments.length > 0 ? `/${remainingSegments.join("/")}` : "/index";
-		}
-
-		// Try to find the page in the module
-		for (const ext of extensions) {
-			const result = await tryFile(
-				`${modulesDir}/${moduleName}/${pagesDirName}${moduleRelativePath}${ext}`,
-			);
-			if (result) return result;
-		}
-		if (!moduleRelativePath.endsWith("/index")) {
-			for (const ext of extensions) {
-				const result = await tryFile(
-					`${modulesDir}/${moduleName}/${pagesDirName}${moduleRelativePath}/index${ext}`,
-				);
-				if (result) return result;
-			}
-		}
+		const moduleBase = resolveModulePageBase(config.modules, pathname, normalizedPath);
+		const result = await resolvePageWithExtensions(viteRoot, moduleBase, extensions);
+		if (result) return result;
 	}
 
 	// 2. Check traditional pages directory
-	const pagesDir = config.pagesDir;
-	for (const ext of extensions) {
-		const result = await tryFile(`${pagesDir}${normalizedPath}${ext}`);
-		if (result) return result;
-	}
-	if (!normalizedPath.endsWith("/index")) {
-		for (const ext of extensions) {
-			const result = await tryFile(`${pagesDir}${normalizedPath}/index${ext}`);
-			if (result) return result;
-		}
-	}
-
-	return null;
+	return resolvePageWithExtensions(viteRoot, `${config.pagesDir}${normalizedPath}`, extensions);
 }
 
-async function renderPageToHtml(
+/** Lazily initialises the shared `__avalonLayoutResolver` global if not already set. */
+function ensureAvalonLayoutResolver(
+	layoutModule: Record<string, unknown>,
+	config: ResolvedAvalonConfig,
+	viteRoot: string,
+): void {
+	if (globalThis.__avalonLayoutResolver) return;
+	const EnhancedLayoutResolver = layoutModule.EnhancedLayoutResolver as new (
+		opts: Record<string, unknown>,
+	) => unknown;
+
+	// Use the shared layouts directory as the base. The resolver will also check
+	// modular layouts via the layout composer.
+	const layoutsDir = config.layoutsDir || "src/layouts";
+
+	globalThis.__avalonLayoutResolver = new EnhancedLayoutResolver({
+		baseDirectory: `${viteRoot}/${layoutsDir}`,
+		filePattern: "_layout.tsx",
+		excludeDirectories: ["node_modules", ".git", "dist", "build"],
+		enableWatching: true,
+		developmentMode: false,
+		enableCaching: true,
+		cacheTTL: 60 * 1000,
+		maxCacheSize: 100,
+		enableStreaming: true,
+		enableErrorBoundaries: true,
+		enableMetrics: false,
+		enableDebugInfo: false,
+		// Pass modules config for modular layout discovery
+		modulesDir: config.modules ? `${viteRoot}/${config.modules.dir}` : undefined,
+		modulesLayoutsDirName: config.modules?.layoutsDirName,
+	});
+}
+
+/** Renders the page component via the dev shell engine, with a loading fallback. */
+async function renderDevFallbackContent(
+	PageComponent: unknown,
+	server: ViteDevServer,
+	config: ResolvedAvalonConfig,
+	pathname: string,
+): Promise<string> {
+	try {
+		const { renderToString } = await loadDevShellEngine(server, config.core);
+		if (typeof PageComponent === "function") {
+			return renderToString((PageComponent as () => unknown)());
+		}
+		return "";
+	} catch {
+		return `<p>Loading page: ${escapeHtml(pathname)}</p>`;
+	}
+}
+
+/**
+ * Attempts layout-aware rendering via `ssrModule.renderToHtmlWithLayouts`.
+ * Returns null when the required exports are missing or the render throws.
+ */
+async function tryRenderWithLayouts(
+	ssrModule: Record<string, unknown>,
+	layoutModule: Record<string, unknown>,
+	routeConfig: Record<string, unknown>,
+	config: ResolvedAvalonConfig,
+	server: ViteDevServer,
+	pathname: string,
+	metadata: { title?: string },
+): Promise<string | null> {
+	if (
+		!ssrModule.renderToHtmlWithLayouts ||
+		!layoutModule.EnhancedLayoutResolver ||
+		!layoutModule.EnhancedLayoutResolverUtils
+	) {
+		return null;
+	}
+	try {
+		const viteRoot = server.config.root || process.cwd();
+		ensureAvalonLayoutResolver(layoutModule, config, viteRoot);
+
+		const fullUrl = `http://localhost${pathname}`;
+		const layoutContext = {
+			params: {},
+			query: {},
+			url: fullUrl,
+			request: { method: "GET", url: fullUrl, headers: new Headers() },
+		};
+
+		return await (ssrModule.renderToHtmlWithLayouts as (...args: unknown[]) => Promise<string>)(
+			routeConfig,
+			globalThis.__avalonLayoutResolver,
+			layoutContext,
+			pathname,
+			{ title: metadata.title || "Avalon App" },
+			undefined,
+			{ suppressWarnings: true },
+		);
+	} catch {
+		// Layout rendering failed, fall back to basic rendering
+		return null;
+	}
+}
+
+/**
+ * Attempts to render a page through the dev SSR module (layout-aware first, then
+ * basic). Returns the rendered HTML, or null if the SSR module is unavailable or
+ * exposes no usable renderer (caller should use the fallback template).
+ */
+async function tryRenderWithSsrModule(
 	PageComponent: unknown,
 	pageModule: Record<string, unknown>,
 	pathname: string,
 	config: ResolvedAvalonConfig,
 	server: ViteDevServer,
-): Promise<string> {
-	const metadata = (pageModule.metadata || {}) as { title?: string; description?: string };
-
+	metadata: { title?: string; description?: string },
+): Promise<string | null> {
 	try {
 		if (!cachedSSRModule) {
 			cachedSSRModule = await server.ssrLoadModule(resolveAvalonPackagePath("src/render/ssr.ts"));
@@ -2813,63 +3130,16 @@ async function renderPageToHtml(
 		};
 
 		// Try layout-aware rendering first
-		if (
-			ssrModule.renderToHtmlWithLayouts &&
-			layoutModule.EnhancedLayoutResolver &&
-			layoutModule.EnhancedLayoutResolverUtils
-		) {
-			try {
-				const viteRoot = server.config.root || process.cwd();
-
-				if (!globalThis.__avalonLayoutResolver) {
-					const EnhancedLayoutResolver = layoutModule.EnhancedLayoutResolver as new (
-						opts: Record<string, unknown>,
-					) => unknown;
-
-					// Use the shared layouts directory as the base
-					// The resolver will also check modular layouts via the layout composer
-					const layoutsDir = config.layoutsDir || "src/layouts";
-
-					globalThis.__avalonLayoutResolver = new EnhancedLayoutResolver({
-						baseDirectory: `${viteRoot}/${layoutsDir}`,
-						filePattern: "_layout.tsx",
-						excludeDirectories: ["node_modules", ".git", "dist", "build"],
-						enableWatching: true,
-						developmentMode: false,
-						enableCaching: true,
-						cacheTTL: 60 * 1000,
-						maxCacheSize: 100,
-						enableStreaming: true,
-						enableErrorBoundaries: true,
-						enableMetrics: false,
-						enableDebugInfo: false,
-						// Pass modules config for modular layout discovery
-						modulesDir: config.modules ? `${viteRoot}/${config.modules.dir}` : undefined,
-						modulesLayoutsDirName: config.modules?.layoutsDirName,
-					});
-				}
-
-				const fullUrl = `http://localhost${pathname}`;
-				const layoutContext = {
-					params: {},
-					query: {},
-					url: fullUrl,
-					request: { method: "GET", url: fullUrl, headers: new Headers() },
-				};
-
-				return await (ssrModule.renderToHtmlWithLayouts as (...args: unknown[]) => Promise<string>)(
-					routeConfig,
-					globalThis.__avalonLayoutResolver,
-					layoutContext,
-					pathname,
-					{ title: metadata.title || "Avalon App" },
-					undefined,
-					{ suppressWarnings: true },
-				);
-			} catch {
-				// Layout rendering failed, fall back to basic rendering
-			}
-		}
+		const layoutHtml = await tryRenderWithLayouts(
+			ssrModule,
+			layoutModule,
+			routeConfig,
+			config,
+			server,
+			pathname,
+			metadata,
+		);
+		if (layoutHtml !== null) return layoutHtml;
 
 		if (ssrModule.renderToHtml) {
 			return await (ssrModule.renderToHtml as (...args: unknown[]) => Promise<string>)(
@@ -2882,19 +3152,33 @@ async function renderPageToHtml(
 	} catch {
 		// SSR module not available, fall back to basic rendering
 	}
+	return null;
+}
+
+/** Renders a page to a full HTML document (dev), falling back to a basic template. */
+async function renderPageToHtml(
+	PageComponent: unknown,
+	pageModule: Record<string, unknown>,
+	pathname: string,
+	config: ResolvedAvalonConfig,
+	server: ViteDevServer,
+): Promise<string> {
+	const metadata = (pageModule.metadata || {}) as { title?: string; description?: string };
+
+	const rendered = await tryRenderWithSsrModule(
+		PageComponent,
+		pageModule,
+		pathname,
+		config,
+		server,
+		metadata,
+	);
+	if (rendered !== null) return rendered;
 
 	// Fallback: basic HTML template
 	const title = metadata.title || "Avalon App";
 	const description = metadata.description || "";
-	let content = "";
-	try {
-		const preactRenderModule = await server.ssrLoadModule("preact-render-to-string");
-		if (preactRenderModule.render && typeof PageComponent === "function") {
-			content = preactRenderModule.render((PageComponent as () => unknown)());
-		}
-	} catch {
-		content = `<p>Loading page: ${escapeHtml(pathname)}</p>`;
-	}
+	const content = await renderDevFallbackContent(PageComponent, server, config, pathname);
 
 	return `<!DOCTYPE html>
 <html lang="en">
@@ -2921,7 +3205,7 @@ function escapeHtml(str: string): string {
 		.replaceAll("'", "&#039;");
 }
 
-// ─── Global Type Declarations ────────────────────────────────────────────────
+// ─── Global Type Declarations ───────────────────────────────────────────────
 
 declare global {
 	// deno-lint-ignore no-var

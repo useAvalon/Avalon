@@ -5,6 +5,7 @@ import { generateMainPage } from "./pages";
 describe("generateMainPage", () => {
 	const baseConfig: ProjectConfig = {
 		projectName: "my-app",
+		core: "preact",
 		integrations: [],
 		styling: "css-modules",
 		plugins: [],

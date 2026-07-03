@@ -206,6 +206,7 @@ export type {
 	IntegrationName,
 	MDXConfig,
 	NitroConfigOutput,
+	RenderEngine,
 	ResolvedAvalonConfig,
 	ResolvedMDXConfig,
 	RouteRule,

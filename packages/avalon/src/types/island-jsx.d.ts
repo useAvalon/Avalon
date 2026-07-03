@@ -18,6 +18,17 @@ declare module "preact" {
 	}
 }
 
+// React 19 exposes the JSX namespace on the `react` module itself (rather than
+// the global `JSX`), so `core: "react"` projects need this augmentation.
+declare module "react" {
+	namespace JSX {
+		interface IntrinsicAttributes {
+			island?: Expand<IslandDirective>;
+			server?: Expand<ServerIslandProp>;
+		}
+	}
+}
+
 declare global {
 	namespace JSX {
 		interface IntrinsicAttributes {

@@ -83,6 +83,22 @@ export interface ResolvedImageConfig {
 export type IntegrationName = "react" | "preact" | "vue" | "svelte" | "solid" | "lit" | "qwik";
 
 /**
+ * The core rendering engine used for pages and layouts (the "page shell").
+ *
+ * - `"preact"` (default): pages/layouts render with `preact-render-to-string`,
+ *   JSX defaults to `preact`, and React-ecosystem libraries run through
+ *   `preact/compat` aliases. Smallest runtime.
+ * - `"react"`: pages/layouts render with real `react-dom/server`, JSX defaults
+ *   to `react`, and no `preact/compat` alias is applied. Use this when you want
+ *   React libraries (e.g. Radix UI / shadcn/ui) to run on real React with full
+ *   fidelity and native SSR.
+ *
+ * Islands can still be authored in any framework regardless of this setting;
+ * `core` only controls what renders the page/layout shell.
+ */
+export type RenderEngine = "preact" | "react";
+
+/**
  * MDX configuration options
  */
 export interface MDXConfig {
@@ -137,6 +153,17 @@ export interface ModulesConfig {
  * Configuration options for the Avalon Vite plugin
  */
 export interface AvalonPluginConfig {
+	/**
+	 * Core rendering engine for pages and layouts.
+	 *
+	 * - `"preact"` (default) — render the page shell with Preact.
+	 * - `"react"` — render the page shell with real React (`react-dom/server`),
+	 *   enabling React libraries like Radix UI / shadcn/ui to work natively.
+	 *
+	 * @default "preact"
+	 */
+	core?: RenderEngine;
+
 	/**
 	 * Directory containing page components for file-system routing
 	 * @default "src/pages"
@@ -293,6 +320,7 @@ export interface ResolvedModulesConfig {
  * Fully resolved configuration with defaults applied
  */
 export interface ResolvedAvalonConfig {
+	core: RenderEngine;
 	pagesDir: string;
 	layoutsDir: string;
 	modules: ResolvedModulesConfig | null;
