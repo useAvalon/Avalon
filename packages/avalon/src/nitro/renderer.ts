@@ -28,12 +28,11 @@
 
 import type { H3Event } from "h3";
 import { getRequestURL as h3GetRequestURL } from "h3";
-import { h } from "preact";
-import preactRenderToString from "preact-render-to-string";
 import { inlineCriticalCSS } from "../islands/critical-css.ts";
 import { injectModulepreloadLinks } from "../islands/modulepreload-collector.ts";
 import { discoverScopedMiddleware, executeScopedMiddleware } from "../middleware/index.ts";
 import type { MiddlewareRoute } from "../middleware/types.ts";
+import { renderShell } from "../render/shell-engine.ts";
 import {
 	discoverErrorPages,
 	type ErrorHandlerOptions,
@@ -729,22 +728,27 @@ async function renderPageComponent(
 
 	// Call the page component (supports async components)
 	let vnode: unknown;
+	let pageErrored = false;
 	try {
 		const result = Component(pageProps);
 		vnode = result instanceof Promise ? await result : result;
 	} catch (err) {
 		console.error("[renderer] Error calling page component:", err);
-		vnode = h("div", null, "Error rendering page");
+		pageErrored = true;
 	}
 
-	// Render the vnode to HTML string using Preact SSR
+	// Render the vnode to HTML string using the active shell engine
+	// (Preact by default, React when core: "react").
 	let pageHtml: string;
-	try {
-		// biome-ignore lint/suspicious/noExplicitAny: preactRenderToString accepts VNode which is untyped here
-		pageHtml = preactRenderToString(vnode as any);
-	} catch (err) {
-		console.error("[renderer] Error in preactRenderToString:", err);
+	if (pageErrored) {
 		pageHtml = "<div>Error rendering page</div>";
+	} else {
+		try {
+			pageHtml = renderShell(vnode);
+		} catch (err) {
+			console.error("[renderer] Error rendering page shell:", err);
+			pageHtml = "<div>Error rendering page</div>";
+		}
 	}
 
 	// If a layout wrapper is provided, delegate full HTML generation to it
@@ -952,8 +956,7 @@ export async function renderPageStream(
 					// Async component — await it, then render the resolved vnode
 					try {
 						const resolved = await (result as Promise<unknown>);
-						// biome-ignore lint/suspicious/noExplicitAny: preactRenderToString accepts VNode which is untyped here
-						const pageHtml = preactRenderToString(resolved as any);
+						const pageHtml = renderShell(resolved);
 						ctrl.enqueue(encoder.encode(`    <div id="app">${pageHtml}</div>\n`));
 					} catch (err) {
 						console.error("[streaming] Async component error:", err);
@@ -1090,8 +1093,7 @@ function generateStreamingContent(
       <!-- Async component — awaiting hydration -->
     </div>\n`;
 			}
-			// biome-ignore lint/suspicious/noExplicitAny: preactRenderToString accepts VNode which is untyped here
-			const pageHtml = preactRenderToString(result as any);
+			const pageHtml = renderShell(result);
 			return `    <div id="app">${pageHtml}</div>\n`;
 		} catch (err) {
 			console.error("[streaming] Error rendering page component:", err);

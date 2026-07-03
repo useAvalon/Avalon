@@ -46,6 +46,7 @@ export const DEFAULT_IMAGE_CONFIG: ResolvedImageConfig = {
  * These are used when the user doesn't provide specific values
  */
 export const DEFAULT_CONFIG: Omit<ResolvedAvalonConfig, "isDev"> = {
+	core: "preact",
 	pagesDir: "src/pages",
 	layoutsDir: "src/layouts",
 	modules: null,
@@ -138,14 +139,17 @@ export function resolveConfig(
 	const config = userConfig ?? {};
 	const modules = resolveModulesConfig(config.modules);
 	const image = resolveImageConfig(config.image);
+	const core = config.core ?? DEFAULT_CONFIG.core;
 
 	return {
+		core,
 		pagesDir: config.pagesDir ?? DEFAULT_CONFIG.pagesDir,
 		layoutsDir: config.layoutsDir ?? DEFAULT_CONFIG.layoutsDir,
 		modules,
 		integrations: config.integrations ?? DEFAULT_CONFIG.integrations,
 		mdx: {
-			jsxImportSource: config.mdx?.jsxImportSource ?? DEFAULT_MDX_CONFIG.jsxImportSource,
+			// MDX JSX source follows the core engine unless explicitly overridden.
+			jsxImportSource: config.mdx?.jsxImportSource ?? core,
 			syntaxHighlighting: config.mdx?.syntaxHighlighting ?? DEFAULT_MDX_CONFIG.syntaxHighlighting,
 			remarkPlugins: config.mdx?.remarkPlugins ?? DEFAULT_MDX_CONFIG.remarkPlugins,
 			rehypePlugins: config.mdx?.rehypePlugins ?? DEFAULT_MDX_CONFIG.rehypePlugins,

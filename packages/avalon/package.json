@@ -58,7 +58,8 @@
 		"./types": "./src/types/index.d.ts",
 		"./prerender": "./src/prerender/index.ts",
 		"./post-build": "./src/post-build/index.ts",
-		"./render/collect-css": "./src/render/collect-css.ts"
+		"./render/collect-css": "./src/render/collect-css.ts",
+		"./render/shell-engine": "./src/render/shell-engine.ts"
 	},
 	"typesVersions": {
 		"*": {
