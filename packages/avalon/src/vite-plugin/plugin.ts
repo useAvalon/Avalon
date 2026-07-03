@@ -344,6 +344,18 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 			};
 			const depsToInclude = integrationsToLoad.flatMap((name) => frameworkDeps[name] ?? []);
 
+			// When the page shell renders on React (`core: "react"`), the SSR
+			// pipeline needs real React handled as ESM: pre-bundle react-dom/server
+			// + the jsx runtime, and inline React through Vite's SSR transform so
+			// its CJS entry doesn't break the dev SSR module runner.
+			const isReactCore = config?.core === "react";
+			// React (the shell engine) is left EXTERNAL to the SSR bundle so Node's
+			// loader handles its CommonJS entry — inlining it breaks Vite's dev SSR
+			// module runner. We still pre-bundle it for the client optimizer.
+			if (isReactCore) {
+				depsToInclude.push("react-dom/server", "react/jsx-runtime");
+			}
+
 			// __AVALON_PER_ISLAND__ is a compile-time constant that tells island.tsx
 			// whether to use per-island hydration scripts (production) or entry-client
 			// mode (dev/HMR). This is the most reliable detection because it's replaced
