@@ -444,9 +444,19 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 	// module runner needs ESM (CJS `exports` is undefined there), so we pin them
 	// to the resolved `.mjs` files. Harmless when Preact isn't installed (the
 	// require.resolve throws and we skip).
-	const projectRequire = createRequire(join(process.cwd(), "package.json"));
+	//
+	// This runs ONLY for the SSR/Nitro environments: on the client the rewrite
+	// would bypass Vite's dependency pre-bundling and risk a duplicate Preact
+	// instance (broken hooks). Resolution is anchored to Vite's resolved `root`
+	// (not `process.cwd()`) so it works in monorepos and programmatic Vite usage;
+	// the require is built lazily since `viteConfig` is only set in configResolved.
+	let projectRequire: ReturnType<typeof createRequire> | undefined;
 	const resolvePreactEsm = (specifier: string): string | undefined => {
 		try {
+			if (!projectRequire) {
+				const root = viteConfig?.root ?? process.cwd();
+				projectRequire = createRequire(join(root, "package.json"));
+			}
 			return projectRequire.resolve(specifier).replace(/\.js$/, ".mjs");
 		} catch {
 			return undefined;
@@ -463,6 +473,8 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 		name: "avalon:preact-compat-resolver",
 		enforce: "pre",
 		resolveId(id: string) {
+			const env = (this as { environment?: { name?: string } }).environment?.name;
+			if (env !== "ssr" && env !== "nitro") return null;
 			if (!PREACT_COMPAT_SPECIFIERS.has(id)) return null;
 			return resolvePreactEsm(id) ?? null;
 		},
