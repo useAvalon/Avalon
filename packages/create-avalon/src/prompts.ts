@@ -73,13 +73,22 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 		process.exit(1);
 	}
 
+	// shadcn is built on Radix (React), so it only makes sense on the React engine.
+	const stylingOptions: Array<{ value: StylingOption; label: string; hint?: string }> = [
+		{ value: "css-modules", label: "CSS Modules" },
+		{ value: "tailwind", label: "Tailwind CSS" },
+	];
+	if (coreResult === "react") {
+		stylingOptions.push({
+			value: "shadcn",
+			label: "shadcn",
+			hint: "Radix-based components — requires the React engine",
+		});
+	}
+
 	const stylingResult = await select({
 		message: "Which styling approach would you like to use?",
-		options: [
-			{ value: "css-modules", label: "CSS Modules" },
-			{ value: "tailwind", label: "Tailwind CSS" },
-			{ value: "shadcn", label: "shadcn" },
-		],
+		options: stylingOptions,
 	});
 
 	if (isCancel(stylingResult)) {

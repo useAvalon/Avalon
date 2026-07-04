@@ -87,9 +87,27 @@ describe("generatePackageJson", () => {
 		const pkg = JSON.parse(generatePackageJson(config));
 		expect(pkg.dependencies["@useavalon/react"]).toBe("latest");
 		expect(pkg.dependencies["@useavalon/vue"]).toBe("latest");
-		// Runtime deps (react, vue) are peer deps of @useavalon/* packages, not listed directly
+		// Framework runtimes are peer deps of the @useavalon/* wrappers, so the
+		// scaffolded app must install them directly.
+		expect(pkg.dependencies.react).toBe("^19.0.0");
+		expect(pkg.dependencies["react-dom"]).toBe("^19.0.0");
+		expect(pkg.dependencies.vue).toBe("^3.4.0");
+	});
+
+	it("adds Lit SSR peer packages when lit integration selected", () => {
+		const config: ProjectConfig = { ...baseConfig, integrations: ["lit"] };
+		const pkg = JSON.parse(generatePackageJson(config));
+		expect(pkg.dependencies.lit).toBe("^3.0.0");
+		expect(pkg.dependencies["@lit-labs/ssr"]).toBe("^4.0.0");
+		expect(pkg.dependencies["@lit-labs/ssr-client"]).toBe("^1.0.0");
+		expect(pkg.dependencies["@lit-labs/ssr-dom-shim"]).toBe("^1.0.0");
+	});
+
+	it("does not add framework runtimes when no integrations selected", () => {
+		const pkg = JSON.parse(generatePackageJson(baseConfig));
 		expect(pkg.dependencies.react).toBeUndefined();
 		expect(pkg.dependencies.vue).toBeUndefined();
+		expect(pkg.dependencies.preact).toBeUndefined();
 	});
 
 	it("includes @useavalon/agent-optimization when plugin selected", () => {
