@@ -437,6 +437,68 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 	const litPlugins = integrationPlugins.filter((p) => p.name?.includes("lit"));
 	const otherIntegrationPlugins = integrationPlugins.filter((p) => !p.name?.includes("lit"));
 
+	// Resolve preact/preact-compat bare specifiers to absolute ESM (.mjs) paths.
+	// When a project renders on Preact (`core: "preact"`, the default), the React
+	// integration aliases `react`/`react-dom` → `preact/compat`. Rolldown can't
+	// resolve those bare specifiers in the SSR/Nitro bundle, and Vite 8's SSR
+	// module runner needs ESM (CJS `exports` is undefined there), so we pin them
+	// to the resolved `.mjs` files. Harmless when Preact isn't installed (the
+	// require.resolve throws and we skip).
+	const projectRequire = createRequire(join(process.cwd(), "package.json"));
+	const resolvePreactEsm = (specifier: string): string | undefined => {
+		try {
+			return projectRequire.resolve(specifier).replace(/\.js$/, ".mjs");
+		} catch {
+			return undefined;
+		}
+	};
+	const PREACT_COMPAT_SPECIFIERS = new Set([
+		"preact",
+		"preact/hooks",
+		"preact/compat",
+		"preact/compat/server",
+		"preact/compat/client",
+	]);
+	const preactCompatResolver: Plugin = {
+		name: "avalon:preact-compat-resolver",
+		enforce: "pre",
+		resolveId(id: string) {
+			if (!PREACT_COMPAT_SPECIFIERS.has(id)) return null;
+			return resolvePreactEsm(id) ?? null;
+		},
+	};
+
+	// Stub out build-time Vite plugins during SSR/Nitro builds. Integration
+	// vitePlugin() methods dynamically import these packages, but they're never
+	// called at SSR runtime. Without stubbing, the bundler pulls in
+	// vite → rolldown → native bindings, which crash at runtime with
+	// "Cannot find native binding".
+	const BUILD_TIME_PACKAGES = [
+		"@preact/preset-vite",
+		"@vitejs/plugin-react",
+		"@vitejs/plugin-vue",
+		"@sveltejs/vite-plugin-svelte",
+		"vite-plugin-solid",
+		"@builder.io/qwik/optimizer",
+		"vite-prerender-plugin",
+	];
+	const stubBuildTimePlugins: Plugin = {
+		name: "avalon:stub-build-time-plugins",
+		enforce: "pre",
+		resolveId(id: string) {
+			const env = (this as { environment?: { name?: string } }).environment?.name;
+			if (env !== "ssr" && env !== "nitro") return;
+			if (BUILD_TIME_PACKAGES.some((pkg) => id === pkg || id.startsWith(`${pkg}/`))) {
+				return `\0stub:${id}`;
+			}
+		},
+		load(id: string) {
+			if (id.startsWith("\0stub:")) {
+				return "export default function() { return []; }; export {};";
+			}
+		},
+	};
+
 	// Page island transform: auto-wraps components with `island` prop
 	const pageTransformPlugin = pageIslandTransform({
 		pagesDir: preResolvedConfig.pagesDir,
@@ -452,6 +514,8 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 	const codeSplitting = islandCodeSplittingPlugin(preResolvedConfig, config?.nitro);
 
 	return [
+		preactCompatResolver,
+		stubBuildTimePlugins,
 		pageTransformPlugin,
 		islandBundler,
 		codeSplitting,
