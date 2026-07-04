@@ -102,6 +102,15 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 	// Write app env.d.ts — island prop types, virtual module declarations
 	await writeFile(join(targetDir, "app/env.d.ts"), generateEnvDts(config.integrations));
 
+	// Write app/entry-client.ts — the island hydration runtime entry.
+	// Vite's client environment uses this as its rollup input (see vite.config.ts),
+	// and Nitro's `clientEntry` points at it. It re-exports Avalon's virtual
+	// client-entry module, which wires up island hydration.
+	await writeFile(
+		join(targetDir, "app/entry-client.ts"),
+		`import "virtual:avalon/client-entry";\n`,
+	);
+
 	// Write server/renderer.ts — Nitro SSR catch-all handler
 	await writeFile(
 		join(targetDir, "server/renderer.ts"),

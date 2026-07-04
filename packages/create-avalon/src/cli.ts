@@ -60,4 +60,9 @@ async function main(): Promise<void> {
 }
 
 // Run CLI
-main();
+try {
+	await main();
+} catch (error) {
+	console.error(error);
+	process.exit(1);
+}

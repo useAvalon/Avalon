@@ -66,7 +66,7 @@
     },
     "packages/avalon": {
       "name": "@useavalon/avalon",
-      "version": "0.1.93",
+      "version": "0.2.0",
       "bin": {
         "avalon": "bin/avalon.ts",
       },
@@ -118,7 +118,7 @@
     },
     "packages/integrations/core": {
       "name": "@useavalon/core",
-      "version": "0.1.11",
+      "version": "0.2.0",
       "peerDependencies": {
         "vite": "^8.0.0",
       },
