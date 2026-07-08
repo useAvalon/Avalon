@@ -54,8 +54,8 @@ jobs:
       qwik: ${{ steps.resolve.outputs.qwik }}
       any: ${{ steps.resolve.outputs.any }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
         id: changes
         if: github.event_name == 'push'
         with:
@@ -79,13 +79,24 @@ jobs:
               - 'packages/integrations/qwik/**'
       - name: Resolve publish targets
         id: resolve
+        # Expressions are passed via env and referenced as shell vars rather than
+        # interpolated directly into the script (consistent, injection-safe).
         env:
           # Empty on push; the selected option on manual dispatch.
           SELECTION: ${{ inputs.packages }}
+          EVENT_NAME: ${{ github.event_name }}
+          CH_CORE: ${{ steps.changes.outputs.core }}
+          CH_LIT: ${{ steps.changes.outputs.lit }}
+          CH_REACT: ${{ steps.changes.outputs.react }}
+          CH_PREACT: ${{ steps.changes.outputs.preact }}
+          CH_SVELTE: ${{ steps.changes.outputs.svelte }}
+          CH_SOLID: ${{ steps.changes.outputs.solid }}
+          CH_VUE: ${{ steps.changes.outputs.vue }}
+          CH_QWIK: ${{ steps.changes.outputs.qwik }}
         run: |
           set -euo pipefail
           declare -A VAL
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             # Manual run: honor the selected package (or "all").
             for p in core lit react preact svelte solid vue qwik; do
               if [ "$SELECTION" = "all" ] || [ "$SELECTION" = "$p" ]; then
@@ -96,14 +107,14 @@ jobs:
             done
           else
             # Push run: mirror the paths-filter results (default missing → false).
-            VAL[core]='${{ steps.changes.outputs.core || 'false' }}'
-            VAL[lit]='${{ steps.changes.outputs.lit || 'false' }}'
-            VAL[react]='${{ steps.changes.outputs.react || 'false' }}'
-            VAL[preact]='${{ steps.changes.outputs.preact || 'false' }}'
-            VAL[svelte]='${{ steps.changes.outputs.svelte || 'false' }}'
-            VAL[solid]='${{ steps.changes.outputs.solid || 'false' }}'
-            VAL[vue]='${{ steps.changes.outputs.vue || 'false' }}'
-            VAL[qwik]='${{ steps.changes.outputs.qwik || 'false' }}'
+            VAL[core]="${CH_CORE:-false}"
+            VAL[lit]="${CH_LIT:-false}"
+            VAL[react]="${CH_REACT:-false}"
+            VAL[preact]="${CH_PREACT:-false}"
+            VAL[svelte]="${CH_SVELTE:-false}"
+            VAL[solid]="${CH_SOLID:-false}"
+            VAL[vue]="${CH_VUE:-false}"
+            VAL[qwik]="${CH_QWIK:-false}"
           fi
 
           ANY=false
@@ -119,12 +130,12 @@ jobs:
     if: ${{ needs.detect-changes.outputs.any == 'true' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: latest
 
@@ -212,9 +223,17 @@ jobs:
         run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
 
       - name: Bump and publish changed packages
+        env:
+          N: ${{ steps.train.outputs.counter }}
+          PUB_CORE: ${{ needs.detect-changes.outputs.core }}
+          PUB_LIT: ${{ needs.detect-changes.outputs.lit }}
+          PUB_REACT: ${{ needs.detect-changes.outputs.react }}
+          PUB_PREACT: ${{ needs.detect-changes.outputs.preact }}
+          PUB_SVELTE: ${{ needs.detect-changes.outputs.svelte }}
+          PUB_SOLID: ${{ needs.detect-changes.outputs.solid }}
+          PUB_VUE: ${{ needs.detect-changes.outputs.vue }}
+          PUB_QWIK: ${{ needs.detect-changes.outputs.qwik }}
         run: |
-          N="${{ steps.train.outputs.counter }}"
-
           next_patch() {
             local base="$1"
             local maj min pat
@@ -250,37 +269,37 @@ jobs:
             cd - > /dev/null
           }
 
-          if [ "${{ needs.detect-changes.outputs.core }}" = "true" ]; then
+          if [ "$PUB_CORE" = "true" ]; then
             publish_pkg "packages/integrations/core/package.json"
             publish_pkg "packages/avalon/package.json"
           fi
-          if [ "${{ needs.detect-changes.outputs.lit }}" = "true" ]; then
+          if [ "$PUB_LIT" = "true" ]; then
             publish_pkg "packages/integrations/lit/package.json"
           fi
-          if [ "${{ needs.detect-changes.outputs.react }}" = "true" ]; then
+          if [ "$PUB_REACT" = "true" ]; then
             publish_pkg "packages/integrations/react/package.json"
           fi
-          if [ "${{ needs.detect-changes.outputs.preact }}" = "true" ]; then
+          if [ "$PUB_PREACT" = "true" ]; then
             publish_pkg "packages/integrations/preact/package.json"
           fi
-          if [ "${{ needs.detect-changes.outputs.svelte }}" = "true" ]; then
+          if [ "$PUB_SVELTE" = "true" ]; then
             publish_pkg "packages/integrations/svelte/package.json"
           fi
-          if [ "${{ needs.detect-changes.outputs.solid }}" = "true" ]; then
+          if [ "$PUB_SOLID" = "true" ]; then
             publish_pkg "packages/integrations/solid/package.json"
           fi
-          if [ "${{ needs.detect-changes.outputs.vue }}" = "true" ]; then
+          if [ "$PUB_VUE" = "true" ]; then
             publish_pkg "packages/integrations/vue/package.json"
           fi
-          if [ "${{ needs.detect-changes.outputs.qwik }}" = "true" ]; then
+          if [ "$PUB_QWIK" = "true" ]; then
             publish_pkg "packages/integrations/qwik/package.json"
           fi
 
       - name: Create canary tag and GitHub pre-release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.train.outputs.tag }}
         run: |
-          TAG="${{ steps.train.outputs.tag }}"
           # Tag the released commit (do not commit the canary version bumps to main).
           git tag "$TAG"
           git push origin "$TAG"

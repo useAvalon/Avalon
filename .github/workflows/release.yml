@@ -60,12 +60,12 @@ jobs:
     name: Release ${{ inputs.package }} (${{ inputs.channel }})
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: latest
 
@@ -148,15 +148,25 @@ jobs:
             REASON="first release (no previous tag)"
           fi
 
+          # Sanitize REASON (derived from arbitrary commit messages) to a single
+          # line of printable chars before writing it to GITHUB_OUTPUT. This
+          # prevents both output-injection (extra keys via newlines) and shell
+          # injection when the value is later consumed.
+          REASON=$(printf '%s' "$REASON" | tr -d '\r\n' | tr -cd '[:print:]' | cut -c1-200)
           echo "bump=$BUMP" >> "$GITHUB_OUTPUT"
           echo "reason=$REASON" >> "$GITHUB_OUTPUT"
           echo "::notice::Detected bump: $BUMP (based on: $REASON)"
 
       - name: Print detected bump
+        # Pass expressions through env, never interpolate ${{ }} into the shell
+        # script — `reason` comes from untrusted commit messages.
+        env:
+          BUMP: ${{ steps.detect-bump.outputs.bump }}
+          REASON: ${{ steps.detect-bump.outputs.reason }}
         run: |
           echo "╔══════════════════════════════════════════════════╗"
-          echo "║ Detected bump: ${{ steps.detect-bump.outputs.bump }}"
-          echo "║ Based on: ${{ steps.detect-bump.outputs.reason }}"
+          echo "║ Detected bump: $BUMP"
+          echo "║ Based on: $REASON"
           echo "╚══════════════════════════════════════════════════╝"
 
       - name: Bump version
