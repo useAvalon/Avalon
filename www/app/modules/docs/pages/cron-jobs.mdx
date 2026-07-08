@@ -1,0 +1,175 @@
+---
+title: Cron Jobs
+description: Run server functions on a schedule with first-class cron support, built on Nitro's task scheduler.
+---
+
+Avalon has first-class support for scheduled jobs (cron). You write a task
+function, map it to a schedule in your config, and Avalon wires up the right
+runner for your deployment target — Vercel Cron, Cloudflare Triggers, or the
+built-in scheduler for the Node server. It's built on
+[Nitro's task system](https://nitro.build), so there's nothing extra to install.
+
+## Quick start
+
+Create a task file in the `tasks/` directory and default-export a job created
+with `defineCronJob`:
+
+```ts
+// tasks/cleanup.ts
+import { defineCronJob } from "@useavalon/avalon/cron";
+
+export default defineCronJob({
+  meta: { description: "Purge expired sessions" },
+  async run() {
+    await db.sessions.deleteExpired();
+    return { result: "ok" };
+  },
+});
+```
+
+Then map it to a schedule under `nitro.cron` in your Vite config:
+
+```ts
+// vite.config.ts
+import { avalon } from "@useavalon/avalon";
+
+export default defineConfig(async () => {
+  const plugins = await avalon({
+    nitro: {
+      cron: [
+        { schedule: "0 * * * *", handler: "tasks/cleanup.ts" },
+      ],
+    },
+  });
+
+  return { plugins: [plugins].flat() };
+});
+```
+
+That's it — `cleanup` now runs at the top of every hour.
+
+## Schedules
+
+A schedule is a standard cron expression or a named alias.
+
+```ts
+cron: [
+  { schedule: "*/30 * * * * *", handler: "tasks/heartbeat.ts" }, // every 30s
+  { schedule: "0 9 * * 1-5",    handler: "tasks/digest.ts" },    // 9am on weekdays
+  { schedule: "@daily",         handler: "tasks/backup.ts" },    // midnight
+]
+```
+
+Both 5-field (`min hour day-of-month month day-of-week`) and 6-field
+expressions (with a leading `seconds` field) are supported, along with these
+aliases:
+
+| Alias | Equivalent | Runs |
+|-------|-----------|------|
+| `@hourly` | `0 * * * *` | Every hour |
+| `@daily` / `@midnight` | `0 0 * * *` | Every day at midnight |
+| `@weekly` | `0 0 * * 0` | Every Sunday |
+| `@monthly` | `0 0 1 * *` | First of the month |
+| `@yearly` / `@annually` | `0 0 1 1 *` | Once a year |
+
+Seconds-level schedules (6-field) run on the built-in and Node schedulers.
+Most hosted cron providers only guarantee minute-level granularity.
+
+## The task function
+
+`defineCronJob` is a thin, typed wrapper over Nitro's `defineTask`. The `run`
+function receives an optional `payload` and `context`, and its return value is
+reported to the scheduler:
+
+```ts
+// tasks/reports/digest.ts
+import { defineCronJob } from "@useavalon/avalon/cron";
+
+export default defineCronJob({
+  meta: { description: "Send the daily digest email" },
+  async run({ payload }) {
+    const count = await sendDigest();
+    return { result: { sent: count } };
+  },
+});
+```
+
+### Task names
+
+Every job has a name, used for scheduling and manual runs. When you use
+`handler`, the name is derived from the file path relative to `tasks/`:
+
+| Handler | Task name |
+|---------|-----------|
+| `tasks/cleanup.ts` | `cleanup` |
+| `tasks/reports/digest.ts` | `reports:digest` |
+
+Pass an explicit `name` to override it:
+
+```ts
+cron: [
+  { schedule: "@daily", handler: "tasks/reports/digest.ts", name: "digest" },
+]
+```
+
+## Referencing jobs by name
+
+Files in `tasks/` are auto-discovered. If a task already lives there, you can
+schedule it by `task` name instead of repeating the handler path:
+
+```ts
+cron: [
+  { schedule: "@daily", task: "reports:digest" },
+]
+```
+
+Each entry must specify exactly one of `handler` or `task`.
+
+## Running a job on demand
+
+Trigger a job outside its schedule with `runCronJob` — handy from an API route
+or during testing:
+
+```ts
+// routes/api/run-cleanup.ts
+import { defineHandler } from "nitro/h3";
+import { runCronJob } from "@useavalon/avalon/cron";
+
+export default defineHandler(async () => {
+  const { result } = await runCronJob("cleanup");
+  return { ok: true, result };
+});
+```
+
+## Configuration reference
+
+Each entry in the `cron` array accepts:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `schedule` | `string` | **Required.** Cron expression or alias. |
+| `handler` | `string` | Path to a task file, relative to the project root. |
+| `task` | `string` | Name of an auto-discovered task in `tasks/`. |
+| `name` | `string` | Explicit task name (defaults to one derived from `handler`). |
+| `description` | `string` | Human-readable description for task listings. |
+
+Provide either `handler` or `task`, not both.
+
+## How it runs
+
+**In production**, jobs are compiled into Nitro's native task scheduler and
+registered per deployment preset:
+
+- **Vercel** — registers Vercel Cron jobs.
+- **Cloudflare** — registers scheduled Triggers.
+- **Node server** — runs an in-process scheduler when the server is running.
+
+**In development**, Avalon runs the jobs itself inside the Vite dev server, so
+scheduling works during `vite dev` without changing how your pages render. Each
+run is also broadcast over Vite's HMR channel, so UI that reacts to a job can
+update live without polling.
+
+> **Security:** Most platforms don't authenticate cron trigger endpoints by
+> default. If a job performs sensitive work, protect its entry point at the
+> platform level (for example, Vercel's cron secret) and validate it inside the
+> handler.

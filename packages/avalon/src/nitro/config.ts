@@ -20,7 +20,9 @@
  * - `/favicon.ico`: Medium cache (1 day)
  */
 
+import type { CronConfig } from "../schemas/cron.ts";
 import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
+import { resolveCronConfig } from "./cron.ts";
 
 /**
  * Cache configuration options for route rules
@@ -204,6 +206,31 @@ export interface AvalonNitroConfig {
 	 * @example ["app/shared/styles/main.css"]
 	 */
 	globalCSS?: string[];
+
+	/**
+	 * Scheduled cron jobs.
+	 *
+	 * First-class cron support built on Nitro's native task scheduler. Each
+	 * entry maps a cron schedule to a task that runs on that schedule. Nitro
+	 * wires up the correct runner for the active deployment preset (Vercel cron,
+	 * Cloudflare triggers, or the built-in scheduler for the node-server preset).
+	 *
+	 * Reference the code to run either with `handler` (a path to a task file
+	 * relative to the project root) or `task` (the name of a task in the
+	 * auto-scanned `tasks/` directory). Task files default-export a job created
+	 * with `defineCronJob` (from `@useavalon/avalon/cron`).
+	 *
+	 * @example
+	 * ```ts
+	 * cron: [
+	 *   // Run a task file every hour
+	 *   { schedule: "0 * * * *", handler: "tasks/cleanup.ts" },
+	 *   // Schedule an auto-discovered task by name
+	 *   { schedule: "@daily", task: "reports:digest" },
+	 * ]
+	 * ```
+	 */
+	cron?: CronConfig;
 }
 
 /**
@@ -256,6 +283,12 @@ export interface NitroConfigOutput {
 	staticAssets?: StaticAssetsConfig;
 	/** Prerender configuration for SSG */
 	prerender?: AvalonNitroConfig["prerender"];
+	/** Whether Nitro's experimental task system must be enabled (set when cron jobs exist) */
+	experimentalTasks?: boolean;
+	/** Nitro `tasks` map: task name -> handler/description (from cron config) */
+	tasks?: Record<string, { handler?: string; description?: string }>;
+	/** Nitro `scheduledTasks` map: cron expression -> task name(s) */
+	scheduledTasks?: Record<string, string | string[]>;
 }
 
 /**
@@ -399,6 +432,12 @@ export function createNitroConfig(
 		},
 	];
 
+	// Resolve cron jobs into native Nitro task config. Handler paths are
+	// resolved relative to the project root; the Vite build runs from the
+	// project directory, so process.cwd() is the correct base (mirrors the
+	// server-island project root convention in nitro-integration.ts).
+	const cronConfig = resolveCronConfig(avalonNitroConfig.cron, process.cwd());
+
 	// Resolve renderer: support explicit false to disable.
 	// When using Nitro's Vite plugin, the SSR entry approach (entry-server.ts)
 	// is preferred over a renderer handler. A default handler would block
@@ -429,6 +468,9 @@ export function createNitroConfig(
 		publicAssets,
 		staticAssets: staticAssetsConfig,
 		prerender: avalonNitroConfig.prerender,
+		experimentalTasks: cronConfig.experimentalTasks,
+		tasks: cronConfig.tasks,
+		scheduledTasks: cronConfig.scheduledTasks,
 	};
 }
 

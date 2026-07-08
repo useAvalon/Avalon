@@ -1,4 +1,4 @@
-import { cancel, intro, isCancel, multiselect, select, text } from "@clack/prompts";
+import { cancel, confirm, intro, isCancel, multiselect, select, text } from "@clack/prompts";
 import type {
 	DeployTarget,
 	Integration,
@@ -155,6 +155,16 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 		process.exit(1);
 	}
 
+	const cronResult = await confirm({
+		message: "Set up scheduled jobs (cron)?",
+		initialValue: false,
+	});
+
+	if (isCancel(cronResult)) {
+		cancel("Operation cancelled.");
+		process.exit(1);
+	}
+
 	const core = coreResult as RenderEngine;
 	// A React shell requires the React integration; ensure it's present.
 	const integrations = integrationsResult as Integration[];
@@ -170,5 +180,6 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 		plugins: pluginsResult as Plugin[],
 		middleware: middlewareResult as MiddlewareOption,
 		deploy: deployResult as DeployTarget,
+		cron: cronResult as boolean,
 	};
 }

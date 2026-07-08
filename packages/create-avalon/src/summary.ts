@@ -29,6 +29,7 @@ export function formatSummary(config: ProjectConfig, scaffoldedInPlace = false):
 		`  Plugins:        ${plugins}`,
 		`  Middleware:     ${config.middleware}`,
 		`  Deploy:        ${deploy}`,
+		`  Cron:           ${config.cron ? "yes" : "no"}`,
 		"",
 		"  Next steps:",
 		...nextSteps,
