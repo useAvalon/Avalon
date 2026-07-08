@@ -16,6 +16,27 @@
 
 import type { HydrationCondition } from "./island.tsx";
 
+/**
+ * Escapes an already-serialized JSON string for safe embedding inside an inline
+ * `<script>`. `JSON.stringify` does NOT escape `<`, `>`, `&`, or the JS line
+ * terminators U+2028/U+2029, so a prop string value such as
+ * `"</script><img src=x onerror=alert(1)>"` would break out of the script
+ * element and inject markup. Encoding these as `\uXXXX` keeps the value a valid
+ * JS expression while making tag/comment breakout impossible.
+ *
+ * Island props are the framework's primary channel for dynamic (often
+ * request-derived) data, so this must be applied everywhere props are embedded
+ * into inline script text.
+ */
+export function escapeJsonForScript(json: string): string {
+	return json
+		.replaceAll("<", String.raw`\u003c`)
+		.replaceAll(">", String.raw`\u003e`)
+		.replaceAll("&", String.raw`\u0026`)
+		.replaceAll("\u2028", String.raw`\u2028`)
+		.replaceAll("\u2029", String.raw`\u2029`);
+}
+
 export interface PerIslandScriptOptions {
 	/** The island element's DOM id */
 	islandId: string;
@@ -92,7 +113,7 @@ function generateHydrateCall(
 		`var e=document.getElementById(${JSON.stringify(islandId)});`,
 		`if(!e||e.dataset.hydrated)return;`,
 		`try{`,
-		`var p=${propsJson};`,
+		`var p=${escapeJsonForScript(propsJson)};`,
 		`var m=await import(${JSON.stringify(componentSrc)});`,
 		`var C=m.default||Object.values(m).find(function(v){return typeof v==="function"&&v.prototype})||m;`,
 		`if(m.__hydrateIsland){await m.__hydrateIsland(e,C,p)}`,
@@ -166,11 +187,12 @@ function generateStrategyCode(
 
 	// Custom directive
 	if (isCustom && directiveScript) {
+		const argCode = conditionArg ? `,${JSON.stringify(conditionArg)}` : "";
 		return [
 			hydrateCall,
 			`var e=document.getElementById(${JSON.stringify(islandId)});`,
 			`if(e){var dir=(${directiveScript});`,
-			`dir(e,function(){h()}${conditionArg ? `,${JSON.stringify(conditionArg)}` : ""})}`,
+			`dir(e,function(){h()}${argCode})}`,
 		].join("");
 	}
 

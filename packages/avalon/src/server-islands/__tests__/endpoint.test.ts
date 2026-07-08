@@ -450,3 +450,49 @@ describe("defineServerIslandHandler - POST body reading across environments", ()
 		expect(html).toContain("Hello ParsedBody");
 	});
 });
+
+// Builds an unencrypted "dev." payload (the format the renderer emits only in
+// development). A production endpoint must NOT honor it.
+function devPayload(obj: Record<string, unknown>): string {
+	return `dev.${Buffer.from(JSON.stringify(obj), "utf8").toString("base64url")}`;
+}
+
+describe("defineServerIslandHandler - security: dev-payload bypass", () => {
+	it("rejects a dev-prefixed (unencrypted) payload in production", async () => {
+		const prodHandler = defineServerIslandHandler({ isDev: false });
+		const componentId = "not-in-manifest";
+		const payload = devPayload({ __src: "node:child_process", name: "x" });
+
+		const event = createMockEvent({
+			pathname: `/_server-islands/${componentId}`,
+			params: { componentId },
+			searchParams: new URLSearchParams({ p: payload }),
+		});
+
+		const response = await prodHandler(event);
+
+		// The dev branch is not taken in prod: the payload falls through to
+		// decrypt(), fails the GCM auth check, and is rejected — the attacker's
+		// __src is never used to import a module.
+		expect(response.status).toBe(400);
+		expect(await response.text()).toBe("Bad Request: decryption failed");
+	});
+
+	it("still accepts a dev-prefixed payload in development", async () => {
+		const devHandler = defineServerIslandHandler({ isDev: true });
+		const componentId = "dev-accepts";
+		const modulePath = `${import.meta.url}#dev-accepts`;
+		addToManifest(componentId, modulePath);
+		vi.doMock(modulePath, () => ({ default: TestComponent }));
+
+		const event = createMockEvent({
+			pathname: `/_server-islands/${componentId}`,
+			params: { componentId },
+			searchParams: new URLSearchParams({ p: devPayload({ name: "DevMode" }) }),
+		});
+
+		const response = await devHandler(event);
+		expect(response.status).toBe(200);
+		expect(await response.text()).toContain("Hello DevMode");
+	});
+});

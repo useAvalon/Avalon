@@ -1082,8 +1082,8 @@ function generateErrorPage(error: Error): string {
     <div class="error-container">
       <h1>Server Error</h1>
       <p>An error occurred while rendering the page:</p>
-      <pre>${error.message}</pre>
-      ${isDev && error.stack ? `<pre>${error.stack}</pre>` : ""}
+      <pre>${escapeHtml(error.message)}</pre>
+      ${isDev && error.stack ? `<pre>${escapeHtml(error.stack)}</pre>` : ""}
     </div>
   </body>
 </html>`;
