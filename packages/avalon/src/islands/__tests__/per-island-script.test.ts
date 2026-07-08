@@ -169,3 +169,27 @@ describe("generatePerIslandScript", () => {
 		expect(result).not.toContain("strategies.js");
 	});
 });
+
+describe("generatePerIslandScript - script-context prop escaping (XSS)", () => {
+	it("does not allow a prop value to break out of the inline <script>", () => {
+		const propsJson = JSON.stringify({ msg: "</script><img src=x onerror=alert(1)>" });
+		const result = generatePerIslandScript(makeOpts({ propsJson }));
+
+		// The raw closing-tag sequence must not appear in the emitted script body,
+		// otherwise the payload would terminate the <script> element early.
+		const body = result.replace(/^<script type="module">/, "").replace(/<\/script>$/, "");
+		expect(body).not.toContain("</script>");
+		expect(body).not.toContain("<img");
+		// The `<` is encoded so the value stays a valid JS expression.
+		expect(body).toContain(String.raw`\u003c`);
+	});
+
+	it("escapes JS line terminators U+2028 / U+2029 in props", () => {
+		const propsJson = JSON.stringify({ a: "x\u2028y\u2029z" });
+		const result = generatePerIslandScript(makeOpts({ propsJson }));
+		expect(result).not.toContain("\u2028");
+		expect(result).not.toContain("\u2029");
+		expect(result).toContain(String.raw`\u2028`);
+		expect(result).toContain(String.raw`\u2029`);
+	});
+});

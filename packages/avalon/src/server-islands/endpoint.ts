@@ -21,7 +21,7 @@ import type { H3Event } from "h3";
 import { h } from "preact";
 import preactRenderToString from "preact-render-to-string";
 import { loadIntegration } from "../islands/integration-loader.ts";
-import { generatePerIslandScript } from "../islands/per-island-script.ts";
+import { escapeJsonForScript, generatePerIslandScript } from "../islands/per-island-script.ts";
 import { decrypt } from "./encryption.ts";
 import { lookupComponent } from "./manifest.ts";
 
@@ -39,8 +39,7 @@ type HydrationCondition =
  * from the manifest. Each loader dynamically imports its component module so the
  * bundler keeps the component reachable in the server bundle (no tree-shaking).
  */
-const _loaders: Record<string, () => Promise<{ default: unknown }>> =
-	(serverIslandLoaders as Record<string, () => Promise<{ default: unknown }>>) ?? {};
+const _loaders: Record<string, () => Promise<{ default: unknown }>> = serverIslandLoaders ?? {};
 
 function getLoaders(): Record<string, () => Promise<{ default: unknown }>> {
 	return _loaders;
@@ -80,17 +79,32 @@ interface IslandMetadata {
 	elementId?: string;
 }
 
+/** Decoded server-island payload: the component props plus optional metadata. */
+interface DecodedPayload {
+	props: Record<string, unknown>;
+	islandMeta?: IslandMetadata;
+	srcPath?: string;
+}
+
+/** Result of rendering the island component to HTML. */
+interface RenderedIsland {
+	html: string;
+	ssrFailed: boolean;
+	hydrationRenderId?: string;
+}
+
+/** Builds a plain-text response (used for error/status replies). */
+function textResponse(message: string, status: number): Response {
+	return new Response(message, { status, headers: { "Content-Type": "text/plain" } });
+}
+
 /**
  * Creates a Nitro-compatible event handler for the server islands endpoint.
  *
- * The handler:
- * 1. Extracts the componentId from the URL path
- * 2. Extracts encrypted props from query param (GET) or body (POST)
- * 3. Decrypts the props using AES-256-GCM
- * 4. Looks up the component module path from the manifest
- * 5. Dynamically imports the component
- * 6. Renders it with Preact's renderToString
- * 7. Returns HTML with appropriate headers
+ * The handler extracts the componentId + encrypted props, decrypts them, imports
+ * the component from the manifest, renders it, appends a hydration script for
+ * combined islands, and returns HTML. Each phase is delegated to a helper that
+ * returns either its result or an error `Response`.
  *
  * Error responses:
  * - 400 Bad Request: decryption failure or missing props
@@ -107,224 +121,292 @@ export function defineServerIslandHandler(options: ServerIslandEndpointOptions =
 	} = options;
 
 	return async (event: H3Event): Promise<Response> => {
-		// 1. Extract componentId from the URL path
 		const componentId = extractComponentId(event);
-		if (!componentId) {
-			return new Response("Missing component ID", {
-				status: 400,
-				headers: { "Content-Type": "text/plain" },
-			});
-		}
+		if (!componentId) return textResponse("Missing component ID", 400);
 
-		// 2. Extract encrypted props from query (GET) or body (POST)
-		let encryptedProps: string | undefined;
-		try {
-			encryptedProps = await extractEncryptedProps(event);
-		} catch {
-			return new Response("Failed to read request body", {
-				status: 400,
-				headers: { "Content-Type": "text/plain" },
-			});
-		}
+		const payload = await readEncryptedProps(event);
+		if (payload instanceof Response) return payload;
 
-		if (!encryptedProps) {
-			return new Response("Missing encrypted props", {
-				status: 400,
-				headers: { "Content-Type": "text/plain" },
-			});
-		}
+		const decoded = decodePayload(payload, isDev);
+		if (decoded instanceof Response) return decoded;
+		const { props, islandMeta, srcPath } = decoded;
 
-		// 3. Decrypt props (or decode in dev mode)
-		let props: Record<string, unknown>;
-		let islandMeta: IslandMetadata | undefined;
-		let srcPath: string | undefined;
-		try {
-			let decrypted: string;
-			if (encryptedProps.startsWith("dev.")) {
-				// Dev mode: base64url-encoded (no encryption)
-				const encoded = encryptedProps.slice(4);
-				decrypted = Buffer.from(encoded, "base64url").toString("utf8");
-			} else {
-				decrypted = decrypt(encryptedProps);
-			}
-			const parsed = JSON.parse(decrypted);
-			// Extract island metadata if present (combined server + client island)
-			if (parsed.__island) {
-				islandMeta = parsed.__island as IslandMetadata;
-				delete parsed.__island;
-			}
-			// Extract source path (used for dev-mode component loading)
-			if (parsed.__src) {
-				srcPath = parsed.__src as string;
-				delete parsed.__src;
-			}
-			props = parsed;
-		} catch {
-			return new Response("Bad Request: decryption failed", {
-				status: 400,
-				headers: { "Content-Type": "text/plain" },
-			});
-		}
+		// The payload-provided `srcPath` (`__src`) is only trusted in development,
+		// where the manifest may not be populated in the endpoint's module instance.
+		// In production the target module must come from the build-time manifest —
+		// never from the request — so a forged payload can't point the dynamic
+		// import at an arbitrary module.
+		const modulePath = lookupComponent(componentId) ?? (isDev ? srcPath : undefined);
+		if (!modulePath) return textResponse("Component not found", 404);
 
-		// 4. Look up component in manifest (fall back to srcPath from encrypted payload)
-		const modulePath = lookupComponent(componentId) ?? srcPath;
-		if (!modulePath) {
-			return new Response("Component not found", {
-				status: 404,
-				headers: { "Content-Type": "text/plain" },
-			});
-		}
+		const loaded = await loadComponentModule(componentId, modulePath, isDev, Boolean(islandMeta));
+		if (loaded instanceof Response) return loaded;
 
-		// 5. Dynamically import the component module
-		let componentModule: { default?: unknown };
-		try {
-			const loaders = getLoaders();
-			const loader = loaders[componentId];
-			if (loader) {
-				componentModule = await loader();
-			} else {
-				if (isDev) console.log("[server-islands] Loading component from:", modulePath);
-				componentModule = await import(/* @vite-ignore */ modulePath);
-			}
-			if (!componentModule.default) {
-				throw new TypeError(`Module "${modulePath}" does not have a default export`);
-			}
-		} catch (err) {
-			// For combined islands, import failure is recoverable via client render
-			if (islandMeta && isDev) {
-				console.warn(
-					"[server-islands] Component import failed (will render client-side):",
-					modulePath,
-					err instanceof Error ? err.message : err,
-				);
-				componentModule = { default: null };
-			} else {
-				const message = isDev && err instanceof Error ? err.message : "Component import failed";
-				return new Response(message, {
-					status: 500,
-					headers: { "Content-Type": "text/plain" },
-				});
-			}
-		}
+		const rendered = await renderIslandComponent({
+			componentModule: loaded,
+			props,
+			islandMeta,
+			componentId,
+			modulePath,
+			isDev,
+		});
+		if (rendered instanceof Response) return rendered;
 
-		// 6. Render the component — use framework integration if available, preact as default
-		let html: string;
-		let ssrFailed = false;
-		// Framework-specific hydration data (e.g., Solid's renderId for matching data-hk markers)
-		let hydrationRenderId: string | undefined;
-		const framework = islandMeta?.framework ?? "preact";
-
-		if (componentModule.default) {
-			try {
-				if (framework === "preact" || framework === "react") {
-					// Preact and React (preact-compat) use the same SSR path
-					const Component = componentModule.default as (props: Record<string, unknown>) => unknown;
-					const vnode = h(Component as any, props);
-					html = preactRenderToString(vnode as any);
-				} else {
-					// Use the framework integration's render function (solid, vue, etc.)
-					const integration = await loadIntegration(framework);
-					const renderResult = await integration.render({
-						component: componentModule.default,
-						props,
-						src: modulePath,
-						condition: islandMeta?.condition ?? "on:client",
-						ssrOnly: false,
-						viteServer: undefined,
-						isDev,
-					});
-					html = renderResult.html;
-					// Capture framework hydration data (Solid needs renderId to match data-hk markers)
-					const hd = renderResult.hydrationData;
-					if (hd?.renderId) {
-						hydrationRenderId = hd.renderId as string;
-					}
-					// Include CSS from the integration (Solid/Svelte extract styles separately)
-					// Place after HTML to avoid hydration mismatch (Vue expects component root first)
-					if (renderResult.css) {
-						html = `${html}<style>${renderResult.css}</style>`;
-					} else if (serverIslandCSS[componentId]) {
-						// Fallback: use build-time-extracted CSS (Svelte's SSR render
-						// doesn't return CSS in production, so we embed it at build time).
-						html = `${html}<style>${serverIslandCSS[componentId]}</style>`;
-					}
-				}
-			} catch (err) {
-				// If this is a combined island, SSR failure is recoverable —
-				// the client hydration script will render the component.
-				if (islandMeta && isDev) {
-					// SSR failed for combined island — client hydration will handle it
-					html = "";
-					ssrFailed = true;
-				} else {
-					const message = isDev && err instanceof Error ? `${err.message}\n${err.stack}` : "";
-					console.error("[server-islands] Render error for", modulePath, err);
-					return new Response(message || "Internal Server Error", {
-						status: 500,
-						headers: { "Content-Type": "text/plain" },
-					});
-				}
-			}
-		} else {
-			// Import failed — skip SSR, let client render handle it
-			html = "";
-			ssrFailed = true;
-		}
-
-		// 7. If combined island, append per-island hydration script
+		let html = rendered.html;
 		if (islandMeta) {
-			const islandId = islandMeta.elementId ?? `si-${componentId}`;
-			const componentPath = islandMeta.componentSrc ?? modulePath;
-			let propsJson: string;
-			try {
-				propsJson = JSON.stringify(props);
-			} catch (err) {
-				const detail = err instanceof Error ? err.message : String(err);
-				throw new Error(
-					`Failed to serialize props for server island (componentId=${componentId}, ` +
-						`module=${modulePath}, elementId=${islandId}): ${detail}`,
-				);
-			}
-			// If SSR failed, force immediate hydration regardless of condition
-			const effectiveCondition = ssrFailed ? "on:client" : (islandMeta.condition ?? "on:client");
-
-			if (isDev) {
-				// Dev mode: Use the integration-based hydration helper.
-				// It imports loadIntegrationModule from the virtual module, so it works
-				// with all frameworks (preact, solid, vue, etc.) using the same system
-				// as regular island hydration.
-				const helperAbsPath = new URL("../client/server-island-hydrate.ts", import.meta.url)
-					.pathname;
-				const fw = islandMeta.framework ?? "preact";
-				const renderIdArg = hydrationRenderId ? JSON.stringify(hydrationRenderId) : "undefined";
-				const hydrationScript = `<script type="module">
-import{hydrateServerIsland}from"/@fs${helperAbsPath}";
-hydrateServerIsland(${JSON.stringify(islandId)},${JSON.stringify(componentPath)},${propsJson},${JSON.stringify(effectiveCondition)},${JSON.stringify(fw)},${renderIdArg});
-</script>`;
-				html += hydrationScript;
-			} else {
-				// Production: use the per-island script infrastructure
-				const hydrationScript = generatePerIslandScript({
-					islandId,
-					componentSrc: componentPath,
-					framework: islandMeta.framework,
-					condition: islandMeta.condition,
-					conditionArg: islandMeta.conditionArg,
-					propsJson,
-				});
-				html += hydrationScript;
-			}
+			html += buildHydrationScript({
+				componentId,
+				islandMeta,
+				modulePath,
+				props,
+				ssrFailed: rendered.ssrFailed,
+				hydrationRenderId: rendered.hydrationRenderId,
+				isDev,
+			});
 		}
 
-		// 8. Return HTML with Cache-Control headers
 		return new Response(html, {
 			status: 200,
-			headers: {
-				"Content-Type": "text/html",
-				"Cache-Control": defaultCacheControl,
-			},
+			headers: { "Content-Type": "text/html", "Cache-Control": defaultCacheControl },
 		});
 	};
+}
+
+/**
+ * Reads the encrypted props payload from the request, returning an error
+ * `Response` when it can't be read or is missing.
+ */
+async function readEncryptedProps(event: H3Event): Promise<string | Response> {
+	let encryptedProps: string | undefined;
+	try {
+		encryptedProps = await extractEncryptedProps(event);
+	} catch {
+		return textResponse("Failed to read request body", 400);
+	}
+	if (!encryptedProps) return textResponse("Missing encrypted props", 400);
+	return encryptedProps;
+}
+
+/**
+ * Decrypts (or, in dev, decodes) the payload and extracts props + metadata.
+ * Returns a 400 `Response` on any failure.
+ *
+ * The `dev.` prefix selects an unencrypted, unauthenticated payload and MUST
+ * only be honored in development — otherwise an attacker could send a `dev.`
+ * payload to a production endpoint and bypass AES-GCM entirely (forging props
+ * and the `__src` import target). In production a `dev.` payload falls through
+ * to `decrypt()` and fails the GCM auth check.
+ */
+function decodePayload(encryptedProps: string, isDev: boolean): DecodedPayload | Response {
+	try {
+		let decrypted: string;
+		if (isDev && encryptedProps.startsWith("dev.")) {
+			decrypted = Buffer.from(encryptedProps.slice(4), "base64url").toString("utf8");
+		} else {
+			decrypted = decrypt(encryptedProps);
+		}
+		const parsed = JSON.parse(decrypted);
+		const result: DecodedPayload = { props: parsed };
+		// Extract island metadata if present (combined server + client island).
+		if (parsed.__island) {
+			result.islandMeta = parsed.__island as IslandMetadata;
+			delete parsed.__island;
+		}
+		// Extract source path (used for dev-mode component loading).
+		if (parsed.__src) {
+			result.srcPath = parsed.__src as string;
+			delete parsed.__src;
+		}
+		return result;
+	} catch {
+		return textResponse("Bad Request: decryption failed", 400);
+	}
+}
+
+/**
+ * Imports the component module — via the build-time loader when available, else
+ * a dynamic import of the resolved module path. Returns the module, or an error
+ * `Response` for a fatal (non-combined) failure. For combined islands in dev, a
+ * failed import is recoverable (client hydration renders it) and yields a module
+ * with a `null` default.
+ */
+async function loadComponentModule(
+	componentId: string,
+	modulePath: string,
+	isDev: boolean,
+	isCombined: boolean,
+): Promise<{ default?: unknown } | Response> {
+	try {
+		const loader = getLoaders()[componentId];
+		let componentModule: { default?: unknown };
+		if (loader) {
+			componentModule = await loader();
+		} else {
+			if (isDev) console.log("[server-islands] Loading component from:", modulePath);
+			componentModule = await import(/* @vite-ignore */ modulePath);
+		}
+		if (!componentModule.default) {
+			throw new TypeError(`Module "${modulePath}" does not have a default export`);
+		}
+		return componentModule;
+	} catch (err) {
+		// For combined islands, import failure is recoverable via client render.
+		if (isCombined && isDev) {
+			console.warn(
+				"[server-islands] Component import failed (will render client-side):",
+				modulePath,
+				err instanceof Error ? err.message : err,
+			);
+			return { default: null };
+		}
+		const message = isDev && err instanceof Error ? err.message : "Component import failed";
+		return textResponse(message, 500);
+	}
+}
+
+/**
+ * Renders the island component to HTML. Preact/React use `preactRenderToString`;
+ * other frameworks use their integration's `render`. Returns the rendered HTML,
+ * or — for a fatal, non-combined render failure — an error `Response`. A missing
+ * default export (recoverable import failure) yields empty HTML + `ssrFailed`.
+ */
+async function renderIslandComponent(args: {
+	componentModule: { default?: unknown };
+	props: Record<string, unknown>;
+	islandMeta?: IslandMetadata;
+	componentId: string;
+	modulePath: string;
+	isDev: boolean;
+}): Promise<RenderedIsland | Response> {
+	const { componentModule, props, islandMeta, componentId, modulePath, isDev } = args;
+
+	// Import failed (recoverable) — skip SSR, let client render handle it.
+	if (!componentModule.default) {
+		return { html: "", ssrFailed: true };
+	}
+
+	const framework = islandMeta?.framework ?? "preact";
+	try {
+		if (framework === "preact" || framework === "react") {
+			// Preact and React (preact-compat) use the same SSR path.
+			const Component = componentModule.default as (props: Record<string, unknown>) => unknown;
+			return { html: preactRenderToString(h(Component as any, props) as any), ssrFailed: false };
+		}
+		return await renderWithIntegration({
+			framework,
+			component: componentModule.default,
+			props,
+			islandMeta,
+			componentId,
+			modulePath,
+			isDev,
+		});
+	} catch (err) {
+		// If this is a combined island, SSR failure is recoverable — the client
+		// hydration script will render the component.
+		if (islandMeta && isDev) {
+			return { html: "", ssrFailed: true };
+		}
+		const message = isDev && err instanceof Error ? `${err.message}\n${err.stack}` : "";
+		console.error("[server-islands] Render error for", modulePath, err);
+		return textResponse(message || "Internal Server Error", 500);
+	}
+}
+
+/**
+ * Renders a non-Preact island via its framework integration, appending any CSS
+ * the integration extracts (or the build-time-embedded CSS fallback).
+ */
+async function renderWithIntegration(args: {
+	framework: string;
+	component: unknown;
+	props: Record<string, unknown>;
+	islandMeta?: IslandMetadata;
+	componentId: string;
+	modulePath: string;
+	isDev: boolean;
+}): Promise<RenderedIsland> {
+	const { framework, component, props, islandMeta, componentId, modulePath, isDev } = args;
+	const integration = await loadIntegration(framework);
+	const renderResult = await integration.render({
+		component,
+		props,
+		src: modulePath,
+		condition: islandMeta?.condition ?? "on:client",
+		ssrOnly: false,
+		viteServer: undefined,
+		isDev,
+	});
+
+	let html = renderResult.html;
+	// Include CSS from the integration (Solid/Svelte extract styles separately).
+	// Place after HTML to avoid hydration mismatch (Vue expects component root first).
+	if (renderResult.css) {
+		html = `${html}<style>${renderResult.css}</style>`;
+	} else if (serverIslandCSS[componentId]) {
+		// Fallback: use build-time-extracted CSS (Svelte's SSR render doesn't
+		// return CSS in production, so we embed it at build time).
+		html = `${html}<style>${serverIslandCSS[componentId]}</style>`;
+	}
+
+	// Capture framework hydration data (Solid needs renderId to match data-hk markers).
+	const hydrationRenderId = renderResult.hydrationData?.renderId as string | undefined;
+	return { html, ssrFailed: false, hydrationRenderId };
+}
+
+/**
+ * Builds the per-island hydration script appended to a combined island's HTML.
+ * Uses the integration-based dev helper in development and the per-island script
+ * infrastructure in production.
+ */
+function buildHydrationScript(args: {
+	componentId: string;
+	islandMeta: IslandMetadata;
+	modulePath: string;
+	props: Record<string, unknown>;
+	ssrFailed: boolean;
+	hydrationRenderId?: string;
+	isDev: boolean;
+}): string {
+	const { componentId, islandMeta, modulePath, props, ssrFailed, hydrationRenderId, isDev } = args;
+	const islandId = islandMeta.elementId ?? `si-${componentId}`;
+	const componentPath = islandMeta.componentSrc ?? modulePath;
+
+	let propsJson: string;
+	try {
+		propsJson = JSON.stringify(props);
+	} catch (err) {
+		const detail = err instanceof Error ? err.message : String(err);
+		throw new Error(
+			`Failed to serialize props for server island (componentId=${componentId}, ` +
+				`module=${modulePath}, elementId=${islandId}): ${detail}`,
+		);
+	}
+
+	if (isDev) {
+		// Dev mode: use the integration-based hydration helper. It imports
+		// loadIntegrationModule from the virtual module, so it works with all
+		// frameworks (preact, solid, vue, etc.) using the same system as regular
+		// island hydration. If SSR failed, force immediate hydration.
+		const effectiveCondition = ssrFailed ? "on:client" : (islandMeta.condition ?? "on:client");
+		const helperAbsPath = new URL("../client/server-island-hydrate.ts", import.meta.url).pathname;
+		const fw = islandMeta.framework ?? "preact";
+		const renderIdArg = hydrationRenderId ? JSON.stringify(hydrationRenderId) : "undefined";
+		return `<script type="module">
+import{hydrateServerIsland}from"/@fs${helperAbsPath}";
+hydrateServerIsland(${JSON.stringify(islandId)},${JSON.stringify(componentPath)},${escapeJsonForScript(propsJson)},${JSON.stringify(effectiveCondition)},${JSON.stringify(fw)},${renderIdArg});
+</script>`;
+	}
+
+	// Production: use the per-island script infrastructure.
+	return generatePerIslandScript({
+		islandId,
+		componentSrc: componentPath,
+		framework: islandMeta.framework,
+		condition: islandMeta.condition,
+		conditionArg: islandMeta.conditionArg,
+		propsJson,
+	});
 }
 
 /**
