@@ -16,6 +16,7 @@ import { nitro as nitroVitePlugin } from "nitro/vite";
 import type { Plugin, ViteDevServer } from "vite";
 import { isRunnableDevEnvironment } from "vite";
 import { generateActionTypes } from "../build/actions-types-generator.ts";
+import { createCronDevSchedulerPlugin } from "../cron/dev-scheduler.ts";
 import { getUniversalCSSForHead } from "../islands/universal-css-collector.ts";
 import {
 	getUniversalHeadForInjection,
@@ -611,6 +612,27 @@ export function createNitroIntegration(
 		nitroVitePluginOptions.serverEntry = nitroOptions.serverEntry;
 	}
 
+	// Forward cron / scheduled task configuration to Nitro's native task system.
+	// Only for production builds: enabling Nitro's task system in dev makes Nitro
+	// take over the SSR environment (swapping Avalon's runnable SSR for a
+	// fetchable dev-worker), which changes rendering behavior. In dev we schedule
+	// jobs ourselves via the cron dev-scheduler plugin instead, keeping SSR owned
+	// by Avalon. `configResolved` isn't available here (isDev is hardcoded true at
+	// plugin-factory time), so detect the build command from argv/NODE_ENV.
+	const isBuildCommand = process.argv.includes("build") || process.env.NODE_ENV === "production";
+	if (nitroOptions.experimentalTasks && isBuildCommand) {
+		nitroVitePluginOptions.experimental = {
+			...(nitroVitePluginOptions.experimental as Record<string, unknown> | undefined),
+			tasks: true,
+		};
+		if (nitroOptions.tasks && Object.keys(nitroOptions.tasks).length > 0) {
+			nitroVitePluginOptions.tasks = nitroOptions.tasks;
+		}
+		if (nitroOptions.scheduledTasks && Object.keys(nitroOptions.scheduledTasks).length > 0) {
+			nitroVitePluginOptions.scheduledTasks = nitroOptions.scheduledTasks;
+		}
+	}
+
 	// Ensure undici is always traced — Nitro's server bundle imports it
 	// for its HTTP agent but doesn't always trace it automatically.
 	// Without this, the built server fails with ERR_MODULE_NOT_FOUND
@@ -657,6 +679,14 @@ export function createNitroIntegration(
 	);
 	const sourceMapPlugin = createSourceMapPlugin(sourceMapConfig);
 
+	// Dev-mode cron scheduler. Runs the configured jobs inside the Vite process
+	// during `vite dev` so cron works without enabling Nitro's task system
+	// (which would take over the dev SSR environment). No-op outside dev.
+	const cronDevSchedulerPlugin = createCronDevSchedulerPlugin(
+		nitroConfig.cron,
+		avalonConfig.verbose,
+	);
+
 	return {
 		nitroOptions,
 		plugins: [
@@ -666,6 +696,7 @@ export function createNitroIntegration(
 			buildPlugin,
 			manifestPlugin,
 			sourceMapPlugin,
+			cronDevSchedulerPlugin,
 		],
 	};
 }

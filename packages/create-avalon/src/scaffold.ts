@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { generateHelloRoute } from "./templates/api-routes";
+import { EXAMPLE_CRON_HANDLER, generateExampleCronTask } from "./templates/cron";
 import { generateBuildMjs, generateNetlifyToml, generateRobotsTxt } from "./templates/deploy";
 import { getFaviconBuffer } from "./templates/favicon";
 import { generateMainLayout, generateRootLayout } from "./templates/layouts";
@@ -75,6 +76,14 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 	// Generate and write middleware and API route
 	await writeFile(join(targetDir, "middleware/01.logger.ts"), generateSampleMiddleware(config));
 	await writeFile(join(targetDir, "routes/api/hello.ts"), generateHelloRoute(config));
+
+	// When cron is enabled, scaffold an example task. The schedule is wired up
+	// in vite.config.ts (generateViteConfig adds the `nitro.cron` entry).
+	if (config.cron) {
+		const cronPath = join(targetDir, EXAMPLE_CRON_HANDLER);
+		await mkdir(dirname(cronPath), { recursive: true });
+		await writeFile(cronPath, generateExampleCronTask(config));
+	}
 
 	// When using hono or elysia, generate a server.ts entry file (Nitro v3 web fetch interface)
 	if (config.middleware === "hono") {

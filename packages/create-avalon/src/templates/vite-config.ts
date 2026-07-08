@@ -1,4 +1,5 @@
 import type { ProjectConfig } from "../types";
+import { EXAMPLE_CRON_HANDLER, EXAMPLE_CRON_SCHEDULE } from "./cron";
 
 export function generateViteConfig(config: ProjectConfig): string {
 	const imports: string[] = [
@@ -65,6 +66,17 @@ export function generateViteConfig(config: ProjectConfig): string {
 		pluginEntries.push(`    tailwindcss(),`);
 	}
 
+	// Cron block for the nitro config, if scheduled jobs were requested.
+	const cronLines = config.cron
+		? [
+				`      // Scheduled jobs (cron). Each entry maps a schedule to a task file`,
+				`      // in tasks/. See https://useavalon.dev/docs/cron-jobs`,
+				`      cron: [`,
+				`        { schedule: '${EXAMPLE_CRON_SCHEDULE}', handler: '${EXAMPLE_CRON_HANDLER}' },`,
+				`      ],`,
+			]
+		: [];
+
 	const lines = [
 		imports.join("\n"),
 		"",
@@ -85,6 +97,7 @@ export function generateViteConfig(config: ProjectConfig): string {
 		`        crawlLinks: true,`,
 		`        ignore: [],`,
 		`      },`,
+		...cronLines,
 		`    },`,
 		`  });`,
 		"",

@@ -44,6 +44,44 @@ export default function Home() {
 }
 ```
 
+## Scheduled jobs (cron)
+
+Run serverless functions on a schedule. Drop a task file in `tasks/` and map a
+schedule to it — Avalon wires up the right runner for your deployment preset
+(Vercel Cron, Cloudflare Triggers, or the built-in scheduler for the node
+server), built on Nitro's native task system.
+
+```ts
+// tasks/cleanup.ts
+import { defineCronJob } from '@useavalon/avalon/cron';
+
+export default defineCronJob({
+  meta: { description: 'Purge expired sessions' },
+  async run() {
+    await db.sessions.deleteExpired();
+    return { result: 'ok' };
+  },
+});
+```
+
+```ts
+// vite.config.ts
+avalon({
+  nitro: {
+    cron: [
+      // Point at a task file (name is derived from the path -> "cleanup")
+      { schedule: '0 * * * *', handler: 'tasks/cleanup.ts' },
+      // Or schedule an auto-discovered task by name, with a named alias
+      { schedule: '@daily', task: 'reports:digest' },
+    ],
+  },
+});
+```
+
+Schedules accept standard 5- or 6-field cron expressions or aliases like
+`@hourly` and `@daily`. Trigger a job on demand with `runCronJob(name)` from
+`@useavalon/avalon/cron`.
+
 ## Links
 
 - [Documentation](https://useavalon.dev/docs/introduction)

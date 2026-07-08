@@ -20,6 +20,8 @@ export interface ProjectConfig {
 	plugins: Plugin[];
 	middleware: MiddlewareOption;
 	deploy: DeployTarget;
+	/** Scaffold scheduled jobs (cron): an example task + `nitro.cron` config. */
+	cron?: boolean;
 }
 
 export const INTEGRATION_PACKAGES: Record<Integration, string> = {

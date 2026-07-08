@@ -22,6 +22,7 @@ The CLI walks you through:
 - Framework selection (React, Preact, Vue, Svelte, Solid, Lit, Qwik — or multiple)
 - Styling approach (CSS Modules, Tailwind, vanilla CSS)
 - Optional features (API routes, middleware, layouts, MDX)
+- Scheduled jobs (cron) — scaffolds an example task and wires up `nitro.cron`
 - Package manager preference
 
 ## What you get
@@ -43,6 +44,7 @@ my-project/
 ├── middleware/                  # Server middleware
 ├── routes/
 │   └── api/                    # API routes
+├── tasks/                      # Scheduled jobs (cron) — optional
 ├── server/                     # Server config & env
 ├── public/                     # Static assets
 ├── vite.config.ts

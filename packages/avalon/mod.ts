@@ -284,12 +284,24 @@ export type {
 	MiddlewareHandler,
 	MiddlewareRoute,
 } from "./src/middleware/types.ts";
+// Cron config type re-export for convenience alongside AvalonNitroConfig
+export type { ResolvedCronConfig } from "./src/nitro/cron.ts";
 export type { MiddlewareContext } from "./src/nitro/middleware-adapter.ts";
 // Persistent state
 export { usePersistentState } from "./src/persistence/use-persistent-state.ts";
 export type { ApiMethod, ApiRoute } from "./src/schemas/api.ts";
 // Core types
 export type { MetaTag, RenderOptions, ScriptConfig } from "./src/schemas/core.ts";
+// Cron / scheduled task config schema + types
+export {
+	CRON_ALIASES,
+	type CronConfig,
+	CronConfigSchema,
+	type CronJob,
+	CronJobSchema,
+	CronScheduleSchema,
+	isValidCronExpression,
+} from "./src/schemas/cron.ts";
 export type {
 	// Zod-inferred types for schemas that don't have hand-written equivalents
 	EnhancedLayoutContext,
