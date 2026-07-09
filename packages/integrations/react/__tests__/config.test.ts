@@ -101,3 +101,34 @@ describe("reactIntegration.getHydrationScript()", () => {
 		expect(script).toContain("import(");
 	});
 });
+
+describe("reactIntegration.vitePlugin() — Vite 8 / Rolldown config patch", () => {
+	it("does not leak a `jsx` key into oxc or optimizeDeps.rolldownOptions", async () => {
+		const vitePlugin = reactIntegration.vitePlugin;
+		if (!vitePlugin) throw new Error("react integration must provide vitePlugin()");
+		const plugins = [await vitePlugin.call(reactIntegration)].flat();
+		for (const p of plugins) {
+			if (typeof p.config !== "function") continue;
+			const hook = p.config as (this: unknown, c: unknown, e: unknown) => unknown;
+			const result = (await hook.call({}, {}, { command: "build", mode: "production" })) as
+				| Record<string, any>
+				| undefined;
+			if (!result) continue;
+
+			// The deprecated esbuild key must be remapped to oxc (without `jsx`).
+			expect("esbuild" in result).toBe(false);
+			if ("oxc" in result && result.oxc) {
+				expect("jsx" in result.oxc).toBe(false);
+			}
+			// rollupOptions must be renamed to rolldownOptions, with `jsx` stripped
+			// (Rolldown's optimizeDeps input-options schema rejects a `jsx` key).
+			const od = result.optimizeDeps;
+			if (od) {
+				expect("rollupOptions" in od).toBe(false);
+				if (od.rolldownOptions) {
+					expect("jsx" in od.rolldownOptions).toBe(false);
+				}
+			}
+		}
+	});
+});

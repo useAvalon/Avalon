@@ -1,8 +1,9 @@
 // Server-side rendering logic for React components
 
+import type { RenderParams } from "@useavalon/core/types";
 import { Component, type ComponentType, createElement, type ReactElement } from "react";
 import { renderToString } from "react-dom/server";
-import type { ReactRenderParams, ReactRenderResult } from "../types.ts";
+import type { ReactRenderResult } from "../types.ts";
 import { renderServerComponent } from "./rsc-renderer.ts";
 import { analyzeComponent, hasUseClientDirective, loadComponent, serializeProps } from "./utils.ts";
 
@@ -61,8 +62,16 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
  * @param params - Render parameters
  * @returns Render result with HTML and hydration data
  */
-export async function render(params: ReactRenderParams): Promise<ReactRenderResult> {
-	const { component, props = {}, src, ssrOnly = false, condition = "on:client" } = params;
+export async function render(
+	params: RenderParams & { isServerComponent?: boolean },
+): Promise<ReactRenderResult> {
+	const { props = {}, src, ssrOnly = false, condition = "on:client" } = params;
+	// The Integration contract types `component` as `unknown`; narrow it to the
+	// React component/element shape this renderer works with.
+	const component = params.component as
+		| ComponentType<Record<string, unknown>>
+		| ReactElement
+		| undefined;
 
 	try {
 		const Component = component || (await loadComponent(src));
@@ -201,10 +210,16 @@ function buildFallbackHtml(errorMessage: string, fallback?: ReactElement | strin
  * Render a React component with error boundary
  */
 export async function renderWithErrorBoundary(
-	params: ReactRenderParams,
+	params: RenderParams & { isServerComponent?: boolean },
 	fallback?: ReactElement | string,
 ): Promise<ReactRenderResult> {
-	const { component, props = {}, src, ssrOnly = false, condition = "on:client" } = params;
+	const { props = {}, src, ssrOnly = false, condition = "on:client" } = params;
+	// The Integration contract types `component` as `unknown`; narrow it to the
+	// React component/element shape this renderer works with.
+	const component = params.component as
+		| ComponentType<Record<string, unknown>>
+		| ReactElement
+		| undefined;
 
 	try {
 		const Component = component || (await loadComponent(src));

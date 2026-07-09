@@ -39,9 +39,8 @@ function createMockEvent(opts: {
 	params?: Record<string, string>;
 }): any {
 	const { pathname, method = "GET", searchParams, body, params } = opts;
-	const url = new URL(
-		`http://localhost${pathname}${searchParams ? `?${searchParams.toString()}` : ""}`,
-	);
+	const query = searchParams ? `?${searchParams.toString()}` : "";
+	const url = new URL(`http://localhost${pathname}${query}`);
 
 	return {
 		url,
