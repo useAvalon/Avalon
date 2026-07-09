@@ -91,11 +91,21 @@ export const reactIntegration: Integration = {
 						}
 						delete patched.esbuild;
 					}
-					// optimizeDeps.rollupOptions → rolldownOptions
+					// optimizeDeps.rollupOptions → rolldownOptions.
+					// @vitejs/plugin-react sets `optimizeDeps.rollupOptions.jsx`
+					// (a Rollup/esbuild-era option). Rolldown's optimizeDeps
+					// input-options schema rejects a `jsx` key ("Invalid input
+					// options … 'jsx'"), so strip it — JSX is handled via oxc on
+					// Vite 8, and the pre-bundled React runtime ships no JSX.
 					const od = patched.optimizeDeps as Record<string, unknown> | undefined;
 					if (od && "rollupOptions" in od) {
 						const { rollupOptions, ...odRest } = od;
-						patched.optimizeDeps = { ...odRest, rolldownOptions: rollupOptions };
+						const ro =
+							rollupOptions && typeof rollupOptions === "object"
+								? (rollupOptions as Record<string, unknown>)
+								: {};
+						const { jsx: _strippedJsx, ...rolldownSafe } = ro;
+						patched.optimizeDeps = { ...odRest, rolldownOptions: rolldownSafe };
 					}
 					return patched;
 				},

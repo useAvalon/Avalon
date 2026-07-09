@@ -82,73 +82,85 @@ function findAllDefaultImports(code: string): ComponentImport[] {
 }
 
 /**
- * Resolve an import path to an absolute src path for renderIsland
+ * Fallback prefix aliases used when no matching Vite `resolve.alias` is
+ * configured. Order-independent: none is a prefix of another.
+ */
+const FALLBACK_ALIASES: Array<{ prefix: string; map: (rest: string) => string }> = [
+	{ prefix: "@shared/", map: (rest) => `/app/shared/${rest}` },
+	{ prefix: "@modules/", map: (rest) => `/app/modules/${rest}` },
+	{ prefix: "@/", map: (rest) => `/app/${rest}` },
+	{ prefix: "$components/", map: (rest) => `/src/components/${rest}` },
+	{ prefix: "$islands/", map: (rest) => `/src/islands/${rest}` },
+	{ prefix: "~/", map: (rest) => `/src/${rest}` },
+];
+
+/** Prepend a leading slash to an alias replacement if it lacks one. */
+function normalizeReplacement(replacement: string): string {
+	return replacement.startsWith("/") ? replacement : `/${replacement}`;
+}
+
+/** Resolve an import via the user-configured Vite `resolve.alias` entries. */
+function resolveViaAliases(
+	importPath: string,
+	aliases: Array<{ find: string | RegExp; replacement: string }>,
+): string | null {
+	for (const { find, replacement } of aliases) {
+		const target = normalizeReplacement(replacement);
+		if (typeof find === "string") {
+			if (importPath === find || importPath.startsWith(`${find}/`)) {
+				return `${target}${importPath.slice(find.length)}`;
+			}
+		} else if (find.test(importPath)) {
+			return importPath.replace(find, target);
+		}
+	}
+	return null;
+}
+
+/** Resolve an import via the built-in fallback prefix aliases. */
+function resolveViaFallbackAliases(importPath: string): string | null {
+	for (const { prefix, map } of FALLBACK_ALIASES) {
+		if (importPath.startsWith(prefix)) return map(importPath.slice(prefix.length));
+	}
+	return null;
+}
+
+/** Resolve a relative import against the file's `/app/` or `/src/` base. */
+function resolveRelative(importPath: string, fileId: string): string | null {
+	if (!importPath.startsWith(".")) return null;
+
+	const normalized = fileId.replaceAll("\\", "/");
+	let baseIndex = normalized.indexOf("/app/");
+	if (baseIndex === -1) baseIndex = normalized.indexOf("/src/");
+	if (baseIndex === -1) return null;
+
+	const parts = dirname(normalized.slice(baseIndex)).split("/");
+	for (const part of importPath.split("/")) {
+		if (part === "..") parts.pop();
+		else if (part !== ".") parts.push(part);
+	}
+	return parts.join("/");
+}
+
+/**
+ * Resolve an import path to an absolute src path for renderIsland.
+ * Tries, in order: already-absolute, user Vite aliases, built-in fallback
+ * aliases, relative resolution, then a last-resort `/src/<basename>`.
  */
 function resolveIslandSrc(
 	importPath: string,
 	fileId: string,
 	aliases: Array<{ find: string | RegExp; replacement: string }> = [],
 ): string {
-	// Already absolute
-	if (importPath.startsWith("/src/")) return importPath;
-	if (importPath.startsWith("/app/")) return importPath;
+	// Already absolute (covers /src/, /app/, and any other root-absolute path).
 	if (importPath.startsWith("/")) return importPath;
 
-	// Try Vite resolve.alias first — respects user configuration
-	for (const alias of aliases) {
-		const find = alias.find;
-		if (typeof find === "string") {
-			if (importPath === find || importPath.startsWith(`${find}/`)) {
-				const rest = importPath.slice(find.length);
-				const replacement = alias.replacement.startsWith("/")
-					? alias.replacement
-					: `/${alias.replacement}`;
-				return `${replacement}${rest}`;
-			}
-		} else if (find instanceof RegExp && find.test(importPath)) {
-			const replacement = alias.replacement.startsWith("/")
-				? alias.replacement
-				: `/${alias.replacement}`;
-			return importPath.replace(find, replacement);
-		}
-	}
-
-	// Fallback aliases for backwards compatibility when no Vite aliases are configured
-	if (importPath.startsWith("@/")) return `/app/${importPath.slice(2)}`;
-	if (importPath.startsWith("@shared/")) return `/app/shared/${importPath.slice(8)}`;
-	if (importPath.startsWith("@modules/")) return `/app/modules/${importPath.slice(9)}`;
-	if (importPath.startsWith("$components/")) return `/src/components/${importPath.slice(12)}`;
-	if (importPath.startsWith("$islands/")) return `/src/islands/${importPath.slice(9)}`;
-	if (importPath.startsWith("~/")) return `/src/${importPath.slice(2)}`;
-
-	// Relative import - resolve relative to the file
-	if (importPath.startsWith(".")) {
-		const normalized = fileId.replaceAll("\\", "/");
-
-		// Try to find /app/ or /src/ in the path
-		let baseIndex = normalized.indexOf("/app/");
-		if (baseIndex === -1) baseIndex = normalized.indexOf("/src/");
-
-		if (baseIndex !== -1) {
-			const fileDir = dirname(normalized.slice(baseIndex));
-			// Simple path resolution
-			const parts = fileDir.split("/");
-			const importParts = importPath.split("/");
-
-			for (const part of importParts) {
-				if (part === "..") {
-					parts.pop();
-				} else if (part !== ".") {
-					parts.push(part);
-				}
-			}
-
-			return parts.join("/");
-		}
-	}
-
-	// Fallback: return as-is with /src/ prefix
-	return `/src/${importPath.split("/").pop()}`;
+	return (
+		resolveViaAliases(importPath, aliases) ??
+		resolveViaFallbackAliases(importPath) ??
+		resolveRelative(importPath, fileId) ??
+		`/src/${importPath.split("/").pop()}`
+	);
 }
 
 function detectFramework(src: string): string | undefined {
@@ -229,9 +241,16 @@ function isAutoIslandImport(importPath: string): boolean {
 	return framework !== undefined && AUTO_ISLAND_FRAMEWORKS.has(framework);
 }
 
+// Regex fragments matching a JSX opening tag with a given attribute. Kept as
+// plain constants (not inlined) so the RegExp templates below don't nest a
+// `String.raw` template inside another template literal.
+const ISLAND_ATTR_PATTERN = String.raw`[\s][^>]*island[\s]*[={]`;
+const SERVER_ATTR_PATTERN = String.raw`[\s][^>]*server[\s]*[={]`;
+const TAG_BOUNDARY_PATTERN = String.raw`[\s/>]`;
+
 function hasIslandPropUsage(code: string, componentNames: string[]): boolean {
 	return componentNames.some((name) => {
-		const pattern = new RegExp(`<${name}${String.raw`[\s][^>]*island[\s]*[={]`}`);
+		const pattern = new RegExp(`<${name}${ISLAND_ATTR_PATTERN}`);
 		return pattern.test(code);
 	});
 }
@@ -239,7 +258,7 @@ function hasIslandPropUsage(code: string, componentNames: string[]): boolean {
 /** Check if any components are used with the `server` prop */
 function hasServerPropUsage(code: string, componentNames: string[]): boolean {
 	return componentNames.some((name) => {
-		const pattern = new RegExp(`<${name}${String.raw`[\s][^>]*server[\s]*[={]`}`);
+		const pattern = new RegExp(`<${name}${SERVER_ATTR_PATTERN}`);
 		return pattern.test(code);
 	});
 }
@@ -248,7 +267,7 @@ function hasServerPropUsage(code: string, componentNames: string[]): boolean {
 function hasAutoIslandUsage(code: string, imports: ComponentImport[]): boolean {
 	return imports.some((imp) => {
 		if (!isAutoIslandImport(imp.importPath)) return false;
-		const pattern = new RegExp(`<${imp.localName}${String.raw`[\s/>]`}`);
+		const pattern = new RegExp(`<${imp.localName}${TAG_BOUNDARY_PATTERN}`);
 		return pattern.test(code);
 	});
 }
@@ -286,9 +305,9 @@ function buildIslandMeta(
 		const framework = detectFramework(srcPath);
 
 		// Check for explicit island prop usage
-		const islandPattern = new RegExp(`<${imp.localName}${String.raw`[\s][^>]*island[\s]*[={]`}`);
+		const islandPattern = new RegExp(`<${imp.localName}${ISLAND_ATTR_PATTERN}`);
 		// Check for server prop usage
-		const serverPattern = new RegExp(`<${imp.localName}${String.raw`[\s][^>]*server[\s]*[={]`}`);
+		const serverPattern = new RegExp(`<${imp.localName}${SERVER_ATTR_PATTERN}`);
 		const hasIsland = islandPattern.test(code);
 		const hasServer = serverPattern.test(code);
 
@@ -313,7 +332,7 @@ function buildIslandMeta(
 
 		// Check for auto-island frameworks (e.g. Qwik) used as JSX without island prop
 		if (framework && AUTO_ISLAND_FRAMEWORKS.has(framework)) {
-			const usagePattern = new RegExp(`<${imp.localName}${String.raw`[\s/>]`}`);
+			const usagePattern = new RegExp(`<${imp.localName}${TAG_BOUNDARY_PATTERN}`);
 			if (usagePattern.test(code)) {
 				meta.set(imp.localName, {
 					srcPath,
@@ -501,7 +520,14 @@ function parseJSXElement(
 
 // ─── JSX Replacement ─────────────────────────────────────────────────
 
-/** Build the `{await __pageRenderIsland({...})}` call from parsed element data. */
+/**
+ * Build the bare `await __pageRenderIsland({...})` call from parsed element data.
+ *
+ * The caller (`replaceIslandJSX`) wraps this in a JSX expression container `{…}`
+ * only when the island sits in JSX *child* position. When it's already inside a
+ * JSX expression (a ternary/logical branch, `.map()` return, attribute value,
+ * etc.) the bare form is emitted so we don't produce invalid `{ … : ({await …}) }`.
+ */
 function buildRenderCall(
 	parsed: ParsedJSXElement,
 	srcPath: string,
@@ -521,14 +547,14 @@ function buildRenderCall(
 		// The Qwik Vite plugin transforms component$() / onClick$() etc. into
 		// lazy-loadable QRL chunks that the qwikloader resolves at runtime.
 		return (
-			'{await __pageRenderIsland({ src: "' +
+			'await __pageRenderIsland({ src: "' +
 			srcPath +
 			'"' +
 			fwArg +
 			compArg +
 			propsArg +
 			", ssr: true, ssrOnly: true" +
-			" })}"
+			" })"
 		);
 	}
 
@@ -537,7 +563,7 @@ function buildRenderCall(
 		const serverArg = `, server: (${parsed.serverProp})`;
 		const islandArg = parsed.islandProp ? `, island: (${parsed.islandProp})` : "";
 		return (
-			'{await __pageRenderIsland({ src: "' +
+			'await __pageRenderIsland({ src: "' +
 			srcPath +
 			'"' +
 			fwArg +
@@ -545,16 +571,14 @@ function buildRenderCall(
 			serverArg +
 			islandArg +
 			propsArg +
-			" })}"
+			" })"
 		);
 	}
 
 	const islandValue = parsed.islandProp ?? "";
-	// Qwik with explicit island prop — treat like other frameworks
-	const ssrOnlyArg = "";
 
 	return (
-		'{await __pageRenderIsland({ src: "' +
+		'await __pageRenderIsland({ src: "' +
 		srcPath +
 		'"' +
 		fwArg +
@@ -563,14 +587,74 @@ function buildRenderCall(
 		islandValue +
 		")" +
 		propsArg +
-		ssrOnlyArg +
 		", ssr: (" +
 		islandValue +
 		").ssr !== undefined ? (" +
 		islandValue +
 		").ssr : true" +
-		" })}"
+		" })"
 	);
+}
+
+/**
+ * Determines whether a JSX element at `pos` sits in JSX *child* position
+ * (needs `{…}` wrapping) or inside a JSX *expression* container (bare).
+ *
+ * Looks at the last non-whitespace character before the tag:
+ * - `>` (a real tag close, not `=>`) or `}` (after a sibling `{expr}`) → child
+ * - anything else (`{`, `(`, `?`, `:`, `,`, `&`, `|`, `=>`, `return …`) → expression
+ */
+function isJSXChildPosition(code: string, pos: number): boolean {
+	let j = pos - 1;
+	while (j >= 0 && /\s/.test(code[j])) j--;
+	if (j < 0) return false;
+	const ch = code[j];
+	if (ch === ">") {
+		// Distinguish an arrow `=>` (expression) from a tag close `>` (child).
+		return code[j - 1] !== "=";
+	}
+	// `}` closes a preceding `{expr}` sibling in a children list → child position.
+	return ch === "}";
+}
+
+/**
+ * If `pos` starts a region that must be copied verbatim (a template literal or a
+ * comment — JSX `{/* *​/}`, line `//`, or block `/* *​/`), returns the index just
+ * past it; otherwise returns -1. Keeps the main scanner loop flat.
+ */
+function skipVerbatimRegion(code: string, pos: number): number {
+	const two = code.slice(pos, pos + 2);
+
+	// Template literal — avoid transforming code examples inside backticks.
+	if (code[pos] === "`") return skipTemplateLiteral(code, pos);
+
+	// JSX comment: {/* ... */}
+	if (code[pos] === "{" && two === "{/" && code[pos + 2] === "*") {
+		return skipJSXComment(code, pos);
+	}
+
+	// Single-line comment: // ...
+	if (two === "//") {
+		const lineEnd = code.indexOf("\n", pos);
+		return lineEnd === -1 ? code.length : lineEnd + 1;
+	}
+
+	// Block comment: /* ... */
+	if (two === "/*") {
+		const commentEnd = code.indexOf("*/", pos + 2);
+		return commentEnd === -1 ? code.length : commentEnd + 2;
+	}
+
+	return -1;
+}
+
+/** Skip a JSX comment (a curly-wrapped block comment) starting at `pos`; returns index after `}` or -1. */
+function skipJSXComment(code: string, pos: number): number {
+	const commentEnd = code.indexOf("*/", pos + 3);
+	if (commentEnd === -1) return -1;
+	let after = commentEnd + 2;
+	while (after < code.length && /\s/.test(code[after])) after++;
+	return after < code.length && code[after] === "}" ? after + 1 : -1;
 }
 
 /** Check if position `i` is the start of a `<ComponentName` tag (not a longer identifier). */
@@ -595,75 +679,121 @@ function replaceIslandJSX(
 	let i = 0;
 
 	while (i < code.length) {
-		// Skip template literals to avoid transforming code examples
-		if (code[i] === "`") {
-			const start = i;
-			i = skipTemplateLiteral(code, i);
-			result += code.slice(start, i);
+		// Copy template literals and comments verbatim (don't transform code
+		// examples or commented-out island usage).
+		const verbatimEnd = skipVerbatimRegion(code, i);
+		if (verbatimEnd !== -1) {
+			result += code.slice(i, verbatimEnd);
+			i = verbatimEnd;
 			continue;
 		}
 
-		// Skip JSX comments: {/* ... */}
-		// When we see '{' followed by '/*', skip until '*/' then '}'
-		if (code[i] === "{" && code[i + 1] === "/" && code[i + 2] === "*") {
-			const commentEnd = code.indexOf("*/", i + 3);
-			if (commentEnd !== -1) {
-				// Find the closing '}' after '*/'
-				let afterComment = commentEnd + 2;
-				while (afterComment < code.length && /\s/.test(code[afterComment])) afterComment++;
-				if (afterComment < code.length && code[afterComment] === "}") {
-					result += code.slice(i, afterComment + 1);
-					i = afterComment + 1;
-					continue;
-				}
-			}
-		}
-
-		// Skip single-line comments
-		if (code[i] === "/" && code[i + 1] === "/") {
-			const lineEnd = code.indexOf("\n", i);
-			const end = lineEnd === -1 ? code.length : lineEnd + 1;
-			result += code.slice(i, end);
-			i = end;
-			continue;
-		}
-
-		// Skip block comments
-		if (code[i] === "/" && code[i + 1] === "*") {
-			const commentEnd = code.indexOf("*/", i + 2);
-			const end = commentEnd === -1 ? code.length : commentEnd + 2;
-			result += code.slice(i, end);
-			i = end;
-			continue;
-		}
-
-		// Check for component tag
-		if (!isComponentTagStart(code, i, tag)) {
-			result += code[i];
-			i++;
-			continue;
-		}
-
-		const parsed = parseJSXElement(code, i, componentName);
-		if (!parsed || (!parsed.islandProp && !parsed.serverProp && !autoIsland)) {
-			// Not parseable, or no island/server prop and not an auto-island — emit as-is
-			const end = parsed ? parsed.endIdx : i + 1;
-			result += code.slice(i, end);
-			i = end;
-			continue;
-		}
-
-		result += buildRenderCall(
-			parsed,
+		const { text, next } = replaceTagAt(code, i, {
+			tag,
+			componentName,
 			srcPath,
 			framework,
-			autoIsland && !parsed.islandProp,
-			componentName,
-		);
-		i = parsed.endIdx;
+			autoIsland,
+		});
+		result += text;
+		i = next;
 	}
 
 	return result;
+}
+
+interface ReplaceTagContext {
+	tag: string;
+	componentName: string;
+	srcPath: string;
+	framework: string | undefined;
+	autoIsland: boolean;
+}
+
+/**
+ * Handles a single position `pos`: if it starts an island `<Component …>` usage,
+ * returns the replacement call (wrapped in `{…}` only in JSX child position);
+ * otherwise returns the source char(s) unchanged. Returns the text to append and
+ * the next scan index.
+ */
+function replaceTagAt(
+	code: string,
+	pos: number,
+	ctx: ReplaceTagContext,
+): { text: string; next: number } {
+	if (!isComponentTagStart(code, pos, ctx.tag)) {
+		return { text: code[pos], next: pos + 1 };
+	}
+
+	const parsed = parseJSXElement(code, pos, ctx.componentName);
+	if (!parsed || (!parsed.islandProp && !parsed.serverProp && !ctx.autoIsland)) {
+		// Not parseable, or no island/server prop and not an auto-island — emit as-is.
+		const end = parsed ? parsed.endIdx : pos + 1;
+		return { text: code.slice(pos, end), next: end };
+	}
+
+	const call = buildRenderCall(
+		parsed,
+		ctx.srcPath,
+		ctx.framework,
+		ctx.autoIsland && !parsed.islandProp,
+		ctx.componentName,
+	);
+	// Wrap in a JSX expression container only when the island is a bare JSX child.
+	// In expression positions (ternary/logical branch, .map return, attribute
+	// value, `return <Island/>`) emit the call bare, or the extra braces would
+	// produce invalid syntax like `cond ? a : ({await …})`.
+	const text = isJSXChildPosition(code, pos) ? `{${call}}` : call;
+	return { text, next: parsed.endIdx };
+}
+
+/**
+ * Ensures the page/layout's default-export component is `async`, so the injected
+ * `await __pageRenderIsland(...)` calls are valid (the SSR renderer awaits page
+ * and layout components). Handles the common default-export forms and is a no-op
+ * if the component is already async or no recognizable default export is found.
+ *
+ * Covered forms:
+ *   export default function Page() {}          → export default async function …
+ *   export default () => {}                    → export default async () => {}
+ *   export default props => {}                 → export default async props => {}
+ *   export default Page;  (+ decl elsewhere)   → async function Page / const Page = async …
+ */
+function ensureDefaultExportAsync(code: string): string {
+	// export default [async] function …
+	if (/\bexport\s+default\s+function\b/.test(code)) {
+		return code.replace(/\bexport\s+default\s+function\b/, "export default async function");
+	}
+
+	// export default (params) => …   or   export default param => …
+	const arrowRe = /\bexport\s+default\s+(\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/;
+	if (arrowRe.test(code)) {
+		return code.replace(arrowRe, "export default async $1 =>");
+	}
+
+	// export default Identifier;  — make the referenced declaration async.
+	const refMatch = /\bexport\s+default\s+([A-Za-z_$][\w$]*)\s*;/.exec(code);
+	if (refMatch) {
+		const name = refMatch[1];
+		const escaped = name.replaceAll("$", String.raw`\$&`);
+
+		// function Name( … )  (not already async)
+		const fnDeclRe = new RegExp(String.raw`(^|[^.\w])function\s+${escaped}\s*\(`, "m");
+		const alreadyAsyncFn = new RegExp(String.raw`\basync\s+function\s+${escaped}\b`);
+		if (fnDeclRe.test(code) && !alreadyAsyncFn.test(code)) {
+			return code.replace(fnDeclRe, (m) => m.replace("function", "async function"));
+		}
+
+		// const Name = (…) => …  |  const Name = function  |  const Name = param => …
+		const constDeclRe = new RegExp(
+			String.raw`(\b(?:const|let|var)\s+${escaped}\s*=\s*)(?!async\b)(\([^)]*\)\s*=>|function\b|[A-Za-z_$][\w$]*\s*=>)`,
+		);
+		if (constDeclRe.test(code)) {
+			return code.replace(constDeclRe, "$1async $2");
+		}
+	}
+
+	return code;
 }
 
 // ─── Vite Plugin ─────────────────────────────────────────────────────
@@ -678,7 +808,7 @@ export function pageIslandTransform(options: PageIslandTransformOptions = {}): P
 		enforce: "pre",
 
 		configResolved(config) {
-			resolvedAliases = (config.resolve?.alias as typeof resolvedAliases) ?? [];
+			resolvedAliases = config.resolve?.alias ?? [];
 		},
 
 		transform(code: string, id: string) {
@@ -716,6 +846,13 @@ export function pageIslandTransform(options: PageIslandTransformOptions = {}): P
 			// Keep imports for island components — the component reference is now
 			// passed directly to renderIsland() so it can SSR without dynamic import().
 			// Previously imports were removed, breaking production SSR in bundled contexts.
+
+			// The injected calls use `await`, so the enclosing page/layout component
+			// must be async (the renderer awaits page/layout components). Mark the
+			// default export async if we actually injected any island calls.
+			if (transformed.includes("__pageRenderIsland(")) {
+				transformed = ensureDefaultExportAsync(transformed);
+			}
 
 			return { code: transformed, map: null };
 		},
