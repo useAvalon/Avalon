@@ -2,9 +2,11 @@
  * Minimal type definitions for the JSON-RPC 2.0 messages and the subset of the
  * Model Context Protocol (MCP) that this server implements.
  *
- * We deliberately avoid depending on `@modelcontextprotocol/sdk` so the server
- * has zero runtime dependencies and can run in any Node/Bun environment without
- * an install step.
+ * We deliberately avoid depending on `@modelcontextprotocol/sdk`. The MCP
+ * stdio + JSON-RPC 2.0 surface this server needs is small and stable, so a
+ * self-contained implementation keeps the package zero-dependency: faster cold
+ * starts for a CLI that agents spawn repeatedly, no transitive supply-chain
+ * surface, and it runs in any Node/Bun environment without an install step.
  *
  * @module protocol/types
  */
@@ -18,10 +20,13 @@ export type JsonValue =
 	| JsonValue[]
 	| { [key: string]: JsonValue };
 
+/** A JSON-RPC 2.0 message id (absent on notifications). */
+export type JsonRpcId = string | number | null;
+
 /** A JSON-RPC 2.0 request or notification (notifications omit `id`). */
 export interface JsonRpcRequest {
 	jsonrpc: "2.0";
-	id?: string | number | null;
+	id?: JsonRpcId;
 	method: string;
 	params?: Record<string, unknown>;
 }
@@ -29,7 +34,7 @@ export interface JsonRpcRequest {
 /** A successful JSON-RPC 2.0 response. */
 export interface JsonRpcSuccess {
 	jsonrpc: "2.0";
-	id: string | number | null;
+	id: JsonRpcId;
 	result: unknown;
 }
 
@@ -43,7 +48,7 @@ export interface JsonRpcErrorObject {
 /** A failed JSON-RPC 2.0 response. */
 export interface JsonRpcErrorResponse {
 	jsonrpc: "2.0";
-	id: string | number | null;
+	id: JsonRpcId;
 	error: JsonRpcErrorObject;
 }
 

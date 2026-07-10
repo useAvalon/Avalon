@@ -17,6 +17,7 @@ import {
 	type ContentBlock,
 	ErrorCode,
 	type JsonRpcErrorResponse,
+	type JsonRpcId,
 	type JsonRpcRequest,
 	type JsonRpcResponse,
 	type JsonRpcSuccess,
@@ -228,11 +229,11 @@ export class McpServer {
 
 	// --- helpers ------------------------------------------------------------
 
-	private ok(id: string | number | null, result: unknown): JsonRpcSuccess {
+	private ok(id: JsonRpcId, result: unknown): JsonRpcSuccess {
 		return { jsonrpc: "2.0", id, result };
 	}
 
-	private fail(id: string | number | null, code: number, message: string): JsonRpcErrorResponse {
+	private fail(id: JsonRpcId, code: number, message: string): JsonRpcErrorResponse {
 		return { jsonrpc: "2.0", id, error: { code, message } };
 	}
 

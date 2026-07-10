@@ -138,6 +138,7 @@ export const ISLAND_PROP_REFERENCE = {
 	fields: [
 		{
 			name: "condition",
+			// biome-ignore lint/suspicious/noTemplateCurlyInString: this string documents a TS template-literal type; the ${string} placeholders are intentional literal text.
 			type: "'on:client' | 'on:visible' | 'on:interaction' | 'on:idle' | `media:${string}` | `on:${string}`",
 			required: false,
 			default: "'on:client'",
