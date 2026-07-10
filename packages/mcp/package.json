@@ -1,0 +1,46 @@
+{
+	"name": "@useavalon/mcp",
+	"version": "0.1.0",
+	"description": "Model Context Protocol (MCP) server for the Avalon Framework — teaches AI agents Avalon's island/hydration directives so they don't confuse them with Astro's client:* attributes",
+	"license": "MIT",
+	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/useAvalon/Avalon.git",
+		"directory": "packages/mcp"
+	},
+	"homepage": "https://useavalon.dev/docs/plugins/mcp",
+	"keywords": [
+		"avalon",
+		"mcp",
+		"model-context-protocol",
+		"ai-agents",
+		"islands",
+		"hydration",
+		"astro-migration",
+		"llm-tools"
+	],
+	"bin": {
+		"avalon-mcp": "bin/avalon-mcp.ts"
+	},
+	"exports": {
+		".": "./mod.ts"
+	},
+	"scripts": {
+		"start": "bun run bin/avalon-mcp.ts",
+		"build": "bun run scripts/build.ts",
+		"prepublishOnly": "bun run build"
+	},
+	"files": [
+		"mod.ts",
+		"bin/**/*.ts",
+		"src/**/*.ts",
+		"!src/**/__tests__/**",
+		"!src/**/*.test.ts",
+		"README.md"
+	],
+	"devDependencies": {
+		"@types/node": "^22.0.0",
+		"vitest": "^4.1.0"
+	}
+}
