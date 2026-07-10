@@ -4,26 +4,6 @@
 // Avalon Framework correctly — especially its `island` hydration directives,
 // which are frequently confused with Astro's `client:*` attributes.
 
-// Server assembly & runtime
-export { AVALON_MCP_VERSION, createAvalonMcpServer, runStdio } from "./src/server.ts";
-
-// Protocol primitives (for embedding the server in a custom host/transport)
-export { connectStdio, McpServer, textResult } from "./src/protocol/server.ts";
-export type {
-	PromptDefinition,
-	ResourceDefinition,
-	ResourceTemplateDefinition,
-	ServerInfo,
-	ToolAnnotations,
-	ToolDefinition,
-	ToolResult,
-} from "./src/protocol/types.ts";
-
-// Tool / resource / prompt factories
-export { createPrompts } from "./src/prompts.ts";
-export { createResources, createResourceTemplates } from "./src/resources.ts";
-export { createTools } from "./src/tools.ts";
-
 // Knowledge base (reusable outside the MCP server, e.g. in editor tooling)
 export { API_ENTRIES, type ApiEntry, apiReferenceMarkdown } from "./src/knowledge/api.ts";
 export {
@@ -45,8 +25,25 @@ export {
 } from "./src/knowledge/directives.ts";
 export { DOC_TOPICS, type DocTopic, getDoc, searchDocs } from "./src/knowledge/docs.ts";
 export {
-	scaffold,
 	SCAFFOLD_KINDS,
 	type ScaffoldKind,
 	type ScaffoldTemplate,
+	scaffold,
 } from "./src/knowledge/scaffold.ts";
+// Tool / resource / prompt factories
+export { createPrompts } from "./src/prompts.ts";
+// Protocol primitives (for embedding the server in a custom host/transport)
+export { connectStdio, McpServer, textResult } from "./src/protocol/server.ts";
+export type {
+	PromptDefinition,
+	ResourceDefinition,
+	ResourceTemplateDefinition,
+	ServerInfo,
+	ToolAnnotations,
+	ToolDefinition,
+	ToolResult,
+} from "./src/protocol/types.ts";
+export { createResources, createResourceTemplates } from "./src/resources.ts";
+// Server assembly & runtime
+export { AVALON_MCP_VERSION, createAvalonMcpServer, runStdio } from "./src/server.ts";
+export { createTools } from "./src/tools.ts";

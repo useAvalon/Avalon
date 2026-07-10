@@ -24,7 +24,7 @@ import {
 	ISLAND_PROP_REFERENCE,
 } from "./knowledge/directives.ts";
 import { DOC_TOPICS, getDoc, searchDocs } from "./knowledge/docs.ts";
-import { scaffold, SCAFFOLD_KINDS, type ScaffoldKind } from "./knowledge/scaffold.ts";
+import { SCAFFOLD_KINDS, type ScaffoldKind, scaffold } from "./knowledge/scaffold.ts";
 import { textResult } from "./protocol/server.ts";
 import type { ToolDefinition } from "./protocol/types.ts";
 
