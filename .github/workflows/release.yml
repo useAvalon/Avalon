@@ -26,6 +26,7 @@ on:
           - solid
           - vue
           - qwik
+          - mcp
           - all
       bump-override:
         description: "Version bump override (auto = detect from commits)"
@@ -185,6 +186,9 @@ jobs:
               ;;
             all)
               echo "packages=packages/integrations/core packages/avalon packages/integrations/lit packages/integrations/react packages/integrations/preact packages/integrations/svelte packages/integrations/solid packages/integrations/vue packages/integrations/qwik" >> "$GITHUB_OUTPUT"
+              ;;
+            mcp)
+              echo "packages=packages/mcp" >> "$GITHUB_OUTPUT"
               ;;
             *)
               echo "packages=packages/integrations/${{ inputs.package }}" >> "$GITHUB_OUTPUT"

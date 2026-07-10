@@ -34,6 +34,7 @@ on:
           - solid
           - vue
           - qwik
+          - mcp
 
 permissions:
   contents: write
@@ -52,6 +53,7 @@ jobs:
       solid: ${{ steps.resolve.outputs.solid }}
       vue: ${{ steps.resolve.outputs.vue }}
       qwik: ${{ steps.resolve.outputs.qwik }}
+      mcp: ${{ steps.resolve.outputs.mcp }}
       any: ${{ steps.resolve.outputs.any }}
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
@@ -77,6 +79,8 @@ jobs:
               - 'packages/integrations/vue/**'
             qwik:
               - 'packages/integrations/qwik/**'
+            mcp:
+              - 'packages/mcp/**'
       - name: Resolve publish targets
         id: resolve
         # Expressions are passed via env and referenced as shell vars rather than
@@ -93,11 +97,14 @@ jobs:
           CH_SOLID: ${{ steps.changes.outputs.solid }}
           CH_VUE: ${{ steps.changes.outputs.vue }}
           CH_QWIK: ${{ steps.changes.outputs.qwik }}
+          CH_MCP: ${{ steps.changes.outputs.mcp }}
         run: |
           set -euo pipefail
           declare -A VAL
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            # Manual run: honor the selected package (or "all").
+            # Manual run: honor the selected package (or "all"). `all` covers the
+            # framework train only; mcp has an independent version line and must
+            # be selected explicitly.
             for p in core lit react preact svelte solid vue qwik; do
               if [ "$SELECTION" = "all" ] || [ "$SELECTION" = "$p" ]; then
                 VAL[$p]=true
@@ -105,6 +112,7 @@ jobs:
                 VAL[$p]=false
               fi
             done
+            if [ "$SELECTION" = "mcp" ]; then VAL[mcp]=true; else VAL[mcp]=false; fi
           else
             # Push run: mirror the paths-filter results (default missing → false).
             VAL[core]="${CH_CORE:-false}"
@@ -115,10 +123,11 @@ jobs:
             VAL[solid]="${CH_SOLID:-false}"
             VAL[vue]="${CH_VUE:-false}"
             VAL[qwik]="${CH_QWIK:-false}"
+            VAL[mcp]="${CH_MCP:-false}"
           fi
 
           ANY=false
-          for p in core lit react preact svelte solid vue qwik; do
+          for p in core lit react preact svelte solid vue qwik mcp; do
             echo "${p}=${VAL[$p]}" >> "$GITHUB_OUTPUT"
             if [ "${VAL[$p]}" = "true" ]; then ANY=true; fi
           done
@@ -205,7 +214,8 @@ jobs:
             packages/integrations/svelte/package.json \
             packages/integrations/solid/package.json \
             packages/integrations/vue/package.json \
-            packages/integrations/qwik/package.json; do
+            packages/integrations/qwik/package.json \
+            packages/mcp/package.json; do
             PUB_N=$(max_published_n "$CFG")
             if [ "$PUB_N" -gt "$MAX" ]; then MAX="$PUB_N"; fi
           done
@@ -233,6 +243,7 @@ jobs:
           PUB_SOLID: ${{ needs.detect-changes.outputs.solid }}
           PUB_VUE: ${{ needs.detect-changes.outputs.vue }}
           PUB_QWIK: ${{ needs.detect-changes.outputs.qwik }}
+          PUB_MCP: ${{ needs.detect-changes.outputs.mcp }}
         run: |
           next_patch() {
             local base="$1"
@@ -293,6 +304,9 @@ jobs:
           fi
           if [ "$PUB_QWIK" = "true" ]; then
             publish_pkg "packages/integrations/qwik/package.json"
+          fi
+          if [ "$PUB_MCP" = "true" ]; then
+            publish_pkg "packages/mcp/package.json"
           fi
 
       - name: Create canary tag and GitHub pre-release
