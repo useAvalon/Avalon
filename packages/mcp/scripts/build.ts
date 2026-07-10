@@ -13,6 +13,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
 import { minify } from "oxc-minify";
 import { transform } from "oxc-transform";
+import { applyShebang } from "./normalize-shebang.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const SRC_DIR = join(ROOT, "src");
@@ -75,9 +76,9 @@ async function build() {
 		const output = rewriteTsToJs(result.code);
 		const outRel = rel.replace(/\.ts$/, ".js");
 		const min = await minify(outRel, output);
-		// Preserve the shebang on the binary entry so it stays executable.
-		const isBin = rel.startsWith("bin/");
-		const finalCode = isBin ? `#!/usr/bin/env node\n${min.code}` : min.code;
+		// Emit exactly one shebang on the binary entry; a second (preserved from
+		// source by the minifier) would be a runtime SyntaxError.
+		const finalCode = applyShebang(min.code, rel.startsWith("bin/"));
 		await writeFile(join(DIST_DIR, outRel), finalCode, "utf-8");
 		compiled++;
 	}
