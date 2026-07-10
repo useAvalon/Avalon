@@ -19,7 +19,8 @@
  *   svelte   — @useavalon/svelte
  *   solid    — @useavalon/solid
  *   vue      — @useavalon/vue
- *   all      — everything (use for breaking shared changes)
+ *   mcp      — @useavalon/mcp (independent version line; not part of `all`)
+ *   all      — every framework package (use for breaking shared changes)
  */
 
 import { readFile, writeFile } from "node:fs/promises";
@@ -34,9 +35,15 @@ const PACKAGE_MAP: Record<string, string[]> = {
 	solid: ["packages/integrations/solid/package.json"],
 	vue: ["packages/integrations/vue/package.json"],
 	qwik: ["packages/integrations/qwik/package.json"],
+	mcp: ["packages/mcp/package.json"],
 };
 
-const ALL_PACKAGES = Object.values(PACKAGE_MAP).flat();
+// `mcp` has an independent version line, so it is deliberately excluded from the
+// `all` target (which is meant for coordinated framework releases).
+const STANDALONE_PACKAGES = new Set(["mcp"]);
+const ALL_PACKAGES = Object.entries(PACKAGE_MAP)
+	.filter(([name]) => !STANDALONE_PACKAGES.has(name))
+	.flatMap(([, files]) => files);
 
 interface SemVer {
 	major: number;
@@ -67,7 +74,7 @@ function bumpVersion(
 	if (isExistingPrerelease && channel !== "stable") {
 		const currentChannel = current.prerelease?.split(".")[0];
 		if (currentChannel === channel) {
-			const counter = parseInt(current.prerelease?.split(".")[1] ?? "0") + 1;
+			const counter = parseInt(current.prerelease?.split(".")[1] ?? "0", 10) + 1;
 			return { ...base, prerelease: `${channel}.${counter}` };
 		}
 		if (channel === "rc" && currentChannel === "beta") {
@@ -141,7 +148,7 @@ for (const pkgPath of targetFiles) {
 		const nextVersionStr = formatSemVer(nextVersion);
 
 		config.version = nextVersionStr;
-		await writeFile(pkgPath, JSON.stringify(config, null, "\t") + "\n");
+		await writeFile(pkgPath, `${JSON.stringify(config, null, "\t")}\n`);
 		console.log(
 			`  ${config.name}: ${config.version !== nextVersionStr ? formatSemVer(currentVersion) : config.version} → ${nextVersionStr}`,
 		);
