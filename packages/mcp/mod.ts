@@ -24,11 +24,7 @@ export { createResources, createResourceTemplates } from "./src/resources.ts";
 export { createTools } from "./src/tools.ts";
 
 // Knowledge base (reusable outside the MCP server, e.g. in editor tooling)
-export {
-	API_ENTRIES,
-	type ApiEntry,
-	apiReferenceMarkdown,
-} from "./src/knowledge/api.ts";
+export { API_ENTRIES, type ApiEntry, apiReferenceMarkdown } from "./src/knowledge/api.ts";
 export {
 	CONCEPT_MAP,
 	convertClientDirective,
@@ -46,12 +42,7 @@ export {
 	type HydrationCondition,
 	ISLAND_PROP_REFERENCE,
 } from "./src/knowledge/directives.ts";
-export {
-	DOC_TOPICS,
-	type DocTopic,
-	getDoc,
-	searchDocs,
-} from "./src/knowledge/docs.ts";
+export { DOC_TOPICS, type DocTopic, getDoc, searchDocs } from "./src/knowledge/docs.ts";
 export {
 	scaffold,
 	SCAFFOLD_KINDS,

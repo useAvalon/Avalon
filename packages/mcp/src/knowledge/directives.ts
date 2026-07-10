@@ -39,7 +39,8 @@ export const CORE_CONDITIONS: HydrationCondition[] = [
 		mechanism: "Runs as soon as the island script is parsed.",
 		takesArg: false,
 		example: `<Counter island={{ condition: 'on:client' }} />`,
-		useWhen: "The component must be interactive right away. This is the default if you omit `condition`.",
+		useWhen:
+			"The component must be interactive right away. This is the default if you omit `condition`.",
 		requiresRegistration: false,
 	},
 	{
@@ -94,7 +95,8 @@ export const CUSTOM_DIRECTIVES: HydrationCondition[] = [
 		takesArg: true,
 		argDescription: "Delay in milliseconds (default 1000).",
 		example: `<Widget island={{ condition: 'on:delay', conditionArg: '3000' }} />`,
-		useWhen: "Defer hydration by a fixed duration — e.g. a tooltip not needed in the first seconds.",
+		useWhen:
+			"Defer hydration by a fixed duration — e.g. a tooltip not needed in the first seconds.",
 		requiresRegistration: true,
 	},
 	{

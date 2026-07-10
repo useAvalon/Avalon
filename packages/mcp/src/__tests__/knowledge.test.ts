@@ -7,7 +7,7 @@ import {
 	findCondition,
 } from "../knowledge/directives.ts";
 import { DOC_TOPICS, getDoc, searchDocs } from "../knowledge/docs.ts";
-import { SCAFFOLD_KINDS, scaffold } from "../knowledge/scaffold.ts";
+import { scaffold, SCAFFOLD_KINDS } from "../knowledge/scaffold.ts";
 
 describe("directives knowledge", () => {
 	it("exposes the five core conditions", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createAvalonMcpServer } from "../server.ts";
 import type { JsonRpcRequest, JsonRpcSuccess } from "../protocol/types.ts";
+import { createAvalonMcpServer } from "../server.ts";
 
 const server = createAvalonMcpServer();
 

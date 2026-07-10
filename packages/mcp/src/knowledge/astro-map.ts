@@ -83,7 +83,8 @@ export const CONCEPT_MAP: DirectiveMapping[] = [
 	},
 	{
 		astro: "Astro Actions (defineAction from 'astro:actions')",
-		avalon: "defineAction from '@useavalon/avalon/actions'; call via the `actions` proxy from 'virtual:avalon/actions'",
+		avalon:
+			"defineAction from '@useavalon/avalon/actions'; call via the `actions` proxy from 'virtual:avalon/actions'",
 		note: "Similar concept, different import. Handlers return values; the client gets { data, error }.",
 	},
 	{

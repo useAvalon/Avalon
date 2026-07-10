@@ -28,6 +28,9 @@ import { scaffold, SCAFFOLD_KINDS, type ScaffoldKind } from "./knowledge/scaffol
 import { textResult } from "./protocol/server.ts";
 import type { ToolDefinition } from "./protocol/types.ts";
 
+const DOC_IDS = DOC_TOPICS.map((t) => t.id).join(", ");
+const SCAFFOLD_LIST = SCAFFOLD_KINDS.join(", ");
+
 function conditionToMarkdown(c: HydrationCondition): string {
 	const lines = [
 		`### \`${c.condition}\``,
@@ -52,10 +55,7 @@ export function createTools(): ToolDefinition[] {
 			name: "avalon_hydration_directive",
 			title: "Avalon hydration directive helper",
 			description:
-				"Return the correct Avalon `island` prop syntax for a desired hydration behaviour. " +
-				"Accepts either an Avalon condition (e.g. 'on:visible'), a plain-English behaviour " +
-				"(e.g. 'when visible', 'on click', 'after 2 seconds'), or an Astro directive " +
-				"(e.g. 'client:load'). Use this whenever you need to make a component interactive in Avalon.",
+				"Return the correct Avalon `island` prop syntax for a desired hydration behaviour. Accepts either an Avalon condition (e.g. 'on:visible'), a plain-English behaviour (e.g. 'when visible', 'on click', 'after 2 seconds'), or an Astro directive (e.g. 'client:load'). Use this whenever you need to make a component interactive in Avalon.",
 			inputSchema: {
 				type: "object",
 				properties: {
@@ -80,10 +80,7 @@ export function createTools(): ToolDefinition[] {
 			name: "avalon_convert_astro",
 			title: "Convert Astro code to Avalon",
 			description:
-				"Convert an Astro code snippet to Avalon. Rewrites `client:*` hydration directives to " +
-				"Avalon's `island={{ condition }}` prop and reports any other Astro-only constructs " +
-				"(`.astro` files, `Astro.*` globals, `astro:actions`, `getStaticPaths`) with fixes. " +
-				"Use this when porting Astro code or when you're unsure whether syntax is Astro or Avalon.",
+				"Convert an Astro code snippet to Avalon. Rewrites `client:*` hydration directives to Avalon's `island={{ condition }}` prop and reports any other Astro-only constructs (`.astro` files, `Astro.*` globals, `astro:actions`, `getStaticPaths`) with fixes. Use this when porting Astro code or when you're unsure whether syntax is Astro or Avalon.",
 			inputSchema: {
 				type: "object",
 				properties: {
@@ -116,9 +113,7 @@ export function createTools(): ToolDefinition[] {
 			name: "avalon_lint",
 			title: "Lint code for Astro/Avalon confusion",
 			description:
-				"Scan a code snippet for Astro syntax that does NOT exist in Avalon and report each " +
-				"issue with the correct Avalon replacement. Returns a clean bill of health if none found. " +
-				"Run this on any Avalon page/component you write to catch mistakes like `client:load`.",
+				"Scan a code snippet for Astro syntax that does NOT exist in Avalon and report each issue with the correct Avalon replacement. Returns a clean bill of health if none found. Run this on any Avalon page/component you write to catch mistakes like `client:load`.",
 			inputSchema: {
 				type: "object",
 				properties: {
@@ -146,9 +141,7 @@ export function createTools(): ToolDefinition[] {
 			name: "avalon_search_docs",
 			title: "Search Avalon documentation",
 			description:
-				"Search Avalon's embedded documentation by keyword and return the most relevant topic(s) " +
-				"as Markdown. Covers islands, hydration, server islands, actions, routing, layouts, " +
-				"middleware, API routes, cron, components, and client scripts.",
+				"Search Avalon's embedded documentation by keyword and return the most relevant topic(s) as Markdown. Covers islands, hydration, server islands, actions, routing, layouts, middleware, API routes, cron, components, and client scripts.",
 			inputSchema: {
 				type: "object",
 				properties: {
@@ -162,11 +155,8 @@ export function createTools(): ToolDefinition[] {
 				const limit = typeof args.limit === "number" ? args.limit : 3;
 				const results = searchDocs(query, limit);
 				if (results.length === 0) {
-					const ids = DOC_TOPICS.map((t) => `\`${t.id}\``).join(", ");
-					return textResult(
-						`No matching topics for "${query}". Available topics: ${ids}.`,
-						false,
-					);
+					const msg = `No matching topics for "${query}". Available topics: ${DOC_IDS}.`;
+					return textResult(msg, false);
 				}
 				const body = results.map((t) => t.content).join("\n\n---\n\n");
 				return textResult(body);
@@ -176,9 +166,7 @@ export function createTools(): ToolDefinition[] {
 		{
 			name: "avalon_get_doc",
 			title: "Get an Avalon documentation topic",
-			description:
-				"Fetch the full Markdown for a specific Avalon documentation topic by id. " +
-				`Valid ids: ${DOC_TOPICS.map((t) => t.id).join(", ")}.`,
+			description: `Fetch the full Markdown for a specific Avalon documentation topic by id. Valid ids: ${DOC_IDS}.`,
 			inputSchema: {
 				type: "object",
 				properties: {
@@ -190,8 +178,7 @@ export function createTools(): ToolDefinition[] {
 				const topic = String(args.topic ?? "");
 				const doc = getDoc(topic);
 				if (!doc) {
-					const ids = DOC_TOPICS.map((t) => `\`${t.id}\``).join(", ");
-					return textResult(`Unknown topic "${topic}". Valid topics: ${ids}.`, false);
+					return textResult(`Unknown topic "${topic}". Valid topics: ${DOC_IDS}.`, false);
 				}
 				return textResult(doc.content);
 			},
@@ -200,9 +187,7 @@ export function createTools(): ToolDefinition[] {
 		{
 			name: "avalon_scaffold",
 			title: "Scaffold an Avalon file",
-			description:
-				"Generate idiomatic Avalon boilerplate (correct imports and hydration syntax) for a " +
-				`primitive. Kinds: ${SCAFFOLD_KINDS.join(", ")}. Returns the suggested file path and code.`,
+			description: `Generate idiomatic Avalon boilerplate (correct imports and hydration syntax) for a primitive. Kinds: ${SCAFFOLD_LIST}. Returns the suggested file path and code.`,
 			inputSchema: {
 				type: "object",
 				properties: {
@@ -226,26 +211,23 @@ export function createTools(): ToolDefinition[] {
 			handler: (args) => {
 				const kind = String(args.kind ?? "") as ScaffoldKind;
 				if (!SCAFFOLD_KINDS.includes(kind)) {
-					return textResult(
-						`Unknown kind "${kind}". Valid kinds: ${SCAFFOLD_KINDS.join(", ")}.`,
-						true,
-					);
+					const msg = `Unknown kind "${kind}". Valid kinds: ${SCAFFOLD_LIST}.`;
+					return textResult(msg, true);
 				}
 				const name = args.name ? String(args.name) : "Example";
 				const condition = args.condition ? String(args.condition) : "on:client";
 				const t = scaffold(kind, name, condition);
 				const ext = t.suggestedPath.endsWith(".ts") ? "ts" : "tsx";
-				return textResult(
-					[
-						`**${t.description}**`,
-						"",
-						`Suggested path: \`${t.suggestedPath}\``,
-						"",
-						`\`\`\`${ext}`,
-						t.code.trimEnd(),
-						"```",
-					].join("\n"),
-				);
+				const out = [
+					`**${t.description}**`,
+					"",
+					`Suggested path: \`${t.suggestedPath}\``,
+					"",
+					`\`\`\`${ext}`,
+					t.code.trimEnd(),
+					"```",
+				].join("\n");
+				return textResult(out);
 			},
 		},
 
@@ -253,8 +235,7 @@ export function createTools(): ToolDefinition[] {
 			name: "avalon_api_reference",
 			title: "Avalon API & import reference",
 			description:
-				"Return Avalon's public API surface: the correct import paths and the symbols each " +
-				"exposes (e.g. defineAction from '@useavalon/avalon/actions'). Use this to avoid inventing imports.",
+				"Return Avalon's public API surface: the correct import paths and the symbols each exposes (e.g. defineAction from '@useavalon/avalon/actions'). Use this to avoid inventing imports.",
 			inputSchema: { type: "object", properties: {} },
 			handler: () => textResult(apiReferenceMarkdown()),
 		},
@@ -278,11 +259,15 @@ function renderAllConditions(): string {
 	return parts.join("\n\n");
 }
 
+function directivePrefix(astro: string): string {
+	return astro.split("=")[0].toLowerCase();
+}
+
 function resolveBehavior(behavior: string): string {
 	const lower = behavior.toLowerCase();
 
 	// 1) Direct Astro directive?
-	const astroMatch = DIRECTIVE_MAP.find((m) => lower.includes(m.astro.split("=")[0].toLowerCase()));
+	const astroMatch = DIRECTIVE_MAP.find((m) => lower.includes(directivePrefix(m.astro)));
 	if (lower.includes("client:") && astroMatch) {
 		return [
 			`\`${astroMatch.astro}\` is **Astro** syntax. In Avalon, use:`,

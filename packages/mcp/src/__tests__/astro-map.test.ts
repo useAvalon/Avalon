@@ -11,9 +11,7 @@ describe("convertClientDirective", () => {
 	});
 
 	it("maps client:visible to on:visible", () => {
-		expect(convertClientDirective("client:visible")).toBe(
-			"island={{ condition: 'on:visible' }}",
-		);
+		expect(convertClientDirective("client:visible")).toBe("island={{ condition: 'on:visible' }}");
 	});
 
 	it("maps client:idle to on:idle", () => {
@@ -21,7 +19,7 @@ describe("convertClientDirective", () => {
 	});
 
 	it("maps client:only to on:client (Avalon always SSRs)", () => {
-		expect(convertClientDirective("client:only=\"preact\"")).toBe(
+		expect(convertClientDirective('client:only="preact"')).toBe(
 			"island={{ condition: 'on:client' }}",
 		);
 	});

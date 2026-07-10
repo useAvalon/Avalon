@@ -183,9 +183,7 @@ export class McpServer {
 		if (staticResource) {
 			const text = await staticResource.read();
 			return {
-				contents: [
-					{ uri, mimeType: staticResource.mimeType ?? "text/markdown", text },
-				],
+				contents: [{ uri, mimeType: staticResource.mimeType ?? "text/markdown", text }],
 			};
 		}
 

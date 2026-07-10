@@ -68,9 +68,7 @@ function astroMigrationGuide(): string {
 	const directiveRows = DIRECTIVE_MAP.map(
 		(m) => `| \`${m.astro}\` | \`${m.avalon}\` | ${m.note} |`,
 	).join("\n");
-	const conceptRows = CONCEPT_MAP.map(
-		(m) => `| ${m.astro} | ${m.avalon} | ${m.note} |`,
-	).join("\n");
+	const conceptRows = CONCEPT_MAP.map((m) => `| ${m.astro} | ${m.avalon} | ${m.note} |`).join("\n");
 
 	return `# Astro → Avalon Migration Guide
 
@@ -127,9 +125,11 @@ export function createResources(): ResourceDefinition[] {
 			description: "List of all embedded documentation topics.",
 			mimeType: "text/markdown",
 			read: () =>
-				["# Avalon Documentation Topics", "", ...DOC_TOPICS.map((t) => `- \`avalon://docs/${t.id}\` — ${t.title}`)].join(
-					"\n",
-				),
+				[
+					"# Avalon Documentation Topics",
+					"",
+					...DOC_TOPICS.map((t) => `- \`avalon://docs/${t.id}\` — ${t.title}`),
+				].join("\n"),
 		},
 	];
 }
