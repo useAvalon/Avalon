@@ -114,6 +114,38 @@ export interface RenderHandlerOptions {
 }
 
 /**
+ * Merges route params from Nitro's routing with Avalon's own route resolution.
+ *
+ * The page renderer runs as a catch-all, so `event.context.params` holds the
+ * catch-all match (e.g. `_`), not the named dynamic params. Avalon extracts the
+ * named params into `route.params`, which therefore take precedence. (An empty
+ * `event.context.params` object is still truthy, so a plain `||` would wrongly
+ * shadow `route.params`.)
+ */
+function mergeRouteParams(event: H3Event, route: ResolvedPageRoute): Record<string, string> {
+	const nitroParams = event.context.params ?? {};
+	return { ...nitroParams, ...route.params };
+}
+
+/**
+ * Resolves the page route for a request: prefers a route already resolved by
+ * Nitro's file-system routing (`event.context.route`), otherwise falls back to
+ * the provided custom resolver (dev) or the default resolver.
+ */
+async function resolvePageRouteForRequest(
+	event: H3Event,
+	pathname: string,
+	pagesDir: string,
+	resolvePageRoute?: (pathname: string, pagesDir: string) => Promise<ResolvedPageRoute | null>,
+): Promise<ResolvedPageRoute | null> {
+	const nitroRouteContext = event.context.route as ResolvedPageRoute | undefined;
+	if (nitroRouteContext) return nitroRouteContext;
+	return resolvePageRoute
+		? resolvePageRoute(pathname, pagesDir)
+		: defaultResolvePageRoute(pathname, pagesDir);
+}
+
+/**
  * Creates a render context from an H3 event
  *
  * @param event - The H3 event from Nitro
@@ -1320,21 +1352,12 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 
 			// Check if Nitro has already resolved route information in the event context
 			// This happens when Nitro's file-system routing has matched a route
-			const nitroRouteContext = event.context.route as ResolvedPageRoute | undefined;
-
-			let route: ResolvedPageRoute | null = null;
-
-			if (nitroRouteContext) {
-				// Use Nitro's resolved route information
-				route = nitroRouteContext;
-			} else {
-				// Fall back to custom resolution (primarily for development)
-				// In production with Nitro, this path is rarely taken as Nitro
-				// handles route resolution before reaching the catch-all renderer
-				route = options.resolvePageRoute
-					? await options.resolvePageRoute(pathname, avalonConfig.pagesDir)
-					: await defaultResolvePageRoute(pathname, avalonConfig.pagesDir);
-			}
+			const route = await resolvePageRouteForRequest(
+				event,
+				pathname,
+				avalonConfig.pagesDir,
+				options.resolvePageRoute,
+			);
 
 			if (!route) {
 				// No page found, return 404 with custom error page support
@@ -1347,10 +1370,7 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 				? await options.loadPageModule(route.filePath)
 				: await defaultLoadPageModule(route.filePath);
 
-			// Create render context with route params from Nitro or custom resolution
-			// Nitro provides params via event.context.params when using its routing
-			const routeParams = (event.context.params as Record<string, string>) || route.params;
-			const renderContext = createRenderContext(event, routeParams);
+			const renderContext = createRenderContext(event, mergeRouteParams(event, route));
 
 			// Resolve layouts if available
 			if (options.resolveLayouts) {
