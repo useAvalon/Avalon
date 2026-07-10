@@ -260,7 +260,7 @@ export default function RootLayout({ children, frontmatter }: LayoutProps) {
 
 - \`src/layouts/_layout.tsx\` wraps everything; \`src/layouts/blog/_layout.tsx\` nests inside it for \`/blog/*\`.
 - Skip layouts with \`export const layoutConfig = { skipLayouts: ['_layout'] };\`.
-- \`.tsx\` pages provide metadata via \`export const frontmatter = { title, description }\`; \`.mdx\` pages use YAML frontmatter.`,
+- \`.tsx\` pages provide metadata via \`export const metadata = { title, description }\`; \`.mdx\` pages use YAML frontmatter. Both surface on the layout's \`frontmatter\` prop.`,
 	},
 	{
 		id: "middleware",
@@ -389,6 +389,217 @@ For global/third-party JS that isn't a component, use plain \`<script>\` tags. F
 \`\`\`
 
 Bridge server data to scripts with \`data-*\` attributes. Reserve scripts for analytics, embeds, and page-level listeners.`,
+	},
+	{
+		id: "styling",
+		title: "Styling",
+		keywords: ["css", "style", "styles", "module", "tailwind", "tokens", "scoped", "className"],
+		content: `# Styling
+
+Avalon uses standard CSS processed by Vite — no special runtime. Unlike Astro, there are **no scoped \`<style>\` blocks inside components**; use CSS Modules or plain CSS instead.
+
+## CSS Modules
+
+Any \`*.module.css\` file is scoped to the importing component (class names are hashed). Works in islands too — scoped styles are extracted into the page regardless of hydration.
+
+\`\`\`tsx
+import styles from './Button.module.css';
+
+export default function Button() {
+  return <button className={styles.button}>Click me</button>;
+}
+\`\`\`
+
+## Global styles & tokens
+
+Import a plain \`.css\` file (no \`.module\`) in your root layout for global styles. Define design tokens as CSS custom properties:
+
+\`\`\`tsx
+// layouts/_layout.tsx
+import '../styles/main.css';
+\`\`\`
+
+## Islands & CSS-in-JS
+
+Islands are server-rendered first, so styles must exist before JS loads. **Avoid runtime CSS-in-JS** (styled-components, Emotion) — they don't produce styles during SSR. Use CSS Modules or plain CSS. Conditional classes: concatenate \`className\` strings.`,
+	},
+	{
+		id: "metadata",
+		title: "Page Metadata (SEO)",
+		keywords: [
+			"metadata",
+			"seo",
+			"title",
+			"description",
+			"opengraph",
+			"og",
+			"twitter",
+			"head",
+			"json-ld",
+			"frontmatter",
+		],
+		content: `# Page Metadata
+
+Define SEO metadata by exporting a \`metadata\` object from a page. It is merged with any frontmatter and passed to the layout via the \`frontmatter\` prop. (There is no \`Astro\`-style head component; layouts render \`<head>\` directly.)
+
+\`\`\`tsx
+import type { PageMetadata } from '@useavalon/avalon';
+
+export const metadata: PageMetadata = {
+  title: 'Hello World',
+  description: 'My first post.',
+  openGraph: { title: 'Hello', description: '…', image: '/og.png' },
+  head: [{ tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } }],
+};
+\`\`\`
+
+Fields: \`title\`, \`description\`, \`openGraph?: { title, description, image }\`, and \`head?: Array<{ tag, attrs?, content? }>\` for arbitrary tags (Twitter cards, canonical links, JSON-LD scripts).
+
+In the layout, read from \`frontmatter\`:
+
+\`\`\`tsx
+export default function Layout({ children, frontmatter }: LayoutProps) {
+  return (
+    <html lang="en">
+      <head>
+        <title>{frontmatter?.title ?? 'My Site'}</title>
+        {frontmatter?.description && (
+          <meta name="description" content={String(frontmatter.description)} />
+        )}
+        {frontmatter?.head?.map((el, i) =>
+          el.tag === 'script' ? (
+            <script key={i} {...el.attrs}>{el.content}</script>
+          ) : (
+            <meta key={i} {...el.attrs} />
+          ),
+        )}
+      </head>
+      <body>{children}</body>
+    </html>
+  );
+}
+\`\`\`
+
+\`.mdx\` pages provide the same fields via YAML frontmatter. When both exist, \`metadata\` wins.`,
+	},
+	{
+		id: "mdx",
+		title: "MDX & Markdown",
+		keywords: ["mdx", "markdown", "gfm", "frontmatter", "remark", "rehype", "content"],
+		content: `# MDX & Markdown
+
+Any \`.mdx\` file in the pages directory becomes a route, like \`.tsx\`. Pre-configured plugins: \`remark-frontmatter\`, \`remark-mdx-frontmatter\`, \`remark-gfm\`, and \`rehype-highlight\`.
+
+\`\`\`mdx
+---
+title: Interactive Demo
+---
+
+import Counter from '../islands/Counter.tsx';
+
+# Demo
+
+<Counter island={{ condition: 'on:visible' }} />
+\`\`\`
+
+- YAML frontmatter is exported and passed to layouts (integrates with metadata/SEO).
+- The \`island\` prop works exactly as in \`.tsx\` pages — imported components used with it become islands.
+- Code blocks get syntax highlighting (link \`syntax-highlighting.css\` in your root layout).
+- Configure via \`avalon({ mdx: { jsxImportSource: 'preact', remarkPlugins: [], rehypePlugins: [] } })\`.
+- Use MDX for content-heavy pages; use \`.tsx\` when you need async data fetching (MDX pages can't be async).`,
+	},
+	{
+		id: "configuration",
+		title: "Configuration & Project Setup",
+		keywords: [
+			"config",
+			"vite",
+			"vite.config",
+			"avalon plugin",
+			"integrations",
+			"setup",
+			"install",
+			"create",
+			"nitro",
+		],
+		content: `# Configuration & Project Setup
+
+Scaffold a project with \`bun create avalon my-app\`, then \`bun install && bun run dev\`.
+
+Avalon is configured through the async \`avalon()\` Vite plugin:
+
+\`\`\`ts
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { avalon } from '@useavalon/avalon/vite';
+
+export default defineConfig(async () => {
+  const plugins = await avalon({
+    pagesDir: 'src/pages',
+    integrations: ['preact'],
+    mdx: { jsxImportSource: 'preact' },
+    nitro: { cron: [{ schedule: '0 * * * *', handler: 'tasks/cleanup.ts' }] },
+  });
+  return { plugins };
+});
+\`\`\`
+
+Typical project structure:
+
+\`\`\`
+my-app/
+├── src/
+│   ├── islands/    # interactive components (hydrated on client)
+│   ├── layouts/    # layout wrappers
+│   └── pages/      # file-system routes
+├── public/         # static assets
+├── routes/         # API routes (Nitro)
+├── nitro.config.ts
+└── vite.config.ts
+\`\`\`
+
+Note: \`avalon()\` is async and returns an array of Vite plugins — always \`await\` it.`,
+	},
+	{
+		id: "frameworks",
+		title: "Framework Integrations",
+		keywords: [
+			"framework",
+			"integration",
+			"react",
+			"preact",
+			"vue",
+			"svelte",
+			"solid",
+			"lit",
+			"qwik",
+			"jsxImportSource",
+			"pragma",
+		],
+		content: `# Framework Integrations
+
+Avalon is multi-framework. Enable frameworks in the \`integrations\` array and install their peer deps. Supported: \`preact\`, \`react\`, \`vue\`, \`svelte\`, \`solid\`, \`lit\`, \`qwik\`.
+
+\`\`\`ts
+const plugins = await avalon({ integrations: ['react', 'vue'] });
+\`\`\`
+
+\`\`\`bash
+bun add react react-dom
+\`\`\`
+
+## JSX pragma
+
+JSX-based frameworks require a pragma at the top of each island file so the correct JSX runtime is used:
+
+\`\`\`tsx
+/** @jsxImportSource react */   // or preact / solid-js
+import { useState } from 'react';
+\`\`\`
+
+- \`.vue\` and \`.svelte\` islands are written in their native single-file formats (no pragma).
+- The framework is auto-detected from the island file — you do not pick it at the call site (contrast with Astro's \`client:only="react"\`).
+- Each island is an independent tree: **context/providers cannot span multiple islands**. For cross-island state use a global store or URL state.`,
 	},
 ];
 

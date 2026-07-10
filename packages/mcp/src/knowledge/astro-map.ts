@@ -92,6 +92,21 @@ export const CONCEPT_MAP: DirectiveMapping[] = [
 		avalon: "children props / composition (framework-native)",
 		note: "Use the component model of your chosen framework.",
 	},
+	{
+		astro: "scoped <style> block inside a component",
+		avalon: "CSS Modules (*.module.css) or plain global CSS",
+		note: "Avalon has no component-scoped <style> blocks; import a .module.css for scoping.",
+	},
+	{
+		astro: "set:html={value}",
+		avalon: "dangerouslySetInnerHTML={{ __html: value }}",
+		note: "Use the framework's raw-HTML prop instead of Astro's set:html directive.",
+	},
+	{
+		astro: "@astrojs/react integration",
+		avalon: "integrations array in the avalon() Vite plugin: avalon({ integrations: ['react'] })",
+		note: "Frameworks are enabled via the `integrations` option, not separate integration packages.",
+	},
 ];
 
 /** Result of scanning a snippet for Astro-isms. */
@@ -206,6 +221,25 @@ export function lintForAstroisms(snippet: string): LintFinding[] {
 				suggestion:
 					"Use file-based dynamic routes: src/pages/blog/[slug].tsx and read event.context.params.slug.",
 				reason: "Avalon does not use `getStaticPaths`.",
+				line: lineNo,
+			});
+		}
+
+		if (/\bset:html\b/.test(lineText)) {
+			findings.push({
+				found: "set:html",
+				suggestion: "Use `dangerouslySetInnerHTML={{ __html: value }}` (Preact/React).",
+				reason: "`set:html` is an Astro-only template directive.",
+				line: lineNo,
+			});
+		}
+
+		for (const m of lineText.matchAll(/\b(set:text|is:inline|is:global|define:vars)\b/g)) {
+			findings.push({
+				found: m[1],
+				suggestion:
+					"Astro template directive with no Avalon equivalent — use plain JSX (`{value}` for text) and standard <script>/<style> tags.",
+				reason: "`set:text` / `is:*` / `define:vars` are Astro-only template directives.",
 				line: lineNo,
 			});
 		}

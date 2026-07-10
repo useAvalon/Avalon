@@ -30,6 +30,7 @@ export function createAvalonMcpServer(): McpServer {
 	const server = new McpServer({
 		name: "avalon-mcp",
 		version: AVALON_MCP_VERSION,
+		title: "Avalon Framework",
 		instructions: INSTRUCTIONS,
 	});
 

@@ -51,6 +51,19 @@ describe("MCP protocol handling", () => {
 		expect(resultOf(await call("ping"))).toEqual({});
 	});
 
+	it("reports a title in serverInfo", async () => {
+		const info = resultOf(await call("initialize", { protocolVersion: "2025-06-18" }))
+			.serverInfo as { title?: string };
+		expect(info.title).toBe("Avalon Framework");
+	});
+
+	it("marks all tools as read-only", async () => {
+		const tools = resultOf(await call("tools/list")).tools as Array<{
+			annotations?: { readOnlyHint?: boolean };
+		}>;
+		expect(tools.every((t) => t.annotations?.readOnlyHint === true)).toBe(true);
+	});
+
 	it("returns MethodNotFound for unknown methods", async () => {
 		const res = (await call("does/not/exist")) as { error: { code: number } };
 		expect(res.error.code).toBe(-32601);

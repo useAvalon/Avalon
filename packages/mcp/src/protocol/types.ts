@@ -84,12 +84,23 @@ export interface ToolResult {
 	isError?: boolean;
 }
 
+/** Behavioural hints a client can use to decide how to surface a tool. */
+export interface ToolAnnotations {
+	/** The tool only reads data and has no side effects. */
+	readOnlyHint?: boolean;
+	/** The tool may interact with entities outside its own closed world. */
+	openWorldHint?: boolean;
+	/** Human-friendly title for display. */
+	title?: string;
+}
+
 /** A tool the server exposes. */
 export interface ToolDefinition {
 	name: string;
 	title?: string;
 	description: string;
 	inputSchema: JsonSchema;
+	annotations?: ToolAnnotations;
 	handler: (args: Record<string, unknown>) => ToolResult | Promise<ToolResult>;
 }
 
@@ -146,6 +157,8 @@ export interface PromptDefinition {
 export interface ServerInfo {
 	name: string;
 	version: string;
+	/** Human-friendly display name. */
+	title?: string;
 	/** Free-form guidance surfaced to the model by MCP clients. */
 	instructions?: string;
 }

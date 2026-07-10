@@ -48,9 +48,12 @@ function conditionToMarkdown(c: HydrationCondition): string {
 	return lines.join("\n");
 }
 
+/** All Avalon tools are pure knowledge lookups: read-only and self-contained. */
+const READ_ONLY: ToolDefinition["annotations"] = { readOnlyHint: true, openWorldHint: false };
+
 /** Build the list of Avalon MCP tools. */
 export function createTools(): ToolDefinition[] {
-	return [
+	const tools: ToolDefinition[] = [
 		{
 			name: "avalon_hydration_directive",
 			title: "Avalon hydration directive helper",
@@ -141,7 +144,7 @@ export function createTools(): ToolDefinition[] {
 			name: "avalon_search_docs",
 			title: "Search Avalon documentation",
 			description:
-				"Search Avalon's embedded documentation by keyword and return the most relevant topic(s) as Markdown. Covers islands, hydration, server islands, actions, routing, layouts, middleware, API routes, cron, components, and client scripts.",
+				"Search Avalon's embedded documentation by keyword and return the most relevant topic(s) as Markdown. Covers islands, hydration, server islands, actions, routing, layouts, middleware, API routes, cron, components, client scripts, styling, metadata/SEO, MDX, configuration, and framework integrations.",
 			inputSchema: {
 				type: "object",
 				properties: {
@@ -240,6 +243,7 @@ export function createTools(): ToolDefinition[] {
 			handler: () => textResult(apiReferenceMarkdown()),
 		},
 	];
+	return tools.map((t) => ({ ...t, annotations: READ_ONLY }));
 }
 
 function renderAllConditions(): string {

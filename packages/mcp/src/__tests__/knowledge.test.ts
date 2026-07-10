@@ -57,6 +57,12 @@ describe("docs knowledge", () => {
 		expect(getDoc("server-actions")?.title).toBe("Server Actions");
 		expect(getDoc("nope")).toBeUndefined();
 	});
+
+	it("covers styling, metadata, mdx, configuration, and frameworks topics", () => {
+		for (const id of ["styling", "metadata", "mdx", "configuration", "frameworks"]) {
+			expect(getDoc(id), `missing topic: ${id}`).toBeDefined();
+		}
+	});
 });
 
 describe("scaffold knowledge", () => {

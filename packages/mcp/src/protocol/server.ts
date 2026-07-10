@@ -126,7 +126,11 @@ export class McpServer {
 				resources: { listChanged: false },
 				prompts: { listChanged: false },
 			},
-			serverInfo: { name: this.info.name, version: this.info.version },
+			serverInfo: {
+				name: this.info.name,
+				version: this.info.version,
+				...(this.info.title ? { title: this.info.title } : {}),
+			},
 			...(this.info.instructions ? { instructions: this.info.instructions } : {}),
 		};
 	}
@@ -137,6 +141,7 @@ export class McpServer {
 			...(t.title ? { title: t.title } : {}),
 			description: t.description,
 			inputSchema: t.inputSchema,
+			...(t.annotations ? { annotations: t.annotations } : {}),
 		}));
 	}
 

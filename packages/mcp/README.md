@@ -30,15 +30,15 @@ before writing files.
 
 ### Tools
 
-| Tool | What it does |
-|------|--------------|
+| Tool                         | What it does                                                                                                                                            |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `avalon_hydration_directive` | Given a behaviour (`"when visible"`), an Avalon condition (`on:idle`), or an Astro directive (`client:load`), returns the correct `island` prop syntax. |
-| `avalon_convert_astro` | Rewrites `client:*` directives to `island={{ condition }}` and flags other Astro-only constructs. |
-| `avalon_lint` | Scans a snippet for Astro-isms that don't exist in Avalon and suggests fixes. |
-| `avalon_search_docs` | Keyword search across the embedded Avalon docs. |
-| `avalon_get_doc` | Fetch a full documentation topic by id. |
-| `avalon_scaffold` | Generate idiomatic boilerplate (page, island, action, layout, api-route, cron-job, custom-directive, …). |
-| `avalon_api_reference` | Correct import paths and exported symbols. |
+| `avalon_convert_astro`       | Rewrites `client:*` directives to `island={{ condition }}` and flags other Astro-only constructs.                                                       |
+| `avalon_lint`                | Scans a snippet for Astro-isms that don't exist in Avalon and suggests fixes.                                                                           |
+| `avalon_search_docs`         | Keyword search across the embedded Avalon docs.                                                                                                         |
+| `avalon_get_doc`             | Fetch a full documentation topic by id.                                                                                                                 |
+| `avalon_scaffold`            | Generate idiomatic boilerplate (page, island, action, layout, api-route, cron-job, custom-directive, …).                                                |
+| `avalon_api_reference`       | Correct import paths and exported symbols.                                                                                                              |
 
 ### Resources
 
@@ -47,6 +47,10 @@ before writing files.
 - `avalon://api` — public API reference
 - `avalon://docs` — documentation index
 - `avalon://docs/{topic}` — a single documentation topic (templated)
+
+Documentation topics cover: overview, islands, hydration strategies, server islands, server actions, routing, layouts, middleware, API routes, cron jobs, built-in components, client scripts, styling, metadata/SEO, MDX, configuration, and framework integrations.
+
+All tools are annotated `readOnlyHint: true` — they are pure knowledge lookups with no side effects, so agents can call them freely.
 
 ### Prompts
 
@@ -59,18 +63,18 @@ before writing files.
 Avalon uses one prop, `island`, on an imported component:
 
 ```tsx
-import Counter from '../islands/Counter.tsx';
+import Counter from "../islands/Counter.tsx";
 
-<Counter island={{ condition: 'on:visible' }} />
+<Counter island={{ condition: "on:visible" }} />;
 ```
 
-| Astro | Avalon |
-|-------|--------|
-| `client:load` | `island={{ condition: 'on:client' }}` |
-| `client:visible` | `island={{ condition: 'on:visible' }}` |
-| `client:idle` | `island={{ condition: 'on:idle' }}` |
-| `client:media={"…"}` | `island={{ condition: 'media:…' }}` |
-| `client:only` | `island={{ condition: 'on:client' }}` (Avalon always SSRs first) |
+| Astro                | Avalon                                                           |
+| -------------------- | ---------------------------------------------------------------- |
+| `client:load`        | `island={{ condition: 'on:client' }}`                            |
+| `client:visible`     | `island={{ condition: 'on:visible' }}`                           |
+| `client:idle`        | `island={{ condition: 'on:idle' }}`                              |
+| `client:media={"…"}` | `island={{ condition: 'media:…' }}`                              |
+| `client:only`        | `island={{ condition: 'on:client' }}` (Avalon always SSRs first) |
 
 Avalon also supports interaction-based (`on:interaction`) and custom directives
 (`on:delay`, `on:event`, `on:scroll`, `on:match`) with an optional `conditionArg`.
@@ -96,12 +100,12 @@ Most clients accept a command + args. Point them at the binary.
 
 ```json
 {
-  "mcpServers": {
-    "avalon": {
-      "command": "bun",
-      "args": ["run", "/absolute/path/to/Avalon/packages/mcp/bin/avalon-mcp.ts"]
-    }
-  }
+	"mcpServers": {
+		"avalon": {
+			"command": "bun",
+			"args": ["run", "/absolute/path/to/Avalon/packages/mcp/bin/avalon-mcp.ts"]
+		}
+	}
 }
 ```
 
@@ -109,12 +113,12 @@ Most clients accept a command + args. Point them at the binary.
 
 ```json
 {
-  "mcpServers": {
-    "avalon": {
-      "command": "npx",
-      "args": ["-y", "@useavalon/mcp"]
-    }
-  }
+	"mcpServers": {
+		"avalon": {
+			"command": "npx",
+			"args": ["-y", "@useavalon/mcp"]
+		}
+	}
 }
 ```
 
@@ -134,13 +138,9 @@ printf '%s\n' \
 The knowledge base and server are also importable:
 
 ```ts
-import {
-  createAvalonMcpServer,
-  convertSnippet,
-  lintForAstroisms,
-} from '@useavalon/mcp';
+import { createAvalonMcpServer, convertSnippet, lintForAstroisms } from "@useavalon/mcp";
 
-lintForAstroisms('<C client:load />');
+lintForAstroisms("<C client:load />");
 // → [{ found: 'client:load', suggestion: "island={{ condition: 'on:client' }}", … }]
 ```
 

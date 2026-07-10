@@ -68,6 +68,20 @@ describe("lintForAstroisms", () => {
 		expect(found).toContain("getStaticPaths");
 	});
 
+	it("flags set:html and set:text directives", () => {
+		const findings = lintForAstroisms("<div set:html={raw} />\n<span set:text={t} />");
+		const found = findings.map((f) => f.found);
+		expect(found).toContain("set:html");
+		expect(found).toContain("set:text");
+	});
+
+	it("flags is:inline and define:vars directives", () => {
+		const findings = lintForAstroisms("<script is:inline define:vars={{ x }}>");
+		const found = findings.map((f) => f.found);
+		expect(found).toContain("is:inline");
+		expect(found).toContain("define:vars");
+	});
+
 	it("returns nothing for clean Avalon code", () => {
 		const clean = "<Counter island={{ condition: 'on:visible' }} />";
 		expect(lintForAstroisms(clean)).toHaveLength(0);

@@ -14,6 +14,7 @@ export type {
 	ResourceDefinition,
 	ResourceTemplateDefinition,
 	ServerInfo,
+	ToolAnnotations,
 	ToolDefinition,
 	ToolResult,
 } from "./src/protocol/types.ts";
