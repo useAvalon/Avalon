@@ -2,7 +2,12 @@ import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { parseCliArgs, validateDirectory } from "./cli-utils";
+import {
+	CliArgError,
+	parseCliArgs,
+	resolveConfigNonInteractive,
+	validateDirectory,
+} from "./cli-utils";
 
 describe("parseCliArgs", () => {
 	it("returns defaults when no args provided", () => {
@@ -11,6 +16,14 @@ describe("parseCliArgs", () => {
 			projectName: undefined,
 			help: false,
 			version: false,
+			yes: false,
+			core: undefined,
+			integrations: undefined,
+			styling: undefined,
+			plugins: undefined,
+			middleware: undefined,
+			deploy: undefined,
+			cron: false,
 		});
 	});
 
@@ -69,6 +82,107 @@ describe("parseCliArgs", () => {
 
 	it("throws on unknown flags", () => {
 		expect(() => parseCliArgs(["--unknown"])).toThrow();
+	});
+
+	it("parses --yes and -y", () => {
+		expect(parseCliArgs(["--yes"]).yes).toBe(true);
+		expect(parseCliArgs(["-y"]).yes).toBe(true);
+	});
+
+	it("parses per-prompt string flags", () => {
+		const result = parseCliArgs([
+			"my-app",
+			"--core",
+			"react",
+			"--integrations",
+			"react,vue",
+			"--styling",
+			"shadcn",
+			"--plugins",
+			"seo,agent-optimization",
+			"--middleware",
+			"hono",
+			"--deploy",
+			"netlify",
+			"--cron",
+		]);
+		expect(result).toMatchObject({
+			projectName: "my-app",
+			core: "react",
+			integrations: "react,vue",
+			styling: "shadcn",
+			plugins: "seo,agent-optimization",
+			middleware: "hono",
+			deploy: "netlify",
+			cron: true,
+		});
+	});
+});
+
+describe("resolveConfigNonInteractive", () => {
+	const base = parseCliArgs([]);
+
+	it("applies interactive defaults when no flags are set", () => {
+		const config = resolveConfigNonInteractive({ ...base, projectName: "my-app" });
+		expect(config).toEqual({
+			projectName: "my-app",
+			core: "preact",
+			integrations: [],
+			styling: "css-modules",
+			plugins: ["seo"],
+			middleware: "h3",
+			deploy: "none",
+			cron: false,
+		});
+	});
+
+	it("defaults projectName to '.' when omitted", () => {
+		expect(resolveConfigNonInteractive(base).projectName).toBe(".");
+	});
+
+	it("parses comma lists and trims whitespace", () => {
+		const config = resolveConfigNonInteractive({
+			...base,
+			integrations: "react, vue ,svelte",
+			plugins: "seo, syntax-highlighting",
+		});
+		expect(config.integrations).toEqual(["react", "vue", "svelte"]);
+		expect(config.plugins).toEqual(["seo", "syntax-highlighting"]);
+	});
+
+	it("forces the react integration when core is react", () => {
+		const config = resolveConfigNonInteractive({ ...base, core: "react" });
+		expect(config.core).toBe("react");
+		expect(config.integrations).toContain("react");
+	});
+
+	it("does not duplicate react when already listed", () => {
+		const config = resolveConfigNonInteractive({
+			...base,
+			core: "react",
+			integrations: "react,vue",
+		});
+		expect(config.integrations.filter((i) => i === "react")).toHaveLength(1);
+	});
+
+	it("rejects an unknown enum value", () => {
+		expect(() => resolveConfigNonInteractive({ ...base, styling: "bootstrap" })).toThrow(
+			CliArgError,
+		);
+	});
+
+	it("rejects an unknown value inside a comma list", () => {
+		expect(() => resolveConfigNonInteractive({ ...base, integrations: "react,angular" })).toThrow(
+			/angular/,
+		);
+	});
+
+	it("rejects shadcn without the react engine", () => {
+		expect(() => resolveConfigNonInteractive({ ...base, styling: "shadcn" })).toThrow(CliArgError);
+		// but allows it with core=react
+		expect(resolveConfigNonInteractive({ ...base, core: "react", styling: "shadcn" }).styling).toBe(
+			"shadcn",
+		);
 	});
 });
 

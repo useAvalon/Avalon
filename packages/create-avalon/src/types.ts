@@ -11,6 +11,37 @@ export type MiddlewareOption = "h3" | "hono" | "elysia";
 
 export type DeployTarget = "netlify" | "none";
 
+/**
+ * Allowed values for each option, used to validate non-interactive CLI flags.
+ * These mirror the choices offered by the interactive prompts.
+ */
+export const RENDER_ENGINES = ["preact", "react"] as const satisfies readonly RenderEngine[];
+export const INTEGRATIONS = [
+	"preact",
+	"react",
+	"vue",
+	"svelte",
+	"solid",
+	"lit",
+	"qwik",
+] as const satisfies readonly Integration[];
+export const STYLING_OPTIONS = [
+	"css-modules",
+	"tailwind",
+	"shadcn",
+] as const satisfies readonly StylingOption[];
+export const PLUGINS = [
+	"seo",
+	"agent-optimization",
+	"syntax-highlighting",
+] as const satisfies readonly Plugin[];
+export const MIDDLEWARE_OPTIONS = [
+	"h3",
+	"hono",
+	"elysia",
+] as const satisfies readonly MiddlewareOption[];
+export const DEPLOY_TARGETS = ["netlify", "none"] as const satisfies readonly DeployTarget[];
+
 export interface ProjectConfig {
 	projectName: string;
 	/** Core rendering engine for pages/layouts. Defaults to "preact". */
