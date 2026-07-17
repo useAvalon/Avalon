@@ -70,24 +70,93 @@ async function build() {
 	const raw = await readFile(pkgPath, "utf-8");
 	const pkg = JSON.parse(raw);
 
-	if (pkg.exports?.["."]?.startsWith("./dist/")) {
-		console.log("✓ package.json already rewritten, skipping");
-		return;
+	// The exports/files rewrite is one-way (src → dist), so skip it if a prior
+	// build already did it. Dependency resolution + the safety assertion below
+	// still run unconditionally — a half-rewritten manifest must never publish
+	// with a leaked `workspace:` spec.
+	const alreadyRewritten = pkg.exports?.["."]?.startsWith?.("./dist/") ?? false;
+	if (!alreadyRewritten) {
+		await writeFile(join(ROOT, "package.json.bak"), raw, "utf-8");
+
+		if (pkg.exports) {
+			for (const [key, value] of Object.entries(pkg.exports)) {
+				if (typeof value === "string") {
+					pkg.exports[key] = `./dist/${value.replace(/^\.\//, "").replace(/\.ts$/, ".js")}`;
+				}
+			}
+		}
+		pkg.files = ["dist/**/*.js", "dist/**/*.d.ts", "README.md"];
 	}
 
-	await writeFile(join(ROOT, "package.json.bak"), raw, "utf-8");
+	await resolveWorkspaceDeps(pkg);
+	assertNoWorkspaceProtocol(pkg);
 
-	if (pkg.exports) {
-		for (const [key, value] of Object.entries(pkg.exports)) {
-			if (typeof value === "string") {
-				pkg.exports[key] = `./dist/${value.replace(/^\.\//, "").replace(/\.ts$/, ".js")}`;
+	await writeFile(pkgPath, `${JSON.stringify(pkg, null, "\t")}\n`, "utf-8");
+	console.log("✓ Rewrote package.json for publish");
+}
+
+const DEP_FIELDS = ["dependencies", "devDependencies", "peerDependencies"] as const;
+
+/** Read the current version of a workspace package by its npm name, or null. */
+async function readWorkspaceVersion(name: string): Promise<string | null> {
+	const shortName = name.replace(/^@useavalon\//, "");
+	const monorepoRoot = join(ROOT, "..", "..");
+	const candidates = [
+		join(monorepoRoot, "packages", shortName, "package.json"),
+		join(monorepoRoot, "packages", "integrations", shortName, "package.json"),
+	];
+	for (const candidate of candidates) {
+		try {
+			const depPkg = JSON.parse(await readFile(candidate, "utf-8"));
+			if (depPkg.name === name) return depPkg.version;
+		} catch {}
+	}
+	return null;
+}
+
+/**
+ * Resolve `workspace:` protocol references to concrete semver ranges. npm/Node
+ * don't understand `workspace:^`/`workspace:*`, so these MUST be replaced with a
+ * real version from the referenced package.json before publishing.
+ */
+async function resolveWorkspaceDeps(pkg: Record<string, unknown>): Promise<void> {
+	for (const depField of DEP_FIELDS) {
+		const deps = pkg[depField] as Record<string, string> | undefined;
+		if (!deps) continue;
+		for (const [name, version] of Object.entries(deps)) {
+			if (typeof version !== "string" || !version.startsWith("workspace:")) continue;
+			const prefix = version.replace("workspace:", "") || "^"; // workspace:^ → ^, workspace:* → *
+			const depVersion = await readWorkspaceVersion(name);
+			if (depVersion === null) continue; // asserted below — do not silently ship
+			deps[name] = prefix === "*" ? `>=${depVersion}` : `${prefix}${depVersion}`;
+			console.log(`  ✓ Resolved ${name}: ${version} → ${deps[name]}`);
+		}
+	}
+}
+
+/**
+ * Fail the build if any `workspace:` spec survived resolution. Publishing one
+ * produces a package that can't be installed outside the monorepo, so we abort
+ * rather than ship it.
+ */
+function assertNoWorkspaceProtocol(pkg: Record<string, unknown>): void {
+	const leaked: string[] = [];
+	for (const depField of DEP_FIELDS) {
+		const deps = pkg[depField] as Record<string, string> | undefined;
+		if (!deps) continue;
+		for (const [name, version] of Object.entries(deps)) {
+			if (typeof version === "string" && version.startsWith("workspace:")) {
+				leaked.push(`${depField}.${name} = "${version}"`);
 			}
 		}
 	}
-	pkg.files = ["dist/**/*.js", "dist/**/*.d.ts", "README.md"];
-
-	await writeFile(pkgPath, JSON.stringify(pkg, null, "\t") + "\n", "utf-8");
-	console.log("✓ Rewrote package.json for publish");
+	if (leaked.length > 0) {
+		throw new Error(
+			`Refusing to publish: unresolved workspace: protocol dependencies:\n  ${leaked.join(
+				"\n  ",
+			)}\nEnsure the referenced package(s) exist in the monorepo so the version can be resolved.`,
+		);
+	}
 }
 
 await build();
