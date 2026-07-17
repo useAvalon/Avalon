@@ -80,10 +80,122 @@ export default function Page() {
 <MobileMenu island={{ condition: 'media:(max-width: 768px)' }} />
 \`\`\`
 
-## Gotchas
+## File naming picks the framework
+
+An island is detected by the \`island\` prop, but its **framework is inferred from the imported file's name/extension**. This matters in multi-framework or React projects:
+
+| Filename | Framework |
+|----------|-----------|
+| \`Counter.tsx\` / \`Counter.jsx\` | **Preact** (the default) |
+| \`Counter.react.tsx\` / \`.react.jsx\` | React |
+| \`Counter.solid.tsx\` | Solid |
+| \`Counter.preact.tsx\` | Preact (explicit) |
+| \`Counter.lit.ts\` / PascalCase \`.ts\` | Lit |
+| \`Counter.vue\` | Vue |
+| \`Counter.svelte\` | Svelte |
+
+So a plain \`.tsx\` island renders as **Preact**, not React. To ship a React island, name the file \`*.react.tsx\` (e.g. \`Counter.react.tsx\`). This is the single most common reason a React island renders but doesn't hydrate.
+
+## The reference must be statically resolvable
+
+The build transform (\`pageIslandTransform\`) rewrites the component used with the \`island\` prop by following its **import**. The imported component must be a direct, statically-analyzable reference:
+
+\`\`\`tsx
+// ✅ direct default import of the island file
+import Counter from '../components/Counter.react.tsx';
+<Counter island={{ condition: 'on:visible' }} />
+\`\`\`
+
+\`\`\`tsx
+// ❌ will NOT hydrate — indirection hides the source file
+import { Counter } from './barrel';           // re-export / barrel
+import { Widget as Counter } from './widgets'; // aliased re-export
+\`\`\`
+
+Import the island directly from its \`*.<framework>.tsx\` file; avoid barrels, aliased re-exports, or dynamic indirection for anything used as an island.
+
+## Other gotchas
 - Wrap a sole island child in a container element (e.g. a \`<div>\`).
-- JSX islands need the right pragma, e.g. \`/** @jsxImportSource preact */\`.
-- Islands are detected by the \`island\` prop, not by directory.`,
+- JSX islands need the right pragma, e.g. \`/** @jsxImportSource preact */\` (or \`react\` / \`solid-js\`).`,
+	},
+	{
+		id: "state-management",
+		title: "State & Cross-Island Communication",
+		keywords: [
+			"state",
+			"store",
+			"dispatch",
+			"event",
+			"cross-island",
+			"communication",
+			"usePersistentState",
+			"PersistentIsland",
+			"CustomEvent",
+			"on:event",
+			"signals",
+			"shared",
+		],
+		content: `# State & Cross-Island Communication
+
+Each island is an **independent component tree**. A framework Context/provider in one island cannot be read by another — they hydrate separately. There is **no built-in shared reactive store or signals API** in Avalon. Use one of the sanctioned patterns below.
+
+## 1. Per-island persisted state — \`usePersistentState\`
+
+Like \`useState\` but persisted to storage (keyed per id). Import from \`@useavalon/avalon\` or \`@useavalon/avalon/client\`:
+
+\`\`\`tsx
+import { usePersistentState } from '@useavalon/avalon/client';
+
+const [count, setCount, clear] = usePersistentState('cart-count', 0);
+// options: { storage: 'session' | 'local' }  (default 'session')
+\`\`\`
+
+## 2. Cross-island messaging — DOM CustomEvents
+
+The de-facto channel between islands is the DOM. One island dispatches, another listens:
+
+\`\`\`tsx
+// Island A — broadcast
+document.dispatchEvent(new CustomEvent('cart:add', { detail: { id } }));
+
+// Island B — subscribe
+useEffect(() => {
+  const onAdd = (e: Event) => setCount((c) => c + 1);
+  document.addEventListener('cart:add', onAdd);
+  return () => document.removeEventListener('cart:add', onAdd);
+}, []);
+\`\`\`
+
+The built-in \`on:event\` directive uses this same mechanism, but only as a **hydration trigger** (hydrate when an event fires) — not as an ongoing state channel:
+
+\`\`\`tsx
+<LivePanel island={{ condition: 'on:event', conditionArg: 'cart:add' }} />
+\`\`\`
+
+## 3. URL / query state
+
+For state that should survive reloads and be shareable, read/write \`location.search\` (or \`history.pushState\`). Islands re-read it on hydration.
+
+## 4. \`PersistentIsland\` (state across navigations)
+
+\`PersistentIsland\` and \`usePersistentIslandContext\` (from \`@useavalon/avalon\`, **not** \`/client\`) save/load an island's state (\`IslandState = Record<string, unknown>\`) across client navigations via \`saveState\`/\`loadState\`/\`clearState\`.
+
+## Server-side request state
+
+Not for client islands — for passing data through the request lifecycle:
+- \`getContextValue\` / \`setContextValue\` (from \`@useavalon/avalon/middleware\`) — middleware → page/action data on \`event.context\`.
+- \`getMiddlewareState\` / \`setMiddlewareState\` (from \`@useavalon/avalon/nitro/types\`) — h3-event-scoped state.
+
+## Summary
+
+| Need | Use |
+|------|-----|
+| State inside one island, persisted | \`usePersistentState\` |
+| Notify other islands live | \`document.dispatchEvent(new CustomEvent(...))\` + \`addEventListener\` |
+| Trigger hydration on an event | \`island={{ condition: 'on:event', conditionArg: '...' }}\` |
+| Shareable / reloadable state | URL query params |
+| State across navigations | \`PersistentIsland\` |
+| Request-scoped server data | middleware context helpers |`,
 	},
 	{
 		id: "hydration-strategies",
@@ -217,14 +329,32 @@ const { data, error } = await actions.greet({ name: 'World' });
 		keywords: ["routing", "pages", "dynamic", "slug", "catch-all", "404", "params", "mdx"],
 		content: `# File-System Routing
 
-Routes are generated from files in \`src/pages/\`.
+Two layouts are supported. **Module-based** (the default that \`create-avalon\` scaffolds) discovers pages inside feature modules; **flat** uses a single \`src/pages\` directory.
+
+## Module-based (recommended)
+
+Enable with \`modules: 'app/modules'\` in your config. Each module owns its own \`pages/\`:
+
+| File | URL |
+|------|-----|
+| \`app/modules/main/pages/index.tsx\` | \`/\` |
+| \`app/modules/home/pages/about.tsx\` | \`/about\` |
+| \`app/modules/blog/pages/[slug].tsx\` | \`/blog/:slug\` |
+| \`app/modules/docs/pages/[...slug].tsx\` | \`/docs/*\` |
+
+Module folder names are organizational — routes come from the file path **inside** each module's \`pages/\` dir, and all modules share one flat URL space. Customize the sub-folder names with \`modules: { dir, pagesDirName, layoutsDirName }\`.
+
+## Flat
+
+Without \`modules\`, routes come from \`src/pages/\` (\`pagesDir\`, default \`'src/pages'\`):
 
 | File | URL |
 |------|-----|
 | \`src/pages/index.tsx\` | \`/\` |
-| \`src/pages/about.tsx\` | \`/about\` |
 | \`src/pages/blog/[slug].tsx\` | \`/blog/:slug\` |
 | \`src/pages/docs/[...slug].tsx\` | \`/docs/*\` |
+
+## Params
 
 Read params from the H3 \`event\`:
 
@@ -235,7 +365,7 @@ export default function BlogPost({ event }: { event: H3Event }) {
 }
 \`\`\`
 
-Special files: \`_layout.tsx\` (layout), \`_middleware.ts\` (scoped middleware), \`_error.tsx\` (error boundary), \`404.tsx\` (not found). \`.mdx\` files are pages too (with YAML frontmatter). API routes live in \`routes/api/\`, not \`src/pages/\`.`,
+Special files (in either layout): \`_layout.tsx\` (layout), \`_middleware.ts\` (scoped middleware), \`_error.tsx\` (error boundary), \`404.tsx\` (not found). \`.mdx\` files are pages too (with YAML frontmatter). API routes live in \`routes/api/\`, never in a \`pages/\` directory.`,
 	},
 	{
 		id: "layouts",
@@ -243,7 +373,7 @@ Special files: \`_layout.tsx\` (layout), \`_middleware.ts\` (scoped middleware),
 		keywords: ["layout", "_layout", "nested", "skipLayouts", "frontmatter", "LayoutProps"],
 		content: `# Layouts
 
-Layouts live in \`src/layouts/\` and wrap pages based on directory structure.
+Layouts wrap pages based on directory structure. They live in \`app/shared/layouts/\` (module-based, what \`create-avalon\` scaffolds) or \`src/layouts/\` (flat, \`layoutsDir\`). A module can also have its own \`layouts/\` dir.
 
 \`\`\`tsx
 import type { LayoutProps } from '@useavalon/avalon';
@@ -258,7 +388,7 @@ export default function RootLayout({ children, frontmatter }: LayoutProps) {
 }
 \`\`\`
 
-- \`src/layouts/_layout.tsx\` wraps everything; \`src/layouts/blog/_layout.tsx\` nests inside it for \`/blog/*\`.
+- A root \`_layout.tsx\` wraps everything; a nested \`blog/_layout.tsx\` nests inside it for \`/blog/*\`.
 - Skip layouts with \`export const layoutConfig = { skipLayouts: ['_layout'] };\`.
 - \`.tsx\` pages provide metadata via \`export const metadata = { title, description }\`; \`.mdx\` pages use YAML frontmatter. Both surface on the layout's \`frontmatter\` prop.`,
 	},
@@ -307,7 +437,22 @@ export default defineEventHandler(() => ({ message: 'Hello from the API' }));
 | \`routes/api/users/[id].ts\` | \`/api/users/:id\` |
 | \`routes/api/posts/[...slug].ts\` | \`/api/posts/*\` |
 
-Use \`event.context.params\`, \`readBody(event)\`, \`getQuery(event)\`, \`getHeader\`, \`getCookie\`, \`setHeader\`, \`setResponseStatus\`, and \`createError\` for errors. You can mount Hono/Elysia via \`routes/_app.ts\`.`,
+Use \`event.context.params\`, \`readBody(event)\`, \`getQuery(event)\`, \`getHeader\`, \`getCookie\`, \`setHeader\`, \`setResponseStatus\`, and \`createError\` for errors. In Nitro v3 / h3 v2, the web \`Request\` is exposed as \`event.req\` (not \`event.request\`).
+
+## Per-route rules & runtime config
+
+Set caching/headers/CORS per route with \`nitro.routeRules\`, and server-only config with \`nitro.runtimeConfig\` (read via \`useRuntimeConfig()\`):
+
+\`\`\`ts
+avalon({ nitro: {
+  routeRules: { '/api/**': { cache: false, headers: { 'cache-control': 'no-store' } } },
+  runtimeConfig: { tideApiToken: process.env.TIDE_TOKEN },
+} });
+\`\`\`
+
+## Mounting Hono / Elysia
+
+There is **no \`routes/_app.ts\`**. \`create-avalon\` generates a Nitro v3 web-fetch \`server.ts\` entry when you pick \`hono\` (\`new Hono()\`) or \`elysia\` (\`new Elysia()\`); \`h3\` needs no extra entry. Route files in \`routes/api/*\` use \`defineHandler\` from \`nitro\` regardless of the middleware choice.`,
 	},
 	{
 		id: "cron-jobs",
@@ -352,25 +497,41 @@ Trigger manually with \`runCronJob(name, { payload })\`.`,
 		],
 		content: `# Built-in Components
 
-Import from \`@useavalon/avalon/client\`:
+Mind the import path — the two entry points expose **different** symbols.
 
-| Component | Purpose |
-|-----------|---------|
+## From \`@useavalon/avalon/client\`
+
+| Export | Purpose |
+|--------|---------|
 | \`Image\` | Responsive images (srcset, format conversion, lazy) |
-| \`IslandErrorBoundary\` | Isolate island failures |
+| \`IslandErrorBoundary\`, \`withIslandErrorBoundary\` | Isolate island failures |
 | \`LayoutErrorBoundary\` | Catch layout errors with retry |
-| \`StreamingLayout\` / \`StreamingSuspense\` | Suspense-like loading states |
-| \`PersistentIsland\` | Persist island state across navigations |
+| \`usePersistentState\` | \`useState\` that persists to session/local storage |
+| \`registerClientDirective\` | Register a client hydration directive |
 
 \`\`\`tsx
-import { Image, PersistentIsland, usePersistentState } from '@useavalon/avalon/client';
+import { Image, usePersistentState } from '@useavalon/avalon/client';
+\`\`\`
+
+## From \`@useavalon/avalon\` (root)
+
+| Export | Purpose |
+|--------|---------|
+| \`PersistentIsland\`, \`usePersistentIslandContext\`, \`createPersistentIslandContext\` | Persist island state across navigations |
+| \`StreamingLayout\`, \`useStreamingState\` | Suspense-like streaming states |
+| \`Image\`, error boundaries, \`usePersistentState\` | Also re-exported here |
+
+\`PersistentIsland\` and \`StreamingLayout\` are **not** on \`/client\` — import them from the package root:
+
+\`\`\`tsx
+import { PersistentIsland, usePersistentState } from '@useavalon/avalon';
 
 <PersistentIsland persistentId="my-counter" island={{ condition: 'on:client' }}>
   <MyCounter />
 </PersistentIsland>
 \`\`\`
 
-\`usePersistentState('key', initial)\` behaves like \`useState\` but persists via sessionStorage.`,
+(There is no \`StreamingSuspense\` export — use \`StreamingLayout\` + \`useStreamingState\`.)`,
 	},
 	{
 		id: "client-scripts",
@@ -440,18 +601,18 @@ Islands are server-rendered first, so styles must exist before JS loads. **Avoid
 		],
 		content: `# Page Metadata
 
-Define SEO metadata by exporting a \`metadata\` object from a page. It is merged with any frontmatter and passed to the layout via the \`frontmatter\` prop. (There is no \`Astro\`-style head component; layouts render \`<head>\` directly.)
+Define SEO metadata by exporting a \`metadata\` object from a page. It is merged with any frontmatter and passed to the layout via the \`frontmatter\` prop. (There is no \`Astro\`-style head component; layouts render \`<head>\` directly.) Pages usually export it untyped:
 
 \`\`\`tsx
-import type { PageMetadata } from '@useavalon/avalon';
-
-export const metadata: PageMetadata = {
+export const metadata = {
   title: 'Hello World',
   description: 'My first post.',
   openGraph: { title: 'Hello', description: '…', image: '/og.png' },
   head: [{ tag: 'meta', attrs: { name: 'twitter:card', content: 'summary_large_image' } }],
 };
 \`\`\`
+
+The \`PageMetadata\` type is available from \`@useavalon/avalon/nitro/types\` if you want annotation (it is not on the package root).
 
 Fields: \`title\`, \`description\`, \`openGraph?: { title, description, image }\`, and \`head?: Array<{ tag, attrs?, content? }>\` for arbitrary tags (Twitter cards, canonical links, JSON-LD scripts).
 
@@ -526,39 +687,86 @@ import Counter from '../islands/Counter.tsx';
 
 Scaffold a project with \`bun create avalon my-app\`, then \`bun install && bun run dev\`.
 
-Avalon is configured through the async \`avalon()\` Vite plugin:
+Avalon is configured through the async \`avalon()\` Vite plugin. The plugin is a **named export of \`@useavalon/avalon\`** — there is no \`@useavalon/avalon/vite\` subpath.
 
 \`\`\`ts
 // vite.config.ts
 import { defineConfig } from 'vite';
-import { avalon } from '@useavalon/avalon/vite';
+import { avalon } from '@useavalon/avalon';
 
 export default defineConfig(async () => {
   const plugins = await avalon({
-    pagesDir: 'src/pages',
-    integrations: ['preact'],
+    core: 'preact',                 // page/layout shell engine: 'preact' (default) | 'react'
+    modules: 'app/modules',         // module-based routing (what create-avalon scaffolds)
+    integrations: ['react'],        // island frameworks to enable
     mdx: { jsxImportSource: 'preact' },
-    nitro: { cron: [{ schedule: '0 * * * *', handler: 'tasks/cleanup.ts' }] },
+    nitro: {
+      preset: 'node_server',
+      streaming: true,
+      routeRules: { '/api/**': { cors: true } },
+      cron: [{ schedule: '0 * * * *', handler: 'tasks/cleanup.ts' }],
+    },
   });
   return { plugins };
 });
 \`\`\`
 
-Typical project structure:
+\`avalon()\` is async and returns an array of Vite plugins — always \`await\` it.
+
+## \`AvalonPluginConfig\`
+
+| Field | Type | Default | Purpose |
+|-------|------|---------|---------|
+| \`core\` | \`'preact' \\| 'react'\` | \`'preact'\` | Rendering engine for the page/layout shell. \`'react'\` enables React libs (Radix/shadcn) in pages. Islands can be any framework regardless. |
+| \`pagesDir\` | \`string\` | \`'src/pages'\` | Flat routing directory. |
+| \`layoutsDir\` | \`string\` | \`'src/layouts'\` | Flat layouts directory. |
+| \`modules\` | \`string \\| { dir; pagesDirName?; layoutsDirName? }\` | — | Opt-in module routing (see routing topic). |
+| \`integrations\` | \`IntegrationName[]\` | auto | \`'react' \\| 'preact' \\| 'vue' \\| 'svelte' \\| 'solid' \\| 'lit' \\| 'qwik'\`. |
+| \`mdx\` | \`{ jsxImportSource?; syntaxHighlighting?; remarkPlugins?; rehypePlugins? }\` | — | MDX processing. |
+| \`image\` | \`boolean \\| ImageConfig\` | \`true\` | vite-imagetools defaults. |
+| \`nitro\` | \`AvalonNitroConfig\` | — | Server runtime (see below). |
+| \`autoDiscoverIntegrations\` / \`validateIntegrations\` / \`showWarnings\` / \`lazyIntegrations\` / \`verbose\` | \`boolean\` | mostly \`true\` | Integration discovery + logging toggles. |
+
+## \`AvalonNitroConfig\` (\`nitro\`)
+
+| Field | Type | Default | Purpose |
+|-------|------|---------|---------|
+| \`preset\` | \`string\` | \`'node_server'\` | Deploy target: \`vercel\`, \`netlify\`, \`cloudflare_module\`, \`deno_deploy\`, \`static\`, … |
+| \`streaming\` | \`boolean\` | \`true\` | Streaming SSR responses. |
+| \`routeRules\` | \`Record<string, RouteRule>\` | — | Per-route \`cache\` / \`redirect\` / \`proxy\` / \`headers\` / \`cors\`. |
+| \`runtimeConfig\` / \`publicRuntimeConfig\` | \`Record<string, unknown>\` | — | Server config via \`useRuntimeConfig()\` (e.g. proxy tokens). \`'nitro'\` key is reserved. |
+| \`prerender\` | \`{ routes?; crawlLinks?; concurrency?; … }\` | — | SSG — fetch routes at build time to static HTML. |
+| \`clientEntry\` | \`string\` | \`'app/entry-client'\` | Client entry (re-exports \`virtual:avalon/client-entry\`). |
+| \`globalCSS\` | \`string[]\` | — | Extra global stylesheets, e.g. \`['app/shared/styles/main.css']\`. |
+| \`cron\` | \`CronConfig\` | — | Scheduled jobs (see cron topic). |
+| \`serverDir\`, \`serverEntry\`, \`renderer\`, \`compatibilityDate\`, \`compressPublicAssets\`, \`staticAssets\` | — | — | Advanced Nitro v3 knobs. |
+
+\`RouteRule = { cache?: CacheOptions \\| boolean; redirect?; proxy?; headers?; cors? }\`; \`CacheOptions = { maxAge?; staleMaxAge?; swr? }\`.
+
+## Project structure (module-based — what \`create-avalon\` generates)
 
 \`\`\`
 my-app/
-├── src/
-│   ├── islands/    # interactive components (hydrated on client)
-│   ├── layouts/    # layout wrappers
-│   └── pages/      # file-system routes
-├── public/         # static assets
-├── routes/         # API routes (Nitro)
-├── nitro.config.ts
+├── app/
+│   ├── entry-client.ts          # import "virtual:avalon/client-entry";
+│   ├── actions/index.ts         # server actions (optional)
+│   ├── modules/
+│   │   └── main/
+│   │       ├── pages/           # file-system routes for this module
+│   │       ├── components/      # islands + components
+│   │       └── layouts/
+│   └── shared/
+│       ├── layouts/             # shared layouts
+│       ├── components/
+│       └── styles/
+├── middleware/                  # global middleware
+├── routes/api/                  # API routes (Nitro)
+├── server/renderer.ts           # export { default } from 'virtual:avalon/renderer';
+├── public/
 └── vite.config.ts
 \`\`\`
 
-Note: \`avalon()\` is async and returns an array of Vite plugins — always \`await\` it.`,
+A simpler **flat** layout also works without \`modules\`: \`src/pages\`, \`src/layouts\`, \`src/islands\`.`,
 	},
 	{
 		id: "frameworks",
@@ -598,8 +806,154 @@ import { useState } from 'react';
 \`\`\`
 
 - \`.vue\` and \`.svelte\` islands are written in their native single-file formats (no pragma).
-- The framework is auto-detected from the island file — you do not pick it at the call site (contrast with Astro's \`client:only="react"\`).
-- Each island is an independent tree: **context/providers cannot span multiple islands**. For cross-island state use a global store or URL state.`,
+- The framework is auto-detected from the island **filename** (\`*.react.tsx\`, \`*.solid.tsx\`, \`*.vue\`, …) — you do not pick it at the call site (contrast with Astro's \`client:only="react"\`). A plain \`.tsx\` file is Preact. See the islands topic for the naming table.
+- Each island is an independent tree: **context/providers cannot span multiple islands**. There is no built-in shared store — see the "State & Cross-Island Communication" topic.
+
+## Integration packages
+
+Each framework has its own package (\`@useavalon/react\`, \`@useavalon/preact\`, \`@useavalon/vue\`, \`@useavalon/svelte\`, \`@useavalon/solid\`, \`@useavalon/lit\`, \`@useavalon/qwik\`). Listing a framework in \`integrations\` activates its package; usually you never import from it directly.
+
+The **React** integration (\`@useavalon/react\`) is the most feature-rich:
+- \`import reactIntegration from '@useavalon/react'\` (default export; also named \`reactIntegration\`). There is **no** \`reactAdapter\` export.
+- \`@useavalon/react/server\` → \`render\`, \`renderWithErrorBoundary\` (the SSR renderer used as the server entry).
+- \`@useavalon/react\` also exports \`hydrate\`, \`serializeProps\`, \`getHydrationScript\`, \`loadComponent\`.
+- \`@useavalon/react/client\` and \`@useavalon/react/client/hmr\` — client + HMR adapter.
+
+Use \`core: 'react'\` when your **pages/layouts** (not just islands) need real React (e.g. Radix/shadcn).`,
+	},
+	{
+		id: "cli",
+		title: "CLI — create-avalon & avalon",
+		keywords: [
+			"cli",
+			"create-avalon",
+			"scaffold",
+			"init",
+			"new project",
+			"avalon key",
+			"AVALON_KEY",
+			"styling",
+			"tailwind",
+			"shadcn",
+			"middleware",
+			"deploy",
+		],
+		content: `# CLI
+
+## \`create-avalon\` — scaffold a project
+
+\`\`\`bash
+bun create avalon my-app
+# or: npm create avalon@latest my-app
+\`\`\`
+
+It's **interactive** — the only command-line flags are \`-v/--version\` and \`-h/--help\` (project name is a positional arg). There are no flags to pre-select the options; you answer prompts:
+
+| Prompt | Options | Notes |
+|--------|---------|-------|
+| Core (rendering engine) | \`preact\` (default) · \`react\` | Shell engine for pages/layouts. |
+| Integrations | preact, react, vue, svelte, solid, lit, qwik | Multi-select (optional). React is force-added if core is \`react\`. |
+| Styling | \`css-modules\` · \`tailwind\` · \`shadcn\` | \`shadcn\` only offered when core is \`react\` (Radix-based). |
+| Plugins | \`seo\` (default) · \`agent-optimization\` · \`syntax-highlighting\` | Multi-select. |
+| Middleware | \`h3\` · \`hono\` · \`elysia\` | \`hono\`/\`elysia\` generate a \`server.ts\` entry. |
+| Deploy | \`netlify\` · \`none\` | \`netlify\` emits \`netlify.toml\`, \`build.mjs\`, \`post-build.mjs\`. |
+| Cron | yes/no (default no) | Scaffolds an example task + \`nitro.cron\` config. |
+
+Generates the module-based layout (\`app/modules/main\`, \`app/shared\`, \`middleware\`, \`routes/api\`, \`server\`, \`public\`) — see the configuration topic.
+
+## \`avalon\` — project CLI
+
+One command:
+
+\`\`\`bash
+npx avalon key
+\`\`\`
+
+Prints a cryptographically random AES-256-GCM key for server islands and tells you to \`export AVALON_KEY="…"\`. Set a stable \`AVALON_KEY\` for multi-instance deploys so encrypted server-island props stay decryptable across instances.`,
+	},
+	{
+		id: "flora",
+		title: "Flora — Grid & Layout System",
+		keywords: [
+			"flora",
+			"grid",
+			"layout",
+			"css",
+			"columns",
+			"flora-grid",
+			"flora-col",
+			"bento",
+			"masonry",
+			"baseline",
+			"responsive",
+			"container queries",
+		],
+		content: `# Flora — Grid & Layout System
+
+\`@useavalon/flora\` is a framework-agnostic, CSS-first responsive modular grid (zero runtime deps). It's independent of Avalon — just CSS custom properties inside a low-priority \`@layer flora\`, so any rule you write overrides it without specificity fights.
+
+\`\`\`bash
+npm install @useavalon/flora
+\`\`\`
+
+\`\`\`ts
+import '@useavalon/flora/flora.css';
+\`\`\`
+
+## Placing items
+
+Mobile-first 4 / 8 / 12 columns. Use utility classes (responsive per breakpoint) or custom properties:
+
+\`\`\`html
+<div class="flora-grid">
+  <div class="flora-col-4 flora-col-lg-8">main</div>
+  <div class="flora-col-4 flora-start-2 flora-col-lg-4">aside</div>
+</div>
+
+<!-- or inline -->
+<div style="--flora-col-span: 6; --flora-col-start: 2">…</div>
+\`\`\`
+
+Breakpoint-prefixed spans: \`flora-col-{n}\`, \`flora-col-md-{n}\`, \`flora-col-lg-{n}\`, plus \`flora-start-{n}\`.
+
+## Recipes (all in \`flora.css\`, all overridable)
+
+- **Grid modes:** \`flora-condensed\` (1px), \`flora-narrow\` (16px), \`flora-wide\` (32px), \`flora-flush\` (0) gutters.
+- **Subgrid:** \`flora-subgrid\` aligns nested items to the outer grid.
+- **Aspect ratios:** \`flora-ratio-16x9\` (also 1x1, 2x1, 3x2, 4x3, 2x3, 3x4).
+- **Auto cards:** \`flora-auto\` with \`--flora-auto-min\` (no media queries).
+- **Bento:** \`flora-bento\` with \`flora-tile-big\` (2×2), \`flora-tile-wide\` (2×1), \`flora-tile-tall\` (1×2).
+- **Masonry:** \`flora-masonry\` (progressive enhancement via CSS columns).
+- **Vertical rhythm:** \`flora-flow\` (baseline-multiple spacing), \`flora-baseline-grid\` (debug overlay).
+- **Templates** (\`templates.css\`): \`flora-tmpl-editorial\`, \`flora-tmpl-feature\`, \`flora-tmpl-gallery\`, \`flora-tmpl-split\`, \`flora-tmpl-team\`.
+
+## Tokens
+
+Retune with custom properties — no rebuild: \`--flora-columns\`, \`--flora-gutter\`, \`--flora-margin\`, \`--flora-max-width\`, \`--flora-baseline\`, \`--flora-col-span\`, \`--flora-col-start\`.
+
+## Stylesheets & subpaths
+
+| Import | Purpose |
+|--------|---------|
+| \`@useavalon/flora/flora.css\` | The grid + recipes (viewport \`@media\`) |
+| \`@useavalon/flora/flora.container.css\` | Container-query flavour (respond to the slot, not the screen) |
+| \`@useavalon/flora/flora.print.css\` | Opt-in \`@media print\` rules |
+| \`@useavalon/flora/templates.css\` / \`templates.container.css\` | Named layout templates |
+| \`@useavalon/flora/element\` | Self-registers the \`<flora-grid>\` web component |
+
+## JS API (\`@useavalon/flora\`)
+
+Pure functions — the generator is the single source of truth for the CSS:
+
+\`\`\`ts
+import { generateGridCss, generateTemplatesCss, typeScale, snapToBaseline, POWERS_OF_TWO_COLUMNS } from '@useavalon/flora';
+
+const css = generateGridCss({ selector: '[data-grid]', columns: { xs: 2, md: 6, xl: 16 }, gutter: { xs: 16, lg: 32 }, layer: 'flora' });
+snapToBaseline(20, 8);      // 24
+typeScale(16, 'perfectFifth', { baseline: 8 });
+\`\`\`
+
+Also exports math helpers (\`columnWidth\`, \`spanWidth\`, \`spacing\`, \`gcd\`, \`lcm\`, \`divisors\`) and token constants (\`BASE_UNIT\`, \`BREAKPOINTS\`, \`DEFAULT_COLUMNS\`, \`GRID_MODES\`, \`ASPECT_RATIOS\`).`,
 	},
 ];
 

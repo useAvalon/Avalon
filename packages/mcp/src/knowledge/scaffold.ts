@@ -65,7 +65,7 @@ export function scaffold(
 		case "page":
 			return {
 				kind,
-				suggestedPath: `src/pages/${kebab}.tsx`,
+				suggestedPath: `app/modules/main/pages/${kebab}.tsx`,
 				description: "A static server-rendered page.",
 				code: `export const frontmatter = {
   title: '${Pascal}',
@@ -85,7 +85,7 @@ export default function ${Pascal}Page() {
 		case "dynamic-page":
 			return {
 				kind,
-				suggestedPath: `src/pages/${kebab}/[slug].tsx`,
+				suggestedPath: `app/modules/main/pages/${kebab}/[slug].tsx`,
 				description: "A dynamic route reading a param from the H3 event.",
 				code: `import type { H3Event } from 'h3';
 
@@ -103,8 +103,9 @@ export default function ${Pascal}Detail({ event }: { event: H3Event }) {
 		case "island":
 			return {
 				kind,
-				suggestedPath: `src/islands/${Pascal}.tsx`,
-				description: "An interactive Preact island component.",
+				suggestedPath: `app/modules/main/components/${Pascal}.tsx`,
+				description:
+					"An interactive Preact island component (a plain .tsx is Preact; name it *.react.tsx for React).",
 				code: `/** @jsxImportSource preact */
 import { useState } from 'preact/hooks';
 
@@ -122,9 +123,9 @@ export default function ${Pascal}({ initialCount = 0 }: { initialCount?: number 
 		case "island-usage":
 			return {
 				kind,
-				suggestedPath: `src/pages/index.tsx`,
+				suggestedPath: `app/modules/main/pages/index.tsx`,
 				description: `Using the ${Pascal} island with the '${condition}' hydration condition.`,
-				code: `import ${Pascal} from '../islands/${Pascal}.tsx';
+				code: `import ${Pascal} from '../components/${Pascal}.tsx';
 
 export default function Page() {
   return (
@@ -140,7 +141,7 @@ export default function Page() {
 		case "server-island":
 			return {
 				kind,
-				suggestedPath: `src/pages/dashboard.tsx`,
+				suggestedPath: `app/modules/main/pages/dashboard.tsx`,
 				description: `Rendering ${Pascal} as a server island with a fallback.`,
 				code: `import ${Pascal} from '../components/${Pascal}.tsx';
 
@@ -187,7 +188,7 @@ export const server = {
 		case "layout":
 			return {
 				kind,
-				suggestedPath: `src/layouts/_layout.tsx`,
+				suggestedPath: `app/shared/layouts/_layout.tsx`,
 				description: "A root layout using LayoutProps.",
 				code: `import type { LayoutProps } from '@useavalon/avalon';
 
@@ -225,7 +226,7 @@ export default function RootLayout({ children, frontmatter }: LayoutProps) {
 		case "middleware":
 			return {
 				kind,
-				suggestedPath: `src/pages/${kebab}/_middleware.ts`,
+				suggestedPath: `app/modules/main/pages/${kebab}/_middleware.ts`,
 				description: "Scoped middleware guarding a route subtree.",
 				code: `import type { H3Event } from 'h3';
 
