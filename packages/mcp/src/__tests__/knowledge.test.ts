@@ -63,6 +63,44 @@ describe("docs knowledge", () => {
 			expect(getDoc(id), `missing topic: ${id}`).toBeDefined();
 		}
 	});
+
+	it("adds state-management, cli, and flora topics", () => {
+		for (const id of ["state-management", "cli", "flora"]) {
+			expect(getDoc(id), `missing topic: ${id}`).toBeDefined();
+		}
+	});
+
+	it("configuration uses the correct plugin import (no /vite subpath)", () => {
+		const config = getDoc("configuration")?.content ?? "";
+		expect(config).toContain("import { avalon } from '@useavalon/avalon'");
+		// The only mention of the wrong subpath should be the explicit warning,
+		// never an actual import statement.
+		expect(config).not.toContain("from '@useavalon/avalon/vite'");
+	});
+
+	it("islands topic documents the *.react.tsx framework naming rule", () => {
+		const islands = getDoc("islands-architecture")?.content ?? "";
+		expect(islands).toContain(".react.tsx");
+		expect(islands.toLowerCase()).toContain("statically");
+	});
+
+	it("routing documents both module-based and flat conventions", () => {
+		const routing = getDoc("file-system-routing")?.content ?? "";
+		expect(routing).toContain("app/modules");
+		expect(routing).toContain("src/pages");
+	});
+
+	it("state topic states there is no built-in shared store", () => {
+		const state = getDoc("state-management")?.content ?? "";
+		expect(state.toLowerCase()).toContain("no built-in shared");
+		expect(state).toContain("CustomEvent");
+	});
+
+	it("flora topic documents the grid classes and stylesheet import", () => {
+		const flora = getDoc("flora")?.content ?? "";
+		expect(flora).toContain("flora-grid");
+		expect(flora).toContain("@useavalon/flora/flora.css");
+	});
 });
 
 describe("scaffold knowledge", () => {
@@ -97,5 +135,21 @@ describe("api knowledge", () => {
 		const md = apiReferenceMarkdown();
 		expect(md).toContain("# Avalon Public API Reference");
 		expect(md).toContain("@useavalon/avalon/cron");
+	});
+
+	it("documents the react and flora packages", () => {
+		expect(API_ENTRIES.some((e) => e.importPath === "@useavalon/react")).toBe(true);
+		expect(API_ENTRIES.some((e) => e.importPath === "@useavalon/flora")).toBe(true);
+	});
+
+	it("does not misattribute PersistentIsland/StreamingLayout to /client", () => {
+		const client = API_ENTRIES.find((e) => e.importPath === "@useavalon/avalon/client");
+		expect(client).toBeDefined();
+		const joined = client?.exports.join(" ") ?? "";
+		expect(joined).not.toContain("PersistentIsland");
+		expect(joined).not.toContain("StreamingLayout");
+		// They belong on the package root instead.
+		const root = API_ENTRIES.find((e) => e.importPath === "@useavalon/avalon");
+		expect(root?.exports.join(" ")).toContain("PersistentIsland");
 	});
 });

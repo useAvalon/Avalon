@@ -144,7 +144,7 @@ export function createTools(): ToolDefinition[] {
 			name: "avalon_search_docs",
 			title: "Search Avalon documentation",
 			description:
-				"Search Avalon's embedded documentation by keyword and return the most relevant topic(s) as Markdown. Covers islands, hydration, server islands, actions, routing, layouts, middleware, API routes, cron, components, client scripts, styling, metadata/SEO, MDX, configuration, and framework integrations.",
+				"Search Avalon's embedded documentation by keyword and return the most relevant topic(s) as Markdown. Covers islands (incl. framework file-naming like *.react.tsx), hydration, server islands, actions, routing (module-based + flat), layouts, middleware, API routes, cron, components, state & cross-island communication, client scripts, styling, metadata/SEO, MDX, configuration, framework integrations, the CLI (create-avalon/avalon), and the Flora grid system.",
 			inputSchema: {
 				type: "object",
 				properties: {
