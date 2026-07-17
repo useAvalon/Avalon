@@ -1,7 +1,12 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
 import { basename, resolve } from "node:path";
-import { parseCliArgs, validateDirectory } from "./cli-utils";
+import {
+	CliArgError,
+	parseCliArgs,
+	resolveConfigNonInteractive,
+	validateDirectory,
+} from "./cli-utils";
 import { collectProjectConfig } from "./prompts";
 import { scaffoldProject } from "./scaffold";
 import { printSummary } from "./summary";
@@ -18,7 +23,27 @@ async function main(): Promise<void> {
 
 	if (args.help) {
 		console.log(
-			"Usage: create-avalon [project-name]\n\nOptions:\n  -v, --version  Show version number\n  -h, --help     Show help",
+			[
+				"Usage: create-avalon [project-name] [options]",
+				"",
+				"Runs interactively by default. Pass --yes (or run without a TTY, e.g. in",
+				"CI/Docker) to scaffold non-interactively from flags + defaults.",
+				"",
+				"Options:",
+				"  -v, --version        Show version number",
+				"  -h, --help           Show help",
+				"  -y, --yes            Skip prompts; use flags and defaults",
+				"      --core           Rendering engine: preact (default) | react",
+				"      --integrations   Comma list: preact,react,vue,svelte,solid,lit,qwik",
+				"      --styling        css-modules (default) | tailwind | shadcn",
+				"      --plugins        Comma list: seo (default),agent-optimization,syntax-highlighting",
+				"      --middleware     h3 (default) | hono | elysia",
+				"      --deploy         netlify | none (default)",
+				"      --cron           Scaffold an example cron task + config",
+				"",
+				"Example:",
+				"  create-avalon my-app --yes --core react --integrations react,vue --styling shadcn",
+			].join("\n"),
 		);
 		process.exit(0);
 	}
@@ -33,8 +58,15 @@ async function main(): Promise<void> {
 		}
 	}
 
+	// Skip interactive prompts when --yes is passed or stdin isn't a TTY
+	// (CI/Docker). This is what makes non-interactive builds truly reliable —
+	// a prompt would otherwise hang forever with no way to answer it.
+	const nonInteractive = args.yes || !process.stdin.isTTY;
+
 	// Collect all prompts before any filesystem work
-	const config = await collectProjectConfig(args.projectName);
+	const config = nonInteractive
+		? resolveConfigNonInteractive(args)
+		: await collectProjectConfig(args.projectName);
 
 	// If the project name came from the prompt (not CLI arg), validate now
 	if (!args.projectName && config.projectName !== ".") {
@@ -63,6 +95,8 @@ async function main(): Promise<void> {
 try {
 	await main();
 } catch (error) {
-	console.error(error);
+	// Invalid-flag errors get a clean one-line message; anything unexpected
+	// prints in full for debugging.
+	console.error(error instanceof CliArgError ? error.message : error);
 	process.exit(1);
 }
