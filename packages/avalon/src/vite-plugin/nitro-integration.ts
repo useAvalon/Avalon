@@ -1365,8 +1365,11 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 
 			if (isPage || isComponent || isLayout || isCss) {
 				if (isPage) {
-					invalidateModuleById(server, RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
-					invalidateModuleById(server, RESOLVED_VIRTUAL_IDS.PAGE_LOADER);
+					// Invalidate across all environments (client/ssr/nitro), not just
+					// the legacy client graph, so the server-side route table rebuilds.
+					invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
+					invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_LOADER);
+					void reloadNitroPageRoutes(server);
 				}
 				if (isLayout) {
 					cachedLayoutsModule = null;
@@ -1392,6 +1395,81 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 function invalidateModuleById(server: ViteDevServer, id: string): void {
 	const mod = server.moduleGraph.getModuleById(id);
 	if (mod) server.moduleGraph.invalidateModule(mod);
+}
+
+/**
+ * Invalidate a resolved virtual-module id across every Vite 8 environment
+ * (client, ssr, nitro) plus the legacy top-level graph. The SSR route table is
+ * built in the ssr/nitro environments, so invalidating only the legacy client
+ * graph (what {@link invalidateModuleById} does) leaves the server-side route
+ * table stale — hence the per-environment sweep.
+ */
+function invalidateVirtualEverywhere(server: ViteDevServer, id: string): void {
+	// Legacy/client graph.
+	invalidateModuleById(server, id);
+
+	const environments = (server as unknown as { environments?: Record<string, unknown> })
+		.environments;
+	if (!environments) return;
+
+	for (const env of Object.values(environments)) {
+		const graph = (
+			env as {
+				moduleGraph?: {
+					getModuleById(id: string): unknown;
+					invalidateModule(mod: unknown): void;
+				};
+			}
+		).moduleGraph;
+		if (!graph) continue;
+		try {
+			const mod = graph.getModuleById(id);
+			if (mod) graph.invalidateModule(mod);
+		} catch {
+			// A given environment may not know this module — ignore.
+		}
+	}
+}
+
+/**
+ * Best-effort nudge for the Nitro dev runner to re-import the (now invalidated)
+ * page-routes module so its server-side route table rebuilds without a cold
+ * restart. The runner's own `invalidateModule`/`reloadModule` currently reject
+ * virtual ids upstream, so this is wrapped defensively; the subsequent
+ * `full-reload` + fresh request re-imports the re-scanned module regardless.
+ */
+async function reloadNitroPageRoutes(server: ViteDevServer): Promise<void> {
+	const nitroEnv = (server as unknown as { environments?: Record<string, unknown> }).environments
+		?.nitro as
+		| {
+				hot?: { send?: (payload: unknown) => void };
+				devServer?: { reloadRoutes?: () => unknown };
+		  }
+		| undefined;
+	if (!nitroEnv) return;
+	try {
+		// If a future Nitro exposes a route-reload hook, prefer it.
+		await nitroEnv.devServer?.reloadRoutes?.();
+	} catch {
+		// Ignore — the full-reload path below still refreshes the route on the
+		// next request because the virtual module was invalidated above.
+	}
+}
+
+/**
+ * Re-run page-route discovery on the running dev server: invalidate the
+ * page-routes + page-loader virtual modules across all environments, nudge the
+ * Nitro runner to re-import them, then trigger a browser reload. Used for page
+ * add / unlink (which Vite's `handleHotUpdate` never sees) and page change.
+ */
+function refreshPageRoutes(server: ViteDevServer): void {
+	invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
+	invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_LOADER);
+	void reloadNitroPageRoutes(server);
+	// Reload after the SSR route table has had a tick to rebuild.
+	setTimeout(() => {
+		server.ws.send({ type: "full-reload", path: "*" });
+	}, 500);
 }
 
 /** Classifies a changed file for HMR handling. */
@@ -1446,6 +1524,12 @@ function setupHMRCoordination(
 			clearMiddlewareCache();
 			clearScopedMiddlewareRoutes?.();
 		}
+		// A brand-new page file never reaches Vite's `handleHotUpdate` (that hook
+		// only fires for modules already in the graph), so its route would 404
+		// until a restart. Re-run route discovery on add.
+		if (isPageFile(file)) {
+			refreshPageRoutes(server);
+		}
 	});
 
 	server.watcher.on("unlink", (file) => {
@@ -1453,7 +1537,22 @@ function setupHMRCoordination(
 			clearMiddlewareCache();
 			clearScopedMiddlewareRoutes?.();
 		}
+		// Symmetric with add: removing a page must drop its route without a
+		// restart. `handleHotUpdate` doesn't fire for unlinks either.
+		if (isPageFile(file)) {
+			refreshPageRoutes(server);
+		}
 	});
+}
+
+/**
+ * True for a file that contributes a page route: any non-CSS file under a
+ * `pages` directory. Covers module-based (`app/modules/<name>/pages`) and flat
+ * (`src/pages`) layouts, `.mdx`, dynamic `[slug]` / `[...slug]` segments, and
+ * special files (`404`, `_error`).
+ */
+export function isPageFile(file: string): boolean {
+	return classifyHotFile(file).isPage;
 }
 
 // ─── Virtual Module Generators ───────────────────────────────────────────────
