@@ -1365,8 +1365,8 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 
 			if (isPage || isComponent || isLayout || isCss) {
 				if (isPage) {
-					// Invalidate across all environments (client/ssr/nitro), not just
-					// the legacy client graph, so the server-side route table rebuilds.
+					// Invalidate across all environments (client/ssr/nitro) so the
+					// server-side route table is invalidated, not just the client graph.
 					invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
 					invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_LOADER);
 					void reloadNitroPageRoutes(server);
@@ -1398,11 +1398,11 @@ function invalidateModuleById(server: ViteDevServer, id: string): void {
 }
 
 /**
- * Invalidate a resolved virtual-module id across every Vite 8 environment
+ * Invalidates a resolved virtual-module id across every Vite environment
  * (client, ssr, nitro) plus the legacy top-level graph. The SSR route table is
- * built in the ssr/nitro environments, so invalidating only the legacy client
- * graph (what {@link invalidateModuleById} does) leaves the server-side route
- * table stale — hence the per-environment sweep.
+ * built in the ssr/nitro environments; {@link invalidateModuleById} only
+ * invalidates the legacy client graph, so the per-environment sweep is required
+ * to also invalidate the server-side route table.
  */
 function invalidateVirtualEverywhere(server: ViteDevServer, id: string): void {
 	// Legacy/client graph.
@@ -1432,41 +1432,50 @@ function invalidateVirtualEverywhere(server: ViteDevServer, id: string): void {
 }
 
 /**
- * Best-effort nudge for the Nitro dev runner to re-import the (now invalidated)
- * page-routes module so its server-side route table rebuilds without a cold
- * restart. The runner's own `invalidateModule`/`reloadModule` currently reject
- * virtual ids upstream, so this is wrapped defensively; the subsequent
- * `full-reload` + fresh request re-imports the re-scanned module regardless.
+ * Signals the Nitro dev runner to re-import its SSR entry, which re-runs page
+ * route discovery against the (already invalidated) page-routes module.
+ *
+ * The env-runner worker re-imports its entry on a `full-reload` sent over its
+ * IPC channel (`devServer.sendMessage`). The Vite hot channel is not used here:
+ * it re-evaluates CSS in the SSR environment, which triggers a crash under Vite
+ * 8 with Tailwind v4 (`cssModulesCache`).
  */
 async function reloadNitroPageRoutes(server: ViteDevServer): Promise<void> {
 	const nitroEnv = (server as unknown as { environments?: Record<string, unknown> }).environments
 		?.nitro as
 		| {
-				hot?: { send?: (payload: unknown) => void };
-				devServer?: { reloadRoutes?: () => unknown };
+				devServer?: {
+					sendMessage?: (payload: unknown) => void;
+					reloadRoutes?: () => unknown;
+				};
 		  }
 		| undefined;
 	if (!nitroEnv) return;
 	try {
-		// If a future Nitro exposes a route-reload hook, prefer it.
+		// The env-runner worker re-imports its entry (re-running route discovery)
+		// on this IPC message.
+		nitroEnv.devServer?.sendMessage?.({ type: "full-reload" });
+		// `reloadRoutes` is not currently implemented by the env-runner; called
+		// optionally in case a supported route-reload API is added later.
 		await nitroEnv.devServer?.reloadRoutes?.();
 	} catch {
-		// Ignore — the full-reload path below still refreshes the route on the
-		// next request because the virtual module was invalidated above.
+		// If the IPC call fails, the browser full-reload and virtual-module
+		// invalidation still cause the route to be re-imported on the next request.
 	}
 }
 
 /**
- * Re-run page-route discovery on the running dev server: invalidate the
- * page-routes + page-loader virtual modules across all environments, nudge the
- * Nitro runner to re-import them, then trigger a browser reload. Used for page
- * add / unlink (which Vite's `handleHotUpdate` never sees) and page change.
+ * Re-runs page-route discovery on the running dev server: invalidates the
+ * page-routes and page-loader virtual modules across all environments, signals
+ * the Nitro runner to re-import them, then triggers a browser reload. Used for
+ * page add and unlink, which Vite's `handleHotUpdate` does not fire for, and
+ * for page change.
  */
 function refreshPageRoutes(server: ViteDevServer): void {
 	invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
 	invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_LOADER);
 	void reloadNitroPageRoutes(server);
-	// Reload after the SSR route table has had a tick to rebuild.
+	// Delay the browser reload so the SSR route table can rebuild first.
 	setTimeout(() => {
 		server.ws.send({ type: "full-reload", path: "*" });
 	}, 500);
@@ -1524,9 +1533,8 @@ function setupHMRCoordination(
 			clearMiddlewareCache();
 			clearScopedMiddlewareRoutes?.();
 		}
-		// A brand-new page file never reaches Vite's `handleHotUpdate` (that hook
-		// only fires for modules already in the graph), so its route would 404
-		// until a restart. Re-run route discovery on add.
+		// `handleHotUpdate` only fires for modules already in the graph, so a
+		// newly added page file is not seen there. Re-run route discovery on add.
 		if (isPageFile(file)) {
 			refreshPageRoutes(server);
 		}
@@ -1537,8 +1545,8 @@ function setupHMRCoordination(
 			clearMiddlewareCache();
 			clearScopedMiddlewareRoutes?.();
 		}
-		// Symmetric with add: removing a page must drop its route without a
-		// restart. `handleHotUpdate` doesn't fire for unlinks either.
+		// `handleHotUpdate` also does not fire for unlinks. Re-run route
+		// discovery so a removed page's route is dropped.
 		if (isPageFile(file)) {
 			refreshPageRoutes(server);
 		}
