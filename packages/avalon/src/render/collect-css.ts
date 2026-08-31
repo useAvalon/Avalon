@@ -103,39 +103,38 @@ async function getCssContent(server: ViteDevServer, mod: ModuleNode): Promise<st
 /**
  * Extract raw CSS from Vite's transformed CSS module JS wrapper.
  *
- * Vite transforms CSS files into JS modules that look like:
- *   const __vite__css = "...actual css..."
- *   __vite__updateStyle(...)
- *
- * We extract the CSS string from this wrapper.
+ * Vite 8 writes `const __vite__css = ${JSON.stringify(css)}`. `?direct`
+ * skips that wrapper and returns hashed CSS as `result.code`.
  */
-function extractCssFromTransformedModule(code: string): string | null {
-	// Pattern 1: __vite__css = "..."
-	const viteVarMatch = new RegExp(/const\s+__vite__css\s*=\s*"((?:[^"\\]|\\.)*)"/).exec(code);
-	if (viteVarMatch) {
-		return unescapeJsString(viteVarMatch[1]);
-	}
+export function extractCssFromTransformedModule(code: string): string | null {
+	if (!code) return null;
 
-	// Pattern 2: __vite_ssr_exports__.default = "..."
-	const ssrExportMatch = new RegExp(/__vite_ssr_exports__\.default\s*=\s*"((?:[^"\\]|\\.)*)"/).exec(
-		code,
-	);
-	if (ssrExportMatch) {
-		return unescapeJsString(ssrExportMatch[1]);
-	}
+	const viteVarMatch = /const\s+__vite__css\s*=\s*("(?:[^"\\]|\\.)*")/.exec(code);
+	if (viteVarMatch?.[1]) return parseJsStringLiteral(viteVarMatch[1]);
 
-	// Pattern 3: export default "..."
-	const exportDefaultMatch = new RegExp(/export\s+default\s+"((?:[^"\\]|\\.)*)"/).exec(code);
-	if (exportDefaultMatch) {
-		return unescapeJsString(exportDefaultMatch[1]);
-	}
+	const ssrExportMatch = /__vite_ssr_exports__\.default\s*=\s*("(?:[^"\\]|\\.)*")/.exec(code);
+	if (ssrExportMatch?.[1]) return parseJsStringLiteral(ssrExportMatch[1]);
 
-	// Pattern 4: the code itself might be raw CSS (no JS wrapper)
-	if (!code.includes("export ") && !code.includes("__vite")) {
-		return code;
-	}
+	const exportDefaultMatch = /export\s+default\s+("(?:[^"\\]|\\.)*")/.exec(code);
+	if (exportDefaultMatch?.[1]) return parseJsStringLiteral(exportDefaultMatch[1]);
 
+	if (looksLikeRawCss(code)) return code;
 	return null;
+}
+
+function looksLikeRawCss(code: string): boolean {
+	if (code.includes("__vite__updateStyle") || code.includes("import.meta.hot")) return false;
+	if (code.includes("export ") || code.includes("import ")) return false;
+	return true;
+}
+
+/** Decode a JS/JSON double-quoted string, including `\uXXXX` from `JSON.stringify`. */
+function parseJsStringLiteral(quoted: string): string | null {
+	try {
+		return JSON.parse(quoted) as string;
+	} catch {
+		return unescapeJsString(quoted.slice(1, -1));
+	}
 }
 
 /**
@@ -189,9 +188,29 @@ export function injectSsrCss(html: string, cssContents: string[]): string {
  * The CSS source comes from Vite's module graph (local project files and
  * npm dependencies), so this is defense-in-depth against compromised deps.
  */
-function sanitizeCssForStyleTag(css: string): string {
+export function sanitizeCssForStyleTag(css: string): string {
 	// Replace </style (case-insensitive) with an escaped version that won't
 	// close the tag. Using a backslash escape: <\/style
 	// Browsers ignore the backslash in CSS context, so styles still work.
 	return css.replaceAll(/<\/style/gi, String.raw`<\/style`);
+}
+
+/**
+ * Vite strips `t=<13 digits>` from transform URLs (HMR timestamp). `v=`
+ * stays, so each read is a new module id and cannot reuse a stale
+ * `transformResult` for `?direct`.
+ */
+export function directCssRequestUrl(href: string, bust = Date.now()): string {
+	return `${href}?direct&v=${bust}`;
+}
+
+/** Transform a `/`-rooted project CSS href to hashed CSS text for SSR/HMR. */
+export async function readDirectCss(server: ViteDevServer, href: string): Promise<string> {
+	try {
+		const result = await server.transformRequest(directCssRequestUrl(href));
+		if (!result || typeof result.code !== "string") return "";
+		return extractCssFromTransformedModule(result.code) ?? "";
+	} catch {
+		return "";
+	}
 }

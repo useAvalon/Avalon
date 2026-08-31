@@ -1,5 +1,5 @@
 ---
-description: Dev CSS injection — ?direct links, Nitro vs Vite module graph
+description: Dev CSS injection — per-route ?direct links, Nitro vs Vite module graph
 globs: "packages/avalon/src/vite-plugin/**,packages/avalon/src/render/collect-css.ts"
 alwaysApply: false
 ---
@@ -8,10 +8,13 @@ alwaysApply: false
 
 When Nitro owns SSR, Vite’s module graph is a different realm (`globalThis.__viteDevServer` is missing). Layout/page CSS modules hash class names on the server but rules are not in the HTML unless injected.
 
-- Dev: `<link rel="stylesheet" href="…file.module.css?direct">` so Vite returns `text/css` with hashed names.
+- Dev: inject per-route `<link rel="stylesheet" href="…?direct" data-avalon-css>`. The browser fetches hashed CSS from Vite on every document load — do not bake CSS into `virtual:avalon/layouts` (`_cssText` goes stale in the Nitro runner).
+- Collect those hrefs from the **route import graph** (page + layouts + global CSS), not by globbing every `.css` file under `app/modules`.
 - Do not use `?inline` (skips module hashing). Do not use deferred module scripts (FOUC).
 - `collectCssFromModuleGraph` is for Avalon’s own SSR middleware, not the Nitro runner.
 - Production: import layout CSS from the client entry (default import, not side-effect) and `injectAssets` from the client manifest.
-- New CSS files: discovery runs at plugin load — restart the dev server.
+- Dev `css.modules.generateScopedName` hashes file path + local name only. Vite’s default includes file contents, so a value edit remaps classes and the live `?direct` sheet no longer matches SSR HTML.
+- Nitro SSR HTML does not run `transformIndexHtml`. Inject `/@vite/client` and `virtual:avalon/dev-css-hmr` next to the links so `import.meta.hot.on("avalon:css")` is registered.
+- HMR: `avalon:dev-css-hmr` sends `{ type: "custom", event: "avalon:css", data: { href, css } }` on `server.ws`. The client cache-busts `link.href` with `?direct&v=` and writes `css` into a `<style>` tag. `hotUpdate` returns [] so Nitro does not document-reload. Adding/removing a CSS import in a page, component, or layout still full-reloads.
 
-See `generateLayoutsModule` in `nitro-integration.ts` and `collect-css.ts`.
+See `buildDevCssRouteTable` in `dev-css-graph.ts`, `selectDevCssHrefs` in `render/dev-css-select.ts`, and `generateLayoutsModule` in `nitro-integration.ts`.
