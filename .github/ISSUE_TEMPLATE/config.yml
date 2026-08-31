@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://useavalon.dev/docs/introduction
+    about: Usage questions and how-to — start with the docs.
+  - name: Report a vulnerability
+    url: https://github.com/useAvalon/Avalon/security/advisories/new
+    about: Private security advisory. Do not file a public issue.

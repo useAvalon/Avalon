@@ -1,0 +1,21 @@
+---
+description: virtual:avalon/* modules — static imports, no runtime Vite plugins
+globs: "packages/avalon/src/vite-plugin/**"
+alwaysApply: false
+---
+
+# Virtual modules
+
+IDs are `virtual:avalon/<name>`, resolved to `\0virtual:avalon/<name>` in `avalon:nitro-virtual-modules` (`nitro-integration.ts`).
+
+| ID | Role |
+|----|------|
+| `renderer` | SSR entry: integrations, layouts, assets |
+| `client-entry` | Hydration runtime + CSS |
+| `config` / `runtime-config` | Serialized Avalon config |
+| `page-routes` / `page-loader` | Discovered pages; **static** `import` (dynamic import fails in Nitro) |
+| `layouts` | `wrapWithLayouts()` |
+| `assets` | Client manifest `injectAssets()` |
+| `island-manifest` | Preload hints |
+
+Do not bundle build-time Vite/rolldown plugins into the Nitro server. Pre-register framework integrations with static imports — `import()` is unreliable in the Nitro bundle. Consumer `server/renderer.ts` and `entry-client.ts` should stay one-liners that re-export these virtual modules.

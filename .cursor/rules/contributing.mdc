@@ -1,0 +1,17 @@
+---
+description: How to contribute — PRs, commits, releases, security
+alwaysApply: true
+---
+
+# Contributing
+
+Full process: `CONTRIBUTING.md`. Issue/PR templates live in `.github/`.
+
+- Fork, branch, PR against `main`. Never push to `main` (canary publish).
+- One concern per PR. No unrelated refactors or formatting-only diffs.
+- Do not bump versions, publish, or edit release workflows.
+- Do not add dependencies without an issue. Touch `bun.lock` only when needed.
+- Behavior change → colocated Vitest tests. Then `bun run lint`, `bun run test`, `bun run typecheck`.
+- Commits: `type(scope): summary` (`feat` / `fix` / `docs` / `chore` / `ci` / `refactor` / `test`).
+- Do not skip git hooks. Do not commit, push, merge, or open a PR unless asked.
+- Security: private GitHub advisory only. Never a public issue or exploit PoC.

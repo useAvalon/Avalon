@@ -1,0 +1,16 @@
+---
+description: SSR HTML escaping, XSS, cookies, API input
+globs: "packages/avalon/**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Security
+
+- Never inject raw request data into HTML. Escape `& < > " '` for text and attributes.
+- Before SSR-injecting CSS/JS: `replaceAll(/<\/style/gi, String.raw`<\/style`)` and the same for `</script`.
+- Mark injected tags with `data-avalon-*` so the client can dedupe.
+- `dangerouslySetInnerHTML` only for trusted pre-rendered HTML (layouts), never user strings.
+- Island `data-props` JSON must be HTML-escaped to prevent attribute breakout.
+- Cookies: `httpOnly`, `secure` in production, `sameSite: "lax"` (or strict), explicit `maxAge`/`path`.
+- Validate API input with Zod. Generic client errors; log details server-side.
+- CORS only on routes that need it. Default headers: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`.

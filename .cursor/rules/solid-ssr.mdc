@@ -1,0 +1,15 @@
+---
+description: Solid SSR — single sharedConfig instance, no ssr.noExternal
+globs: "packages/integrations/solid/**,**/vite.config.ts"
+alwaysApply: false
+---
+
+# Solid SSR hydration
+
+Solid hydration needs one `sharedConfig` singleton. If SSR `renderToStringAsync` and the compiled component load two copies of `solid-js`, HTML has no `data-hk` and the client errors (`Client-only API called on the server side`).
+
+- Never put `solid-js` or `solid-js/web` in `ssr.noExternal`.
+- Keep `avalon:solid-oxc-exclude` `resolveId`: SSR → `dist/server.js`, client → `dist/dev.js`.
+- `vite-plugin-solid` must use `hot: false` (solid-refresh shifts hydration keys).
+- After resolution/SSR config changes, clear `www/node_modules/.vite`.
+- `data-hk` is Solid’s; `data-solid-render-id` is Avalon’s on `<avalon-island>`.

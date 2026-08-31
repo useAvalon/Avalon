@@ -1,0 +1,21 @@
+---
+description: Zod v4 API — record keys, imports, Vitest inline
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Zod v4
+
+Root `package.json` and `packages/avalon/package.json` must stay on the **same** Zod version.
+
+```ts
+import { z } from "zod";
+
+z.record(z.string(), z.unknown()); // not z.record(z.unknown())
+z.function(); // no .args() / .returns()
+```
+
+- Recursive schemas with `z.function()`: annotate `z.ZodType<any>`.
+- `z.ZodSafeParseResult<T>` not `z.SafeParseReturnType`.
+- `zodError.issues` not `.errors`.
+- Vitest: `test.server.deps.inline: ["zod"]` or `z.object` is undefined under Vite SSR.

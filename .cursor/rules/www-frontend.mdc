@@ -1,0 +1,14 @@
+---
+description: www site — CSS modules, tokens, SVG sizing, GSAP
+globs: "www/**/*.{tsx,css}"
+alwaysApply: false
+---
+
+# www frontend
+
+- CSS Modules only in `www/` — no Tailwind in site components.
+- Colors: `--avalon-*` tokens, not hardcoded hex.
+- Typeface: Hubot Sans. Headings: `text-transform: uppercase`.
+- Inline SVGs in islands need `width` and `height` attributes (otherwise they flash at 300×150 before CSS/hydration).
+- GSAP entrance: hide the scene in CSS (`opacity: 0`), then `tl.set(scene, { opacity: 1 })`. Do not rely on `gsap.from({ opacity: 0 })` alone.
+- Footer brand watermark: `paint-order: stroke fill` with `color` matching the background and `-webkit-text-stroke`. Never `color: transparent`.

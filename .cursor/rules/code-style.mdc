@@ -1,0 +1,30 @@
+---
+description: TypeScript style — guards, strings, regex, comments
+globs: "**/*.{ts,tsx,js,jsx}"
+alwaysApply: false
+---
+
+# Code style
+
+Prefer early-return guards over nested conditionals.
+
+```ts
+// ❌
+if (typeof value === "object" && value !== null) {
+  const obj = value as Record<string, unknown>;
+  if (obj.someProp) return true;
+}
+return false;
+
+// ✅
+if (typeof value !== "object") return false;
+const obj = value as Record<string, unknown>;
+return Boolean(obj.someProp);
+```
+
+- `str.replaceAll(/foo/g, "bar")` — not `replace` with `/g`. Regex passed to `replaceAll` still needs the `g` flag.
+- `new RegExp(String.raw`<${tag}(?:\s[^>]*)?>`, "i")` — not double-escaped `\\s`.
+- `str.replaceAll('"', String.raw`\"`)` for literal backslashes in replacements.
+- Avoid `/[\w]+/` → `/\w+/`; avoid `1.0` → `1`.
+
+Comments explain why or non-obvious what. No changelog, authors, or ticket numbers.

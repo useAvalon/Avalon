@@ -1,0 +1,16 @@
+---
+description: Avalon is not Astro — island prop, file naming, packages, MCP
+alwaysApply: true
+---
+
+# Avalon core
+
+Avalon is a multi-framework islands framework. It is **not** Astro.
+
+- No `client:*` attributes. Hydration is `island={{ condition: 'on:client' }}` on an imported component.
+- Conditions: `on:client`, `on:visible`, `on:interaction`, `on:idle`, `on:event`, `media:<query>`.
+- Framework comes from the **filename**: plain `.tsx` is Preact; React is `*.react.tsx`. Direct static import only (no barrels).
+- Packages: `@useavalon/avalon`, `@useavalon/react`, `@useavalon/vue`, etc.
+- When Avalon MCP is available: `avalon_hydration_directive` for syntax, `avalon_lint` on pages you write, `avalon_api_reference` for imports.
+
+Comments: factual, present-tense, explain why. Never authors, issues, or “what we changed”.
