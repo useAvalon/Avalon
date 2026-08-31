@@ -1,0 +1,17 @@
+---
+description: Dev CSS injection — ?direct links, Nitro vs Vite module graph
+globs: "packages/avalon/src/vite-plugin/**,packages/avalon/src/render/collect-css.ts"
+alwaysApply: false
+---
+
+# CSS in dev (Nitro SSR)
+
+When Nitro owns SSR, Vite’s module graph is a different realm (`globalThis.__viteDevServer` is missing). Layout/page CSS modules hash class names on the server but rules are not in the HTML unless injected.
+
+- Dev: `<link rel="stylesheet" href="…file.module.css?direct">` so Vite returns `text/css` with hashed names.
+- Do not use `?inline` (skips module hashing). Do not use deferred module scripts (FOUC).
+- `collectCssFromModuleGraph` is for Avalon’s own SSR middleware, not the Nitro runner.
+- Production: import layout CSS from the client entry (default import, not side-effect) and `injectAssets` from the client manifest.
+- New CSS files: discovery runs at plugin load — restart the dev server.
+
+See `generateLayoutsModule` in `nitro-integration.ts` and `collect-css.ts`.

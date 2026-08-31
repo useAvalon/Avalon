@@ -36,6 +36,10 @@ Or read the [documentation](https://useavalon.dev/docs/introduction).
 | [`create-avalon`](https://www.npmjs.com/package/create-avalon) | Project scaffolding CLI |
 | [`@useavalon/agent-optimization`](https://www.npmjs.com/package/@useavalon/agent-optimization) | LLMs.txt, sitemap, and structured data plugin |
 
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md). Coding agents should also read [AGENTS.md](./AGENTS.md).
+
 ## License
 
 MIT

@@ -106,10 +106,11 @@
 		}
 	},
 	"dependencies": {
-		"@useavalon/core": "workspace:^",
 		"@mdx-js/rollup": "^3.0.0",
+		"@useavalon/core": "workspace:^",
 		"h3": "^2.0.1-rc.16",
 		"marked": "^17.0.4",
+		"oxc-parser": "^0.120.0",
 		"oxc-transform": "^0.117.0",
 		"preact": "10.28.4",
 		"preact-render-to-string": "6.6.6",

@@ -1,0 +1,24 @@
+---
+description: Island prop usage, hydration, and file-name frameworks
+globs: "**/*.{tsx,jsx,vue,svelte,mdx}"
+alwaysApply: false
+---
+
+# Islands
+
+```tsx
+import Counter from "../components/Counter.react.tsx";
+
+export default function Page() {
+  return (
+    <div>
+      <Counter island={{ condition: "on:visible" }} count={0} />
+    </div>
+  );
+}
+```
+
+- **Not** `client:load` / `client:visible`. One `island` prop.
+- Plain `.tsx` → Preact. React → `*.react.tsx`. Solid → `*.solid.tsx`. Qwik → `*.qwik.tsx`. Lit → `*.lit.ts`.
+- Import the island file directly. Barrels and aliased re-exports will not hydrate.
+- Type the `island` prop via `@useavalon/avalon` JSX types (`island-jsx.d.ts`). For Qwik/Lit in Preact pages, wrap with `defineQwikIsland` / `defineLitIsland` from `@useavalon/<fw>/island` — never `as any`.

@@ -1,0 +1,65 @@
+name: Bug report
+description: Something is broken in Avalon
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search existing issues first. Avalon is not Astro — hydration is `island={{ condition: 'on:client' }}`, not `client:*`.
+        Security reports go to a [private advisory](https://github.com/useAvalon/Avalon/security/advisories/new), not here.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, versus what you expected.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Minimal page or repo. Include the island import and `island` prop if hydration is involved.
+      placeholder: |
+        ```tsx
+        import Counter from '../components/Counter.react.tsx';
+
+        export default function Page() {
+          return (
+            <div>
+              <Counter island={{ condition: 'on:visible' }} count={0} />
+            </div>
+          );
+        }
+        ```
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: "@useavalon/avalon version"
+      placeholder: "0.3.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: framework
+    attributes:
+      label: Island framework
+      options:
+        - Preact (plain .tsx)
+        - React (*.react.tsx)
+        - Vue
+        - Svelte
+        - Solid
+        - Lit
+        - Qwik
+        - None / not island-related
+        - Multiple
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS and Bun version (`bun --version`).
+      placeholder: "macOS 15, bun 1.2.x"

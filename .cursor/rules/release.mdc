@@ -1,0 +1,14 @@
+---
+description: Independent package versioning and release channels
+globs: ".github/workflows/**,scripts/bump-version*"
+alwaysApply: false
+---
+
+# Releases
+
+Packages version independently (`@useavalon/avalon`, integrations, `create-avalon`). Do not hand-edit version fields — use `scripts/bump-version.ts` or the workflows.
+
+- **canary**: push to `main`, changed packages only (`X.Y.Z-canary.YYYYMMDD.sha`).
+- **beta** / **rc** / **stable**: manual `release.yml` (`workflow_dispatch`). Dry-run is the default.
+- `--package=all` only when a core/shared API break hits every integration.
+- Tags are scoped (`core/v0.2.0`). CI: `ci.yml` lint/format/typecheck; `canary.yml` publishes changed packages.

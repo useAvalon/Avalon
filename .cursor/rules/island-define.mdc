@@ -1,0 +1,23 @@
+---
+description: defineXxxIsland identity wrappers — client-safe island.ts
+globs: "packages/integrations/**/island.ts"
+alwaysApply: false
+---
+
+# `defineXxxIsland`
+
+Qwik/Lit types do not match Preact JSX. Sidecar `.d.ts` files are ignored for `.ts`/`.tsx` sources. Wrap the default export with an identity function:
+
+```ts
+export function defineXxxIsland<P extends Record<string, unknown> = Record<string, unknown>>(
+  component: unknown,
+): (props: P) => unknown {
+  return component as (props: P) => unknown;
+}
+```
+
+- Live in `island.ts` only — **never** `mod.ts` (that pulls `node:path` into the browser).
+- Export `"./island": "./island.ts"` from the integration `package.json`.
+- Zero Node/server imports in `island.ts`.
+- Do not `export default Component as any`.
+- Vue/Svelte use sidecars; Preact/Solid need no wrapper.

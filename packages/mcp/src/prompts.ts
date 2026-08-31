@@ -42,7 +42,6 @@ export function createPrompts(): PromptDefinition[] {
 					"- Write the island as a framework component (default: Preact with `/** @jsxImportSource preact */`).",
 					"- Use it in a page via the `island` prop: `island={{ condition: '...' }}`.",
 					"- Do NOT use Astro `client:*` attributes — they do not exist in Avalon.",
-					"- If the sole child of a page/layout is the island, wrap it in a container element.",
 					"- If unsure which condition to use, call the `avalon_hydration_directive` tool.",
 				].join("\n");
 				return {

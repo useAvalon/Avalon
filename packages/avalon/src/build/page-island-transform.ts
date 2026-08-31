@@ -15,7 +15,9 @@
  * How it works:
  *   The plugin rewrites each `<Component island={opts} ...props />` JSX usage
  *   into an `{await renderIsland({...})}` expression inline in the JSX.
- *   Any component can be an island - no special directory required.
+ *   Enclosing functions are marked `async`; `.map()` callbacks are wrapped in
+ *   `await Promise.all(...)`. Any component can be an island — no special
+ *   directory required.
  *
  *   Preact's renderToString does NOT support async child components in the JSX
  *   tree, so we cannot use async wrapper functions. Instead we directly replace
@@ -27,6 +29,7 @@
 import { dirname } from "node:path";
 import type { Plugin } from "vite";
 import { addToManifest, generateComponentId } from "../server-islands/manifest.ts";
+import { ensureAwaitContextsAsync } from "./page-island-await.ts";
 
 export interface PageIslandTransformOptions {
 	/** Directory containing page files (default: src/pages/) */
@@ -760,9 +763,12 @@ function replaceTagAt(
  *   export default Page;  (+ decl elsewhere)   → async function Page / const Page = async …
  */
 function ensureDefaultExportAsync(code: string): string {
-	// export default [async] function …
-	if (/\bexport\s+default\s+function\b/.test(code)) {
-		return code.replace(/\bexport\s+default\s+function\b/, "export default async function");
+	// export default [async] function …  (not function*)
+	if (/\bexport\s+default\s+function\b(?!\s*\*)/.test(code)) {
+		return code.replace(
+			/\bexport\s+default\s+function\b(?!\s*\*)/,
+			"export default async function",
+		);
 	}
 
 	// export default (params) => …   or   export default param => …
@@ -843,15 +849,15 @@ export function pageIslandTransform(options: PageIslandTransformOptions = {}): P
 				);
 			}
 
-			// Keep imports for island components — the component reference is now
-			// passed directly to renderIsland() so it can SSR without dynamic import().
-			// Previously imports were removed, breaking production SSR in bundled contexts.
+			// Island imports stay in the module so renderIsland() can SSR the
+			// in-scope component without a dynamic import() in the server bundle.
 
-			// The injected calls use `await`, so the enclosing page/layout component
-			// must be async (the renderer awaits page/layout components). Mark the
-			// default export async if we actually injected any island calls.
+			// Injected `await` calls require async enclosing functions. The
+			// default export is marked async; nested helpers and list maps are
+			// handled by ensureAwaitContextsAsync.
 			if (transformed.includes("__pageRenderIsland(")) {
 				transformed = ensureDefaultExportAsync(transformed);
+				transformed = ensureAwaitContextsAsync(transformed, id);
 			}
 
 			return { code: transformed, map: null };

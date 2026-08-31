@@ -1,0 +1,17 @@
+---
+description: Qwik island optimizer — hoist strategy, ?qrl= middleware, exports
+globs: "packages/integrations/qwik/**"
+alwaysApply: false
+---
+
+# Qwik islands
+
+Do not change `entryStrategy` away from `{ type: "hoist" }`. `inline` hides QRLs from the qwikloader; `segment` writes virtual files Vite 8 cannot `fs.readFile`.
+
+Keep all three:
+
+1. `avalon:qwik-qrl` — Vite does not transform `?qrl=` URLs; the middleware strips the query and `transformRequest`s the base file. Missing it → raw TS in the browser (`Unexpected identifier 'as'`).
+2. Export post-processing — hoist emits `const` QRL handlers but not `export`. Append `export { ... }` from `inlinedQrlDEV` symbol names.
+3. Re-export `_hW` from `@builder.io/qwik` when the source uses `useVisibleTask$` / `useTask$`.
+
+Symptoms: `SymbolName not in …` → missing exports; `_hW not in …` → missing re-export; `ERR_LOAD_URL` → strategy is `segment`.
