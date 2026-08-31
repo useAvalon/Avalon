@@ -115,7 +115,6 @@ import { Widget as Counter } from './widgets'; // aliased re-export
 Import the island directly from its \`*.<framework>.tsx\` file; avoid barrels, aliased re-exports, or dynamic indirection for anything used as an island.
 
 ## Other gotchas
-- Wrap a sole island child in a container element (e.g. a \`<div>\`).
 - JSX islands need the right pragma, e.g. \`/** @jsxImportSource preact */\` (or \`react\` / \`solid-js\`).`,
 	},
 	{

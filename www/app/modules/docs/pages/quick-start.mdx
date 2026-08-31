@@ -95,15 +95,11 @@ export default function HelloPage() {
     <div>
       <h1>Hello, Avalon</h1>
       {/* Hydrates only when the user first interacts with it */}
-      <div>
-        <Counter island={{ condition: 'on:interaction' }} />
-      </div>
+      <Counter island={{ condition: 'on:interaction' }} />
     </div>
   );
 }
 ```
-
-> **Note:** Wrap islands in a container `<div>` — this is a known workaround for the island transform when an island is the sole child of a return statement.
 
 ## Build for production
 

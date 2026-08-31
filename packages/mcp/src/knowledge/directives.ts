@@ -171,7 +171,6 @@ export default function Page() {
 }`,
 	gotchas: [
 		"Islands are discovered by USAGE (the `island` prop), not by a special directory. Any imported component becomes an island when you add the prop.",
-		"When an island is the only child returned from a page or layout, wrap it in a container element (e.g. a <div>). Returning it bare may break.",
 		"JSX islands need the right pragma for their renderer, e.g. `/** @jsxImportSource preact */` at the top of the file.",
 		"`on:delay`, `on:event`, `on:scroll`, and `on:match` are built-in CUSTOM directives — enable them by calling `registerBuiltinDirectives()` in your server entry.",
 	],

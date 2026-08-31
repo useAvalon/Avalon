@@ -91,18 +91,6 @@ export default function Counter() {
 }
 ```
 
-## Known workaround
-
-When an island is the only child returned from a page or layout, wrap it in a container element:
-
-```tsx
-// ✅ Works
-return <div><MyIsland island={{ condition: 'on:client' }} /></div>;
-
-// ❌ May break
-return <MyIsland island={{ condition: 'on:client' }} />;
-```
-
 ## Sidecar type declarations
 
 Avalon pages use Preact JSX, but islands can be written in any supported framework. To make TypeScript happy when you use a Vue or Svelte component in a Preact page, Avalon auto-generates sidecar `.d.ts` files next to each island component.
