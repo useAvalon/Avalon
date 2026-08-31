@@ -7,8 +7,8 @@
 
 /// <reference lib="dom" />
 /// <reference lib="dom.iterable" />
+/// <reference path="./hmr-error-overlay.d.ts" />
 
-import { getCSSHMRHandler } from "./css-hmr-handler.ts";
 import {
 	AdapterRegistry,
 	type FrameworkHMRAdapter,
@@ -95,7 +95,7 @@ export class HMRCoordinator {
 
 		// @ts-expect-error - build tsconfig resolves import.meta.hot to Vite's stricter on() signature
 		import.meta.hot.on("vite:beforeUpdate", (payload: HMRPayload) => {
-			this.handleUpdate(payload as HMRUpdatePayload);
+			return this.handleUpdate(payload as HMRUpdatePayload);
 		});
 
 		import.meta.hot.on("vite:beforeFullReload", () => {
@@ -137,35 +137,18 @@ export class HMRCoordinator {
 			return;
 		}
 
-		const cssUpdates: ModuleUpdate[] = [];
 		const jsUpdates: ModuleUpdate[] = [];
 
 		for (const update of payload.updates) {
-			if (update.type === "css-update") {
-				cssUpdates.push(update);
-			} else {
+			if (update.type === "js-update") {
 				jsUpdates.push(update);
 			}
 		}
 
-		this.processCSSUpdates(cssUpdates);
 		this.queueJSUpdates(jsUpdates);
 
 		if (!this.isProcessing && this.updateQueue.size > 0) {
 			await this.processUpdateQueue();
-		}
-	}
-
-	private processCSSUpdates(cssUpdates: ModuleUpdate[]): void {
-		if (cssUpdates.length === 0) return;
-
-		const cssHandler = getCSSHMRHandler();
-		for (const cssUpdate of cssUpdates) {
-			try {
-				cssHandler.handleCSSUpdate(cssUpdate);
-			} catch (error) {
-				console.error("[HMR] CSS update failed:", error);
-			}
 		}
 	}
 
@@ -338,22 +321,16 @@ export class HMRCoordinator {
 
 		if (globalThis.window !== undefined) {
 			import("./hmr-error-overlay.js")
-				.then(
-					({
-						showHMRErrorOverlay,
-					}: {
-						showHMRErrorOverlay: (opts: Record<string, unknown>) => void;
-					}) => {
-						showHMRErrorOverlay({
-							framework: "unknown",
-							src: "unknown",
-							error,
-							filePath: payload.err.id || payload.err.loc?.file || "unknown",
-							line: payload.err.loc?.line,
-							column: payload.err.loc?.column,
-						});
-					},
-				)
+				.then(({ showHMRErrorOverlay }) => {
+					showHMRErrorOverlay({
+						framework: "unknown",
+						src: "unknown",
+						error,
+						filePath: payload.err.id || payload.err.loc?.file || "unknown",
+						line: payload.err.loc?.line,
+						column: payload.err.loc?.column,
+					});
+				})
 				.catch(() => {
 					console.error("[HMR] Failed to show error overlay");
 				});
@@ -361,12 +338,14 @@ export class HMRCoordinator {
 	}
 
 	private normalizePath(path: string): string {
-		return path
-			.replaceAll("\\", "/")
-			.replace(/^\//, "")
-			.replace(/\?.*$/, "")
-			.replace(/#.*$/, "")
-			.replace(/^src\//, "");
+		let normalized = path.replaceAll("\\", "/");
+		if (normalized.startsWith("/")) normalized = normalized.slice(1);
+		const query = normalized.indexOf("?");
+		if (query !== -1) normalized = normalized.slice(0, query);
+		const hash = normalized.indexOf("#");
+		if (hash !== -1) normalized = normalized.slice(0, hash);
+		if (normalized.startsWith("src/")) normalized = normalized.slice(4);
+		return normalized;
 	}
 
 	private isIslandModule(path: string): boolean {

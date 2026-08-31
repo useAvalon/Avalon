@@ -60,6 +60,7 @@
 		"./prerender": "./src/prerender/index.ts",
 		"./post-build": "./src/post-build/index.ts",
 		"./render/collect-css": "./src/render/collect-css.ts",
+		"./render/dev-css-select": "./src/render/dev-css-select.ts",
 		"./render/shell-engine": "./src/render/shell-engine.ts"
 	},
 	"typesVersions": {

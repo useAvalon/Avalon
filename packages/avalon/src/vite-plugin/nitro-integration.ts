@@ -10,7 +10,7 @@
 import { type Dirent, existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { stat as fsStat } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import type { H3Event } from "h3";
 import { nitro as nitroVitePlugin } from "nitro/vite";
 import type { Plugin, ViteDevServer } from "vite";
@@ -43,6 +43,8 @@ import type { PageModule } from "../nitro/types.ts";
 import { collectCssFromModuleGraph, injectSsrCss } from "../render/collect-css.ts";
 import { generateErrorPage, generateFallback404 } from "../render/error-pages.ts";
 import { generateComponentId } from "../server-islands/manifest.ts";
+import { buildDevCssRouteTable } from "./dev-css-graph.ts";
+import { createDevCssHmrPlugin, generateDevCssHmrModule } from "./dev-css-hmr.ts";
 import { resolveToRelativePath } from "./server-islands-plugin.ts";
 import type { ResolvedAvalonConfig } from "./types.ts";
 
@@ -388,6 +390,7 @@ export const VIRTUAL_MODULE_IDS = {
 	ASSETS: "virtual:avalon/assets",
 	RENDERER: "virtual:avalon/renderer",
 	CLIENT_ENTRY: "virtual:avalon/client-entry",
+	DEV_CSS_HMR: "virtual:avalon/dev-css-hmr",
 	INTEGRATION_LOADER: "virtual:avalon/integration-loader",
 	ACTIONS: "virtual:avalon/actions",
 } as const;
@@ -402,6 +405,7 @@ export const RESOLVED_VIRTUAL_IDS = {
 	ASSETS: `\0${VIRTUAL_MODULE_IDS.ASSETS}`,
 	RENDERER: `\0${VIRTUAL_MODULE_IDS.RENDERER}`,
 	CLIENT_ENTRY: `\0${VIRTUAL_MODULE_IDS.CLIENT_ENTRY}`,
+	DEV_CSS_HMR: `\0${VIRTUAL_MODULE_IDS.DEV_CSS_HMR}`,
 	INTEGRATION_LOADER: `\0${VIRTUAL_MODULE_IDS.INTEGRATION_LOADER}`,
 	ACTIONS: `\0${VIRTUAL_MODULE_IDS.ACTIONS}`,
 } as const;
@@ -488,31 +492,16 @@ function generateServerIslandIntegrationsModule(integrations: readonly string[])
 	return `${lines.join("\n")}\n`;
 }
 
-export function createNitroIntegration(
+/** Keys Nitro's Vite plugin accepts — omit Avalon-only fields that Rolldown rejects. */
+function buildNitroVitePluginOptions(
+	nitroOptions: NitroConfigOutput,
+	nitroConfig: AvalonNitroConfig,
+	serverIslandProjectRoot: string,
 	avalonConfig: ResolvedAvalonConfig,
-	nitroConfig: AvalonNitroConfig = {},
-): NitroIntegrationResult {
-	const nitroOptions = createNitroConfig(nitroConfig, avalonConfig);
-
-	// Project root used by the server-island source scanner. `ResolvedAvalonConfig`
-	// carries no explicit root, and the Vite build runs from the project directory,
-	// so `process.cwd()` is the correct base for resolving `app/` and `src/`.
-	const serverIslandProjectRoot = process.cwd();
-
-	// Nitro v3 Vite plugin — only pass keys that Nitro actually accepts.
-	// Spreading the full nitroOptions leaks Avalon-specific keys (staticAssets,
-	// publicAssets, etc.) which Nitro forwards to Rolldown, causing
-	// "Invalid input options" warnings (e.g. "jsx" key errors).
-
-	// Resolve the server islands route handler path from the @useavalon/avalon package.
-	// This ensures the route is available in all Avalon projects regardless of
-	// whether they have a routes/ directory.
-	// NOTE: Only registered for production builds. In dev mode, the server islands
-	// endpoint is handled by the coordination plugin's SSR middleware.
-	const serverIslandsRoutePath = resolveAvalonPackagePath("src/server-islands/route.ts");
-	const actionsRoutePath = resolveAvalonPackagePath("src/actions/route.ts");
-
-	const nitroVitePluginOptions: Record<string, unknown> = {
+	serverIslandsRoutePath: string,
+	actionsRoutePath: string,
+): Record<string, unknown> {
+	const options: Record<string, unknown> = {
 		preset: nitroOptions.preset,
 		serverDir: nitroConfig.serverDir ?? nitroOptions.serverDir ?? "./server",
 		routeRules: nitroOptions.routeRules,
@@ -588,28 +577,41 @@ export function createNitroIntegration(
 			"virtual:server-island-integrations": () =>
 				generateServerIslandIntegrationsModule(avalonConfig.integrations),
 		},
+		// Ensure undici is always traced — Nitro's server bundle imports it
+		// for its HTTP agent but doesn't always trace it automatically.
+		// Without this, the built server fails with ERR_MODULE_NOT_FOUND
+		// when spawned standalone (e.g. for prerendering).
+		traceDeps: [...new Set(["undici", ...(nitroOptions.traceDeps ?? [])])],
 	};
 
+	applyOptionalNitroViteOptions(options, nitroOptions, nitroConfig);
+	return options;
+}
+
+function applyOptionalNitroViteOptions(
+	options: Record<string, unknown>,
+	nitroOptions: NitroConfigOutput,
+	nitroConfig: AvalonNitroConfig,
+): void {
 	// Only pass renderer when explicitly configured — passing `undefined`
 	// can interfere with Nitro's internal SSR entry auto-detection.
 	if (nitroConfig.renderer === false) {
-		nitroVitePluginOptions.renderer = false;
+		options.renderer = false;
 	} else if (nitroOptions.renderer) {
-		nitroVitePluginOptions.renderer = nitroOptions.renderer;
+		options.renderer = nitroOptions.renderer;
 	}
 
-	// Only include optional keys if they're defined
 	if (nitroOptions.publicRuntimeConfig) {
-		nitroVitePluginOptions.publicRuntimeConfig = nitroOptions.publicRuntimeConfig;
+		options.publicRuntimeConfig = nitroOptions.publicRuntimeConfig;
 	}
 	if (nitroOptions.publicAssets) {
-		nitroVitePluginOptions.publicAssets = nitroOptions.publicAssets;
+		options.publicAssets = nitroOptions.publicAssets;
 	}
 	if (nitroOptions.compressPublicAssets) {
-		nitroVitePluginOptions.compressPublicAssets = nitroOptions.compressPublicAssets;
+		options.compressPublicAssets = nitroOptions.compressPublicAssets;
 	}
 	if (nitroOptions.serverEntry) {
-		nitroVitePluginOptions.serverEntry = nitroOptions.serverEntry;
+		options.serverEntry = nitroOptions.serverEntry;
 	}
 
 	// Forward cron / scheduled task configuration to Nitro's native task system.
@@ -621,36 +623,57 @@ export function createNitroIntegration(
 	// plugin-factory time), so detect the build command from argv/NODE_ENV.
 	const isBuildCommand = process.argv.includes("build") || process.env.NODE_ENV === "production";
 	if (nitroOptions.experimentalTasks && isBuildCommand) {
-		nitroVitePluginOptions.experimental = {
-			...(nitroVitePluginOptions.experimental as Record<string, unknown> | undefined),
+		options.experimental = {
+			...(options.experimental as Record<string, unknown> | undefined),
 			tasks: true,
 		};
 		if (nitroOptions.tasks && Object.keys(nitroOptions.tasks).length > 0) {
-			nitroVitePluginOptions.tasks = nitroOptions.tasks;
+			options.tasks = nitroOptions.tasks;
 		}
 		if (nitroOptions.scheduledTasks && Object.keys(nitroOptions.scheduledTasks).length > 0) {
-			nitroVitePluginOptions.scheduledTasks = nitroOptions.scheduledTasks;
+			options.scheduledTasks = nitroOptions.scheduledTasks;
 		}
 	}
-
-	// Ensure undici is always traced — Nitro's server bundle imports it
-	// for its HTTP agent but doesn't always trace it automatically.
-	// Without this, the built server fails with ERR_MODULE_NOT_FOUND
-	// when spawned standalone (e.g. for prerendering).
-	const userTraceDeps = nitroOptions.traceDeps ?? [];
-	const traceDeps = [...new Set(["undici", ...userTraceDeps])];
-	nitroVitePluginOptions.traceDeps = traceDeps;
 
 	// Do NOT forward prerender config to Nitro — Nitro's built-in prerenderer
 	// doesn't work correctly with custom SSR entries (returns 404 for all routes).
-	// Avalon handles prerendering in a post-build step instead (see
-	// packages/avalon/src/prerender/). The config is stored on nitroOptions
-	// so the post-build step can read it, but we explicitly disable Nitro's
-	// own prerender to prevent it from running and failing the build.
 	if (nitroOptions.prerender) {
-		// Store on nitroOptions for post-build, but tell Nitro not to prerender
-		nitroVitePluginOptions.prerender = { routes: [], crawlLinks: false };
+		options.prerender = { routes: [], crawlLinks: false };
 	}
+}
+
+export function createNitroIntegration(
+	avalonConfig: ResolvedAvalonConfig,
+	nitroConfig: AvalonNitroConfig = {},
+): NitroIntegrationResult {
+	const nitroOptions = createNitroConfig(nitroConfig, avalonConfig);
+
+	// Project root used by the server-island source scanner. `ResolvedAvalonConfig`
+	// carries no explicit root, and the Vite build runs from the project directory,
+	// so `process.cwd()` is the correct base for resolving `app/` and `src/`.
+	const serverIslandProjectRoot = process.cwd();
+
+	// Nitro v3 Vite plugin — only pass keys that Nitro actually accepts.
+	// Spreading the full nitroOptions leaks Avalon-specific keys (staticAssets,
+	// publicAssets, etc.) which Nitro forwards to Rolldown, causing
+	// "Invalid input options" warnings (e.g. "jsx" key errors).
+
+	// Resolve the server islands route handler path from the @useavalon/avalon package.
+	// This ensures the route is available in all Avalon projects regardless of
+	// whether they have a routes/ directory.
+	// NOTE: Only registered for production builds. In dev mode, the server islands
+	// endpoint is handled by the coordination plugin's SSR middleware.
+	const serverIslandsRoutePath = resolveAvalonPackagePath("src/server-islands/route.ts");
+	const actionsRoutePath = resolveAvalonPackagePath("src/actions/route.ts");
+
+	const nitroVitePluginOptions: Record<string, unknown> = buildNitroVitePluginOptions(
+		nitroOptions,
+		nitroConfig,
+		serverIslandProjectRoot,
+		avalonConfig,
+		serverIslandsRoutePath,
+		actionsRoutePath,
+	);
 
 	const nitroPlugin = nitroVitePlugin(nitroVitePluginOptions);
 
@@ -690,6 +713,7 @@ export function createNitroIntegration(
 	return {
 		nitroOptions,
 		plugins: [
+			createDevCssHmrPlugin(),
 			...(Array.isArray(nitroPlugin) ? nitroPlugin : [nitroPlugin]),
 			coordinationPlugin,
 			virtualModulesPlugin,
@@ -1258,56 +1282,6 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 	// Cache generated layouts module to avoid repeated async filesystem scans
 	let cachedLayoutsModule: string | null = null;
 
-	// Pre-discover CSS files synchronously at plugin creation time so the
-	// virtual module load hook doesn't need to do async filesystem I/O.
-	// This keeps the SSR entry resolution fast and avoids Nitro's 503 timeout.
-	const pathJoin = join;
-	const pathRelative = relative;
-	const pathResolve = resolve;
-	const _cwd = process.cwd();
-	const _devCssLinks: string[] = [];
-
-	function scanCssSync(dir: string): void {
-		try {
-			const entries = readdirSync(dir, { withFileTypes: true });
-			for (const entry of entries) {
-				const full = pathJoin(dir, entry.name);
-				if (entry.isDirectory() && entry.name !== "node_modules" && !entry.name.startsWith(".")) {
-					scanCssSync(full);
-				} else if (entry.isFile() && entry.name.endsWith(".css")) {
-					const rel = pathRelative(_cwd, full).replaceAll("\\", "/");
-					_devCssLinks.push(rel.startsWith("/") ? rel : `/${rel}`);
-				}
-			}
-		} catch {
-			/* skip */
-		}
-	}
-
-	function rescanCss(): void {
-		_devCssLinks.length = 0;
-		for (const cssPath of nitroConfig.globalCSS ?? []) {
-			_devCssLinks.push(cssPath.startsWith("/") ? cssPath : `/${cssPath}`);
-		}
-		if (avalonConfig.modules) {
-			scanCssSync(pathResolve(_cwd, avalonConfig.modules.dir));
-		}
-		scanCssSync(pathResolve(_cwd, avalonConfig.layoutsDir));
-		// Also scan the shared directory (components, styles) for CSS modules
-		const sharedDir = pathResolve(_cwd, avalonConfig.layoutsDir, "..");
-		if (
-			sharedDir !== _cwd &&
-			sharedDir !== pathResolve(_cwd, avalonConfig.layoutsDir) &&
-			sharedDir.startsWith(_cwd)
-		) {
-			scanCssSync(sharedDir);
-		}
-	}
-
-	if (avalonConfig.isDev) {
-		rescanCss();
-	}
-
 	return {
 		name: "avalon:nitro-virtual-modules",
 		enforce: "pre",
@@ -1322,6 +1296,7 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 			if (id === VIRTUAL_MODULE_IDS.ASSETS) return RESOLVED_VIRTUAL_IDS.ASSETS;
 			if (id === VIRTUAL_MODULE_IDS.RENDERER) return RESOLVED_VIRTUAL_IDS.RENDERER;
 			if (id === VIRTUAL_MODULE_IDS.CLIENT_ENTRY) return RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY;
+			if (id === VIRTUAL_MODULE_IDS.DEV_CSS_HMR) return RESOLVED_VIRTUAL_IDS.DEV_CSS_HMR;
 			if (id === VIRTUAL_MODULE_IDS.INTEGRATION_LOADER)
 				return RESOLVED_VIRTUAL_IDS.INTEGRATION_LOADER;
 			if (id === VIRTUAL_MODULE_IDS.ACTIONS) return RESOLVED_VIRTUAL_IDS.ACTIONS;
@@ -1340,11 +1315,7 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 				return generateConfigModule(avalonConfig, nitroConfig);
 			if (id === RESOLVED_VIRTUAL_IDS.LAYOUTS) {
 				if (!cachedLayoutsModule) {
-					cachedLayoutsModule = await generateLayoutsModule(
-						avalonConfig,
-						nitroConfig,
-						_devCssLinks,
-					);
+					cachedLayoutsModule = await generateLayoutsModule(avalonConfig, nitroConfig);
 				}
 				return cachedLayoutsModule;
 			}
@@ -1352,6 +1323,7 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 			if (id === RESOLVED_VIRTUAL_IDS.RENDERER) return generateRendererModule(avalonConfig);
 			if (id === RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY)
 				return await generateClientEntryModule(avalonConfig, nitroConfig);
+			if (id === RESOLVED_VIRTUAL_IDS.DEV_CSS_HMR) return generateDevCssHmrModule();
 			if (id === RESOLVED_VIRTUAL_IDS.INTEGRATION_LOADER)
 				return generateIntegrationLoaderModule(avalonConfig);
 			if (id === RESOLVED_VIRTUAL_IDS.ACTIONS) return generateActionsClientModule();
@@ -1359,25 +1331,28 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 		},
 
 		handleHotUpdate({ file, server }) {
-			// SSR pages/components/layouts/CSS: trigger a full browser reload.
-			// Nitro's own environment handles SSR module invalidation internally.
+			// Nitro SSR is a separate realm from the Vite client graph, so a
+			// page/component/layout change needs a full reload after the table
+			// rebuilds. CSS-only edits are handled by avalon:dev-css-hmr
+			// (inline <style> + ws payload). Do not full-reload the document.
 			const { isPage, isComponent, isLayout, isCss } = classifyHotFile(file);
 
-			if (isPage || isComponent || isLayout || isCss) {
-				if (isPage) {
-					// Invalidate across all environments (client/ssr/nitro) so the
-					// server-side route table is invalidated, not just the client graph.
-					invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
-					invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_LOADER);
-					void reloadNitroPageRoutes(server);
-				}
+			if (isCss) {
+				cachedLayoutsModule = null;
+			}
+
+			if (isPage) {
+				invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
+				invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_LOADER);
+				void reloadNitroPageRoutes(server);
+			}
+
+			if (isPage || isComponent || isLayout) {
+				cachedLayoutsModule = null;
+				invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.LAYOUTS);
 				if (isLayout) {
-					cachedLayoutsModule = null;
-					rescanCss();
-					invalidateModuleById(server, RESOLVED_VIRTUAL_IDS.LAYOUTS);
 					invalidateModuleById(server, RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY);
 				}
-				// Full page reload after Nitro's SSR worker has recompiled.
 				setTimeout(() => {
 					server.ws.send({ type: "full-reload", path: "*" });
 				}, 500);
@@ -1735,11 +1710,12 @@ export function generateConfigModule(
  * 2. Generates static imports for each _layout.tsx
  * 3. Builds a prefix→Layout map (like the manual moduleLayouts array)
  * 4. Exports wrapWithLayouts that composes page HTML with the right layouts
+ * 5. In development, injects `?direct` CSS links for this route's import graph
+ *    (page + layouts + global), not every stylesheet under the app tree
  */
 async function generateLayoutsModule(
 	avalonConfig: ResolvedAvalonConfig,
-	_nitroConfig: AvalonNitroConfig,
-	devCssLinks: string[],
+	nitroConfig: AvalonNitroConfig,
 ): Promise<string> {
 	const { getAllLayoutDirs } = await import("./module-discovery.ts");
 	const { relative, resolve } = await import("node:path");
@@ -1815,9 +1791,27 @@ async function generateLayoutsModule(
 
 	const rootLayoutVar = sharedLayouts.length > 0 ? sharedLayouts[0].varName : "null";
 
-	// CSS paths are pre-discovered synchronously at plugin creation time
-	// to keep the virtual module load hook fast (avoids Nitro 503 timeout).
-	const cssLinksJson = JSON.stringify(devCssLinks);
+	let cssTableJson = '{"routes":[],"fallbackHrefs":[],"globalHrefs":[]}';
+	if (avalonConfig.isDev) {
+		const { getAllPageDirs } = await import("./module-discovery.ts");
+		const { discoverPageRoutesFromMultipleDirs } = await import("../nitro/route-discovery.ts");
+		const pageDirs = await getAllPageDirs(avalonConfig.pagesDir, avalonConfig.modules, cwd);
+		const pageRoutes = await discoverPageRoutesFromMultipleDirs(pageDirs, {
+			developmentMode: avalonConfig.isDev,
+		});
+		const table = buildDevCssRouteTable({
+			cwd,
+			globalCSS: nitroConfig.globalCSS ?? [],
+			routes: pageRoutes.map((r) => ({ pattern: r.pattern, filePath: r.filePath })),
+			layouts: layouts.map((l) => ({
+				prefix: l.prefix,
+				filePath: l.filePath,
+				isRoot: l.isShared,
+				skipRoot: skipRootByPath.get(l.importPath) ?? false,
+			})),
+		});
+		cssTableJson = JSON.stringify(table);
+	}
 
 	// The shell engine (Preact by default, React when core: "react") determines
 	// how layout components are created and rendered to HTML.
@@ -1828,35 +1822,24 @@ async function generateLayoutsModule(
 		...engineImports,
 		`import { getUniversalCSSForHead } from '@useavalon/avalon/islands/universal-css-collector';`,
 		`import { getUniversalHeadForInjection, injectSolidHydrationScriptIfNeeded } from '@useavalon/avalon/islands/universal-head-collector';`,
+		`import { appendDevCssLinks, layoutPrefixMatches, selectDevCssHrefs } from '@useavalon/avalon/render/dev-css-select';`,
 		...imports,
 		``,
 		`const RootLayoutComponent = ${rootLayoutVar};`,
-		`const _cssLinks = ${cssLinksJson};`,
+		`const _cssTable = ${cssTableJson};`,
 		``,
 		`const moduleLayouts = [`,
 		entries.join(",\n"),
 		`];`,
 		``,
 		`function getLayoutsForPath(pathname) {`,
-		`  for (const entry of moduleLayouts) {`,
-		`    if (entry.prefix === '/' ? pathname === '/' : pathname.startsWith(entry.prefix)) {`,
-		`      return entry;`,
-		`    }`,
-		`  }`,
-		`  return null;`,
+		`  return moduleLayouts.find((entry) => layoutPrefixMatches(pathname, entry.prefix)) ?? null;`,
 		`}`,
 		``,
-		`function injectUniversalAssets(html) {`,
-		`  // In dev, inject <link> tags for all discovered CSS files.`,
-		`  // The ?direct suffix makes Vite return raw CSS (text/css) instead`,
-		`  // of a JS module wrapper, so <link rel="stylesheet"> works.`,
-		`  if (process.env.NODE_ENV !== 'production' && _cssLinks.length > 0) {`,
-		`    var links = _cssLinks.map(function(href) {`,
-		`      return '<link rel="stylesheet" href="' + href + '?direct">';`,
-		String.raw`    }).join('\n');`,
-		`    if (html.includes('</head>')) {`,
-		String.raw`      html = html.replace('</head>', links + '\n</head>');`,
-		`    }`,
+		`function injectUniversalAssets(html, pathname, skipLayouts) {`,
+		`  if (process.env.NODE_ENV !== 'production') {`,
+		`    var hrefs = selectDevCssHrefs(_cssTable, pathname, skipLayouts);`,
+		`    html = appendDevCssLinks(html, hrefs);`,
 		`  }`,
 		`  const universalCSS = getUniversalCSSForHead(true);`,
 		`  if (universalCSS && html.includes('</head>')) {`,
@@ -1949,7 +1932,7 @@ async function generateLayoutsModule(
 		`  if (injectAssets) {`,
 		`    html = injectAssets(html);`,
 		`  }`,
-		`  return injectUniversalAssets(html);`,
+		`  return injectUniversalAssets(html, pathname, skipAll);`,
 		`}`,
 		``,
 		`export default { wrapWithLayouts };`,
@@ -2189,6 +2172,9 @@ async function generateClientEntryModule(
 		lines.push(`import '${hydrationRuntime}';`);
 	} else {
 		lines.push(`// Per-island hydration mode — no shared runtime needed`);
+	}
+	if (resolvedIsDev) {
+		lines.push(`import '${VIRTUAL_MODULE_IDS.DEV_CSS_HMR}';`);
 	}
 	lines.push(``);
 

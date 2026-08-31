@@ -1,6 +1,7 @@
 {
 	"extends": "../../tsconfig.json",
 	"compilerOptions": {
+		"allowJs": true,
 		"paths": {
 			"@/*": ["./src/*"]
 		},
@@ -13,6 +14,6 @@
 			"./src/client/types/framework-runtime.d.ts"
 		]
 	},
-	"include": ["src/**/*.ts", "src/**/*.tsx", "mod.ts"],
+	"include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts", "mod.ts"],
 	"exclude": ["node_modules", "dist"]
 }

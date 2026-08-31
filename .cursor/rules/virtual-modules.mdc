@@ -14,7 +14,7 @@ IDs are `virtual:avalon/<name>`, resolved to `\0virtual:avalon/<name>` in `avalo
 | `client-entry` | Hydration runtime + CSS |
 | `config` / `runtime-config` | Serialized Avalon config |
 | `page-routes` / `page-loader` | Discovered pages; **static** `import` (dynamic import fails in Nitro) |
-| `layouts` | `wrapWithLayouts()` |
+| `layouts` | `wrapWithLayouts()`; dev per-route CSS links (`render/dev-css-select.ts`) |
 | `assets` | Client manifest `injectAssets()` |
 | `island-manifest` | Preload hints |
 

@@ -22,6 +22,7 @@ import { registry } from "../core/integrations/registry.ts";
 import type { NitroConfigOutput } from "../nitro/config.ts";
 import { discoverIntegrationsFromIslandUsage } from "./auto-discover.ts";
 import { checkDirectoriesExist, resolveConfig } from "./config.ts";
+import { shouldSetDevScopedName, stableDevScopedName } from "./dev-css-modules.ts";
 import { createImagePlugin } from "./image-optimization.ts";
 import { activateIntegrations, activateSingleIntegration } from "./integration-activator.ts";
 import { islandSidecarPlugin } from "./island-sidecar-plugin.ts";
@@ -377,6 +378,9 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 					exclude: ["@useavalon/avalon", ...integrationsToLoad.map((name) => `@useavalon/${name}`)],
 					include: depsToInclude,
 				},
+				...(command === "serve" && shouldSetDevScopedName(_config.css?.modules)
+					? { css: { modules: { generateScopedName: stableDevScopedName } } }
+					: {}),
 			};
 		},
 
