@@ -240,6 +240,17 @@ export default function* Page() {
 		expect(() => runTransform(code)).toThrow(/generator/);
 	});
 
+	it("errors when a helper with an island is rendered from a generator", () => {
+		const code = `import Counter from "../components/Counter.tsx";
+function Card() {
+  return <div><Counter island={{ condition: "on:client" }} /></div>;
+}
+export default function* Page() {
+  yield <Card />;
+}`;
+		expect(() => runTransform(code)).toThrow(/generator/);
+	});
+
 	it("wraps items?.map so Promise.all is not called with undefined", () => {
 		const code = `import Button from "../components/Button.tsx";
 export default function Page({ items }: { items?: { id: string }[] }) {
