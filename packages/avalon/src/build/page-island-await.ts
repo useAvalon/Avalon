@@ -423,15 +423,40 @@ function jsxAttributeToProp(attr: Node, code: string): string | null {
 	return `${name}: ${code.slice(attr.value.start, attr.value.end)}`;
 }
 
-function jsxElementToAwaitCall(element: Node, tag: string, code: string): string {
-	const opening = isNode(element.openingElement) ? element.openingElement : null;
+function jsxKeyExpression(attr: Node, code: string): string | null {
+	if (attr.type !== "JSXAttribute" || !isNode(attr.name)) return null;
+	const name = typeof attr.name.name === "string" ? attr.name.name : null;
+	if (name !== "key" || !isNode(attr.value)) return null;
+	if (attr.value.type === "JSXExpressionContainer" && isNode(attr.value.expression)) {
+		const expr = attr.value.expression;
+		return code.slice(expr.start, expr.end);
+	}
+	return code.slice(attr.value.start, attr.value.end);
+}
+
+function jsxOpeningProps(
+	opening: Node | null,
+	code: string,
+): { props: string[]; keyExpr: string | null } {
 	const props: string[] = [];
+	let keyExpr: string | null = null;
 	const attributes = opening && Array.isArray(opening.attributes) ? opening.attributes : [];
 	for (const attr of attributes) {
 		if (!isNode(attr)) continue;
+		const key = jsxKeyExpression(attr, code);
+		if (key != null) {
+			keyExpr = key;
+			continue;
+		}
 		const prop = jsxAttributeToProp(attr, code);
 		if (prop) props.push(prop);
 	}
+	return { props, keyExpr };
+}
+
+function jsxElementToAwaitCall(element: Node, tag: string, code: string): string {
+	const opening = isNode(element.openingElement) ? element.openingElement : null;
+	const { props, keyExpr } = jsxOpeningProps(opening, code);
 
 	if (opening?.selfClosing !== true && isNode(element.closingElement)) {
 		const inner = code.slice(opening ? opening.end : element.start, element.closingElement.start);
@@ -439,7 +464,8 @@ function jsxElementToAwaitCall(element: Node, tag: string, code: string): string
 	}
 
 	const obj = props.length > 0 ? `{ ${props.join(", ")} }` : "{}";
-	return `await ${tag}(${obj})`;
+	const call = `await ${tag}(${obj})`;
+	return keyExpr == null ? call : `__pageKeyed(${keyExpr}, ${call})`;
 }
 
 function jsxRewrites(program: Node, needsAsync: Set<Node>, code: string): Edit[] {

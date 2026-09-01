@@ -56,6 +56,7 @@ interface ParsedJSXElement {
 	endIdx: number;
 	islandProp: string | null;
 	serverProp: string | null;
+	keyProp: string | null;
 	otherProps: string[];
 }
 
@@ -492,6 +493,7 @@ function parseJSXElement(
 
 	let islandProp: string | null = null;
 	let serverProp: string | null = null;
+	let keyProp: string | null = null;
 	const otherProps: string[] = [];
 
 	while (i < code.length) {
@@ -500,7 +502,7 @@ function parseJSXElement(
 		// Check for end of opening tag
 		const tagEnd = findTagEnd(code, i, componentName);
 		if (tagEnd) {
-			return { endIdx: tagEnd.endIdx, islandProp, serverProp, otherProps };
+			return { endIdx: tagEnd.endIdx, islandProp, serverProp, keyProp, otherProps };
 		}
 
 		// Parse next attribute
@@ -512,6 +514,8 @@ function parseJSXElement(
 			islandProp = attr.value ?? "{}";
 		} else if (attr.name === "server") {
 			serverProp = attr.value ?? "{}";
+		} else if (attr.name === "key") {
+			keyProp = attr.value;
 		} else {
 			const propValue = attr.value === null ? `${attr.name}: true` : `${attr.name}: ${attr.value}`;
 			otherProps.push(propValue);
@@ -541,6 +545,7 @@ function buildRenderCall(
 	const fwArg = framework ? `, framework: "${framework}"` : "";
 	const propsArg =
 		parsed.otherProps.length > 0 ? `, props: { ${parsed.otherProps.join(", ")} }` : "";
+	const keyArg = parsed.keyProp != null ? `, key: (${parsed.keyProp})` : "";
 	// Pass the component reference so the SSR bundle doesn't need to
 	// dynamically import it at runtime (the import is already in scope).
 	const compArg = `, component: ${componentName}`;
@@ -556,6 +561,7 @@ function buildRenderCall(
 			fwArg +
 			compArg +
 			propsArg +
+			keyArg +
 			", ssr: true, ssrOnly: true" +
 			" })"
 		);
@@ -574,6 +580,7 @@ function buildRenderCall(
 			serverArg +
 			islandArg +
 			propsArg +
+			keyArg +
 			" })"
 		);
 	}
@@ -595,6 +602,7 @@ function buildRenderCall(
 		").ssr !== undefined ? (" +
 		islandValue +
 		").ssr : true" +
+		keyArg +
 		" })"
 	);
 }
@@ -858,6 +866,13 @@ export function pageIslandTransform(options: PageIslandTransformOptions = {}): P
 			if (transformed.includes("__pageRenderIsland(")) {
 				transformed = ensureDefaultExportAsync(transformed);
 				transformed = ensureAwaitContextsAsync(transformed, id);
+			}
+
+			if (transformed.includes("__pageKeyed(")) {
+				transformed = transformed.replace(
+					"import { renderIsland as __pageRenderIsland } from '@useavalon/avalon';",
+					"import { renderIsland as __pageRenderIsland, withListKey as __pageKeyed } from '@useavalon/avalon';",
+				);
 			}
 
 			return { code: transformed, map: null };
