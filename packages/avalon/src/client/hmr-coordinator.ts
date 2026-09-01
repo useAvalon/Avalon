@@ -154,7 +154,7 @@ export class HMRCoordinator {
 
 	private queueJSUpdates(jsUpdates: ModuleUpdate[]): void {
 		for (const update of jsUpdates) {
-			const normalizedPath = this.normalizePath(update.path || update.acceptedPath);
+			const normalizedPath = this.normalizePath(update.path ?? update.acceptedPath);
 			if (this.isIslandModule(normalizedPath)) {
 				this.updateQueue.add(normalizedPath);
 			}
@@ -326,7 +326,7 @@ export class HMRCoordinator {
 						framework: "unknown",
 						src: "unknown",
 						error,
-						filePath: payload.err.id || payload.err.loc?.file || "unknown",
+						filePath: payload.err.id ?? payload.err.loc?.file ?? "unknown",
 						line: payload.err.loc?.line,
 						column: payload.err.loc?.column,
 					});
@@ -355,7 +355,11 @@ export class HMRCoordinator {
 	private getIslandId(island: HTMLElement): string {
 		const src = island.dataset.src ?? "";
 		const framework = island.dataset.framework ?? "";
-		const index = Array.from(document.querySelectorAll(`[data-src="${src}"]`)).indexOf(island);
+		let index = 0;
+		for (const node of document.querySelectorAll<HTMLElement>("[data-src]")) {
+			if (node === island) break;
+			if (node.dataset.src === src) index += 1;
+		}
 		return `${framework}:${src}:${index}`;
 	}
 }

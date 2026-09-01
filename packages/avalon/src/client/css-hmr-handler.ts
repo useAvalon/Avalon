@@ -16,6 +16,13 @@ function avalonCssId(el: Element): string | undefined {
 	return (el as HTMLElement).dataset.avalonCss;
 }
 
+function findAvalonStyle(doc: Document, id: string): HTMLStyleElement | undefined {
+	for (const el of doc.querySelectorAll("style[data-avalon-css]")) {
+		if (avalonCssId(el) === id) return el as HTMLStyleElement;
+	}
+	return undefined;
+}
+
 /**
  * Cache-bust the matching `<link>` (`v=`, Vite strips `t=`) and write the
  * payload into a `<style>` tag so the change is visible before the refetch.
@@ -33,13 +40,7 @@ export function applyCssText(doc: Document, href: string, css: string): void {
 	if (!css) return;
 	if (css.includes("__vite__updateStyle") || css.includes("import.meta.hot")) return;
 	const id = normalizeCssHref(href);
-	let style: HTMLStyleElement | undefined;
-	for (const el of doc.querySelectorAll("style[data-avalon-css]")) {
-		if (avalonCssId(el) === id) {
-			style = el as HTMLStyleElement;
-			break;
-		}
-	}
+	let style = findAvalonStyle(doc, id);
 	if (!style) {
 		style = doc.createElement("style");
 		style.dataset.avalonCss = id;

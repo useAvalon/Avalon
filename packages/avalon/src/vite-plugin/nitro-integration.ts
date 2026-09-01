@@ -588,6 +588,40 @@ function buildNitroVitePluginOptions(
 	return options;
 }
 
+function applyRendererOption(
+	options: Record<string, unknown>,
+	nitroOptions: NitroConfigOutput,
+	nitroConfig: AvalonNitroConfig,
+): void {
+	if (nitroConfig.renderer === false) {
+		options.renderer = false;
+		return;
+	}
+	if (nitroOptions.renderer) options.renderer = nitroOptions.renderer;
+}
+
+function isNitroBuildCommand(): boolean {
+	return process.argv.includes("build") || process.env.NODE_ENV === "production";
+}
+
+function applyExperimentalTaskOptions(
+	options: Record<string, unknown>,
+	nitroOptions: NitroConfigOutput,
+): void {
+	if (!nitroOptions.experimentalTasks) return;
+	if (!isNitroBuildCommand()) return;
+	options.experimental = {
+		...(options.experimental as Record<string, unknown> | undefined),
+		tasks: true,
+	};
+	if (nitroOptions.tasks && Object.keys(nitroOptions.tasks).length > 0) {
+		options.tasks = nitroOptions.tasks;
+	}
+	if (nitroOptions.scheduledTasks && Object.keys(nitroOptions.scheduledTasks).length > 0) {
+		options.scheduledTasks = nitroOptions.scheduledTasks;
+	}
+}
+
 function applyOptionalNitroViteOptions(
 	options: Record<string, unknown>,
 	nitroOptions: NitroConfigOutput,
@@ -595,11 +629,7 @@ function applyOptionalNitroViteOptions(
 ): void {
 	// Only pass renderer when explicitly configured — passing `undefined`
 	// can interfere with Nitro's internal SSR entry auto-detection.
-	if (nitroConfig.renderer === false) {
-		options.renderer = false;
-	} else if (nitroOptions.renderer) {
-		options.renderer = nitroOptions.renderer;
-	}
+	applyRendererOption(options, nitroOptions, nitroConfig);
 
 	if (nitroOptions.publicRuntimeConfig) {
 		options.publicRuntimeConfig = nitroOptions.publicRuntimeConfig;
@@ -621,19 +651,7 @@ function applyOptionalNitroViteOptions(
 	// jobs ourselves via the cron dev-scheduler plugin instead, keeping SSR owned
 	// by Avalon. `configResolved` isn't available here (isDev is hardcoded true at
 	// plugin-factory time), so detect the build command from argv/NODE_ENV.
-	const isBuildCommand = process.argv.includes("build") || process.env.NODE_ENV === "production";
-	if (nitroOptions.experimentalTasks && isBuildCommand) {
-		options.experimental = {
-			...(options.experimental as Record<string, unknown> | undefined),
-			tasks: true,
-		};
-		if (nitroOptions.tasks && Object.keys(nitroOptions.tasks).length > 0) {
-			options.tasks = nitroOptions.tasks;
-		}
-		if (nitroOptions.scheduledTasks && Object.keys(nitroOptions.scheduledTasks).length > 0) {
-			options.scheduledTasks = nitroOptions.scheduledTasks;
-		}
-	}
+	applyExperimentalTaskOptions(options, nitroOptions);
 
 	// Do NOT forward prerender config to Nitro — Nitro's built-in prerenderer
 	// doesn't work correctly with custom SSR entries (returns 404 for all routes).
