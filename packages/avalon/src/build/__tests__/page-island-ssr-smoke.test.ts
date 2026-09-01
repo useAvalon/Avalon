@@ -29,8 +29,16 @@ function runTransform(code: string): string {
 async function mockRenderIsland(opts: {
 	src: string;
 	props?: Record<string, unknown>;
+	key?: string | number;
 }): Promise<ReturnType<typeof h>> {
-	return h("avalon-island", { "data-src": opts.src, ...(opts.props ?? {}) });
+	const vnode = h("avalon-island", { "data-src": opts.src, ...(opts.props ?? {}) });
+	return mockWithListKey(opts.key, vnode);
+}
+
+/** Stand-in for `withListKey` so keyed helper rewrites resolve in `new Function`. */
+function mockWithListKey(key: unknown, vnode: ReturnType<typeof h>): ReturnType<typeof h> {
+	if (key === undefined || key === null) return vnode;
+	return h(Fragment, { key }, vnode);
 }
 
 /**
@@ -49,10 +57,11 @@ async function renderPage(source: string, props: Record<string, unknown> = {}): 
 	const importNames = [...source.matchAll(/^import\s+([A-Z]\w*)\s+from/gm)].map((m) => m[1]);
 	const prelude = importNames.map((name) => `const ${name} = null;`).join("\n");
 	const body = `${prelude}\n${compiled.code.replaceAll(/\bexport\s+default\s+/g, "")}\nreturn Page;`;
-	const Page = new Function("h", "Fragment", "__pageRenderIsland", body)(
+	const Page = new Function("h", "Fragment", "__pageRenderIsland", "__pageKeyed", body)(
 		h,
 		Fragment,
 		mockRenderIsland,
+		mockWithListKey,
 	) as (p: Record<string, unknown>) => Promise<unknown>;
 
 	const vnode = await Page(props);

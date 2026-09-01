@@ -153,6 +153,20 @@ function throwUnrewritable(kind: string, fileId: string, code: string, pos: numb
 	);
 }
 
+function assertCanMarkAsync(
+	enclosing: { fn: Node; parent: Node | null },
+	fileId: string,
+	code: string,
+	pos: number,
+): void {
+	if (isMethodParent(enclosing.parent)) {
+		throwUnrewritable("method", fileId, code, pos);
+	}
+	if (enclosing.fn.generator === true) {
+		throwUnrewritable("generator", fileId, code, pos);
+	}
+}
+
 function collectFunctionsNeedingAsync(program: Node, fileId: string, code: string): Set<Node> {
 	const needsAsync = new Set<Node>();
 
@@ -160,12 +174,7 @@ function collectFunctionsNeedingAsync(program: Node, fileId: string, code: strin
 		if (isMaskedAwait(node, code)) {
 			const enclosing = innermostFunction(ancestors);
 			if (!enclosing) continue;
-			if (isMethodParent(enclosing.parent)) {
-				throwUnrewritable("method", fileId, code, node.start);
-			}
-			if (enclosing.fn.generator === true) {
-				throwUnrewritable("generator", fileId, code, node.start);
-			}
+			assertCanMarkAsync(enclosing, fileId, code, node.start);
 			needsAsync.add(enclosing.fn);
 		}
 	}
@@ -196,6 +205,25 @@ function functionParents(program: Node): Map<Node, Node | null> {
 	return fnParent;
 }
 
+function helperJsxName(fn: Node, parent: Node | null, exported: Set<string>): string | null {
+	const name = functionName(fn, parent);
+	if (!name || !/^[A-Z]/.test(name) || exported.has(name)) return null;
+	return name;
+}
+
+function markEnclosingIfNew(
+	ancestors: Node[],
+	needsAsync: Set<Node>,
+	fileId: string,
+	code: string,
+): boolean {
+	const enclosing = innermostFunction(ancestors);
+	if (!enclosing || needsAsync.has(enclosing.fn)) return false;
+	assertCanMarkAsync(enclosing, fileId, code, enclosing.fn.start);
+	needsAsync.add(enclosing.fn);
+	return true;
+}
+
 /**
  * If a PascalCase helper must be async, every same-file function that renders
  * `<Helper />` must be async too — then those callers, until every injected
@@ -214,16 +242,12 @@ function propagateHelperParents(
 	while (grew) {
 		grew = false;
 		for (const fn of needsAsync) {
-			const name = functionName(fn, fnParent.get(fn) ?? null);
-			if (!name || !/^[A-Z]/.test(name) || exported.has(name)) continue;
+			const name = helperJsxName(fn, fnParent.get(fn) ?? null, exported);
+			if (!name) continue;
 			for (const usage of jsxByTag.get(name) ?? []) {
-				const enclosing = innermostFunction(usage.ancestors);
-				if (!enclosing || needsAsync.has(enclosing.fn)) continue;
-				if (isMethodParent(enclosing.parent)) {
-					throwUnrewritable("method", fileId, code, enclosing.fn.start);
+				if (markEnclosingIfNew(usage.ancestors, needsAsync, fileId, code)) {
+					grew = true;
 				}
-				needsAsync.add(enclosing.fn);
-				grew = true;
 			}
 		}
 	}
@@ -323,6 +347,22 @@ function assertRewritableListCallbacks(
 	}
 }
 
+/** `.map` / `.flatMap` whose callback needs await and is not already in Promise.all. */
+function listMapNeedingAwait(
+	node: Node,
+	ancestors: Node[],
+	needsAsync: Set<Node>,
+	helpers: Set<string>,
+): Node | null {
+	if (node.type !== "CallExpression") return null;
+	const method = calleePropertyName(node);
+	if (!method || !LIST_METHODS.has(method)) return null;
+	if (!callbackNeedsAwait(firstArg(node), needsAsync, helpers)) return null;
+	const parent = ancestors.at(-1) ?? null;
+	if (parent && isPromiseAllCall(parent)) return null;
+	return node;
+}
+
 /**
  * Wrapping `inner.map` in `await Promise.all` puts a new `await` in the parent
  * function (often an outer `.map` callback). That parent must become async too,
@@ -339,21 +379,10 @@ function propagateListParents(
 	while (grew) {
 		grew = false;
 		for (const { node, ancestors } of walk(program)) {
-			if (node.type !== "CallExpression") continue;
-			const method = calleePropertyName(node);
-			if (!method || !LIST_METHODS.has(method)) continue;
-			if (!callbackNeedsAwait(firstArg(node), needsAsync, helpers)) continue;
-			const parent = ancestors.at(-1) ?? null;
-			if (parent && isPromiseAllCall(parent)) continue;
-
+			if (!listMapNeedingAwait(node, ancestors, needsAsync, helpers)) continue;
 			const enclosing = innermostFunction(ancestors);
 			if (!enclosing) continue;
-			if (isMethodParent(enclosing.parent)) {
-				throwUnrewritable("method", fileId, code, node.start);
-			}
-			if (enclosing.fn.generator === true) {
-				throwUnrewritable("generator", fileId, code, node.start);
-			}
+			assertCanMarkAsync(enclosing, fileId, code, node.start);
 			if (needsAsync.has(enclosing.fn)) continue;
 			needsAsync.add(enclosing.fn);
 			grew = true;
@@ -361,38 +390,35 @@ function propagateListParents(
 	}
 }
 
+function wrapFlatMapCall(node: Node, optional: boolean): Edit[] {
+	const member = calleeMember(node);
+	const prop = member && isNode(member.property) ? member.property : null;
+	return [
+		{ start: node.start, end: node.start, text: "(await Promise.all(" },
+		...(prop ? [{ start: prop.start, end: prop.end, text: "map" }] : []),
+		{
+			start: node.end,
+			end: node.end,
+			text: optional ? " ?? [])).flat()" : ")).flat()",
+		},
+	];
+}
+
+function wrapListMapCall(node: Node): Edit[] {
+	const optional = isOptionalCall(node);
+	if (calleePropertyName(node) === "flatMap") return wrapFlatMapCall(node, optional);
+	return [
+		{ start: node.start, end: node.start, text: "await Promise.all(" },
+		{ start: node.end, end: node.end, text: optional ? " ?? [])" : ")" },
+	];
+}
+
 function mapWraps(program: Node, needsAsync: Set<Node>): Edit[] {
 	const helpers = localHelperNames(needsAsync, program);
 	const edits: Edit[] = [];
 	for (const { node, ancestors } of walk(program)) {
-		if (node.type !== "CallExpression") continue;
-		const method = calleePropertyName(node);
-		if (!method || !LIST_METHODS.has(method)) continue;
-		if (!callbackNeedsAwait(firstArg(node), needsAsync, helpers)) continue;
-
-		const parent = ancestors.at(-1) ?? null;
-		if (parent && isPromiseAllCall(parent)) continue;
-
-		const optional = isOptionalCall(node);
-		if (method === "flatMap") {
-			const member = calleeMember(node);
-			const prop = member && isNode(member.property) ? member.property : null;
-			edits.push({ start: node.start, end: node.start, text: "(await Promise.all(" });
-			if (prop) edits.push({ start: prop.start, end: prop.end, text: "map" });
-			edits.push({
-				start: node.end,
-				end: node.end,
-				text: optional ? " ?? [])).flat()" : ")).flat()",
-			});
-			continue;
-		}
-
-		edits.push({ start: node.start, end: node.start, text: "await Promise.all(" });
-		edits.push({
-			start: node.end,
-			end: node.end,
-			text: optional ? " ?? [])" : ")",
-		});
+		if (!listMapNeedingAwait(node, ancestors, needsAsync, helpers)) continue;
+		edits.push(...wrapListMapCall(node));
 	}
 	return edits;
 }
@@ -423,15 +449,40 @@ function jsxAttributeToProp(attr: Node, code: string): string | null {
 	return `${name}: ${code.slice(attr.value.start, attr.value.end)}`;
 }
 
-function jsxElementToAwaitCall(element: Node, tag: string, code: string): string {
-	const opening = isNode(element.openingElement) ? element.openingElement : null;
+function jsxKeyExpression(attr: Node, code: string): string | null {
+	if (attr.type !== "JSXAttribute" || !isNode(attr.name)) return null;
+	const name = typeof attr.name.name === "string" ? attr.name.name : null;
+	if (name !== "key" || !isNode(attr.value)) return null;
+	if (attr.value.type === "JSXExpressionContainer" && isNode(attr.value.expression)) {
+		const expr = attr.value.expression;
+		return code.slice(expr.start, expr.end);
+	}
+	return code.slice(attr.value.start, attr.value.end);
+}
+
+function jsxOpeningProps(
+	opening: Node | null,
+	code: string,
+): { props: string[]; keyExpr: string | null } {
 	const props: string[] = [];
+	let keyExpr: string | null = null;
 	const attributes = opening && Array.isArray(opening.attributes) ? opening.attributes : [];
 	for (const attr of attributes) {
 		if (!isNode(attr)) continue;
+		const key = jsxKeyExpression(attr, code);
+		if (key != null) {
+			keyExpr = key;
+			continue;
+		}
 		const prop = jsxAttributeToProp(attr, code);
 		if (prop) props.push(prop);
 	}
+	return { props, keyExpr };
+}
+
+function jsxElementToAwaitCall(element: Node, tag: string, code: string): string {
+	const opening = isNode(element.openingElement) ? element.openingElement : null;
+	const { props, keyExpr } = jsxOpeningProps(opening, code);
 
 	if (opening?.selfClosing !== true && isNode(element.closingElement)) {
 		const inner = code.slice(opening ? opening.end : element.start, element.closingElement.start);
@@ -439,7 +490,8 @@ function jsxElementToAwaitCall(element: Node, tag: string, code: string): string
 	}
 
 	const obj = props.length > 0 ? `{ ${props.join(", ")} }` : "{}";
-	return `await ${tag}(${obj})`;
+	const call = `await ${tag}(${obj})`;
+	return keyExpr == null ? call : `__pageKeyed(${keyExpr}, ${call})`;
 }
 
 function jsxRewrites(program: Node, needsAsync: Set<Node>, code: string): Edit[] {

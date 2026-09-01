@@ -67,11 +67,26 @@ export interface IslandProps {
 	server?: ServerIslandProp;
 	/** Island directive for combined server + client islands */
 	island?: IslandDirective;
+	/** React/Preact list key — set on the host VNode, never serialized into props */
+	key?: string | number;
 }
 
 // ---------------------------------------------------------------------------
 // Shared helpers (extracted to reduce cognitive complexity of Island/renderIsland)
 // ---------------------------------------------------------------------------
+
+function applyListKey(vnode: JSX.Element, key: unknown): JSX.Element {
+	if (key === undefined || key === null) return vnode;
+	return h(shellFragment(), { key }, vnode);
+}
+
+/**
+ * Attach a list key to a VNode returned from a rewritten helper call.
+ * Pages import this as `__pageKeyed` from the island transform.
+ */
+export function withListKey(key: unknown, vnode: JSX.Element): JSX.Element {
+	return applyListKey(vnode, key);
+}
 
 /** Generate a deterministic island element ID from the source path */
 function toIslandId(src: string): string {
@@ -700,6 +715,7 @@ export async function renderIsland({
 	component: preloadedComponent,
 	server,
 	island,
+	key,
 }: IslandProps): Promise<JSX.Element> {
 	const startTime = isDev() ? performance.now() : 0;
 	const logPrefix = `🏝️ [${src}]`;
@@ -725,13 +741,16 @@ export async function renderIsland({
 			// Return raw HTML wrapped in a fragment. The wrapper uses a data attribute
 			// (data-server-island-wrapper) instead of an inline style so it stays
 			// CSP-safe; the `display: contents` rule lives in the framework baseline CSS.
-			return h(
-				shellFragment(),
-				null,
-				h("div", {
-					dangerouslySetInnerHTML: { __html: serverIslandHtml },
-					"data-server-island-wrapper": "",
-				}),
+			return applyListKey(
+				h(
+					shellFragment(),
+					null,
+					h("div", {
+						dangerouslySetInnerHTML: { __html: serverIslandHtml },
+						"data-server-island-wrapper": "",
+					}),
+				),
+				key,
 			);
 		}
 
@@ -742,35 +761,41 @@ export async function renderIsland({
 
 		// Fast path: explicit framework skips all analysis/detection
 		if (framework) {
-			return await renderWithExplicitFramework({
+			return applyListKey(
+				await renderWithExplicitFramework({
+					src,
+					condition,
+					conditionArg,
+					props,
+					children,
+					ssr,
+					framework,
+					ssrOnly,
+					renderOptions,
+					component: preloadedComponent,
+				}),
+				key,
+			);
+		}
+
+		// Slow path: detect framework and analyze component
+		return applyListKey(
+			await renderIslandSlowPath({
 				src,
 				condition,
 				conditionArg,
 				props,
 				children,
 				ssr,
-				framework,
 				ssrOnly,
 				renderOptions,
+				logPrefix,
 				component: preloadedComponent,
-			});
-		}
-
-		// Slow path: detect framework and analyze component
-		return await renderIslandSlowPath({
-			src,
-			condition,
-			conditionArg,
-			props,
-			children,
-			ssr,
-			ssrOnly,
-			renderOptions,
-			logPrefix,
-			component: preloadedComponent,
-		});
+			}),
+			key,
+		);
 	} catch (error) {
-		return renderErrorPlaceholder(src, error);
+		return applyListKey(renderErrorPlaceholder(src, error), key);
 	} finally {
 		if (isDev()) {
 			logRenderTiming(src, performance.now() - startTime);

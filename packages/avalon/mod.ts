@@ -151,7 +151,12 @@ export {
 	preloadIntegrations,
 } from "./src/islands/integration-loader.ts";
 // Universal Island component (single function auto-detects framework)
-export { default as Island, type IslandProps, renderIsland } from "./src/islands/island.tsx";
+export {
+	default as Island,
+	type IslandProps,
+	renderIsland,
+	withListKey,
+} from "./src/islands/island.tsx";
 export type {
 	CacheConfig as IslandCacheConfig,
 	CacheStats as IslandCacheStats,

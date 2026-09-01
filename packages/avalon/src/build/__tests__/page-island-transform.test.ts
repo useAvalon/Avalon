@@ -152,6 +152,8 @@ export default function Page({ items }: { items: { id: string; name: string }[] 
 		expect(out).toContain("await Promise.all(");
 		expect(out).toContain("async (item) =>");
 		expect(out).not.toMatch(/<Card[\s>]/);
+		expect(out).toContain("__pageKeyed(item.id, await Card(");
+		expect(out).toContain("withListKey as __pageKeyed");
 		expectParses(out);
 	});
 
@@ -167,6 +169,7 @@ export default function Page({ ids }: { ids: string[] }) {
 		expect(out).toMatch(/const Row = async\s*\(/);
 		expect(out).toContain("await Row(");
 		expect(out).toContain("await Promise.all(");
+		expect(out).toContain("__pageKeyed(id, await Row(");
 		expectParses(out);
 	});
 
@@ -233,6 +236,17 @@ export default class Page {
 		const code = `import Counter from "../components/Counter.tsx";
 export default function* Page() {
   yield <div><Counter island={{ condition: "on:client" }} /></div>;
+}`;
+		expect(() => runTransform(code)).toThrow(/generator/);
+	});
+
+	it("errors when a helper with an island is rendered from a generator", () => {
+		const code = `import Counter from "../components/Counter.tsx";
+function Card() {
+  return <div><Counter island={{ condition: "on:client" }} /></div>;
+}
+export default function* Page() {
+  yield <Card />;
 }`;
 		expect(() => runTransform(code)).toThrow(/generator/);
 	});
@@ -338,6 +352,8 @@ export default function Page({ items }: { items: { id: string; name: string }[] 
 		expect(out).toContain("await CardGrid(");
 		expect(out).toContain("await PageBody(");
 		expect(out).toContain("export default async function Page");
+		expect(out).toContain("key: (item.id)");
+		expect(out).not.toMatch(/props:\s*\{[^}]*\bkey:/);
 		expectParses(out);
 	});
 
@@ -381,6 +397,35 @@ export default function Page({ items }: { items: { id: string }[] }) {
   return <div>{nodes}</div>;
 }`;
 		expect(() => runTransform(code)).toThrow(/forEach\(\) callback/);
+	});
+});
+
+describe("pageIslandTransform — list keys", () => {
+	it("passes key into renderIsland instead of island props", () => {
+		const code = `import Card from "../components/Card.react.tsx";
+
+export default async function Page({
+  items,
+}: {
+  items: { id: string; name: string }[];
+}) {
+  return (
+    <ul>
+      {items.map((item) => (
+        <Card
+          key={item.id}
+          island={{ condition: "on:visible" }}
+          item={item}
+        />
+      ))}
+    </ul>
+  );
+}`;
+		const out = runTransform(code);
+		expect(out).toContain("key: (item.id)");
+		expect(out).toContain("props: { item: item }");
+		expect(out).not.toMatch(/props:\s*\{[^}]*\bkey:/);
+		expectParses(out);
 	});
 });
 
