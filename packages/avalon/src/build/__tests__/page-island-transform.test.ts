@@ -308,6 +308,39 @@ export default function Page() {
 		expectParses(out);
 	});
 
+	it("marks a parent helper async when it only composes a grid that maps islands", () => {
+		const code = `import Card from "../components/Card.react.tsx";
+
+function CardGrid({ items }: { items: { id: string; name: string }[] }) {
+  return (
+    <ul>
+      {items.map((item) => (
+        <Card
+          key={item.id}
+          island={{ condition: "on:visible" }}
+          item={item}
+        />
+      ))}
+    </ul>
+  );
+}
+
+function PageBody({ items }: { items: { id: string; name: string }[] }) {
+  return <CardGrid items={items} />;
+}
+
+export default function Page({ items }: { items: { id: string; name: string }[] }) {
+  return <PageBody items={items} />;
+}`;
+		const out = runTransform(code);
+		expect(out).toContain("async function CardGrid");
+		expect(out).toContain("async function PageBody");
+		expect(out).toContain("await CardGrid(");
+		expect(out).toContain("await PageBody(");
+		expect(out).toContain("export default async function Page");
+		expectParses(out);
+	});
+
 	it("propagates async through nested helpers", () => {
 		const code = `import Toggle from "../components/Toggle.tsx";
 function Row() {

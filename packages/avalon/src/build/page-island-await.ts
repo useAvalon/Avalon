@@ -155,14 +155,8 @@ function throwUnrewritable(kind: string, fileId: string, code: string, pos: numb
 
 function collectFunctionsNeedingAsync(program: Node, fileId: string, code: string): Set<Node> {
 	const needsAsync = new Set<Node>();
-	const fnParent = new Map<Node, Node | null>();
-	const jsxByTag = new Map<string, Array<{ ancestors: Node[] }>>();
 
 	for (const { node, ancestors } of walk(program)) {
-		if (FUNCTION_TYPES.has(node.type)) {
-			fnParent.set(node, ancestors.at(-1) ?? null);
-		}
-
 		if (isMaskedAwait(node, code)) {
 			const enclosing = innermostFunction(ancestors);
 			if (!enclosing) continue;
@@ -174,16 +168,47 @@ function collectFunctionsNeedingAsync(program: Node, fileId: string, code: strin
 			}
 			needsAsync.add(enclosing.fn);
 		}
-
-		if (node.type === "JSXElement") {
-			const tag = jsxTagName(node);
-			if (!tag) continue;
-			const list = jsxByTag.get(tag) ?? [];
-			list.push({ ancestors: ancestors.slice() });
-			jsxByTag.set(tag, list);
-		}
 	}
 
+	return needsAsync;
+}
+
+function jsxUsagesByTag(program: Node): Map<string, Array<{ ancestors: Node[] }>> {
+	const jsxByTag = new Map<string, Array<{ ancestors: Node[] }>>();
+	for (const { node, ancestors } of walk(program)) {
+		if (node.type !== "JSXElement") continue;
+		const tag = jsxTagName(node);
+		if (!tag) continue;
+		const list = jsxByTag.get(tag) ?? [];
+		list.push({ ancestors: ancestors.slice() });
+		jsxByTag.set(tag, list);
+	}
+	return jsxByTag;
+}
+
+function functionParents(program: Node): Map<Node, Node | null> {
+	const fnParent = new Map<Node, Node | null>();
+	for (const { node, ancestors } of walk(program)) {
+		if (FUNCTION_TYPES.has(node.type)) {
+			fnParent.set(node, ancestors.at(-1) ?? null);
+		}
+	}
+	return fnParent;
+}
+
+/**
+ * If a PascalCase helper must be async, every same-file function that renders
+ * `<Helper />` must be async too — then those callers, until every injected
+ * `await Helper(...)` sits in an async context.
+ */
+function propagateHelperParents(
+	program: Node,
+	needsAsync: Set<Node>,
+	fileId: string,
+	code: string,
+): void {
+	const fnParent = functionParents(program);
+	const jsxByTag = jsxUsagesByTag(program);
 	const exported = defaultExportNames(program);
 	let grew = true;
 	while (grew) {
@@ -193,18 +218,15 @@ function collectFunctionsNeedingAsync(program: Node, fileId: string, code: strin
 			if (!name || !/^[A-Z]/.test(name) || exported.has(name)) continue;
 			for (const usage of jsxByTag.get(name) ?? []) {
 				const enclosing = innermostFunction(usage.ancestors);
-				if (enclosing && !needsAsync.has(enclosing.fn)) {
-					if (isMethodParent(enclosing.parent)) {
-						throwUnrewritable("method", fileId, code, enclosing.fn.start);
-					}
-					needsAsync.add(enclosing.fn);
-					grew = true;
+				if (!enclosing || needsAsync.has(enclosing.fn)) continue;
+				if (isMethodParent(enclosing.parent)) {
+					throwUnrewritable("method", fileId, code, enclosing.fn.start);
 				}
+				needsAsync.add(enclosing.fn);
+				grew = true;
 			}
 		}
 	}
-
-	return needsAsync;
 }
 
 function jsxTagName(element: Node): string | null {
@@ -458,8 +480,14 @@ function applyEdits(code: string, edits: Edit[]): string {
 export function ensureAwaitContextsAsync(code: string, fileId: string): string {
 	const program = parseTsx(code, fileId);
 	const needsAsync = collectFunctionsNeedingAsync(program, fileId, code);
-	const helpers = localHelperNames(needsAsync, program);
-	propagateListParents(program, needsAsync, helpers, fileId, code);
+	let helpers = localHelperNames(needsAsync, program);
+	let previous = 0;
+	while (needsAsync.size !== previous) {
+		previous = needsAsync.size;
+		helpers = localHelperNames(needsAsync, program);
+		propagateListParents(program, needsAsync, helpers, fileId, code);
+		propagateHelperParents(program, needsAsync, fileId, code);
+	}
 	assertRewritableListCallbacks(program, needsAsync, helpers, fileId, code);
 	return applyEdits(code, [
 		...asyncInserts(needsAsync),
