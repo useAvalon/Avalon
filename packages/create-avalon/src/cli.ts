@@ -38,7 +38,7 @@ async function main(): Promise<void> {
 				"      --styling        css-modules (default) | tailwind | shadcn",
 				"      --plugins        Comma list: seo (default),agent-optimization,syntax-highlighting",
 				"      --middleware     h3 (default) | hono | elysia",
-				"      --deploy         netlify | none (default)",
+				"      --deploy         cloudflare | netlify | none (default)",
 				"      --cron           Scaffold an example cron task + config",
 				"",
 				"Example:",

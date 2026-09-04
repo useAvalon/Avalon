@@ -180,4 +180,16 @@ describe("generateViteConfig", () => {
 		expect(result).toContain(`modules: 'app/modules'`);
 		expect(result).toContain(`layoutsDir: 'app/shared/layouts'`);
 	});
+
+	it("adds compatibilityDate when deploy is cloudflare", () => {
+		const result = generateViteConfig({ ...baseConfig, deploy: "cloudflare" });
+		expect(result).toContain("compatibilityDate: '2026-09-04'");
+	});
+
+	it("does not add compatibilityDate for non-cloudflare deploys", () => {
+		expect(generateViteConfig(baseConfig)).not.toContain("compatibilityDate");
+		expect(generateViteConfig({ ...baseConfig, deploy: "netlify" })).not.toContain(
+			"compatibilityDate",
+		);
+	});
 });

@@ -64,7 +64,7 @@ export function parseCliArgs(argv: string[]): CLIArgs {
 			styling: { type: "string" }, // css-modules | tailwind | shadcn
 			plugins: { type: "string" }, // comma list: seo,agent-optimization
 			middleware: { type: "string" }, // h3 | hono | elysia
-			deploy: { type: "string" }, // netlify | none
+			deploy: { type: "string" }, // cloudflare | netlify | none
 			cron: { type: "boolean", default: false },
 		},
 		strict: true,

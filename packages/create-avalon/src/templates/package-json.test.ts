@@ -25,11 +25,19 @@ describe("generatePackageJson", () => {
 		expect(pkg.dependencies["@useavalon/avalon"]).toBe("latest");
 	});
 
-	it("includes dev, build, preview scripts", () => {
+	it("includes preview script for node_server by default", () => {
 		const pkg = JSON.parse(generatePackageJson(baseConfig));
 		expect(pkg.scripts.dev).toBe("bunx --bun vite dev");
 		expect(pkg.scripts.build).toBe("node build.mjs");
 		expect(pkg.scripts.preview).toBe("node .output/server/index.mjs");
+	});
+
+	it("uses wrangler pages scripts when deploy is cloudflare", () => {
+		const pkg = JSON.parse(
+			generatePackageJson({ ...baseConfig, projectName: "Cool App", deploy: "cloudflare" }),
+		);
+		expect(pkg.scripts.preview).toBe("bunx wrangler@4 pages dev dist");
+		expect(pkg.scripts.deploy).toBe("bunx wrangler@4 pages deploy --project-name=cool-app");
 	});
 
 	it("includes vite, typescript, nitro as devDependencies", () => {

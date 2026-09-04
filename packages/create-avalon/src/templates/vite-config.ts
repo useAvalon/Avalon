@@ -77,6 +77,10 @@ export function generateViteConfig(config: ProjectConfig): string {
 			]
 		: [];
 
+	// Cloudflare Pages needs a current compatibility date for node:fs under nodejs_compat.
+	const compatLines =
+		config.deploy === "cloudflare" ? [`      compatibilityDate: '2026-09-04',`] : [];
+
 	const lines = [
 		imports.join("\n"),
 		"",
@@ -90,6 +94,7 @@ export function generateViteConfig(config: ProjectConfig): string {
 		`    nitro: {`,
 		`      preset: process.env.NITRO_PRESET || 'node_server',`,
 		`      streaming: true,`,
+		...compatLines,
 		`      clientEntry: 'app/entry-client',`,
 		`      globalCSS: ['app/shared/styles/main.css'],`,
 		`      prerender: {`,

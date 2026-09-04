@@ -190,14 +190,18 @@ describe("scaffoldProject", () => {
 		expect(await exists(join(target, "index.html"))).toBe(false);
 	});
 
-	it("does not generate deploy files when deploy is none", async () => {
+	it("does not generate platform config when deploy is none", async () => {
 		const target = join(tempDir, "out");
 		await scaffoldProject(baseConfig, target);
 
 		expect(await exists(join(target, "netlify.toml"))).toBe(false);
+		expect(await exists(join(target, "wrangler.toml"))).toBe(false);
+		expect(await exists(join(target, "public/_headers"))).toBe(false);
 		// build.mjs and post-build.mjs are always generated (Vite hangs without the wrapper)
 		expect(await exists(join(target, "build.mjs"))).toBe(true);
 		expect(await exists(join(target, "post-build.mjs"))).toBe(true);
+		expect(await exists(join(target, "DEPLOY.md"))).toBe(true);
+		expect(await exists(join(target, ".gitignore"))).toBe(true);
 	});
 
 	it("generates netlify.toml, build.mjs, and post-build.mjs when deploy is netlify", async () => {
@@ -211,9 +215,40 @@ describe("scaffoldProject", () => {
 
 		const buildMjs = await read("build.mjs");
 		expect(buildMjs).toContain("vite build");
+		expect(buildMjs).toContain("cloudflare_pages");
 
 		const postBuild = await read("post-build.mjs");
 		expect(postBuild).toContain("post-build");
+
+		const deployMd = await read("DEPLOY.md");
+		expect(deployMd).toContain("Netlify");
+	});
+
+	it("generates wrangler.toml, _headers, and CF scripts when deploy is cloudflare", async () => {
+		const config: ProjectConfig = { ...baseConfig, projectName: "Demo Site", deploy: "cloudflare" };
+		const target = join(tempDir, "out");
+		await scaffoldProject(config, target);
+
+		const toml = await read("wrangler.toml");
+		expect(toml).toContain('name = "demo-site"');
+		expect(toml).toContain("nodejs_compat");
+		expect(toml).toContain('pages_build_output_dir = "./dist"');
+
+		const headers = await read("public/_headers");
+		expect(headers).toContain("/islands/*");
+
+		const pkg = JSON.parse(await read("package.json"));
+		expect(pkg.scripts.preview).toContain("wrangler@4 pages dev");
+		expect(pkg.scripts.deploy).toContain("--project-name=demo-site");
+
+		const vite = await read("vite.config.ts");
+		expect(vite).toContain("compatibilityDate: '2026-09-04'");
+
+		const deployMd = await read("DEPLOY.md");
+		expect(deployMd).toContain("Cloudflare Pages");
+		expect(deployMd).toContain("pages project create demo-site");
+
+		expect(await exists(join(target, "netlify.toml"))).toBe(false);
 	});
 
 	it("uses hono patterns when middleware is hono", async () => {

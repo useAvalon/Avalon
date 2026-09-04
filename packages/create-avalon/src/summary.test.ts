@@ -91,6 +91,17 @@ describe("formatSummary", () => {
 		expect(result).toContain("Middleware:     elysia");
 	});
 
+	it("shows Cloudflare Pages deploy label", () => {
+		const result = formatSummary({ ...baseConfig, deploy: "cloudflare" });
+		expect(result).toContain("Deploy:         Cloudflare Pages");
+		expect(result).toContain("DEPLOY.md");
+	});
+
+	it("shows Netlify deploy label", () => {
+		const result = formatSummary({ ...baseConfig, deploy: "netlify" });
+		expect(result).toContain("Deploy:         Netlify");
+	});
+
 	// --- Next steps ---
 
 	it("includes cd command with project name", () => {
