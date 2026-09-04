@@ -152,6 +152,16 @@ describe("deferNonCriticalStylesheets", () => {
 		expect(result).toContain("<noscript>");
 	});
 
+	it("handles Preact self-closing link tags without breaking the attribute list", () => {
+		const html = `<link rel="stylesheet" href="/syntax-highlighting.css" />`;
+		const result = deferNonCriticalStylesheets(html);
+		expect(result).toContain(
+			`<link rel="stylesheet" href="/syntax-highlighting.css" media="print" onload="this.media='all'">`,
+		);
+		expect(result).not.toContain('css"/ media');
+		expect(result.match(/<noscript>/g)?.length).toBe(1);
+	});
+
 	it("defers local stylesheets with data-defer attribute", () => {
 		const html = `<link rel="stylesheet" href="/custom-theme.css" data-defer>`;
 		const result = deferNonCriticalStylesheets(html);

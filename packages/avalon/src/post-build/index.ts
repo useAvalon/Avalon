@@ -99,6 +99,15 @@ function resolveCloudflareWorker(cwd: string): string | null {
 	return null;
 }
 
+/**
+ * SSR asset manifest (client CSS/JS) lives in `_ssr/ssr.mjs` for Cloudflare Pages
+ * directory workers — not in `index.js` (the fetch entry).
+ */
+function resolveCloudflareSsrBundle(cwd: string): string | null {
+	const ssr = join(cwd, "dist", "_worker.js", "_ssr", "ssr.mjs");
+	return isFile(ssr) ? ssr : null;
+}
+
 // ─── Cleanup ─────────────────────────────────────────────────────────
 
 function isViteGeneratedHtml(filePath: string): boolean {
@@ -133,8 +142,15 @@ function minifyCSS(css: string): string {
 		.trim();
 }
 
-function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string): void {
-	if (!isFile(ssrBundlePath)) return;
+/**
+ * Ensure the SSR client-assets `css` array lists global stylesheets (`index-*.css`
+ * / `entry-client-*.css`). Prerender strips `entry-client` CSS for per-island
+ * hydration, so without `index-*.css` in this array pages ship with no styles.
+ *
+ * Exported for unit tests.
+ */
+export function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string): boolean {
+	if (!isFile(ssrBundlePath)) return false;
 
 	const assetsDir = join(distDir, "assets");
 	const assetsDirs = [
@@ -143,7 +159,7 @@ function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string):
 		join(cwd, ".output", "public", "assets"),
 	];
 	const foundAssetsDir = assetsDirs.find((d) => existsSync(d));
-	if (!foundAssetsDir) return;
+	if (!foundAssetsDir) return false;
 
 	const allCssPaths = collectFiles(foundAssetsDir, (n) => n.endsWith(".css"))
 		.filter((f) => {
@@ -169,12 +185,40 @@ function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string):
 
 	let code = readFileSync(ssrBundlePath, "utf-8");
 
-	const patterns = [
-		{ re: /css:\[(\{href:`[^`]+`\}(?:,\{href:`[^`]+`\})*)\]/, hrefRe: /href:`([^`]+)`/g, q: "`" },
-		{ re: /css:\[(\{href:"[^"]+"\}(?:,\{href:"[^"]+"\})*)\]/, hrefRe: /href:"([^"]+)"/g, q: '"' },
+	const patterns: Array<{
+		re: RegExp;
+		hrefRe: RegExp;
+		formatEntry: (href: string) => string;
+		rebuild: (inner: string, entries: string[]) => string;
+	}> = [
+		// Rolldown / Nitro: "css": [{ "href": "/assets/…" }]
+		{
+			re: /"css"\s*:\s*\[((?:\s*\{\s*"href"\s*:\s*"[^"]+"\s*\}\s*,?)*)\]/,
+			hrefRe: /"href"\s*:\s*"([^"]+)"/g,
+			formatEntry: (href) => `{ "href": "${href}" }`,
+			rebuild: (inner, entries) => {
+				const base = inner.trim().replace(/,\s*$/, "");
+				const joined = [...(base ? [base] : []), ...entries].join(", ");
+				return `"css": [${joined}]`;
+			},
+		},
+		// Legacy compact: css:[{href:`…`}]
+		{
+			re: /css:\[(\{href:`[^`]+`\}(?:,\{href:`[^`]+`\})*)\]/,
+			hrefRe: /href:`([^`]+)`/g,
+			formatEntry: (href) => `{href:\`${href}\`}`,
+			rebuild: (inner, entries) => `css:[${inner},${entries.join(",")}]`,
+		},
+		// Legacy compact: css:[{href:"…"}]
+		{
+			re: /css:\[(\{href:"[^"]+"\}(?:,\{href:"[^"]+"\})*)\]/,
+			hrefRe: /href:"([^"]+)"/g,
+			formatEntry: (href) => `{href:"${href}"}`,
+			rebuild: (inner, entries) => `css:[${inner},${entries.join(",")}]`,
+		},
 	];
 
-	for (const { re, hrefRe, q } of patterns) {
+	for (const { re, hrefRe, formatEntry, rebuild } of patterns) {
 		const match = re.exec(code);
 		if (!match) continue;
 
@@ -182,17 +226,18 @@ function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string):
 		const newPaths = allCssPaths.filter((p) => !existingSet.has(p));
 		if (newPaths.length === 0) {
 			console.log("[patch] All CSS already included");
-			return;
+			return true;
 		}
 
-		const newEntries = newPaths.map((p) => `{href:${q}${p}${q}}`).join(",");
-		code = code.replace(match[0], `css:[${match[1]},${newEntries}]`);
+		const newEntries = newPaths.map(formatEntry);
+		code = code.replace(match[0], rebuild(match[1], newEntries));
 		writeFileSync(ssrBundlePath, code);
 		console.log(`[patch] ✅ Added ${newPaths.length} CSS files to SSR bundle`);
-		return;
+		return true;
 	}
 
 	console.warn("[patch] Could not find CSS array in SSR bundle");
+	return false;
 }
 
 // ─── Copy SSR CSS to Client ──────────────────────────────────────────
@@ -648,10 +693,17 @@ async function prerenderIfConfigured(
 						/<script type="module" src="\/assets\/entry-client[^"]*\.js"><\/script>\n?/g,
 						"",
 					);
-					final = final.replaceAll(
-						/<link rel="stylesheet" href="\/assets\/entry-client[^"]*\.css">\n?/g,
-						"",
-					);
+					// Strip entry-client CSS only when global index/ssr-index CSS remains.
+					// Otherwise pages lose all styles (patchSSRBundleCSS failed or incomplete).
+					const hasGlobalCss =
+						/\/assets\/(?:ssr-)?index-[^"]+\.css/.test(final) ||
+						/<style data-inlined-from="\/assets\/(?:ssr-)?index-/.test(final);
+					if (hasGlobalCss) {
+						final = final.replaceAll(
+							/<link rel="stylesheet" href="\/assets\/entry-client[^"]*\.css">\n?/g,
+							"",
+						);
+					}
 					final = final.replaceAll(
 						/<link rel="modulepreload" href="\/assets\/entry-client[^"]*\.js">\n?/g,
 						"",
@@ -974,11 +1026,16 @@ function inlineOrPreloadGlobalCSS(html: string, cssCache: Map<string, string>): 
 function deferNonCriticalStylesheetsStatic(html: string): string {
 	const linkRegex = /<link\s+([^>]*rel=["']stylesheet["'][^>]*)>/gi;
 
-	return html.replaceAll(linkRegex, (fullMatch, attrs: string) => {
-		if (/\bmedia\s*=/i.test(attrs)) return fullMatch;
-		if (/data-critical/i.test(attrs)) return fullMatch;
+	return html.replaceAll(linkRegex, (fullMatch, attrs: string, offset: number) => {
+		// Skip fallbacks already wrapped in <noscript> (avoids nested defer passes).
+		const before = html.slice(Math.max(0, offset - 32), offset).toLowerCase();
+		if (before.includes("<noscript")) return fullMatch;
 
-		const hrefResult = /href=["']([^"']+)["']/i.exec(attrs);
+		const normalizedAttrs = attrs.replace(/\s*\/\s*$/, "").trim();
+		if (/\bmedia\s*=/i.test(normalizedAttrs)) return fullMatch;
+		if (/data-critical/i.test(normalizedAttrs)) return fullMatch;
+
+		const hrefResult = /href=["']([^"']+)["']/i.exec(normalizedAttrs);
 		if (!hrefResult) return fullMatch;
 
 		const href = hrefResult[1];
@@ -987,7 +1044,7 @@ function deferNonCriticalStylesheetsStatic(html: string): string {
 
 		if (!isExternal && !isDeferableLocal) return fullMatch;
 
-		return `<link ${attrs} media="print" onload="this.media='all'">\n<noscript><link ${attrs}></noscript>`;
+		return `<link ${normalizedAttrs} media="print" onload="this.media='all'">\n<noscript><link ${normalizedAttrs}></noscript>`;
 	});
 }
 
@@ -1210,12 +1267,12 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 	// 2. Copy SSR CSS to client assets
 	copySSRCSSToClient(cwd, distDir);
 
-	// 3. Patch SSR bundle CSS array
+	// 3. Patch SSR bundle CSS array (Cloudflare: `_ssr/ssr.mjs`, not worker `index.js`)
 	for (const ssrPath of [
 		join(cwd, ".netlify", "functions-internal", "server", "_ssr", "ssr.mjs"),
 		join(cwd, ".netlify", "v1", "functions", "server", "_ssr", "ssr.mjs"),
 		join(cwd, ".output", "server", "_ssr", "ssr.mjs"),
-		resolveCloudflareWorker(cwd),
+		resolveCloudflareSsrBundle(cwd),
 	]) {
 		if (!ssrPath) continue;
 		if (isFile(ssrPath)) {
