@@ -42,6 +42,10 @@ declare module "virtual:avalon/assets" {
 	};
 }
 
+declare module "virtual:avalon/ssr-dom" {
+	// Side-effect module: installs a `document` stub before Lit SSR loads.
+}
+
 declare module "virtual:avalon/renderer" {
 	const handler: {
 		(event: unknown): Promise<Response>;

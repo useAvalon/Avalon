@@ -29,6 +29,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
+import { fetchHandlerWrapperSource } from "./fetch-handler-wrapper.ts";
 
 export interface PrerenderConfig {
 	/** Routes to prerender (default: ['/']) */
@@ -429,52 +430,7 @@ function isNetlifyHandler(serverEntryPath: string): boolean {
 function writeFetchHandlerWrapper(modulePath: string, port: number): string {
 	const wrapperPath = join(dirname(modulePath), "_prerender-server.mjs");
 	const importSpec = `./${basename(modulePath)}`;
-	const code = `
-import 'urlpattern-polyfill';
-import { createServer } from 'node:http';
-
-const mod = await import(${JSON.stringify(importSpec)});
-const handler = mod.handler || mod.default;
-if (!handler) { console.error('No handler found in ${importSpec}'); process.exit(1); }
-
-const server = createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://localhost:${port}');
-  try {
-    const hdrs = new Headers();
-    for (const [k, v] of Object.entries(req.headers)) {
-      if (v) hdrs.set(k, Array.isArray(v) ? v.join(', ') : v);
-    }
-    const request = new Request(url.href, { method: req.method, headers: hdrs });
-
-    let response;
-    if (handler.fetch) {
-      response = await handler.fetch(request, {}, {});
-    } else if (typeof handler === 'function') {
-      response = await handler(request);
-    } else {
-      res.writeHead(500);
-      res.end('Unknown handler format');
-      return;
-    }
-
-    const body = await response.text();
-    const resHdrs = {};
-    if (response.headers && typeof response.headers.forEach === 'function') {
-      response.headers.forEach((v, k) => { resHdrs[k] = v; });
-    } else if (response.headers && typeof response.headers === 'object') {
-      Object.assign(resHdrs, response.headers);
-    }
-    res.writeHead(response.status || 200, resHdrs);
-    res.end(body);
-  } catch (err) {
-    console.error('Prerender request error:', err);
-    res.writeHead(500);
-    res.end('Internal Server Error');
-  }
-});
-server.listen(${port}, '127.0.0.1', () => console.log('Listening on http://127.0.0.1:${port}'));
-`;
-	writeFileSync(wrapperPath, code);
+	writeFileSync(wrapperPath, fetchHandlerWrapperSource(importSpec, port));
 	return wrapperPath;
 }
 

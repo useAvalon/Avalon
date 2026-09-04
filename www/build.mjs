@@ -7,7 +7,7 @@
  */
 
 import { spawn, execSync } from 'node:child_process';
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const CWD = process.cwd();
@@ -15,6 +15,20 @@ const NITRO_JSON = join(CWD, '.netlify', 'functions-internal', 'nitro.json');
 const SERVER_MJS = join(CWD, '.netlify', 'functions-internal', 'server', 'server.mjs');
 const OUTPUT_SSR = join(CWD, '.output', 'server', '_ssr', 'ssr.mjs');
 const CF_WORKER = join(CWD, 'dist', '_worker.js');
+
+/** True when Nitro finished a Cloudflare worker file, not an empty client-build directory. */
+function isCloudflareWorkerReady() {
+	try {
+		const st = statSync(CF_WORKER);
+		if (st.isFile()) return true;
+		if (st.isDirectory()) {
+			return existsSync(join(CF_WORKER, 'index.js')) || existsSync(join(CF_WORKER, 'index.mjs'));
+		}
+	} catch {
+		return false;
+	}
+	return false;
+}
 
 console.log('[build] Starting vite build...');
 
@@ -72,12 +86,13 @@ function finish() {
 		}
 
 		const V1_SERVER = join(CWD, '.netlify', 'v1', 'functions', 'server', 'server.mjs');
+		const cloudflareReady = isCloudflareWorkerReady();
 		const ok =
-			existsSync(CF_WORKER) ||
+			cloudflareReady ||
 			existsSync(V1_SERVER) ||
 			existsSync(SERVER_MJS) ||
 			existsSync(OUTPUT_SSR);
-		if (existsSync(CF_WORKER)) console.log('[build] ✅ Cloudflare worker found (dist/_worker.js)');
+		if (cloudflareReady) console.log('[build] ✅ Cloudflare worker found (dist/_worker.js)');
 		else if (existsSync(V1_SERVER)) console.log('[build] ✅ Server function found (v1 API)');
 		else if (existsSync(SERVER_MJS)) console.log('[build] ✅ Server function found (legacy)');
 		else if (existsSync(OUTPUT_SSR)) console.log('[build] ✅ SSR bundle found');
