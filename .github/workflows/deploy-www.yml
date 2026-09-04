@@ -63,10 +63,15 @@ jobs:
           PAGES_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.head_ref }}
         run: |
           set -euo pipefail
-          if ! bunx wrangler@4 pages project list --json | grep -Eq '"name"[[:space:]]*:[[:space:]]*"useavalon"'; then
-            bunx wrangler@4 pages project create useavalon \
-              --production-branch=main \
-              --compatibility-flags=nodejs_compat \
-              --compatibility-date=2026-09-04
+          # Create is not idempotent; treat "already exists" as success.
+          create_out=$(bunx wrangler@4 pages project create useavalon \
+            --production-branch=main \
+            --compatibility-flags=nodejs_compat \
+            --compatibility-date=2026-09-04 2>&1) || status=$?
+          if [ "${status:-0}" -ne 0 ]; then
+            echo "$create_out"
+            echo "$create_out" | grep -Eqi 'already exists|8000002' || exit "$status"
+          else
+            echo "$create_out"
           fi
           bunx wrangler@4 pages deploy --project-name=useavalon --branch="$PAGES_BRANCH"
