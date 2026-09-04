@@ -29,6 +29,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
+import { patchCloudflareWorkerOutput } from "./cloudflare-worker-patch.ts";
 import { fetchHandlerWrapperSource } from "./fetch-handler-wrapper.ts";
 
 export interface PrerenderConfig {
@@ -1237,6 +1238,9 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 
 	// 8. Copy to Netlify function paths
 	copyToNetlifyPaths(cwd);
+
+	// 8b. Cloudflare worker: guard createRequire + sync wrangler.json compat
+	patchCloudflareWorkerOutput(cwd);
 
 	// 9. Prerender (if not disabled)
 	if (options.prerender !== false) {
