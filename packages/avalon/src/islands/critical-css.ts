@@ -115,21 +115,27 @@ export function deferNonCriticalStylesheets(html: string): string {
 	// Local stylesheet paths that are safe to defer (not needed for above-the-fold paint)
 	const deferableLocalPaths = [/syntax-highlight/i, /hljs/i, /prism/i, /highlight\.js/i];
 
-	return html.replaceAll(linkRegex, (fullMatch, attrs: string) => {
+	return html.replaceAll(linkRegex, (fullMatch, attrs: string, offset: number) => {
+		const before = html.slice(Math.max(0, offset - 32), offset).toLowerCase();
+		if (before.includes("<noscript")) return fullMatch;
+
+		// Preact SSR emits self-closing <link … />; drop the trailing slash from attrs
+		const normalizedAttrs = attrs.replace(/\s*\/\s*$/, "").trim();
+
 		// Skip if already has a media attribute or is marked critical
-		if (/\bmedia\s*=/i.test(attrs)) return fullMatch;
-		if (/data-critical/i.test(attrs)) return fullMatch;
+		if (/\bmedia\s*=/i.test(normalizedAttrs)) return fullMatch;
+		if (/data-critical/i.test(normalizedAttrs)) return fullMatch;
 
 		// Extract the href
 		const hrefRegex = /href=["']([^"']+)["']/i;
-		const hrefResult = hrefRegex.exec(attrs);
+		const hrefResult = hrefRegex.exec(normalizedAttrs);
 		if (!hrefResult) return fullMatch;
 
 		const href = hrefResult[1];
 
 		// Determine if this stylesheet should be deferred
 		const isExternal = href.startsWith("https://") || href.startsWith("http://");
-		const isExplicitlyDeferred = /data-defer/i.test(attrs);
+		const isExplicitlyDeferred = /data-defer/i.test(normalizedAttrs);
 		const isDeferableLocal = !isExternal && deferableLocalPaths.some((re) => re.test(href));
 
 		if (!isExternal && !isExplicitlyDeferred && !isDeferableLocal) {
@@ -137,7 +143,9 @@ export function deferNonCriticalStylesheets(html: string): string {
 		}
 
 		// Strip data-defer attribute from output (it was only a signal)
-		const cleanAttrs = attrs.replace(/\s*data-defer(?:=["'][^"']*["'])?\s*/gi, " ").trim();
+		const cleanAttrs = normalizedAttrs
+			.replace(/\s*data-defer(?:=["'][^"']*["'])?\s*/gi, " ")
+			.trim();
 
 		const deferredLink = `<link ${cleanAttrs} media="print" onload="this.media='all'">`;
 		const noscriptFallback = `<noscript><link rel="stylesheet" href="${href}"></noscript>`;

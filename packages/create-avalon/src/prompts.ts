@@ -142,11 +142,16 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 		message: "Where will you deploy?",
 		options: [
 			{
+				value: "cloudflare",
+				label: "Cloudflare Pages",
+				hint: "wrangler.toml, public/_headers, build + deploy scripts",
+			},
+			{
 				value: "netlify",
 				label: "Netlify",
-				hint: "Generates netlify.toml, build.mjs, post-build.mjs",
+				hint: "netlify.toml, build.mjs, post-build.mjs",
 			},
-			{ value: "none", label: "None / Other", hint: "Node server preset, no deploy config" },
+			{ value: "none", label: "None / Other", hint: "Node server preset, no platform config" },
 		],
 	});
 

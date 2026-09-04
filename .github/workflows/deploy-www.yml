@@ -1,0 +1,77 @@
+name: Deploy www
+
+# Builds the docs/marketing site and deploys to Cloudflare Pages.
+# Production: push to main. Preview: pull requests from this repo.
+#
+# Secrets (repo Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   Account → Cloudflare Pages (edit) + Account Settings (read)
+#   CLOUDFLARE_ACCOUNT_ID  Right sidebar of the Cloudflare dashboard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "www/**"
+      - "packages/**"
+      - "bun.lock"
+      - "package.json"
+      - ".github/workflows/deploy-www.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "www/**"
+      - "packages/**"
+      - "bun.lock"
+      - "package.json"
+      - ".github/workflows/deploy-www.yml"
+
+concurrency:
+  group: deploy-www-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    name: Deploy Cloudflare Pages
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      - name: Build www
+        working-directory: www
+        env:
+          NITRO_PRESET: cloudflare_pages
+        run: bun run build
+
+      # bunx, not wrangler-action install: `npm i` inside www/ fails on workspace:^ deps.
+      # Wrangler 4 no longer creates the Pages project on first deploy.
+      - name: Deploy to Cloudflare Pages
+        working-directory: www
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PAGES_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.head_ref }}
+        run: |
+          set -euo pipefail
+          # Create is not idempotent; treat "already exists" as success.
+          create_out=$(bunx wrangler@4 pages project create useavalon \
+            --production-branch=main \
+            --compatibility-flags=nodejs_compat \
+            --compatibility-date=2026-09-04 2>&1) || status=$?
+          if [ "${status:-0}" -ne 0 ]; then
+            echo "$create_out"
+            echo "$create_out" | grep -Eqi 'already exists|8000002' || exit "$status"
+          else
+            echo "$create_out"
+          fi
+          bunx wrangler@4 pages deploy --project-name=useavalon --branch="$PAGES_BRANCH"

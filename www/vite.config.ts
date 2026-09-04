@@ -4,6 +4,10 @@ import { agentOptimization } from "@useavalon/agent-optimization";
 import { avalon } from "@useavalon/avalon";
 import { seo } from "@useavalon/seo";
 import { defineConfig, type UserConfig } from "vite";
+import {
+	STUB_BUILD_TIME_MODULE,
+	shouldStubBuildTimeSpecifier,
+} from "../packages/avalon/src/vite-plugin/stub-build-time-packages.ts";
 
 const require = createRequire(import.meta.url);
 
@@ -26,7 +30,7 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		nitro: {
 			preset: process.env.NITRO_PRESET || "node_server",
 			streaming: true,
-			compatibilityDate: "2025-06-01",
+			compatibilityDate: "2026-09-04",
 			clientEntry: "app/entry-client",
 			globalCSS: ["app/shared/styles/main.css"],
 			routeRules: {
@@ -118,11 +122,8 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 						return require.resolve("preact/compat/client").replace(/\.js$/, ".mjs");
 				},
 			},
-			// Stub out build-time Vite plugins during SSR/Nitro builds.
-			// Integration vitePlugin() methods dynamically import these packages,
-			// but they're never called at SSR runtime. Without stubbing, the
-			// bundler pulls in vite → rolldown → native bindings, which crash
-			// at runtime with "Cannot find native binding".
+			// Same stub as the Avalon plugin (listed first so Cloudflare SSR
+			// never resolves oxc-parser's wasm32-wasi binding).
 			{
 				name: "avalon:stub-build-time-plugins",
 				enforce: "pre" as const,
@@ -130,22 +131,19 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 					// @ts-expect-error — Vite 8 environment API
 					const env = this.environment?.name;
 					if (env !== "ssr" && env !== "nitro") return;
-					const buildTimePackages = [
-						"@preact/preset-vite",
-						"@vitejs/plugin-react",
-						"@vitejs/plugin-vue",
-						"@sveltejs/vite-plugin-svelte",
-						"vite-plugin-solid",
-						"@builder.io/qwik/optimizer",
-						"vite-prerender-plugin",
-					];
-					if (buildTimePackages.some((pkg) => id === pkg || id.startsWith(`${pkg}/`))) {
+					if (shouldStubBuildTimeSpecifier(id)) {
 						return `\0stub:${id}`;
 					}
 				},
 				load(id: string) {
 					if (id.startsWith("\0stub:")) {
-						return "export default function() { return []; }; export {};";
+						return STUB_BUILD_TIME_MODULE;
+					}
+					// @ts-expect-error — Vite 8 environment API
+					const env = this.environment?.name;
+					if (env !== "ssr" && env !== "nitro") return;
+					if (shouldStubBuildTimeSpecifier(id)) {
+						return STUB_BUILD_TIME_MODULE;
 					}
 				},
 			},

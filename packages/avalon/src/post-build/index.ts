@@ -24,10 +24,13 @@ import {
 	mkdirSync,
 	readdirSync,
 	readFileSync,
+	statSync,
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
+import { patchCloudflareWorkerOutput } from "./cloudflare-worker-patch.ts";
+import { fetchHandlerWrapperSource } from "./fetch-handler-wrapper.ts";
 
 export interface PrerenderConfig {
 	/** Routes to prerender (default: ['/']) */
@@ -76,6 +79,35 @@ function collectFiles(
 	return result;
 }
 
+function isFile(path: string): boolean {
+	try {
+		return statSync(path).isFile();
+	} catch {
+		return false;
+	}
+}
+
+/** Cloudflare Pages emits `_worker.js` as a file or as a directory with `index.js`. */
+function resolveCloudflareWorker(cwd: string): string | null {
+	const root = join(cwd, "dist", "_worker.js");
+	if (isFile(root)) return root;
+	if (!existsSync(root)) return null;
+	for (const name of ["index.js", "index.mjs"]) {
+		const nested = join(root, name);
+		if (isFile(nested)) return nested;
+	}
+	return null;
+}
+
+/**
+ * SSR asset manifest (client CSS/JS) lives in `_ssr/ssr.mjs` for Cloudflare Pages
+ * directory workers — not in `index.js` (the fetch entry).
+ */
+function resolveCloudflareSsrBundle(cwd: string): string | null {
+	const ssr = join(cwd, "dist", "_worker.js", "_ssr", "ssr.mjs");
+	return isFile(ssr) ? ssr : null;
+}
+
 // ─── Cleanup ─────────────────────────────────────────────────────────
 
 function isViteGeneratedHtml(filePath: string): boolean {
@@ -110,8 +142,15 @@ function minifyCSS(css: string): string {
 		.trim();
 }
 
-function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string): void {
-	if (!existsSync(ssrBundlePath)) return;
+/**
+ * Ensure the SSR client-assets `css` array lists global stylesheets (`index-*.css`
+ * / `entry-client-*.css`). Prerender strips `entry-client` CSS for per-island
+ * hydration, so without `index-*.css` in this array pages ship with no styles.
+ *
+ * Exported for unit tests.
+ */
+export function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string): boolean {
+	if (!isFile(ssrBundlePath)) return false;
 
 	const assetsDir = join(distDir, "assets");
 	const assetsDirs = [
@@ -120,7 +159,7 @@ function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string):
 		join(cwd, ".output", "public", "assets"),
 	];
 	const foundAssetsDir = assetsDirs.find((d) => existsSync(d));
-	if (!foundAssetsDir) return;
+	if (!foundAssetsDir) return false;
 
 	const allCssPaths = collectFiles(foundAssetsDir, (n) => n.endsWith(".css"))
 		.filter((f) => {
@@ -146,12 +185,40 @@ function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string):
 
 	let code = readFileSync(ssrBundlePath, "utf-8");
 
-	const patterns = [
-		{ re: /css:\[(\{href:`[^`]+`\}(?:,\{href:`[^`]+`\})*)\]/, hrefRe: /href:`([^`]+)`/g, q: "`" },
-		{ re: /css:\[(\{href:"[^"]+"\}(?:,\{href:"[^"]+"\})*)\]/, hrefRe: /href:"([^"]+)"/g, q: '"' },
+	const patterns: Array<{
+		re: RegExp;
+		hrefRe: RegExp;
+		formatEntry: (href: string) => string;
+		rebuild: (inner: string, entries: string[]) => string;
+	}> = [
+		// Rolldown / Nitro: "css": [{ "href": "/assets/…" }]
+		{
+			re: /"css"\s*:\s*\[((?:\s*\{\s*"href"\s*:\s*"[^"]+"\s*\}\s*,?)*)\]/,
+			hrefRe: /"href"\s*:\s*"([^"]+)"/g,
+			formatEntry: (href) => `{ "href": "${href}" }`,
+			rebuild: (inner, entries) => {
+				const base = inner.trim().replace(/,\s*$/, "");
+				const joined = [...(base ? [base] : []), ...entries].join(", ");
+				return `"css": [${joined}]`;
+			},
+		},
+		// Legacy compact: css:[{href:`…`}]
+		{
+			re: /css:\[(\{href:`[^`]+`\}(?:,\{href:`[^`]+`\})*)\]/,
+			hrefRe: /href:`([^`]+)`/g,
+			formatEntry: (href) => `{href:\`${href}\`}`,
+			rebuild: (inner, entries) => `css:[${inner},${entries.join(",")}]`,
+		},
+		// Legacy compact: css:[{href:"…"}]
+		{
+			re: /css:\[(\{href:"[^"]+"\}(?:,\{href:"[^"]+"\})*)\]/,
+			hrefRe: /href:"([^"]+)"/g,
+			formatEntry: (href) => `{href:"${href}"}`,
+			rebuild: (inner, entries) => `css:[${inner},${entries.join(",")}]`,
+		},
 	];
 
-	for (const { re, hrefRe, q } of patterns) {
+	for (const { re, hrefRe, formatEntry, rebuild } of patterns) {
 		const match = re.exec(code);
 		if (!match) continue;
 
@@ -159,17 +226,18 @@ function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string):
 		const newPaths = allCssPaths.filter((p) => !existingSet.has(p));
 		if (newPaths.length === 0) {
 			console.log("[patch] All CSS already included");
-			return;
+			return true;
 		}
 
-		const newEntries = newPaths.map((p) => `{href:${q}${p}${q}}`).join(",");
-		code = code.replace(match[0], `css:[${match[1]},${newEntries}]`);
+		const newEntries = newPaths.map(formatEntry);
+		code = code.replace(match[0], rebuild(match[1], newEntries));
 		writeFileSync(ssrBundlePath, code);
 		console.log(`[patch] ✅ Added ${newPaths.length} CSS files to SSR bundle`);
-		return;
+		return true;
 	}
 
 	console.warn("[patch] Could not find CSS array in SSR bundle");
+	return false;
 }
 
 // ─── Copy SSR CSS to Client ──────────────────────────────────────────
@@ -405,55 +473,10 @@ function isNetlifyHandler(serverEntryPath: string): boolean {
 	return code.includes("netlify") || code.includes("lambda");
 }
 
-function writeNetlifyWrapper(mainMjsPath: string, port: number, _cwd: string): string {
-	const wrapperPath = join(dirname(mainMjsPath), "_prerender-server.mjs");
-	const code = `
-import 'urlpattern-polyfill';
-import { createServer } from 'node:http';
-
-// Nitro's main.mjs may export handler as named or default export
-const mod = await import('./main.mjs');
-const handler = mod.handler || mod.default;
-if (!handler) { console.error('No handler found in main.mjs'); process.exit(1); }
-
-const server = createServer(async (req, res) => {
-  const url = new URL(req.url, 'http://localhost:${port}');
-  try {
-    const hdrs = new Headers();
-    for (const [k, v] of Object.entries(req.headers)) {
-      if (v) hdrs.set(k, Array.isArray(v) ? v.join(', ') : v);
-    }
-    const request = new Request(url.href, { method: req.method, headers: hdrs });
-
-    let response;
-    if (handler.fetch) {
-      response = await handler.fetch(request);
-    } else if (typeof handler === 'function') {
-      response = await handler(request);
-    } else {
-      res.writeHead(500);
-      res.end('Unknown handler format');
-      return;
-    }
-
-    const body = await response.text();
-    const resHdrs = {};
-    if (response.headers && typeof response.headers.forEach === 'function') {
-      response.headers.forEach((v, k) => { resHdrs[k] = v; });
-    } else if (response.headers && typeof response.headers === 'object') {
-      Object.assign(resHdrs, response.headers);
-    }
-    res.writeHead(response.status || 200, resHdrs);
-    res.end(body);
-  } catch (err) {
-    console.error('Prerender request error:', err);
-    res.writeHead(500);
-    res.end('Internal Server Error');
-  }
-});
-server.listen(${port}, '127.0.0.1', () => console.log('Listening on http://127.0.0.1:${port}'));
-`;
-	writeFileSync(wrapperPath, code);
+function writeFetchHandlerWrapper(modulePath: string, port: number): string {
+	const wrapperPath = join(dirname(modulePath), "_prerender-server.mjs");
+	const importSpec = `./${basename(modulePath)}`;
+	writeFileSync(wrapperPath, fetchHandlerWrapperSource(importSpec, port));
 	return wrapperPath;
 }
 
@@ -483,10 +506,12 @@ async function prerenderIfConfigured(
 	config: PrerenderConfig,
 	port: number,
 ): Promise<void> {
+	const cloudflareWorker = resolveCloudflareWorker(cwd);
 	const serverEntries = [
 		join(cwd, ".netlify", "functions-internal", "server", "server.mjs"),
 		join(cwd, ".netlify", "v1", "functions", "server", "server.mjs"),
 		join(cwd, ".output", "server", "index.mjs"),
+		...(cloudflareWorker ? [cloudflareWorker] : []),
 	];
 	const serverEntry = serverEntries.find((p) => existsSync(p));
 	if (!serverEntry) {
@@ -514,6 +539,7 @@ async function prerenderIfConfigured(
 
 	const baseUrl = `http://localhost:${port}`;
 	const netlifyMode = isNetlifyHandler(serverEntry);
+	const isCloudflareWorker = cloudflareWorker !== null && serverEntry === cloudflareWorker;
 	let actualEntry = serverEntry;
 
 	if (netlifyMode) {
@@ -522,14 +548,17 @@ async function prerenderIfConfigured(
 			console.error("[prerender] Netlify handler detected but main.mjs not found");
 			return;
 		}
-		actualEntry = writeNetlifyWrapper(mainMjsPath, port, cwd);
+		actualEntry = writeFetchHandlerWrapper(mainMjsPath, port);
 		console.log("[prerender] Netlify handler detected — using wrapper");
+	} else if (isCloudflareWorker) {
+		actualEntry = writeFetchHandlerWrapper(serverEntry, port);
+		console.log("[prerender] Cloudflare worker detected — using wrapper");
 	}
 
 	// Patch HTML asset entries out of server manifests so SSR runs fresh
 	{
 		const filesToPatch = [serverEntry, join(dirname(serverEntry), "main.mjs")].filter((f) =>
-			existsSync(f),
+			isFile(f),
 		);
 		for (const filePath of filesToPatch) {
 			let serverCode = readFileSync(filePath, "utf-8");
@@ -664,10 +693,17 @@ async function prerenderIfConfigured(
 						/<script type="module" src="\/assets\/entry-client[^"]*\.js"><\/script>\n?/g,
 						"",
 					);
-					final = final.replaceAll(
-						/<link rel="stylesheet" href="\/assets\/entry-client[^"]*\.css">\n?/g,
-						"",
-					);
+					// Strip entry-client CSS only when global index/ssr-index CSS remains.
+					// Otherwise pages lose all styles (patchSSRBundleCSS failed or incomplete).
+					const hasGlobalCss =
+						/\/assets\/(?:ssr-)?index-[^"]+\.css/.test(final) ||
+						/<style data-inlined-from="\/assets\/(?:ssr-)?index-/.test(final);
+					if (hasGlobalCss) {
+						final = final.replaceAll(
+							/<link rel="stylesheet" href="\/assets\/entry-client[^"]*\.css">\n?/g,
+							"",
+						);
+					}
 					final = final.replaceAll(
 						/<link rel="modulepreload" href="\/assets\/entry-client[^"]*\.js">\n?/g,
 						"",
@@ -695,7 +731,7 @@ async function prerenderIfConfigured(
 			(errors.length > 0 ? `, ${errors.length} error(s)` : ""),
 	);
 
-	if (netlifyMode) {
+	if (netlifyMode || isCloudflareWorker) {
 		const wrapperPath = join(dirname(serverEntry), "_prerender-server.mjs");
 		if (existsSync(wrapperPath)) {
 			unlinkSync(wrapperPath);
@@ -990,11 +1026,16 @@ function inlineOrPreloadGlobalCSS(html: string, cssCache: Map<string, string>): 
 function deferNonCriticalStylesheetsStatic(html: string): string {
 	const linkRegex = /<link\s+([^>]*rel=["']stylesheet["'][^>]*)>/gi;
 
-	return html.replaceAll(linkRegex, (fullMatch, attrs: string) => {
-		if (/\bmedia\s*=/i.test(attrs)) return fullMatch;
-		if (/data-critical/i.test(attrs)) return fullMatch;
+	return html.replaceAll(linkRegex, (fullMatch, attrs: string, offset: number) => {
+		// Skip fallbacks already wrapped in <noscript> (avoids nested defer passes).
+		const before = html.slice(Math.max(0, offset - 32), offset).toLowerCase();
+		if (before.includes("<noscript")) return fullMatch;
 
-		const hrefResult = /href=["']([^"']+)["']/i.exec(attrs);
+		const normalizedAttrs = attrs.replace(/\s*\/\s*$/, "").trim();
+		if (/\bmedia\s*=/i.test(normalizedAttrs)) return fullMatch;
+		if (/data-critical/i.test(normalizedAttrs)) return fullMatch;
+
+		const hrefResult = /href=["']([^"']+)["']/i.exec(normalizedAttrs);
 		if (!hrefResult) return fullMatch;
 
 		const href = hrefResult[1];
@@ -1003,7 +1044,7 @@ function deferNonCriticalStylesheetsStatic(html: string): string {
 
 		if (!isExternal && !isDeferableLocal) return fullMatch;
 
-		return `<link ${attrs} media="print" onload="this.media='all'">\n<noscript><link ${attrs}></noscript>`;
+		return `<link ${normalizedAttrs} media="print" onload="this.media='all'">\n<noscript><link ${normalizedAttrs}></noscript>`;
 	});
 }
 
@@ -1226,13 +1267,15 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 	// 2. Copy SSR CSS to client assets
 	copySSRCSSToClient(cwd, distDir);
 
-	// 3. Patch SSR bundle CSS array
+	// 3. Patch SSR bundle CSS array (Cloudflare: `_ssr/ssr.mjs`, not worker `index.js`)
 	for (const ssrPath of [
 		join(cwd, ".netlify", "functions-internal", "server", "_ssr", "ssr.mjs"),
 		join(cwd, ".netlify", "v1", "functions", "server", "_ssr", "ssr.mjs"),
 		join(cwd, ".output", "server", "_ssr", "ssr.mjs"),
+		resolveCloudflareSsrBundle(cwd),
 	]) {
-		if (existsSync(ssrPath)) {
+		if (!ssrPath) continue;
+		if (isFile(ssrPath)) {
 			console.log(`[patch] Patching ${ssrPath}`);
 			patchSSRBundleCSS(ssrPath, distDir, cwd);
 		}
@@ -1252,6 +1295,9 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 
 	// 8. Copy to Netlify function paths
 	copyToNetlifyPaths(cwd);
+
+	// 8b. Cloudflare worker: guard createRequire + sync wrangler.json compat
+	patchCloudflareWorkerOutput(cwd);
 
 	// 9. Prerender (if not disabled)
 	if (options.prerender !== false) {

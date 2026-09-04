@@ -7,9 +7,24 @@ const STYLING_LABELS: Record<string, string> = {
 };
 
 const DEPLOY_LABELS: Record<string, string> = {
+	cloudflare: "Cloudflare Pages",
 	netlify: "Netlify",
 	none: "None",
 };
+
+function deployNextSteps(config: ProjectConfig): string[] {
+	if (config.deploy === "cloudflare") {
+		return [
+			"    bun run build",
+			"    bun run preview   # wrangler pages dev",
+			"    # See DEPLOY.md for Cloudflare Pages deploy steps",
+		];
+	}
+	if (config.deploy === "netlify") {
+		return ["    bun run build", "    # Connect the repo in Netlify, or see DEPLOY.md"];
+	}
+	return ["    bun run build"];
+}
 
 export function formatSummary(config: ProjectConfig, scaffoldedInPlace = false): string {
 	const integrations = config.integrations.length > 0 ? config.integrations.join(", ") : "none";
@@ -18,8 +33,13 @@ export function formatSummary(config: ProjectConfig, scaffoldedInPlace = false):
 	const deploy = DEPLOY_LABELS[config.deploy] ?? config.deploy;
 
 	const nextSteps = scaffoldedInPlace
-		? ["    bun install", "    bun run dev"]
-		: [`    cd ${config.projectName}`, "    bun install", "    bun run dev"];
+		? ["    bun install", "    bun run dev", ...deployNextSteps(config)]
+		: [
+				`    cd ${config.projectName}`,
+				"    bun install",
+				"    bun run dev",
+				...deployNextSteps(config),
+			];
 
 	return [
 		"",
@@ -28,7 +48,7 @@ export function formatSummary(config: ProjectConfig, scaffoldedInPlace = false):
 		`  Styling:        ${styling}`,
 		`  Plugins:        ${plugins}`,
 		`  Middleware:     ${config.middleware}`,
-		`  Deploy:        ${deploy}`,
+		`  Deploy:         ${deploy}`,
 		`  Cron:           ${config.cron ? "yes" : "no"}`,
 		"",
 		"  Next steps:",

@@ -1,0 +1,6 @@
+# Cloudflare Pages — production output is dist/_worker.js + static assets.
+# Date must be >= 2025-09-15 so nodejs_compat includes `node:fs` (needed by the Nitro worker).
+name = "useavalon"
+compatibility_date = "2026-09-04"
+compatibility_flags = ["nodejs_compat", "enable_nodejs_fs_module"]
+pages_build_output_dir = "./dist"

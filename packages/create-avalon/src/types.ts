@@ -9,7 +9,7 @@ export type Plugin = "seo" | "agent-optimization" | "syntax-highlighting";
 
 export type MiddlewareOption = "h3" | "hono" | "elysia";
 
-export type DeployTarget = "netlify" | "none";
+export type DeployTarget = "cloudflare" | "netlify" | "none";
 
 /**
  * Allowed values for each option, used to validate non-interactive CLI flags.
@@ -40,7 +40,11 @@ export const MIDDLEWARE_OPTIONS = [
 	"hono",
 	"elysia",
 ] as const satisfies readonly MiddlewareOption[];
-export const DEPLOY_TARGETS = ["netlify", "none"] as const satisfies readonly DeployTarget[];
+export const DEPLOY_TARGETS = [
+	"cloudflare",
+	"netlify",
+	"none",
+] as const satisfies readonly DeployTarget[];
 
 export interface ProjectConfig {
 	projectName: string;

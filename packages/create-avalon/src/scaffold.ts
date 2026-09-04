@@ -2,7 +2,15 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { generateHelloRoute } from "./templates/api-routes";
 import { EXAMPLE_CRON_HANDLER, generateExampleCronTask } from "./templates/cron";
-import { generateBuildMjs, generateNetlifyToml, generateRobotsTxt } from "./templates/deploy";
+import {
+	generateBuildMjs,
+	generateCloudflareHeaders,
+	generateDeployReadme,
+	generateGitignore,
+	generateNetlifyToml,
+	generateRobotsTxt,
+	generateWranglerToml,
+} from "./templates/deploy";
 import { getFaviconBuffer } from "./templates/favicon";
 import { generateMainLayout, generateRootLayout } from "./templates/layouts";
 import { generateSampleMiddleware } from "./templates/middleware";
@@ -141,7 +149,15 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 	// Write deployment files
 	await writeFile(join(targetDir, "build.mjs"), generateBuildMjs());
 	await writeFile(join(targetDir, "post-build.mjs"), generatePostBuildMjs());
+	await writeFile(join(targetDir, ".gitignore"), generateGitignore(config));
+	await writeFile(join(targetDir, "DEPLOY.md"), generateDeployReadme(config));
+
 	if (config.deploy === "netlify") {
 		await writeFile(join(targetDir, "netlify.toml"), generateNetlifyToml(config));
+	}
+
+	if (config.deploy === "cloudflare") {
+		await writeFile(join(targetDir, "wrangler.toml"), generateWranglerToml(config));
+		await writeFile(join(targetDir, "public/_headers"), generateCloudflareHeaders());
 	}
 }

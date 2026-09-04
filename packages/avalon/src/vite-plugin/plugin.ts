@@ -28,6 +28,10 @@ import { activateIntegrations, activateSingleIntegration } from "./integration-a
 import { islandSidecarPlugin } from "./island-sidecar-plugin.ts";
 import { createNitroIntegration } from "./nitro-integration.ts";
 import { serverIslandsPlugin } from "./server-islands-plugin.ts";
+import {
+	STUB_BUILD_TIME_MODULE,
+	shouldStubBuildTimeSpecifier,
+} from "./stub-build-time-packages.ts";
 import type { AvalonPluginConfig, IntegrationName, ResolvedAvalonConfig } from "./types.ts";
 import { formatValidationResults, validateActiveIntegrations } from "./validation.ts";
 
@@ -484,33 +488,29 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 		},
 	};
 
-	// Stub out build-time Vite plugins during SSR/Nitro builds. Integration
-	// vitePlugin() methods dynamically import these packages, but they're never
-	// called at SSR runtime. Without stubbing, the bundler pulls in
-	// vite → rolldown → native bindings, which crash at runtime with
-	// "Cannot find native binding".
-	const BUILD_TIME_PACKAGES = [
-		"@preact/preset-vite",
-		"@vitejs/plugin-react",
-		"@vitejs/plugin-vue",
-		"@sveltejs/vite-plugin-svelte",
-		"vite-plugin-solid",
-		"@builder.io/qwik/optimizer",
-		"vite-prerender-plugin",
-	];
+	// Stub Vite plugins and oxc native/WASI bindings during SSR/Nitro builds.
+	// Integration vitePlugin() methods and the package barrel pull these in at
+	// transform time; they are never called at request time. Cloudflare's
+	// webworker SSR target otherwise follows oxc-parser into
+	// `@oxc-parser/binding-wasm32-wasi`, which is not installed.
 	const stubBuildTimePlugins: Plugin = {
 		name: "avalon:stub-build-time-plugins",
 		enforce: "pre",
 		resolveId(id: string) {
 			const env = (this as { environment?: { name?: string } }).environment?.name;
 			if (env !== "ssr" && env !== "nitro") return;
-			if (BUILD_TIME_PACKAGES.some((pkg) => id === pkg || id.startsWith(`${pkg}/`))) {
+			if (shouldStubBuildTimeSpecifier(id)) {
 				return `\0stub:${id}`;
 			}
 		},
 		load(id: string) {
 			if (id.startsWith("\0stub:")) {
-				return "export default function() { return []; }; export {};";
+				return STUB_BUILD_TIME_MODULE;
+			}
+			const env = (this as { environment?: { name?: string } }).environment?.name;
+			if (env !== "ssr" && env !== "nitro") return;
+			if (shouldStubBuildTimeSpecifier(id)) {
+				return STUB_BUILD_TIME_MODULE;
 			}
 		},
 	};

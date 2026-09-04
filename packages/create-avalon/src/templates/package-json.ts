@@ -1,5 +1,6 @@
 import type { Integration, ProjectConfig } from "../types";
 import { INTEGRATION_PACKAGES } from "../types";
+import { cloudflareProjectName } from "./deploy";
 
 /**
  * Framework runtime dependencies each integration needs at the app level.
@@ -77,15 +78,23 @@ export function generatePackageJson(config: ProjectConfig): string {
 			break;
 	}
 
+	const scripts: Record<string, string> = {
+		dev: "bunx --bun vite dev",
+		build: "node build.mjs",
+		preview: "node .output/server/index.mjs",
+	};
+
+	if (config.deploy === "cloudflare") {
+		const name = cloudflareProjectName(config.projectName);
+		scripts.preview = "bunx wrangler@4 pages dev dist";
+		scripts.deploy = `bunx wrangler@4 pages deploy --project-name=${name}`;
+	}
+
 	const pkg = {
 		name: config.projectName,
 		type: "module",
 		private: true,
-		scripts: {
-			dev: "bunx --bun vite dev",
-			build: "node build.mjs",
-			preview: "node .output/server/index.mjs",
-		},
+		scripts,
 		dependencies,
 		devDependencies,
 	};
