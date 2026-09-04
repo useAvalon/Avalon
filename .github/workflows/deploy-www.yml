@@ -67,6 +67,6 @@ jobs:
             bunx wrangler@4 pages project create useavalon \
               --production-branch=main \
               --compatibility-flags=nodejs_compat \
-              --compatibility-date=2025-06-01
+              --compatibility-date=2026-09-04
           fi
-          bunx wrangler@4 pages deploy dist --project-name=useavalon --branch="$PAGES_BRANCH"
+          bunx wrangler@4 pages deploy --project-name=useavalon --branch="$PAGES_BRANCH"
