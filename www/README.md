@@ -136,7 +136,17 @@ The demo uses inline styles for simplicity, but Avalon supports:
 
 ## 🚀 Deployment
 
-Build the project and deploy the `dist` folder to any static hosting service or run the production server on any Node.js/Deno compatible platform.
+https://useavalon.dev is Cloudflare Pages. Pushes to `main` and pull requests
+that touch `www/` or `packages/` run `.github/workflows/deploy-www.yml`
+(`NITRO_PRESET=cloudflare_pages`).
+
+Local production build:
+
+```bash
+NITRO_PRESET=cloudflare_pages bun run build
+```
+
+Then `npx wrangler pages deploy dist --project-name=useavalon` from `www/`.
 
 ---
 

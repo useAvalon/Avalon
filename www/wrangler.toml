@@ -1,0 +1,5 @@
+# Cloudflare Pages — production output is dist/_worker.js + static assets.
+name = "useavalon"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "./dist"

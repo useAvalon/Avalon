@@ -1,0 +1,9 @@
+# Cloudflare Pages static headers (Worker routeRules still apply to SSR).
+/*.html
+  Cache-Control: public, max-age=3600, s-maxage=31536000
+
+/
+  Cache-Control: public, max-age=3600, s-maxage=31536000
+
+/islands/*
+  Cache-Control: public, max-age=0, must-revalidate

@@ -27,7 +27,7 @@ import {
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 
 export interface PrerenderConfig {
 	/** Routes to prerender (default: ['/']) */
@@ -405,16 +405,16 @@ function isNetlifyHandler(serverEntryPath: string): boolean {
 	return code.includes("netlify") || code.includes("lambda");
 }
 
-function writeNetlifyWrapper(mainMjsPath: string, port: number, _cwd: string): string {
-	const wrapperPath = join(dirname(mainMjsPath), "_prerender-server.mjs");
+function writeFetchHandlerWrapper(modulePath: string, port: number): string {
+	const wrapperPath = join(dirname(modulePath), "_prerender-server.mjs");
+	const importSpec = `./${basename(modulePath)}`;
 	const code = `
 import 'urlpattern-polyfill';
 import { createServer } from 'node:http';
 
-// Nitro's main.mjs may export handler as named or default export
-const mod = await import('./main.mjs');
+const mod = await import(${JSON.stringify(importSpec)});
 const handler = mod.handler || mod.default;
-if (!handler) { console.error('No handler found in main.mjs'); process.exit(1); }
+if (!handler) { console.error('No handler found in ${importSpec}'); process.exit(1); }
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost:${port}');
@@ -427,7 +427,7 @@ const server = createServer(async (req, res) => {
 
     let response;
     if (handler.fetch) {
-      response = await handler.fetch(request);
+      response = await handler.fetch(request, {}, {});
     } else if (typeof handler === 'function') {
       response = await handler(request);
     } else {
@@ -487,6 +487,7 @@ async function prerenderIfConfigured(
 		join(cwd, ".netlify", "functions-internal", "server", "server.mjs"),
 		join(cwd, ".netlify", "v1", "functions", "server", "server.mjs"),
 		join(cwd, ".output", "server", "index.mjs"),
+		join(cwd, "dist", "_worker.js"),
 	];
 	const serverEntry = serverEntries.find((p) => existsSync(p));
 	if (!serverEntry) {
@@ -514,6 +515,7 @@ async function prerenderIfConfigured(
 
 	const baseUrl = `http://localhost:${port}`;
 	const netlifyMode = isNetlifyHandler(serverEntry);
+	const cloudflareWorker = basename(serverEntry) === "_worker.js";
 	let actualEntry = serverEntry;
 
 	if (netlifyMode) {
@@ -522,8 +524,11 @@ async function prerenderIfConfigured(
 			console.error("[prerender] Netlify handler detected but main.mjs not found");
 			return;
 		}
-		actualEntry = writeNetlifyWrapper(mainMjsPath, port, cwd);
+		actualEntry = writeFetchHandlerWrapper(mainMjsPath, port);
 		console.log("[prerender] Netlify handler detected — using wrapper");
+	} else if (cloudflareWorker) {
+		actualEntry = writeFetchHandlerWrapper(serverEntry, port);
+		console.log("[prerender] Cloudflare worker detected — using wrapper");
 	}
 
 	// Patch HTML asset entries out of server manifests so SSR runs fresh
@@ -695,7 +700,7 @@ async function prerenderIfConfigured(
 			(errors.length > 0 ? `, ${errors.length} error(s)` : ""),
 	);
 
-	if (netlifyMode) {
+	if (netlifyMode || cloudflareWorker) {
 		const wrapperPath = join(dirname(serverEntry), "_prerender-server.mjs");
 		if (existsSync(wrapperPath)) {
 			unlinkSync(wrapperPath);
@@ -1231,6 +1236,7 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 		join(cwd, ".netlify", "functions-internal", "server", "_ssr", "ssr.mjs"),
 		join(cwd, ".netlify", "v1", "functions", "server", "_ssr", "ssr.mjs"),
 		join(cwd, ".output", "server", "_ssr", "ssr.mjs"),
+		join(cwd, "dist", "_worker.js"),
 	]) {
 		if (existsSync(ssrPath)) {
 			console.log(`[patch] Patching ${ssrPath}`);

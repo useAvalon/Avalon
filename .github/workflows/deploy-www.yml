@@ -1,0 +1,62 @@
+name: Deploy www
+
+# Builds the docs/marketing site and deploys to Cloudflare Pages.
+# Production: push to main. Preview: pull requests from this repo.
+#
+# Secrets (repo Settings → Secrets and variables → Actions):
+#   CLOUDFLARE_API_TOKEN   Account → Cloudflare Pages (edit) + Account Settings (read)
+#   CLOUDFLARE_ACCOUNT_ID  Right sidebar of the Cloudflare dashboard
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "www/**"
+      - "packages/**"
+      - "bun.lock"
+      - "package.json"
+      - ".github/workflows/deploy-www.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "www/**"
+      - "packages/**"
+      - "bun.lock"
+      - "package.json"
+      - ".github/workflows/deploy-www.yml"
+
+concurrency:
+  group: deploy-www-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  deploy:
+    name: Deploy Cloudflare Pages
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
+      - run: bun install
+
+      - name: Build www
+        working-directory: www
+        env:
+          NITRO_PRESET: cloudflare_pages
+        run: bun run build
+
+      - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: www
+          command: pages deploy dist --project-name=useavalon
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
