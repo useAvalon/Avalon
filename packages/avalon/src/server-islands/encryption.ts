@@ -5,13 +5,15 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
  * In standalone scripts (e.g. `avalon key` CLI) the virtual module doesn't
  * exist, so we fall back to empty string (no embedded key = must use env var
  * or generate at runtime in dev).
+ *
+ * Do not use `@vite-ignore` here — Nitro/Vite must resolve
+ * `virtual:server-island-key` at build time so the key is inlined into the
+ * server bundle. Ignoring it leaves a runtime import that fails on Cloudflare
+ * and leaves `embeddedKey` empty.
  */
 let embeddedKey = "";
 try {
-	// Dynamic import with a URL trick that defeats static analysis —
-	// this avoids Bun/Node throwing MODULE_NOT_FOUND when the virtual
-	// module isn't provided (CLI scripts, standalone execution).
-	const mod = await import(/* @vite-ignore */ "virtual:server-island-key");
+	const mod = await import("virtual:server-island-key");
 	embeddedKey = mod.serverIslandKey ?? "";
 } catch {
 	// Expected outside of bundled Nitro/Vite context
@@ -41,6 +43,23 @@ export function generateKey(): string {
 }
 
 /**
+ * Read `process.env` in a way Rolldown/Nitro cannot replace with `{}`.
+ * Bracket access through `globalThis` keeps Cloudflare runtime secrets reachable.
+ */
+function runtimeEnv(): Record<string, string | undefined> {
+	try {
+		const g = globalThis as typeof globalThis & {
+			process?: { env?: Record<string, string | undefined> };
+		};
+		const env = g["process"]?.["env"];
+		if (env && typeof env === "object") return env;
+	} catch {
+		/* ignore */
+	}
+	return {};
+}
+
+/**
  * Gets the encryption key from the AVALON_KEY env var, or falls back to a
  * per-process build-time key in development.
  *
@@ -50,11 +69,7 @@ export function generateKey(): string {
  * silently at request time.
  */
 export function getKey(): string {
-	// Read AVALON_KEY via a dynamic pattern that Nitro's bundler does not
-	// statically replace. Nitro substitutes literal `process.env.X` with
-	// build-time values (or undefined), making runtime env vars unreachable.
-	// Using an indirect access preserves runtime resolution.
-	const env = globalThis.process?.env ?? {};
+	const env = runtimeEnv();
 	const envKey = env.AVALON_KEY;
 	if (envKey) {
 		const buf = Buffer.from(envKey, "base64");
@@ -80,7 +95,7 @@ export function getKey(): string {
 	}
 
 	// No key available at all.
-	const nodeEnv = env.NODE_ENV ?? globalThis.process?.env?.NODE_ENV;
+	const nodeEnv = env.NODE_ENV;
 	if (nodeEnv === "production") {
 		throw new Error(
 			"AVALON_KEY is required in production for server islands. " +
