@@ -53,10 +53,10 @@ jobs:
           NITRO_PRESET: cloudflare_pages
         run: bun run build
 
-      - uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: www
-          command: pages deploy dist --project-name=useavalon
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+      # bunx, not wrangler-action install: `npm i` inside www/ fails on workspace:^ deps.
+      - name: Deploy to Cloudflare Pages
+        working-directory: www
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bunx wrangler@4 pages deploy dist --project-name=useavalon

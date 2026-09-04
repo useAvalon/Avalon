@@ -37,6 +37,8 @@ const child = spawn('bunx', ['--bun', 'vite', 'build'], {
 
 const childPid = child.pid;
 let done = false;
+let killedEarly = false;
+let viteExitCode = 0;
 
 function killTree() {
 	try {
@@ -58,30 +60,38 @@ function finish() {
 	clearInterval(poll);
 	clearTimeout(absoluteTimeout);
 
-	killTree();
+	if (killedEarly) killTree();
 
 	setTimeout(() => {
 		console.log('[build] Running post-build...');
 		try {
 			execSync('node post-build.mjs', { cwd: CWD, stdio: 'inherit', timeout: 120_000 });
 		} catch (err) {
-			console.error('[build] post-build warning:', err.message);
+			console.error('[build] post-build failed:', err.message);
+			process.exit(1);
 		}
 
 		const V1_SERVER = join(CWD, '.netlify', 'v1', 'functions', 'server', 'server.mjs');
+		const ok =
+			existsSync(CF_WORKER) ||
+			existsSync(V1_SERVER) ||
+			existsSync(SERVER_MJS) ||
+			existsSync(OUTPUT_SSR);
 		if (existsSync(CF_WORKER)) console.log('[build] ✅ Cloudflare worker found (dist/_worker.js)');
 		else if (existsSync(V1_SERVER)) console.log('[build] ✅ Server function found (v1 API)');
 		else if (existsSync(SERVER_MJS)) console.log('[build] ✅ Server function found (legacy)');
 		else if (existsSync(OUTPUT_SSR)) console.log('[build] ✅ SSR bundle found');
 		else console.error('[build] ❌ No server output found');
 
+		if (!ok) process.exit(1);
 		console.log('[build] ✅ Complete');
-		process.exit(0);
+		process.exit(killedEarly || viteExitCode === 0 ? 0 : viteExitCode);
 	}, 500);
 }
 
-child.on('exit', code => {
+child.on('exit', (code) => {
 	console.log(`[build] vite build exited with code ${code}`);
+	viteExitCode = code ?? (killedEarly ? 0 : 1);
 	finish();
 });
 
@@ -91,21 +101,21 @@ child.on('error', err => {
 });
 
 const poll = setInterval(() => {
-	const cloudflareReady = existsSync(CF_WORKER);
+	// Cloudflare `_worker.js` appears during the client build; killing then
+	// aborts SSR. Only force-stop the Netlify/Node hang.
 	const netlifyReady = existsSync(NITRO_JSON) && existsSync(SERVER_MJS);
 	const nodeServerReady = existsSync(OUTPUT_SSR);
-	if (cloudflareReady || netlifyReady || nodeServerReady) {
-		let kind = "node-server";
-		if (cloudflareReady) kind = "cloudflare";
-		else if (netlifyReady) kind = "netlify";
+	if (netlifyReady || nodeServerReady) {
+		killedEarly = true;
+		const kind = netlifyReady ? "netlify" : "node-server";
 		console.log(`[build] Output detected (${kind}), waiting 3s for final writes...`);
 		clearInterval(poll);
-		// Prerendering happens in post-build.mjs via a separate server spawn.
 		setTimeout(finish, 3_000);
 	}
 }, 1_000);
 
 const absoluteTimeout = setTimeout(() => {
 	console.error('[build] Timeout — killing build');
+	killedEarly = true;
 	finish();
 }, 240_000);
