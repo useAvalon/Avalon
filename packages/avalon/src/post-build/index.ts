@@ -24,6 +24,7 @@ import {
 	mkdirSync,
 	readdirSync,
 	readFileSync,
+	statSync,
 	unlinkSync,
 	writeFileSync,
 } from "node:fs";
@@ -76,6 +77,26 @@ function collectFiles(
 	return result;
 }
 
+function isFile(path: string): boolean {
+	try {
+		return statSync(path).isFile();
+	} catch {
+		return false;
+	}
+}
+
+/** Cloudflare Pages emits `_worker.js` as a file or as a directory with `index.js`. */
+function resolveCloudflareWorker(cwd: string): string | null {
+	const root = join(cwd, "dist", "_worker.js");
+	if (isFile(root)) return root;
+	if (!existsSync(root)) return null;
+	for (const name of ["index.js", "index.mjs"]) {
+		const nested = join(root, name);
+		if (isFile(nested)) return nested;
+	}
+	return null;
+}
+
 // ─── Cleanup ─────────────────────────────────────────────────────────
 
 function isViteGeneratedHtml(filePath: string): boolean {
@@ -111,7 +132,7 @@ function minifyCSS(css: string): string {
 }
 
 function patchSSRBundleCSS(ssrBundlePath: string, distDir: string, cwd: string): void {
-	if (!existsSync(ssrBundlePath)) return;
+	if (!isFile(ssrBundlePath)) return;
 
 	const assetsDir = join(distDir, "assets");
 	const assetsDirs = [
@@ -483,11 +504,12 @@ async function prerenderIfConfigured(
 	config: PrerenderConfig,
 	port: number,
 ): Promise<void> {
+	const cloudflareWorker = resolveCloudflareWorker(cwd);
 	const serverEntries = [
 		join(cwd, ".netlify", "functions-internal", "server", "server.mjs"),
 		join(cwd, ".netlify", "v1", "functions", "server", "server.mjs"),
 		join(cwd, ".output", "server", "index.mjs"),
-		join(cwd, "dist", "_worker.js"),
+		...(cloudflareWorker ? [cloudflareWorker] : []),
 	];
 	const serverEntry = serverEntries.find((p) => existsSync(p));
 	if (!serverEntry) {
@@ -515,7 +537,7 @@ async function prerenderIfConfigured(
 
 	const baseUrl = `http://localhost:${port}`;
 	const netlifyMode = isNetlifyHandler(serverEntry);
-	const cloudflareWorker = basename(serverEntry) === "_worker.js";
+	const isCloudflareWorker = cloudflareWorker !== null && serverEntry === cloudflareWorker;
 	let actualEntry = serverEntry;
 
 	if (netlifyMode) {
@@ -526,7 +548,7 @@ async function prerenderIfConfigured(
 		}
 		actualEntry = writeFetchHandlerWrapper(mainMjsPath, port);
 		console.log("[prerender] Netlify handler detected — using wrapper");
-	} else if (cloudflareWorker) {
+	} else if (isCloudflareWorker) {
 		actualEntry = writeFetchHandlerWrapper(serverEntry, port);
 		console.log("[prerender] Cloudflare worker detected — using wrapper");
 	}
@@ -534,7 +556,7 @@ async function prerenderIfConfigured(
 	// Patch HTML asset entries out of server manifests so SSR runs fresh
 	{
 		const filesToPatch = [serverEntry, join(dirname(serverEntry), "main.mjs")].filter((f) =>
-			existsSync(f),
+			isFile(f),
 		);
 		for (const filePath of filesToPatch) {
 			let serverCode = readFileSync(filePath, "utf-8");
@@ -700,7 +722,7 @@ async function prerenderIfConfigured(
 			(errors.length > 0 ? `, ${errors.length} error(s)` : ""),
 	);
 
-	if (netlifyMode || cloudflareWorker) {
+	if (netlifyMode || isCloudflareWorker) {
 		const wrapperPath = join(dirname(serverEntry), "_prerender-server.mjs");
 		if (existsSync(wrapperPath)) {
 			unlinkSync(wrapperPath);
@@ -1236,9 +1258,10 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 		join(cwd, ".netlify", "functions-internal", "server", "_ssr", "ssr.mjs"),
 		join(cwd, ".netlify", "v1", "functions", "server", "_ssr", "ssr.mjs"),
 		join(cwd, ".output", "server", "_ssr", "ssr.mjs"),
-		join(cwd, "dist", "_worker.js"),
+		resolveCloudflareWorker(cwd),
 	]) {
-		if (existsSync(ssrPath)) {
+		if (!ssrPath) continue;
+		if (isFile(ssrPath)) {
 			console.log(`[patch] Patching ${ssrPath}`);
 			patchSSRBundleCSS(ssrPath, distDir, cwd);
 		}
