@@ -111,13 +111,7 @@ export function patchCloudflareRoutesForStaticHtml(cwd: string): boolean {
 	const routesPath = join(cwd, "dist", "_routes.json");
 	if (!existsSync(routesPath)) return false;
 
-	const include = new Set<string>([
-		"/api/*",
-		"/_server-islands/*",
-		"/_actions/*",
-		"/demo/data-fetching",
-		"/demo/data-fetching/",
-	]);
+	const include = new Set<string>(["/api/*", "/_server-islands/*", "/_actions/*"]);
 
 	const apiDir = join(cwd, "dist", "_worker.js", "_routes", "api");
 	if (existsSync(apiDir)) {

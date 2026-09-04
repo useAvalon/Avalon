@@ -1,0 +1,38 @@
+.shell {
+	display: flex;
+	flex-direction: column;
+	gap: 0;
+	min-height: 100%;
+}
+
+.nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.35rem 0.75rem;
+	padding: 0.85rem 1.25rem;
+	border-bottom: 1px solid color-mix(in oklab, CanvasText 12%, transparent);
+	background: color-mix(in oklab, Canvas 92%, CanvasText);
+	position: sticky;
+	top: 0;
+	z-index: 5;
+}
+
+.link {
+	font:
+		500 0.8rem / 1.2 system-ui,
+		sans-serif;
+	color: color-mix(in oklab, CanvasText 65%, transparent);
+	text-decoration: none;
+	padding: 0.25rem 0.45rem;
+	border-radius: 4px;
+}
+
+.link:hover {
+	color: CanvasText;
+	background: color-mix(in oklab, CanvasText 6%, transparent);
+}
+
+.linkActive {
+	color: CanvasText;
+	background: color-mix(in oklab, CanvasText 10%, transparent);
+}

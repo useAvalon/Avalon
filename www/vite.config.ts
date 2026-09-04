@@ -58,11 +58,18 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			// Nitro fetches each route using the SSR handler, writes the
 			// resulting HTML (including island markup) to static files.
 			// Islands still hydrate on the client as normal.
-			// Only /demo/data-fetching stays SSR (it fetches live data).
 			prerender: {
 				crawlLinks: true,
-				routes: ["/"],
-				ignore: ["/demo/data-fetching"],
+				routes: [
+					"/",
+					"/demo",
+					"/demo/data-fetching",
+					"/demo/server-islands",
+					"/demo/server-island-pure",
+					"/demo/server-island-hydrated",
+					"/demo/server-actions",
+				],
+				ignore: [],
 				failOnError: true,
 			},
 		},

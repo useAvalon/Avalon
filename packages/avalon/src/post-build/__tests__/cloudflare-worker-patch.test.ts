@@ -102,7 +102,8 @@ describe("patchCloudflareRoutesForStaticHtml", () => {
 		expect(patchCloudflareRoutesForStaticHtml(cwd)).toBe(true);
 		const routes = JSON.parse(readFileSync(join(cwd, "dist", "_routes.json"), "utf-8"));
 		expect(routes.include).toContain("/api/*");
-		expect(routes.include).toContain("/demo/data-fetching");
+		expect(routes.include).toContain("/_server-islands/*");
+		expect(routes.include).not.toContain("/demo/data-fetching");
 		expect(routes.include).not.toContain("/*");
 		expect(routes.exclude).toContain("/");
 	});
