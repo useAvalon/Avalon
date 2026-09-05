@@ -234,6 +234,12 @@ export default function Page() {
 			expect(resolved).toBeNull();
 		});
 
+		it("does not intercept virtual:server-island-integrations (Nitro owns it)", () => {
+			const plugin = createPluginInstance();
+			expect(callResolveId(plugin, "virtual:server-island-integrations")).toBeNull();
+			expect(callLoad(plugin, "\0virtual:server-island-integrations")).toBeNull();
+		});
+
 		it("loads manifest virtual module with registered components", () => {
 			const plugin = createPluginInstance();
 

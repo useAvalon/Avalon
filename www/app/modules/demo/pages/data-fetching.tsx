@@ -1,14 +1,29 @@
 /** @jsxImportSource preact */
 
+type Post = {
+	id: number;
+	title: string;
+	body: string;
+};
+
 export const metadata = {
 	title: "Data Fetching Demo",
 	description: "Demo showing async data fetching in server-rendered pages",
 };
 
+async function loadPosts(): Promise<Post[]> {
+	try {
+		const res = await fetch("https://jsonplaceholder.typicode.com/posts?_limit=10");
+		if (!res.ok) return [];
+		const data: unknown = await res.json();
+		return Array.isArray(data) ? (data as Post[]) : [];
+	} catch {
+		return [];
+	}
+}
+
 export default async function DataFetchingDemo() {
-	const posts = await fetch("https://jsonplaceholder.typicode.com/posts?_limit=10").then((r) =>
-		r.json(),
-	);
+	const posts = await loadPosts();
 
 	return (
 		<div
@@ -38,46 +53,56 @@ export default async function DataFetchingDemo() {
 				</p>
 			</div>
 
-			<ul
-				style={{
-					listStyle: "none",
-					padding: 0,
-					width: "100%",
-					maxWidth: "700px",
-					display: "flex",
-					flexDirection: "column",
-					gap: "0.75rem",
-				}}
-			>
-				{(posts as any[]).map((post: any) => (
-					<li
-						key={post.id}
-						style={{
-							padding: "1rem 1.25rem",
-							background: "rgba(255,255,255,0.03)",
-							border: "1px solid rgba(255,255,255,0.06)",
-							borderRadius: "8px",
-						}}
-					>
-						<strong
-							style={{ color: "#e0e0e0", fontFamily: "system-ui, sans-serif", fontSize: "0.95rem" }}
-						>
-							{post.title}
-						</strong>
-						<p
+			{posts.length === 0 ? (
+				<p style={{ color: "#888", fontFamily: "system-ui, sans-serif" }}>
+					No posts loaded (upstream fetch failed or returned an empty list).
+				</p>
+			) : (
+				<ul
+					style={{
+						listStyle: "none",
+						padding: 0,
+						width: "100%",
+						maxWidth: "700px",
+						display: "flex",
+						flexDirection: "column",
+						gap: "0.75rem",
+					}}
+				>
+					{posts.map((post) => (
+						<li
+							key={post.id}
 							style={{
-								color: "#666",
-								fontFamily: "system-ui, sans-serif",
-								fontSize: "0.85rem",
-								margin: "0.5rem 0 0",
-								lineHeight: 1.5,
+								padding: "1rem 1.25rem",
+								background: "rgba(255,255,255,0.03)",
+								border: "1px solid rgba(255,255,255,0.06)",
+								borderRadius: "8px",
 							}}
 						>
-							{post.body.slice(0, 120)}...
-						</p>
-					</li>
-				))}
-			</ul>
+							<strong
+								style={{
+									color: "#e0e0e0",
+									fontFamily: "system-ui, sans-serif",
+									fontSize: "0.95rem",
+								}}
+							>
+								{post.title}
+							</strong>
+							<p
+								style={{
+									color: "#666",
+									fontFamily: "system-ui, sans-serif",
+									fontSize: "0.85rem",
+									margin: "0.5rem 0 0",
+									lineHeight: 1.5,
+								}}
+							>
+								{post.body.slice(0, 120)}...
+							</p>
+						</li>
+					))}
+				</ul>
+			)}
 
 			<p
 				style={{

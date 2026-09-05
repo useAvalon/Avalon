@@ -75,6 +75,9 @@ describe("injectCloudflareDomStub", () => {
 
 		expect(injectCloudflareDomStub(dir)).toBe(true);
 		expect(readFileSync(join(dir, "_dom_stub.mjs"), "utf-8")).toContain("HTMLElement");
+		expect(readFileSync(join(dir, "_dom_stub.mjs"), "utf-8")).not.toContain(
+			"@lit-labs/ssr-dom-shim",
+		);
 		expect(
 			readFileSync(join(dir, "index.js"), "utf-8").startsWith('import "./_dom_stub.mjs";'),
 		).toBe(true);
@@ -102,7 +105,8 @@ describe("patchCloudflareRoutesForStaticHtml", () => {
 		expect(patchCloudflareRoutesForStaticHtml(cwd)).toBe(true);
 		const routes = JSON.parse(readFileSync(join(cwd, "dist", "_routes.json"), "utf-8"));
 		expect(routes.include).toContain("/api/*");
-		expect(routes.include).toContain("/demo/data-fetching");
+		expect(routes.include).toContain("/_server-islands/*");
+		expect(routes.include).not.toContain("/demo/data-fetching");
 		expect(routes.include).not.toContain("/*");
 		expect(routes.exclude).toContain("/");
 	});

@@ -4,16 +4,28 @@ import { encrypt } from "./encryption.ts";
 import type { ServerIslandProp } from "./types.ts";
 
 /**
- * In dev mode, skip encryption and use plain base64url encoding.
- * This avoids key synchronization issues between Vite's SSR environment
- * and Nitro's dev worker (they load separate module instances).
- * The payload is prefixed with "dev." so the endpoint can detect the mode.
+ * Unencrypted `dev.` payloads are only for Vite *serve* (HMR SSR), where the
+ * page renderer and `/_server-islands` handler are separate module graphs
+ * without a shared AES key.
+ *
+ * Production / prerender must AES-encrypt. Avoid reading NODE_ENV through an
+ * empty-object fallback on `process.env` — Rolldown can replace that access
+ * with `{}`, which made every payload use the unencrypted `dev.` form and the
+ * production endpoint then rejected it (`Bad Request: decryption failed`).
  */
-const IS_DEV = (globalThis.process?.env ?? {}).NODE_ENV !== "production";
+function shouldUseDevPayload(): boolean {
+	try {
+		// Vite replaces import.meta.env.DEV at compile time (true in `vite dev`).
+		if (import.meta.env?.DEV === true) return true;
+		if (import.meta.env?.PROD === true) return false;
+	} catch {
+		/* non-Vite runtime */
+	}
+	return false;
+}
 
 function encodeProps(serializedProps: string): string {
-	if (IS_DEV) {
-		// In dev: base64url encode with "dev." prefix (no encryption)
+	if (shouldUseDevPayload()) {
 		const encoded = Buffer.from(serializedProps, "utf8").toString("base64url");
 		return `dev.${encoded}`;
 	}

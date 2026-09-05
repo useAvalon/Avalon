@@ -10,9 +10,17 @@ import { existsSync } from 'node:fs';
 
 await runPostBuild({
 	prerender: {
-		routes: ['/'],
+		routes: [
+			"/",
+			"/demo",
+			"/demo/data-fetching",
+			"/demo/server-islands",
+			"/demo/server-island-pure",
+			"/demo/server-island-hydrated",
+			"/demo/server-actions",
+		],
 		crawlLinks: true,
-		ignore: ['/demo/data-fetching'],
+		ignore: [],
 		failOnError: false,
 	},
 });

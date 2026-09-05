@@ -1,14 +1,24 @@
 import { h } from "preact";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { encrypt, generateKey } from "../encryption.ts";
 import { defineServerIslandHandler } from "../endpoint.ts";
 import { addToManifest, clearManifest } from "../manifest.ts";
 
-// Mock the virtual:server-island-manifest module.
-// In tests, the loaders map is empty so the endpoint falls back to raw import().
+// Mutable virtual manifest — production Workers resolve IDs from this object,
+// not the in-process Map populated by addToManifest during Vite transforms.
+const virtualState = vi.hoisted(() => ({
+	serverIslandManifest: {} as Record<string, string>,
+	serverIslandLoaders: {} as Record<string, () => Promise<{ default: unknown }>>,
+}));
+
 vi.mock("virtual:server-island-manifest", () => ({
-	serverIslandManifest: {},
-	serverIslandLoaders: {},
+	serverIslandManifest: virtualState.serverIslandManifest,
+	serverIslandLoaders: virtualState.serverIslandLoaders,
+	serverIslandCSS: {},
+}));
+
+vi.mock("virtual:server-island-integrations", () => ({
+	ensureServerIslandIntegrations: () => {},
 }));
 
 // Use a stable key for tests
@@ -17,6 +27,16 @@ const originalKey = process.env.AVALON_KEY;
 
 beforeAll(() => {
 	process.env.AVALON_KEY = testKey;
+});
+
+afterEach(() => {
+	clearManifest();
+	for (const key of Object.keys(virtualState.serverIslandManifest)) {
+		delete virtualState.serverIslandManifest[key];
+	}
+	for (const key of Object.keys(virtualState.serverIslandLoaders)) {
+		delete virtualState.serverIslandLoaders[key];
+	}
 });
 
 afterAll(() => {
@@ -124,6 +144,32 @@ describe("defineServerIslandHandler - core behavior", () => {
 
 		expect(response.status).toBe(404);
 		expect(body).toContain("Component not found");
+	});
+
+	it("resolves the module from virtual serverIslandManifest when the Map is empty", async () => {
+		// Production Workers never see addToManifest() — only the Nitro-bundled
+		// virtual manifest. isDev:false must still resolve and render.
+		const handlerProd = defineServerIslandHandler({ isDev: false });
+		const componentId = "virt-manifest-only";
+		const modulePath = `${import.meta.url}#virt-manifest-only`;
+		virtualState.serverIslandManifest[componentId] = modulePath;
+
+		vi.doMock(modulePath, () => ({ default: TestComponent }));
+
+		const props = { name: "FromVirtual" };
+		const encryptedProps = encrypt(JSON.stringify(props));
+
+		const event = createMockEvent({
+			pathname: `/_server-islands/${componentId}`,
+			params: { componentId },
+			searchParams: new URLSearchParams({ p: encryptedProps }),
+		});
+
+		const response = await handlerProd(event);
+		const html = await response.text();
+
+		expect(response.status).toBe(200);
+		expect(html).toContain("Hello FromVirtual");
 	});
 
 	it("returns 500 when the component throws during rendering", async () => {

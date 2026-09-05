@@ -10,13 +10,18 @@
  * @module server-islands/endpoint
  */
 
+import { ensureServerIslandIntegrations } from "virtual:server-island-integrations";
 // Static import so the bundler resolves the virtual module and includes the
 // server island component loaders in the server bundle. The Avalon Vite plugin
 // (`avalon:server-islands`) provides this module via resolveId/load; the Nitro
 // build receives it through `nitro.options.virtual` (see nitro-integration.ts).
 // In dev the endpoint is handled by middleware and this module resolves to an
 // empty manifest, so the static import is always safe.
-import { serverIslandCSS, serverIslandLoaders } from "virtual:server-island-manifest";
+import {
+	serverIslandCSS,
+	serverIslandLoaders,
+	serverIslandManifest,
+} from "virtual:server-island-manifest";
 import type { H3Event } from "h3";
 import { h } from "preact";
 import preactRenderToString from "preact-render-to-string";
@@ -121,6 +126,10 @@ export function defineServerIslandHandler(options: ServerIslandEndpointOptions =
 	} = options;
 
 	return async (event: H3Event): Promise<Response> => {
+		// Loads + registers Solid/Vue/Svelte/Lit SSR integrations (kept as a
+		// real call so Rolldown cannot tree-shake the virtual module away).
+		ensureServerIslandIntegrations();
+
 		const componentId = extractComponentId(event);
 		if (!componentId) return textResponse("Missing component ID", 400);
 
@@ -131,12 +140,17 @@ export function defineServerIslandHandler(options: ServerIslandEndpointOptions =
 		if (decoded instanceof Response) return decoded;
 		const { props, islandMeta, srcPath } = decoded;
 
-		// The payload-provided `srcPath` (`__src`) is only trusted in development,
-		// where the manifest may not be populated in the endpoint's module instance.
-		// In production the target module must come from the build-time manifest —
-		// never from the request — so a forged payload can't point the dynamic
-		// import at an arbitrary module.
-		const modulePath = lookupComponent(componentId) ?? (isDev ? srcPath : undefined);
+		// Resolve the module path from (1) the in-process Map (Vite transform /
+		// tests), (2) the Nitro-bundled virtual manifest (production Workers), or
+		// (3) the payload `__src` — but only in development. Never trust `__src`
+		// in production: a forged payload must not choose an arbitrary import.
+		//
+		// The in-process Map is empty in Cloudflare/Netlify isolates; the virtual
+		// `serverIslandManifest` is the durable production source of truth.
+		const modulePath =
+			lookupComponent(componentId) ??
+			serverIslandManifest?.[componentId] ??
+			(isDev ? srcPath : undefined);
 		if (!modulePath) return textResponse("Component not found", 404);
 
 		const loaded = await loadComponentModule(componentId, modulePath, isDev, Boolean(islandMeta));

@@ -27,7 +27,7 @@ describe("renderServerIsland", () => {
 		expect(match).not.toBeNull();
 
 		const encodedValue = match![1];
-		// In dev mode the payload is "dev." + base64url; in prod it's base64url ciphertext.
+		// Vite serve uses `dev.` + base64url; production/prerender uses AES ciphertext.
 		expect(encodedValue).toMatch(/^(dev\.)?[A-Za-z0-9_-]+$/);
 
 		// Decode the payload back to the original props
@@ -38,6 +38,17 @@ describe("renderServerIsland", () => {
 			decoded = decrypt(encodedValue);
 		}
 		expect(JSON.parse(decoded)).toEqual(props);
+	});
+
+	it("never emits a bare Rolldown-fragile always-dev NODE_ENV check", async () => {
+		// Regression: `const IS_DEV = (globalThis.process?.env ?? {}).NODE_ENV !== "production"`
+		// was compiled to `IS_DEV = {}.NODE_ENV !== "production"` (always true), so prerendered
+		// HTML shipped `dev.` payloads that production endpoints reject.
+		const { readFileSync } = await import("node:fs");
+		const { fileURLToPath } = await import("node:url");
+		const src = readFileSync(fileURLToPath(new URL("../renderer.ts", import.meta.url)), "utf8");
+		expect(src).not.toContain("globalThis.process?.env ?? {}");
+		expect(src).toContain("import.meta.env");
 	});
 
 	it("renders fallback content inside the wrapper", () => {

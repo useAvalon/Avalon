@@ -10,7 +10,7 @@
 
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ssrDomShimModuleSource } from "../vite-plugin/ssr-dom-shim-module.ts";
+import { ssrDomStubFileSource } from "../vite-plugin/ssr-dom-shim-module.ts";
 
 const CREATE_REQUIRE_RE = /createRequire\(\s*import\.meta\.url\s*\)/g;
 const CREATE_REQUIRE_SAFE = 'createRequire(import.meta.url || "file:///")';
@@ -87,7 +87,7 @@ function prependImport(filePath: string, importSpec: string): boolean {
  */
 export function injectCloudflareDomStub(workerDir: string): boolean {
 	const stubPath = join(workerDir, DOM_STUB_NAME);
-	writeFileSync(stubPath, `${ssrDomShimModuleSource().trim()}\n`);
+	writeFileSync(stubPath, `${ssrDomStubFileSource().trim()}\n`);
 
 	let changed = false;
 	changed = prependImport(join(workerDir, "index.js"), `./${DOM_STUB_NAME}`) || changed;
@@ -111,13 +111,7 @@ export function patchCloudflareRoutesForStaticHtml(cwd: string): boolean {
 	const routesPath = join(cwd, "dist", "_routes.json");
 	if (!existsSync(routesPath)) return false;
 
-	const include = new Set<string>([
-		"/api/*",
-		"/_server-islands/*",
-		"/_actions/*",
-		"/demo/data-fetching",
-		"/demo/data-fetching/",
-	]);
+	const include = new Set<string>(["/api/*", "/_server-islands/*", "/_actions/*"]);
 
 	const apiDir = join(cwd, "dist", "_worker.js", "_routes", "api");
 	if (existsSync(apiDir)) {

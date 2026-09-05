@@ -9,13 +9,12 @@
  * - GET: encrypted props in the `p` query parameter
  * - POST: encrypted props in the request body
  *
+ * Framework SSR integrations are registered via the import in `endpoint.ts`
+ * (`virtual:server-island-integrations`).
+ *
  * @module server-islands/route
  */
 
-// Import the integrations virtual module to ensure framework SSR renderers are
-// bundled into the Nitro server function. This triggers the side-effect of
-// registering all integrations in the global registry before any request is handled.
-import "virtual:server-island-integrations";
 import { defineServerIslandHandler } from "./endpoint.ts";
 
 const handler = defineServerIslandHandler();
