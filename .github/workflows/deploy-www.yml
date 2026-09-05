@@ -54,24 +54,12 @@ jobs:
         run: bun run build
 
       # bunx, not wrangler-action install: `npm i` inside www/ fails on workspace:^ deps.
-      # Wrangler 4 no longer creates the Pages project on first deploy.
+      # Project `useavalon` already exists in the Cloudflare account — do not call
+      # `pages project create` (it is not idempotent and logs a scary 8000002 error).
       - name: Deploy to Cloudflare Pages
         working-directory: www
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PAGES_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.head_ref }}
-        run: |
-          set -euo pipefail
-          # Create is not idempotent; treat "already exists" as success.
-          create_out=$(bunx wrangler@4 pages project create useavalon \
-            --production-branch=main \
-            --compatibility-flags=nodejs_compat \
-            --compatibility-date=2026-09-04 2>&1) || status=$?
-          if [ "${status:-0}" -ne 0 ]; then
-            echo "$create_out"
-            echo "$create_out" | grep -Eqi 'already exists|8000002' || exit "$status"
-          else
-            echo "$create_out"
-          fi
-          bunx wrangler@4 pages deploy --project-name=useavalon --branch="$PAGES_BRANCH"
+        run: bunx wrangler@4 pages deploy --project-name=useavalon --branch="$PAGES_BRANCH"
