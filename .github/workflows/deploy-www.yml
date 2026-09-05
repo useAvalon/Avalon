@@ -32,6 +32,7 @@ concurrency:
 permissions:
   contents: read
   deployments: write
+  pull-requests: write
 
 jobs:
   deploy:
@@ -57,9 +58,61 @@ jobs:
       # Project `useavalon` already exists in the Cloudflare account — do not call
       # `pages project create` (it is not idempotent and logs a scary 8000002 error).
       - name: Deploy to Cloudflare Pages
+        id: deploy
         working-directory: www
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           PAGES_BRANCH: ${{ github.event_name == 'push' && github.ref_name || github.head_ref }}
-        run: bunx wrangler@4 pages deploy --project-name=useavalon --branch="$PAGES_BRANCH"
+        run: |
+          set -euo pipefail
+          out=$(bunx wrangler@4 pages deploy --project-name=useavalon --branch="$PAGES_BRANCH" 2>&1 | tee /dev/stderr)
+          # Unique per-deploy URL (…hash….useavalon.pages.dev)
+          url=$(printf '%s\n' "$out" | grep -Eo 'https://[a-zA-Z0-9.-]+\.useavalon\.pages\.dev' | head -1 || true)
+          # Stable branch alias when Wrangler prints one
+          alias_url=$(printf '%s\n' "$out" | grep -i 'alias URL' | grep -Eo 'https://[a-zA-Z0-9.-]+\.useavalon\.pages\.dev' | head -1 || true)
+          {
+            echo "url=${url}"
+            echo "alias_url=${alias_url:-$url}"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Cloudflare Pages"
+            echo ""
+            echo "- **Deployment:** ${url:-_(none)_}"
+            if [ -n "${alias_url:-}" ] && [ "${alias_url}" != "${url}" ]; then
+              echo "- **Branch alias:** ${alias_url}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment preview URL on PR
+        if: github.event_name == 'pull_request' && steps.deploy.outputs.url != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PREVIEW_URL: ${{ steps.deploy.outputs.url }}
+          ALIAS_URL: ${{ steps.deploy.outputs.alias_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          marker='<!-- avalon-cloudflare-pages-preview -->'
+          body=$(cat <<EOF
+          ${marker}
+          ### Cloudflare Pages preview
+
+          | | |
+          | --- | --- |
+          | **This deploy** | ${PREVIEW_URL} |
+          | **Branch alias** | ${ALIAS_URL} |
+
+          _Updated for \`${HEAD_SHA}\`_
+          EOF
+          )
+          comment_id=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"${marker}\"))) | .id" \
+            | head -1 || true)
+          if [ -n "${comment_id}" ]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id}" \
+              -f body="$body" >/dev/null
+          else
+            gh pr comment "$PR_NUMBER" --body "$body"
+          fi
