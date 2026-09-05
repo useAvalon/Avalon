@@ -481,6 +481,10 @@ function reactClientModule(core: ResolvedAvalonConfig["core"]): string {
  * configured — importing packages that aren't installed (e.g. @useavalon/solid
  * in a React-only app) would break the bundle. react/preact are registered by
  * the generated renderer module; this covers the rest.
+ *
+ * Registration runs inside `ensureServerIslandIntegrations()` (not only as
+ * top-level side effects). A const `export = true` was inlined by Rolldown and
+ * the whole module — including `registry.register` — was tree-shaken away.
  */
 function generateServerIslandIntegrationsModule(integrations: readonly string[]): string {
 	const registryPath = resolveAvalonPackagePath("src/core/integrations/registry.ts");
@@ -491,7 +495,12 @@ function generateServerIslandIntegrationsModule(integrations: readonly string[])
 		...(frameworks.includes("lit") ? [`import "${SSR_DOM_VIRTUAL_ID}";`] : []),
 		`import { registry } from "${registryPath}";`,
 		...frameworks.map((fw) => `import { ${fw}Integration } from "@useavalon/${fw}";`),
-		...frameworks.map((fw) => `if (${fw}Integration) registry.register(${fw}Integration);`),
+		`let registered = false;`,
+		`export function ensureServerIslandIntegrations() {`,
+		`  if (registered) return;`,
+		`  registered = true;`,
+		...frameworks.map((fw) => `  if (${fw}Integration) registry.register(${fw}Integration);`),
+		`}`,
 	];
 	return `${lines.join("\n")}\n`;
 }

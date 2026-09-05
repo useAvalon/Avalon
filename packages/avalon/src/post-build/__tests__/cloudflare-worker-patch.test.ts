@@ -75,6 +75,9 @@ describe("injectCloudflareDomStub", () => {
 
 		expect(injectCloudflareDomStub(dir)).toBe(true);
 		expect(readFileSync(join(dir, "_dom_stub.mjs"), "utf-8")).toContain("HTMLElement");
+		expect(readFileSync(join(dir, "_dom_stub.mjs"), "utf-8")).not.toContain(
+			"@lit-labs/ssr-dom-shim",
+		);
 		expect(
 			readFileSync(join(dir, "index.js"), "utf-8").startsWith('import "./_dom_stub.mjs";'),
 		).toBe(true);

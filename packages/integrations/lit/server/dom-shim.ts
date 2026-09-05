@@ -7,6 +7,9 @@
  * linkedom is loaded via dynamic import() to bypass Vite's SSR module runner,
  * which can't resolve linkedom's transitive deps (uhyphen, cssom, etc.) under
  * Deno's webworker SSR target.
+ *
+ * Avalon's prerender / Nitro `virtual:avalon/ssr-dom` module installs the same
+ * `@lit-labs/ssr-dom-shim` classes first so LitElement extends a real base.
  */
 
 import {
@@ -18,7 +21,7 @@ import {
 	HTMLElement as ShimHTMLElement,
 } from "@lit-labs/ssr-dom-shim";
 
-// Install shim classes as globals immediately (synchronous, no linkedom needed)
+// Install shim classes as globals when missing (boot stub may already have set them).
 // @ts-expect-error
 if (typeof globalThis.HTMLElement === "undefined") {
 	// @ts-expect-error

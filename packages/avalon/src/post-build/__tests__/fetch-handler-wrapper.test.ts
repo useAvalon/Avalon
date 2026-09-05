@@ -7,6 +7,7 @@ describe("fetchHandlerWrapperSource", () => {
 		expect(src).toContain("waitUntil(promise)");
 		expect(src).toContain("handler.fetch(request, {}, cfCtx)");
 		expect(src).toContain("createTreeWalker");
+		expect(src).toContain("@lit-labs/ssr-dom-shim");
 		expect(src).toContain("HTMLElement");
 		expect(src).not.toContain("handler.fetch(request, {}, {})");
 	});

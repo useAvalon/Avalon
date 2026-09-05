@@ -162,18 +162,14 @@ export function serverIslandsPlugin(options: ServerIslandsPluginOptions = {}): P
 		resolveId(id) {
 			if (id === VIRTUAL_MANIFEST_ID) return RESOLVED_MANIFEST_ID;
 			if (id === VIRTUAL_KEY_ID) return RESOLVED_KEY_ID;
-			if (id === "virtual:server-island-integrations")
-				return "\0virtual:server-island-integrations";
+			// Do NOT resolve `virtual:server-island-integrations` here. Nitro's
+			// `virtual` option seeds the real module (static @useavalon/* imports +
+			// registry.register). Intercepting the id with `\0…` + `export {}` made
+			// Nitro skip its seed, so Solid/Vue/Svelte/Lit SSR failed in production.
 			return null;
 		},
 
 		load(id) {
-			if (id === "\0virtual:server-island-integrations") {
-				// In the SSR/client pass, this is a no-op (integrations are loaded
-				// via the registry at runtime). The real registration happens in the
-				// Nitro virtual module which has the full integration imports.
-				return "export {};";
-			}
 			if (id === RESOLVED_MANIFEST_ID) {
 				const manifest = getManifest();
 				const entries = Object.entries(manifest);

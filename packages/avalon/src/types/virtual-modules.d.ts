@@ -80,8 +80,8 @@ declare module "virtual:server-island-key" {
 }
 
 declare module "virtual:server-island-integrations" {
-	// Side-effect module that registers framework integrations in the global registry.
-	// No exports — import for side effects only.
+	/** Registers framework SSR integrations into the global registry (idempotent). */
+	export function ensureServerIslandIntegrations(): void;
 }
 
 declare module "virtual:avalon-actions-manifest" {
