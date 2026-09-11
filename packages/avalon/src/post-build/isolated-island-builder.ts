@@ -109,7 +109,9 @@ export function generateWrapperCode(filePath: string, framework: string): string
 		`if(typeof globalThis<"u")globalThis.__avalonIsland=Component;`,
 	];
 	if (adapter) {
-		lines.push(`export { hydrate as __hydrateIsland } from ${JSON.stringify(adapter)};`);
+		lines.push(
+			`export { hydrate as __hydrateIsland, mount as __mountIsland } from ${JSON.stringify(adapter)};`,
+		);
 	}
 	return lines.join("\n");
 }
@@ -118,7 +120,7 @@ export function generateWrapperCode(filePath: string, framework: string): string
 export function generateIntegrationLoaderForFramework(framework: string): string {
 	const adapter = FRAMEWORK_ADAPTER_MAP[framework];
 	if (!adapter) return "export {};";
-	return `export { hydrate } from ${JSON.stringify(adapter)};`;
+	return `export { hydrate, mount } from ${JSON.stringify(adapter)};`;
 }
 
 /** Load fresh framework plugins for a specific framework */

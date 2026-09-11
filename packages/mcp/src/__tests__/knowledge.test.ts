@@ -5,6 +5,7 @@ import {
 	CORE_CONDITIONS,
 	CUSTOM_DIRECTIVES,
 	findCondition,
+	ISLAND_PROP_REFERENCE,
 } from "../knowledge/directives.ts";
 import { DOC_TOPICS, getDoc, searchDocs } from "../knowledge/docs.ts";
 import { SCAFFOLD_KINDS, scaffold } from "../knowledge/scaffold.ts";
@@ -34,6 +35,13 @@ describe("directives knowledge", () => {
 		expect(findCondition("media:(max-width: 500px)")?.condition).toBe("media:<query>");
 		expect(findCondition("on:delay")?.condition).toBe("on:delay");
 		expect(findCondition("on:nope")).toBeUndefined();
+	});
+
+	it("documents clientOnly on the island prop", () => {
+		const field = ISLAND_PROP_REFERENCE.fields.find((f) => f.name === "clientOnly");
+		expect(field?.type).toBe("boolean");
+		expect(field?.description.toLowerCase()).toContain("mount");
+		expect(ISLAND_PROP_REFERENCE.summary).toContain("clientOnly: true");
 	});
 });
 
@@ -115,6 +123,13 @@ describe("docs knowledge", () => {
 		const islands = getDoc("islands-architecture")?.content ?? "";
 		expect(islands).toContain(".react.tsx");
 		expect(islands.toLowerCase()).toContain("statically");
+		expect(islands).toContain("clientOnly: true");
+		expect(islands).toContain("data-render-strategy");
+	});
+
+	it("search ranks islands for clientOnly and client-only queries", () => {
+		expect(searchDocs("clientOnly")[0]?.id).toBe("islands-architecture");
+		expect(searchDocs("client-only")[0]?.id).toBe("islands-architecture");
 	});
 
 	it("routing documents both module-based and flat conventions", () => {
@@ -143,6 +158,13 @@ describe("scaffold knowledge", () => {
 		expect(t.code).toContain("island={{ condition: 'on:visible' }}");
 		expect(t.code).not.toMatch(/client:(load|visible|idle|media|only)/);
 		expect(t.suggestedPath).toMatch(/\.tsx$/);
+	});
+
+	it("generates island-usage with clientOnly when asked to skip SSR", () => {
+		const t = scaffold("island-usage", "Chart", "clientOnly");
+		expect(t.code).toContain("island={{ clientOnly: true }}");
+		expect(t.code).not.toContain("client:only");
+		expect(t.description.toLowerCase()).toContain("client-only");
 	});
 
 	it("generates an action using @useavalon/avalon/actions", () => {

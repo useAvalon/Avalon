@@ -69,6 +69,11 @@ declare module "virtual:avalon/integration-loader" {
 			component: unknown,
 			props: Record<string, unknown>,
 		) => void | Promise<void>;
+		mount?: (
+			el: HTMLElement,
+			component: unknown,
+			props: Record<string, unknown>,
+		) => void | Promise<void>;
 		unmount?: (el: HTMLElement) => void | Promise<void>;
 		preLitHydration?: () => Promise<void>;
 	}>;

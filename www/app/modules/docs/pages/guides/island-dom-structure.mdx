@@ -9,7 +9,7 @@ prev:
 
 ## How islands render in the DOM
 
-When you add the `island` prop to a component, Avalon wraps the server-rendered output in an `<avalon-island>` custom element. This element is the hydration anchor — it carries the `id`, `data-framework`, and `data-condition` attributes that the client uses to locate and hydrate the component.
+When you add the `island` prop to a component, Avalon wraps the output in an `<avalon-island>` custom element. This element is the hydration (or mount) anchor — it carries the `id`, `data-framework`, `data-condition`, and `data-render-strategy` attributes the client uses to locate the component.
 
 ```html
 <avalon-island id="island-Counter" data-framework="preact" data-condition="on:interaction">
@@ -43,6 +43,18 @@ avalon-island, avalon-page, avalon-page-content {
 
 The element still exists in the DOM. `document.getElementById()` finds it, `dataset` attributes are readable, and events bubble through it.
 
+## Client-only islands are `display: block`
+
+`island={{ clientOnly: true }}` emits an empty placeholder with `data-render-strategy="client-only"`. An empty `display: contents` host has no box, so `on:visible` and `on:interaction` could never attach. Avalon overrides that case:
+
+```css
+avalon-island[data-render-strategy=client-only] {
+  display: block;
+}
+```
+
+The host is a layout box before the component mounts. It still has no intrinsic height — set a min-height on the island or a wrapper if you need to reserve space or trip `on:visible`.
+
 ## How hydration strategies account for this
 
 Elements with `display: contents` have no layout box. Two hydration strategies depend on geometry, so Avalon targets the island's **first child element** instead of the wrapper itself.
@@ -72,7 +84,7 @@ const target = island.firstElementChild || island;
 
 ### `on:client` and `on:idle`
 
-These strategies don't depend on geometry. `on:client` hydrates immediately when the module loads. `on:idle` uses `requestIdleCallback`. Neither needs a layout box, so they reference the `<avalon-island>` element directly.
+These strategies don't depend on geometry. `on:client` hydrates (or mounts) immediately when the module loads. `on:idle` uses `requestIdleCallback`. Neither needs a layout box on a hydrated island, so they reference the `<avalon-island>` element directly. Client-only hosts still use `display: block` so a deferred condition can observe the empty placeholder.
 
 ## Overriding the baseline style
 

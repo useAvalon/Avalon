@@ -18,6 +18,7 @@
 
 import { dirname } from "node:path";
 import type { Plugin } from "vite";
+import { islandSsrExpression } from "./island-ssr-flag.ts";
 
 export interface MDXIslandTransformOptions {
 	islandPathPatterns?: RegExp[];
@@ -374,7 +375,7 @@ function replaceJsxCalls(
 
 		// Build the renderIsland call
 		// We spread the island value to get condition, ssr, etc.
-		const renderCall = `(await __AvalonRenderIsland({ src: "${srcPath}", ${fwArg} ...(${islandValue}), ${propsArg} ssr: (${islandValue}).ssr !== undefined ? (${islandValue}).ssr : true }))`;
+		const renderCall = `(await __AvalonRenderIsland({ src: "${srcPath}", ${fwArg} ...(${islandValue}), ${propsArg} ssr: ${islandSsrExpression(islandValue)} }))`;
 
 		result += code.slice(lastIndex, matchStart) + renderCall;
 		lastIndex = callEnd;

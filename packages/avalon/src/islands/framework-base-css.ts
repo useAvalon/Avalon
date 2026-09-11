@@ -14,12 +14,16 @@
  * devtools. This mirrors the pattern Astro, Lit, and Elder.js use for
  * island-style hydration anchors.
  *
+ * Client-only islands have no SSR children, so `display: contents` would
+ * leave a host with no box. Those use `display: block` so deferred
+ * conditions (`on:visible`, `on:interaction`) can attach to the host.
+ *
  * The CSS is intentionally low-specificity (single-element selectors)
  * so any user CSS that sets a different `display` value naturally wins.
  */
 
 const FRAMEWORK_BASE_CSS =
-	"avalon-island,avalon-page,avalon-page-content,avalon-server-island,[data-server-island-wrapper]{display:contents}";
+	"avalon-island,avalon-page,avalon-page-content,avalon-server-island,[data-server-island-wrapper]{display:contents}avalon-island[data-render-strategy=client-only]{display:block}";
 
 const STYLE_TAG = `<style data-avalon-base="true">${FRAMEWORK_BASE_CSS}</style>`;
 

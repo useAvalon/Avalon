@@ -47,18 +47,14 @@ describe("generateIntegrationLoaderModule — Solid adapter inlining", () => {
 		expect(code).toContain('import("@useavalon/solid/client")');
 	});
 
-	it("inlined adapter imports hydrate from solid-js/web (not render)", () => {
+	it("inlined adapter exports hydrate and mount", () => {
 		const code = generateIntegrationLoaderModule(makeConfig({ isDev: false }));
 
-		// The primary hydration path should import hydrate + createComponent
 		expect(code).toContain('import("solid-js/web")');
 		expect(code).toContain("hydrate: solidHydrate");
+		expect(code).toContain("render: solidRender");
 		expect(code).toContain("createComponent");
-
-		// render() fallback should NOT be present — saves ~1-2 KiB
-		expect(code).not.toContain("render: solidRender");
-		expect(code).not.toContain("solidRender(");
-		expect(code).not.toContain('import("solid-js/web");\n  el.textContent');
+		expect(code).toContain("mount: _solidMount");
 	});
 
 	it("inlined adapter sets up _$HY hydration context", () => {

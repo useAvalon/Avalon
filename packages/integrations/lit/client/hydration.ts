@@ -47,6 +47,33 @@ export function hydrate(
 	container.dataset.litHydrated = "true";
 }
 
+/** Mount a Lit element into an empty container (no SSR custom element to hydrate). */
+export function mount(
+	container: HTMLElement,
+	ElementClass: typeof LitElement,
+	props: Record<string, unknown>,
+): void {
+	const tagName =
+		container.dataset.tagName ||
+		(ElementClass as any).elementName ||
+		ElementClass.name.replaceAll(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
+
+	if (!tagName) {
+		throw new Error("Could not determine tag name for Lit component");
+	}
+
+	if (!customElements.get(tagName)) {
+		customElements.define(tagName, ElementClass as any);
+	}
+
+	const newElement = document.createElement(tagName);
+	for (const [key, value] of Object.entries(props)) {
+		(newElement as any)[key] = value;
+	}
+	container.appendChild(newElement);
+	container.dataset.litHydrated = "true";
+}
+
 /** Lit has no framework tree to dispose; clear the hydration marker so a later scan can re-run. */
 export function unmount(container: HTMLElement): void {
 	delete container.dataset.litHydrated;
@@ -61,12 +88,7 @@ function performHydration(
 	const element = container.querySelector(tagName);
 
 	if (!element) {
-		// Client-only render
-		const newElement = document.createElement(tagName);
-		Object.entries(props).forEach(([key, value]) => {
-			(newElement as any)[key] = value;
-		});
-		container.appendChild(newElement);
+		mount(container, ElementClass, props);
 		return;
 	}
 

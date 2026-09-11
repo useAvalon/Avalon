@@ -13,7 +13,7 @@
  * @module solid/client/hydration
  */
 
-import { createComponent, hydrate as solidHydrate } from "solid-js/web";
+import { createComponent, hydrate as solidHydrate, render as solidRender } from "solid-js/web";
 import type { SolidComponent, SolidHydrationOptions } from "../types.ts";
 
 const disposers = new WeakMap<Element, () => void>();
@@ -61,6 +61,25 @@ export async function hydrate(
 	const dispose = solidHydrate(() => createComponent(Component, props), element, {
 		renderId: renderId || "",
 	});
+	if (typeof dispose === "function") {
+		disposers.set(container, dispose);
+	}
+}
+
+/** Mount a Solid component into an empty container (no SSR HTML to hydrate). */
+export function mount(
+	container: Element,
+	Component: SolidComponent,
+	props: Record<string, unknown> = {},
+): void {
+	if (!container) {
+		throw new Error("Container element is required for mount");
+	}
+	if (!Component || typeof Component !== "function") {
+		throw new Error(`Invalid Solid component: expected function, got ${typeof Component}`);
+	}
+
+	const dispose = solidRender(() => createComponent(Component, props), container);
 	if (typeof dispose === "function") {
 		disposers.set(container, dispose);
 	}

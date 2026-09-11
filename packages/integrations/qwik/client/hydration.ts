@@ -40,7 +40,7 @@ export function hydrate(
 		const element = container as HTMLElement;
 		const hasSSRContent = element.children.length > 0;
 		const hasQwikContainer =
-			element.closest("[q\\:container]") !== null || element.hasAttribute("q:container");
+			element.closest(String.raw`[q\:container]`) !== null || element.hasAttribute("q:container");
 
 		if (hasSSRContent && hasQwikContainer) {
 			// Qwik container already exists with serialized state.
@@ -48,41 +48,7 @@ export function hydrate(
 			return;
 		}
 
-		// No SSR content or no Qwik container — do a client-side render
-		Promise.all([import("@builder.io/qwik")])
-			.then(([qwik]) => {
-				const qwikModule = qwik as any;
-
-				try {
-					if (qwikModule.render) {
-						const jsxNode =
-							typeof qwikModule.jsx === "function"
-								? qwikModule.jsx(Component, props)
-								: Component(props);
-
-						qwikModule.render(element, jsxNode);
-					} else {
-						if (process.env.NODE_ENV !== "production") {
-							element.dataset.hydrationStatus = "failed";
-							element.dataset.hydrationError = "Qwik render API not available";
-						}
-					}
-				} catch (error) {
-					if (process.env.NODE_ENV !== "production") {
-						element.dataset.hydrationStatus = "failed";
-						const errorMsg = error instanceof Error ? error.message : String(error);
-						element.dataset.hydrationError = errorMsg;
-						console.error(`Qwik client render failed:`, error);
-					}
-				}
-			})
-			.catch((importError) => {
-				if (process.env.NODE_ENV !== "production") {
-					element.dataset.hydrationStatus = "failed";
-					element.dataset.hydrationError = "Failed to load @builder.io/qwik module";
-					console.error(`Failed to import @builder.io/qwik:`, importError);
-				}
-			});
+		mount(element, Component, props);
 	} catch (error) {
 		if (process.env.NODE_ENV !== "production") {
 			(container as HTMLElement).dataset.hydrationStatus = "failed";
@@ -93,8 +59,51 @@ export function hydrate(
 	}
 }
 
+/** Client-render a Qwik component into an empty container. */
+export function mount(
+	container: Element,
+	Component: QwikComponent,
+	props: Record<string, unknown> = {},
+): void {
+	const element = container as HTMLElement;
+	import("@builder.io/qwik")
+		.then((qwik) => {
+			const qwikModule = qwik as any;
+
+			try {
+				if (qwikModule.render) {
+					const jsxNode =
+						typeof qwikModule.jsx === "function"
+							? qwikModule.jsx(Component, props)
+							: Component(props);
+
+					qwikModule.render(element, jsxNode);
+				} else if (process.env.NODE_ENV !== "production") {
+					element.dataset.hydrationStatus = "failed";
+					element.dataset.hydrationError = "Qwik render API not available";
+				}
+			} catch (error) {
+				if (process.env.NODE_ENV !== "production") {
+					element.dataset.hydrationStatus = "failed";
+					const errorMsg = error instanceof Error ? error.message : String(error);
+					element.dataset.hydrationError = errorMsg;
+					console.error(`Qwik client render failed:`, error);
+				}
+			}
+		})
+		.catch((importError) => {
+			if (process.env.NODE_ENV !== "production") {
+				element.dataset.hydrationStatus = "failed";
+				element.dataset.hydrationError = "Failed to load @builder.io/qwik module";
+				console.error(`Failed to import @builder.io/qwik:`, importError);
+			}
+		});
+}
+
 /** Qwik resumability has no client tree to tear down. */
-export function unmount(_container: HTMLElement): void {}
+export function unmount(_container: HTMLElement): void {
+	return;
+}
 
 /**
  * Get the resumability script for Qwik components

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	convertClientDirective,
 	convertSnippet,
+	DIRECTIVE_MAP,
 	lintForAstroisms,
 } from "../knowledge/astro-map.ts";
 
@@ -18,10 +19,15 @@ describe("convertClientDirective", () => {
 		expect(convertClientDirective("client:idle")).toBe("island={{ condition: 'on:idle' }}");
 	});
 
-	it("maps client:only to on:client (Avalon always SSRs)", () => {
-		expect(convertClientDirective('client:only="preact"')).toBe(
-			"island={{ condition: 'on:client' }}",
-		);
+	it("maps client:only to clientOnly: true", () => {
+		expect(convertClientDirective('client:only="preact"')).toBe("island={{ clientOnly: true }}");
+	});
+
+	it("documents client:only as a mount, not on:client", () => {
+		const mapping = DIRECTIVE_MAP.find((m) => m.astro.startsWith("client:only"));
+		expect(mapping?.avalon).toBe("island={{ clientOnly: true }}");
+		expect(mapping?.note.toLowerCase()).toContain("mount");
+		expect(mapping?.note).not.toMatch(/no client-only/i);
 	});
 
 	it("extracts the query from client:media", () => {
@@ -33,10 +39,11 @@ describe("convertClientDirective", () => {
 
 describe("convertSnippet", () => {
 	it("rewrites every client:* directive in a block", () => {
-		const input = "<A client:load />\n<B client:visible />";
+		const input = '<A client:load />\n<B client:visible />\n<C client:only="vue" />';
 		const out = convertSnippet(input);
 		expect(out).toContain("island={{ condition: 'on:client' }}");
 		expect(out).toContain("island={{ condition: 'on:visible' }}");
+		expect(out).toContain("island={{ clientOnly: true }}");
 		expect(out).not.toContain("client:");
 	});
 });
@@ -98,9 +105,21 @@ describe("lintForAstroisms", () => {
 		expect(found).toContain("transition:animate");
 	});
 
+	it("flags client:only with a clientOnly mount suggestion", () => {
+		const findings = lintForAstroisms('<Chart client:only="react" />');
+		expect(findings).toHaveLength(1);
+		expect(findings[0]?.suggestion).toBe("island={{ clientOnly: true }}");
+		expect(findings[0]?.reason).toContain("clientOnly");
+		expect(findings[0]?.reason).toContain("filename");
+	});
+
 	it("returns nothing for clean Avalon code", () => {
 		const clean = "<Counter island={{ condition: 'on:visible' }} />";
 		expect(lintForAstroisms(clean)).toHaveLength(0);
+	});
+
+	it("returns nothing for a clientOnly island prop", () => {
+		expect(lintForAstroisms("<Chart island={{ clientOnly: true }} />")).toHaveLength(0);
 	});
 
 	it("does not flag Avalon clientRouter or data-router-transition", () => {

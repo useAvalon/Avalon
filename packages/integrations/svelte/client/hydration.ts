@@ -86,9 +86,7 @@ export function hydrate(
 			storeInstance(container, instance as Record<string, unknown>);
 			return instance;
 		}
-		const instance = svelteMount(Component, { target: container, props });
-		storeInstance(container, instance as Record<string, unknown>);
-		return instance;
+		return mount(container, Component, props);
 	} catch (error) {
 		if (!hasSSRContent) {
 			if (isDev()) console.error(`Svelte hydration failed:`, error);
@@ -178,8 +176,10 @@ export function mount(
 	Component: SvelteComponent,
 	props: Record<string, unknown>,
 ): Record<string, unknown> {
-	return svelteMount(Component, {
+	const instance = svelteMount(Component, {
 		target: container,
 		props: props || {},
-	});
+	}) as Record<string, unknown>;
+	storeInstance(container, instance);
+	return instance;
 }

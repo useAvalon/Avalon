@@ -39,6 +39,8 @@ export interface IslandProps {
 	children?: JSX.Element | JSX.Element[] | string;
 	/** Whether to render server-side (default: true unless condition is 'on:client') */
 	ssr?: boolean;
+	/** Skip component SSR and mount on the client. Forces `ssr: false`. */
+	clientOnly?: boolean;
 	/** Framework hint for client hydration */
 	framework?: "solid" | "vue" | "preact" | "react" | "svelte" | "lit" | "qwik";
 	/** Force SSR-only rendering without hydration */

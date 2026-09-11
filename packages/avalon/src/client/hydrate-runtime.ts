@@ -17,6 +17,7 @@ export type UnmountFn = (el: HTMLElement) => void | Promise<void>;
 
 export interface IntegrationModule {
 	hydrate?: HydrateFn;
+	mount?: HydrateFn;
 	unmount?: UnmountFn;
 	preLitHydration?: () => Promise<void>;
 }
@@ -24,6 +25,8 @@ export interface IntegrationModule {
 export interface HydrationLoader {
 	loadIntegrationModule: (framework: string) => Promise<IntegrationModule>;
 	preLitHydration?: () => Promise<void>;
+	/** Test seam — production uses dynamic `import(data-src)`. */
+	loadComponent?: (src: string) => Promise<Record<string, unknown>>;
 }
 
 type Cleanup = () => void;
@@ -100,15 +103,21 @@ async function hydrateIsland(island: HTMLElement, framework: string): Promise<vo
 				loader.loadIntegrationModule("lit").then((m) => m.preLitHydration?.()));
 		}
 
-		const componentModule = (await import(/* @vite-ignore */ src)) as Record<string, unknown>;
+		const componentModule = (
+			loader.loadComponent ? await loader.loadComponent(src) : await import(/* @vite-ignore */ src)
+		) as Record<string, unknown>;
 		const Component = resolveComponent(componentModule, src);
 		const integrationModule = await loader.loadIntegrationModule(framework);
 
-		if (!integrationModule.hydrate || typeof integrationModule.hydrate !== "function") {
-			throw new Error(`Integration ${framework} does not export a hydrate function`);
+		const clientOnly = island.dataset.renderStrategy === "client-only";
+		const activate = clientOnly ? integrationModule.mount : integrationModule.hydrate;
+		const activateName = clientOnly ? "mount" : "hydrate";
+
+		if (!activate || typeof activate !== "function") {
+			throw new Error(`Integration ${framework} does not export a ${activateName} function`);
 		}
 
-		await integrationModule.hydrate(island, Component, props);
+		await activate(island, Component, props);
 		island.dataset.hydrated = "true";
 	} catch (error) {
 		const message = error instanceof Error ? error.message : String(error);

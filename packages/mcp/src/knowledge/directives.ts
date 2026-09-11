@@ -134,7 +134,7 @@ export const CUSTOM_DIRECTIVES: HydrationCondition[] = [
 /** Everything the model needs to know about the `island` prop itself. */
 export const ISLAND_PROP_REFERENCE = {
 	summary:
-		"Avalon controls hydration with a SINGLE `island` prop object passed to an imported component. There are NO `client:*` template attributes like Astro has.",
+		"Avalon controls hydration with a SINGLE `island` prop object passed to an imported component. There are NO `client:*` template attributes like Astro has. `clientOnly: true` skips SSR and mounts in the browser.",
 	fields: [
 		{
 			name: "condition",
@@ -165,6 +165,14 @@ export const ISLAND_PROP_REFERENCE = {
 			description:
 				"Keep this island's live instance across client navigations (requires avalon({ clientRouter: true })). A string is the persist key; `true` uses the component source path. Not the same as usePersistentState / PersistentIsland (sessionStorage). Qwik islands are never persisted.",
 		},
+		{
+			name: "clientOnly",
+			type: "boolean",
+			required: false,
+			default: "false",
+			description:
+				"Skip server rendering. Avalon emits an empty <avalon-island> placeholder and mounts the component in the browser. Props are still serialized. Combines with `condition` for when to mount. Users without JavaScript do not see the component.",
+		},
 	],
 	canonicalExample: `import Counter from '../islands/Counter.tsx';
 
@@ -181,6 +189,7 @@ export default function Page() {
 		"JSX islands need the right pragma for their renderer, e.g. `/** @jsxImportSource preact */` at the top of the file.",
 		"`on:delay`, `on:event`, `on:scroll`, and `on:match` are built-in CUSTOM directives — enable them by calling `registerBuiltinDirectives()` in your server entry.",
 		"Across client navigations, islands are disposed and rehydrated unless you set `island={{ persist: 'key' }}` (or `data-router-persist` on a wrapper).",
+		"`clientOnly: true` skips SSR of the component. The page still serializes props. Users without JavaScript do not see that component.",
 	],
 	registerCustomExample: `// server/renderer.ts
 import { registerHydrationDirective } from '@useavalon/avalon';

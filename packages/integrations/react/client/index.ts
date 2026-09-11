@@ -10,5 +10,6 @@ export {
 	getHydrationScript,
 	hydrate,
 	isHydrationReady,
+	mount,
 	unmount,
 } from "./hydration.ts";

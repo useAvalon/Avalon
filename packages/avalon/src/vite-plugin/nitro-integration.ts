@@ -2240,7 +2240,6 @@ function solidInlineAdapterLines(): string[] {
 	return [
 		`// --- Inlined Solid adapter (production) ---`,
 		`// Eliminates a separate chunk + network request for the Solid client adapter.`,
-		`// Only imports hydrate/createComponent — no render() fallback (saves ~1-2 KiB).`,
 		`function _ensureHydrationContext() {`,
 		`  if (!globalThis._$HY) {`,
 		`    globalThis._$HY = { events: [], completed: new WeakSet(), r: {}, fe() {} };`,
@@ -2260,13 +2259,23 @@ function solidInlineAdapterLines(): string[] {
 		`  if (typeof dispose === "function") _solidDisposers.set(container, dispose);`,
 		`}`,
 		``,
+		`async function _solidMount(container, Component, props) {`,
+		`  if (!container) throw new Error("Container element is required for mount");`,
+		`  if (!Component || typeof Component !== "function") {`,
+		`    throw new Error("Invalid Solid component: expected function, got " + typeof Component);`,
+		`  }`,
+		`  var { render: solidRender, createComponent } = await import("solid-js/web");`,
+		`  var dispose = solidRender(function() { return createComponent(Component, props || {}); }, container);`,
+		`  if (typeof dispose === "function") _solidDisposers.set(container, dispose);`,
+		`}`,
+		``,
 		`function _solidUnmount(container) {`,
 		`  var dispose = _solidDisposers.get(container);`,
 		`  if (dispose) { dispose(); _solidDisposers.delete(container); }`,
 		`}`,
 		``,
 		`var _solidDisposers = new WeakMap();`,
-		`var _solidModule = { hydrate: _solidHydrate, unmount: _solidUnmount };`,
+		`var _solidModule = { hydrate: _solidHydrate, mount: _solidMount, unmount: _solidUnmount };`,
 		``,
 	];
 }
@@ -2343,8 +2352,7 @@ export function generateIntegrationLoaderModule(avalonConfig: ResolvedAvalonConf
 	];
 
 	// In production, inline the Solid adapter directly to save one network request.
-	// The inlined version only imports hydrate + createComponent from solid-js/web
-	// (no render() fallback), which avoids pulling in the extra DOM runtime code.
+	// The inlined version imports hydrate/render + createComponent from solid-js/web.
 	if (hasSolid && !isDev) {
 		lines.push(...solidInlineAdapterLines());
 	}

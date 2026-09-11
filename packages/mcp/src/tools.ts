@@ -70,7 +70,7 @@ export function createTools(): ToolDefinition[] {
 					behavior: {
 						type: "string",
 						description:
-							"Desired hydration behaviour, an Avalon condition, or an Astro client:* directive.",
+							"Desired hydration behaviour, an Avalon condition, `clientOnly`, or an Astro client:* directive.",
 					},
 				},
 				required: ["behavior"],
@@ -88,7 +88,7 @@ export function createTools(): ToolDefinition[] {
 			name: "avalon_convert_astro",
 			title: "Convert Astro code to Avalon",
 			description:
-				"Convert an Astro code snippet to Avalon. Rewrites `client:*` hydration directives to Avalon's `island={{ condition }}` prop and reports any other Astro-only constructs (`.astro` files, `Astro.*` globals, `astro:actions`, `getStaticPaths`) with fixes. Use this when porting Astro code or when you're unsure whether syntax is Astro or Avalon.",
+				"Convert an Astro code snippet to Avalon. Rewrites `client:*` hydration directives to Avalon's `island` prop (`condition` or `clientOnly: true`) and reports any other Astro-only constructs (`.astro` files, `Astro.*` globals, `astro:actions`, `getStaticPaths`) with fixes. Use this when porting Astro code or when you're unsure whether syntax is Astro or Avalon.",
 			inputSchema: {
 				type: "object",
 				properties: {
@@ -151,7 +151,7 @@ export function createTools(): ToolDefinition[] {
 			name: "avalon_search_docs",
 			title: "Search Avalon documentation",
 			description:
-				"Search Avalon's embedded documentation by keyword and return the most relevant topic(s) as Markdown. Covers islands (incl. framework file-naming like *.react.tsx), hydration, server islands, actions, routing (module-based + flat), client navigation (clientRouter, navigate, prefetch, persist, View Transitions / data-router-transition), layouts, middleware, API routes, cron, components, state & cross-island communication, client scripts, styling, metadata/SEO, MDX, configuration, framework integrations, the CLI (create-avalon/avalon), and the Flora grid system.",
+				"Search Avalon's embedded documentation by keyword and return the most relevant topic(s) as Markdown. Covers islands (incl. framework file-naming like *.react.tsx and clientOnly mounts), hydration, server islands, actions, routing (module-based + flat), client navigation (clientRouter, navigate, prefetch, persist, View Transitions / data-router-transition), layouts, middleware, API routes, cron, components, state & cross-island communication, client scripts, styling, metadata/SEO, MDX, configuration, framework integrations, the CLI (create-avalon/avalon), and the Flora grid system.",
 			inputSchema: {
 				type: "object",
 				properties: {
@@ -213,7 +213,7 @@ export function createTools(): ToolDefinition[] {
 					condition: {
 						type: "string",
 						description:
-							"Hydration condition for island scaffolds (default 'on:client'), e.g. 'on:visible'.",
+							"Hydration condition for island scaffolds (default 'on:client'), e.g. 'on:visible'. Pass `clientOnly` to skip SSR and mount in the browser.",
 					},
 				},
 				required: ["kind"],
@@ -295,6 +295,21 @@ function resolveBehavior(behavior: string): string {
 	const direct = findCondition(behavior);
 	if (direct) {
 		return conditionToMarkdown(direct);
+	}
+
+	if (
+		/client.?only|never ssr|skip ssr|browser.?only/.test(lower) &&
+		!lower.includes("client:load")
+	) {
+		return [
+			`For "${behavior}", use Avalon's client-only island mode:`,
+			"",
+			"```tsx",
+			"<Component island={{ clientOnly: true }} />",
+			"```",
+			"",
+			"The component is not server-rendered. Avalon emits an empty placeholder and mounts it in the browser. Combine with `condition` to defer the mount.",
+		].join("\n");
 	}
 
 	// 3) Natural language mapping.

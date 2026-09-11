@@ -10,7 +10,7 @@
  * @module vue/client/hydration
  */
 
-import { type App, type Component, createSSRApp } from "vue";
+import { type App, type Component, createApp, createSSRApp } from "vue";
 
 const apps = new WeakMap<Element, App>();
 
@@ -32,6 +32,22 @@ export function hydrate(
 		apps.set(container, app);
 	} catch (error) {
 		console.error("Vue hydration failed:", error);
+		throw error;
+	}
+}
+
+/** Mount a Vue component into an empty container (no SSR HTML to hydrate). */
+export function mount(
+	container: Element,
+	component: unknown,
+	props: Record<string, unknown> = {},
+): void {
+	try {
+		const app = createApp(component as Component, props);
+		app.mount(container);
+		apps.set(container, app);
+	} catch (error) {
+		console.error("Vue mount failed:", error);
 		throw error;
 	}
 }

@@ -18,6 +18,7 @@ interface IslandProp {
   id?: string;
   persist?: string | true;
   conditionArg?: string;
+  clientOnly?: boolean;
 }
 
 type IslandCondition =
@@ -33,10 +34,11 @@ type IslandCondition =
 
 | Property | Type | Default | Description |
 |---|---|---|---|
-| `condition` | `IslandCondition` | `'on:client'` | When the island hydrates |
+| `condition` | `IslandCondition` | `'on:client'` | When the island hydrates or mounts |
 | `id` | `string` | Auto-generated | Stable identifier for state persistence |
 | `persist` | `string \| true` | — | Keep the live instance across [client navigations](/docs/client-navigation). `true` uses the component source path as the key. Qwik is skipped. |
 | `conditionArg` | `string` | `undefined` | Argument passed to custom directives |
+| `clientOnly` | `boolean` | `false` | Skip server rendering. Avalon emits an empty placeholder and **mounts** the component in the browser. Props are still serialized. |
 
 ## Valid `condition` values
 
@@ -63,9 +65,15 @@ type IslandCondition =
 <Counter island={{ condition: 'on:client', id: 'hero-counter' }} />
 
 <ThemeToggle island={{ condition: 'on:idle', persist: 'theme-toggle' }} />
+
+<Chart island={{ clientOnly: true }} userId={user.id} />
+
+<Map island={{ clientOnly: true, condition: 'on:visible' }} />
 ```
 
 Props must be serializable to JSON — they are embedded in the HTML as a data attribute for hydration.
+
+`clientOnly: true` is a rendering mode, not a hydration condition. The component function does not run during SSR, so it may use `window` / `document` in its body. Users without JavaScript see an empty placeholder for that island. `on:visible` on a client-only island still needs a sized host (the placeholder is `display: block`, but has no intrinsic height until it mounts).
 
 ## See also
 

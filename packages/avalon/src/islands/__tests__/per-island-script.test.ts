@@ -39,14 +39,14 @@ describe("generatePerIslandScript", () => {
 		expect(result).toContain('{"title":"hello"}');
 	});
 
-	it("imports loadIntegrationModule from the component chunk", () => {
-		const result = generatePerIslandScript(makeOpts());
-		expect(result).toContain("m.loadIntegrationModule");
-	});
-
-	it("calls integration.hydrate", () => {
-		const result = generatePerIslandScript(makeOpts());
-		expect(result).toContain("i.hydrate");
+	it.each([
+		"m.loadIntegrationModule",
+		"i.hydrate",
+		'renderStrategy==="client-only"',
+		"__mountIsland",
+		"i.mount",
+	])("emits %s in the hydrate call", (snippet) => {
+		expect(generatePerIslandScript(makeOpts())).toContain(snippet);
 	});
 
 	it("sets data-hydrated on success", () => {

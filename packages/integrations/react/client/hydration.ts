@@ -3,7 +3,7 @@
 
 import type { ComponentType } from "react";
 import { createElement } from "react";
-import { hydrateRoot, type Root } from "react-dom/client";
+import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import type { ReactHydrationOptions } from "../types.ts";
 
 const roots = new WeakMap<HTMLElement, Root>();
@@ -36,6 +36,23 @@ export function hydrate(
 		roots.set(container, root);
 	} catch (error) {
 		console.error("React hydration failed:", error);
+		throw error;
+	}
+}
+
+/** Mount a React component into an empty container (no SSR HTML to hydrate). */
+export function mount(
+	container: HTMLElement,
+	Component: ComponentType<Record<string, unknown>>,
+	props: Record<string, unknown>,
+): void {
+	try {
+		const element = createElement(Component, props);
+		const root = createRoot(container);
+		root.render(element);
+		roots.set(container, root);
+	} catch (error) {
+		console.error("React mount failed:", error);
 		throw error;
 	}
 }
