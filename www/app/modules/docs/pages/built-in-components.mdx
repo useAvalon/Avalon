@@ -119,7 +119,9 @@ import { StreamingErrorBoundary } from '@useavalon/avalon/client';
 
 ## PersistentIsland
 
-Wraps an island with a persistence context backed by sessionStorage. The island's state survives client-side navigations without re-fetching or resetting.
+Wraps an island with a persistence context backed by sessionStorage. Values survive reloads and full navigations. This is **storage**, not a live DOM instance.
+
+To keep a hydrated island mounted across [client navigations](/docs/client-navigation) (theme toggle, search modal), use `island={{ persist: 'key' }}` instead.
 
 ```tsx
 import { PersistentIsland } from '@useavalon/avalon/client';

@@ -1,0 +1,209 @@
+---
+title: Client Navigation
+description: Optional client-side routing over SSR HTML. Fetch the next document, swap it in, and keep Avalon MPA-first.
+currentPath: /docs/client-navigation
+prev:
+  title: File-System Routing
+  href: /docs/file-system-routing
+next:
+  title: Layouts
+  href: /docs/layouts
+---
+
+## What it is
+
+Avalon stays SSR-first and MPA-first. Every URL is still a normal server-rendered document. With `clientRouter` on, internal navigations **progressively enhance**: the client fetches that same HTML, swaps it into the current page, and re-runs island hydration. There is no client-side page renderer and no second routing model.
+
+JavaScript disabled, or a failed fetch, falls back to a full browser load. Direct requests to any URL still SSR-render that page.
+
+## Enable it
+
+```ts
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { avalon } from '@useavalon/avalon';
+
+export default defineConfig(async () => {
+  const plugins = await avalon({
+    clientRouter: true,
+  });
+  return { plugins };
+});
+```
+
+Default is `false`. When it is off, Avalon ships no extra client navigation JavaScript.
+
+## How a navigation works
+
+A same-origin link click or a call to `navigate()` is intercepted and the destination is fetched as HTML, the same document a full page load would return. Title, meta, and other head tags are updated from that response; stylesheets already on the page are kept when the `href` matches, so you do not get a flash of unstyled content.
+
+Before the body is replaced, islands marked to persist are lifted out of the old document so their live instances survive. Everything else is disposed. The new body is swapped in, persist slots are put back, and the remaining islands hydrate as they would on a fresh load. Deferred [server islands](/docs/server-islands) boot afterward.
+
+What you see is still server-rendered HTML. The only thing skipped is reloading the entire document.
+
+## Links
+
+Internal GET links use client navigation automatically. Opt out per link when you need a real reload:
+
+```tsx
+<a href="/about">Client navigation</a>
+<a href="/about" data-router-reload>Full reload</a>
+<a href="/docs" data-router-prefetch="false">No hover prefetch</a>
+<a href="/blog" data-router-transition="slide-forward">Named transition</a>
+<a href="/checkout" data-router-transition="false">No animation</a>
+```
+
+The browser handles the click when any of these apply:
+
+- `download`, `target` other than `_self`, `mailto:` / `tel:` / cross-origin
+- Modifier keys (cmd/ctrl/shift/alt) or a non-primary button
+- Hash-only updates on the same path
+- `data-router-reload`
+
+## Persist islands
+
+By default every island is torn down and rehydrated on navigation. Layout chrome that should keep its live instance (theme toggle, search modal, audio player) opts in with a persist key:
+
+```tsx
+import ThemeToggle from '../components/ThemeToggle.tsx';
+
+export default function Layout({ children }) {
+  return (
+    <header>
+      <ThemeToggle island={{ condition: 'on:idle', persist: 'theme-toggle' }} />
+      {children}
+    </header>
+  );
+}
+```
+
+`persist: true` uses the component source path as the key. The same key on the next page receives the live DOM node, not a clone.
+
+Equivalent markup on a wrapper:
+
+```html
+<div data-router-persist="search-modal">{/* island */}</div>
+```
+
+Qwik islands are never persisted (the Qwik loader is document-oriented). Nested persist nodes are ignored; the outermost wrapper is the unit that moves.
+
+This is not the same as `usePersistentState` / `PersistentIsland`, which store values in `sessionStorage`. See [Built-in Components](/docs/built-in-components#persistentisland).
+
+## Prefetch
+
+Eligible links prefetch on hover and focus (80ms delay). The cached HTML is reused on click. Prefetch is skipped when:
+
+- The user has Save-Data on, or the connection is `2g` / `slow-2g`
+- The link has `data-router-prefetch="false"` or `data-router-reload`
+- The current page opted out of client navigation
+
+```ts
+import { prefetch } from '@useavalon/avalon/client/router';
+
+await prefetch('/docs');
+```
+
+Cached documents expire after 30 seconds.
+
+## Forms
+
+Same-origin GET and POST forms swap the returned HTML document. Native submission still works without JavaScript.
+
+A full navigation is used when the form (or submitter) has `data-router-reload`, the method is not GET/POST, the target is not `_self`, or a file input has files selected.
+
+## View Transitions
+
+When `document.startViewTransition` is available and `(prefers-reduced-motion: reduce)` does not match, the DOM swap runs inside that call. Avalon does not inject transition CSS. The animation is the user-agent default.
+
+`viewTransition` on `NavigateOptions` and `data-router-transition` accept `boolean | string`.
+
+| Value | Effect |
+|---|---|
+| omitted, `true`, or `"true"` | User-agent View Transition |
+| `false` or `"false"` | Instant swap |
+| any other string | User-agent View Transition. The string is the type name. |
+
+Forms read `data-router-transition` from the submitter, then the form.
+
+```tsx
+<a href="/about">Default transition</a>
+<a href="/docs" data-router-transition="false">No animation</a>
+<a href="/blog" data-router-transition="slide-forward">Named type</a>
+```
+
+```ts
+await navigate('/about', { viewTransition: false });
+await navigate('/blog', { viewTransition: 'slide-forward' });
+```
+
+A type name is written to `document.documentElement.dataset.routerTransition` for the duration of the swap. Where the browser accepts the options form, Avalon also calls `startViewTransition({ update, types: [name] })`.
+
+```css
+::view-transition-old(root) {
+  animation: 160ms ease-in both fade-out;
+}
+::view-transition-new(root) {
+  animation: 160ms ease-out both fade-in;
+}
+
+html[data-router-transition="slide-forward"]::view-transition-old(root) {
+  animation: 180ms ease-in both slide-out-left;
+}
+html[data-router-transition="slide-forward"]::view-transition-new(root) {
+  animation: 180ms ease-out both slide-in-right;
+}
+
+html:active-view-transition-type(slide-forward)::view-transition-old(root) {
+  animation: 180ms ease-in both slide-out-left;
+}
+```
+
+Type names must be CSS custom-idents (letters, digits, hyphens). A persist island can set `view-transition-name` to participate as its own transition group.
+
+## Opt a route out
+
+Pages that must not go through a DOM swap (checkout, auth, third-party document scripts) export:
+
+```tsx
+export const clientNavigation = false;
+
+export default function CheckoutPage() {
+  return <section>Checkout</section>;
+}
+```
+
+MDX uses the same flag in YAML frontmatter (`clientNavigation: false`).
+
+SSR stamps `data-client-navigation="false"` on `<html>` and sends `Avalon-Client-Navigation: false`. Navigating **to** that route, or clicking links **while on it**, uses a full load. Per-link `data-router-reload` remains available on pages that otherwise use the client router.
+
+## Programmatic API
+
+```ts
+import { navigate, prefetch } from '@useavalon/avalon/client/router';
+
+await navigate('/about', { history: 'push', viewTransition: 'slide-forward' });
+await prefetch('/docs');
+```
+
+Events fire on `document`. Cancel `avalon:before-navigate` to abort:
+
+| Event | When |
+|---|---|
+| `avalon:before-navigate` | Before fetch (cancelable) |
+| `avalon:before-swap` | HTML is ready, before DOM mutation |
+| `avalon:after-swap` | After the new body is in place |
+| `avalon:page-load` | After hydrate + server-island boot |
+| `avalon:navigation-error` | Fetch or swap failed (then fallback) |
+
+While a navigation is in flight, `document.documentElement.dataset.routerNavigating === "true"`.
+
+## Fallback
+
+Client navigation never replaces the server as source of truth:
+
+- No JavaScript → unchanged MPA
+- Network / non-HTML response → `location.assign`
+- Cross-origin, downloads, modified clicks → the browser handles them
+- Route or link opt-out → full load
+
+After a successful swap, Vue/Svelte SSR `<style>` tags are copied from the next document, Lit Declarative Shadow DOM is adopted (not cloned), and deferred server islands are fetched by the shared runtime.

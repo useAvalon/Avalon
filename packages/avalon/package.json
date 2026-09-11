@@ -45,6 +45,7 @@
 		"./client": "./src/client/components.ts",
 		"./client/main": "./src/client/main.js",
 		"./client/main-slim": "./src/client/main-slim.js",
+		"./client/router": "./src/client/router/index.ts",
 		"./client/strategies": "./src/client/strategies.js",
 		"./client/hmr": "./src/client/framework-adapter.ts",
 		"./islands/framework-detection": "./src/islands/framework-detection.ts",

@@ -29,3 +29,12 @@ vi.mock("virtual:server-island-manifest", () => ({
 }));
 
 vi.mock("virtual:server-island-integrations", () => ({}));
+
+vi.mock("virtual:avalon/integration-loader", () => ({
+	loadIntegrationModule: async () => ({
+		hydrate: () => {},
+		unmount: () => {},
+	}),
+	preLitHydration: async () => {},
+	loadHMRAdapter: async () => null,
+}));
