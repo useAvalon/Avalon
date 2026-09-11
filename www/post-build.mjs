@@ -9,6 +9,7 @@ import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
 await runPostBuild({
+	clientRouter: true,
 	prerender: {
 		routes: [
 			"/",

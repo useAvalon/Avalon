@@ -93,6 +93,9 @@ export function hydrate(
 	}
 }
 
+/** Qwik resumability has no client tree to tear down. */
+export function unmount(_container: HTMLElement): void {}
+
 /**
  * Get the resumability script for Qwik components
  *

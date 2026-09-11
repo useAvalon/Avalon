@@ -175,9 +175,17 @@ The built-in \`on:event\` directive uses this same mechanism, but only as a **hy
 
 For state that should survive reloads and be shareable, read/write \`location.search\` (or \`history.pushState\`). Islands re-read it on hydration.
 
-## 4. \`PersistentIsland\` (state across navigations)
+## 4. Persisted island state (storage, not live instances)
 
-\`PersistentIsland\` and \`usePersistentIslandContext\` (from \`@useavalon/avalon\`, **not** \`/client\`) save/load an island's state (\`IslandState = Record<string, unknown>\`) across client navigations via \`saveState\`/\`loadState\`/\`clearState\`.
+There is no automatic keep-alive of every island. Mark the ones that should keep their live instance across client navigations:
+
+\`\`\`tsx
+<ThemeToggle island={{ condition: 'on:idle', persist: 'theme-toggle' }} />
+\`\`\`
+
+Or wrap any element with \`data-router-persist="key"\`. Matching keys are moved into the next document (not cloned). Qwik islands are never persisted. For values that should survive a **full** reload, use \`usePersistentState\` from \`@useavalon/avalon/client\` (sessionStorage or localStorage).
+
+\`PersistentIsland\` / \`usePersistentIslandContext\` remain typed placeholders on the package root — prefer \`island={{ persist }}\` / \`data-router-persist\`.
 
 ## Server-side request state
 
@@ -193,7 +201,8 @@ Not for client islands — for passing data through the request lifecycle:
 | Notify other islands live | \`document.dispatchEvent(new CustomEvent(...))\` + \`addEventListener\` |
 | Trigger hydration on an event | \`island={{ condition: 'on:event', conditionArg: '...' }}\` |
 | Shareable / reloadable state | URL query params |
-| State across navigations | \`PersistentIsland\` |
+| Values across reloads / full navigations | \`usePersistentState\` (storage) |
+| Live instance across client navigations | \`island={{ persist: 'key' }}\` or \`data-router-persist\` |
 | Request-scoped server data | middleware context helpers |`,
 	},
 	{
@@ -325,7 +334,17 @@ const { data, error } = await actions.greet({ name: 'World' });
 	{
 		id: "file-system-routing",
 		title: "File-System Routing",
-		keywords: ["routing", "pages", "dynamic", "slug", "catch-all", "404", "params", "mdx"],
+		keywords: [
+			"routing",
+			"pages",
+			"dynamic",
+			"slug",
+			"catch-all",
+			"404",
+			"params",
+			"mdx",
+			"clientNavigation",
+		],
 		content: `# File-System Routing
 
 Two layouts are supported. **Module-based** (the default that \`create-avalon\` scaffolds) discovers pages inside feature modules; **flat** uses a single \`src/pages\` directory.
@@ -364,7 +383,186 @@ export default function BlogPost({ event }: { event: H3Event }) {
 }
 \`\`\`
 
-Special files (in either layout): \`_layout.tsx\` (layout), \`_middleware.ts\` (scoped middleware), \`_error.tsx\` (error boundary), \`404.tsx\` (not found). \`.mdx\` files are pages too (with YAML frontmatter). API routes live in \`routes/api/\`, never in a \`pages/\` directory.`,
+Special files (in either layout): \`_layout.tsx\` (layout), \`_middleware.ts\` (scoped middleware), \`_error.tsx\` (error boundary), \`404.tsx\` (not found). \`.mdx\` files are pages too (with YAML frontmatter). API routes live in \`routes/api/\`, never in a \`pages/\` directory.
+
+## Client navigation opt-out
+
+When \`clientRouter: true\` is on, a page can force a full load:
+
+\`\`\`tsx
+export const clientNavigation = false;
+\`\`\`
+
+MDX: \`clientNavigation: false\` in frontmatter. Use this for routes whose document-level scripts or third-party widgets should not go through a DOM swap (\`data-router-reload\` remains the per-link opt-out). Full client-navigation and View Transitions reference: the \`client-navigation\` topic.`,
+	},
+	{
+		id: "client-navigation",
+		title: "Client Navigation",
+		keywords: [
+			"clientRouter",
+			"clientNavigation",
+			"navigate",
+			"prefetch",
+			"router",
+			"viewTransition",
+			"view transitions",
+			"transition",
+			"transitions",
+			"startViewTransition",
+			"data-router-transition",
+			"data-router-reload",
+			"data-router-persist",
+			"data-router-prefetch",
+			"persist",
+			"ClientRouter",
+			"ViewTransitions",
+			"transition:animate",
+		],
+		content: `# Client Navigation
+
+Avalon stays SSR-first and MPA-first. Every URL is still a normal server-rendered document. With \`clientRouter: true\`, internal navigations **progressively enhance**: the client fetches that same HTML, swaps it into the current page, and re-runs island hydration. There is no client-side page renderer and no second routing model.
+
+This is **not** Astro's \`<ViewTransitions />\` / \`<ClientRouter />\` / \`astro:transitions\`. Avalon has none of those components. Enable the router on the Vite plugin; control the animation with \`navigate({ viewTransition })\` or \`data-router-transition\`.
+
+JavaScript disabled, or a failed fetch, falls back to a full browser load. Direct requests still SSR-render that page.
+
+## Enable it
+
+\`\`\`ts
+// vite.config.ts
+import { defineConfig } from 'vite';
+import { avalon } from '@useavalon/avalon';
+
+export default defineConfig(async () => {
+  const plugins = await avalon({ clientRouter: true });
+  return { plugins };
+});
+\`\`\`
+
+Default is \`false\`. When it is off, Avalon ships no extra client navigation JavaScript.
+
+## How a navigation works
+
+A same-origin link click or \`navigate()\` fetches the destination as HTML (the same document a full load would return). Title, meta, and other head tags update from that response; matching stylesheet \`href\`s are reused (no FOUC). Persist-marked islands are lifted out, everything else is disposed, the new body is swapped in, persist slots are restored, and the remaining islands hydrate. Deferred server islands boot afterward.
+
+## Links
+
+\`\`\`tsx
+<a href="/about">Client navigation</a>
+<a href="/about" data-router-reload>Full reload</a>
+<a href="/docs" data-router-prefetch="false">No hover prefetch</a>
+<a href="/blog" data-router-transition="slide-forward">Named transition</a>
+<a href="/checkout" data-router-transition="false">No animation</a>
+\`\`\`
+
+The browser handles the click for \`download\`, non-\`_self\` targets, \`mailto:\` / \`tel:\` / cross-origin, modifier keys, non-primary buttons, hash-only updates, and \`data-router-reload\`.
+
+## Persist islands
+
+By default every island is torn down and rehydrated. Keep a live instance (theme toggle, search modal, audio player) with a persist key:
+
+\`\`\`tsx
+import ThemeToggle from '../components/ThemeToggle.tsx';
+
+export default function Layout({ children }) {
+  return (
+    <header>
+      <ThemeToggle island={{ condition: 'on:idle', persist: 'theme-toggle' }} />
+      {children}
+    </header>
+  );
+}
+\`\`\`
+
+\`persist: true\` uses the component source path as the key. Equivalent wrapper: \`<div data-router-persist="search-modal">\`. Qwik is never persisted. Nested persist nodes are ignored. This is not \`usePersistentState\` / \`PersistentIsland\` (those are \`sessionStorage\`).
+
+## Prefetch
+
+Eligible links prefetch on hover/focus (80ms). Skipped on Save-Data, \`2g\` / \`slow-2g\`, \`data-router-prefetch="false"\`, \`data-router-reload\`, or when the current page opted out. Cache TTL is 30 seconds.
+
+\`\`\`ts
+import { prefetch } from '@useavalon/avalon/client/router';
+await prefetch('/docs');
+\`\`\`
+
+## Forms
+
+Same-origin GET/POST forms swap the returned HTML. Native submit still works without JS. Full navigation when the form or submitter has \`data-router-reload\`, the method is not GET/POST, the target is not \`_self\`, or a file input has files.
+
+## View Transitions
+
+When \`document.startViewTransition\` is available and \`(prefers-reduced-motion: reduce)\` does not match, the DOM swap runs inside that call. Avalon does not inject transition CSS. The animation is the user-agent default. Astro \`transition:*\` attributes do not apply.
+
+\`viewTransition\` on \`NavigateOptions\` and \`data-router-transition\` accept \`boolean | string\`.
+
+- omitted, \`true\`, or \`"true"\` → user-agent View Transition
+- \`false\` or \`"false"\` → instant swap
+- any other string → user-agent View Transition; the string is the type name
+
+Forms read \`data-router-transition\` from the submitter, then the form.
+
+\`\`\`tsx
+<a href="/about">Default transition</a>
+<a href="/docs" data-router-transition="false">No animation</a>
+<a href="/blog" data-router-transition="slide-forward">Named type</a>
+\`\`\`
+
+\`\`\`ts
+import { navigate } from '@useavalon/avalon/client/router';
+await navigate('/about', { viewTransition: false });
+await navigate('/blog', { viewTransition: 'slide-forward' });
+\`\`\`
+
+A type name is written to \`document.documentElement.dataset.routerTransition\` for the duration of the swap. Where the browser accepts the options form, Avalon also calls \`startViewTransition({ update, types: [name] })\`.
+
+\`\`\`css
+::view-transition-old(root) { animation: 160ms ease-in both fade-out; }
+::view-transition-new(root) { animation: 160ms ease-out both fade-in; }
+
+html[data-router-transition="slide-forward"]::view-transition-old(root) {
+  animation: 180ms ease-in both slide-out-left;
+}
+
+html:active-view-transition-type(slide-forward)::view-transition-old(root) {
+  animation: 180ms ease-in both slide-out-left;
+}
+\`\`\`
+
+Type names must be CSS custom-idents (letters, digits, hyphens). A persist island can set \`view-transition-name\` to participate as its own transition group.
+
+## Opt a route out
+
+\`\`\`tsx
+export const clientNavigation = false;
+
+export default function CheckoutPage() {
+  return <section>Checkout</section>;
+}
+\`\`\`
+
+MDX frontmatter: \`clientNavigation: false\`. SSR stamps \`data-client-navigation="false"\` on \`<html>\` and sends \`Avalon-Client-Navigation: false\`. Navigating **to** that route, or clicking links **while on it**, uses a full load.
+
+## Programmatic API
+
+\`\`\`ts
+import { navigate, prefetch } from '@useavalon/avalon/client/router';
+
+await navigate('/about', { history: 'push', viewTransition: 'slide-forward' });
+await prefetch('/docs');
+\`\`\`
+
+\`NavigateOptions\`: \`history\` (\`'push' | 'replace' | 'auto'\`), \`scroll\` (default \`true\`), \`viewTransition\` (\`boolean | string\`).
+
+Events on \`document\` (cancel \`avalon:before-navigate\` to abort): \`avalon:before-navigate\`, \`avalon:before-swap\`, \`avalon:after-swap\`, \`avalon:page-load\`, \`avalon:navigation-error\`. While in flight, \`document.documentElement.dataset.routerNavigating === "true"\`. Failures fall back to \`location.assign\`.
+
+## Fallback
+
+- No JavaScript → unchanged MPA
+- Network / non-HTML response → \`location.assign\`
+- Cross-origin, downloads, modified clicks → the browser handles them
+- Route or link opt-out → full load
+
+After a successful swap, Vue/Svelte SSR \`<style>\` tags are copied from the next document, Lit Declarative Shadow DOM is adopted (not cloned), and deferred server islands are fetched by the shared runtime.`,
 	},
 	{
 		id: "layouts",
@@ -516,18 +714,14 @@ import { Image, usePersistentState } from '@useavalon/avalon/client';
 
 | Export | Purpose |
 |--------|---------|
-| \`PersistentIsland\`, \`usePersistentIslandContext\`, \`createPersistentIslandContext\` | Persist island state across navigations |
+| \`PersistentIsland\`, \`usePersistentIslandContext\`, \`createPersistentIslandContext\` | Typed placeholders. Prefer \`island={{ persist: 'key' }}\` / \`data-router-persist\` for live instances across client navigations; \`usePersistentState\` for storage. |
 | \`StreamingLayout\`, \`useStreamingState\` | Suspense-like streaming states |
 | \`Image\`, error boundaries, \`usePersistentState\` | Also re-exported here |
 
-\`PersistentIsland\` and \`StreamingLayout\` are **not** on \`/client\` — import them from the package root:
+\`PersistentIsland\` and \`StreamingLayout\` are **not** on \`/client\` — import types from the package root. Do not wrap islands in \`<PersistentIsland>\`; use \`island={{ persist: 'key' }}\` or \`data-router-persist="key"\` so the client router can move the live node.
 
 \`\`\`tsx
-import { PersistentIsland, usePersistentState } from '@useavalon/avalon';
-
-<PersistentIsland persistentId="my-counter" island={{ condition: 'on:client' }}>
-  <MyCounter />
-</PersistentIsland>
+import { usePersistentState } from '@useavalon/avalon/client';
 \`\`\`
 
 (There is no \`StreamingSuspense\` export — use \`StreamingLayout\` + \`useStreamingState\`.)`,
@@ -548,7 +742,11 @@ For global/third-party JS that isn't a component, use plain \`<script>\` tags. F
 <script dangerouslySetInnerHTML={{ __html: "/* ... */" }} />
 \`\`\`
 
-Bridge server data to scripts with \`data-*\` attributes. Reserve scripts for analytics, embeds, and page-level listeners.`,
+Bridge server data to scripts with \`data-*\` attributes. Reserve scripts for analytics, embeds, and page-level listeners.
+
+## Optional client navigation
+
+Client-side routing over SSR HTML, View Transitions, persist, prefetch, and forms live in the **client-navigation** topic. Enable with \`avalon({ clientRouter: true })\`. Imports: \`navigate\`, \`prefetch\` from \`@useavalon/avalon/client/router\`. Per-link: \`data-router-reload\`, \`data-router-prefetch\`, \`data-router-transition\`. Persist: \`island={{ persist: 'key' }}\` or \`data-router-persist\`. Route opt-out: \`export const clientNavigation = false\`.`,
 	},
 	{
 		id: "styling",
@@ -724,6 +922,7 @@ export default defineConfig(async () => {
 | \`mdx\` | \`{ jsxImportSource?; syntaxHighlighting?; remarkPlugins?; rehypePlugins? }\` | — | MDX processing. |
 | \`image\` | \`boolean \\| ImageConfig\` | \`true\` | vite-imagetools defaults. |
 | \`nitro\` | \`AvalonNitroConfig\` | — | Server runtime (see below). |
+| \`clientRouter\` | \`boolean\` | \`false\` | Opt-in client navigation over SSR HTML (see the client-navigation topic). Zero extra JS when off. |
 | \`autoDiscoverIntegrations\` / \`validateIntegrations\` / \`showWarnings\` / \`lazyIntegrations\` / \`verbose\` | \`boolean\` | mostly \`true\` | Integration discovery + logging toggles. |
 
 ## \`AvalonNitroConfig\` (\`nitro\`)

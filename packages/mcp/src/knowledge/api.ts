@@ -87,6 +87,19 @@ export const API_ENTRIES: ApiEntry[] = [
 			"Client-safe components only: images, error boundaries, per-island persisted state, client directive registration. Does NOT export PersistentIsland/StreamingLayout — those are on the package root.",
 	},
 	{
+		importPath: "@useavalon/avalon/client/router",
+		exports: [
+			"navigate",
+			"installClientRouter",
+			"prefetch",
+			"ROUTER_EVENTS",
+			"type NavigateOptions",
+			"type ViewTransitionMode",
+		],
+		description:
+			"Optional client navigation over SSR HTML (not Astro <ViewTransitions /> / <ClientRouter /> / astro:transitions). Enable with avalon({ clientRouter: true }). navigate(url, { history, scroll, viewTransition }); prefetch(url). viewTransition: false skips the animation; a string names it for CSS (also data-router-transition on links/forms). Persist islands with island={{ persist: 'key' }} or data-router-persist. Opt a route out with export const clientNavigation = false (or MDX frontmatter). Hover prefetch and same-origin GET/POST form enhancement are on when the router is enabled.",
+	},
+	{
 		importPath: "@useavalon/avalon/middleware",
 		exports: ["getContextValue", "setContextValue", "hasContextValue"],
 		description:
@@ -169,13 +182,15 @@ export const API_ENTRIES: ApiEntry[] = [
 export function apiReferenceMarkdown(): string {
 	const lines = ["# Avalon Public API Reference", ""];
 	for (const entry of API_ENTRIES) {
-		lines.push(`## \`${entry.importPath}\``);
-		lines.push("");
-		lines.push(entry.description);
-		lines.push("");
-		lines.push("Exports:");
-		for (const ex of entry.exports) lines.push(`- \`${ex}\``);
-		lines.push("");
+		lines.push(
+			`## \`${entry.importPath}\``,
+			"",
+			entry.description,
+			"",
+			"Exports:",
+			...entry.exports.map((ex) => `- \`${ex}\``),
+			"",
+		);
 	}
 	return lines.join("\n").trimEnd();
 }

@@ -1,90 +1,54 @@
 /**
- * Client-side custom hydration directive executor.
+ * Client-side custom hydration directives.
  *
- * Discovers islands with custom directives (via `data-custom-directive`)
- * and runs the serialized directive script to determine when hydration fires.
- *
- * @module client/custom-directives
+ * Server-registered directives are serialized onto the island as
+ * `data-directive-script`. App code can also register handlers at runtime
+ * with `registerClientDirective`.
  */
 
-/**
- * Registry of directive functions reconstructed on the client.
- * @type {Map<string, Function>}
- */
-const clientDirectives = new Map();
+/** @type {Map<string, (el: HTMLElement, hydrate: () => void, arg?: string) => void>} */
+const directives = new Map();
 
 /**
- * Register a client-side directive function at runtime.
- * Called by inline scripts emitted during SSR, or manually by users.
- *
- * @param {string} name - Directive name (e.g. "on:delay")
- * @param {Function} fn - The directive function (el, hydrate, arg) => void
+ * @param {string} name
+ * @param {(el: HTMLElement, hydrate: () => void, arg?: string) => void} fn
  */
 export function registerClientDirective(name, fn) {
-	clientDirectives.set(name, fn);
+	directives.set(name, fn);
 }
 
 /**
- * Check if a directive is registered on the client.
- *
  * @param {string} name
  * @returns {boolean}
  */
 export function hasClientDirective(name) {
-	return clientDirectives.has(name);
+	return directives.has(name);
 }
 
 /**
- * Execute a custom directive for an island element.
- *
- * If the directive was serialized as a `data-directive-script` attribute,
- * it will be reconstructed and cached on first use.
- *
- * @param {HTMLElement} island - The avalon-island element
- * @param {string} directiveName - The directive name
- * @param {() => void} hydrateFn - Callback to trigger hydration
- * @returns {boolean} true if a custom directive was found and executed
+ * @param {HTMLElement} island
+ * @param {string} directiveName
+ * @param {() => void} hydrateFn
+ * @returns {boolean}
  */
 export function executeCustomDirective(island, directiveName, hydrateFn) {
-	const arg = island.dataset.conditionArg || undefined;
-
-	// 1. Check the runtime registry first
-	if (clientDirectives.has(directiveName)) {
-		const fn = clientDirectives.get(directiveName);
-		try {
-			fn(island, hydrateFn, arg);
-		} catch (error) {
-			console.error(`[avalon] Custom directive "${directiveName}" threw:`, error);
-			// Fallback: hydrate immediately on error
-			hydrateFn();
-		}
+	const registered = directives.get(directiveName);
+	const arg = island.dataset.conditionArg;
+	if (registered) {
+		registered(island, hydrateFn, arg);
 		return true;
 	}
 
-	// 2. Check for an inline serialized script on the element
-	const inlineScript = island.dataset.directiveScript;
-	if (inlineScript) {
-		try {
-			// Reconstruct the function from the serialized string
-			// The script is expected to be a function expression or arrow function
-			// eslint-disable-next-line no-new-func
-			const fn = new Function("return (" + inlineScript + ")")();
-			// Cache it for reuse by other islands with the same directive
-			clientDirectives.set(directiveName, fn);
-			fn(island, hydrateFn, arg);
-		} catch (error) {
-			console.error(`[avalon] Failed to execute inline directive "${directiveName}":`, error);
-			hydrateFn();
-		}
+	const serialized = island.dataset.directiveScript;
+	if (!serialized) return false;
+
+	try {
+		const dir = new Function(`return (${serialized})`)();
+		if (typeof dir !== "function") return false;
+		dir(island, hydrateFn, arg);
 		return true;
+	} catch (error) {
+		console.warn(`[avalon] Failed to execute custom directive "${directiveName}":`, error);
+		return false;
 	}
-
-	return false;
-}
-
-/**
- * Expose the registration function globally so SSR-injected scripts can call it.
- */
-if (typeof globalThis !== "undefined") {
-	globalThis.__avalon_registerDirective = registerClientDirective;
 }

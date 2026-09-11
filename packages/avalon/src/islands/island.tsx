@@ -24,6 +24,8 @@ declare global {
 	var __viteDevServer: ViteDevServer | undefined;
 	/** Hydration mode — automatically set: "entry-client" in dev (HMR), "per-island" in production */
 	var __avalonHydrationMode: "entry-client" | "per-island" | undefined;
+	/** True when Vite is serving (dev). Independent of hydration mode so production + clientRouter still uses hashed island URLs. */
+	var __avalonIsDev: boolean | undefined;
 	/** Compile-time constant set by Vite define — true in production, false in dev */
 	var __AVALON_PER_ISLAND__: boolean;
 }
@@ -40,6 +42,9 @@ export type HydrationCondition =
 /** Supported framework identifiers (without "unknown") */
 export type FrameworkId = Exclude<Framework, "unknown">;
 
+/** Preact's `ComponentChildren` already includes `undefined`; keep `?` without repeating it. */
+type IslandChildren = Exclude<import("preact").ComponentChildren, undefined>;
+
 export interface IslandProps {
 	/** Path to the island component (e.g., "/islands/Counter.tsx") */
 	src: string;
@@ -50,7 +55,7 @@ export interface IslandProps {
 	/** Props to pass to the island component */
 	props?: Record<string, unknown>;
 	/** Children to render inside the island (for SSR) */
-	children?: import("preact").ComponentChildren;
+	children?: IslandChildren;
 	/** Whether to render server-side (default: true unless condition is 'on:client') */
 	ssr?: boolean;
 	/** Framework hint for client hydration */
@@ -67,6 +72,13 @@ export interface IslandProps {
 	server?: ServerIslandProp;
 	/** Island directive for combined server + client islands */
 	island?: IslandDirective;
+	/** Explicit HTML id for this island instance. Unique per instance when omitted. */
+	id?: string;
+	/**
+	 * Persist key for client navigation (`data-router-persist`).
+	 * `true` uses `src` as the key so layout islands match across pages.
+	 */
+	persist?: string | true;
 	/** React/Preact list key — set on the host VNode, never serialized into props */
 	key?: string | number;
 }
@@ -88,9 +100,21 @@ export function withListKey(key: unknown, vnode: JSX.Element): JSX.Element {
 	return applyListKey(vnode, key);
 }
 
-/** Generate a deterministic island element ID from the source path */
-function toIslandId(src: string): string {
-	return `island-${src.replaceAll(/[^a-zA-Z0-9]/g, "-")}`;
+/** Incremented per island so two instances of the same `src` never share an HTML id. */
+let islandInstanceCounter = 0;
+
+/** HTML id for an island: explicit `id`, otherwise `src` plus a unique instance suffix. */
+function toIslandId(src: string, explicitId?: string): string {
+	if (explicitId) return explicitId;
+	return `island-${src.replaceAll(/[^a-zA-Z0-9]/g, "-")}-${islandInstanceCounter++}`;
+}
+
+/** Stable persist key for `data-router-persist`. `true` uses `src` so layout copies match. */
+function persistAttribute(persist: string | true | undefined, src: string): string | undefined {
+	if (persist === undefined) return undefined;
+	if (persist === true) return src;
+	const key = persist.trim();
+	return key.length > 0 ? key : undefined;
 }
 
 /** Check if per-island hydration mode is active */
@@ -230,7 +254,7 @@ function classifyHeadContent(headContent: string): "script" | "meta" | "link" | 
 
 /** Extract CSS content from a <style> tag */
 function extractCSSFromStyleTag(styleTag: string): string | null {
-	const match = styleTag.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+	const match = /<style[^>]*>([\s\S]*?)<\/style>/i.exec(styleTag);
 	return match ? match[1].trim() : null;
 }
 
@@ -279,7 +303,8 @@ function renderIslandSSR(opts: {
 	conditionArg?: string;
 	props: Record<string, unknown>;
 	hydrationData: Record<string, unknown>;
-	children: import("preact").ComponentChildren;
+	children: IslandChildren;
+	persist?: string | true;
 }): JSX.Element {
 	const {
 		islandId,
@@ -291,11 +316,14 @@ function renderIslandSSR(opts: {
 		props,
 		hydrationData,
 		children,
+		persist,
 	} = opts;
 	const baseAttributes: Record<string, string> = {
 		id: islandId,
 		"data-framework": detectedFramework,
 	};
+	const persistKey = persistAttribute(persist, src);
+	if (persistKey) baseAttributes["data-router-persist"] = persistKey;
 
 	const hydrationAttributes = shouldSkipHydration
 		? { "data-render-strategy": "ssr-only" }
@@ -341,6 +369,7 @@ function renderIslandClientOnly(opts: {
 	props: Record<string, unknown>;
 	hydrationData: Record<string, unknown>;
 	conditionArg?: string;
+	persist?: string | true;
 }): JSX.Element {
 	const {
 		islandId,
@@ -351,13 +380,17 @@ function renderIslandClientOnly(opts: {
 		props,
 		hydrationData,
 		conditionArg,
+		persist,
 	} = opts;
+
+	const persistKey = persistAttribute(persist, src);
 
 	if (shouldSkipHydration) {
 		return h("avalon-island", {
 			id: islandId,
 			"data-render-strategy": "ssr-only",
 			"data-framework": detectedFramework,
+			...(persistKey ? { "data-router-persist": persistKey } : {}),
 		});
 	}
 
@@ -370,6 +403,7 @@ function renderIslandClientOnly(opts: {
 		"data-framework": detectedFramework,
 		...buildHydrationDataAttrs(hydrationData),
 	};
+	if (persistKey) attrs["data-router-persist"] = persistKey;
 
 	// Attach custom directive metadata
 	if (isCustomDirective(condition)) {
@@ -414,8 +448,10 @@ export default function Island({
 	ssrOnly = false,
 	renderOptions = {},
 	hydrationData = {},
+	id,
+	persist,
 }: IslandProps): JSX.Element {
-	const islandId = toIslandId(src);
+	const islandId = toIslandId(src, id);
 	const shouldSkipHydration = ssrOnly || !!renderOptions.forceSSROnly;
 	const detectedFramework = framework || detectFrameworkFromPath(src);
 	const hasValidChildren = children !== undefined && children !== null && children !== "";
@@ -439,6 +475,7 @@ export default function Island({
 			props,
 			hydrationData,
 			children,
+			persist,
 		});
 	}
 
@@ -457,6 +494,7 @@ export default function Island({
 		props,
 		hydrationData,
 		conditionArg,
+		persist,
 	});
 }
 
@@ -501,17 +539,21 @@ async function renderWithExplicitFramework({
 	ssrOnly,
 	renderOptions,
 	component: preloadedComponent,
+	id,
+	persist,
 }: {
 	src: string;
 	condition: IslandProps["condition"];
 	conditionArg?: string;
 	props: Record<string, unknown>;
-	children?: import("preact").ComponentChildren;
+	children?: IslandChildren;
 	ssr: boolean;
 	framework: NonNullable<IslandProps["framework"]>;
 	ssrOnly: boolean;
 	renderOptions: AnalyzerOptions;
 	component?: unknown;
+	id?: string;
+	persist?: string | true;
 }): Promise<JSX.Element> {
 	const logPrefix = `🏝️ [${src}]`;
 
@@ -526,6 +568,8 @@ async function renderWithExplicitFramework({
 			framework,
 			ssrOnly,
 			renderOptions,
+			id,
+			persist,
 		});
 	}
 
@@ -543,6 +587,8 @@ async function renderWithExplicitFramework({
 			framework,
 			ssrOnly,
 			renderOptions,
+			id,
+			persist,
 		});
 	}
 
@@ -570,6 +616,8 @@ async function renderWithExplicitFramework({
 			ssrOnly,
 			renderOptions,
 			hydrationData: ssrOnly ? undefined : renderResult.hydrationData,
+			id,
+			persist,
 		});
 	} catch (error) {
 		devError(`${logPrefix} Fast path SSR failed:`, error);
@@ -582,6 +630,8 @@ async function renderWithExplicitFramework({
 			framework,
 			ssrOnly,
 			renderOptions,
+			id,
+			persist,
 		});
 	}
 }
@@ -624,15 +674,28 @@ async function detectFrameworkForSrc(src: string): Promise<string> {
 }
 
 /** Load an integration and render the component, returning the Island element */
-async function renderSlowPathSSR(
-	src: string,
-	condition: HydrationCondition,
-	props: Record<string, unknown>,
-	ssrOnly: boolean,
-	renderOptions: AnalyzerOptions,
-	logPrefix: string,
-	preloadedComponent?: unknown,
-): Promise<JSX.Element> {
+async function renderSlowPathSSR(opts: {
+	src: string;
+	condition: HydrationCondition;
+	props: Record<string, unknown>;
+	ssrOnly: boolean;
+	renderOptions: AnalyzerOptions;
+	logPrefix: string;
+	preloadedComponent?: unknown;
+	id?: string;
+	persist?: string | true;
+}): Promise<JSX.Element> {
+	const {
+		src,
+		condition,
+		props,
+		ssrOnly,
+		renderOptions,
+		logPrefix,
+		preloadedComponent,
+		id,
+		persist,
+	} = opts;
 	const detectedFramework = await detectFrameworkForSrc(src);
 	const frameworkId = detectedFramework as FrameworkId;
 
@@ -649,7 +712,7 @@ async function renderSlowPathSSR(
 
 	collectRenderAssets(renderResult, src, detectedFramework, logPrefix);
 
-	const result = Island({
+	return Island({
 		src,
 		condition,
 		props,
@@ -659,9 +722,9 @@ async function renderSlowPathSSR(
 		ssrOnly,
 		renderOptions,
 		hydrationData: ssrOnly ? undefined : renderResult.hydrationData,
+		id,
+		persist,
 	});
-
-	return result;
 }
 
 /** Load an integration, throwing a descriptive error on failure */
@@ -716,6 +779,8 @@ export async function renderIsland({
 	server,
 	island,
 	key,
+	id,
+	persist,
 }: IslandProps): Promise<JSX.Element> {
 	const startTime = isDev() ? performance.now() : 0;
 	const logPrefix = `🏝️ [${src}]`;
@@ -773,6 +838,8 @@ export async function renderIsland({
 					ssrOnly,
 					renderOptions,
 					component: preloadedComponent,
+					id,
+					persist,
 				}),
 				key,
 			);
@@ -791,6 +858,8 @@ export async function renderIsland({
 				renderOptions,
 				logPrefix,
 				component: preloadedComponent,
+				id,
+				persist,
 			}),
 			key,
 		);
@@ -809,12 +878,14 @@ async function renderIslandSlowPath(opts: {
 	condition: HydrationCondition;
 	conditionArg?: string;
 	props: Record<string, unknown>;
-	children: import("preact").ComponentChildren | undefined;
+	children: IslandChildren | undefined;
 	ssr: boolean;
 	ssrOnly: boolean;
 	renderOptions: AnalyzerOptions;
 	logPrefix: string;
 	component?: unknown;
+	id?: string;
+	persist?: string | true;
 }): Promise<JSX.Element> {
 	const {
 		src,
@@ -827,6 +898,8 @@ async function renderIslandSlowPath(opts: {
 		renderOptions,
 		logPrefix,
 		component: preloadedComponent,
+		id,
+		persist,
 	} = opts;
 	devLog(`🔍 [renderIsland] ${src} - Starting render (slow path)`, {
 		ssr,
@@ -843,17 +916,37 @@ async function renderIslandSlowPath(opts: {
 	);
 
 	if (shouldSkipHydration) {
-		return renderSSROnlyPath(src, condition, props, children, ssr, renderOptions, logPrefix);
+		return renderSSROnlyPath({
+			src,
+			condition,
+			props,
+			children,
+			ssr,
+			renderOptions,
+			logPrefix,
+			id,
+			persist,
+		});
 	}
 
 	// If SSR is disabled or we already have children, use basic Island
 	if (!ssr || children) {
-		return Island({ src, condition, conditionArg, props, children, ssr, renderOptions });
+		return Island({
+			src,
+			condition,
+			conditionArg,
+			props,
+			children,
+			ssr,
+			renderOptions,
+			id,
+			persist,
+		});
 	}
 
 	// Full SSR rendering with auto-detected framework
 	try {
-		return await renderSlowPathSSR(
+		return await renderSlowPathSSR({
 			src,
 			condition,
 			props,
@@ -861,7 +954,9 @@ async function renderIslandSlowPath(opts: {
 			renderOptions,
 			logPrefix,
 			preloadedComponent,
-		);
+			id,
+			persist,
+		});
 	} catch (error) {
 		const detectedFramework = await detectFrameworkForSrc(src);
 		devError(`${logPrefix} Framework rendering failed:`, error);
@@ -873,25 +968,49 @@ async function renderIslandSlowPath(opts: {
 			ssr: false,
 			framework: detectedFramework as FrameworkId,
 			renderOptions,
+			id,
+			persist,
 		});
 	}
 }
 
 /** Handle the SSR-only path when hydration should be skipped */
-function renderSSROnlyPath(
-	src: string,
-	condition: HydrationCondition,
-	props: Record<string, unknown>,
-	children: import("preact").ComponentChildren | undefined,
-	ssr: boolean,
-	renderOptions: AnalyzerOptions,
-	logPrefix: string,
-): Promise<JSX.Element> | JSX.Element {
+function renderSSROnlyPath(opts: {
+	src: string;
+	condition: HydrationCondition;
+	props: Record<string, unknown>;
+	children: IslandChildren | undefined;
+	ssr: boolean;
+	renderOptions: AnalyzerOptions;
+	logPrefix: string;
+	id?: string;
+	persist?: string | true;
+}): Promise<JSX.Element> | JSX.Element {
+	const { src, condition, props, children, ssr, renderOptions, logPrefix, id, persist } = opts;
 	if (ssr && !children) {
 		return renderComponentSSROnly({ src, condition, props, renderOptions }).catch((error) => {
 			devError(`${logPrefix} SSR failed for SSR-only component:`, error);
-			return Island({ src, condition, props, ssr: false, ssrOnly: true, renderOptions });
+			return Island({
+				src,
+				condition,
+				props,
+				ssr: false,
+				ssrOnly: true,
+				renderOptions,
+				id,
+				persist,
+			});
 		});
 	}
-	return Island({ src, condition, props, children, ssr, ssrOnly: true, renderOptions });
+	return Island({
+		src,
+		condition,
+		props,
+		children,
+		ssr,
+		ssrOnly: true,
+		renderOptions,
+		id,
+		persist,
+	});
 }

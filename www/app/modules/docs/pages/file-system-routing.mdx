@@ -6,8 +6,8 @@ prev:
   title: Hydration Strategies
   href: /docs/hydration-strategies
 next:
-  title: Layouts
-  href: /docs/layouts
+  title: Client Navigation
+  href: /docs/client-navigation
 ---
 
 ## How routing works
@@ -90,3 +90,13 @@ currentPath: /docs/my-doc
 
 Content here.
 ```
+
+## Client navigation opt-out
+
+When `clientRouter: true` is on, a page can force a full load instead of a DOM swap:
+
+```tsx
+export const clientNavigation = false;
+```
+
+MDX: `clientNavigation: false` in frontmatter. Per-link opt-out is `data-router-reload`. See [Client Navigation](/docs/client-navigation).

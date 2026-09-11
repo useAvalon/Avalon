@@ -16,6 +16,7 @@ Avalon is a multi-framework islands architecture framework. Pages are static HTM
 - `island` prop — added to any component to make it an island; accepts a `condition` field controlling when hydration occurs
 - Hydration conditions: `on:client` (immediate), `on:visible` (IntersectionObserver), `on:interaction` (first click/hover), `on:idle` (requestIdleCallback), `media:<query>` (CSS media query)
 - File-system routing — files in `src/pages/` become routes automatically; no configuration needed
+- Optional client navigation — `clientRouter: true` fetches the next SSR HTML document and swaps it in without a full reload
 
 **Supported frameworks:** React, Preact, Vue, Svelte, Solid, Lit (all usable in the same project)
 

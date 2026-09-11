@@ -47,6 +47,8 @@ export interface IslandProps {
 	renderOptions?: AnalyzerOptions;
 	/** Server island configuration — defers rendering to a server endpoint after page load */
 	server?: ServerIslandProp;
+	/** Explicit HTML id for this island instance. Unique per instance when omitted. */
+	id?: string;
 	/** React/Preact list key — set on the host VNode, never serialized into props */
 	key?: string | number;
 }

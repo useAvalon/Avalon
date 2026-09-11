@@ -47,6 +47,11 @@ export function hydrate(
 	container.dataset.litHydrated = "true";
 }
 
+/** Lit has no framework tree to dispose; clear the hydration marker so a later scan can re-run. */
+export function unmount(container: HTMLElement): void {
+	delete container.dataset.litHydrated;
+}
+
 function performHydration(
 	container: HTMLElement,
 	ElementClass: typeof LitElement,

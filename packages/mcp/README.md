@@ -48,7 +48,7 @@ before writing files.
 - `avalon://docs` — documentation index
 - `avalon://docs/{topic}` — a single documentation topic (templated)
 
-Documentation topics cover: overview, islands (incl. framework file-naming), hydration strategies, server islands, server actions, routing (module-based + flat), layouts, middleware, API routes, cron jobs, built-in components, state & cross-island communication, client scripts, styling, metadata/SEO, MDX, configuration, framework integrations, the CLI (create-avalon/avalon), and the Flora grid system.
+Documentation topics cover: overview, islands (incl. framework file-naming), hydration strategies, server islands, server actions, routing (module-based + flat), client navigation (clientRouter, persist, prefetch, View Transitions), layouts, middleware, API routes, cron jobs, built-in components, state & cross-island communication, client scripts, styling, metadata/SEO, MDX, configuration, framework integrations, the CLI (create-avalon/avalon), and the Flora grid system.
 
 All tools are annotated `readOnlyHint: true` — they are pure knowledge lookups with no side effects, so agents can call them freely.
 
