@@ -40,8 +40,6 @@ export const RoutePageModuleSchema = z.object({
 	loader: z.any().optional(), // (context: LoaderContext) => Promise<any>
 	/** Optional frontmatter data from MDX files */
 	frontmatter: z.record(z.string(), z.any()).optional(), // Frontmatter metadata from MDX files
-	/** When false, the client router uses a full load for this route */
-	clientNavigation: z.boolean().optional(),
 });
 
 /**

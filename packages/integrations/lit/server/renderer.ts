@@ -131,7 +131,7 @@ function renderLitElementWithSSR(
 
 	const renderedHtml =
 		`<${tagName}${attrsHtml}>` +
-		`<template shadowrootmode="open" shadowrootclonable>${shadowContent}</template>` +
+		`<template shadowrootmode="open">${shadowContent}</template>` +
 		`</${tagName}>`;
 
 	const styles = collectStyles(ElementClass);

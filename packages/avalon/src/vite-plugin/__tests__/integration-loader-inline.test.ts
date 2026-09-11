@@ -25,7 +25,6 @@ describe("generateIntegrationLoaderModule — Solid adapter inlining", () => {
 		expect(code).toContain("_solidHydrate");
 		expect(code).toContain("_ensureHydrationContext");
 		expect(code).toContain("_solidModule");
-		expect(code).toContain("unmount: _solidUnmount");
 
 		// The switch case should return the inlined module, not a dynamic import
 		expect(code).toContain('case "solid":');

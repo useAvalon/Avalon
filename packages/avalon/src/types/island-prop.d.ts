@@ -45,20 +45,11 @@ export type IslandDirective = {
 		| `on:${string}`;
 
 	/**
-	 * Stable HTML `id` for this island instance.
-	 * Required when two copies of the same component appear on one page.
-	 * If omitted, Avalon generates a unique id from the component path plus an instance counter.
+	 * Stable identifier for the island instance.
+	 * Used for state persistence with PersistentIsland.
+	 * If omitted, Avalon generates one automatically from the component path.
 	 */
 	id?: string;
-
-	/**
-	 * Keep this island's live instance across client navigations.
-	 * The value is a stable key matched against the same key on the next page.
-	 * `true` uses the component `src` as the key. Qwik islands are never persisted.
-	 *
-	 * Equivalent markup: `data-router-persist="key"` on a wrapper element.
-	 */
-	persist?: string | true;
 
 	/**
 	 * Optional argument passed to custom hydration directives.

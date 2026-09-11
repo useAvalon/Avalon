@@ -25,10 +25,6 @@ Each hydration condition has a different impact on page load:
 
 Prefer `on:interaction` or `on:idle` for anything that doesn't need to be interactive immediately.
 
-## Client navigation
-
-With `clientRouter: true`, internal links fetch the next SSR HTML document and swap it in instead of reloading. That avoids re-downloading the shared runtime and reused stylesheets. Layout islands that should not reset use `island={{ persist: 'key' }}`. Routes that must not swap export `clientNavigation = false`. See [Client Navigation](/docs/client-navigation).
-
 ## Lazy integrations
 
 Enable `lazyIntegrations` to avoid loading unused framework adapters:

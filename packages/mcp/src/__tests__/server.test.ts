@@ -106,18 +106,6 @@ describe("tools/call", () => {
 		expect(text).toContain("No Astro-isms");
 	});
 
-	it("returns the client-navigation doc via avalon_get_doc", async () => {
-		const res = resultOf(
-			await call("tools/call", {
-				name: "avalon_get_doc",
-				arguments: { topic: "client-navigation" },
-			}),
-		);
-		const text = (res.content as Array<{ text: string }>)[0].text;
-		expect(text).toContain("View Transitions");
-		expect(text).toContain("@useavalon/avalon/client/router");
-	});
-
 	it("errors on an unknown tool", async () => {
 		const res = (await call("tools/call", { name: "nope" })) as { error: { code: number } };
 		expect(res.error.code).toBe(-32602);
@@ -136,14 +124,6 @@ describe("resources/read", () => {
 		const res = resultOf(await call("resources/read", { uri: "avalon://docs/server-actions" }));
 		const text = (res.contents as Array<{ text: string }>)[0].text;
 		expect(text).toContain("defineAction");
-	});
-
-	it("reads the client-navigation topic", async () => {
-		const res = resultOf(await call("resources/read", { uri: "avalon://docs/client-navigation" }));
-		const text = (res.contents as Array<{ text: string }>)[0].text;
-		expect(text).toContain("viewTransition");
-		expect(text).toContain("data-router-transition");
-		expect(text).toContain("clientRouter");
 	});
 
 	it("errors on an unknown resource", async () => {

@@ -191,11 +191,6 @@ export interface PageModule {
 	getStaticProps?: () => Promise<Record<string, unknown>>;
 	/** Optional getServerSideProps for SSR */
 	getServerSideProps?: (context: NitroRenderContext) => Promise<Record<string, unknown>>;
-	/**
-	 * When `false`, client navigation falls back to a full load for this route.
-	 * MDX can set the same flag via frontmatter.
-	 */
-	clientNavigation?: boolean;
 }
 
 /**

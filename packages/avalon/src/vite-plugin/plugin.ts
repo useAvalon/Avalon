@@ -18,7 +18,6 @@ import { islandCodeSplittingPlugin } from "../build/island-code-splitting.ts";
 import { mdxIslandTransform } from "../build/mdx-island-transform.ts";
 import { createMDXPlugin } from "../build/mdx-plugin.ts";
 import { pageIslandTransform } from "../build/page-island-transform.ts";
-import { resolveHydrationMode } from "../client/hydration-mode.ts";
 import { registry } from "../core/integrations/registry.ts";
 import type { NitroConfigOutput } from "../nitro/config.ts";
 import { discoverIntegrationsFromIslandUsage } from "./auto-discover.ts";
@@ -42,8 +41,6 @@ declare global {
 	var __nitroConfig: NitroConfigOutput | undefined;
 	/** Hydration mode — automatically set: "entry-client" in dev (HMR), "per-island" in production */
 	var __avalonHydrationMode: "entry-client" | "per-island" | undefined;
-	/** True when Vite is serving (dev). Independent of hydration mode so production + clientRouter still uses hashed island URLs. */
-	var __avalonIsDev: boolean | undefined;
 }
 
 /**
@@ -369,7 +366,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 			// mode (dev/HMR). This is the most reliable detection because it's replaced
 			// at transform time — it works even in Nitro's separate SSR module runner
 			// where globalThis values from the Vite process aren't available.
-			const isPerIsland = command === "build" && !config?.clientRouter;
+			const isPerIsland = command === "build";
 
 			return {
 				define: {
@@ -397,8 +394,6 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 			resolvedConfig = resolveConfig(config, isDev);
 
 			globalThis.__avalonConfig = resolvedConfig;
-			globalThis.__avalonHydrationMode = resolveHydrationMode(isDev, resolvedConfig.clientRouter);
-			globalThis.__avalonIsDev = isDev;
 
 			checkDirectoriesExist(resolvedConfig, resolvedViteConfig.root);
 		},

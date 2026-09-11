@@ -119,7 +119,3 @@ export default function Greeting({ name }: { name: string }) {
 - For interactive UI, always reach for an [island](/docs/islands-architecture) — they SSR, hydrate selectively, and ship less JS than you'd think
 - Reserve scripts for global concerns: analytics, third-party embeds, and page-level listeners
 - Respect `prefers-reduced-motion` in animation scripts
-
-## Client navigation
-
-Optional client-side routing over SSR HTML is a separate feature from `<script>` tags. Enable it with `clientRouter: true` and see [Client Navigation](/docs/client-navigation) for persist keys, prefetch, forms, View Transitions, and route-level opt-out.

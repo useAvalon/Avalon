@@ -295,18 +295,6 @@ export interface AvalonPluginConfig {
 	 * @default true
 	 */
 	lazyIntegrations?: boolean;
-
-	/**
-	 * Opt-in client navigation over SSR HTML.
-	 *
-	 * When true, internal same-origin GET links fetch the next server-rendered
-	 * document and swap it in without a full reload. Off by default so pages
-	 * ship no extra client JS. Progressive enhancement: the site still works
-	 * with JavaScript disabled.
-	 *
-	 * @default false
-	 */
-	clientRouter?: boolean;
 }
 
 /**
@@ -344,7 +332,6 @@ export interface ResolvedAvalonConfig {
 	validateIntegrations: boolean;
 	showWarnings: boolean;
 	lazyIntegrations: boolean;
-	clientRouter: boolean;
 	isDev: boolean;
 }
 

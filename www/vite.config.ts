@@ -21,7 +21,6 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 
 		integrations: ["react", "preact", "vue", "svelte", "qwik", "solid", "lit"],
 		lazyIntegrations: true,
-		clientRouter: true,
 
 		mdx: {
 			jsxImportSource: "preact",

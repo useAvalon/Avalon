@@ -58,7 +58,6 @@ export const DEFAULT_CONFIG: Omit<ResolvedAvalonConfig, "isDev"> = {
 	validateIntegrations: true,
 	showWarnings: true,
 	lazyIntegrations: true,
-	clientRouter: false,
 };
 
 /**
@@ -162,7 +161,6 @@ export function resolveConfig(
 		validateIntegrations: config.validateIntegrations ?? DEFAULT_CONFIG.validateIntegrations,
 		showWarnings: config.showWarnings ?? DEFAULT_CONFIG.showWarnings,
 		lazyIntegrations: config.lazyIntegrations ?? DEFAULT_CONFIG.lazyIntegrations,
-		clientRouter: config.clientRouter ?? DEFAULT_CONFIG.clientRouter,
 		isDev,
 	};
 }

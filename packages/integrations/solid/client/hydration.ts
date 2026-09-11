@@ -16,8 +16,6 @@
 import { createComponent, hydrate as solidHydrate } from "solid-js/web";
 import type { SolidComponent, SolidHydrationOptions } from "../types.ts";
 
-const disposers = new WeakMap<Element, () => void>();
-
 /**
  * Initialise the Solid hydration context on globalThis if absent,
  * and reset the `done` flag so each island hydrates independently.
@@ -58,20 +56,7 @@ export async function hydrate(
 	const renderId = element.dataset.solidRenderId || element.dataset.renderId;
 
 	ensureHydrationContext();
-	const dispose = solidHydrate(() => createComponent(Component, props), element, {
-		renderId: renderId || "",
-	});
-	if (typeof dispose === "function") {
-		disposers.set(container, dispose);
-	}
-}
-
-/** Tear down a hydrated Solid tree before a client-navigation DOM swap. */
-export function unmount(container: Element): void {
-	const dispose = disposers.get(container);
-	if (!dispose) return;
-	dispose();
-	disposers.delete(container);
+	solidHydrate(() => createComponent(Component, props), element, { renderId: renderId || "" });
 }
 
 export function getHydrationScript(): string {

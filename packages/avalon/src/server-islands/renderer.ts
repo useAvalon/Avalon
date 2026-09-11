@@ -135,7 +135,7 @@ export function renderServerIsland(
 	});
 
 	// 7. Assemble the complete HTML
-	const wrapperOpen = `<avalon-server-island id="${elementId}" data-endpoint="${escapeAttr(endpointPath)}" data-timeout="${timeout}" data-p="${escapeAttr(encryptedProps)}">`;
+	const wrapperOpen = `<avalon-server-island id="${elementId}" data-p="${escapeAttr(encryptedProps)}">`;
 	const wrapperClose = `</avalon-server-island>`;
 
 	return `${wrapperOpen}${fallbackHtml}${wrapperClose}\n${fetchScript}`;
@@ -168,14 +168,13 @@ function generateFetchScript(opts: {
 	return `<script type="module">
 (async()=>{
 const el=document.getElementById("${elementId}");
-if(!el||el.dataset.siStarted)return;
-el.dataset.siStarted="1";
+if(!el)return;
 const p=el.dataset.p;
-const url=(el.dataset.endpoint||"${endpointPath}")+"?p="+encodeURIComponent(p);
+const url="${endpointPath}?p="+encodeURIComponent(p);
 const ctrl=new AbortController();
-const t=setTimeout(()=>ctrl.abort(),Number(el.dataset.timeout)||${timeout});
+const t=setTimeout(()=>ctrl.abort(),${timeout});
 try{
-const r=await fetch(...(url.length>${MAX_GET_URL_LENGTH}?[el.dataset.endpoint||"${endpointPath}",{method:"POST",body:p,headers:{"content-type":"text/plain"},signal:ctrl.signal}]:[url,{signal:ctrl.signal}]));
+const r=await fetch(...(url.length>${MAX_GET_URL_LENGTH}?["${endpointPath}",{method:"POST",body:p,headers:{"content-type":"text/plain"},signal:ctrl.signal}]:[url,{signal:ctrl.signal}]));
 clearTimeout(t);
 if(!r.ok)return;
 const html=await r.text();

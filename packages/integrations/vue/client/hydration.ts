@@ -10,9 +10,7 @@
  * @module vue/client/hydration
  */
 
-import { type App, type Component, createSSRApp } from "vue";
-
-const apps = new WeakMap<Element, App>();
+import { type Component, createSSRApp } from "vue";
 
 /**
  * Hydrate a Vue component into an existing server-rendered container.
@@ -29,19 +27,10 @@ export function hydrate(
 	try {
 		const app = createSSRApp(component as Component, props);
 		app.mount(container);
-		apps.set(container, app);
 	} catch (error) {
 		console.error("Vue hydration failed:", error);
 		throw error;
 	}
-}
-
-/** Tear down a mounted Vue app before a client-navigation DOM swap. */
-export function unmount(container: Element): void {
-	const app = apps.get(container);
-	if (!app) return;
-	app.unmount();
-	apps.delete(container);
 }
 
 export function getHydrationScript(): string {

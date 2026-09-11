@@ -64,20 +64,10 @@ describe("docs knowledge", () => {
 		}
 	});
 
-	it("adds state-management, cli, flora, and client-navigation topics", () => {
-		for (const id of ["state-management", "cli", "flora", "client-navigation"]) {
+	it("adds state-management, cli, and flora topics", () => {
+		for (const id of ["state-management", "cli", "flora"]) {
 			expect(getDoc(id), `missing topic: ${id}`).toBeDefined();
 		}
-	});
-
-	it("search ranks client-navigation for router and view-transition queries", () => {
-		expect(searchDocs("client navigation")[0]?.id).toBe("client-navigation");
-		expect(searchDocs("viewTransition data-router-transition")[0]?.id).toBe("client-navigation");
-	});
-
-	it("configuration documents clientRouter", () => {
-		const config = getDoc("configuration")?.content ?? "";
-		expect(config).toContain("clientRouter");
 	});
 
 	it("configuration uses the correct plugin import (no /vite subpath)", () => {
@@ -86,29 +76,6 @@ describe("docs knowledge", () => {
 		// The only mention of the wrong subpath should be the explicit warning,
 		// never an actual import statement.
 		expect(config).not.toContain("from '@useavalon/avalon/vite'");
-	});
-
-	it("client-scripts points at the client-navigation topic", () => {
-		const scripts = getDoc("client-scripts")?.content ?? "";
-		expect(scripts).toContain("client-navigation");
-		expect(scripts).toContain("clientRouter");
-		expect(scripts).toContain("@useavalon/avalon/client/router");
-	});
-
-	it("client-navigation documents the router, persist, and view transitions", () => {
-		const nav = getDoc("client-navigation")?.content ?? "";
-		expect(nav).toContain("@useavalon/avalon/client/router");
-		expect(nav).toContain("data-router-reload");
-		expect(nav).toContain("data-router-persist");
-		expect(nav).toContain("clientRouter: true");
-		expect(nav).toContain("clientNavigation");
-		expect(nav).toContain("data-router-transition");
-		expect(nav).toContain("viewTransition");
-		expect(nav).toContain("startViewTransition");
-		expect(nav).toContain("boolean | string");
-		expect(nav).toContain("dataset.routerTransition");
-		expect(nav).toContain("custom-ident");
-		expect(nav).not.toContain("client:load");
 	});
 
 	it("islands topic documents the *.react.tsx framework naming rule", () => {
@@ -121,7 +88,6 @@ describe("docs knowledge", () => {
 		const routing = getDoc("file-system-routing")?.content ?? "";
 		expect(routing).toContain("app/modules");
 		expect(routing).toContain("src/pages");
-		expect(routing).toContain("clientNavigation");
 	});
 
 	it("state topic states there is no built-in shared store", () => {
@@ -163,15 +129,6 @@ describe("scaffold knowledge", () => {
 describe("api knowledge", () => {
 	it("documents the actions import path", () => {
 		expect(API_ENTRIES.some((e) => e.importPath === "@useavalon/avalon/actions")).toBe(true);
-	});
-
-	it("documents the client router import path and view transitions", () => {
-		const router = API_ENTRIES.find((e) => e.importPath === "@useavalon/avalon/client/router");
-		expect(router).toBeDefined();
-		expect(router?.exports.join(" ")).toContain("navigate");
-		expect(router?.exports.join(" ")).toContain("ViewTransitionMode");
-		expect(router?.description).toContain("viewTransition");
-		expect(router?.description).toContain("data-router-transition");
 	});
 
 	it("renders a markdown reference", () => {

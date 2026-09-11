@@ -3,10 +3,8 @@
 
 import type { ComponentType } from "react";
 import { createElement } from "react";
-import { hydrateRoot, type Root } from "react-dom/client";
+import { hydrateRoot } from "react-dom/client";
 import type { ReactHydrationOptions } from "../types.ts";
-
-const roots = new WeakMap<HTMLElement, Root>();
 
 /**
  * Hydrate a React component on the client
@@ -26,26 +24,17 @@ export function hydrate(
 	try {
 		const element = createElement(Component, props);
 
-		const root = hydrateRoot(container, element, {
+		hydrateRoot(container, element, {
 			onRecoverableError:
 				options?.onRecoverableError ||
 				((error: unknown) => {
 					console.error("React hydration recoverable error:", error);
 				}),
 		});
-		roots.set(container, root);
 	} catch (error) {
 		console.error("React hydration failed:", error);
 		throw error;
 	}
-}
-
-/** Tear down a hydrated React root before a client-navigation DOM swap. */
-export function unmount(container: HTMLElement): void {
-	const root = roots.get(container);
-	if (!root) return;
-	root.unmount();
-	roots.delete(container);
 }
 
 /**

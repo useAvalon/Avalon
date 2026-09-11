@@ -60,7 +60,7 @@ export function createPrompts(): PromptDefinition[] {
 			handler: (args) => {
 				const code = args.code ?? "";
 				const text = [
-					"Review the following code for Avalon correctness. Flag and fix any Astro-only constructs (`client:*` attributes, `.astro` files, `Astro.*` globals, `astro:actions`, `getStaticPaths`, `<ViewTransitions />` / `<ClientRouter />` / `transition:*`). Prefer running the `avalon_lint` tool first, then explain each fix.",
+					"Review the following code for Avalon correctness. Flag and fix any Astro-only constructs (`client:*` attributes, `.astro` files, `Astro.*` globals, `astro:actions`, `getStaticPaths`). Prefer running the `avalon_lint` tool first, then explain each fix.",
 					"",
 					"```tsx",
 					code,
@@ -86,8 +86,7 @@ export function createPrompts(): PromptDefinition[] {
 					"2. Replace `.astro` structure with a `.tsx` component (module-scope imports, JSX return).",
 					"3. Replace `Astro.*` usage with props and the H3 `event`.",
 					"4. Move any `astro:actions` to `@useavalon/avalon/actions`.",
-					"5. Replace `<ViewTransitions />` / `<ClientRouter />` / `astro:transitions` with `avalon({ clientRouter: true })` and `navigate` / `data-router-transition` from `@useavalon/avalon/client/router`.",
-					"6. Output the final Avalon file and a short summary of changes.",
+					"5. Output the final Avalon file and a short summary of changes.",
 					"",
 					"```astro",
 					code,

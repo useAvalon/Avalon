@@ -97,15 +97,3 @@ describe("litIntegration.getHydrationScript()", () => {
 		expect(script).toContain("import(");
 	});
 });
-
-describe("Lit SSR declarative shadow DOM", () => {
-	it("marks shadow roots clonable so client-navigation swaps keep styles", async () => {
-		const { readFileSync } = await import("node:fs");
-		const { fileURLToPath } = await import("node:url");
-		const src = readFileSync(
-			fileURLToPath(new URL("../server/renderer.ts", import.meta.url)),
-			"utf8",
-		);
-		expect(src).toContain('shadowrootmode="open" shadowrootclonable');
-	});
-});

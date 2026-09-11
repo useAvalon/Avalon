@@ -69,7 +69,3 @@ t/
 .netlify/
 www/.netlify/
 www/netlify/
-
-# Wrangler / Miniflare local state (same class as node_modules)
-.wrangler/
-**/.wrangler/

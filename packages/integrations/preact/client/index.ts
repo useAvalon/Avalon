@@ -6,10 +6,4 @@
  */
 
 export type { PreactHydrationOptions } from "../types.ts";
-export {
-	cleanupHydration,
-	getHydrationScript,
-	hydrate,
-	isHydrationReady,
-	unmount,
-} from "./hydration.ts";
+export { cleanupHydration, getHydrationScript, hydrate, isHydrationReady } from "./hydration.ts";

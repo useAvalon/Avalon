@@ -6,10 +6,6 @@ import {
 	type IslandDirectory,
 } from "../islands/discovery/index.ts";
 
-declare global {
-	var __avalonIsDev: boolean | undefined;
-}
-
 export interface IslandManifest {
 	islands: Record<string, IslandEntry>;
 	version: string;
@@ -195,11 +191,9 @@ export function getIslandBundlePath(
 	// check the global hydration mode flag first, then fall back to NODE_ENV.
 	// In the Nitro SSR runtime, process.env.NODE_ENV may not be replaced by
 	// Vite's define config, but the hydration mode flag is always reliable.
-	// Hydration mode is not a proxy for "dev": production + clientRouter uses
-	// entry-client hydration while still serving hashed island bundle URLs.
 	const isDev =
-		typeof globalThis.__avalonIsDev === "boolean"
-			? globalThis.__avalonIsDev
+		globalThis.__avalonHydrationMode !== undefined
+			? globalThis.__avalonHydrationMode === "entry-client"
 			: process.env.NODE_ENV !== "production";
 
 	// Strip absolute filesystem paths to project-relative paths.

@@ -76,20 +76,12 @@ describe("renderServerIsland", () => {
 
 	it("uses default timeout of 10000ms", () => {
 		const html = renderServerIsland("comp5", {}, {});
-		expect(html).toContain('data-timeout="10000"');
-		expect(html).toContain("Number(el.dataset.timeout)||10000");
+		expect(html).toContain("setTimeout(()=>ctrl.abort(),10000)");
 	});
 
 	it("uses custom timeout when specified", () => {
 		const html = renderServerIsland("comp6", {}, { timeout: 5000 });
-		expect(html).toContain('data-timeout="5000"');
-		expect(html).toContain("Number(el.dataset.timeout)||5000");
-	});
-
-	it("puts the endpoint on the wrapper and guards against double-fetch", () => {
-		const html = renderServerIsland("comp4b", {}, {});
-		expect(html).toContain('data-endpoint="/_server-islands/comp4b"');
-		expect(html).toContain("el.dataset.siStarted");
+		expect(html).toContain("setTimeout(()=>ctrl.abort(),5000)");
 	});
 
 	it("uses GET for small payloads and POST threshold at 2048", () => {

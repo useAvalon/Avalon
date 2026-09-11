@@ -61,16 +61,6 @@ describe("injectHydrationScript — entry-client mode (dev mode default)", () =>
 		globalThis.__avalonHydrationMode = savedMode;
 	});
 
-	it("injects shared script in production when hydration mode is entry-client", () => {
-		globalThis.__avalonHydrationMode = "entry-client";
-		const html = `<html><body>
-<avalon-island data-framework="solid" data-src="/islands/Counter.js"></avalon-island>
-</body></html>`;
-
-		const result = injectHydrationScript(html, false);
-		expect(result).toContain('<script type="module" src="/dist/client.js"></script>');
-	});
-
 	it("forces per-island mode in production regardless of the hydration flag", () => {
 		const html = `<html><body>
 <avalon-island data-framework="solid" data-src="/islands/Counter.js"></avalon-island>

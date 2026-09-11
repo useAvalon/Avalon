@@ -82,33 +82,8 @@ describe("lintForAstroisms", () => {
 		expect(found).toContain("define:vars");
 	});
 
-	it("flags Astro View Transitions markup and imports", () => {
-		const findings = lintForAstroisms(
-			[
-				"import { navigate } from 'astro:transitions/client';",
-				"<ViewTransitions />",
-				"<ClientRouter />",
-				'<main transition:animate="slide">',
-			].join("\n"),
-		);
-		const found = findings.map((f) => f.found);
-		expect(found.some((f) => f.includes("astro:transitions"))).toBe(true);
-		expect(found).toContain("ViewTransitions");
-		expect(found).toContain("ClientRouter");
-		expect(found).toContain("transition:animate");
-	});
-
 	it("returns nothing for clean Avalon code", () => {
 		const clean = "<Counter island={{ condition: 'on:visible' }} />";
 		expect(lintForAstroisms(clean)).toHaveLength(0);
-	});
-
-	it("does not flag Avalon clientRouter or data-router-transition", () => {
-		const avalon = [
-			"await avalon({ clientRouter: true });",
-			'<a href="/blog" data-router-transition="slide-forward">Blog</a>',
-			"await navigate('/about', { viewTransition: false });",
-		].join("\n");
-		expect(lintForAstroisms(avalon)).toHaveLength(0);
 	});
 });

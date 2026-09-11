@@ -7,11 +7,9 @@
  */
 
 declare module "virtual:avalon/page-loader" {
-	export function loadPage(pathname: string): {
-		default: unknown;
-		metadata?: Record<string, unknown>;
-		clientNavigation?: boolean;
-	} | null;
+	export function loadPage(
+		pathname: string,
+	): { default: unknown; metadata?: Record<string, unknown> } | null;
 }
 
 declare module "virtual:avalon/config" {
@@ -20,7 +18,6 @@ declare module "virtual:avalon/config" {
 		pagesDir: string;
 		layoutsDir: string;
 		isDev: boolean;
-		clientRouter?: boolean;
 		[key: string]: unknown;
 	};
 	export default config;
@@ -63,15 +60,7 @@ declare module "virtual:avalon/client-entry" {
 }
 
 declare module "virtual:avalon/integration-loader" {
-	export function loadIntegrationModule(framework: string): Promise<{
-		hydrate?: (
-			el: HTMLElement,
-			component: unknown,
-			props: Record<string, unknown>,
-		) => void | Promise<void>;
-		unmount?: (el: HTMLElement) => void | Promise<void>;
-		preLitHydration?: () => Promise<void>;
-	}>;
+	export function loadIntegrationModule(framework: string): Promise<unknown>;
 	export function preLitHydration(): Promise<void>;
 	export function loadHMRAdapter(framework: string): Promise<unknown>;
 }
