@@ -110,7 +110,7 @@ export function generateWrapperCode(filePath: string, framework: string): string
 	];
 	if (adapter) {
 		lines.push(
-			`export { hydrate as __hydrateIsland, mount as __mountIsland } from ${JSON.stringify(adapter)};`,
+			`export { hydrate as __hydrateIsland, mount as __mountIsland, unmount as __unmountIsland } from ${JSON.stringify(adapter)};`,
 		);
 	}
 	return lines.join("\n");

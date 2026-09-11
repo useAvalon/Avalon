@@ -89,6 +89,89 @@ describe("scanAndHydrate", () => {
 		expect(hydrates).toBe(0);
 	});
 
+	it("uses __hydrateIsland from the island chunk instead of the shared adapter", async () => {
+		const fromChunk: string[] = [];
+		let shared = 0;
+		setHydrationLoader({
+			loadComponent: async () => ({
+				default: () => null,
+				__hydrateIsland: (el: HTMLElement) => {
+					fromChunk.push((el as unknown as FakeIsland).dataset.src ?? "");
+				},
+			}),
+			loadIntegrationModule: async () => ({
+				hydrate: () => {
+					shared++;
+				},
+			}),
+		});
+		const svelte = island({
+			framework: "svelte",
+			src: "/islands/Counter.svelte.js",
+			props: "{}",
+		});
+		scanAndHydrate(rootOf([svelte]));
+		await flush();
+		expect(fromChunk).toEqual(["/islands/Counter.svelte.js"]);
+		expect(shared).toBe(0);
+		expect(svelte.dataset.hydrated).toBe("true");
+	});
+
+	it("uses __mountIsland from the island chunk for client-only islands", async () => {
+		const fromChunk: string[] = [];
+		let shared = 0;
+		setHydrationLoader({
+			loadComponent: async () => ({
+				default: () => null,
+				__mountIsland: (el: HTMLElement) => {
+					fromChunk.push((el as unknown as FakeIsland).dataset.src ?? "");
+				},
+			}),
+			loadIntegrationModule: async () => ({
+				mount: () => {
+					shared++;
+				},
+			}),
+		});
+		const only = island({
+			framework: "svelte",
+			src: "/islands/Counter.svelte.js",
+			renderStrategy: "client-only",
+			props: "{}",
+		});
+		scanAndHydrate(rootOf([only]));
+		await flush();
+		expect(fromChunk).toEqual(["/islands/Counter.svelte.js"]);
+		expect(shared).toBe(0);
+	});
+
+	it("unmounts via __unmountIsland from the island chunk", async () => {
+		const unmounted: string[] = [];
+		let shared = 0;
+		setHydrationLoader({
+			loadComponent: async () => ({
+				default: () => null,
+				__hydrateIsland: () => {},
+				__unmountIsland: (el: HTMLElement) => {
+					unmounted.push((el as unknown as FakeIsland).dataset.src ?? "");
+				},
+			}),
+			loadIntegrationModule: async () => ({
+				unmount: () => {
+					shared++;
+				},
+			}),
+		});
+		const svelte = island({
+			framework: "svelte",
+			src: "/islands/Counter.svelte.js",
+			hydrated: "true",
+		});
+		await disposeIslands(rootOf([svelte]));
+		expect(unmounted).toEqual(["/islands/Counter.svelte.js"]);
+		expect(shared).toBe(0);
+	});
+
 	it("mounts client-only islands instead of hydrating", async () => {
 		const mounts: FakeIsland[] = [];
 		let hydrates = 0;
