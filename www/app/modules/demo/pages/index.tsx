@@ -1,5 +1,6 @@
 /** @jsxImportSource preact */
 
+import BrowserCounter from "../components/BrowserCounter.tsx";
 import LitCounter from "../components/Counter.lit.ts";
 import PreactCounter from "../components/Counter.preact.tsx";
 import QwikCounter from "../components/Counter.qwik.tsx";
@@ -22,8 +23,9 @@ export default async function DemoPage() {
 				<h1 class={styles.title}>Multi-Framework Islands</h1>
 				<p class={styles.desc}>
 					Each island loads its JavaScript only when you interact with it. Watch the network panel
-					to see the lazy loading in action. All counters are SSR'd — the HTML is visible
-					immediately.
+					to see the lazy loading in action. Most counters are SSR'd — the HTML is visible
+					immediately. The amber card is <code class={styles.code}>clientOnly</code>: no server
+					HTML, mounted in the browser.
 				</p>
 			</header>
 
@@ -36,6 +38,9 @@ export default async function DemoPage() {
 				<LitCounter island={{ condition: "on:interaction" }} />
 				<QwikCounter />
 				<DelayedCounter island={{ condition: "on:countdown", conditionArg: "5" }} />
+				<div class={styles.clientOnlySlot}>
+					<BrowserCounter island={{ clientOnly: true }} />
+				</div>
 			</div>
 
 			<p class={styles.tip}>

@@ -37,7 +37,7 @@ Default is `false`. When it is off, Avalon ships no extra client navigation Java
 
 A same-origin link click or a call to `navigate()` is intercepted and the destination is fetched as HTML, the same document a full page load would return. Title, meta, and other head tags are updated from that response; stylesheets already on the page are kept when the `href` matches, so you do not get a flash of unstyled content.
 
-Before the body is replaced, islands marked to persist are lifted out of the old document so their live instances survive. Everything else is disposed. The new body is swapped in, persist slots are put back, and the remaining islands hydrate as they would on a fresh load. Deferred [server islands](/docs/server-islands) boot afterward.
+Before the body is replaced, islands marked to persist are lifted out of the old document so their live instances survive. Everything else is disposed. The new body is swapped in, persist slots are put back, and the remaining islands hydrate or mount as they would on a fresh load — including [client-only](/docs/islands-architecture) islands, which have no SSR HTML. Deferred [server islands](/docs/server-islands) boot afterward.
 
 What you see is still server-rendered HTML. The only thing skipped is reloading the entire document.
 

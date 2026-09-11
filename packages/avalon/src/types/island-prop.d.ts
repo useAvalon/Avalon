@@ -1,5 +1,3 @@
-import type { ServerIslandProp } from "../server-islands/types.ts";
-
 /**
  * Type augmentation for the `island` prop on island components.
  *
@@ -70,4 +68,17 @@ export type IslandDirective = {
 	 * ```
 	 */
 	conditionArg?: string;
+
+	/**
+	 * Skip server rendering of this component. Avalon emits an empty
+	 * `<avalon-island>` placeholder and mounts the component in the browser.
+	 * Props are still serialized. Combines with `condition` for when to mount.
+	 *
+	 * @example
+	 * ```tsx
+	 * <Chart island={{ clientOnly: true }} userId={user.id} />
+	 * <Chart island={{ clientOnly: true, condition: 'on:idle' }} />
+	 * ```
+	 */
+	clientOnly?: boolean;
 };

@@ -20,14 +20,19 @@ describe("injectFrameworkBaseCSS", () => {
 		expect(__FRAMEWORK_BASE_CSS).toContain("display:contents");
 	});
 
+	it("gives client-only islands a layout box", () => {
+		expect(__FRAMEWORK_BASE_CSS).toContain(
+			"avalon-island[data-render-strategy=client-only]{display:block}",
+		);
+	});
+
 	it("is idempotent — does not double-inject if already present", () => {
 		const html = `<html><head><title>x</title></head><body></body></html>`;
 		const once = injectFrameworkBaseCSS(html);
 		const twice = injectFrameworkBaseCSS(once);
 
 		expect(once).toBe(twice);
-		// Only one occurrence of the marker
-		expect((twice.match(/data-avalon-base/g) || []).length).toBe(1);
+		expect(twice.match(/data-avalon-base/g) || []).toHaveLength(1);
 	});
 
 	it("returns input unchanged when there is no <head>", () => {

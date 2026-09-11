@@ -29,6 +29,7 @@
 import { dirname } from "node:path";
 import type { Plugin } from "vite";
 import { addToManifest, generateComponentId } from "../server-islands/manifest.ts";
+import { islandSsrExpression, isStaticallyClientOnly } from "./island-ssr-flag.ts";
 import { ensureAwaitContextsAsync } from "./page-island-await.ts";
 
 export interface PageIslandTransformOptions {
@@ -535,12 +536,122 @@ function parseJSXElement(
  * JSX expression (a ternary/logical branch, `.map()` return, attribute value,
  * etc.) the bare form is emitted so we don't produce invalid `{ … : ({await …}) }`.
  */
+function escapeIdent(name: string): string {
+	return name.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+/** True when `name` appears as an identifier outside the excluded source ranges. */
+function identifierUsedOutside(
+	code: string,
+	name: string,
+	exclude: Array<[number, number]>,
+): boolean {
+	const re = new RegExp(String.raw`\b${escapeIdent(name)}\b`, "g");
+	for (let m = re.exec(code); m !== null; m = re.exec(code)) {
+		const idx = m.index;
+		if (exclude.some(([start, end]) => idx >= start && idx < end)) continue;
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Names whose only runtime uses are statically client-only islands.
+ * Those imports can be stripped from the SSR module so browser-only
+ * libraries in the island file are not evaluated on the server.
+ */
+function collectClientOnlyOnlyNames(code: string, names: string[]): Set<string> {
+	const result = new Set<string>();
+	for (const name of names) {
+		const ranges = findComponentTagRanges(code, name);
+		const clientOnlyUsages = ranges.filter(
+			(r) => r.islandProp && !r.serverProp && isStaticallyClientOnly(r.islandProp),
+		);
+		if (clientOnlyUsages.length === 0) continue;
+		const allIslandUsages = ranges.filter((r) => r.islandProp);
+		if (allIslandUsages.length !== clientOnlyUsages.length) continue;
+
+		const exclude: Array<[number, number]> = clientOnlyUsages.map((r) => [r.start, r.end]);
+		const importRe = new RegExp(
+			String.raw`^[ \t]*import\s+${escapeIdent(name)}\s+from\s+['"][^'"]+['"];?`,
+			"m",
+		);
+		const importMatch = importRe.exec(code);
+		if (importMatch) {
+			exclude.push([importMatch.index, importMatch.index + importMatch[0].length]);
+		}
+		if (!identifierUsedOutside(code, name, exclude)) {
+			result.add(name);
+		}
+	}
+	return result;
+}
+
+function findComponentTagRanges(
+	code: string,
+	componentName: string,
+): Array<{
+	start: number;
+	end: number;
+	islandProp: string | null;
+	serverProp: string | null;
+}> {
+	const tag = `<${componentName}`;
+	const ranges: Array<{
+		start: number;
+		end: number;
+		islandProp: string | null;
+		serverProp: string | null;
+	}> = [];
+	let i = 0;
+	while (i < code.length) {
+		const verbatimEnd = skipVerbatimRegion(code, i);
+		if (verbatimEnd !== -1) {
+			i = verbatimEnd;
+			continue;
+		}
+		if (!isComponentTagStart(code, i, tag)) {
+			i++;
+			continue;
+		}
+		const parsed = parseJSXElement(code, i, componentName);
+		if (!parsed) {
+			i++;
+			continue;
+		}
+		ranges.push({
+			start: i,
+			end: parsed.endIdx,
+			islandProp: parsed.islandProp,
+			serverProp: parsed.serverProp,
+		});
+		i = parsed.endIdx;
+	}
+	return ranges;
+}
+
+function stripUnusedClientOnlyImports(code: string, names: Iterable<string>): string {
+	let result = code;
+	for (const name of names) {
+		if (result.includes(`component: ${name}`)) continue;
+		result = result.replace(
+			new RegExp(
+				String.raw`^[ \t]*import\s+${escapeIdent(name)}\s+from\s+['"][^'"]+['"];?\s*\n?`,
+				"m",
+			),
+			"",
+		);
+	}
+	return result;
+}
+
 function buildRenderCall(
 	parsed: ParsedJSXElement,
 	srcPath: string,
 	framework: string | undefined,
 	autoIsland: boolean,
 	componentName: string,
+	omitComponent: boolean,
 ): string {
 	const fwArg = framework ? `, framework: "${framework}"` : "";
 	const propsArg =
@@ -548,7 +659,8 @@ function buildRenderCall(
 	const keyArg = parsed.keyProp != null ? `, key: (${parsed.keyProp})` : "";
 	// Pass the component reference so the SSR bundle doesn't need to
 	// dynamically import it at runtime (the import is already in scope).
-	const compArg = `, component: ${componentName}`;
+	// Client-only-only islands omit it so the island module is not evaluated on the server.
+	const compArg = omitComponent ? "" : `, component: ${componentName}`;
 
 	if (autoIsland) {
 		// Auto-island (e.g. Qwik): SSR + resumability via Qwik's native qwikloader.
@@ -597,11 +709,8 @@ function buildRenderCall(
 		islandValue +
 		")" +
 		propsArg +
-		", ssr: (" +
-		islandValue +
-		").ssr !== undefined ? (" +
-		islandValue +
-		").ssr : true" +
+		", ssr: " +
+		islandSsrExpression(islandValue) +
 		keyArg +
 		" })"
 	);
@@ -684,6 +793,7 @@ function replaceIslandJSX(
 	srcPath: string,
 	framework: string | undefined,
 	autoIsland: boolean,
+	omitComponent: boolean,
 ): string {
 	const tag = `<${componentName}`;
 	let result = "";
@@ -705,6 +815,7 @@ function replaceIslandJSX(
 			srcPath,
 			framework,
 			autoIsland,
+			omitComponent,
 		});
 		result += text;
 		i = next;
@@ -719,6 +830,7 @@ interface ReplaceTagContext {
 	srcPath: string;
 	framework: string | undefined;
 	autoIsland: boolean;
+	omitComponent: boolean;
 }
 
 /**
@@ -749,6 +861,7 @@ function replaceTagAt(
 		ctx.framework,
 		ctx.autoIsland && !parsed.islandProp,
 		ctx.componentName,
+		ctx.omitComponent && isStaticallyClientOnly(parsed.islandProp),
 	);
 	// Wrap in a JSX expression container only when the island is a bare JSX child.
 	// In expression positions (ternary/logical branch, .map return, attribute
@@ -845,6 +958,8 @@ export function pageIslandTransform(options: PageIslandTransformOptions = {}): P
 			const islandMeta = buildIslandMeta(code, componentImports, id, resolvedAliases);
 			if (islandMeta.size === 0) return null;
 
+			const clientOnlyOnlyNames = collectClientOnlyOnlyNames(code, [...islandMeta.keys()]);
+
 			let transformed = `import { renderIsland as __pageRenderIsland } from '@useavalon/avalon';\n${code}`;
 
 			for (const [name, meta] of islandMeta) {
@@ -854,11 +969,14 @@ export function pageIslandTransform(options: PageIslandTransformOptions = {}): P
 					meta.srcPath,
 					meta.framework,
 					meta.autoIsland,
+					clientOnlyOnlyNames.has(name),
 				);
 			}
 
-			// Island imports stay in the module so renderIsland() can SSR the
-			// in-scope component without a dynamic import() in the server bundle.
+			transformed = stripUnusedClientOnlyImports(transformed, clientOnlyOnlyNames);
+
+			// Remaining island imports stay in the module so renderIsland() can
+			// SSR the in-scope component without a dynamic import() in the server bundle.
 
 			// Injected `await` calls require async enclosing functions. The
 			// default export is marked async; nested helpers and list maps are

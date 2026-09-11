@@ -14,6 +14,8 @@ next:
 
 Avalon ships with four built-in conditions (`on:client`, `on:visible`, `on:interaction`, `on:idle`) and a `media:` condition covered in [Islands Architecture](/docs/islands-architecture). This page covers the **custom directives** that give you fine-grained control beyond those defaults.
 
+`clientOnly: true` is a rendering mode, not a condition. It skips server rendering and **mounts** the component in the browser. You can still set `condition` (or a custom directive) to control when that mount runs. See the [island prop](/docs/api/island-prop) reference.
+
 ## Custom directives
 
 Custom directives follow the `on:<name>` pattern and accept an optional argument via `conditionArg`. They are registered automatically — no setup needed.
@@ -96,7 +98,7 @@ The directive's `script` function runs on the client. It receives:
 | Parameter | Description |
 |---|---|
 | `el` | The island's DOM element |
-| `hydrate` | Callback — call once to trigger hydration |
+| `hydrate` | Callback — call once to trigger hydration (or mount, when the island is `clientOnly`) |
 | `arg` | The `conditionArg` string (or `undefined`) |
 
 ## Performance tips

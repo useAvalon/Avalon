@@ -22,6 +22,9 @@ Each hydration condition has a different impact on page load:
 | `on:interaction` | Deferred until click/hover | Forms, menus, dropdowns |
 | `on:idle` | Background, lowest priority | Analytics, chat widgets |
 | `media:` | Only if query matches | Responsive-only components |
+| `clientOnly: true` | Same as its `condition` (default `on:client`) | Components that cannot run on the server (`window`, maps, embeds) |
+
+`clientOnly` is not a condition — it skips SSR. The page ships an empty placeholder and no no-JS fallback for that island. Prefer a normal (SSR + hydrate) island when the component can render without browser APIs.
 
 Prefer `on:interaction` or `on:idle` for anything that doesn't need to be interactive immediately.
 

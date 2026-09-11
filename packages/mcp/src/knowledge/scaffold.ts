@@ -46,6 +46,27 @@ const toKebab = (name: string): string =>
 		.toLowerCase()
 		.replace(/^-+|-+$/g, "") || "example";
 
+function isClientOnlyCondition(condition: string): boolean {
+	const normalized = condition.trim().replaceAll(/\s+/g, "").toLowerCase();
+	return (
+		normalized === "clientonly" || normalized === "client:only" || normalized === "client-only"
+	);
+}
+
+function islandUsageProp(condition: string): string {
+	if (isClientOnlyCondition(condition)) {
+		return "island={{ clientOnly: true }}";
+	}
+	return `island={{ condition: '${condition}' }}`;
+}
+
+function islandUsageDescription(name: string, condition: string): string {
+	if (isClientOnlyCondition(condition)) {
+		return `Using the ${name} island as client-only (no SSR, mount in the browser).`;
+	}
+	return `Using the ${name} island with the '${condition}' hydration condition.`;
+}
+
 /**
  * Generate a scaffold for the requested primitive.
  *
@@ -124,14 +145,14 @@ export default function ${Pascal}({ initialCount = 0 }: { initialCount?: number 
 			return {
 				kind,
 				suggestedPath: `app/modules/main/pages/index.tsx`,
-				description: `Using the ${Pascal} island with the '${condition}' hydration condition.`,
+				description: islandUsageDescription(Pascal, condition),
 				code: `import ${Pascal} from '../components/${Pascal}.tsx';
 
 export default function Page() {
   return (
     <div>
       {/* Avalon controls hydration via the island prop — NOT client:* attributes */}
-      <${Pascal} island={{ condition: '${condition}' }} initialCount={5} />
+      <${Pascal} ${islandUsageProp(condition)} initialCount={5} />
     </div>
   );
 }

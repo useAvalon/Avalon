@@ -58,6 +58,8 @@ export interface IslandProps {
 	children?: IslandChildren;
 	/** Whether to render server-side (default: true unless condition is 'on:client') */
 	ssr?: boolean;
+	/** Skip component SSR and mount on the client. Forces `ssr: false`. */
+	clientOnly?: boolean;
 	/** Framework hint for client hydration */
 	framework?: FrameworkId;
 	/** Force SSR-only rendering without hydration */
@@ -210,6 +212,11 @@ function buildHydrationDataAttrs(hydrationData: Record<string, unknown>): Record
 	return attrs;
 }
 
+/** Serialize island props for `data-props`. The shell renderer HTML-escapes the attribute. */
+function serializeIslandProps(props: Record<string, unknown>): string {
+	return JSON.stringify(props);
+}
+
 /** Build the full set of attributes for an `<avalon-island>` element that will be hydrated */
 function buildHydrateAttributes(
 	src: string,
@@ -217,12 +224,13 @@ function buildHydrateAttributes(
 	props: Record<string, unknown>,
 	hydrationData: Record<string, unknown>,
 	conditionArg?: string,
+	renderStrategy: "hydrate" | "client-only" = "hydrate",
 ): Record<string, string> {
 	const attrs: Record<string, string> = {
 		"data-condition": condition,
 		"data-src": getIslandBundlePath(src),
-		"data-props": JSON.stringify(props),
-		"data-render-strategy": "hydrate",
+		"data-props": serializeIslandProps(props),
+		"data-render-strategy": renderStrategy,
 		...buildHydrationDataAttrs(hydrationData),
 	};
 
@@ -359,7 +367,7 @@ function renderIslandSSR(opts: {
 	});
 }
 
-/** Render the client-only path: empty shell that will be hydrated on the client */
+/** Render the client-only path: empty shell that will be mounted on the client */
 function renderIslandClientOnly(opts: {
 	islandId: string;
 	detectedFramework: string;
@@ -370,6 +378,8 @@ function renderIslandClientOnly(opts: {
 	hydrationData: Record<string, unknown>;
 	conditionArg?: string;
 	persist?: string | true;
+	/** Intentional client-only (no SSR), not an empty SSR fallthrough. */
+	clientOnly?: boolean;
 }): JSX.Element {
 	const {
 		islandId,
@@ -381,6 +391,7 @@ function renderIslandClientOnly(opts: {
 		hydrationData,
 		conditionArg,
 		persist,
+		clientOnly,
 	} = opts;
 
 	const persistKey = persistAttribute(persist, src);
@@ -398,8 +409,8 @@ function renderIslandClientOnly(opts: {
 		id: islandId,
 		"data-condition": condition,
 		"data-src": getIslandBundlePath(src),
-		"data-props": JSON.stringify(props),
-		"data-render-strategy": "hydrate",
+		"data-props": serializeIslandProps(props),
+		"data-render-strategy": clientOnly ? "client-only" : "hydrate",
 		"data-framework": detectedFramework,
 		...buildHydrationDataAttrs(hydrationData),
 	};
@@ -443,7 +454,8 @@ export default function Island({
 	conditionArg,
 	props = {},
 	children,
-	ssr = condition !== "on:client",
+	ssr: ssrProp,
+	clientOnly,
 	framework,
 	ssrOnly = false,
 	renderOptions = {},
@@ -451,6 +463,7 @@ export default function Island({
 	id,
 	persist,
 }: IslandProps): JSX.Element {
+	const ssr = clientOnly === true ? false : (ssrProp ?? condition !== "on:client");
 	const islandId = toIslandId(src, id);
 	const shouldSkipHydration = ssrOnly || !!renderOptions.forceSSROnly;
 	const detectedFramework = framework || detectFrameworkFromPath(src);
@@ -495,6 +508,7 @@ export default function Island({
 		hydrationData,
 		conditionArg,
 		persist,
+		clientOnly: !ssr,
 	});
 }
 
@@ -771,7 +785,8 @@ export async function renderIsland({
 	conditionArg,
 	props = {},
 	children,
-	ssr = condition !== "on:client",
+	ssr: ssrProp,
+	clientOnly,
 	framework,
 	ssrOnly = false,
 	renderOptions = {},
@@ -782,6 +797,7 @@ export async function renderIsland({
 	id,
 	persist,
 }: IslandProps): Promise<JSX.Element> {
+	let ssr = clientOnly === true ? false : (ssrProp ?? condition !== "on:client");
 	const startTime = isDev() ? performance.now() : 0;
 	const logPrefix = `🏝️ [${src}]`;
 
@@ -819,8 +835,9 @@ export async function renderIsland({
 			);
 		}
 
-		// If ssrOnly is true we MUST enable SSR to render the component
-		if (ssrOnly && !ssr) {
+		// If ssrOnly is true we MUST enable SSR to render the component.
+		// clientOnly wins — a client-only island never executes on the server.
+		if (ssrOnly && !ssr && clientOnly !== true) {
 			ssr = true;
 		}
 

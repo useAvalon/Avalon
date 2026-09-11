@@ -29,7 +29,7 @@ Avalon is a multi-framework islands-architecture web framework built on **Vite 8
 
 Key differences from Astro (the most common source of agent confusion):
 - **No \`.astro\` files.** Pages and components are ordinary framework files (\`.tsx\`, \`.jsx\`, \`.vue\`, \`.svelte\`, etc.).
-- **No \`client:*\` template attributes.** Hydration is controlled by a single \`island={{ condition: '...' }}\` prop on an imported component.
+- **No \`client:*\` template attributes.** Hydration is controlled by a single \`island={{ condition: '...' }}\` prop on an imported component. \`island={{ clientOnly: true }}\` skips SSR and mounts in the browser.
 - **No \`Astro\` global.** Pages receive an H3 \`event\` prop; props are read like ordinary function arguments.
 
 Islands are discovered by usage — adding the \`island\` prop to any imported component turns it into an island.`,
@@ -41,6 +41,11 @@ Islands are discovered by usage — adding the \`island\` prop to any imported c
 			"island",
 			"hydrate",
 			"hydration",
+			"client-only",
+			"clientOnly",
+			"mount",
+			"skip-ssr",
+			"browser-only",
 			"on:client",
 			"on:visible",
 			"on:interaction",
@@ -78,7 +83,14 @@ export default function Page() {
 <Chart island={{ condition: 'on:visible' }} />
 <Dropdown island={{ condition: 'on:interaction' }} />
 <MobileMenu island={{ condition: 'media:(max-width: 768px)' }} />
+<BrowserWidget island={{ clientOnly: true }} />
 \`\`\`
+
+## Client-only islands
+
+\`island={{ clientOnly: true }}\` skips server rendering. Avalon emits an empty \`<avalon-island data-render-strategy="client-only">\` placeholder and the browser **mounts** the component (it does not hydrate SSR HTML). Props are still serialized. There is no SSR HTML and no no-JS fallback for that component. Combine with \`condition\` to control when the mount runs.
+
+Do not write \`<Widget client:only />\` — Avalon has no \`client:*\` attributes.
 
 ## File naming picks the framework
 
@@ -217,8 +229,17 @@ Not for client islands — for passing data through the request lifecycle:
 			"on:match",
 			"conditionArg",
 			"registerHydrationDirective",
+			"clientOnly",
+			"client-only",
 		],
 		content: `# Hydration Strategies
+
+\`clientOnly: true\` is a rendering mode, not a condition. It skips SSR and **mounts** the component in the browser (\`data-render-strategy="client-only"\`). Combine it with any \`condition\` or custom directive to control when the mount runs:
+
+\`\`\`tsx
+<Chart island={{ clientOnly: true }} />
+<Map island={{ clientOnly: true, condition: 'on:visible' }} />
+\`\`\`
 
 Beyond the five core conditions, Avalon ships built-in **custom directives** that follow the \`on:<name>\` pattern and accept an optional \`conditionArg\`. Enable them with \`registerBuiltinDirectives()\` in your server entry.
 
@@ -250,7 +271,7 @@ registerHydrationDirective('on:countdown', {
 });
 \`\`\`
 
-The \`script\` receives \`(el, hydrate, arg)\` and must call \`hydrate()\` exactly once.`,
+The \`script\` receives \`(el, hydrate, arg)\` and must call \`hydrate()\` exactly once. For a \`clientOnly\` island that callback mounts instead of hydrating SSR HTML.`,
 	},
 	{
 		id: "server-islands",
@@ -779,7 +800,7 @@ import '../styles/main.css';
 
 ## Islands & CSS-in-JS
 
-Islands are server-rendered first, so styles must exist before JS loads. **Avoid runtime CSS-in-JS** (styled-components, Emotion) — they don't produce styles during SSR. Use CSS Modules or plain CSS. Conditional classes: concatenate \`className\` strings.`,
+Most islands are server-rendered first, so styles must exist before JS loads. **Avoid runtime CSS-in-JS** (styled-components, Emotion) — they don't produce styles during SSR. Use CSS Modules or plain CSS. Conditional classes: concatenate \`className\` strings. \`clientOnly: true\` islands have no SSR HTML; their styles apply only after the browser mounts them.`,
 	},
 	{
 		id: "metadata",
@@ -1157,18 +1178,18 @@ Also exports math helpers (\`columnWidth\`, \`spanWidth\`, \`spacing\`, \`gcd\`,
 
 /** Simple keyword-weighted search across the embedded docs. */
 export function searchDocs(query: string, limit = 5): DocTopic[] {
-	const terms = query
-		.toLowerCase()
-		.split(/[^a-z0-9:]+/)
-		.filter(Boolean);
-	if (terms.length === 0) return [];
+	const raw = query.toLowerCase();
+	const terms = raw.split(/[^a-z0-9:]+/).filter(Boolean);
+	const phrases = raw.match(/[a-z0-9]+:[a-z0-9-]+|[a-z0-9]+-[a-z0-9-]+/g) ?? [];
+	const allTerms = [...new Set([...terms, ...phrases])];
+	if (allTerms.length === 0) return [];
 
 	const scored = DOC_TOPICS.map((topic) => {
 		const haystackTitle = topic.title.toLowerCase();
 		const haystackKeywords = topic.keywords.join(" ").toLowerCase();
 		const haystackContent = topic.content.toLowerCase();
 		let score = 0;
-		for (const term of terms) {
+		for (const term of allTerms) {
 			if (topic.id.includes(term)) score += 6;
 			if (haystackTitle.includes(term)) score += 5;
 			if (haystackKeywords.includes(term)) score += 4;

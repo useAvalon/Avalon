@@ -74,7 +74,11 @@ import Counter from "../islands/Counter.tsx";
 | `client:visible`     | `island={{ condition: 'on:visible' }}`                           |
 | `client:idle`        | `island={{ condition: 'on:idle' }}`                              |
 | `client:media={"…"}` | `island={{ condition: 'media:…' }}`                              |
-| `client:only`        | `island={{ condition: 'on:client' }}` (Avalon always SSRs first) |
+| `client:only`        | `island={{ clientOnly: true }}` |
+
+`clientOnly: true` skips SSR and **mounts** the component. Combine it with
+`condition` to defer that mount (`island={{ clientOnly: true, condition: 'on:idle' }}`).
+The framework comes from the filename, not a directive argument.
 
 Avalon also supports interaction-based (`on:interaction`) and custom directives
 (`on:delay`, `on:event`, `on:scroll`, `on:match`) with an optional `conditionArg`.

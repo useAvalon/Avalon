@@ -32,8 +32,22 @@ export default function Page() {
 }
 ```
 
-The `condition` field controls when the island hydrates.
+The `condition` field controls when the island hydrates. Add `clientOnly: true` when the component must not run on the server at all.
 
+## Client-only islands
+
+A normal island is server-rendered HTML that the browser later hydrates. A client-only island is an empty `<avalon-island>` placeholder; the browser imports the component and **mounts** it.
+
+```tsx
+<Chart island={{ clientOnly: true }} userId={user.id} />
+<Map island={{ clientOnly: true, condition: 'on:visible' }} />
+```
+
+Use this when the component needs browser APIs during render, embeds a third-party widget, or has no useful SSR output. Props are still serialized. There is no SSR HTML and no no-JS fallback for that component. Combine with `condition` to defer the mount.
+
+The empty placeholder is `display: block` so observers can attach. Give it a min-height (or wrap it) if you use `on:visible` and need a stable layout box before mount.
+
+Do not write `<Chart client:only />` — Avalon has no `client:*` attributes.
 
 ## Hydration conditions
 

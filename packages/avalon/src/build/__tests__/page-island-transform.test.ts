@@ -510,3 +510,68 @@ export default function Page() {
 		expect(out).toContain('// <Counter island={{ condition: "on:client" }} />');
 	});
 });
+
+describe("pageIslandTransform — clientOnly", () => {
+	it("emits ssr: false when clientOnly is true", () => {
+		const code = `import Chart from "../components/Chart.tsx";
+export default function Page() {
+  return <div><Chart island={{ clientOnly: true }} userId="u1" /></div>;
+}`;
+		const out = runTransform(code);
+		expect(out).toContain("clientOnly === true ? false");
+		expect(out).not.toContain("component: Chart");
+		expect(out).not.toMatch(/^import Chart from/m);
+		expectParses(out);
+	});
+
+	it("emits ssr: false for the existing ssr: false escape hatch", () => {
+		const code = `import Chart from "../components/Chart.tsx";
+export default function Page() {
+  return <div><Chart island={{ ssr: false }} /></div>;
+}`;
+		const out = runTransform(code);
+		expect(out).toContain("__i.ssr !== undefined ? __i.ssr : true");
+		expect(out).not.toContain("component: Chart");
+		expectParses(out);
+	});
+
+	it("keeps the import when the same component is also a normal island", () => {
+		const code = `import Chart from "../components/Chart.tsx";
+export default function Page() {
+  return (
+    <div>
+      <Chart island={{ clientOnly: true }} />
+      <Chart island={{ condition: "on:client" }} />
+    </div>
+  );
+}`;
+		const out = runTransform(code);
+		expect(out).toMatch(/^import Chart from/m);
+		expect(out).toContain("component: Chart");
+		expectParses(out);
+	});
+
+	it("keeps the import when the binding is used as a runtime value", () => {
+		const code = `import Chart from "../components/Chart.tsx";
+export default function Page() {
+  const also = Chart;
+  return <div><Chart island={{ clientOnly: true }} /></div>;
+}`;
+		const out = runTransform(code);
+		expect(out).toMatch(/^import Chart from/m);
+		expect(out).toContain("const also = Chart");
+		expectParses(out);
+	});
+
+	it("does not strip a runtime-computed island prop", () => {
+		const code = `import Chart from "../components/Chart.tsx";
+const opts = { clientOnly: true };
+export default function Page() {
+  return <div><Chart island={opts} /></div>;
+}`;
+		const out = runTransform(code);
+		expect(out).toMatch(/^import Chart from/m);
+		expect(out).toContain("component: Chart");
+		expectParses(out);
+	});
+});
