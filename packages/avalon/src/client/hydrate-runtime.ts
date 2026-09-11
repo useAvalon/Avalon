@@ -86,6 +86,47 @@ function resolveComponent(componentModule: Record<string, unknown>, src: string)
 	return Component;
 }
 
+function bundledActivate(
+	componentModule: Record<string, unknown>,
+	clientOnly: boolean,
+): HydrateFn | undefined {
+	const bundled = clientOnly ? componentModule.__mountIsland : componentModule.__hydrateIsland;
+	return typeof bundled === "function" ? (bundled as HydrateFn) : undefined;
+}
+
+async function loadIslandModule(
+	loader: HydrationLoader,
+	src: string,
+): Promise<Record<string, unknown>> {
+	return (
+		loader.loadComponent ? await loader.loadComponent(src) : await import(/* @vite-ignore */ src)
+	) as Record<string, unknown>;
+}
+
+async function unmountIsland(
+	island: HTMLElement,
+	framework: string,
+	loader: HydrationLoader,
+): Promise<void> {
+	const src = island.dataset.src;
+	if (src) {
+		try {
+			const componentModule = await loadIslandModule(loader, src);
+			const bundledUnmount = componentModule.__unmountIsland;
+			if (typeof bundledUnmount === "function") {
+				await (bundledUnmount as UnmountFn)(island);
+				return;
+			}
+		} catch {
+			// Fall through to the shared integration unmount.
+		}
+	}
+	const integration = await loader.loadIntegrationModule(framework);
+	if (typeof integration.unmount === "function") {
+		await integration.unmount(island);
+	}
+}
+
 async function hydrateIsland(island: HTMLElement, framework: string): Promise<void> {
 	if (island.dataset.hydrated) return;
 
@@ -103,15 +144,18 @@ async function hydrateIsland(island: HTMLElement, framework: string): Promise<vo
 				loader.loadIntegrationModule("lit").then((m) => m.preLitHydration?.()));
 		}
 
-		const componentModule = (
-			loader.loadComponent ? await loader.loadComponent(src) : await import(/* @vite-ignore */ src)
-		) as Record<string, unknown>;
+		const componentModule = await loadIslandModule(loader, src);
 		const Component = resolveComponent(componentModule, src);
-		const integrationModule = await loader.loadIntegrationModule(framework);
-
 		const clientOnly = island.dataset.renderStrategy === "client-only";
-		const activate = clientOnly ? integrationModule.mount : integrationModule.hydrate;
 		const activateName = clientOnly ? "mount" : "hydrate";
+		// Prefer the adapter bundled with the island chunk so hydrate/mount share
+		// the same framework runtime as the component. Svelte 5 throws
+		// effect_orphan when $effect runs against a second svelte copy.
+		let activate = bundledActivate(componentModule, clientOnly);
+		if (!activate) {
+			const integrationModule = await loader.loadIntegrationModule(framework);
+			activate = clientOnly ? integrationModule.mount : integrationModule.hydrate;
+		}
 
 		if (!activate || typeof activate !== "function") {
 			throw new Error(`Integration ${framework} does not export a ${activateName} function`);
@@ -302,10 +346,7 @@ export async function disposeIslands(root: ParentNode = document): Promise<void>
 		const framework = island.dataset.framework;
 		if (framework && loader) {
 			try {
-				const integration = await loader.loadIntegrationModule(framework);
-				if (typeof integration.unmount === "function") {
-					await integration.unmount(island);
-				}
+				await unmountIsland(island, framework, loader);
 			} catch (error) {
 				console.warn(`[avalon] Failed to unmount ${framework} island:`, error);
 			}

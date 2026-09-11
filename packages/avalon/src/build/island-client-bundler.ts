@@ -149,7 +149,7 @@ export function islandClientBundlerPlugin(
 										: null;
 				if (framework && adapterMap[framework]) {
 					lines.push(
-						`export { hydrate as __hydrateIsland, mount as __mountIsland } from ${JSON.stringify(adapterMap[framework])};`,
+						`export { hydrate as __hydrateIsland, mount as __mountIsland, unmount as __unmountIsland } from ${JSON.stringify(adapterMap[framework])};`,
 					);
 				} else {
 					// Fallback: use integration loader for unknown frameworks
