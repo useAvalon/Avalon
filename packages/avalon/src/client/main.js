@@ -10,7 +10,13 @@ import {
 	loadIntegrationModule,
 	preLitHydration,
 } from "virtual:avalon/integration-loader";
-import { executeCustomDirective, hasClientDirective } from "./custom-directives.js";
+import { scanAndHydrate, setHydrationLoader } from "./hydrate-runtime.ts";
+import { bootServerIslands } from "./server-islands-boot.ts";
+
+setHydrationLoader({
+	loadIntegrationModule,
+	preLitHydration,
+});
 
 if (document.readyState === "loading") {
 	document.addEventListener("DOMContentLoaded", initializeHydration);
@@ -18,253 +24,11 @@ if (document.readyState === "loading") {
 	initializeHydration();
 }
 
-/**
- * Initialize hydration for all islands on the page
- * Discovers islands by data-framework attribute and routes to appropriate integration
- */
 function initializeHydration() {
-	const islands = document.querySelectorAll("[data-framework]");
-
-	if (islands.length === 0) {
-		return;
-	}
-
-	islands.forEach((island) => {
-		try {
-			const framework = island.dataset.framework;
-			const condition = island.dataset.condition || "on:client";
-			const renderStrategy = island.dataset.renderStrategy;
-
-			if (renderStrategy === "ssr-only") {
-				return;
-			}
-
-			if (!shouldHydrate(island, condition)) {
-				return;
-			}
-
-			if (condition === "on:client") {
-				hydrateIsland(island, framework);
-			} else if (condition === "on:visible") {
-				setupIntersectionObserver(island, framework);
-			} else if (condition === "on:interaction") {
-				setupInteractionObserver(island, framework);
-			} else if (condition === "on:idle") {
-				setupIdleCallback(island, framework);
-			} else if (condition.startsWith("media:")) {
-				const mediaQuery = condition.slice(6);
-				setupMediaQuery(island, framework, mediaQuery);
-			} else if (
-				island.dataset.customDirective ||
-				island.dataset.directiveScript ||
-				hasClientDirective(condition)
-			) {
-				// Custom hydration directive — delegate to the directive executor
-				const handled = executeCustomDirective(island, condition, () => {
-					hydrateIsland(island, framework);
-				});
-				if (!handled) {
-					console.warn(
-						`[avalon] Unknown hydration condition: "${condition}". Hydrating immediately.`,
-					);
-					hydrateIsland(island, framework);
-				}
-			} else {
-				hydrateIsland(island, framework);
-			}
-		} catch (error) {
-			console.error("Error processing island:", error);
-			handleHydrationError(
-				island,
-				island.dataset.framework || "unknown",
-				island.dataset.src || "unknown",
-				error,
-			);
-		}
-	});
+	scanAndHydrate();
+	bootServerIslands();
 }
 
-/**
- * Determine if an island should hydrate based on its condition
- *
- * @param {HTMLElement} island - The island element
- * @param {string} condition - The hydration condition
- * @returns {boolean} Whether the island should hydrate
- */
-function shouldHydrate(island, condition) {
-	if (!condition || condition === "on:client") {
-		return true;
-	}
-
-	if (condition.startsWith("media:")) {
-		const mediaQuery = condition.slice(6);
-		try {
-			return globalThis.matchMedia(mediaQuery).matches;
-		} catch (error) {
-			console.error("Invalid media query:", mediaQuery, error);
-			return true;
-		}
-	}
-
-	if (condition === "on:visible" || condition === "on:interaction" || condition === "on:idle") {
-		return true;
-	}
-
-	// Custom directives — always allow hydration (the directive controls timing)
-	if (
-		island.dataset.customDirective ||
-		island.dataset.directiveScript ||
-		hasClientDirective(condition)
-	) {
-		return true;
-	}
-
-	console.warn("Unknown hydration condition:", condition);
-	return true;
-}
-
-/**
- * Setup Intersection Observer for "on:visible" hydration
- *
- * @param {HTMLElement} island - The island element
- * @param {string} framework - The framework name
- */
-function setupIntersectionObserver(island, framework) {
-	try {
-		const observer = new IntersectionObserver(
-			(entries) => {
-				const entry = entries[0];
-				if (entry.isIntersecting) {
-					hydrateIsland(island, framework);
-					observer.disconnect();
-				}
-			},
-			{
-				rootMargin: "50px",
-				threshold: 0,
-			},
-		);
-
-		// Observe firstElementChild because <avalon-island> has display:contents
-		// (no layout box), so IntersectionObserver would never fire on it directly.
-		observer.observe(island.firstElementChild || island);
-	} catch (error) {
-		console.error("Failed to setup intersection observer:", error);
-		hydrateIsland(island, framework);
-	}
-}
-
-/**
- * Setup interaction observer for "on:interaction" hydration
- *
- * @param {HTMLElement} island - The island element
- * @param {string} framework - The framework name
- */
-function setupInteractionObserver(island, framework) {
-	const events = ["click", "touchstart", "mouseenter", "focusin"];
-	let hydrated = false;
-
-	// Listen on firstElementChild because <avalon-island> has display:contents
-	// (no layout box), so mouseenter/focusin won't fire on it directly.
-	const target = island.firstElementChild || island;
-
-	const handleInteraction = () => {
-		if (hydrated) return;
-		hydrated = true;
-
-		events.forEach((eventType) => {
-			target.removeEventListener(eventType, handleInteraction);
-		});
-
-		hydrateIsland(island, framework);
-	};
-
-	try {
-		events.forEach((eventType) => {
-			target.addEventListener(eventType, handleInteraction, { once: true, passive: true });
-		});
-	} catch (error) {
-		console.error("Failed to setup interaction observer:", error);
-		hydrateIsland(island, framework);
-	}
-}
-
-/**
- * Setup idle callback for "on:idle" hydration
- *
- * @param {HTMLElement} island - The island element
- * @param {string} framework - The framework name
- */
-function setupIdleCallback(island, framework) {
-	try {
-		if ("requestIdleCallback" in globalThis) {
-			globalThis.requestIdleCallback(
-				() => {
-					hydrateIsland(island, framework);
-				},
-				{ timeout: 5000 },
-			);
-		} else if (document.readyState === "complete") {
-			setTimeout(() => {
-				hydrateIsland(island, framework);
-			}, 200);
-		} else {
-			globalThis.addEventListener(
-				"load",
-				() => {
-					setTimeout(() => {
-						hydrateIsland(island, framework);
-					}, 200);
-				},
-				{ once: true },
-			);
-		}
-	} catch (error) {
-		console.error("Failed to setup idle callback:", error);
-		hydrateIsland(island, framework);
-	}
-}
-
-/**
- * Setup media query listener for "media:" hydration
- *
- * @param {HTMLElement} island - The island element
- * @param {string} framework - The framework name
- * @param {string} mediaQuery - The media query string
- */
-function setupMediaQuery(island, framework, mediaQuery) {
-	try {
-		const mql = globalThis.matchMedia(mediaQuery);
-
-		if (mql.matches) {
-			hydrateIsland(island, framework);
-			return;
-		}
-
-		const handleChange = (event) => {
-			if (event.matches) {
-				hydrateIsland(island, framework);
-				mql.removeEventListener("change", handleChange);
-			}
-		};
-
-		mql.addEventListener("change", handleChange);
-	} catch (error) {
-		console.error("Failed to setup media query:", mediaQuery, error);
-		hydrateIsland(island, framework);
-	}
-}
-
-/**
- * Load the integration module for a given framework
- *
- * In dev, Vite resolves virtual adapter modules via the avalon plugin.
- * In production, we use static imports so the bundler includes the
- * adapter code and doesn't tree-shake it away.
- *
- * @param {string} framework - The framework name
- * @returns {Promise<object>} The integration module
- */
 /**
  * Resolve the component from a module, trying default export then named exports
  *
@@ -295,151 +59,6 @@ function resolveComponent(componentModule, src) {
 	}
 
 	return Component;
-}
-
-/**
- * Hydrate an island using the integration system
- *
- * @param {HTMLElement} island - The island element
- * @param {string} framework - The framework name
- */
-async function hydrateIsland(island, framework) {
-	if (island.dataset.hydrated) {
-		return;
-	}
-
-	const src = island.dataset.src;
-	const propsAttr = island.dataset.props;
-
-	if (!src) {
-		console.warn("Island missing data-src attribute");
-		return;
-	}
-
-	try {
-		const props = propsAttr ? JSON.parse(propsAttr) : {};
-
-		// CRITICAL: For Lit components, load hydration support BEFORE importing the component
-		// This ensures our patch is applied before @customElement decorator runs
-		if (framework === "lit") {
-			await preLitHydration();
-		}
-
-		const componentModule = await import(/* @vite-ignore */ src);
-		const Component = resolveComponent(componentModule, src);
-
-		try {
-			const integrationModule = await loadIntegrationModule(framework);
-
-			if (!integrationModule.hydrate || typeof integrationModule.hydrate !== "function") {
-				throw new Error(`Integration ${framework} does not export a hydrate function`);
-			}
-
-			await integrationModule.hydrate(island, Component, props);
-			island.dataset.hydrated = "true";
-		} catch (integrationError) {
-			if (import.meta.env?.DEV) {
-				console.error(`Integration hydration failed for ${framework}: ${src}`, integrationError);
-			}
-
-			island.dataset.hydrationStatus = "failed";
-			island.dataset.hydrationError = integrationError.message;
-
-			island.dispatchEvent(
-				new CustomEvent("hydration-error", {
-					detail: {
-						framework,
-						src,
-						error: integrationError.message,
-						timestamp: Date.now(),
-						hydrationType: "integration-level",
-					},
-					bubbles: true,
-				}),
-			);
-		}
-	} catch (error) {
-		console.error(`❌ Critical error hydrating ${framework} island ${src}:`, error);
-		handleHydrationError(island, framework, src, error);
-	}
-}
-
-/**
- * Handle hydration errors with graceful degradation
- *
- * @param {HTMLElement} island - The island element
- * @param {string} framework - The framework name
- * @param {string} src - The component source path
- * @param {Error} error - The error that occurred
- */
-function handleHydrationError(island, framework, src, error) {
-	console.error(`Hydration error for ${framework} island:`, {
-		src,
-		error: error.message,
-		stack: error.stack,
-	});
-
-	island.dataset.hydrationStatus = "failed";
-	island.dataset.renderStrategy = "ssr-only";
-	island.classList.add("hydration-failed");
-
-	island.dispatchEvent(
-		new CustomEvent("hydration-error", {
-			detail: {
-				framework,
-				src,
-				error: error.message,
-				timestamp: Date.now(),
-			},
-			bubbles: true,
-		}),
-	);
-
-	if (isDevelopment()) {
-		addErrorIndicator(island, framework, src, error);
-	}
-}
-
-/**
- * Add visual error indicator in development mode
- *
- * @param {HTMLElement} island - The island element
- * @param {string} framework - The framework name
- * @param {string} src - The component source path
- * @param {Error} error - The error that occurred
- */
-function addErrorIndicator(island, framework, src, error) {
-	const indicator = document.createElement("div");
-	indicator.className = "hydration-error-indicator";
-	indicator.style.cssText = `
-		position: absolute;
-		top: 0;
-		right: 0;
-		background: #ff4444;
-		color: white;
-		padding: 4px 8px;
-		font-size: 11px;
-		font-family: monospace;
-		border-radius: 0 0 0 4px;
-		z-index: 9999;
-		cursor: pointer;
-		box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-	`;
-	indicator.textContent = `❌ ${framework}`;
-	indicator.title = `Hydration failed: ${src}\n${error.message}\nClick for details`;
-
-	indicator.addEventListener("click", () => {
-		alert(
-			`Hydration Error\n\nFramework: ${framework}\nComponent: ${src}\n\nError: ${error.message}\n\nStack:\n${error.stack}`,
-		);
-	});
-
-	const computedStyle = globalThis.getComputedStyle(island);
-	if (computedStyle.position === "static") {
-		island.style.position = "relative";
-	}
-
-	island.appendChild(indicator);
 }
 
 /**
@@ -559,7 +178,7 @@ async function hydrateIslandWithFreshModule(island, framework, freshSrc, origina
  * @param {string} src - The component source path
  * @param {Error} error - The error that occurred
  */
-function showInlineHMRError(island, framework, src, error) {
+function showInlineHMRError(island, _framework, _src, error) {
 	const existing = island.querySelector(".hmr-error-indicator");
 	if (existing) {
 		existing.remove();
@@ -624,39 +243,37 @@ if (import.meta.hot) {
 	import.meta.hot.accept();
 
 	// Lazy HMR adapter registration - only load adapters for frameworks used on the page
-	import("./hmr-coordinator.js")
-		.then(async ({ initializeHMR, getHMRCoordinator }) => {
-			initializeHMR();
-
-			const coordinator = getHMRCoordinator();
-
-			// Discover which frameworks are actually used on this page
-			const usedFrameworks = new Set();
-			document.querySelectorAll("[data-framework]").forEach((island) => {
-				const framework = island.dataset.framework;
-				if (framework) usedFrameworks.add(framework);
-			});
-
-			// Only register adapters for frameworks that are used
-			// Adapters are loaded via the virtual integration-loader module
-			// which only includes configured frameworks.
-			for (const framework of usedFrameworks) {
-				try {
-					const adapter = await loadHMRAdapter(framework);
-					if (adapter) {
-						coordinator.registerAdapter(framework, adapter);
-					}
-				} catch (error) {
-					console.warn(`[HMR] Failed to load adapter for ${framework}:`, error);
-				}
-			}
-		})
-		.catch((error) => {
-			console.error("[HMR] Failed to initialize:", error);
-		});
+	await registerUsedHmrAdapters();
 
 	// Enhanced HMR support for nested islands
 	setupNestedIslandHMR();
+}
+
+async function registerUsedHmrAdapters() {
+	try {
+		const { initializeHMR, getHMRCoordinator } = await import("./hmr-coordinator.js");
+		initializeHMR();
+		const coordinator = getHMRCoordinator();
+
+		const usedFrameworks = new Set();
+		document.querySelectorAll("[data-framework]").forEach((island) => {
+			const framework = island.dataset.framework;
+			if (framework) usedFrameworks.add(framework);
+		});
+
+		for (const framework of usedFrameworks) {
+			try {
+				const adapter = await loadHMRAdapter(framework);
+				if (adapter) {
+					coordinator.registerAdapter(framework, adapter);
+				}
+			} catch (error) {
+				console.warn(`[HMR] Failed to load adapter for ${framework}:`, error);
+			}
+		}
+	} catch (error) {
+		console.error("[HMR] Failed to initialize:", error);
+	}
 }
 
 /**

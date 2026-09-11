@@ -15,12 +15,14 @@
 /// <reference lib="dom.iterable" />
 
 import type { Component } from "svelte";
-import { hydrate as svelteHydrate, mount as svelteMount } from "svelte";
+import { hydrate as svelteHydrate, mount as svelteMount, unmount as svelteUnmount } from "svelte";
 
 /**
  * Svelte 5 component type
  */
 type SvelteComponent = Component<Record<string, unknown>, Record<string, unknown>, string>;
+
+const instances = new WeakMap<HTMLElement, Record<string, unknown>>();
 
 /**
  * Check if we're in development mode
@@ -65,6 +67,10 @@ function mountFresh(
 	return svelteMount(Component, { target: container, props });
 }
 
+function storeInstance(container: HTMLElement, instance: Record<string, unknown>): void {
+	instances.set(container, instance);
+}
+
 export function hydrate(
 	container: HTMLElement,
 	Component: SvelteComponent,
@@ -76,21 +82,35 @@ export function hydrate(
 		if (hasSSRContent) {
 			const componentDiv = container.querySelector("[data-svelte-component]");
 			const targetElement = (componentDiv as HTMLElement | null) ?? container;
-			return svelteHydrate(Component, { target: targetElement, props });
+			const instance = svelteHydrate(Component, { target: targetElement, props });
+			storeInstance(container, instance as Record<string, unknown>);
+			return instance;
 		}
-		return svelteMount(Component, { target: container, props });
+		const instance = svelteMount(Component, { target: container, props });
+		storeInstance(container, instance as Record<string, unknown>);
+		return instance;
 	} catch (error) {
 		if (!hasSSRContent) {
 			if (isDev()) console.error(`Svelte hydration failed:`, error);
 			throw error;
 		}
 		try {
-			return mountFresh(container, Component, props);
+			const instance = mountFresh(container, Component, props);
+			storeInstance(container, instance);
+			return instance;
 		} catch (mountError) {
 			if (isDev()) console.error(`Svelte mount fallback failed:`, mountError);
 			throw mountError;
 		}
 	}
+}
+
+/** Tear down a hydrated Svelte component before a client-navigation DOM swap. */
+export function unmount(container: HTMLElement): void {
+	const instance = instances.get(container);
+	if (!instance) return;
+	svelteUnmount(instance);
+	instances.delete(container);
 }
 
 /**

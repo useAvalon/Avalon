@@ -101,7 +101,7 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 								</svg>
 								GitHub
 							</a>
-							<ThemeToggle island={{ condition: "on:idle" }} />
+							<ThemeToggle island={{ condition: "on:idle", persist: "theme-toggle" }} />
 						</div>
 						<div class={styles.mobileNavWrapper}>
 							<MobileNav island={{ condition: "on:interaction" }} currentPath={currentPath} />
@@ -164,7 +164,7 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 						<p>MIT License · © 2025 Avalon</p>
 					</div>
 				</footer>
-				<SearchModal island={{ condition: "on:idle" }} />
+				<SearchModal island={{ condition: "on:idle", persist: "search-modal" }} />
 			</body>
 		</html>
 	);

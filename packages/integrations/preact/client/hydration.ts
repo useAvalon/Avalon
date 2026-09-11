@@ -1,5 +1,5 @@
 import type { ComponentType } from "preact";
-import { h, hydrate as preactHydrate } from "preact";
+import { h, hydrate as preactHydrate, render as preactRender } from "preact";
 import type { PreactHydrationOptions } from "../types.ts";
 
 /**
@@ -19,6 +19,11 @@ export function hydrate(
 		console.error("Preact hydration failed:", error);
 		throw error;
 	}
+}
+
+/** Tear down a hydrated Preact tree before a client-navigation DOM swap. */
+export function unmount(container: HTMLElement): void {
+	preactRender(null, container);
 }
 
 /**

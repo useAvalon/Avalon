@@ -149,7 +149,7 @@ export const ISLAND_PROP_REFERENCE = {
 			type: "string",
 			required: false,
 			description:
-				"Stable identifier for the island instance (used for state persistence with PersistentIsland). Auto-generated from the component path if omitted.",
+				"Stable HTML id for this island instance. Unique per instance when omitted. Required when two copies of the same component appear on one page.",
 		},
 		{
 			name: "conditionArg",
@@ -157,6 +157,13 @@ export const ISLAND_PROP_REFERENCE = {
 			required: false,
 			description:
 				"Optional argument passed to custom hydration directives — e.g. the delay for `on:delay` or the query for `on:match`.",
+		},
+		{
+			name: "persist",
+			type: "boolean | string",
+			required: false,
+			description:
+				"Keep this island's live instance across client navigations (requires avalon({ clientRouter: true })). A string is the persist key; `true` uses the component source path. Not the same as usePersistentState / PersistentIsland (sessionStorage). Qwik islands are never persisted.",
 		},
 	],
 	canonicalExample: `import Counter from '../islands/Counter.tsx';
@@ -173,6 +180,7 @@ export default function Page() {
 		"Islands are discovered by USAGE (the `island` prop), not by a special directory. Any imported component becomes an island when you add the prop.",
 		"JSX islands need the right pragma for their renderer, e.g. `/** @jsxImportSource preact */` at the top of the file.",
 		"`on:delay`, `on:event`, `on:scroll`, and `on:match` are built-in CUSTOM directives — enable them by calling `registerBuiltinDirectives()` in your server entry.",
+		"Across client navigations, islands are disposed and rehydrated unless you set `island={{ persist: 'key' }}` (or `data-router-persist` on a wrapper).",
 	],
 	registerCustomExample: `// server/renderer.ts
 import { registerHydrationDirective } from '@useavalon/avalon';

@@ -9,9 +9,13 @@ import {
 import { resolveConfig } from "../config.ts";
 
 describe("resolveConfig — render engine (core)", () => {
-	it("defaults core to preact", () => {
-		expect(resolveConfig(undefined, false).core).toBe("preact");
-		expect(resolveConfig({}, false).core).toBe("preact");
+	it("defaults clientRouter to false", () => {
+		expect(resolveConfig(undefined, false).clientRouter).toBe(false);
+		expect(resolveConfig({}, true).clientRouter).toBe(false);
+	});
+
+	it("respects an explicit clientRouter: true", () => {
+		expect(resolveConfig({ clientRouter: true }, false).clientRouter).toBe(true);
 	});
 
 	it("respects an explicit core: react", () => {
