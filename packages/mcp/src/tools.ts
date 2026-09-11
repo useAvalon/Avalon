@@ -31,14 +31,19 @@ import type { ToolDefinition } from "./protocol/types.ts";
 const DOC_IDS = DOC_TOPICS.map((t) => t.id).join(", ");
 const SCAFFOLD_LIST = SCAFFOLD_KINDS.join(", ");
 
+function readString(value: unknown, fallback = ""): string {
+	return typeof value === "string" ? value : fallback;
+}
+
 function conditionToMarkdown(c: HydrationCondition): string {
+	const argLabel = c.takesArg ? `yes — ${c.argDescription ?? ""}` : "no";
 	const lines = [
 		`### \`${c.condition}\``,
 		"",
 		c.summary,
 		"",
 		`- **Mechanism:** ${c.mechanism}`,
-		`- **Takes conditionArg:** ${c.takesArg ? `yes — ${c.argDescription ?? ""}` : "no"}`,
+		`- **Takes conditionArg:** ${argLabel}`,
 		`- **Use when:** ${c.useWhen}`,
 	];
 	if (c.requiresRegistration) {
@@ -71,7 +76,7 @@ export function createTools(): ToolDefinition[] {
 				required: ["behavior"],
 			},
 			handler: (args) => {
-				const behavior = String(args.behavior ?? "").trim();
+				const behavior = readString(args.behavior).trim();
 				if (!behavior) {
 					return textResult(renderAllConditions(), false);
 				}
@@ -92,7 +97,7 @@ export function createTools(): ToolDefinition[] {
 				required: ["code"],
 			},
 			handler: (args) => {
-				const code = String(args.code ?? "");
+				const code = readString(args.code);
 				const converted = convertSnippet(code);
 				const findings = lintForAstroisms(code);
 
@@ -125,16 +130,18 @@ export function createTools(): ToolDefinition[] {
 				required: ["code"],
 			},
 			handler: (args) => {
-				const code = String(args.code ?? "");
+				const code = readString(args.code);
 				const findings = lintForAstroisms(code);
 				if (findings.length === 0) {
 					return textResult("✅ No Astro-isms detected. This looks like valid Avalon syntax.");
 				}
 				const parts = [`⚠️ Found ${findings.length} issue(s):`, ""];
 				for (const f of findings) {
-					parts.push(`- **Line ${f.line ?? "?"}:** \`${f.found}\``);
-					parts.push(`  - Fix: ${f.suggestion}`);
-					parts.push(`  - Why: ${f.reason}`);
+					parts.push(
+						`- **Line ${f.line ?? "?"}:** \`${f.found}\``,
+						`  - Fix: ${f.suggestion}`,
+						`  - Why: ${f.reason}`,
+					);
 				}
 				return textResult(parts.join("\n"), false);
 			},
@@ -144,7 +151,7 @@ export function createTools(): ToolDefinition[] {
 			name: "avalon_search_docs",
 			title: "Search Avalon documentation",
 			description:
-				"Search Avalon's embedded documentation by keyword and return the most relevant topic(s) as Markdown. Covers islands (incl. framework file-naming like *.react.tsx), hydration, server islands, actions, routing (module-based + flat), layouts, middleware, API routes, cron, components, state & cross-island communication, client scripts, styling, metadata/SEO, MDX, configuration, framework integrations, the CLI (create-avalon/avalon), and the Flora grid system.",
+				"Search Avalon's embedded documentation by keyword and return the most relevant topic(s) as Markdown. Covers islands (incl. framework file-naming like *.react.tsx), hydration, server islands, actions, routing (module-based + flat), client navigation (clientRouter, navigate, prefetch, persist, View Transitions / data-router-transition), layouts, middleware, API routes, cron, components, state & cross-island communication, client scripts, styling, metadata/SEO, MDX, configuration, framework integrations, the CLI (create-avalon/avalon), and the Flora grid system.",
 			inputSchema: {
 				type: "object",
 				properties: {
@@ -154,7 +161,7 @@ export function createTools(): ToolDefinition[] {
 				required: ["query"],
 			},
 			handler: (args) => {
-				const query = String(args.query ?? "");
+				const query = readString(args.query);
 				const limit = typeof args.limit === "number" ? args.limit : 3;
 				const results = searchDocs(query, limit);
 				if (results.length === 0) {
@@ -178,7 +185,7 @@ export function createTools(): ToolDefinition[] {
 				required: ["topic"],
 			},
 			handler: (args) => {
-				const topic = String(args.topic ?? "");
+				const topic = readString(args.topic);
 				const doc = getDoc(topic);
 				if (!doc) {
 					return textResult(`Unknown topic "${topic}". Valid topics: ${DOC_IDS}.`, false);
@@ -212,13 +219,13 @@ export function createTools(): ToolDefinition[] {
 				required: ["kind"],
 			},
 			handler: (args) => {
-				const kind = String(args.kind ?? "") as ScaffoldKind;
+				const kind = readString(args.kind) as ScaffoldKind;
 				if (!SCAFFOLD_KINDS.includes(kind)) {
 					const msg = `Unknown kind "${kind}". Valid kinds: ${SCAFFOLD_LIST}.`;
 					return textResult(msg, true);
 				}
-				const name = args.name ? String(args.name) : "Example";
-				const condition = args.condition ? String(args.condition) : "on:client";
+				const name = readString(args.name) || "Example";
+				const condition = readString(args.condition) || "on:client";
 				const t = scaffold(kind, name, condition);
 				const ext = t.suggestedPath.endsWith(".ts") ? "ts" : "tsx";
 				const out = [

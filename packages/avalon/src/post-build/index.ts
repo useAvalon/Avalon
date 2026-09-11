@@ -58,6 +58,12 @@ export interface PostBuildOptions {
 	prerender?: PrerenderConfig | false;
 	/** Port for prerender server (default: 13172) */
 	prerenderPort?: number;
+	/**
+	 * Keep the shared `entry-client` script (and its modulepreload) in
+	 * prerendered HTML. Required when `clientRouter` is enabled so client
+	 * navigation can rescan islands after a swap.
+	 */
+	clientRouter?: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -505,6 +511,7 @@ async function prerenderIfConfigured(
 	distDir: string,
 	config: PrerenderConfig,
 	port: number,
+	clientRouter = false,
 ): Promise<void> {
 	const cloudflareWorker = resolveCloudflareWorker(cwd);
 	const serverEntries = [
@@ -689,10 +696,12 @@ async function prerenderIfConfigured(
 						},
 					);
 					let final = cleaned;
-					final = final.replaceAll(
-						/<script type="module" src="\/assets\/entry-client[^"]*\.js"><\/script>\n?/g,
-						"",
-					);
+					if (!clientRouter) {
+						final = final.replaceAll(
+							/<script type="module" src="\/assets\/entry-client[^"]*\.js"><\/script>\n?/g,
+							"",
+						);
+					}
 					// Strip entry-client CSS only when global index/ssr-index CSS remains.
 					// Otherwise pages lose all styles (patchSSRBundleCSS failed or incomplete).
 					const hasGlobalCss =
@@ -704,10 +713,12 @@ async function prerenderIfConfigured(
 							"",
 						);
 					}
-					final = final.replaceAll(
-						/<link rel="modulepreload" href="\/assets\/entry-client[^"]*\.js">\n?/g,
-						"",
-					);
+					if (!clientRouter) {
+						final = final.replaceAll(
+							/<link rel="modulepreload" href="\/assets\/entry-client[^"]*\.js">\n?/g,
+							"",
+						);
+					}
 					writeFileSync(outputPath, final);
 					prerendered.push(normalized);
 					console.log(`[prerender] ✅ ${normalized} → ${fileName}`);
@@ -1301,7 +1312,13 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 
 	// 9. Prerender (if not disabled)
 	if (options.prerender !== false) {
-		await prerenderIfConfigured(cwd, distDir, options.prerender ?? {}, prerenderPort);
+		await prerenderIfConfigured(
+			cwd,
+			distDir,
+			options.prerender ?? {},
+			prerenderPort,
+			options.clientRouter,
+		);
 	}
 
 	// 10. Inject modulepreload hints for island dependencies

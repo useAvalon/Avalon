@@ -107,6 +107,23 @@ export const CONCEPT_MAP: DirectiveMapping[] = [
 		avalon: "integrations array in the avalon() Vite plugin: avalon({ integrations: ['react'] })",
 		note: "Frameworks are enabled via the `integrations` option, not separate integration packages.",
 	},
+	{
+		astro: "<ViewTransitions /> / <ClientRouter /> / astro:transitions",
+		avalon:
+			"avalon({ clientRouter: true }) plus navigate() / prefetch() from '@useavalon/avalon/client/router'",
+		note: "Avalon has no ViewTransitions or ClientRouter component. The router fetches the next SSR HTML document and swaps it. Default View Transitions wrap that swap.",
+	},
+	{
+		astro: "transition:animate / transition:name / transition:persist",
+		avalon:
+			"data-router-transition / navigate({ viewTransition }) for named or disabled animations; island={{ persist: 'key' }} to keep a live island",
+		note: "Style ::view-transition-old(root) / html[data-router-transition] / :active-view-transition-type(). There are no transition:* template attributes.",
+	},
+	{
+		astro: "navigate() from 'astro:transitions/client'",
+		avalon: "navigate() from '@useavalon/avalon/client/router'",
+		note: "Same idea (programmatic client navigation), different import. Options are history, scroll, and viewTransition — not Astro's form-encoded extras.",
+	},
 ];
 
 /** Result of scanning a snippet for Astro-isms. */
@@ -163,6 +180,22 @@ function extractQuery(rawArg: string | undefined): string {
 		.trim();
 }
 
+const ASTRO_EXT = ".astro";
+const ASTRO_PATH_CHAR = /[\w./-]/;
+
+/** Path ending in `.astro` without a backtracking filename regex. */
+function astroFilePathIn(line: string): string | null {
+	const idx = line.indexOf(ASTRO_EXT);
+	if (idx === -1) return null;
+	const after = idx + ASTRO_EXT.length;
+	const next = line[after];
+	if (next !== undefined && /\w/.test(next)) return null;
+	let start = idx;
+	while (start > 0 && ASTRO_PATH_CHAR.test(line[start - 1] ?? "")) start--;
+	const found = line.slice(start, after);
+	return found.length > 0 ? found : ASTRO_EXT;
+}
+
 /**
  * Scan a code snippet for Astro-specific syntax that does not exist in Avalon
  * and return findings with suggested rewrites.
@@ -205,9 +238,10 @@ export function lintForAstroisms(snippet: string): LintFinding[] {
 			});
 		}
 
-		if (/\.astro\b/.test(lineText)) {
+		const astroPath = astroFilePathIn(lineText);
+		if (astroPath) {
 			findings.push({
-				found: (/[\w./-]+\.astro\b/.exec(lineText) ?? [".astro"])[0],
+				found: astroPath,
 				suggestion:
 					"Avalon has no `.astro` files. Use `.tsx`/`.jsx` (or .vue/.svelte/etc.) framework components.",
 				reason: "The `.astro` file format is Astro-only.",
@@ -243,7 +277,48 @@ export function lintForAstroisms(snippet: string): LintFinding[] {
 				line: lineNo,
 			});
 		}
+
+		findings.push(...lintAstroViewTransitions(lineText, lineNo));
 	});
+
+	return findings;
+}
+
+function lintAstroViewTransitions(lineText: string, line: number): LintFinding[] {
+	const findings: LintFinding[] = [];
+
+	const attr = /\btransition:(animate|name|persist)\b/.exec(lineText);
+	if (attr) {
+		findings.push({
+			found: attr[0],
+			suggestion:
+				"Use data-router-transition / navigate({ viewTransition }) for animation, and island={{ persist: 'key' }} to keep a live island. Enable avalon({ clientRouter: true }).",
+			reason:
+				"`transition:*` is Astro View Transitions markup. Avalon has none of those attributes.",
+			line,
+		});
+	}
+
+	if (/from\s+['"]astro:transitions(\/client)?['"]/.test(lineText)) {
+		findings.push({
+			found: lineText.trim(),
+			suggestion: "import { navigate, prefetch } from '@useavalon/avalon/client/router';",
+			reason:
+				"Avalon client navigation comes from `@useavalon/avalon/client/router`, not `astro:transitions`. Enable it with avalon({ clientRouter: true }).",
+			line,
+		});
+	}
+
+	const component = /<(ViewTransitions|ClientRouter)\b/.exec(lineText);
+	if (component) {
+		findings.push({
+			found: component[1] ?? "ViewTransitions",
+			suggestion:
+				"Enable avalon({ clientRouter: true }). There is no <ViewTransitions> or <ClientRouter> component. Control animations with data-router-transition or navigate({ viewTransition }).",
+			reason: "Astro's View Transitions components do not exist in Avalon.",
+			line,
+		});
+	}
 
 	return findings;
 }

@@ -4,4 +4,4 @@
  * Main export for client-side Vue integration functionality.
  */
 
-export { getHydrationScript, hydrate } from "./hydration.ts";
+export { getHydrationScript, hydrate, unmount } from "./hydration.ts";
