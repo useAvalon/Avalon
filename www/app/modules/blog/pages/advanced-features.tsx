@@ -43,9 +43,9 @@ export default async function AdvancedFeaturesPage() {
 				framework's islands are bundled separately for optimal code splitting.
 			</p>
 			<pre>
-				<code>{`import ReactCounter from '../islands/ReactCounter.tsx';
-import VueChart from '../islands/VueChart.vue';
-import SvelteFeed from '../islands/SvelteFeed.svelte';
+				<code>{`import ReactCounter from '../components/ReactCounter.react.tsx';
+import VueChart from '../components/VueChart.vue';
+import SvelteFeed from '../components/SvelteFeed.svelte';
 
 export default async function Page() {
   return (

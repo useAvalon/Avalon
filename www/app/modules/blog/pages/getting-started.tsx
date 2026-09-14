@@ -18,16 +18,16 @@ bun run dev`}</code>
 
 			<h2>Project Structure</h2>
 			<p>
-				Avalon uses a file-based routing system. Pages go in <code>src/pages/</code> and interactive
-				components go in <code>src/islands/</code>.
+				Avalon uses a file-based routing system. Pages go in <code>src/pages/</code>. Islands are
+				ordinary components, usually under <code>src/components/</code>.
 			</p>
 			<pre>
 				<code>{`my-app/
 ├── src/
 │   ├── pages/
 │   │   └── index.tsx       # → /
-│   ├── islands/
-│   │   └── Counter.tsx     # interactive component
+│   ├── components/
+│   │   └── Counter.tsx     # island when used with the island prop
 │   └── layouts/
 │       └── _layout.tsx     # root layout
 ├── public/
@@ -38,10 +38,10 @@ bun run dev`}</code>
 			<h2>Creating Your First Island</h2>
 			<p>
 				Islands are interactive components that hydrate on the client. Create one in{" "}
-				<code>src/islands/</code>:
+				<code>src/components/</code>:
 			</p>
 			<pre>
-				<code>{`// src/islands/Counter.tsx
+				<code>{`// src/components/Counter.tsx
 /** @jsxImportSource preact */
 import { useState } from 'preact/hooks';
 
@@ -58,7 +58,7 @@ export default function Counter() {
 				Then use it in a page with the <code>island</code> prop to control hydration:
 			</p>
 			<pre>
-				<code>{`import Counter from '../islands/Counter.tsx';
+				<code>{`import Counter from '../components/Counter.tsx';
 
 export default async function Page() {
   return (
