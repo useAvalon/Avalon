@@ -77,9 +77,9 @@ export function registerHydrationDirective(
 	name: string,
 	definition: HydrationDirectiveDefinition,
 ): void {
-	if (directiveRegistry.has(name)) {
-		console.warn(`[avalon] Hydration directive "${name}" is already registered. Overwriting.`);
-	}
+	// Vite evaluates the SSR renderer once per environment (and again on HMR).
+	// Re-registering the same name is expected — keep the first definition.
+	if (directiveRegistry.has(name)) return;
 	directiveRegistry.set(name, definition);
 }
 

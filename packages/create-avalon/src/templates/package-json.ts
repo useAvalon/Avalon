@@ -41,9 +41,7 @@ export function generatePackageJson(config: ProjectConfig): string {
 		dependencies["@useavalon/agent-optimization"] = "latest";
 	}
 
-	if (config.plugins.includes("syntax-highlighting")) {
-		dependencies["rehype-highlight"] = "latest";
-	}
+	dependencies["rehype-highlight"] = "latest";
 
 	// Middleware dependencies
 	switch (config.middleware) {

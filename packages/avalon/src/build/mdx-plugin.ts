@@ -1,3 +1,4 @@
+import rehypeHighlight from "rehype-highlight";
 import type { Pluggable } from "unified";
 import type { Plugin } from "vite";
 
@@ -58,14 +59,7 @@ export async function createMDXPlugin(options: MDXPluginOptions = {}): Promise<P
 
 		// Add syntax highlighting if enabled
 		if (syntaxHighlighting) {
-			try {
-				const { default: rehypeHighlight } = await import("rehype-highlight");
-				finalRehypePlugins.push(rehypeHighlight);
-			} catch {
-				console.warn(
-					"[avalon:mdx] rehype-highlight not installed, syntax highlighting disabled. Install it with: npm install rehype-highlight",
-				);
-			}
+			finalRehypePlugins.push(rehypeHighlight);
 		}
 
 		// Add user-provided rehype plugins
