@@ -740,7 +740,7 @@ async function prerenderIfConfigured(
 			(errors.length > 0 ? `, ${errors.length} error(s)` : ""),
 	);
 
-	if (netlifyMode || isCloudflareWorker) {
+	if (isCloudflareWorker || isNetlifyHandler(serverEntry)) {
 		const wrapperPath = join(dirname(serverEntry), "_prerender-server.mjs");
 		if (existsSync(wrapperPath)) {
 			unlinkSync(wrapperPath);
