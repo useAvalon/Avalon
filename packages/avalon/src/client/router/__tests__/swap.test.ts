@@ -136,6 +136,83 @@ describe("reconcileHead style tags", () => {
 	});
 });
 
+class FakeLink {
+	tagName = "LINK";
+	href: string;
+	private attrs: Record<string, string>;
+	private owner: FakeLinkHead | null = null;
+
+	constructor(attrs: Record<string, string>) {
+		this.attrs = { ...attrs };
+		this.href = attrs.href ?? "";
+	}
+
+	getAttribute(name: string): string | null {
+		return this.attrs[name] ?? null;
+	}
+
+	attach(owner: FakeLinkHead): this {
+		this.owner = owner;
+		return this;
+	}
+
+	remove(): void {
+		this.owner?.detach(this);
+	}
+}
+
+class FakeLinkHead {
+	links: FakeLink[] = [];
+
+	querySelectorAll(selector: string): FakeLink[] {
+		if (selector === "meta") return [];
+		if (selector === "link" || selector === 'link[rel="stylesheet"]') return this.links;
+		return [];
+	}
+
+	appendChild(el: FakeLink): FakeLink {
+		el.attach(this);
+		this.links.push(el);
+		return el;
+	}
+
+	detach(el: FakeLink): void {
+		this.links = this.links.filter((link) => link !== el);
+	}
+}
+
+function fakeLinkDoc(links: FakeLink[] = []) {
+	const head = new FakeLinkHead();
+	for (const link of links) {
+		head.appendChild(link);
+	}
+	return {
+		title: "",
+		head,
+		importNode: (el: FakeLink) => el,
+	} as unknown as Document;
+}
+
+describe("reconcileHead stylesheets", () => {
+	it("keeps runtime stylesheets marked data-router-persist", () => {
+		const persisted = new FakeLink({
+			rel: "stylesheet",
+			href: "/pagefind/pagefind-component-ui.css",
+			"data-router-persist": "pagefind-ui",
+		});
+		const stale = new FakeLink({ rel: "stylesheet", href: "/old-page.css" });
+		const current = fakeLinkDoc([persisted, stale]);
+		const next = fakeLinkDoc([new FakeLink({ rel: "stylesheet", href: "/next.css" })]);
+
+		reconcileHead(current, next);
+
+		const hrefs = (current.head as unknown as FakeLinkHead).links.map((link) => link.href);
+		expect(hrefs).toContain("/pagefind/pagefind-component-ui.css");
+		expect(hrefs).toContain("/next.css");
+		expect(hrefs).not.toContain("/old-page.css");
+	});
+});
+
 describe("replaceBody", () => {
 	it("adopts the next body instead of cloning it", () => {
 		const nextBody = { nodeName: "BODY" };

@@ -54,7 +54,9 @@ ol {
 }
 
 /* Page regions get the UA default crossfade. Chrome is named so it is
-   excluded from the root snapshot. */
+   excluded from the root snapshot. Do not set `animation: none` on
+   ::view-transition-old/new(root) — that leaves the root snapshot in
+   the top layer and hides later UI (Pagefind dialog). */
 [data-router-outlet="docs-page"] {
 	view-transition-name: docs-page;
 }
@@ -67,14 +69,16 @@ ol {
 [data-router-persist="site-nav"] {
 	view-transition-name: site-nav;
 }
+[data-router-persist="search-modal"],
+pagefind-modal {
+	view-transition-name: none;
+}
 
-::view-transition-old(root),
-::view-transition-new(root),
 ::view-transition-group(docs-sidebar),
 ::view-transition-group(site-nav),
 ::view-transition-old(docs-sidebar),
 ::view-transition-old(site-nav),
 ::view-transition-new(docs-sidebar),
 ::view-transition-new(site-nav) {
-	animation: none;
+	animation-duration: 0s;
 }

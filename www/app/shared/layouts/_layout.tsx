@@ -31,6 +31,11 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 					}}
 				/>
 				<link rel="stylesheet" href="/syntax-highlighting.css" data-critical />
+				<link
+					rel="stylesheet"
+					href="/pagefind/pagefind-component-ui.css"
+					data-router-persist="pagefind-ui"
+				/>
 			</head>
 			<body class={styles.body}>
 				<header class={styles.nav} data-router-persist="site-nav">
