@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { asNoExternalList, getFrameworkViteDefaults } from "../framework-vite-defaults.ts";
+import {
+	asNoExternalList,
+	getFrameworkViteDefaults,
+	mapPreactCompatId,
+	shouldResolvePreactCompat,
+} from "../framework-vite-defaults.ts";
 
 function aliasReplacement(
 	aliases: Array<{ find: string | RegExp; replacement: string }> | undefined,
@@ -91,6 +96,16 @@ describe("getFrameworkViteDefaults", () => {
 		const config = defaults({ core: "react", integrations: ["react"] });
 		expect(config.optimizeDeps?.include).toContain("react-dom/server");
 		expect(config.optimizeDeps?.include).toContain("react/jsx-runtime");
+	});
+
+	it("maps react specifiers to Preact compat for the client production build", () => {
+		expect(mapPreactCompatId("react", "preact")).toBe("preact/compat");
+		expect(mapPreactCompatId("react-dom/client", "preact")).toBe("preact/compat/client");
+		expect(mapPreactCompatId("preact/compat", "preact")).toBe("preact/compat");
+		expect(mapPreactCompatId("react", "react")).toBeNull();
+		expect(shouldResolvePreactCompat("client", "serve")).toBe(false);
+		expect(shouldResolvePreactCompat("client", "build")).toBe(true);
+		expect(shouldResolvePreactCompat("ssr", "serve")).toBe(true);
 	});
 
 	it("normalizes ssr.noExternal into a list", () => {

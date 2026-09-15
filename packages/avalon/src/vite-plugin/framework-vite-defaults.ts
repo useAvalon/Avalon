@@ -42,6 +42,40 @@ const REACT_TO_PREACT: ReadonlyArray<{ find: RegExp; spec: string }> = [
 	{ find: /^react-dom\/client$/, spec: "preact/compat/client" },
 ];
 
+const REACT_TO_PREACT_IDS: Record<string, string> = {
+	react: "preact/compat",
+	"react/jsx-runtime": "preact/jsx-runtime",
+	"react/jsx-dev-runtime": "preact/jsx-runtime",
+	"react-dom": "preact/compat",
+	"react-dom/server": "preact/compat/server",
+	"react-dom/client": "preact/compat/client",
+};
+
+const PREACT_ID_SET = new Set<string>([
+	...PREACT_PIN,
+	"preact/jsx-runtime",
+	"preact/jsx-dev-runtime",
+]);
+
+/**
+ * Map a bare specifier to the Preact package Avalon should pin, or null
+ * when this id is not part of the compat rewrite.
+ */
+export function mapPreactCompatId(id: string, core: "preact" | "react" = "preact"): string | null {
+	if (PREACT_ID_SET.has(id)) return id;
+	if (core === "react") return null;
+	return REACT_TO_PREACT_IDS[id] ?? null;
+}
+
+/** Absolute Preact pins belong on SSR always, and on the client production build. */
+export function shouldResolvePreactCompat(
+	env: string | undefined,
+	command: string | undefined,
+): boolean {
+	if (env === "ssr" || env === "nitro") return true;
+	return command === "build";
+}
+
 const VUE_ALIASES: Alias[] = [
 	{ find: /^vue$/, replacement: "vue/dist/vue.runtime.esm-bundler.js" },
 	{ find: /^@vue\/shared$/, replacement: "@vue/shared/dist/shared.esm-bundler.js" },

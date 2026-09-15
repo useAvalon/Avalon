@@ -24,7 +24,12 @@ import type { NitroConfigOutput } from "../nitro/config.ts";
 import { discoverIntegrationsFromIslandUsage } from "./auto-discover.ts";
 import { checkDirectoriesExist, resolveConfig } from "./config.ts";
 import { shouldSetDevScopedName, stableDevScopedName } from "./dev-css-modules.ts";
-import { asNoExternalList, getFrameworkViteDefaults } from "./framework-vite-defaults.ts";
+import {
+	asNoExternalList,
+	getFrameworkViteDefaults,
+	mapPreactCompatId,
+	shouldResolvePreactCompat,
+} from "./framework-vite-defaults.ts";
 import { createImagePlugin } from "./image-optimization.ts";
 import { activateIntegrations, activateSingleIntegration } from "./integration-activator.ts";
 import { islandSidecarPlugin } from "./island-sidecar-plugin.ts";
@@ -442,11 +447,13 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 	// to the resolved `.mjs` files. Harmless when Preact isn't installed (the
 	// require.resolve throws and we skip).
 	//
-	// This runs ONLY for the SSR/Nitro environments: on the client the rewrite
-	// would bypass Vite's dependency pre-bundling and risk a duplicate Preact
-	// instance (broken hooks). Resolution is anchored to Vite's resolved `root`
-	// (not `process.cwd()`) so it works in monorepos and programmatic Vite usage;
-	// the require is built lazily since `viteConfig` is only set in configResolved.
+	// Client *dev* skips this rewrite so Vite's optimizer can pre-bundle Preact
+	// (rewriting here would duplicate the runtime and break hooks). Client
+	// *build* and SSR/Nitro must pin absolute `.mjs` paths — @preact/preset-vite
+	// otherwise aliases `react` to a bare `preact/compat` that Rolldown cannot
+	// load. Resolution is anchored to Vite's resolved `root` (not `process.cwd()`)
+	// so it works in monorepos; the require is lazy because `viteConfig` is only
+	// set in configResolved.
 	let projectRequire: ReturnType<typeof createRequire> | undefined;
 	const resolvePreactEsm = (specifier: string): string | undefined => {
 		try {
@@ -459,21 +466,19 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 			return undefined;
 		}
 	};
-	const PREACT_COMPAT_SPECIFIERS = new Set([
-		"preact",
-		"preact/hooks",
-		"preact/compat",
-		"preact/compat/server",
-		"preact/compat/client",
-	]);
 	const preactCompatResolver: Plugin = {
 		name: "avalon:preact-compat-resolver",
 		enforce: "pre",
 		resolveId(id: string) {
-			const env = (this as { environment?: { name?: string } }).environment?.name;
-			if (env !== "ssr" && env !== "nitro") return null;
-			if (!PREACT_COMPAT_SPECIFIERS.has(id)) return null;
-			return resolvePreactEsm(id) ?? null;
+			const environment = this as {
+				environment?: { name?: string; config?: { command?: string } };
+			};
+			const env = environment.environment?.name;
+			const command = environment.environment?.config?.command;
+			if (!shouldResolvePreactCompat(env, command)) return null;
+			const mapped = mapPreactCompatId(id, config?.core ?? "preact");
+			if (!mapped) return null;
+			return resolvePreactEsm(mapped) ?? null;
 		},
 	};
 
