@@ -63,7 +63,7 @@ All tools are annotated `readOnlyHint: true` — they are pure knowledge lookups
 Avalon uses one prop, `island`, on an imported component:
 
 ```tsx
-import Counter from "../islands/Counter.tsx";
+import Counter from "../components/Counter.tsx";
 
 <Counter island={{ condition: "on:visible" }} />;
 ```

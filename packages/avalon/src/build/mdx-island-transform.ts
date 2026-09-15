@@ -55,6 +55,37 @@ function findAllDefaultImports(code: string): Map<string, string> {
 }
 
 /**
+ * True when `key` is a top-level property of a `{ ... }` object literal.
+ * Nested objects (including compiled child JSX props) do not count.
+ */
+function hasTopLevelKey(propsStr: string, key: string): boolean {
+	let pos = 1;
+	let depth = 1;
+	while (pos < propsStr.length && depth > 0) {
+		const ch = propsStr[pos];
+		if (depth === 1) {
+			const rest = propsStr.slice(pos);
+			if (rest.startsWith(key) && /^\s*:/.test(rest.slice(key.length))) {
+				const prev = propsStr[pos - 1];
+				if (pos === 1 || !/\w/.test(prev)) return true;
+			}
+		}
+		if (ch === "{" || ch === "(" || ch === "[") {
+			depth++;
+			pos++;
+		} else if (ch === "}" || ch === ")" || ch === "]") {
+			depth--;
+			pos++;
+		} else if (ch === "'" || ch === '"' || ch === "`") {
+			pos = skipStringLiteral(propsStr, pos);
+		} else {
+			pos++;
+		}
+	}
+	return false;
+}
+
+/**
  * Find components used with the island prop in the code
  * Handles both raw JSX (<Component island={...}) and compiled JSX (_jsxDEV(Component, { island:)
  */
@@ -67,11 +98,17 @@ function findIslandPropUsage(code: string): Set<string> {
 		components.add(m[1]);
 	}
 
-	// Match compiled JSX: _jsxDEV(ComponentName, { island: or jsxDEV(ComponentName, { island:
-	// Also handles jsx() and jsxs() variants
-	const compiledJsxRe = /(?:_?jsxs?(?:DEV)?)\s*\(\s*([A-Z]\w*)\s*,\s*\{[^}]*\bisland\s*:/g;
-	for (let m = compiledJsxRe.exec(code); m !== null; m = compiledJsxRe.exec(code)) {
-		components.add(m[1]);
+	// Match each compiled jsx(Component, { ... }) and only count a top-level island key.
+	// A flat `[^}]*island` scan would also match a child's island inside `children:`.
+	const compiledJsxStartRe = /(?:_?jsxs?(?:DEV)?)\s*\(\s*([A-Z]\w*)\s*,/g;
+	for (let m = compiledJsxStartRe.exec(code); m !== null; m = compiledJsxStartRe.exec(code)) {
+		let pos = m.index + m[0].length;
+		while (pos < code.length && /\s/.test(code[pos])) pos++;
+		if (code[pos] !== "{") continue;
+		const propsEnd = skipBracedExpression(code, pos);
+		if (hasTopLevelKey(code.slice(pos, propsEnd), "island")) {
+			components.add(m[1]);
+		}
 	}
 
 	return components;
@@ -177,6 +214,7 @@ function detectFramework(src: string): string | undefined {
 	if (src.includes(".solid.")) return "solid";
 	if (src.includes(".lit.")) return "lit";
 	if (src.includes(".qwik.")) return "qwik";
+	if (src.includes(".react.")) return "react";
 	if (src.endsWith(".tsx") || src.endsWith(".jsx")) return "preact";
 	return undefined;
 }
@@ -372,10 +410,15 @@ function replaceJsxCalls(
 		// Check if otherProps is empty (just `{}`)
 		const hasOtherProps = otherProps.trim() !== "{}" && otherProps.trim() !== "";
 		const propsArg = hasOtherProps ? `props: ${otherProps},` : "";
+		// Keep the imported binding in scope so Vue/Svelte/Solid SSR can render
+		// the already-loaded module. Skip it for client-only islands so the
+		// island file is not evaluated on the server.
+		const omitComponent = /\bclientOnly\s*:\s*true\b/.test(islandValue);
+		const compArg = omitComponent ? "" : `component: ${componentName},`;
 
 		// Build the renderIsland call
 		// We spread the island value to get condition, ssr, etc.
-		const renderCall = `(await __AvalonRenderIsland({ src: "${srcPath}", ${fwArg} ...(${islandValue}), ${propsArg} ssr: ${islandSsrExpression(islandValue)} }))`;
+		const renderCall = `(await __AvalonRenderIsland({ src: "${srcPath}", ${fwArg} ${compArg} ...(${islandValue}), ${propsArg} ssr: ${islandSsrExpression(islandValue)} }))`;
 
 		result += code.slice(lastIndex, matchStart) + renderCall;
 		lastIndex = callEnd;
@@ -442,18 +485,6 @@ export function mdxIslandTransform(options: MDXIslandTransformOptions = {}): Plu
 				const fw = detectFramework(srcPath);
 
 				transformed = replaceJsxCalls(transformed, island.localName, srcPath, fw);
-			}
-
-			// Comment out the original imports (keep for CSS graph but don't use the binding)
-			for (const island of islandImports) {
-				const importRe = new RegExp(
-					`import\\s+${island.localName}\\s+from\\s+(['"][^'"]+['"])`,
-					"g",
-				);
-				transformed = transformed.replace(
-					importRe,
-					`import $1; // [mdx-island-transform] kept for CSS: ${island.localName}`,
-				);
 			}
 
 			// Make the MDX content function async so we can use await

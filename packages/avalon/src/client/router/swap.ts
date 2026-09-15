@@ -242,6 +242,50 @@ export function attachDeclarativeShadowRoots(root: ParentNode): void {
 	}
 }
 
+const OUTLET_SELECTOR = "[data-router-outlet]";
+
+export function outletKeyOf(el: HTMLElement): string | null {
+	const raw = el.dataset.routerOutlet;
+	if (raw == null) return null;
+	const key = raw.trim();
+	return key.length > 0 ? key : null;
+}
+
+function outletMap(root: ParentNode): Map<string, HTMLElement> | null {
+	const map = new Map<string, HTMLElement>();
+	for (const el of root.querySelectorAll<HTMLElement>(OUTLET_SELECTOR)) {
+		const key = outletKeyOf(el);
+		if (!key || map.has(key)) return null;
+		map.set(key, el);
+	}
+	return map.size > 0 ? map : null;
+}
+
+/**
+ * Swap `[data-router-outlet]` regions when both documents share the same keys.
+ * Shared chrome (sidebar, header) stays in place so view transitions can
+ * crossfade only the page. Returns the detached outgoing nodes, or `null`
+ * when a full body replace is required.
+ */
+export function replaceOutlets(current: Document, next: Document): HTMLElement[] | null {
+	const from = outletMap(current);
+	const to = outletMap(next.body);
+	if (!from || !to || from.size !== to.size) return null;
+	for (const key of from.keys()) {
+		if (!to.has(key)) return null;
+	}
+
+	const outgoing: HTMLElement[] = [];
+	for (const [key, live] of from) {
+		const incoming = to.get(key);
+		if (!incoming) return null;
+		outgoing.push(live);
+		live.replaceWith(current.adoptNode(incoming));
+	}
+	attachDeclarativeShadowRoots(current.body);
+	return outgoing;
+}
+
 export function replaceBody(current: Document, next: Document): void {
 	// Adopt the parsed `<body>` instead of importNode/cloneNode. Cloning drops
 	// Declarative Shadow DOM (Lit island styles live in the shadow root) unless

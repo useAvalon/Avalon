@@ -10,6 +10,11 @@ next:
   href: /docs/hydration-strategies
 ---
 
+import DocsLiveFrame from '../components/DocsLiveFrame.tsx';
+import PreactCounter from '../../demo/components/Counter.preact.tsx';
+import QwikCounter from '../../demo/components/Counter.qwik.tsx';
+import SvelteCounter from '../../demo/components/Counter.svelte';
+
 ## What is an island?
 
 An island is an interactive component that hydrates on the client. Everything outside an island is static HTML — no JavaScript, no hydration overhead.
@@ -21,7 +26,7 @@ The term comes from the "islands architecture" pattern: a sea of static HTML wit
 To make a component an island, import it and add the `island` prop:
 
 ```tsx
-import Counter from '../islands/Counter.tsx';
+import Counter from '../components/Counter.tsx';
 
 export default function Page() {
   return (
@@ -33,6 +38,14 @@ export default function Page() {
 ```
 
 The `condition` field controls when the island hydrates. Add `clientOnly: true` when the component must not run on the server at all.
+
+<DocsLiveFrame label="Live" variant="grid" compact>
+  <PreactCounter island={{ condition: 'on:interaction' }} />
+  <SvelteCounter island={{ condition: 'on:interaction' }} />
+  <QwikCounter island={{ condition: 'on:interaction' }} />
+</DocsLiveFrame>
+
+Click a counter. That island loads its JavaScript. The rest of the page stays static.
 
 ## Client-only islands
 

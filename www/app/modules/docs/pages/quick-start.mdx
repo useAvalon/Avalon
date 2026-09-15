@@ -11,6 +11,9 @@ next:
 ---
 
 import InteractiveExample from '@shared/components/InteractiveExample.tsx';
+import DocsSteps from '../components/DocsSteps.tsx';
+
+<DocsSteps>
 
 ## Scaffold a new project
 
@@ -69,7 +72,7 @@ Visit `http://localhost:3000/hello` — you'll see your page rendered as pure HT
 
 ## Add an island
 
-Islands are interactive components that hydrate on the client. Create `src/islands/Counter.tsx`:
+Islands are interactive components that hydrate on the client. Create `src/components/Counter.tsx`:
 
 ```tsx
 /** @jsxImportSource preact */
@@ -88,7 +91,7 @@ export default function Counter() {
 Then use it in your page with the `island` prop to control when it hydrates:
 
 ```tsx
-import Counter from '../islands/Counter.tsx';
+import Counter from '../components/Counter.tsx';
 
 export default function HelloPage() {
   return (
@@ -109,10 +112,12 @@ npm run build
 
 Avalon builds a Nitro server bundle in `.output/`. Deploy it to Node, Bun, Cloudflare Workers, Vercel, or any Nitro-compatible target.
 
+</DocsSteps>
+
 ## Try it live
 
 Here's a live example of an island component — it starts in a static state and becomes interactive on your first interaction:
 
-<div>
+<div class="docs-block">
   <InteractiveExample island={{ condition: 'on:interaction' }} />
 </div>

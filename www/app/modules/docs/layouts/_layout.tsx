@@ -42,10 +42,13 @@ export default async function DocsLayout({ children, frontmatter }: Readonly<Lay
 
 	return (
 		<div class={styles.docsLayout}>
-			<aside class={styles.sidebar}>
-				<DocsSidebar island={{ condition: "on:interaction" }} currentPath={currentPath} />
-			</aside>
-			<main class={styles.content} data-pagefind-body>
+			{/* Persist the column so scroll, padding, and the live island survive the body swap. */}
+			<div class={styles.sidebarSlot} data-router-persist="docs-sidebar">
+				<aside class={styles.sidebar}>
+					<DocsSidebar island={{ condition: "on:client" }} currentPath={currentPath} />
+				</aside>
+			</div>
+			<main class={styles.content} data-pagefind-body data-router-outlet="docs-page">
 				{(fm?.heading || fm?.title) && (
 					<header class={styles.pageHeader}>
 						<h1 class={styles.pageTitle}>{fm.heading || fm.title}</h1>
@@ -78,7 +81,7 @@ export default async function DocsLayout({ children, frontmatter }: Readonly<Lay
 					</nav>
 				)}
 			</main>
-			<aside class={styles.tocSidebar}>
+			<aside class={styles.tocSidebar} data-router-outlet="docs-toc">
 				<TableOfContents island={{ condition: "on:client" }} />
 			</aside>
 		</div>

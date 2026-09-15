@@ -31,7 +31,7 @@ bun add vue
 Vue islands are standard `.vue` single-file components. Use the Composition API with `<script setup>` just like you normally would:
 
 ```html
-<!-- src/islands/Counter.vue -->
+<!-- src/components/Counter.vue -->
 <script setup lang="ts">
 import { ref } from 'vue';
 
@@ -49,7 +49,7 @@ const count = ref(props.initialCount ?? 0);
 ## Using the island
 
 ```tsx
-import Counter from '../islands/Counter.vue';
+import Counter from '../components/Counter.vue';
 
 export default function Page() {
   return (
@@ -66,7 +66,7 @@ export default function Page() {
 Vue composables work inside islands as expected:
 
 ```html
-<!-- src/islands/PersistedCounter.vue -->
+<!-- src/components/PersistedCounter.vue -->
 <script setup lang="ts">
 import { useLocalStorage } from '@vueuse/core';
 

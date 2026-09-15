@@ -45,7 +45,7 @@ Without this, you'll see type errors like "Unable to resolve signature of proper
 Lit islands use the `.lit.ts` extension so Avalon knows to use the Lit integration. Use Lit's decorator syntax for a clean, idiomatic API:
 
 ```ts
-// src/islands/my-counter.lit.ts
+// src/components/my-counter.lit.ts
 import { LitElement, html, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { defineLitIsland } from '@useavalon/lit/island';
@@ -91,7 +91,7 @@ Vite 8's default transformer (Oxc) doesn't support lowering TC39 standard decora
 Import the component and use it like any other island:
 
 ```tsx
-import MyCounter from '../islands/my-counter.lit.ts';
+import MyCounter from '../components/my-counter.lit.ts';
 
 export default function Page() {
 	return (

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
 	attachDeclarativeShadowRoots,
 	isHtmlResponse,
+	outletKeyOf,
 	reconcileHead,
 	replaceBody,
+	replaceOutlets,
 } from "../swap.ts";
 
 describe("isHtmlResponse", () => {
@@ -219,5 +221,62 @@ describe("attachDeclarativeShadowRoots", () => {
 		} as unknown as ParentNode);
 
 		expect(template.removed).toBe(true);
+	});
+});
+
+describe("replaceOutlets", () => {
+	interface FakeOutlet {
+		dataset: { routerOutlet?: string };
+		replacedWith: FakeOutlet | null;
+		replaceWith(node: FakeOutlet): void;
+	}
+
+	function outlet(key?: string): FakeOutlet {
+		const node: FakeOutlet = {
+			dataset: key ? { routerOutlet: key } : {},
+			replacedWith: null,
+			replaceWith(next) {
+				node.replacedWith = next;
+			},
+		};
+		return node;
+	}
+
+	function doc(nodes: FakeOutlet[]): Document {
+		return {
+			body: {
+				querySelectorAll: (selector: string) =>
+					selector === "[data-router-outlet]" ? nodes.filter((n) => n.dataset.routerOutlet) : [],
+			},
+			querySelectorAll: (selector: string) =>
+				selector === "[data-router-outlet]" ? nodes.filter((n) => n.dataset.routerOutlet) : [],
+			adoptNode: (node: FakeOutlet) => node,
+		} as unknown as Document;
+	}
+
+	it("reads a trimmed outlet key", () => {
+		expect(outletKeyOf({ dataset: { routerOutlet: "docs-page" } } as HTMLElement)).toBe(
+			"docs-page",
+		);
+		expect(outletKeyOf({ dataset: { routerOutlet: "  " } } as HTMLElement)).toBeNull();
+	});
+
+	it("swaps matching outlets", () => {
+		const livePage = outlet("docs-page");
+		const liveToc = outlet("docs-toc");
+		const nextPage = outlet("docs-page");
+		const nextToc = outlet("docs-toc");
+		expect(replaceOutlets(doc([livePage, liveToc]), doc([nextPage, nextToc]))).toEqual([
+			livePage,
+			liveToc,
+		]);
+		expect(livePage.replacedWith).toBe(nextPage);
+		expect(liveToc.replacedWith).toBe(nextToc);
+	});
+
+	it("falls back when outlet keys do not match", () => {
+		const live = outlet("docs-page");
+		expect(replaceOutlets(doc([live]), doc([outlet()]))).toBeNull();
+		expect(live.replacedWith).toBeNull();
 	});
 });

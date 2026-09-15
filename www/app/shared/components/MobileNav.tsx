@@ -6,7 +6,7 @@ interface MobileNavProps {
 	currentPath?: string;
 }
 
-export default function MobileNav({ currentPath }: MobileNavProps) {
+export default function MobileNav({ currentPath }: Readonly<MobileNavProps>) {
 	const [isOpen, setIsOpen] = useState(false);
 
 	function isActive(href: string) {
@@ -43,13 +43,6 @@ export default function MobileNav({ currentPath }: MobileNavProps) {
 						onClick={() => setIsOpen(false)}
 					>
 						Blog
-					</a>
-					<a
-						href="/demo"
-						class={`${styles.mobileLink} ${isActive("/demo") ? styles.mobileLinkActive : ""}`}
-						onClick={() => setIsOpen(false)}
-					>
-						Demo
 					</a>
 					<a
 						href="https://github.com/useAvalon/Avalon"

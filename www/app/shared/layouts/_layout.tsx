@@ -30,10 +30,10 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 						].join(""),
 					}}
 				/>
-				<link rel="stylesheet" href="/syntax-highlighting.css" />
+				<link rel="stylesheet" href="/syntax-highlighting.css" data-critical />
 			</head>
 			<body class={styles.body}>
-				<header class={styles.nav}>
+				<header class={styles.nav} data-router-persist="site-nav">
 					<div class={styles.navInner}>
 						<a href="/" class={styles.navLogo}>
 							<img
@@ -56,9 +56,6 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 							</a>
 							<a href="/blog" class={styles.navLink}>
 								Blog
-							</a>
-							<a href="/demo" class={styles.navLink}>
-								Demo
 							</a>
 						</nav>
 						<div class={styles.navRight}>
@@ -109,59 +106,101 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 					</div>
 				</header>
 				<main>{children}</main>
-				<footer class={styles.footer}>
-					<div class={styles.footerInner}>
-						<div class={styles.footerBrand}>
-							<img
-								src="/avalon-wordmark.svg"
-								alt=""
-								class={`${styles.footerLogo} ${styles.logoDark}`}
-								width="20"
-								height="20"
-							/>
-							<img
-								src="/avalon-wordmark-black.svg"
-								alt=""
-								class={`${styles.footerLogo} ${styles.logoLight}`}
-								width="20"
-								height="20"
-							/>
+				<footer id="site-footer" class={styles.footer}>
+					<nav class={styles.footerCols} aria-label="Footer">
+						<div>
+							<p class={styles.footerColTitle}>Docs</p>
+							<a class={styles.footerLink} href="/docs/introduction">
+								Introduction
+							</a>
+							<a class={styles.footerLink} href="/docs/installation">
+								Installation
+							</a>
+							<a class={styles.footerLink} href="/docs/quick-start">
+								Quick start
+							</a>
+							<a class={styles.footerLink} href="/docs/islands-architecture">
+								Islands
+							</a>
+							<a class={styles.footerLink} href="/docs/hydration-strategies">
+								Hydration
+							</a>
 						</div>
-						<nav class={styles.footerCols} aria-label="Footer">
-							<div>
-								<p class={styles.footerColTitle}>Docs</p>
-								<a href="/docs/introduction">Introduction</a>
-								<a href="/docs/installation">Installation</a>
-								<a href="/docs/quick-start">Quick start</a>
-								<a href="/docs/islands-architecture">Islands</a>
-								<a href="/docs/hydration-strategies">Hydration</a>
-							</div>
-							<div>
-								<p class={styles.footerColTitle}>Frameworks</p>
-								<a href="/docs/frameworks/react">React</a>
-								<a href="/docs/frameworks/vue">Vue</a>
-								<a href="/docs/frameworks/svelte">Svelte</a>
-								<a href="/docs/frameworks/solid">Solid</a>
-								<a href="/docs/frameworks/qwik">Qwik</a>
-							</div>
-							<div>
-								<p class={styles.footerColTitle}>Community</p>
-								<a
-									href="https://github.com/useAvalon/Avalon"
-									target="_blank"
-									rel="noopener noreferrer"
-								>
-									GitHub
-								</a>
-								<a href="https://discord.gg/avalon" target="_blank" rel="noopener noreferrer">
-									Discord
-								</a>
-								<a href="/blog">Blog</a>
-							</div>
-						</nav>
+						<div>
+							<p class={styles.footerColTitle}>Frameworks</p>
+							<a class={styles.footerLink} href="/docs/frameworks/react">
+								React
+							</a>
+							<a class={styles.footerLink} href="/docs/frameworks/preact">
+								Preact
+							</a>
+							<a class={styles.footerLink} href="/docs/frameworks/vue">
+								Vue
+							</a>
+							<a class={styles.footerLink} href="/docs/frameworks/svelte">
+								Svelte
+							</a>
+							<a class={styles.footerLink} href="/docs/frameworks/solid">
+								Solid
+							</a>
+							<a class={styles.footerLink} href="/docs/frameworks/qwik">
+								Qwik
+							</a>
+							<a class={styles.footerLink} href="/docs/frameworks/lit">
+								Lit
+							</a>
+						</div>
+						<div>
+							<p class={styles.footerColTitle}>Guides</p>
+							<a class={styles.footerLink} href="/docs/guides/deployment">
+								Deployment
+							</a>
+							<a class={styles.footerLink} href="/docs/guides/prerendering">
+								Prerendering
+							</a>
+							<a class={styles.footerLink} href="/docs/guides/data-loading">
+								Data loading
+							</a>
+							<a class={styles.footerLink} href="/docs/api/file-conventions">
+								File conventions
+							</a>
+						</div>
+						<div>
+							<p class={styles.footerColTitle}>Community</p>
+							<a
+								class={styles.footerLink}
+								href="https://github.com/useAvalon/Avalon"
+								target="_blank"
+								rel="noopener noreferrer"
+							>
+								GitHub
+							</a>
+							<a
+								class={styles.footerLink}
+								href="https://discord.gg/avalon"
+								target="_blank"
+								rel="noopener noreferrer"
+							>
+								Discord
+							</a>
+							<a class={styles.footerLink} href="/blog">
+								Blog
+							</a>
+						</div>
+					</nav>
+					<div class={styles.footerMark} aria-hidden="true">
+						<svg viewBox="0 0 160 153" width="160" height="153" fill="none" aria-hidden="true">
+							<path
+								d="M113.322 69.3916C115.652 64.518 122.434 64.08 125.373 68.6152L156.891 117.245C158.212 119.284 158.363 121.866 157.289 124.045L145.982 146.979C144.822 149.332 142.426 150.827 139.797 150.835L86.9541 151C85.0689 151.006 83.2906 150.128 82.1514 148.63L79.791 145.526C78.7577 143.974 78.6154 141.994 79.4199 140.312L113.322 69.3916ZM91.1602 35.0996L107.854 60.3721C109.196 62.4052 109.367 64.9944 108.303 67.1855L69.6152 146.847C68.4553 149.235 66.0254 150.749 63.3643 150.739L40.0195 150.649H40.0049L10.418 150.755C8.19026 150.763 6.09554 149.699 4.79004 147.898L3.31445 145.863C1.82075 143.803 1.58179 141.091 2.69238 138.803L4.77734 134.507L4.77637 134.506L9.40039 125.032L9.40234 125.029L36.0811 70.0684L36.082 70.0674L53.1514 34.8096L53.1504 34.8086L68.6631 2.8916L91.1602 35.0996Z"
+								stroke="currentColor"
+								stroke-width="4"
+							/>
+						</svg>
+						<span>Avalon</span>
 					</div>
 					<div class={styles.footerBottom}>
-						<p>MIT License · © 2025 Avalon</p>
+						<p>MIT License</p>
+						<p>© 2026 Avalon</p>
 					</div>
 				</footer>
 				<SearchModal island={{ condition: "on:idle", persist: "search-modal" }} />

@@ -32,6 +32,10 @@ function topLevelPersistNodes(root: ParentNode): HTMLElement[] {
 	);
 }
 
+export function hasPersistedNodes(root: ParentNode): boolean {
+	return topLevelPersistNodes(root).length > 0;
+}
+
 /**
  * Detach persist nodes from `root` so a body swap does not destroy them.
  * Duplicate keys keep the first node. Nested persist nodes are ignored
@@ -72,4 +76,28 @@ export function leftoverPersisted(
 	restored: Set<string>,
 ): HTMLElement[] {
 	return [...saved].filter(([key]) => !restored.has(key)).map(([, el]) => el);
+}
+
+const VT_GEOMETRY_PROPS = [
+	"width",
+	"height",
+	"transform",
+	"translate",
+	"scale",
+	"top",
+	"left",
+	"right",
+	"bottom",
+	"inset",
+	"opacity",
+] as const;
+
+/** View Transitions can leave captured geometry on persist chrome. */
+export function clearViewTransitionGeometry(root: ParentNode): void {
+	for (const el of topLevelPersistNodes(root)) {
+		for (const prop of VT_GEOMETRY_PROPS) {
+			if (el.style.getPropertyValue(prop)) el.style.removeProperty(prop);
+		}
+		if (el.getAttribute("style") === "") el.removeAttribute("style");
+	}
 }

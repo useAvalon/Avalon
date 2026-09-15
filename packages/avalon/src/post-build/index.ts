@@ -871,7 +871,7 @@ function injectIslandDepsPreloads(cwd: string, distDir: string): void {
 /**
  * Known non-critical local stylesheet patterns that can be safely deferred.
  */
-const DEFERABLE_LOCAL_PATTERNS = [/syntax-highlight/i, /hljs/i, /prism/i, /highlight\.js/i];
+const DEFERABLE_LOCAL_PATTERNS: RegExp[] = [];
 
 /**
  * Maximum CSS size (in bytes) to inline into HTML.

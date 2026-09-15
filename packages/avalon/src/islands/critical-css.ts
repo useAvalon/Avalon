@@ -112,8 +112,8 @@ export function extractCriticalCSS(clear = true): string {
 export function deferNonCriticalStylesheets(html: string): string {
 	const linkRegex = /<link\s+([^>]*rel=["']stylesheet["'][^>]*)>/gi;
 
-	// Local stylesheet paths that are safe to defer (not needed for above-the-fold paint)
-	const deferableLocalPaths = [/syntax-highlight/i, /hljs/i, /prism/i, /highlight\.js/i];
+	// Highlight themes paint in the first viewport on docs/blog. Do not
+	// auto-defer them. Use data-defer for any other local sheet.
 
 	return html.replaceAll(linkRegex, (fullMatch, attrs: string, offset: number) => {
 		const before = html.slice(Math.max(0, offset - 32), offset).toLowerCase();
@@ -136,9 +136,8 @@ export function deferNonCriticalStylesheets(html: string): string {
 		// Determine if this stylesheet should be deferred
 		const isExternal = href.startsWith("https://") || href.startsWith("http://");
 		const isExplicitlyDeferred = /data-defer/i.test(normalizedAttrs);
-		const isDeferableLocal = !isExternal && deferableLocalPaths.some((re) => re.test(href));
 
-		if (!isExternal && !isExplicitlyDeferred && !isDeferableLocal) {
+		if (!isExternal && !isExplicitlyDeferred) {
 			return fullMatch;
 		}
 

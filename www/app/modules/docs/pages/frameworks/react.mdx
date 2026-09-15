@@ -39,7 +39,7 @@ import { useState } from 'react';
 
 ```tsx
 /** @jsxImportSource react */
-// src/islands/Counter.tsx
+// src/components/Counter.tsx
 import { useState } from 'react';
 
 export default function Counter({ initialCount = 0 }: { initialCount?: number }) {
@@ -56,7 +56,7 @@ export default function Counter({ initialCount = 0 }: { initialCount?: number })
 ## Using the island
 
 ```tsx
-import Counter from '../islands/Counter.tsx';
+import Counter from '../components/Counter.tsx';
 
 export default function Page() {
   return (

@@ -81,7 +81,7 @@
 		background 0.15s ease;
 }
 
-.mobileLink:hover {
+.mobileLink:hover:not(.mobileLinkActive) {
 	color: var(--avalon-mist);
 	background: var(--surface-1);
 }

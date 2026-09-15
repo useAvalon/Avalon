@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { extractPersisted, leftoverPersisted, persistKeyOf, restorePersisted } from "../persist.ts";
+import {
+	clearViewTransitionGeometry,
+	extractPersisted,
+	hasPersistedNodes,
+	leftoverPersisted,
+	persistKeyOf,
+	restorePersisted,
+} from "../persist.ts";
 
 interface FakeEl {
 	dataset: Record<string, string | undefined>;
@@ -9,9 +16,15 @@ interface FakeEl {
 	removed: boolean;
 	replacedWith: FakeEl | null;
 	getAttribute(name: string): string | null;
+	removeAttribute(name: string): void;
 	querySelector(selector: string): FakeEl | null;
 	querySelectorAll(selector: string): FakeEl[];
 	closest(selector: string): FakeEl | null;
+	style: {
+		props: Record<string, string>;
+		getPropertyValue(name: string): string;
+		removeProperty(name: string): void;
+	};
 	remove(): void;
 	replaceWith(node: FakeEl): void;
 }
@@ -32,6 +45,9 @@ function el(attrs: Record<string, string>, children: FakeEl[] = []): FakeEl {
 		getAttribute(name) {
 			return node.attributes[name] ?? null;
 		},
+		removeAttribute(name) {
+			delete node.attributes[name];
+		},
 		querySelector(selector) {
 			return node.querySelectorAll(selector)[0] ?? null;
 		},
@@ -45,6 +61,16 @@ function el(attrs: Record<string, string>, children: FakeEl[] = []): FakeEl {
 		},
 		closest() {
 			return null;
+		},
+		style: {
+			props: {} as Record<string, string>,
+			getPropertyValue(name) {
+				return node.style.props[name] ?? "";
+			},
+			removeProperty(name) {
+				delete node.style.props[name];
+				if (Object.keys(node.style.props).length === 0) node.attributes.style = "";
+			},
 		},
 		remove() {
 			node.removed = true;
@@ -124,6 +150,24 @@ describe("extractPersisted / restorePersisted", () => {
 		const saved = extractPersisted(rootOf([qwik]) as unknown as ParentNode);
 		expect(saved.size).toBe(0);
 		expect(qwik.removed).toBe(false);
+	});
+
+	it("strips leftover view-transition geometry from persist nodes", () => {
+		const live = el({ "data-router-persist": "theme" });
+		live.style.props.top = "80px";
+		live.style.props.transform = "translateY(12px)";
+		live.attributes.style = "top: 80px";
+		clearViewTransitionGeometry(rootOf([live]) as unknown as ParentNode);
+		expect(live.style.props.top).toBeUndefined();
+		expect(live.style.props.transform).toBeUndefined();
+		expect(live.getAttribute("style")).toBeNull();
+	});
+
+	it("reports whether a root has persist slots", () => {
+		expect(hasPersistedNodes(rootOf([]) as unknown as ParentNode)).toBe(false);
+		expect(
+			hasPersistedNodes(rootOf([el({ "data-router-persist": "theme" })]) as unknown as ParentNode),
+		).toBe(true);
 	});
 
 	it("returns leftover nodes that have no stub on the next page", () => {

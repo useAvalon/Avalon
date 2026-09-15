@@ -174,7 +174,7 @@ export const ISLAND_PROP_REFERENCE = {
 				"Skip server rendering. Avalon emits an empty <avalon-island> placeholder and mounts the component in the browser. Props are still serialized. Combines with `condition` for when to mount. Users without JavaScript do not see the component.",
 		},
 	],
-	canonicalExample: `import Counter from '../islands/Counter.tsx';
+	canonicalExample: `import Counter from '../components/Counter.tsx';
 
 export default function Page() {
   return (

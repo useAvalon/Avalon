@@ -3,6 +3,10 @@ title: Server Actions
 description: Type-safe server functions with Zod validation, callable from the client via a typed proxy.
 ---
 
+import ActionsDemo from '../../demo/components/ActionsDemo.tsx';
+import DocsLiveFrame from '../components/DocsLiveFrame.tsx';
+import styles from '../components/DocsLive.module.css';
+
 Server actions are type-safe server functions you call from the client without
 hand-writing an API route, `fetch`, or response validation. Define an action
 with `defineAction`, give it a [Zod](https://zod.dev) schema for input, and call
@@ -64,6 +68,14 @@ The proxy never throws for action failures — it always resolves to a
 `{ data, error }` result. On success `error` is `undefined`; on failure `data`
 is `undefined` and `error` is an `ActionError` with a `code`, `message`, and
 (for validation failures) `fields`.
+
+<DocsLiveFrame label="Live">
+  <ActionsDemo island={{ condition: 'on:visible' }} />
+  <form class={styles.form} method="POST" action="/_actions/subscribe">
+    <input type="email" name="email" placeholder="you@example.com" required />
+    <button type="submit">Subscribe</button>
+  </form>
+</DocsLiveFrame>
 
 ### Explicit client (no virtual module)
 

@@ -68,7 +68,7 @@ export default function HeroSpread() {
 							<span class={styles.codeText}>
 								<span class={styles.kw}>import</span> <span class={styles.cls}>{line.name}</span>{" "}
 								<span class={styles.kw}>from</span>{" "}
-								<span class={styles.str}>'../islands/{line.path}'</span>
+								<span class={styles.str}>'../components/{line.path}'</span>
 								<span>;</span>
 							</span>
 							<span class={styles.pin} style={{ ["--pin-color" as string]: line.color }}>

@@ -32,7 +32,12 @@ import {
 	headerDisablesClientNavigation,
 	htmlDisablesClientNavigation,
 } from "./opt-out.ts";
-import { extractPersisted, leftoverPersisted, restorePersisted } from "./persist.ts";
+import {
+	clearViewTransitionGeometry,
+	extractPersisted,
+	leftoverPersisted,
+	restorePersisted,
+} from "./persist.ts";
 import {
 	getCachedOrInflight,
 	installPrefetchListeners,
@@ -45,8 +50,10 @@ import {
 	parseHtmlDocument,
 	reconcileHead,
 	replaceBody,
+	replaceOutlets,
 } from "./swap.ts";
 import {
+	skipInFlightViewTransition,
 	type ViewTransitionMode,
 	viewTransitionFromDataset,
 	withViewTransition,
@@ -57,7 +64,7 @@ export { eligibleNavigationUrl, isModifiedClick } from "./eligibility.ts";
 export type { HistoryKind, NavigateOptions } from "./events.ts";
 export { ROUTER_EVENTS } from "./events.ts";
 export { prefetch } from "./prefetch.ts";
-export { reconcileHead, replaceBody } from "./swap.ts";
+export { reconcileHead, replaceBody, replaceOutlets } from "./swap.ts";
 export type { ViewTransitionMode } from "./transitions.ts";
 
 interface HistoryState {
@@ -68,6 +75,8 @@ interface HistoryState {
 let installed = false;
 let navigating = false;
 let abort: AbortController | null = null;
+let swapGeneration = 0;
+let applyChain = Promise.resolve();
 
 function currentUrl(): string {
 	return location.pathname + location.search + location.hash;
@@ -80,6 +89,12 @@ function saveScrollToHistory(): void {
 		scroll: readScroll(),
 	};
 	history.replaceState(state, "");
+}
+
+function fragmentOf(nodes: HTMLElement[]): DocumentFragment {
+	const fragment = document.createDocumentFragment();
+	for (const el of nodes) fragment.appendChild(el);
+	return fragment;
 }
 
 async function disposeUnrestored(
@@ -101,6 +116,10 @@ function commitHistory(historyKind: HistoryKind, to: string, isPop: boolean): vo
 		return;
 	}
 	history.pushState(state, "", to);
+}
+
+function resolveHistoryKind(options: NavigateOptions, isPop: boolean): HistoryKind {
+	return options.history ?? (isPop ? "auto" : "push");
 }
 
 function viewTransitionFromTrigger(
@@ -127,17 +146,63 @@ async function applyDocument(
 		throw new ClientNavigationDisabledError(to);
 	}
 
-	dispatchBeforeSwap({ from, to, newDocument: next });
-	const persisted = extractPersisted(document.body);
-	await disposeIslands(document.body);
+	const generation = ++swapGeneration;
+	skipInFlightViewTransition();
 
-	await withViewTransition(async () => {
+	let release!: () => void;
+	const previous = applyChain;
+	applyChain = new Promise<void>((resolve) => {
+		release = resolve;
+	});
+
+	try {
+		await previous;
+		if (generation !== swapGeneration) return;
+		await swapDocument(next, { from, to, historyKind, isPop, viewTransition, generation });
+	} finally {
+		release();
+	}
+}
+
+async function swapDocument(
+	next: Document,
+	ctx: {
+		from: string;
+		to: string;
+		historyKind: HistoryKind;
+		isPop: boolean;
+		viewTransition?: ViewTransitionMode;
+		generation: number;
+	},
+): Promise<void> {
+	const { from, to, historyKind, isPop, viewTransition, generation } = ctx;
+	dispatchBeforeSwap({ from, to, newDocument: next });
+	if (generation !== swapGeneration) return;
+
+	let outgoing: ParentNode | HTMLElement[] | null = null;
+	await withViewTransition(() => {
+		if (generation !== swapGeneration) return;
+		// Keep this callback synchronous. Awaiting unmounts here aborts the
+		// View Transition before the browser can animate.
 		reconcileHead(document, next);
 		copyHtmlAttributes(document, next);
-		replaceBody(document, next);
-		await disposeUnrestored(persisted, restorePersisted(document.body, persisted));
+		const replaced = replaceOutlets(document, next);
+		if (replaced) {
+			outgoing = replaced;
+		} else {
+			outgoing = document.body;
+			const persisted = extractPersisted(document.body);
+			replaceBody(document, next);
+			void disposeUnrestored(persisted, restorePersisted(document.body, persisted));
+		}
 		commitHistory(historyKind, to, isPop);
 	}, viewTransition);
+	if (generation !== swapGeneration) return;
+	if (outgoing) {
+		const root = Array.isArray(outgoing) ? fragmentOf(outgoing) : outgoing;
+		await disposeIslands(root);
+	}
+	clearViewTransitionGeometry(document.body);
 
 	dispatchAfterSwap({ from, to });
 	scanAndHydrate(document.body);
@@ -165,6 +230,7 @@ async function fetchDocument(
 	}
 
 	const response = await fetch(url, {
+		cache: "no-store",
 		headers: ROUTER_FETCH_HEADERS,
 		redirect: "follow",
 		signal,
@@ -220,7 +286,7 @@ async function runNavigation(
 		throw new ClientNavigationDisabledError(url.href);
 	}
 
-	const historyKind: HistoryKind = options.history ?? (isPop ? "auto" : "push");
+	const historyKind = resolveHistoryKind(options, isPop);
 	const from = currentUrl();
 	const to = url.pathname + url.search + url.hash;
 
@@ -237,6 +303,7 @@ async function runNavigation(
 
 	try {
 		const { doc, finalUrl } = await (loader ? loader(signal) : fetchDocument(url.href, signal));
+		if (signal.aborted) return;
 		await applyDocument(
 			doc,
 			finalUrl,
@@ -244,6 +311,7 @@ async function runNavigation(
 			isPop,
 			options.viewTransition,
 		);
+		if (signal.aborted) return;
 		applyNavigationScroll(url, isPop, options.scroll);
 	} catch (error) {
 		if (signal.aborted) return;

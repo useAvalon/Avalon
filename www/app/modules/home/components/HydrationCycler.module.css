@@ -11,7 +11,7 @@
 	padding: 6px;
 	background: var(--bp-bg);
 	border: 1px solid var(--bp-ink-10);
-	border-radius: 999px;
+	border-radius: var(--bp-r);
 	margin-bottom: 28px;
 }
 
@@ -23,7 +23,7 @@
 	padding: 11px 12px;
 	background: transparent;
 	border: none;
-	border-radius: 999px;
+	border-radius: var(--bp-r);
 	cursor: pointer;
 	color: var(--bp-ink-70);
 	transition:
@@ -78,10 +78,10 @@
 @media (max-width: 720px) {
 	.tabs {
 		grid-template-columns: 1fr 1fr;
-		border-radius: 20px;
+		border-radius: 0;
 	}
 	.tab {
-		border-radius: 14px;
+		border-radius: 0;
 	}
 }
 
@@ -93,7 +93,8 @@
 	gap: clamp(24px, 4vw, 56px);
 	align-items: center;
 	padding: clamp(24px, 3vw, 40px);
-	background: var(--bp-bg);
+	background-color: var(--bp-bg);
+	background-image: var(--pattern-dots-quiet);
 	border: 1px solid var(--bp-ink-10);
 	border-radius: var(--bp-r-xl);
 	animation: hcFade 0.35s ease;

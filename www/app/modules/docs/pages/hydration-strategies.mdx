@@ -10,6 +10,9 @@ next:
   href: /docs/file-system-routing
 ---
 
+import DelayedCounter from '../../demo/components/DelayedCounter.tsx';
+import DocsLiveFrame from '../components/DocsLiveFrame.tsx';
+
 ## Overview
 
 Avalon ships with four built-in conditions (`on:client`, `on:visible`, `on:interaction`, `on:idle`) and a `media:` condition covered in [Islands Architecture](/docs/islands-architecture). This page covers the **custom directives** that give you fine-grained control beyond those defaults.
@@ -92,6 +95,10 @@ Then use it on any island:
 ```tsx
 <MyComponent island={{ condition: 'on:countdown', conditionArg: '5' }} />
 ```
+
+<DocsLiveFrame label="on:countdown">
+  <DelayedCounter island={{ condition: 'on:countdown', conditionArg: '5' }} />
+</DocsLiveFrame>
 
 The directive's `script` function runs on the client. It receives:
 

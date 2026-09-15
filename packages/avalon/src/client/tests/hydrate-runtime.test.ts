@@ -4,6 +4,7 @@ import { disposeIslands, scanAndHydrate, setHydrationLoader } from "../hydrate-r
 interface FakeIsland {
 	dataset: Record<string, string | undefined>;
 	dispatchEvent?: () => boolean;
+	closest?: (selector: string) => Element | null;
 }
 
 function island(partial: Record<string, string | undefined> = {}): FakeIsland {
@@ -53,7 +54,7 @@ describe("disposeIslands", () => {
 		expect(b.dataset.hydrationStatus).toBeUndefined();
 	});
 
-	it("has no persist skip list — layout islands are disposed too", async () => {
+	it("skips islands inside a persist wrapper", async () => {
 		let count = 0;
 		setHydrationLoader({
 			loadIntegrationModule: async () => ({
@@ -62,9 +63,14 @@ describe("disposeIslands", () => {
 				},
 			}),
 		});
-		const header = island({ src: "/layouts/ThemeToggle.js" });
-		await disposeIslands(rootOf([header]));
+		const kept = island({ hydrated: "true" });
+		kept.closest = (selector) => (selector === "[data-router-persist]" ? ({} as Element) : null);
+		const gone = island({ hydrated: "true" });
+		gone.closest = () => null;
+		await disposeIslands(rootOf([kept, gone]));
 		expect(count).toBe(1);
+		expect(kept.dataset.hydrated).toBe("true");
+		expect(gone.dataset.hydrated).toBeUndefined();
 	});
 });
 
