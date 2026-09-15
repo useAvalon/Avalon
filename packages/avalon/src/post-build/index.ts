@@ -473,10 +473,9 @@ function copyToNetlifyPaths(cwd: string): void {
 	console.log("[netlify] Copied server function to v1 API paths");
 }
 
-function isNetlifyHandler(serverEntryPath: string): boolean {
-	if (!existsSync(serverEntryPath)) return false;
-	const code = readFileSync(serverEntryPath, "utf-8");
-	return code.includes("netlify") || code.includes("lambda");
+/** True when the built server lives under Netlify's functions tree. */
+export function isNetlifyHandler(serverEntryPath: string): boolean {
+	return serverEntryPath.split(/[/\\]/).includes(".netlify");
 }
 
 function writeFetchHandlerWrapper(modulePath: string, port: number): string {
@@ -515,10 +514,10 @@ async function prerenderIfConfigured(
 ): Promise<void> {
 	const cloudflareWorker = resolveCloudflareWorker(cwd);
 	const serverEntries = [
+		...(cloudflareWorker ? [cloudflareWorker] : []),
 		join(cwd, ".netlify", "functions-internal", "server", "server.mjs"),
 		join(cwd, ".netlify", "v1", "functions", "server", "server.mjs"),
 		join(cwd, ".output", "server", "index.mjs"),
-		...(cloudflareWorker ? [cloudflareWorker] : []),
 	];
 	const serverEntry = serverEntries.find((p) => existsSync(p));
 	if (!serverEntry) {
@@ -545,11 +544,13 @@ async function prerenderIfConfigured(
 	};
 
 	const baseUrl = `http://localhost:${port}`;
-	const netlifyMode = isNetlifyHandler(serverEntry);
 	const isCloudflareWorker = cloudflareWorker !== null && serverEntry === cloudflareWorker;
 	let actualEntry = serverEntry;
 
-	if (netlifyMode) {
+	if (isCloudflareWorker) {
+		actualEntry = writeFetchHandlerWrapper(serverEntry, port);
+		console.log("[prerender] Cloudflare worker detected — using wrapper");
+	} else if (isNetlifyHandler(serverEntry)) {
 		const mainMjsPath = join(dirname(serverEntry), "main.mjs");
 		if (!existsSync(mainMjsPath)) {
 			console.error("[prerender] Netlify handler detected but main.mjs not found");
@@ -557,9 +558,6 @@ async function prerenderIfConfigured(
 		}
 		actualEntry = writeFetchHandlerWrapper(mainMjsPath, port);
 		console.log("[prerender] Netlify handler detected — using wrapper");
-	} else if (isCloudflareWorker) {
-		actualEntry = writeFetchHandlerWrapper(serverEntry, port);
-		console.log("[prerender] Cloudflare worker detected — using wrapper");
 	}
 
 	// Patch HTML asset entries out of server manifests so SSR runs fresh
