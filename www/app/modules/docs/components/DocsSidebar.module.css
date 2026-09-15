@@ -123,12 +123,25 @@
 }
 
 @media (max-width: 768px) {
+	.wrapper {
+		position: relative;
+		z-index: 40;
+	}
 	.mobileToggle {
 		display: flex;
-		margin-bottom: var(--space-4);
 	}
 	.sidebar {
 		display: none;
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: calc(100% + var(--space-2));
+		max-height: min(70vh, 28rem);
+		overflow-y: auto;
+		padding: var(--space-3);
+		background: var(--color-bg-elevated);
+		border: 1px solid var(--surface-border);
+		box-shadow: 0 12px 40px color-mix(in srgb, var(--avalon-black) 45%, transparent);
 	}
 	.sidebarOpen {
 		display: flex;

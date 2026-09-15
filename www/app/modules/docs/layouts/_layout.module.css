@@ -388,7 +388,8 @@
 	background: transparent;
 	border: none;
 	text-decoration: none;
-	width: fit-content;
+	min-width: 0;
+	max-width: calc(50% - var(--space-2));
 }
 .prevLink:focus-visible,
 .nextLink:focus-visible {
@@ -426,20 +427,20 @@
 		grid-template-columns: 1fr;
 	}
 	.sidebarSlot {
+		position: relative;
+		z-index: 40;
 		height: auto;
 	}
 	.sidebar {
 		position: static;
 		height: auto;
+		overflow: visible;
 		border-right: none;
 		border-bottom: 1px solid var(--surface-border);
 		padding: var(--space-4);
 	}
 	.content {
 		padding: var(--space-8) var(--space-4) var(--space-16);
-	}
-	.prevNextInner {
-		flex-direction: column;
 	}
 	.tocSidebar {
 		display: none;
