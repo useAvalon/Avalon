@@ -146,7 +146,6 @@ function anchorFromEvent(event: Event): HTMLAnchorElement | null {
 }
 
 if (import.meta.hot) {
-	// @ts-expect-error Vite HMR event map is stricter than this listener.
 	import.meta.hot.on("vite:beforeUpdate", () => {
 		clearPrefetchCache();
 	});
