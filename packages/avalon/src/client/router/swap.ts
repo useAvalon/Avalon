@@ -5,6 +5,8 @@
  * Page-specific SSR `<style>` tags (`data-universal-ssr`, `data-avalon-ssr-css`,
  * hashed `style[data-avalon-css]`) are copied from the next document.
  * Framework/dev markers (`data-avalon-*`, Vite client) are kept.
+ * Runtime-injected stylesheets marked `data-router-persist` stay in head —
+ * they are not in the next SSR document (Pagefind UI, etc.).
  * Script tags in the next document are not executed — server islands are
  * booted by the shared runtime after the swap.
  */
@@ -32,7 +34,7 @@ function linkRel(link: Element): string {
 }
 
 function isHtml(el: Element): el is HTMLElement {
-	return el instanceof HTMLElement;
+	return typeof HTMLElement !== "undefined" && el instanceof HTMLElement;
 }
 
 function dataAvalonCss(el: Element): string {
@@ -40,7 +42,15 @@ function dataAvalonCss(el: Element): string {
 	return (el as HTMLElement).dataset.avalonCss ?? "";
 }
 
+function persistKey(el: Element): string | null {
+	const raw = attr(el, "data-router-persist");
+	if (raw == null) return null;
+	const key = raw.trim();
+	return key.length > 0 ? key : null;
+}
+
 function isPreservedHeadNode(el: Element): boolean {
+	if (persistKey(el)) return true;
 	if (isHtml(el) && (el.dataset.avalonCss != null || el.dataset.avalonBase != null)) return true;
 	if (el.tagName === "SCRIPT") {
 		const src = attr(el, "src") ?? "";
@@ -106,7 +116,7 @@ function collectNextLinks(next: Document): {
 }
 
 function pruneStylesheetIfStale(link: Element, nextStyles: Map<string, HTMLLinkElement>): void {
-	if (isHtml(link) && link.dataset.avalonCss != null) return;
+	if (isPreservedHeadNode(link)) return;
 	if (!nextStyles.has(stylesheetKey(link))) link.remove();
 }
 
@@ -240,6 +250,50 @@ export function attachDeclarativeShadowRoots(root: ParentNode): void {
 			// Host does not support shadow DOM
 		}
 	}
+}
+
+const OUTLET_SELECTOR = "[data-router-outlet]";
+
+export function outletKeyOf(el: HTMLElement): string | null {
+	const raw = el.dataset.routerOutlet;
+	if (raw == null) return null;
+	const key = raw.trim();
+	return key.length > 0 ? key : null;
+}
+
+function outletMap(root: ParentNode): Map<string, HTMLElement> | null {
+	const map = new Map<string, HTMLElement>();
+	for (const el of root.querySelectorAll<HTMLElement>(OUTLET_SELECTOR)) {
+		const key = outletKeyOf(el);
+		if (!key || map.has(key)) return null;
+		map.set(key, el);
+	}
+	return map.size > 0 ? map : null;
+}
+
+/**
+ * Swap `[data-router-outlet]` regions when both documents share the same keys.
+ * Shared chrome (sidebar, header) stays in place so view transitions can
+ * crossfade only the page. Returns the detached outgoing nodes, or `null`
+ * when a full body replace is required.
+ */
+export function replaceOutlets(current: Document, next: Document): HTMLElement[] | null {
+	const from = outletMap(current);
+	const to = outletMap(next.body);
+	if (!from || !to || from.size !== to.size) return null;
+	for (const key of from.keys()) {
+		if (!to.has(key)) return null;
+	}
+
+	const outgoing: HTMLElement[] = [];
+	for (const [key, live] of from) {
+		const incoming = to.get(key);
+		if (!incoming) return null;
+		outgoing.push(live);
+		live.replaceWith(current.adoptNode(incoming));
+	}
+	attachDeclarativeShadowRoots(current.body);
+	return outgoing;
 }
 
 export function replaceBody(current: Document, next: Document): void {

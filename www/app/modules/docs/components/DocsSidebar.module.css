@@ -9,12 +9,12 @@
 	padding: var(--space-2) var(--space-4);
 	background: var(--surface-1);
 	border: 1px solid var(--surface-border);
-	border-radius: var(--radius-md);
+	border-radius: 0;
 	color: var(--color-text);
 	font-size: var(--text-small);
 	font-weight: 500;
 	cursor: pointer;
-	margin-bottom: var(--space-4);
+	margin-bottom: 0;
 	font-family: var(--font-sans);
 }
 .mobileToggle:focus-visible {
@@ -45,7 +45,7 @@
 	cursor: pointer;
 	width: 100%;
 	text-align: left;
-	border-radius: var(--radius-sm);
+	border-radius: 0;
 	transition: background 0.15s ease;
 	font-family: var(--font-sans);
 }
@@ -88,22 +88,28 @@
 
 .item {
 	display: block;
-	padding: var(--space-2) var(--space-3);
+	padding: 6px 10px;
 	font-size: var(--text-small);
 	color: var(--color-text-secondary);
 	text-decoration: none;
-	border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+	border-radius: 0;
 	border-left: 2px solid transparent;
 	margin-left: -1px;
+	z-index: 0;
 	transition:
 		color 0.15s ease,
 		border-color 0.15s ease,
 		background 0.15s ease;
 }
-.item:hover {
-	color: var(--color-text);
-	background: var(--surface-1);
+
+.itemIdle {
+	composes: item from "../../../shared/styles/bracket-hover.module.css";
 }
+
+.item:hover:not(.itemActive) {
+	color: var(--color-text);
+}
+
 .item:focus-visible {
 	outline: 2px solid var(--avalon-blue);
 	outline-offset: 3px;
@@ -112,18 +118,30 @@
 .itemActive {
 	color: var(--avalon-blue);
 	border-left-color: var(--avalon-blue);
-	background: rgba(31, 106, 211, 0.08);
-}
-.itemActive:hover {
-	color: var(--avalon-blue);
+	background: color-mix(in srgb, var(--avalon-blue) 10%, transparent);
+	pointer-events: none;
 }
 
 @media (max-width: 768px) {
+	.wrapper {
+		position: relative;
+		z-index: 40;
+	}
 	.mobileToggle {
 		display: flex;
 	}
 	.sidebar {
 		display: none;
+		position: absolute;
+		left: 0;
+		right: 0;
+		top: calc(100% + var(--space-2));
+		max-height: min(70vh, 28rem);
+		overflow-y: auto;
+		padding: var(--space-3);
+		background: var(--color-bg-elevated);
+		border: 1px solid var(--surface-border);
+		box-shadow: 0 12px 40px color-mix(in srgb, var(--avalon-black) 45%, transparent);
 	}
 	.sidebarOpen {
 		display: flex;

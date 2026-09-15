@@ -35,6 +35,7 @@ const QwikCounter = component$(() => {
 
 	return (
 		<div
+			class="counter-card"
 			style={{
 				borderRadius: "12px",
 				overflow: "hidden",
@@ -48,6 +49,7 @@ const QwikCounter = component$(() => {
 			}}
 		>
 			<div
+				class="header"
 				style={{
 					padding: "0.75rem 1rem",
 					borderBottom: "1px solid rgba(172, 127, 244, 0.15)",
@@ -80,18 +82,20 @@ const QwikCounter = component$(() => {
 				</span>
 			</div>
 
-			<div style={{ padding: "1.5rem", textAlign: "center", flex: "1" }}>
+			<div class="content" style={{ padding: "1.5rem", textAlign: "center", flex: "1" }}>
 				<h3 style={{ margin: "0 0 0.25rem", color: "#ac7ff4", fontSize: "1rem" }}>Qwik Counter</h3>
-				<p style={{ margin: "0 0 1rem", fontSize: "0.75rem", opacity: 0.6 }}>
-					No hydration — resumes instantly
+				<p class="subtitle" style={{ margin: "0 0 1rem", fontSize: "0.75rem", opacity: 0.6 }}>
+					No hydration. Resumes instantly.
 				</p>
 				<div
+					class="count"
 					style={{ fontSize: "2.5rem", fontWeight: 700, margin: "1rem 0", fontFamily: "monospace" }}
 				>
 					{count.value}
 				</div>
 				<div style={{ display: "flex", gap: "0.75rem", justifyContent: "center" }}>
 					<button
+						class="btn"
 						onClick$={() => count.value--}
 						style={{
 							padding: "0.5rem 1.25rem",
@@ -106,6 +110,7 @@ const QwikCounter = component$(() => {
 						−
 					</button>
 					<button
+						class="btn"
 						onClick$={() => count.value++}
 						style={{
 							padding: "0.5rem 1.25rem",
@@ -123,6 +128,7 @@ const QwikCounter = component$(() => {
 			</div>
 
 			<div
+				class="network-panel"
 				style={{
 					borderTop: "1px solid rgba(172, 127, 244, 0.15)",
 					background: "rgba(0, 0, 0, 0.3)",
@@ -131,6 +137,7 @@ const QwikCounter = component$(() => {
 				}}
 			>
 				<div
+					class="network-header"
 					style={{
 						display: "flex",
 						alignItems: "center",
@@ -153,7 +160,7 @@ const QwikCounter = component$(() => {
 						JS
 					</span>
 				</div>
-				<div style={{ padding: "0.5rem 0.75rem", minHeight: "32px" }}>
+				<div class="network-body" style={{ padding: "0.5rem 0.75rem", minHeight: "32px" }}>
 					<div
 						style={{
 							display: "grid",

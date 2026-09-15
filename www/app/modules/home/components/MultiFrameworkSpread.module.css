@@ -96,7 +96,7 @@
 	color: var(--bp-ink-50);
 	padding: 2px 8px;
 	background: var(--bp-ink-05);
-	border-radius: 999px;
+	border-radius: 0;
 }
 
 .itemActive .itemTag {

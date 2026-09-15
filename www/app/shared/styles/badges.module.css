@@ -4,7 +4,7 @@
 	gap: var(--space-2);
 	background: var(--surface-1);
 	border: 1px solid var(--surface-border);
-	border-radius: var(--radius-pill);
+	border-radius: 0;
 	padding: var(--space-2) var(--space-4);
 	font-size: var(--text-caption);
 	color: var(--color-text-secondary);

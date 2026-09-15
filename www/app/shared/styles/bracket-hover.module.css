@@ -1,0 +1,68 @@
+/* Corner-bracket + hatch hover for lists. Compose onto a link or row. */
+
+.item {
+	position: relative;
+	isolation: isolate;
+}
+
+.item::before,
+.item::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.15s ease;
+}
+
+.item::before {
+	z-index: -1;
+	background-color: var(--color-bg);
+	background-image: var(--pattern-hatch);
+}
+
+.item::after {
+	z-index: 1;
+	background-image:
+		linear-gradient(var(--color-text-heading), var(--color-text-heading)),
+		linear-gradient(var(--color-text-heading), var(--color-text-heading)),
+		linear-gradient(var(--color-text-heading), var(--color-text-heading)),
+		linear-gradient(var(--color-text-heading), var(--color-text-heading)),
+		linear-gradient(var(--color-text-heading), var(--color-text-heading)),
+		linear-gradient(var(--color-text-heading), var(--color-text-heading)),
+		linear-gradient(var(--color-text-heading), var(--color-text-heading)),
+		linear-gradient(var(--color-text-heading), var(--color-text-heading));
+	background-repeat: no-repeat;
+	background-size:
+		7px 1px,
+		1px 7px,
+		7px 1px,
+		1px 7px,
+		7px 1px,
+		1px 7px,
+		7px 1px,
+		1px 7px;
+	background-position:
+		top left,
+		top left,
+		top right,
+		top right,
+		bottom left,
+		bottom left,
+		bottom right,
+		bottom right;
+}
+
+.item:hover::before,
+.item:hover::after,
+.item:focus-visible::before,
+.item:focus-visible::after {
+	opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.item::before,
+	.item::after {
+		transition: none;
+	}
+}

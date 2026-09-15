@@ -77,23 +77,76 @@ function firstExisting(candidates: string[]): string | null {
 	return null;
 }
 
-/** Resolve a relative or root-absolute specifier to an existing file. */
-export function resolveProjectImport(fromFile: string, spec: string, cwd: string): string | null {
-	const bare = spec.split("?")[0].split("#")[0];
-	if (!bare) return null;
-	if (/^(https?:|data:|virtual:)/i.test(bare)) return null;
-	if (bare.startsWith("\0")) return null;
-	if (!(bare.startsWith(".") || bare.startsWith("/"))) return null;
+export interface CssGraphAlias {
+	find: string | RegExp;
+	replacement: string;
+}
 
-	const base = bare.startsWith("/") ? join(cwd, bare.slice(1)) : resolve(dirname(fromFile), bare);
+/** Same fallbacks as `mdx-island-transform` so MDX `import X from '@shared/…'` reaches CSS. */
+export function defaultCssGraphAliases(cwd: string): CssGraphAlias[] {
+	return [
+		{ find: "@shared", replacement: join(cwd, "app/shared") },
+		{ find: "@modules", replacement: join(cwd, "app/modules") },
+		{ find: "@/", replacement: `${join(cwd, "app")}/` },
+		{ find: "$islands", replacement: join(cwd, "src/islands") },
+		{ find: "$components", replacement: join(cwd, "src/components") },
+		{ find: "~/", replacement: `${join(cwd, "src")}/` },
+	];
+}
+
+function applyStringAlias(spec: string, find: string, replacement: string): string | null {
+	if (spec === find) return replacement;
+	const prefix = find.endsWith("/") ? find : `${find}/`;
+	if (!spec.startsWith(prefix)) return null;
+	const rest = spec.slice(prefix.length);
+	if (replacement.endsWith("/")) return `${replacement}${rest}`;
+	return rest ? `${replacement}/${rest}` : replacement;
+}
+
+function resolveAliasedSpec(spec: string, aliases: CssGraphAlias[]): string | null {
+	for (const alias of aliases) {
+		const find = alias.find;
+		if (typeof find === "string") {
+			const mapped = applyStringAlias(spec, find, alias.replacement);
+			if (mapped) return mapped;
+			continue;
+		}
+		if (find.test(spec)) {
+			return spec.replace(find, alias.replacement);
+		}
+	}
+	return null;
+}
+
+function resolveExistingFile(base: string): string | null {
 	const direct = tryFile(base);
 	if (direct) return direct;
-	if (extname(base)) return null;
-
+	if (extname(base.split("?")[0])) return null;
 	return firstExisting([
 		...FOLLOW_EXTENSIONS.map((ext) => base + ext),
 		...INDEX_NAMES.map((name) => join(base, name)),
 	]);
+}
+
+/** Resolve a relative, root-absolute, or aliased specifier to an existing file. */
+export function resolveProjectImport(
+	fromFile: string,
+	spec: string,
+	cwd: string,
+	aliases: CssGraphAlias[] = [],
+): string | null {
+	const bare = spec.split("?")[0].split("#")[0];
+	if (!bare) return null;
+	if (/^(https?:|data:|virtual:)/i.test(bare)) return null;
+	if (bare.startsWith("\0")) return null;
+
+	const aliased = resolveAliasedSpec(bare, [...aliases, ...defaultCssGraphAliases(cwd)]);
+	if (aliased) return resolveExistingFile(aliased);
+
+	if (!(bare.startsWith(".") || bare.startsWith("/"))) return null;
+
+	const base = bare.startsWith("/") ? join(cwd, bare.slice(1)) : resolve(dirname(fromFile), bare);
+	return resolveExistingFile(base);
 }
 
 function captureGroups(source: string, re: RegExp): string[] {
@@ -125,7 +178,11 @@ function readText(file: string): string | null {
  * Collect `/`-rooted CSS hrefs reachable from `entryFile` via static imports
  * and CSS `@import`. Skips `node_modules`.
  */
-export function collectCssHrefsFromEntry(entryFile: string, cwd: string): string[] {
+export function collectCssHrefsFromEntry(
+	entryFile: string,
+	cwd: string,
+	aliases: CssGraphAlias[] = [],
+): string[] {
 	const hrefs: string[] = [];
 	const visited = new Set<string>();
 	const queue = [resolve(entryFile)];
@@ -142,8 +199,10 @@ export function collectCssHrefsFromEntry(entryFile: string, cwd: string): string
 		if (css) hrefs.push(toHref(cwd, file));
 
 		for (const spec of specifiersInSource(source, css)) {
-			const resolved = resolveProjectImport(file, spec, cwd);
-			if (resolved && !visited.has(resolved)) queue.push(resolved);
+			const resolved = resolveProjectImport(file, spec, cwd, aliases);
+			if (resolved && !visited.has(resolved) && !isNodeModules(resolved)) {
+				queue.push(resolved);
+			}
 		}
 	}
 
@@ -185,8 +244,9 @@ function hrefsForRoute(
 	cwd: string,
 	globalHrefs: string[],
 	layoutHrefs: Array<LayoutCssEntry & { hrefs: string[] }>,
+	aliases: CssGraphAlias[],
 ): DevCssRouteEntry {
-	const pageHrefs = collectCssHrefsFromEntry(route.filePath, cwd);
+	const pageHrefs = collectCssHrefsFromEntry(route.filePath, cwd, aliases);
 	const matching = layoutHrefs.filter((l) => layoutMatchesPath(route.pattern, l.prefix));
 	const skipRoot = matching.some((l) => !l.isRoot && l.skipRoot);
 	const layoutCss = matching.filter((l) => !(l.isRoot && skipRoot)).flatMap((l) => l.hrefs);
@@ -205,12 +265,14 @@ export function buildDevCssRouteTable(options: {
 	routes: Array<{ pattern: string; filePath: string }>;
 	layouts: LayoutCssEntry[];
 	globalCSS: string[];
+	aliases?: CssGraphAlias[];
 }): DevCssRouteTable {
+	const aliases = options.aliases ?? [];
 	const globalHrefs = collectGlobalCssHrefs(options.cwd, options.globalCSS);
 
 	const layoutHrefs = options.layouts.map((layout) => ({
 		...layout,
-		hrefs: collectCssHrefsFromEntry(layout.filePath, options.cwd),
+		hrefs: collectCssHrefsFromEntry(layout.filePath, options.cwd, aliases),
 	}));
 
 	const rootHrefs = merge(...layoutHrefs.filter((l) => l.isRoot).map((l) => l.hrefs));
@@ -219,7 +281,7 @@ export function buildDevCssRouteTable(options: {
 		globalHrefs,
 		fallbackHrefs: merge(globalHrefs, rootHrefs),
 		routes: options.routes.map((route) =>
-			hrefsForRoute(route, options.cwd, globalHrefs, layoutHrefs),
+			hrefsForRoute(route, options.cwd, globalHrefs, layoutHrefs, aliases),
 		),
 	};
 }

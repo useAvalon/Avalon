@@ -100,6 +100,7 @@ async function fetchAndCache(url: URL, signal?: AbortSignal): Promise<PrefetchCa
 	const request = (async () => {
 		try {
 			const response = await fetch(url.href, {
+				cache: "no-store",
 				headers: ROUTER_FETCH_HEADERS,
 				redirect: "follow",
 				signal,
@@ -142,6 +143,13 @@ function anchorFromEvent(event: Event): HTMLAnchorElement | null {
 	if (!(target instanceof Element)) return null;
 	const anchor = target.closest("a");
 	return anchor instanceof HTMLAnchorElement ? anchor : null;
+}
+
+if (import.meta.hot) {
+	// @ts-expect-error Vite HMR event map is stricter than this listener.
+	import.meta.hot.on("vite:beforeUpdate", () => {
+		clearPrefetchCache();
+	});
 }
 
 export function installPrefetchListeners(

@@ -5,7 +5,7 @@
 	color: var(--color-text, #e2e8f0);
 	font-family: var(--font-sans);
 	min-height: 100vh;
-	padding-top: 60px;
+	padding-top: var(--nav-height);
 }
 
 /* Landing page nav — transparent over hero */
@@ -15,7 +15,7 @@
 	left: 0;
 	right: 0;
 	z-index: 100;
-	height: 60px;
+	height: var(--nav-height);
 	display: flex;
 	align-items: center;
 	padding: 0 var(--space-6);
@@ -82,7 +82,7 @@
 	padding: 6px 10px;
 	font-size: var(--text-small);
 	font-weight: 500;
-	border-radius: var(--radius-md);
+	border-radius: 0;
 	transition:
 		color 0.15s ease,
 		background 0.15s ease;
@@ -112,7 +112,7 @@
 	padding: 6px 12px;
 	background: var(--surface-1);
 	border: 1px solid var(--surface-border);
-	border-radius: var(--radius-md);
+	border-radius: 0;
 	color: var(--color-text-muted);
 	font-size: var(--text-small);
 	font-family: var(--font-sans);
@@ -146,7 +146,7 @@
 	padding: 1px 5px;
 	background: var(--surface-1);
 	border: 1px solid var(--surface-border);
-	border-radius: 4px;
+	border-radius: 0;
 	color: var(--color-text-muted);
 }
 
@@ -159,7 +159,7 @@
 	padding: 6px 12px;
 	font-size: var(--text-small);
 	font-weight: 500;
-	border-radius: var(--radius-md);
+	border-radius: 0;
 	border: 1px solid var(--surface-border);
 	background: var(--surface-1);
 	transition:
@@ -200,38 +200,19 @@
 
 .footer {
 	border-top: 1px solid var(--surface-border);
-	padding: var(--space-16) var(--space-6) var(--space-8);
+	padding: var(--space-16) var(--space-8) var(--space-8);
 	font-size: var(--text-small);
 	color: var(--color-text-secondary);
-	background: var(--color-bg-elevated);
-}
-
-.footerInner {
-	max-width: 1240px;
-	margin: 0 auto;
-	display: grid;
-	grid-template-columns: 1fr 2fr;
-	gap: var(--space-12);
-}
-
-.footerBrand {
-	display: flex;
-	align-items: center;
-	gap: var(--space-2);
-	font-size: 15px;
-	font-weight: 700;
-	color: var(--color-text-heading);
-}
-
-.footerLogo {
-	height: 20px;
-	width: auto;
+	background-color: var(--color-bg);
+	overflow-x: hidden;
 }
 
 .footerCols {
+	max-width: 1240px;
+	margin: 0 auto;
 	display: grid;
-	grid-template-columns: repeat(3, 1fr);
-	gap: var(--space-8);
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: var(--space-12);
 }
 
 .footerCols div {
@@ -241,39 +222,79 @@
 }
 
 .footerColTitle {
-	font-size: var(--text-caption);
-	font-weight: 600;
-	text-transform: uppercase;
-	letter-spacing: 0.05em;
-	color: var(--color-text-muted);
-	margin-bottom: var(--space-2);
+	font-family: var(--font-sans);
+	font-size: 15px;
+	font-weight: 500;
+	color: var(--color-text-heading);
+	margin: 0 0 var(--space-4);
 }
 
-.footerCols a {
+.footerLink {
+	composes: item from "../styles/bracket-hover.module.css";
 	color: var(--color-text-secondary);
 	text-decoration: none;
-	transition: color 0.15s;
+	width: fit-content;
+	padding: 3px 6px;
+	margin-left: -6px;
+	border-radius: var(--radius-sm);
 }
 
-.footerCols a:hover {
-	color: var(--color-text);
+.footerLink:hover {
+	color: var(--color-text-heading);
+}
+
+.footerMark {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.1em;
+	width: 100%;
+	margin: var(--space-16) 0 var(--space-8);
+	overflow: visible;
+	user-select: none;
+	pointer-events: none;
+	font-size: calc((100vw - 4rem) / 5.15);
+	color: var(--avalon-blue);
+}
+
+.footerMark svg {
+	display: block;
+	height: 0.78em;
+	width: auto;
+	flex-shrink: 0;
+	overflow: visible;
+}
+
+.footerMark span {
+	display: block;
+	font-family: var(--font-sans);
+	font-weight: 600;
+	font-size: 1em;
+	line-height: 0.9;
+	letter-spacing: -0.04em;
+	white-space: nowrap;
+	color: var(--color-bg);
+	-webkit-text-stroke: 0.02em var(--avalon-blue);
+	paint-order: stroke fill;
 }
 
 .footerBottom {
 	max-width: 1240px;
-	margin: var(--space-12) auto 0;
+	margin: var(--space-8) auto 0;
 	padding-top: var(--space-6);
 	border-top: 1px solid var(--surface-border);
 	color: var(--color-text-muted);
 	font-size: var(--text-caption);
+	display: flex;
+	justify-content: space-between;
+	gap: var(--space-4);
 }
 
-@media (max-width: 768px) {
-	.footerInner {
-		grid-template-columns: 1fr;
-		gap: var(--space-8);
-	}
+.footerBottom p {
+	margin: 0;
+}
 
+@media (max-width: 860px) {
 	.footerCols {
 		grid-template-columns: 1fr 1fr;
 	}

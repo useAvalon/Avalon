@@ -334,11 +334,14 @@ export function scanAndHydrate(root: ParentNode = document): void {
 }
 
 /**
- * Dispose every island under `root`: observers, idle timers, and framework roots.
- * No skip list — the client router extracts persist nodes *before* calling this.
+ * Dispose islands under `root`: observers, idle timers, and framework roots.
+ * Nodes inside `[data-router-persist]` stay mounted so persist chrome can
+ * remain in the old view-transition snapshot.
  */
 export async function disposeIslands(root: ParentNode = document): Promise<void> {
-	const islands = [...root.querySelectorAll<HTMLElement>("[data-framework]")];
+	const islands = [...root.querySelectorAll<HTMLElement>("[data-framework]")].filter(
+		(el) => !el.closest?.("[data-router-persist]"),
+	);
 	const loader = islands.length > 0 ? await getLoader() : null;
 
 	for (const island of islands) {

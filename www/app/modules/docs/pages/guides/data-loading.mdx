@@ -3,6 +3,9 @@ title: Data Loading
 description: Fetching data in layouts and pages during server-side rendering.
 ---
 
+import DocsLiveFrame from '../../components/DocsLiveFrame.tsx';
+import PostsLive from '../../components/PostsLive.tsx';
+
 Avalon pages and layouts are async server components. You can fetch data directly in the component function — no special loader API needed.
 
 ## Fetching in pages
@@ -26,6 +29,10 @@ export default async function BlogIndex() {
 ```
 
 This runs entirely on the server. The client receives pure HTML with zero JavaScript.
+
+<DocsLiveFrame label="Fetched on the server">
+  <PostsLive />
+</DocsLiveFrame>
 
 ## Fetching in layouts
 

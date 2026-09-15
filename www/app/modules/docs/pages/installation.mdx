@@ -10,10 +10,14 @@ next:
   href: /docs/quick-start
 ---
 
+import DocsSteps from '../components/DocsSteps.tsx';
+
 ## Requirements
 
 - [Bun](https://bun.sh) 1.0 or later
 - Node.js 18+ (if not using Bun)
+
+<DocsSteps>
 
 ## Create a new project
 
@@ -35,12 +39,16 @@ bun run dev
 
 Your site is now running at `http://localhost:3000`.
 
+</DocsSteps>
+
 ## Project structure
+
+<div class="docs-block">
 
 ```
 my-app/
 ├── src/
-│   ├── islands/        # Interactive components (hydrated on client)
+│   ├── components/     # UI, including islands
 │   ├── layouts/        # Layout wrappers
 │   └── pages/          # File-system routes
 ├── public/             # Static assets
@@ -49,16 +57,22 @@ my-app/
 └── vite.config.ts
 ```
 
+</div>
+
 ## Manual installation
 
-If you prefer to set up manually, install the core package:
+If you prefer to set up manually:
+
+<DocsSteps>
+
+### Install the core package
 
 ```bash
 bun add @useavalon/avalon
 bun add -d vite nitro
 ```
 
-Then create a `vite.config.ts`:
+### Create a Vite config
 
 ```ts
 import { defineConfig } from 'vite';
@@ -72,3 +86,5 @@ export default defineConfig(async () => {
   return { plugins };
 });
 ```
+
+</DocsSteps>

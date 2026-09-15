@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
 	attachDeclarativeShadowRoots,
 	isHtmlResponse,
+	outletKeyOf,
 	reconcileHead,
 	replaceBody,
+	replaceOutlets,
 } from "../swap.ts";
 
 describe("isHtmlResponse", () => {
@@ -134,6 +136,83 @@ describe("reconcileHead style tags", () => {
 	});
 });
 
+class FakeLink {
+	tagName = "LINK";
+	href: string;
+	private attrs: Record<string, string>;
+	private owner: FakeLinkHead | null = null;
+
+	constructor(attrs: Record<string, string>) {
+		this.attrs = { ...attrs };
+		this.href = attrs.href ?? "";
+	}
+
+	getAttribute(name: string): string | null {
+		return this.attrs[name] ?? null;
+	}
+
+	attach(owner: FakeLinkHead): this {
+		this.owner = owner;
+		return this;
+	}
+
+	remove(): void {
+		this.owner?.detach(this);
+	}
+}
+
+class FakeLinkHead {
+	links: FakeLink[] = [];
+
+	querySelectorAll(selector: string): FakeLink[] {
+		if (selector === "meta") return [];
+		if (selector === "link" || selector === 'link[rel="stylesheet"]') return this.links;
+		return [];
+	}
+
+	appendChild(el: FakeLink): FakeLink {
+		el.attach(this);
+		this.links.push(el);
+		return el;
+	}
+
+	detach(el: FakeLink): void {
+		this.links = this.links.filter((link) => link !== el);
+	}
+}
+
+function fakeLinkDoc(links: FakeLink[] = []) {
+	const head = new FakeLinkHead();
+	for (const link of links) {
+		head.appendChild(link);
+	}
+	return {
+		title: "",
+		head,
+		importNode: (el: FakeLink) => el,
+	} as unknown as Document;
+}
+
+describe("reconcileHead stylesheets", () => {
+	it("keeps runtime stylesheets marked data-router-persist", () => {
+		const persisted = new FakeLink({
+			rel: "stylesheet",
+			href: "/pagefind/pagefind-component-ui.css",
+			"data-router-persist": "pagefind-ui",
+		});
+		const stale = new FakeLink({ rel: "stylesheet", href: "/old-page.css" });
+		const current = fakeLinkDoc([persisted, stale]);
+		const next = fakeLinkDoc([new FakeLink({ rel: "stylesheet", href: "/next.css" })]);
+
+		reconcileHead(current, next);
+
+		const hrefs = (current.head as unknown as FakeLinkHead).links.map((link) => link.href);
+		expect(hrefs).toContain("/pagefind/pagefind-component-ui.css");
+		expect(hrefs).toContain("/next.css");
+		expect(hrefs).not.toContain("/old-page.css");
+	});
+});
+
 describe("replaceBody", () => {
 	it("adopts the next body instead of cloning it", () => {
 		const nextBody = { nodeName: "BODY" };
@@ -219,5 +298,62 @@ describe("attachDeclarativeShadowRoots", () => {
 		} as unknown as ParentNode);
 
 		expect(template.removed).toBe(true);
+	});
+});
+
+describe("replaceOutlets", () => {
+	interface FakeOutlet {
+		dataset: { routerOutlet?: string };
+		replacedWith: FakeOutlet | null;
+		replaceWith(node: FakeOutlet): void;
+	}
+
+	function outlet(key?: string): FakeOutlet {
+		const node: FakeOutlet = {
+			dataset: key ? { routerOutlet: key } : {},
+			replacedWith: null,
+			replaceWith(next) {
+				node.replacedWith = next;
+			},
+		};
+		return node;
+	}
+
+	function doc(nodes: FakeOutlet[]): Document {
+		return {
+			body: {
+				querySelectorAll: (selector: string) =>
+					selector === "[data-router-outlet]" ? nodes.filter((n) => n.dataset.routerOutlet) : [],
+			},
+			querySelectorAll: (selector: string) =>
+				selector === "[data-router-outlet]" ? nodes.filter((n) => n.dataset.routerOutlet) : [],
+			adoptNode: (node: FakeOutlet) => node,
+		} as unknown as Document;
+	}
+
+	it("reads a trimmed outlet key", () => {
+		expect(outletKeyOf({ dataset: { routerOutlet: "docs-page" } } as HTMLElement)).toBe(
+			"docs-page",
+		);
+		expect(outletKeyOf({ dataset: { routerOutlet: "  " } } as HTMLElement)).toBeNull();
+	});
+
+	it("swaps matching outlets", () => {
+		const livePage = outlet("docs-page");
+		const liveToc = outlet("docs-toc");
+		const nextPage = outlet("docs-page");
+		const nextToc = outlet("docs-toc");
+		expect(replaceOutlets(doc([livePage, liveToc]), doc([nextPage, nextToc]))).toEqual([
+			livePage,
+			liveToc,
+		]);
+		expect(livePage.replacedWith).toBe(nextPage);
+		expect(liveToc.replacedWith).toBe(nextToc);
+	});
+
+	it("falls back when outlet keys do not match", () => {
+		const live = outlet("docs-page");
+		expect(replaceOutlets(doc([live]), doc([outlet()]))).toBeNull();
+		expect(live.replacedWith).toBeNull();
 	});
 });

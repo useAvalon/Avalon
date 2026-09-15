@@ -8,18 +8,47 @@
 }
 
 .tocLabel {
-	font-size: var(--text-caption);
+	font-size: var(--text-small);
 	font-weight: 600;
-	color: var(--color-text);
-	letter-spacing: 0.04em;
-	margin-bottom: var(--space-3);
+	color: var(--color-text-heading);
+	margin: 0 0 var(--space-4);
+}
+
+.tocTrack {
+	position: relative;
+	border-left: 1px solid var(--surface-border);
+}
+
+.tocThumb {
+	position: absolute;
+	left: -1px;
+	top: 0;
+	width: 2px;
+	background: var(--avalon-blue);
+	transition:
+		transform 0.22s ease,
+		height 0.22s ease;
+	pointer-events: none;
 }
 
 .tocList {
 	list-style: none;
 	padding: 0;
 	margin: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.tocKids {
+	list-style: none;
+	position: relative;
+	margin: 2px 0 8px 12px;
+	padding: 4px 0 2px 14px;
 	border-left: 1px solid var(--surface-border);
+	display: flex;
+	flex-direction: column;
+	transform-origin: top left;
+	animation: tocBranch 0.28s ease;
 }
 
 .tocLink {
@@ -28,23 +57,78 @@
 	font-size: var(--text-small);
 	color: var(--color-text-muted);
 	text-decoration: none;
-	line-height: 1.5;
-	transition: color 0.15s ease;
-	border-left: 2px solid transparent;
-	margin-left: -1px;
+	line-height: 1.45;
+	transition:
+		color 0.2s ease,
+		transform 0.2s ease;
 }
 
-.tocLink:hover {
+.tocLink:hover:not(.tocLinkActive) {
 	color: var(--color-text);
+}
+
+.tocLinkOpen {
+	color: var(--color-text-heading);
 }
 
 .tocLinkActive {
 	color: var(--avalon-blue);
-	border-left-color: var(--avalon-blue);
 }
 
 .tocLinkNested {
-	padding-left: 24px;
+	position: relative;
+	padding-left: 16px;
+}
+
+.tocLinkNested::after {
+	content: "";
+	position: absolute;
+	left: -4px;
+	/* Center on the first line, not the padded box. */
+	top: calc(4px + (1.45em - 7px) / 2);
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--color-bg);
+	border: 1px solid var(--surface-border);
+	transform-origin: center;
+	transition:
+		background 0.2s ease,
+		border-color 0.2s ease,
+		transform 0.2s ease;
+}
+
+.tocLinkNested:hover:not(.tocLinkActive)::after {
+	border-color: var(--color-text);
+}
+
+.tocLinkNested.tocLinkActive::after {
+	background: var(--avalon-blue);
+	border-color: var(--avalon-blue);
+	transform: scale(1.15);
+}
+
+@keyframes tocBranch {
+	from {
+		opacity: 0;
+		transform: translateY(-4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.tocThumb,
+	.tocLink,
+	.tocLinkNested::after {
+		transition: none;
+	}
+
+	.tocKids {
+		animation: none;
+	}
 }
 
 @media (max-width: 1100px) {

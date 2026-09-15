@@ -15,8 +15,7 @@ export const metadata = {
 /* ============================================================================
    Avalon — landing
    Editorial pace. Real code, real names, real numbers.
-   One ambient motion (hero label fade-in), one interactive (hydration cycler).
-   Everything else holds still.
+   One interactive motion (hydration cycler). Everything else holds still.
    ============================================================================ */
 
 export default async function HomePage() {
@@ -25,7 +24,6 @@ export default async function HomePage() {
 			{/* ─── HERO ─── */}
 			<section class={styles.hero}>
 				<div class={styles.heroCopy}>
-					<p class={styles.kicker}>Islands architecture · Preact-native SSR</p>
 					<h1 class={styles.heroTitle}>
 						The full-stack <em>islands</em> framework.
 					</h1>
@@ -49,7 +47,6 @@ export default async function HomePage() {
 
 			{/* ─── 01 · ARCHITECTURE ─── */}
 			<section class={styles.section}>
-				<p class={styles.sectionLabel}>01 · Architecture</p>
 				<div class={styles.editorialRow}>
 					<div class={styles.editorialCopy}>
 						<h2 class={styles.sectionTitle}>
@@ -69,7 +66,6 @@ export default async function HomePage() {
 
 			{/* ─── 02 · PERFORMANCE ─── */}
 			<section class={`${styles.section} ${styles.sectionAlt}`}>
-				<p class={styles.sectionLabel}>02 · Performance</p>
 				<h2 class={styles.sectionTitle}>Optimized for Core Web Vitals.</h2>
 				<p class={styles.sectionBody}>
 					Avalon's architecture is designed around the metrics that matter.
@@ -108,13 +104,12 @@ export default async function HomePage() {
 
 			{/* ─── 03 · INTEROPERABILITY ─── */}
 			<section class={`${styles.section} ${styles.sectionAlt}`}>
-				<p class={styles.sectionLabel}>03 · Interoperability</p>
 				<h2 class={styles.sectionTitleWide}>
-					Use any supported framework, <em>side by side.</em>
+					React and Vue on the <em>same route.</em>
 				</h2>
 				<p class={styles.sectionBodyWide}>
-					Every island compiles through its own framework's renderer and ships as an independent
-					client chunk. A page using three frameworks ships three small runtimes — not the union.
+					Each island compiles through its own renderer and ships as its own chunk. Three frameworks
+					on a page is three runtimes, not the union.
 				</p>
 				<div class={styles.sectionFigureWide}>
 					<MultiFrameworkSpread island={{ condition: "on:visible" }} />
@@ -123,34 +118,36 @@ export default async function HomePage() {
 
 			{/* ─── 03 · PARTIAL HYDRATION ─── */}
 			<section class={`${styles.section} ${styles.sectionAlt}`}>
-				<p class={styles.sectionLabel}>04 · Partial hydration</p>
 				<h2 class={styles.sectionTitle}>Hydrate on your terms.</h2>
 				<p class={styles.sectionBody}>
 					Built-in strategies for common patterns. Custom directives for everything else.
 				</p>
-				<HydrationCycler island={{ condition: "on:visible" }} />
+				<div class={styles.figure}>
+					<HydrationCycler island={{ condition: "on:visible" }} />
+				</div>
 			</section>
 
 			{/* ─── 04 · DEPLOY ─── */}
 			<section class={styles.sectionTight}>
-				<p class={styles.sectionLabel}>05 · Deploy</p>
 				<h2 class={styles.sectionLede}>Deploy wherever you already do.</h2>
 				<p class={styles.sectionBody}>
-					Avalon builds on Nitro, so the same codebase ships to any JavaScript runtime. One build
-					target. Every environment.
+					Avalon builds on Nitro. The same codebase ships to Node, Bun, Deno, Cloudflare, Vercel,
+					Netlify, AWS, and Azure.
 				</p>
-				<div class={styles.adapters}>
+				<ul class={styles.adapters}>
 					{ADAPTERS.map((a) => (
-						<span key={a} class={styles.adapter}>
-							{a}
-						</span>
+						<li key={a.name}>
+							<a href="/docs/guides/deployment" class={styles.adapter} title={a.name}>
+								<img src={a.icon} alt="" width={18} height={18} />
+								<span>{a.name}</span>
+							</a>
+						</li>
 					))}
-				</div>
+				</ul>
 			</section>
 
 			{/* ─── 05 · BUILT ON ─── */}
 			<section class={`${styles.section} ${styles.sectionFoundations}`}>
-				<p class={styles.sectionLabel}>06 · Built on</p>
 				<h2 class={styles.sectionTitle}>Proven foundations.</h2>
 
 				<div class={styles.foundationsList}>
@@ -206,11 +203,12 @@ export default async function HomePage() {
 
 			{/* ─── 06 · FEATURES BENTO ─── */}
 			<section class={styles.section}>
-				<p class={styles.sectionLabel}>07 · Features</p>
 				<h2 class={styles.sectionTitle}>Everything else you need.</h2>
 				<p class={styles.sectionBody}>Beyond islands and hydration — the full toolkit.</p>
 
-				<BentoFeatures island={{ condition: "on:visible" }} />
+				<div class={styles.figure}>
+					<BentoFeatures island={{ condition: "on:visible" }} />
+				</div>
 			</section>
 
 			{/* ─── CTA ─── */}
@@ -240,12 +238,12 @@ export default async function HomePage() {
 /* ───────────────────── data ───────────────────── */
 
 const ADAPTERS = [
-	"Node",
-	"Bun",
-	"Deno",
-	"Cloudflare Workers",
-	"Vercel",
-	"Netlify",
-	"AWS Lambda",
-	"Azure Functions",
+	{ name: "Node", icon: "/adapters/node.svg" },
+	{ name: "Bun", icon: "/adapters/bun.svg" },
+	{ name: "Deno", icon: "/adapters/deno.svg" },
+	{ name: "Cloudflare", icon: "/adapters/cloudflare.svg" },
+	{ name: "Vercel", icon: "/adapters/vercel.svg" },
+	{ name: "Netlify", icon: "/adapters/netlify.svg" },
+	{ name: "AWS", icon: "/adapters/aws.svg" },
+	{ name: "Azure", icon: "/adapters/azure.svg" },
 ];

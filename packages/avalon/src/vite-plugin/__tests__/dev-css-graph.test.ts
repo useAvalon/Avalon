@@ -77,6 +77,34 @@ describe("dev-css-graph", () => {
 		expect(hrefs).not.toContain("/pages/other.module.css");
 	});
 
+	it("walks aliased MDX island imports to their CSS modules", () => {
+		const root = fixtureRoot();
+		mkdirSync(join(root, "app/shared/components"), { recursive: true });
+		write(
+			root,
+			"app/shared/components/InteractiveExample.module.css",
+			".wrapper{border:1px solid}",
+		);
+		write(
+			root,
+			"app/shared/components/InteractiveExample.tsx",
+			`import styles from "./InteractiveExample.module.css";\nexport default function Example(){return <div class={styles.wrapper}/>}`,
+		);
+		const page = write(
+			root,
+			"pages/quick-start.mdx",
+			`import InteractiveExample from '@shared/components/InteractiveExample.tsx';\n\n<InteractiveExample island={{ condition: 'on:interaction' }} />\n`,
+		);
+		expect(
+			resolveProjectImport(page, "@shared/components/InteractiveExample.tsx", root)?.endsWith(
+				"InteractiveExample.tsx",
+			),
+		).toBe(true);
+		expect(collectCssHrefsFromEntry(page, root)).toContain(
+			"/app/shared/components/InteractiveExample.module.css",
+		);
+	});
+
 	it("resolves extensionless and directory index imports", () => {
 		const root = fixtureRoot();
 		write(root, "components/Card.module.css", ".card{}");

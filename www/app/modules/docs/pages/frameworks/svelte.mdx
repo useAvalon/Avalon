@@ -31,7 +31,7 @@ bun add svelte
 Svelte islands are standard `.svelte` files using Svelte 5 runes syntax:
 
 ```html
-<!-- src/islands/Counter.svelte -->
+<!-- src/components/Counter.svelte -->
 <script lang="ts">
   let count = $state(0);
 </script>
@@ -44,7 +44,7 @@ Svelte islands are standard `.svelte` files using Svelte 5 runes syntax:
 ## Using the island
 
 ```tsx
-import Counter from '../islands/Counter.svelte';
+import Counter from '../components/Counter.svelte';
 
 export default function Page() {
   return (

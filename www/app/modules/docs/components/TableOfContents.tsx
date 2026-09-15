@@ -8,10 +8,30 @@ interface TocItem {
 	level: number;
 }
 
+interface TocBranch {
+	id: string;
+	text: string;
+	children: TocItem[];
+}
+
+function nestHeadings(items: TocItem[]): TocBranch[] {
+	const branches: TocBranch[] = [];
+	for (const item of items) {
+		if (item.level === 2 || branches.length === 0) {
+			branches.push({ id: item.id, text: item.text, children: [] });
+			continue;
+		}
+		branches.at(-1)?.children.push(item);
+	}
+	return branches;
+}
+
 export default function TableOfContents() {
 	const [items, setItems] = useState<TocItem[]>([]);
 	const [activeId, setActiveId] = useState<string>("");
+	const [thumb, setThumb] = useState({ top: 0, height: 0 });
 	const clickLockRef = useRef<number | null>(null);
+	const trackRef = useRef<HTMLDivElement | null>(null);
 
 	useEffect(() => {
 		const prose = document.querySelector("[data-toc-content]");
@@ -26,8 +46,8 @@ export default function TableOfContents() {
 				heading.id =
 					heading.textContent
 						?.toLowerCase()
-						.replace(/[^a-z0-9]+/g, "-")
-						.replace(/(^-|-$)/g, "") ?? "";
+						.replaceAll(/[^a-z0-9]+/g, "-")
+						.replaceAll(/(^-|-$)/g, "") ?? "";
 			}
 			if (heading.id) {
 				tocItems.push({
@@ -48,7 +68,8 @@ export default function TableOfContents() {
 			const atBottom =
 				window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 40;
 			if (atBottom) {
-				setActiveId(tocItems[tocItems.length - 1].id);
+				const last = tocItems.at(-1);
+				if (last) setActiveId(last.id);
 				return;
 			}
 
@@ -76,6 +97,19 @@ export default function TableOfContents() {
 		};
 	}, []);
 
+	useEffect(() => {
+		const track = trackRef.current;
+		if (!track || !activeId || items.length === 0) return;
+		const active = track.querySelector("[data-toc-active]");
+		if (!(active instanceof HTMLElement)) return;
+		const trackBox = track.getBoundingClientRect();
+		const itemBox = active.getBoundingClientRect();
+		setThumb({
+			top: itemBox.top - trackBox.top + track.scrollTop,
+			height: itemBox.height,
+		});
+	}, [activeId, items]);
+
 	function handleClick(e: Event, id: string) {
 		e.preventDefault();
 		if (clickLockRef.current) clearTimeout(clickLockRef.current);
@@ -88,22 +122,55 @@ export default function TableOfContents() {
 
 	if (items.length === 0) return null;
 
+	const branches = nestHeadings(items);
+
 	return (
 		<nav class={styles.toc} aria-label="Table of contents">
 			<p class={styles.tocLabel}>On this page</p>
-			<ul class={styles.tocList}>
-				{items.map((item) => (
-					<li key={item.id}>
-						<a
-							href={`#${item.id}`}
-							class={`${styles.tocLink} ${item.level === 3 ? styles.tocLinkNested : ""} ${item.id === activeId ? styles.tocLinkActive : ""}`}
-							onClick={(e) => handleClick(e, item.id)}
-						>
-							{item.text}
-						</a>
-					</li>
-				))}
-			</ul>
+			<div class={styles.tocTrack} ref={trackRef}>
+				<span
+					class={styles.tocThumb}
+					style={{
+						transform: `translateY(${thumb.top}px)`,
+						height: `${thumb.height}px`,
+					}}
+					aria-hidden="true"
+				/>
+				<ul class={styles.tocList}>
+					{branches.map((branch) => {
+						const childActive = branch.children.some((child) => child.id === activeId);
+						const open = branch.id === activeId || childActive;
+						return (
+							<li key={branch.id}>
+								<a
+									href={`#${branch.id}`}
+									class={`${styles.tocLink} ${branch.id === activeId ? styles.tocLinkActive : ""} ${open ? styles.tocLinkOpen : ""}`}
+									data-toc-active={branch.id === activeId ? "" : undefined}
+									onClick={(e) => handleClick(e, branch.id)}
+								>
+									{branch.text}
+								</a>
+								{branch.children.length > 0 && (
+									<ul class={styles.tocKids}>
+										{branch.children.map((child) => (
+											<li key={child.id}>
+												<a
+													href={`#${child.id}`}
+													class={`${styles.tocLink} ${styles.tocLinkNested} ${child.id === activeId ? styles.tocLinkActive : ""}`}
+													data-toc-active={child.id === activeId ? "" : undefined}
+													onClick={(e) => handleClick(e, child.id)}
+												>
+													{child.text}
+												</a>
+											</li>
+										))}
+									</ul>
+								)}
+							</li>
+						);
+					})}
+				</ul>
+			</div>
 		</nav>
 	);
 }

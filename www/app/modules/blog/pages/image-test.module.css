@@ -1,0 +1,23 @@
+.container {
+	max-width: 1100px;
+	margin: 0 auto;
+	padding: var(--space-8) var(--space-6) var(--space-24);
+}
+
+.pageHeader {
+	margin-bottom: var(--space-12);
+}
+
+.pageTitle {
+	font-size: var(--text-display);
+	font-weight: 700;
+	color: var(--color-text-heading);
+	letter-spacing: -0.03em;
+	line-height: 1.1;
+	margin-bottom: var(--space-3);
+}
+
+.pageSubtitle {
+	font-size: var(--text-body);
+	color: var(--color-text-secondary);
+}

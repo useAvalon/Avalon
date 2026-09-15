@@ -7,17 +7,20 @@ interface CodeBlockProps {
 	lang?: string;
 }
 
-export default function CodeBlock({ filename, children, lang = "tsx" }: CodeBlockProps) {
-	// Sanitize lang to prevent class injection — allow only alphanumeric + hyphens
+export default function CodeBlock({ filename, children, lang = "tsx" }: Readonly<CodeBlockProps>) {
 	const safeLang = /^[a-z0-9-]+$/i.test(lang) ? lang : "text";
 
 	return (
 		<div class={styles.block}>
 			<div class={styles.header}>
-				<span class={styles.dot} />
-				<span class={styles.dot} />
-				<span class={styles.dot} />
-				{filename && <span class={styles.filename}>{filename}</span>}
+				<span class={styles.dots} aria-hidden="true">
+					<span class={styles.dot} />
+					<span class={styles.dot} />
+					<span class={styles.dot} />
+				</span>
+				{(filename || safeLang !== "text") && (
+					<span class={styles.meta}>{filename || safeLang}</span>
+				)}
 			</div>
 			<pre class={styles.pre}>
 				<code class={`hljs language-${safeLang}`} dangerouslySetInnerHTML={{ __html: children }} />

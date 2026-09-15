@@ -4,7 +4,7 @@ import thumbImage from "../assets/image.png?w=200&format=webp";
 
 // With &as=srcset - returns a srcset string (recommended for responsive images)
 import heroSrcset from "../assets/image.png?w=400;800;1200&format=webp&as=srcset";
-import styles from "./index.module.css";
+import styles from "./image-test.module.css";
 
 export default function ImageTestPage() {
 	return (

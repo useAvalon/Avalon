@@ -11,6 +11,7 @@ html {
 	line-height: 1.6;
 	-webkit-text-size-adjust: 100%;
 	color-scheme: dark;
+	scrollbar-gutter: stable;
 }
 
 html[data-theme="light"] {
@@ -50,4 +51,34 @@ a {
 ul,
 ol {
 	list-style: none;
+}
+
+/* Page regions get the UA default crossfade. Chrome is named so it is
+   excluded from the root snapshot. Do not set `animation: none` on
+   ::view-transition-old/new(root) — that leaves the root snapshot in
+   the top layer and hides later UI (Pagefind dialog). */
+[data-router-outlet="docs-page"] {
+	view-transition-name: docs-page;
+}
+[data-router-outlet="docs-toc"] {
+	view-transition-name: docs-toc;
+}
+[data-router-persist="docs-sidebar"] {
+	view-transition-name: docs-sidebar;
+}
+[data-router-persist="site-nav"] {
+	view-transition-name: site-nav;
+}
+[data-router-persist="search-modal"],
+pagefind-modal {
+	view-transition-name: none;
+}
+
+::view-transition-group(docs-sidebar),
+::view-transition-group(site-nav),
+::view-transition-old(docs-sidebar),
+::view-transition-old(site-nav),
+::view-transition-new(docs-sidebar),
+::view-transition-new(site-nav) {
+	animation-duration: 0s;
 }

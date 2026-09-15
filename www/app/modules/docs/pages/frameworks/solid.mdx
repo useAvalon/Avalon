@@ -41,7 +41,7 @@ Solid islands use the `.solid.tsx` extension so Avalon knows to use the Solid in
 
 ```tsx
 /** @jsxImportSource solid-js */
-// src/islands/Counter.solid.tsx
+// src/components/Counter.solid.tsx
 import { createSignal } from 'solid-js';
 
 export default function Counter() {
@@ -57,7 +57,7 @@ export default function Counter() {
 ## Using the island
 
 ```tsx
-import Counter from '../islands/Counter.solid.tsx';
+import Counter from '../components/Counter.solid.tsx';
 
 export default function Page() {
   return (

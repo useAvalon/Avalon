@@ -1,7 +1,8 @@
 .figure {
 	margin: 0;
 	padding: clamp(20px, 3vw, 32px);
-	background: var(--bp-bg-alt);
+	background-color: var(--bp-bg-alt);
+	background-image: var(--pattern-grid-quiet);
 	border: 1px solid var(--bp-ink-10);
 	border-radius: var(--bp-r-xl);
 }

@@ -19,17 +19,25 @@ export default function SearchModal() {
 				.then((res) => {
 					if (!res.ok) return;
 
-					// Load Pagefind Component UI CSS
-					const link = document.createElement("link");
-					link.rel = "stylesheet";
-					link.href = "/pagefind/pagefind-component-ui.css";
-					document.head.appendChild(link);
+					const cssHref = "/pagefind/pagefind-component-ui.css";
+					let link = document.querySelector<HTMLLinkElement>(
+						`link[href*="pagefind-component-ui.css"]`,
+					);
+					if (!link) {
+						link = document.createElement("link");
+						link.rel = "stylesheet";
+						link.href = cssHref;
+						document.head.appendChild(link);
+					}
+					// Survive client-router head reconcile — this href is not in SSR HTML.
+					link.dataset.routerPersist = "pagefind-ui";
 
-					// Load Pagefind Component UI JS
-					const script = document.createElement("script");
-					script.type = "module";
-					script.src = "/pagefind/pagefind-component-ui.js";
-					document.head.appendChild(script);
+					if (!document.querySelector('script[src*="pagefind-component-ui.js"]')) {
+						const script = document.createElement("script");
+						script.type = "module";
+						script.src = "/pagefind/pagefind-component-ui.js";
+						document.head.appendChild(script);
+					}
 				})
 				.catch(() => {
 					// Pagefind not available (dev mode) — silently skip

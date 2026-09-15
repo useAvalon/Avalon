@@ -1,19 +1,51 @@
 /** @jsxImportSource preact */
 
 import { getSidebarState, SIDEBAR } from "@shared/utils/sidebar.ts";
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import styles from "./DocsSidebar.module.css";
 
 interface DocsSidebarProps {
 	currentPath: string;
 }
 
-export default function DocsSidebar({ currentPath }: DocsSidebarProps) {
-	const { activeHref, expandedCategory } = getSidebarState(currentPath);
+function pathFromRouterUrl(url: string): string {
+	const path = url.startsWith("http") ? new URL(url).pathname : url.split("?")[0];
+	return path.split("#")[0] || "/";
+}
+
+export default function DocsSidebar({ currentPath }: Readonly<DocsSidebarProps>) {
+	const [path, setPath] = useState(currentPath);
+	const { activeHref, expandedCategory } = getSidebarState(path);
 	const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(
 		Object.fromEntries(SIDEBAR.map((c) => [c.label, c.label === expandedCategory])),
 	);
 	const [isOpen, setIsOpen] = useState(false);
+
+	useEffect(() => {
+		function applyTo(url: string | undefined) {
+			if (url) setPath(pathFromRouterUrl(url));
+		}
+		function onBeforeNavigate(event: Event) {
+			applyTo((event as CustomEvent<{ to?: string }>).detail?.to);
+		}
+		function onBeforeSwap(event: Event) {
+			applyTo((event as CustomEvent<{ to?: string }>).detail?.to);
+			setIsOpen(false);
+		}
+		document.addEventListener("avalon:before-navigate", onBeforeNavigate);
+		document.addEventListener("avalon:before-swap", onBeforeSwap);
+		return () => {
+			document.removeEventListener("avalon:before-navigate", onBeforeNavigate);
+			document.removeEventListener("avalon:before-swap", onBeforeSwap);
+		};
+	}, []);
+
+	useEffect(() => {
+		if (!expandedCategory) return;
+		setOpenCategories((prev) =>
+			prev[expandedCategory] ? prev : { ...prev, [expandedCategory]: true },
+		);
+	}, [expandedCategory]);
 
 	function toggleCategory(label: string) {
 		setOpenCategories((prev) => ({ ...prev, [label]: !prev[label] }));
@@ -53,7 +85,7 @@ export default function DocsSidebar({ currentPath }: DocsSidebarProps) {
 										<li key={item.href}>
 											<a
 												href={item.href}
-												class={`${styles.item} ${item.href === activeHref ? styles.itemActive : ""}`}
+												class={`${styles.item} ${item.href === activeHref ? styles.itemActive : styles.itemIdle}`}
 											>
 												{item.title}
 											</a>

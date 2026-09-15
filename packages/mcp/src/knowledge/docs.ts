@@ -62,7 +62,7 @@ An **island** is an interactive component that hydrates on the client. Everythin
 Import a component and add the \`island\` prop to control hydration:
 
 \`\`\`tsx
-import Counter from '../islands/Counter.tsx';
+import Counter from '../components/Counter.tsx';
 
 export default function Page() {
   return <div><Counter island={{ condition: 'on:client' }} /></div>;
@@ -874,7 +874,7 @@ Any \`.mdx\` file in the pages directory becomes a route, like \`.tsx\`. Pre-con
 title: Interactive Demo
 ---
 
-import Counter from '../islands/Counter.tsx';
+import Counter from '../components/Counter.tsx';
 
 # Demo
 
@@ -985,7 +985,7 @@ my-app/
 └── vite.config.ts
 \`\`\`
 
-A simpler **flat** layout also works without \`modules\`: \`src/pages\`, \`src/layouts\`, \`src/islands\`.`,
+A simpler **flat** layout also works without \`modules\`: \`src/pages\`, \`src/layouts\`, \`src/components\`.`,
 	},
 	{
 		id: "frameworks",

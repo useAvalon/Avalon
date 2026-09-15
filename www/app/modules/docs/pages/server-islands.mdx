@@ -10,6 +10,14 @@ next:
   href: /docs/file-system-routing
 ---
 
+import NotificationBellReact from '../../demo/components/NotificationBell.react.tsx';
+import NotificationBellSolid from '../../demo/components/NotificationBell.solid.tsx';
+import NotificationBellSvelte from '../../demo/components/NotificationBell.svelte';
+import NotificationBell from '../../demo/components/NotificationBell.tsx';
+import NotificationBellVue from '../../demo/components/NotificationBell.vue';
+import ServerTime from '../../demo/components/ServerTime.tsx';
+import DocsLiveFrame, { DocsLiveRow } from '../components/DocsLiveFrame.tsx';
+
 ## What are server islands?
 
 A server island is a component that is excluded from the initial page render and instead fetched on-demand from the server after the page loads. The rest of the page can be fully cached or prerendered while the server island delivers personalized or dynamic content (user avatars, cart counts, session-dependent UI) without a full-page request.
@@ -39,6 +47,13 @@ export default function Page() {
 ```
 
 The component won't render during the initial page build. Instead, the fallback content is shown while the browser fetches the rendered HTML from the server.
+
+<DocsLiveFrame label="Pure server island">
+  <ServerTime />
+</DocsLiveFrame>
+<DocsLiveFrame label="Server plus hydrate">
+  <NotificationBell island={{ condition: 'on:client' }} userId="docs-user" />
+</DocsLiveFrame>
 
 ### `ServerIslandProp` interface
 
@@ -73,7 +88,7 @@ If you omit `fallback`, the slot is empty until the server responds.
 When a component needs both personalized server rendering **and** client-side interactivity, combine the `server` and `island` props:
 
 ```tsx
-import NotificationBell from '../islands/NotificationBell.tsx';
+import NotificationBell from '../components/NotificationBell.tsx';
 import { BellIcon } from '../components/Icons.tsx';
 
 export default function Page() {
@@ -95,6 +110,26 @@ The lifecycle is:
 4. The hydration strategy (`on:client`, `on:visible`, etc.) kicks in and the component becomes interactive
 
 When only `server` is present, the component is pure server-rendered HTML with zero client JavaScript.
+
+Each bell below is a different renderer. The server sends HTML first. Hover or click to hydrate.
+
+<DocsLiveFrame label="Five renderers, server then hydrate" variant="stack">
+  <DocsLiveRow caption="Preact · on:client">
+    <NotificationBell island={{ condition: 'on:client' }} userId="preact-user" />
+  </DocsLiveRow>
+  <DocsLiveRow caption="Solid · on:interaction">
+    <NotificationBellSolid island={{ condition: 'on:interaction' }} userId="solid-user" />
+  </DocsLiveRow>
+  <DocsLiveRow caption="Svelte · on:interaction">
+    <NotificationBellSvelte island={{ condition: 'on:interaction' }} userId="svelte-user" />
+  </DocsLiveRow>
+  <DocsLiveRow caption="Vue · on:interaction">
+    <NotificationBellVue island={{ condition: 'on:interaction' }} userId="vue-user" />
+  </DocsLiveRow>
+  <DocsLiveRow caption="React · on:interaction">
+    <NotificationBellReact island={{ condition: 'on:interaction' }} userId="react-user" />
+  </DocsLiveRow>
+</DocsLiveFrame>
 
 ## Prop encryption and security
 

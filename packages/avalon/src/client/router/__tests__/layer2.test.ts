@@ -82,6 +82,7 @@ describe("withViewTransition", () => {
 		vi.stubGlobal("document", {
 			documentElement: { dataset },
 			startViewTransition: start,
+			querySelector: () => null,
 		});
 		return { dataset };
 	}
@@ -106,6 +107,46 @@ describe("withViewTransition", () => {
 		}, false);
 		expect(ran).toBe(true);
 		expect(start).not.toHaveBeenCalled();
+	});
+
+	it("skips an in-flight transition before starting another", async () => {
+		const skip = vi.fn();
+		let finishFirst: () => void = () => undefined;
+		const firstFinished = new Promise<void>((resolve) => {
+			finishFirst = resolve;
+		});
+		let calls = 0;
+		const start = vi.fn(() => {
+			calls++;
+			if (calls === 1) {
+				return { finished: firstFinished, skipTransition: skip };
+			}
+			return { finished: Promise.resolve(), skipTransition: vi.fn() };
+		});
+		stubDocument(start);
+		vi.stubGlobal("matchMedia", () => ({ matches: false }));
+		const first = withViewTransition(() => undefined);
+		const second = withViewTransition(() => undefined);
+		finishFirst();
+		await Promise.all([first, second]);
+		expect(skip).toHaveBeenCalled();
+		expect(start).toHaveBeenCalledTimes(2);
+	});
+
+	it("swaps without the API when startViewTransition throws", async () => {
+		const start = vi.fn(() => {
+			throw new DOMException(
+				"Transition was aborted because of invalid state",
+				"InvalidStateError",
+			);
+		});
+		stubDocument(start);
+		vi.stubGlobal("matchMedia", () => ({ matches: false }));
+		let ran = false;
+		await withViewTransition(() => {
+			ran = true;
+		});
+		expect(ran).toBe(true);
 	});
 
 	it("sets data-router-transition for a named type and clears it afterward", async () => {

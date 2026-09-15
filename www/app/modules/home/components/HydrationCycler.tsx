@@ -137,7 +137,7 @@ function StrategyDiagram({ strategy }: Readonly<{ strategy: Strategy }>) {
 function Frame({ children }: Readonly<{ children: preact.ComponentChildren }>) {
 	return (
 		<svg viewBox="0 0 180 120" class={styles.diagram} role="presentation" aria-hidden="true">
-			<rect x={1} y={1} width={178} height={118} rx={6} class={styles.frame} />
+			<rect x={1} y={1} width={178} height={118} rx={3} class={styles.frame} />
 			{children}
 		</svg>
 	);
@@ -157,7 +157,7 @@ function ImmediateDiagram() {
 			<rect x={18} y={56} width={80} height={6} rx={2} class={styles.diagLineFaint} />
 
 			{/* Active island */}
-			<rect x={18} y={72} width={144} height={36} rx={4} class={styles.diagIslandActive} />
+			<rect x={18} y={72} width={144} height={36} rx={2} class={styles.diagIslandActive} />
 			<circle cx={30} cy={90} r={3} class={styles.diagPulse} />
 			<text x={42} y={93} class={styles.diagIslandText}>
 				hydrated
@@ -181,12 +181,12 @@ function VisibleDiagram() {
 				viewport
 			</text>
 
-			<rect x={18} y={26} width={144} height={28} rx={4} class={styles.diagIslandDormant} />
+			<rect x={18} y={26} width={144} height={28} rx={2} class={styles.diagIslandDormant} />
 			<text x={30} y={44} class={styles.diagIslandTextDim}>
 				static
 			</text>
 
-			<rect x={18} y={76} width={144} height={30} rx={4} class={styles.diagIslandActive} />
+			<rect x={18} y={76} width={144} height={30} rx={2} class={styles.diagIslandActive} />
 			<text x={30} y={95} class={styles.diagIslandText}>
 				hydrated
 			</text>
@@ -203,7 +203,7 @@ function InteractionDiagram() {
 			</text>
 			<line x1={110} y1={11} x2={170} y2={11} class={styles.diagRule} />
 
-			<rect x={18} y={28} width={144} height={54} rx={4} class={styles.diagIslandDormant} />
+			<rect x={18} y={28} width={144} height={54} rx={2} class={styles.diagIslandDormant} />
 			<text x={30} y={60} class={styles.diagIslandTextDim}>
 				waiting…
 			</text>
@@ -251,7 +251,7 @@ function IdleDiagram() {
 				</text>
 			</g>
 
-			<rect x={18} y={80} width={144} height={26} rx={4} class={styles.diagIslandActive} />
+			<rect x={18} y={80} width={144} height={26} rx={2} class={styles.diagIslandActive} />
 			<text x={30} y={97} class={styles.diagIslandText}>
 				hydrated
 			</text>

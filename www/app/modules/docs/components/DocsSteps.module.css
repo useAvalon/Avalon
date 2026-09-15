@@ -1,0 +1,51 @@
+.steps {
+	display: flex;
+	flex-direction: column;
+	margin: var(--space-8) 0;
+}
+
+.step {
+	display: grid;
+	grid-template-columns: 1.75rem minmax(0, 1fr);
+	column-gap: var(--space-4);
+	position: relative;
+	padding-bottom: var(--space-8);
+}
+
+.step:last-child {
+	padding-bottom: 0;
+}
+
+.step:not(:last-child)::before {
+	content: "";
+	position: absolute;
+	left: 0.85rem;
+	top: 1.75rem;
+	bottom: 0;
+	width: 1px;
+	background: color-mix(in srgb, var(--color-text-heading) 22%, transparent);
+}
+
+.num {
+	width: 1.75rem;
+	height: 1.75rem;
+	display: grid;
+	place-items: center;
+	border: 1px solid var(--surface-border);
+	border-radius: var(--radius-pill);
+	background: var(--color-bg);
+	font-size: var(--text-caption);
+	font-weight: 600;
+	color: var(--color-text-heading);
+	position: relative;
+	z-index: 1;
+	margin-top: 0.15em;
+}
+
+.body > :global(h2),
+.body > :global(h3) {
+	margin-top: 0;
+	margin-bottom: var(--space-3);
+	padding-bottom: 0;
+	border-bottom: none;
+}

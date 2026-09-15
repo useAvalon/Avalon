@@ -144,19 +144,16 @@ describe("deferNonCriticalStylesheets", () => {
 		expect(result).toContain('media="print"');
 	});
 
-	it("defers local stylesheets matching known non-critical patterns", () => {
+	it("does not defer syntax highlighting stylesheets", () => {
 		const html = `<link rel="stylesheet" href="/syntax-highlighting.css">`;
-		const result = deferNonCriticalStylesheets(html);
-		expect(result).toContain('media="print"');
-		expect(result).toContain("onload=\"this.media='all'\"");
-		expect(result).toContain("<noscript>");
+		expect(deferNonCriticalStylesheets(html)).toBe(html);
 	});
 
 	it("handles Preact self-closing link tags without breaking the attribute list", () => {
-		const html = `<link rel="stylesheet" href="/syntax-highlighting.css" />`;
+		const html = `<link rel="stylesheet" href="/theme.css" data-defer />`;
 		const result = deferNonCriticalStylesheets(html);
 		expect(result).toContain(
-			`<link rel="stylesheet" href="/syntax-highlighting.css" media="print" onload="this.media='all'">`,
+			`<link rel="stylesheet" href="/theme.css" media="print" onload="this.media='all'">`,
 		);
 		expect(result).not.toContain('css"/ media');
 		expect(result.match(/<noscript>/g)?.length).toBe(1);
@@ -169,11 +166,11 @@ describe("deferNonCriticalStylesheets", () => {
 		expect(result).not.toContain("data-defer");
 	});
 
-	it("defers hljs and prism stylesheets automatically", () => {
+	it("does not auto-defer local highlight theme files", () => {
 		const hljs = `<link rel="stylesheet" href="/hljs-theme.css">`;
 		const prism = `<link rel="stylesheet" href="/prism-dark.css">`;
-		expect(deferNonCriticalStylesheets(hljs)).toContain('media="print"');
-		expect(deferNonCriticalStylesheets(prism)).toContain('media="print"');
+		expect(deferNonCriticalStylesheets(hljs)).toBe(hljs);
+		expect(deferNonCriticalStylesheets(prism)).toBe(prism);
 	});
 });
 

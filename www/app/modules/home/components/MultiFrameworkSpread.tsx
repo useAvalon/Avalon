@@ -75,7 +75,7 @@ export default function MultiFrameworkSpread() {
 			<div class={styles.panel}>
 				<header class={styles.panelHead}>
 					<span class={styles.panelLabel}>Source</span>
-					<span class={styles.panelPath}>src/islands/</span>
+					<span class={styles.panelPath}>src/components/</span>
 				</header>
 				<ul class={styles.list}>
 					{ROWS.map((row) => (
