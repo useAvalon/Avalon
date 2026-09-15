@@ -10,12 +10,14 @@
  * @module islands/builtin-directives
  */
 
-import { registerHydrationDirective } from "./hydration-directives.ts";
+import { isCustomDirective, registerHydrationDirective } from "./hydration-directives.ts";
 
 /**
  * Register all built-in custom directives.
+ * Safe to call more than once — later calls are a no-op.
  */
 export function registerBuiltinDirectives(): void {
+	if (isCustomDirective("on:delay")) return;
 	registerHydrationDirective("on:delay", {
 		name: "on:delay",
 		script: (_el, hydrate, arg) => {

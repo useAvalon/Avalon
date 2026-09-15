@@ -25,6 +25,11 @@ describe("generatePackageJson", () => {
 		expect(pkg.dependencies["@useavalon/avalon"]).toBe("latest");
 	});
 
+	it("always includes rehype-highlight for MDX code blocks", () => {
+		const pkg = JSON.parse(generatePackageJson(baseConfig));
+		expect(pkg.dependencies["rehype-highlight"]).toBe("latest");
+	});
+
 	it("includes preview script for node_server by default", () => {
 		const pkg = JSON.parse(generatePackageJson(baseConfig));
 		expect(pkg.scripts.dev).toBe("bunx --bun vite dev");
