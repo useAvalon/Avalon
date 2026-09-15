@@ -24,6 +24,7 @@ import type { NitroConfigOutput } from "../nitro/config.ts";
 import { discoverIntegrationsFromIslandUsage } from "./auto-discover.ts";
 import { checkDirectoriesExist, resolveConfig } from "./config.ts";
 import { shouldSetDevScopedName, stableDevScopedName } from "./dev-css-modules.ts";
+import { asNoExternalList, getFrameworkViteDefaults } from "./framework-vite-defaults.ts";
 import { createImagePlugin } from "./image-optimization.ts";
 import { activateIntegrations, activateSingleIntegration } from "./integration-activator.ts";
 import { islandSidecarPlugin } from "./island-sidecar-plugin.ts";
@@ -329,40 +330,15 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 			// handle TS stripping ourselves in the transform hook below (for
 			// both client and SSR).
 			//
-			// ssr.noExternal: Ensures Vite processes @useavalon packages through
-			// the SSR transform pipeline instead of treating them as external CJS.
-			//
-			// optimizeDeps: @useavalon packages are excluded from dep optimization
-			// because we handle their resolution (resolveId) and transformation
-			// (transform hook) ourselves. Without excluding them, Vite's optimizer
-			// discovers them mid-serve via dynamic imports in main.js, triggers a
-			// re-optimization that invalidates in-flight requests, and causes
-			// 504 (Outdated Optimize Dep) errors on first start.
-			//
-			// We also pre-include the actual framework runtime deps (preact,
-			// solid-js, etc.) so they're pre-bundled before the first page load.
-			const frameworkDeps: Record<string, string[]> = {
-				preact: ["preact", "preact/hooks"],
-				react: ["react", "react-dom", "react-dom/client"],
-				vue: ["vue"],
-				svelte: ["svelte", "svelte/internal"],
-				solid: ["solid-js", "solid-js/web"],
-				lit: ["lit", "@lit-labs/ssr-client"],
-				qwik: ["@builder.io/qwik"],
-			};
-			const depsToInclude = integrationsToLoad.flatMap((name) => frameworkDeps[name] ?? []);
-
-			// When the page shell renders on React (`core: "react"`), the SSR
-			// pipeline needs real React handled as ESM: pre-bundle react-dom/server
-			// + the jsx runtime, and inline React through Vite's SSR transform so
-			// its CJS entry doesn't break the dev SSR module runner.
-			const isReactCore = config?.core === "react";
-			// React (the shell engine) is left EXTERNAL to the SSR bundle so Node's
-			// loader handles its CommonJS entry — inlining it breaks Vite's dev SSR
-			// module runner. We still pre-bundle it for the client optimizer.
-			if (isReactCore) {
-				depsToInclude.push("react-dom/server", "react/jsx-runtime");
-			}
+			// Framework aliases, optimizeDeps, and ssr.noExternal come from
+			// the enabled integrations so apps do not copy them into vite.config.
+			const framework = getFrameworkViteDefaults({
+				integrations: integrationsToLoad,
+				core: config?.core ?? "preact",
+				command,
+				root: _config.root,
+				nitroPreset: config?.nitro?.preset,
+			});
 
 			// __AVALON_PER_ISLAND__ is a compile-time constant that tells island.tsx
 			// whether to use per-island hydration scripts (production) or entry-client
@@ -370,21 +346,29 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 			// at transform time — it works even in Nitro's separate SSR module runner
 			// where globalThis values from the Vite process aren't available.
 			const isPerIsland = command === "build" && !config?.clientRouter;
+			const extraNoExternal = asNoExternalList(framework.ssr?.noExternal);
 
 			return {
 				define: {
 					__AVALON_PER_ISLAND__: JSON.stringify(isPerIsland),
+					...framework.define,
 				},
 				oxc: {
 					exclude: [/node_modules\/@useavalon\/.*\.tsx?$/],
 				},
 				ssr: {
-					noExternal: [/^@useavalon\//],
+					...framework.ssr,
+					noExternal: [/^@useavalon\//, ...extraNoExternal],
 				},
 				optimizeDeps: {
-					exclude: ["@useavalon/avalon", ...integrationsToLoad.map((name) => `@useavalon/${name}`)],
-					include: depsToInclude,
+					exclude: [
+						"@useavalon/avalon",
+						...integrationsToLoad.map((name) => `@useavalon/${name}`),
+						...(framework.optimizeDeps?.exclude ?? []),
+					],
+					include: framework.optimizeDeps?.include ?? [],
 				},
+				resolve: framework.resolve,
 				...(command === "serve" && shouldSetDevScopedName(_config.css?.modules)
 					? { css: { modules: { generateScopedName: stableDevScopedName } } }
 					: {}),

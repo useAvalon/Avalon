@@ -29,7 +29,13 @@ export const INTEGRATION_BUILD_CONFIGS: Record<string, IntegrationBuildConfig> =
 		extensions: [".tsx", ".jsx"],
 		optimizeDeps: ["preact", "preact/hooks", "preact/jsx-runtime", "preact/jsx-dev-runtime"],
 		ssrExternal: [],
-		ssrNoExternal: ["preact", "preact-render-to-string"],
+		ssrNoExternal: [
+			"preact",
+			"preact/hooks",
+			"preact/compat",
+			"preact/compat/server",
+			"preact-render-to-string",
+		],
 		requiresPlugin: false,
 	},
 
@@ -82,7 +88,7 @@ export const INTEGRATION_BUILD_CONFIGS: Record<string, IntegrationBuildConfig> =
 			"react-dom/client",
 		],
 		ssrExternal: [],
-		ssrNoExternal: ["react", "react-dom", "react-dom/server"],
+		ssrNoExternal: ["react", "react-dom", "react-dom/client", "react-dom/server"],
 		requiresPlugin: true,
 		pluginPackage: "@vitejs/plugin-react",
 	},
@@ -96,9 +102,22 @@ export const INTEGRATION_BUILD_CONFIGS: Record<string, IntegrationBuildConfig> =
 			"lit/directives/class-map.js",
 			"lit/directives/style-map.js",
 			"@lit/reactive-element",
+			"@lit-labs/ssr-client",
+			"@lit-labs/ssr-client/lit-element-hydrate-support.js",
 		],
 		ssrExternal: [],
 		ssrNoExternal: ["lit", "@lit-labs/ssr", "@lit/reactive-element", "lit-html"],
+		requiresPlugin: false,
+	},
+
+	qwik: {
+		name: "qwik",
+		extensions: [".tsx", ".jsx"],
+		// Qwik's resumability loads individual QRL modules. Pre-bundling flattens
+		// those exports and breaks QRL resolution, so optimizeDeps stays empty.
+		optimizeDeps: [],
+		ssrExternal: [],
+		ssrNoExternal: ["@builder.io/qwik", "@builder.io/qwik/server"],
 		requiresPlugin: false,
 	},
 };

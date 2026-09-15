@@ -1,17 +1,10 @@
-import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { agentOptimization } from "@useavalon/agent-optimization";
 import { avalon } from "@useavalon/avalon";
 import { seo } from "@useavalon/seo";
 import { defineConfig, type UserConfig } from "vite";
-import {
-	STUB_BUILD_TIME_MODULE,
-	shouldStubBuildTimeSpecifier,
-} from "../packages/avalon/src/vite-plugin/stub-build-time-packages.ts";
 
-const require = createRequire(import.meta.url);
-
-export default defineConfig(async ({ command }): Promise<UserConfig> => {
+export default defineConfig(async (): Promise<UserConfig> => {
 	const avalonPlugins = await avalon({
 		// Modular architecture - pages/layouts discovered within each module
 		modules: "app/modules",
@@ -110,51 +103,6 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 		},
 
 		plugins: [
-			// Resolve preact/compat bare specifiers to absolute paths.
-			// @preact/preset-vite rewrites react → preact/compat as bare strings
-			// which Rolldown can't resolve. This plugin catches them early.
-			// We resolve to .mjs (ESM) files because Vite 8's SSR module runner
-			// inlines modules and CJS `exports` is not defined in that context.
-			{
-				name: "avalon:preact-compat-resolver",
-				enforce: "pre" as const,
-				resolveId(id: string) {
-					if (id === "preact") return require.resolve("preact").replace(/\.js$/, ".mjs");
-					if (id === "preact/hooks")
-						return require.resolve("preact/hooks").replace(/\.js$/, ".mjs");
-					if (id === "preact/compat")
-						return require.resolve("preact/compat").replace(/\.js$/, ".mjs");
-					if (id === "preact/compat/server")
-						return require.resolve("preact/compat/server").replace(/\.js$/, ".mjs");
-					if (id === "preact/compat/client")
-						return require.resolve("preact/compat/client").replace(/\.js$/, ".mjs");
-				},
-			},
-			// Same stub as the Avalon plugin (listed first so Cloudflare SSR
-			// never resolves oxc-parser's wasm32-wasi binding).
-			{
-				name: "avalon:stub-build-time-plugins",
-				enforce: "pre" as const,
-				resolveId(id: string) {
-					// @ts-expect-error — Vite 8 environment API
-					const env = this.environment?.name;
-					if (env !== "ssr" && env !== "nitro") return;
-					if (shouldStubBuildTimeSpecifier(id)) {
-						return `\0stub:${id}`;
-					}
-				},
-				load(id: string) {
-					if (id.startsWith("\0stub:")) {
-						return STUB_BUILD_TIME_MODULE;
-					}
-					// @ts-expect-error — Vite 8 environment API
-					const env = this.environment?.name;
-					if (env !== "ssr" && env !== "nitro") return;
-					if (shouldStubBuildTimeSpecifier(id)) {
-						return STUB_BUILD_TIME_MODULE;
-					}
-				},
-			},
 			seo({
 				siteUrl: "http://localhost:8012",
 				siteName: "Avalon",
@@ -196,31 +144,6 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			avalonPlugins,
 		].flat(),
 
-		optimizeDeps: {
-			include: [
-				"react",
-				"react/jsx-runtime",
-				"react/jsx-dev-runtime",
-				"react-dom",
-				"react-dom/client",
-				"vue",
-				"svelte",
-				"svelte/internal",
-				"svelte/store",
-				"lit",
-				"@lit-labs/ssr-client",
-				"@lit-labs/ssr-client/lit-element-hydrate-support.js",
-				"preact",
-				"preact/hooks",
-				"preact/jsx-runtime",
-			],
-			// Qwik must NOT be pre-bundled — its resumability model requires the
-			// Qwikloader to dynamically import individual component modules with
-			// specific QRL symbol exports. Pre-bundling flattens these into a
-			// single chunk which breaks QRL resolution (Code(10) errors).
-			exclude: ["@builder.io/qwik"],
-		},
-
 		build: {
 			outDir: "dist",
 			emptyOutDir: true,
@@ -235,128 +158,12 @@ export default defineConfig(async ({ command }): Promise<UserConfig> => {
 			hmr: { port: 8013 },
 		},
 
-		ssr: {
-			target: "webworker",
-			resolve: {
-				// 'node' condition ensures solid-js/web resolves to server.js (SSR build)
-				// instead of dev.js (client DOM build). Vue's CJS issue from its "node"
-				// condition is handled by the resolve.alias for vue below.
-				conditions: ["node"],
-			},
-			noExternal: [
-				"vue",
-				"@vue/server-renderer",
-				"@vue/shared",
-				"svelte",
-				"svelte/internal",
-				"svelte/store",
-				"svelte/server",
-				"react",
-				"react-dom",
-				"react-dom/client",
-				"react-dom/server",
-				"preact",
-				"preact/hooks",
-				"preact/compat",
-				"preact/compat/server",
-				"preact-render-to-string",
-				"@builder.io/qwik",
-				"@builder.io/qwik/server",
-				// estree-walker v3 is ESM-only (no CJS "require" export).
-				// Vue's compiler-sfc uses it, and without inlining it the
-				// Nitro server bundle emits a require('estree-walker') that
-				// fails at runtime with ERR_PACKAGE_PATH_NOT_EXPORTED.
-				"estree-walker",
-			],
-			// solid-js and solid-js/web are intentionally NOT in noExternal.
-			// They must load as native ESM so the renderer and component share
-			// the same module instance (and thus the same sharedConfig).
-			// The resolveId hook in avalon:solid-oxc-exclude already ensures
-			// they resolve to server.js in SSR and dev.js on the client.
-		},
-
 		resolve: {
 			alias: [
 				{ find: "@shared", replacement: resolve("app/shared") },
 				{ find: "@modules", replacement: resolve("app/modules") },
 				{ find: "@/", replacement: `${resolve("app")}/` },
-				// React → Preact compat aliases with absolute paths.
-				// @preact/preset-vite adds these as bare specifiers which Rolldown
-				// can't resolve. Providing absolute paths fixes the SSR build.
-				// Use .mjs (ESM) to avoid CJS `exports` error in Vite 8's SSR runner.
-				{ find: /^react$/, replacement: require.resolve("preact/compat").replace(/\.js$/, ".mjs") },
-				{
-					find: /^react\/jsx-runtime$/,
-					replacement: require.resolve("preact/jsx-runtime").replace(/\.js$/, ".mjs"),
-				},
-				{
-					find: /^react\/jsx-dev-runtime$/,
-					replacement: require.resolve("preact/jsx-runtime").replace(/\.js$/, ".mjs"),
-				},
-				{
-					find: /^react-dom$/,
-					replacement: require.resolve("preact/compat").replace(/\.js$/, ".mjs"),
-				},
-				{
-					find: /^react-dom\/server$/,
-					replacement: require.resolve("preact/compat/server").replace(/\.js$/, ".mjs"),
-				},
-				{
-					find: /^react-dom\/client$/,
-					replacement: require.resolve("preact/compat/client").replace(/\.js$/, ".mjs"),
-				},
-				// Pin preact core + hooks to absolute paths so every import
-				// (direct, via compat, via jsx-runtime) resolves to the same
-				// instance. Without this, the bundler can pull in two copies
-				// of preact and hooks never register __H on the right one.
-				// Use .mjs (ESM) to avoid CJS `exports` error in Vite 8's SSR runner.
-				{ find: /^preact$/, replacement: require.resolve("preact").replace(/\.js$/, ".mjs") },
-				{
-					find: /^preact\/hooks$/,
-					replacement: require.resolve("preact/hooks").replace(/\.js$/, ".mjs"),
-				},
-				{
-					find: /^preact\/compat$/,
-					replacement: require.resolve("preact/compat").replace(/\.js$/, ".mjs"),
-				},
-				{
-					find: /^preact\/compat\/server$/,
-					replacement: require.resolve("preact/compat/server").replace(/\.js$/, ".mjs"),
-				},
-				{
-					find: /^preact\/compat\/client$/,
-					replacement: require.resolve("preact/compat/client").replace(/\.js$/, ".mjs"),
-				},
-				// Vue: use runtime-only build (no template compiler) for ~60% smaller bundle.
-				// Templates are pre-compiled by @vitejs/plugin-vue at build time.
-				{ find: /^vue$/, replacement: "vue/dist/vue.runtime.esm-bundler.js" },
-				{ find: /^@vue\/shared$/, replacement: "@vue/shared/dist/shared.esm-bundler.js" },
-				{
-					find: /^@vue\/runtime-core$/,
-					replacement: "@vue/runtime-core/dist/runtime-core.esm-bundler.js",
-				},
-				{
-					find: /^@vue\/runtime-dom$/,
-					replacement: "@vue/runtime-dom/dist/runtime-dom.esm-bundler.js",
-				},
-				{
-					find: /^@vue\/reactivity$/,
-					replacement: "@vue/reactivity/dist/reactivity.esm-bundler.js",
-				},
-				{
-					find: /^@vue\/server-renderer$/,
-					replacement: "@vue/server-renderer/dist/server-renderer.esm-bundler.js",
-				},
 			],
-		},
-
-		define: {
-			__DEV__: command === "serve",
-			__PROD__: command === "build",
-			__VUE_OPTIONS_API__: true,
-			__VUE_PROD_DEVTOOLS__: command === "serve",
-			global: "globalThis",
-			"process.env.NODE_ENV": JSON.stringify(command === "serve" ? "development" : "production"),
 		},
 	};
 });
