@@ -20,7 +20,7 @@
  *   solid    — @useavalon/solid
  *   vue      — @useavalon/vue
  *   mcp           — @useavalon/mcp (independent version line; not part of `all`)
- *   create-avalon — create-avalon (unscoped; needs its own npm token grant)
+ *   create-avalon — create-avalon (unscoped; needs its own trusted publisher)
  *   all           — every framework package + create-avalon + seo + agent-optimization
  */
 

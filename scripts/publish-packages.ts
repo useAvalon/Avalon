@@ -3,8 +3,8 @@
  *
  * Versions already on the registry are skipped so a retry after a partial
  * release can finish git tags without republishing. Unscoped names such as
- * `create-avalon` often sit outside an org-scoped token; a 403 there is a
- * warning, not a hard failure.
+ * `create-avalon` need their own trusted publisher on npmjs.com; a 403
+ * there is a warning, not a hard failure.
  *
  * Usage: bun scripts/publish-packages.ts --tag latest -- packages/avalon ...
  */
@@ -112,7 +112,7 @@ export async function publishPackages(
 
 		if (isUnscopedName(pkg.name) && isCredentialForbidden(published.stderr)) {
 			console.warn(
-				`Unscoped ${id} is outside this token's grant. Add the package to the npm token, then re-run Release for create-avalon with bump=none.`,
+				`Unscoped ${id} has no trusted publisher for release.yml. On npmjs.com add GitHub Actions useAvalon / Avalon / release.yml, then re-run Release for create-avalon with bump=none.`,
 			);
 			result.warned.push(id);
 			continue;
