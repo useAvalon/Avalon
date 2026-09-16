@@ -26,6 +26,7 @@
  * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 5.1, 5.3, 9.1, 9.2, 9.3, 9.4, 10.5
  */
 
+import "../polyfills/urlpattern.ts";
 import type { H3Event } from "h3";
 import { getRequestURL as h3GetRequestURL } from "h3";
 import {

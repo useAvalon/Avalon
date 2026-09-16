@@ -1,6 +1,8 @@
 import { statSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 
+import "../../polyfills/urlpattern.ts";
+
 import type {
 	ComponentType,
 	LayoutContext,

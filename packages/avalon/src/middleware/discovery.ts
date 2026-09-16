@@ -1,3 +1,5 @@
+import "../polyfills/urlpattern.ts";
+
 /**
  * Simplified Middleware Discovery
  *
