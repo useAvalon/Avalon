@@ -12,6 +12,7 @@ export default defineConfig({
 			"packages/avalon/src/**/*.test.ts",
 			"packages/avalon/scripts/**/*.test.ts",
 			"packages/create-avalon/src/**/*.test.ts",
+			"scripts/**/*.test.ts",
 			"www/src/tests/**/*.test.ts",
 			"www/src/__tests__/**/*.test.ts",
 		],

@@ -19,8 +19,9 @@
  *   svelte   — @useavalon/svelte
  *   solid    — @useavalon/solid
  *   vue      — @useavalon/vue
- *   mcp      — @useavalon/mcp (independent version line; not part of `all`)
- *   all      — every framework package + create-avalon + seo + agent-optimization
+ *   mcp           — @useavalon/mcp (independent version line; not part of `all`)
+ *   create-avalon — create-avalon (unscoped; needs its own npm token grant)
+ *   all           — every framework package + create-avalon + seo + agent-optimization
  */
 
 import { readFile, writeFile } from "node:fs/promises";
@@ -42,6 +43,7 @@ const PACKAGE_MAP: Record<string, string[]> = {
 	vue: ["packages/integrations/vue/package.json"],
 	qwik: ["packages/integrations/qwik/package.json"],
 	mcp: ["packages/mcp/package.json"],
+	"create-avalon": ["packages/create-avalon/package.json"],
 };
 
 // `mcp` has an independent version line, so it is deliberately excluded from the

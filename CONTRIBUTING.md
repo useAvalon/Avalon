@@ -76,6 +76,8 @@ Report vulnerabilities privately — see [SECURITY.md](./SECURITY.md). Do not fi
 
 A failed `test:install` blocks `npm publish`. That is intentional — a broken `latest` must not ship.
 
+Already-published versions are skipped, so a retry after a partial publish can still commit tags. Do not re-run a finished release with a bump — that would cut the next version. `create-avalon` is unscoped; the Actions token must be granted publish access to that name on npm. If a core release warns that `create-avalon` is outside the token's grant, add the package to the token and re-run **Release** with package `create-avalon` and bump `none`.
+
 ## License
 
 By contributing you agree that your work is licensed under the [MIT License](./LICENSE), the same as the rest of the project.
