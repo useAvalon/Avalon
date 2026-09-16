@@ -7,6 +7,7 @@ import {
 	isUnscopedName,
 	publishPackages,
 	registryUrl,
+	resolveNpmBin,
 	shouldCommit,
 } from "./publish-packages.ts";
 
@@ -15,6 +16,22 @@ function writePkg(name: string, version: string): string {
 	writeFileSync(join(dir, "package.json"), JSON.stringify({ name, version }));
 	return dir;
 }
+
+describe("resolveNpmBin", () => {
+	it("prefers NPM_BIN when that path exists", () => {
+		const dir = writePkg("tmp", "0.0.0");
+		const fake = join(dir, "npm");
+		writeFileSync(fake, "");
+		const prev = process.env.NPM_BIN;
+		process.env.NPM_BIN = fake;
+		try {
+			expect(resolveNpmBin()).toBe(fake);
+		} finally {
+			if (prev === undefined) delete process.env.NPM_BIN;
+			else process.env.NPM_BIN = prev;
+		}
+	});
+});
 
 describe("registryUrl", () => {
 	it("encodes the slash in a scoped name", () => {

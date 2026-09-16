@@ -43,19 +43,24 @@ export function shouldCommit(result: PublishResult): boolean {
 }
 
 export function resolveNpmBin(): string {
-	const fromEnv = process.env.npm_execpath;
-	if (fromEnv && existsSync(fromEnv)) return fromEnv;
+	for (const candidate of [process.env.NPM_BIN, process.env.npm_execpath]) {
+		if (candidate && existsSync(candidate)) return candidate;
+	}
 	const sibling = join(dirname(process.execPath), "npm");
 	if (existsSync(sibling)) return sibling;
 	return "/usr/bin/npm";
 }
 
 function defaultPublish(dir: string, tag: string): { ok: boolean; stderr: string } {
-	const result = spawnSync(resolveNpmBin(), ["publish", "--tag", tag, "--access", "public"], {
+	const npm = resolveNpmBin();
+	if (!existsSync(npm)) {
+		return { ok: false, stderr: `npm binary not found at ${npm}` };
+	}
+	const result = spawnSync(npm, ["publish", "--tag", tag, "--access", "public"], {
 		cwd: dir,
 		encoding: "utf8",
 	});
-	const stderr = `${result.stderr ?? ""}${result.stdout ?? ""}`;
+	const stderr = `${result.error?.message ?? ""}${result.stderr ?? ""}${result.stdout ?? ""}`;
 	return { ok: result.status === 0, stderr };
 }
 
