@@ -12,7 +12,7 @@
  *   bun run scripts/bump-version.ts --bump=major --channel=beta --package=all
  *
  * Package targets:
- *   core     — @useavalon/avalon + @useavalon/core
+ *   core     — avalon + core + preact + seo + create-avalon (default install set)
  *   lit      — @useavalon/lit
  *   react    — @useavalon/react
  *   preact   — @useavalon/preact
@@ -20,14 +20,20 @@
  *   solid    — @useavalon/solid
  *   vue      — @useavalon/vue
  *   mcp      — @useavalon/mcp (independent version line; not part of `all`)
- *   all      — every framework package (use for breaking shared changes)
+ *   all      — every framework package + create-avalon + seo + agent-optimization
  */
 
 import { readFile, writeFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 
 const PACKAGE_MAP: Record<string, string[]> = {
-	core: ["packages/avalon/package.json", "packages/integrations/core/package.json"],
+	core: [
+		"packages/avalon/package.json",
+		"packages/integrations/core/package.json",
+		"packages/integrations/preact/package.json",
+		"packages/seo/package.json",
+		"packages/create-avalon/package.json",
+	],
 	lit: ["packages/integrations/lit/package.json"],
 	react: ["packages/integrations/react/package.json"],
 	preact: ["packages/integrations/preact/package.json"],
@@ -41,9 +47,14 @@ const PACKAGE_MAP: Record<string, string[]> = {
 // `mcp` has an independent version line, so it is deliberately excluded from the
 // `all` target (which is meant for coordinated framework releases).
 const STANDALONE_PACKAGES = new Set(["mcp"]);
-const ALL_PACKAGES = Object.entries(PACKAGE_MAP)
-	.filter(([name]) => !STANDALONE_PACKAGES.has(name))
-	.flatMap(([, files]) => files);
+const ALL_PACKAGES = [
+	...new Set(
+		Object.entries(PACKAGE_MAP)
+			.filter(([name]) => !STANDALONE_PACKAGES.has(name))
+			.flatMap(([, files]) => files),
+	),
+	"packages/agent-optimization/package.json",
+];
 
 interface SemVer {
 	major: number;
@@ -74,7 +85,7 @@ function bumpVersion(
 	if (isExistingPrerelease && channel !== "stable") {
 		const currentChannel = current.prerelease?.split(".")[0];
 		if (currentChannel === channel) {
-			const counter = parseInt(current.prerelease?.split(".")[1] ?? "0", 10) + 1;
+			const counter = Number.parseInt(current.prerelease?.split(".")[1] ?? "0", 10) + 1;
 			return { ...base, prerelease: `${channel}.${counter}` };
 		}
 		if (channel === "rc" && currentChannel === "beta") {

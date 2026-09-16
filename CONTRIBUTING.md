@@ -42,9 +42,9 @@ Large or breaking changes need an issue first so the approach can be discussed.
 4. Run `bun run lint`, `bun run test`, and `bun run typecheck`. Do not skip git hooks.
 5. Open a PR from your fork against `main` and fill in the pull request template. Reference issues with `Fixes #123`.
 
-CI on pull requests runs Biome, Vitest, and `tsc --noEmit`. All three must pass.
+CI on pull requests runs Biome, Vitest, `tsc --noEmit`, and an install smoke (`bun run test:install`: pack workspace packages → `create-avalon --yes` → install from those tarballs → production build). All four must pass.
 
-**Do not** bump versions, edit release workflows, or publish to npm. Packages version independently; maintainers release with `scripts/bump-version.ts`. Merges to `main` that touch `packages/**` already publish canary builds.
+**Do not** bump versions, edit release workflows, or publish to npm. Packages version independently. Maintainers ship **stable / beta / rc only from GitHub Actions → Release** (`workflow_dispatch` on `.github/workflows/release.yml`). That job re-runs lint, tests, typecheck, and the install smoke, then publishes. Do not `npm publish` from a laptop. Merges to `main` that touch `packages/**` already publish canary builds.
 
 **Do not** add a dependency without an issue discussing it. Only change `bun.lock` when the change needs it.
 
@@ -66,6 +66,15 @@ Comments in source explain why or non-obvious what. No authors, ticket numbers, 
 ## Security
 
 Report vulnerabilities privately — see [SECURITY.md](./SECURITY.md). Do not file a public issue.
+
+## Releases (maintainers)
+
+1. Open **Actions → Release**.
+2. Choose the package (`core` is the default install set: avalon, core, preact, seo, create-avalon), bump, and channel.
+3. Leave **dry-run** checked first. Confirm the install smoke passes.
+4. Re-run with dry-run unchecked to publish.
+
+A failed `test:install` blocks `npm publish`. That is intentional — a broken `latest` must not ship.
 
 ## License
 

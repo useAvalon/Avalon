@@ -67,7 +67,7 @@ Process for humans: [CONTRIBUTING.md](./CONTRIBUTING.md). Issues and PRs use the
 
 - Fork the repo, work on a branch, and open a PR against `main`. Do not push to `main` — that publishes canary npm builds.
 - One concern per PR. No drive-by refactors, formatting-only diffs, or unrelated files.
-- Do not bump versions, edit release workflows, or publish. Maintainers release.
+- Do not bump versions, edit release workflows, or publish. Maintainers ship stable from GitHub Actions → Release; that job must pass `bun run test:install` before `npm publish`.
 - Do not add a dependency without an issue. Only change `bun.lock` when the change needs it.
 - Behavior change → tests next to the code (`__tests__` or `tests/`).
 - Commits: `type(scope): summary` (`feat`, `fix`, `docs`, `chore`, `ci`, `refactor`, `test`). Present tense; why, not a file list.

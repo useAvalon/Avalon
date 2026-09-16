@@ -148,9 +148,9 @@ export function resolveConfigNonInteractive(args: CLIArgs): ProjectConfig {
 		throw new CliArgError("--styling=shadcn requires --core=react (shadcn is Radix/React based).");
 	}
 
-	// A React shell requires the React integration; ensure it's present.
-	if (core === "react" && !integrations.includes("react")) {
-		integrations.push("react");
+	// The page shell always needs its own integration + runtime at the app level.
+	if (!integrations.includes(core)) {
+		integrations.push(core);
 	}
 
 	return {

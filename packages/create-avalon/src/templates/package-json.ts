@@ -28,7 +28,12 @@ export function generatePackageJson(config: ProjectConfig): string {
 		"@useavalon/avalon": "latest",
 	};
 
-	for (const integration of config.integrations) {
+	// The page shell always needs its core engine, even when the user did not
+	// tick that integration in the prompt.
+	const selectedIntegrations = new Set<Integration>(config.integrations);
+	selectedIntegrations.add(config.core);
+
+	for (const integration of selectedIntegrations) {
 		dependencies[INTEGRATION_PACKAGES[integration]] = "latest";
 		Object.assign(dependencies, INTEGRATION_RUNTIME_DEPS[integration]);
 	}
@@ -54,12 +59,13 @@ export function generatePackageJson(config: ProjectConfig): string {
 		// h3 is included via nitro, no extra dep needed
 	}
 
-	// Styling dependencies
+	// Pin to Avalon's peer ranges. `latest` can resolve a major that the
+	// published package does not support (vite-imagetools 12 vs peer ^7).
 	const devDependencies: Record<string, string> = {
-		vite: "latest",
-		typescript: "latest",
-		nitro: "latest",
-		"vite-imagetools": "latest",
+		vite: "^8.0.0",
+		typescript: "^5.0.0",
+		nitro: "^3.0.260311-beta",
+		"vite-imagetools": "^7.0.0",
 	};
 
 	switch (config.styling) {

@@ -127,13 +127,19 @@ describe("resolveConfigNonInteractive", () => {
 		expect(config).toEqual({
 			projectName: "my-app",
 			core: "preact",
-			integrations: [],
+			integrations: ["preact"],
 			styling: "css-modules",
 			plugins: ["seo"],
 			middleware: "h3",
 			deploy: "none",
 			cron: false,
 		});
+	});
+
+	it("forces the preact integration when core is preact", () => {
+		const config = resolveConfigNonInteractive({ ...base, projectName: "my-app" });
+		expect(config.core).toBe("preact");
+		expect(config.integrations).toContain("preact");
 	});
 
 	it("defaults projectName to '.' when omitted", () => {
@@ -146,7 +152,7 @@ describe("resolveConfigNonInteractive", () => {
 			integrations: "react, vue ,svelte",
 			plugins: "seo, syntax-highlighting",
 		});
-		expect(config.integrations).toEqual(["react", "vue", "svelte"]);
+		expect(config.integrations).toEqual(["react", "vue", "svelte", "preact"]);
 		expect(config.plugins).toEqual(["seo", "syntax-highlighting"]);
 	});
 

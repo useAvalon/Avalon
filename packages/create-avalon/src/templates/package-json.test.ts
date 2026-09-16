@@ -45,11 +45,12 @@ describe("generatePackageJson", () => {
 		expect(pkg.scripts.deploy).toBe("bunx wrangler@4 pages deploy --project-name=cool-app");
 	});
 
-	it("includes vite, typescript, nitro as devDependencies", () => {
+	it("pins vite, typescript, nitro, and vite-imagetools to Avalon peer ranges", () => {
 		const pkg = JSON.parse(generatePackageJson(baseConfig));
-		expect(pkg.devDependencies.vite).toBe("latest");
-		expect(pkg.devDependencies.typescript).toBe("latest");
-		expect(pkg.devDependencies.nitro).toBe("latest");
+		expect(pkg.devDependencies.vite).toBe("^8.0.0");
+		expect(pkg.devDependencies.typescript).toBe("^5.0.0");
+		expect(pkg.devDependencies.nitro).toBe("^3.0.260311-beta");
+		expect(pkg.devDependencies["vite-imagetools"]).toBe("^7.0.0");
 	});
 
 	it("adds hono dependency when hono middleware selected", () => {
@@ -116,11 +117,13 @@ describe("generatePackageJson", () => {
 		expect(pkg.dependencies["@lit-labs/ssr-dom-shim"]).toBe("^1.0.0");
 	});
 
-	it("does not add framework runtimes when no integrations selected", () => {
+	it("always installs the core engine integration and runtime", () => {
 		const pkg = JSON.parse(generatePackageJson(baseConfig));
+		expect(pkg.dependencies["@useavalon/preact"]).toBe("latest");
+		expect(pkg.dependencies.preact).toBe("^10.0.0");
+		expect(pkg.dependencies["preact-render-to-string"]).toBe("^6.0.0");
 		expect(pkg.dependencies.react).toBeUndefined();
 		expect(pkg.dependencies.vue).toBeUndefined();
-		expect(pkg.dependencies.preact).toBeUndefined();
 	});
 
 	it("includes @useavalon/agent-optimization when plugin selected", () => {
