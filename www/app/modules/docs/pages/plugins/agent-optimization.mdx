@@ -1,277 +1,193 @@
 ---
 title: Agent Optimization Plugin
-description: Optimize your Avalon site for AI agents, search engines, and social sharing with automatic JSON-LD, llms.txt, and markdown content negotiation.
+description: Serve llms.txt, markdown to AI clients, and sitemap.xml with @useavalon/agent-optimization.
 ---
 
-## Overview
+`@useavalon/agent-optimization` makes the site readable to AI agents and sitemap crawlers. It does **not** inject Open Graph, Twitter cards, or JSON-LD. Those live in [`@useavalon/seo`](/docs/plugins/seo).
 
-The `@useavalon/agent-optimization` plugin enhances your Avalon site for AI agents and search engines by providing:
-
-- **JSON-LD Structured Data** — Automatic Schema.org WebPage injection
-- **llms.txt Generation** — Machine-readable site index for AI crawlers
-- **Markdown Content Negotiation** — Serve markdown to agents that request it
-- **Sitemap Generation** — XML sitemaps for search engines
+- **`/sitemap.xml`** — Sitemap Protocol 0.9 from discovered page routes
+- **`/llms.txt`** — index of the site for LLMs ([llmstxt.org](https://llmstxt.org))
+- **`/llms-full.txt`** — full page markdown when `llms.full` is `true`
+- **Markdown negotiation** — HTML converted to markdown when the client sends `Accept: text/markdown`
 
 ## Installation
 
-The plugin is included in the Avalon monorepo. Add it to your Vite config:
+```bash
+bun add @useavalon/agent-optimization
+```
+
+`create-avalon` can add this plugin when you select `agent-optimization`.
+
+## Usage
 
 ```ts
-// vite.config.ts
-import { defineConfig } from 'vite';
+import { defineConfig, type UserConfig } from 'vite';
 import { avalon } from '@useavalon/avalon';
 import { agentOptimization } from '@useavalon/agent-optimization';
 
-export default defineConfig({
-  plugins: [
-    avalon(),
-    agentOptimization({
-      siteUrl: 'https://example.com',
-      siteName: 'My Avalon Site',
-    }),
-  ],
+export default defineConfig(async (): Promise<UserConfig> => {
+  const avalonPlugins = await avalon({
+    core: 'preact',
+    modules: 'app/modules',
+  });
+
+  return {
+    plugins: [
+      agentOptimization({
+        sitemap: {
+          siteUrl: 'https://example.com',
+          changefreq: 'weekly',
+          exclude: ['/admin/**', '/login'],
+        },
+        markdown: true,
+        llms: {
+          siteUrl: 'https://example.com',
+          siteName: 'My Site',
+          siteDescription: 'A site built with Avalon',
+          sections: {
+            Pages: ['/'],
+            Docs: ['/docs'],
+            Blog: ['/blog'],
+          },
+          full: true,
+        },
+      }),
+      ...avalonPlugins,
+    ],
+  };
 });
 ```
+
+Put `agentOptimization()` before the Avalon plugin list so middleware can patch `res.end` before SSR writes HTML.
 
 ## Configuration
 
-```ts
-interface AgentOptimizationConfig {
-  /** Base URL of your site (required for absolute URLs) */
-  siteUrl: string;
-  
-  /** Site name for structured data */
-  siteName?: string;
-  
-  /** Enable JSON-LD injection (default: true) */
-  jsonLd?: boolean;
-  
-  /** Enable llms.txt generation (default: true) */
-  llmsTxt?: boolean;
-  
-  /** Enable markdown content negotiation (default: true) */
-  markdown?: boolean;
-  
-  /** Enable sitemap generation (default: true) */
-  sitemap?: boolean;
-  
-  /** Routes to exclude from llms.txt and sitemap */
-  exclude?: string[];
-}
-```
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `sitemap` | `boolean \| SitemapConfig` | — | Enable sitemap generation |
+| `sitemap.siteUrl` | `string` | required when object | Origin for `<loc>` values |
+| `sitemap.changefreq` | `string?` | `'weekly'` | Default change frequency |
+| `sitemap.priority` | `number?` | `0.5` | Default priority (0–1) |
+| `sitemap.dynamicPaths` | `Record<string, string[]>?` | — | Expand dynamic route params |
+| `sitemap.exclude` | `string[]?` | — | Glob patterns or path prefixes to skip |
+| `markdown` | `boolean?` | — | Serve markdown when `Accept: text/markdown` |
+| `llms` | `boolean \| LlmsConfig` | — | Enable llms.txt generation |
+| `llms.siteUrl` | `string` | required when object | Origin for links in llms.txt |
+| `llms.siteName` | `string` | required when object | H1 in llms.txt |
+| `llms.siteDescription` | `string?` | — | Blockquote under the H1 |
+| `llms.sections` | `Record<string, string[]>?` | — | H2 heading → path prefixes |
+| `llms.exclude` | `string[]?` | — | Patterns to skip |
+| `llms.full` | `boolean?` | `false` | Also write `/llms-full.txt` |
 
-## JSON-LD Structured Data
+`sitemap: true` or `llms: true` without a config object falls back to `http://localhost` and logs a warning. Pass an object with `siteUrl` (and `siteName` for llms) in production.
 
-The plugin automatically injects Schema.org JSON-LD for pages with metadata:
+## Sitemap
 
-```html
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebPage",
-  "url": "https://example.com/blog/hello-world",
-  "name": "Hello World",
-  "description": "My first blog post.",
-  "image": "/og-image.png"
-}
-</script>
-```
-
-### How It Works
-
-1. The plugin intercepts HTML responses
-2. Extracts `<title>` and `<meta name="description">` from the HTML
-3. Builds a WebPage JSON-LD object
-4. Injects it before `</head>`
-
-### Manual JSON-LD
-
-For custom structured data types, use the exported helpers:
-
-```ts
-import { 
-  buildWebPageJsonLd, 
-  buildWebSiteJsonLd, 
-  injectJsonLd 
-} from '@useavalon/agent-optimization';
-
-// WebPage JSON-LD
-const pageJsonLd = buildWebPageJsonLd(
-  { title: 'My Page', description: 'Description', openGraph: { image: '/img.png' } },
-  'https://example.com/my-page'
-);
-
-// WebSite JSON-LD
-const siteJsonLd = buildWebSiteJsonLd('https://example.com', 'My Site');
-
-// Inject into HTML
-const html = injectJsonLd(originalHtml, pageJsonLd);
-```
-
-## llms.txt Generation
-
-The plugin generates `/llms.txt` — a machine-readable index of your site for AI agents:
-
-```
-# My Avalon Site
-> A multi-framework islands architecture site.
-
-## Pages
-
-- [Home](https://example.com/): Welcome to our site
-- [About](https://example.com/about): Learn about us
-- [Blog](https://example.com/blog): Latest articles
-
-## Documentation
-
-- [Getting Started](https://example.com/docs/getting-started): Quick start guide
-- [API Reference](https://example.com/docs/api): Full API documentation
-```
-
-### Full Content Version
-
-The plugin also generates `/llms-full.txt` with complete page content in markdown format, useful for AI agents that want to index your entire site.
-
-### Configuration
-
-```ts
-agentOptimization({
-  siteUrl: 'https://example.com',
-  llmsTxt: {
-    enabled: true,
-    title: 'My Site',
-    description: 'Site description for AI agents',
-    sections: [
-      { name: 'Pages', pattern: '^/$|^/about' },
-      { name: 'Documentation', pattern: '^/docs/' },
-      { name: 'Blog', pattern: '^/blog/' },
-    ],
-  },
-});
-```
-
-## Markdown Content Negotiation
-
-When a client sends `Accept: text/markdown`, the plugin converts HTML responses to clean markdown:
-
-```bash
-curl -H "Accept: text/markdown" https://example.com/docs/getting-started
-```
-
-Response:
-
-```markdown
----
-title: "Getting Started"
-description: "Quick start guide for Avalon"
----
-
-# Getting Started
-
-Welcome to Avalon! This guide will help you...
-
-## Installation
-
-Run the following command:
-
-\`\`\`bash
-npm install @useavalon/avalon
-\`\`\`
-```
-
-### How It Works
-
-1. Checks the `Accept` header for `text/markdown`
-2. Renders the page as HTML normally
-3. Converts HTML to markdown using smart extraction
-4. Adds YAML frontmatter from page metadata
-5. Returns with `Content-Type: text/markdown`
-
-## Sitemap Generation
-
-The plugin generates `/sitemap.xml` for search engines:
+The plugin discovers routes from your Avalon pages directories and writes `/sitemap.xml`. It skips dynamic segments (`:param`), private `_`-prefixed routes, and paths matching `exclude`.
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://example.com/</loc>
-    <lastmod>2024-01-15</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
+    <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://example.com/docs/getting-started</loc>
-    <lastmod>2024-01-10</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
+    <loc>https://example.com/docs</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.5</priority>
   </url>
 </urlset>
 ```
 
-## API Reference
-
-### Exports
-
-```ts
-// Plugin
-export { agentOptimization } from '@useavalon/agent-optimization';
-
-// JSON-LD helpers
-export { buildWebPageJsonLd, buildWebSiteJsonLd, injectJsonLd } from '@useavalon/agent-optimization';
-
-// Markdown conversion
-export { htmlToMarkdown, buildFrontMatter, shouldServeMarkdown } from '@useavalon/agent-optimization';
-
-// llms.txt generation
-export { buildLlmsTxt, buildLlmsFullTxt } from '@useavalon/agent-optimization';
-
-// Types
-export type { PageMetadata, AgentOptimizationConfig } from '@useavalon/agent-optimization';
-```
-
-### buildWebPageJsonLd
-
-```ts
-function buildWebPageJsonLd(metadata: PageMetadata, url: string): object
-```
-
-Builds a Schema.org WebPage JSON-LD object from page metadata.
-
-### injectJsonLd
-
-```ts
-function injectJsonLd(html: string, jsonLd: object): string
-```
-
-Injects a JSON-LD script tag into HTML before `</head>`.
-
-### htmlToMarkdown
-
-```ts
-function htmlToMarkdown(html: string): string
-```
-
-Converts HTML to clean markdown, extracting content from `#app`, `<main>`, or `<body>`.
-
-## Best Practices
-
-1. **Always set `siteUrl`** — Required for absolute URLs in structured data and sitemaps.
-
-2. **Include page metadata** — JSON-LD is only injected for pages with title or description.
-
-3. **Use semantic HTML** — The markdown converter works best with proper heading hierarchy and semantic elements.
-
-4. **Exclude private routes** — Use the `exclude` option for admin pages or authenticated routes.
+Expand dynamic routes with `dynamicPaths`:
 
 ```ts
 agentOptimization({
-  siteUrl: 'https://example.com',
-  exclude: ['/admin/*', '/api/*', '/preview/*'],
+  sitemap: {
+    siteUrl: 'https://example.com',
+    dynamicPaths: {
+      '/blog/:slug': ['/blog/hello-world', '/blog/release-notes'],
+    },
+  },
 });
+```
+
+## llms.txt
+
+`/llms.txt` is a markdown index: site name, optional description, then categorized links.
+
+```
+# My Site
+> A site built with Avalon
+
+## Pages
+
+- [Home](https://example.com/): Welcome
+
+## Docs
+
+- [Introduction](https://example.com/docs): Get started
+```
+
+`llms.sections` keys become H2 headings. Each value is a list of path prefixes. Routes that do not match a section are omitted from those groups.
+
+Set `full: true` to also generate `/llms-full.txt` with concatenated page markdown. That pass renders pages at build time.
+
+## Markdown content negotiation
+
+```bash
+curl -H "Accept: text/markdown" https://example.com/docs/introduction
+```
+
+```markdown
+---
+title: "Introduction"
+description: "Get started with Avalon"
+---
+
+# Introduction
+
+Get started with Avalon...
+```
+
+The plugin renders HTML as usual, converts the `#app`, `<main>`, or `<body>` tree to markdown, and adds YAML frontmatter from the page title and description.
+
+## API
+
+```ts
+export { agentOptimization } from '@useavalon/agent-optimization';
+
+export { buildLlmsTxt, buildLlmsFullTxt, routesToLlmsEntries } from '@useavalon/agent-optimization';
+export { htmlToMarkdown, buildFrontMatter, shouldServeMarkdown } from '@useavalon/agent-optimization';
+export { buildSitemapXml, routesToSitemapEntries } from '@useavalon/agent-optimization';
+
+export type {
+  AgentOptimizationConfig,
+  LlmsConfig,
+  SitemapConfig,
+  PageMetadata,
+} from '@useavalon/agent-optimization';
+```
+
+JSON-LD helpers (`buildWebPageJsonLd`, `injectJsonLd`) are on [`@useavalon/seo`](/docs/plugins/seo), not this package.
+
+## With SEO
+
+```ts
+plugins: [
+  seo({ siteUrl: 'https://example.com', siteName: 'My Site' }),
+  agentOptimization({
+    sitemap: { siteUrl: 'https://example.com' },
+    markdown: true,
+    llms: { siteUrl: 'https://example.com', siteName: 'My Site' },
+  }),
+  ...avalonPlugins,
+],
 ```
 
 ## Related
 
-- [Page Metadata](/docs/metadata) — How to define metadata for your pages
-- [Performance](/docs/guides/performance) — Optimize your site for speed
+- [SEO](/docs/plugins/seo) — Open Graph, Twitter cards, canonical URLs, JSON-LD
+- [Page Metadata](/docs/metadata) — `metadata` export used for titles and descriptions
