@@ -98,6 +98,13 @@ describe("getFrameworkViteDefaults", () => {
 		expect(config.optimizeDeps?.include).toContain("react/jsx-runtime");
 	});
 
+	it("does not inline React into SSR — React 19's entry is CJS", () => {
+		const config = defaults({ core: "react", integrations: ["react"] });
+		const noExternal = config.ssr?.noExternal as string[];
+		expect(noExternal ?? []).not.toContain("react");
+		expect(noExternal ?? []).not.toContain("react-dom");
+	});
+
 	it("maps react specifiers to Preact compat for the client production build", () => {
 		expect(mapPreactCompatId("react", "preact")).toBe("preact/compat");
 		expect(mapPreactCompatId("react-dom/client", "preact")).toBe("preact/compat/client");

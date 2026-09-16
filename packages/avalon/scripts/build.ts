@@ -13,6 +13,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
 import { minify } from "oxc-minify";
 import { transform } from "oxc-transform";
+import { rewriteImportExtensions } from "./rewrite-import-extensions.ts";
 
 const ROOT = join(import.meta.dir, "..");
 const SRC_DIR = join(ROOT, "src");
@@ -37,11 +38,18 @@ async function collectFiles(dir: string): Promise<string[]> {
 	return files;
 }
 
-function rewriteImportExtensions(code: string): string {
-	return code
-		.replaceAll(/(from\s+['"])([^'"]+)\.tsx?(['"])/g, "$1$2.js$3")
-		.replaceAll(/(import\s*\(\s*['"])([^'"]+)\.tsx?(['"]\s*\))/g, "$1$2.js$3")
-		.replaceAll(/(import\s+['"])([^'"]+)\.tsx?(['"])/g, "$1$2.js$3");
+/** Compile the `avalon` CLI to JS. Node will not strip types from node_modules. */
+async function compileBin() {
+	const binSrc = join(ROOT, "bin", "avalon.ts");
+	const code = await readFile(binSrc, "utf-8");
+	const result = await transform(binSrc, code, {
+		sourcemap: false,
+		typescript: { onlyRemoveTypeImports: false },
+	});
+	const output = rewriteImportExtensions(result.code);
+	const js = output.startsWith("#!") ? output : `#!/usr/bin/env node\n${output}`;
+	await mkdir(join(DIST_DIR, "bin"), { recursive: true });
+	await writeFile(join(DIST_DIR, "bin", "avalon.js"), js, "utf-8");
 }
 
 async function compileToDistDir() {
@@ -88,7 +96,8 @@ async function compileToDistDir() {
 		} else {
 			const code = await readFile(file, "utf-8");
 			if (ext === ".js") {
-				const minified = await minify(file, code);
+				const rewritten = rewriteImportExtensions(code);
+				const minified = await minify(file, rewritten);
 				await writeFile(join(DIST_DIR, rel), minified.code, "utf-8");
 				compiled++;
 			} else {
@@ -98,6 +107,7 @@ async function compileToDistDir() {
 		}
 	}
 
+	await compileBin();
 	console.log(`✓ Compiled ${compiled} files, copied ${copied} files to dist/`);
 
 	const distFiles = await collectFiles(DIST_DIR);
@@ -106,92 +116,122 @@ async function compileToDistDir() {
 	console.log(`✓ dist/ contains ${distFiles.length} files (${(total / 1024).toFixed(1)} kB)`);
 }
 
-async function rewritePackageJsonForPublish() {
-	const pkgPath = join(ROOT, "package.json");
-	const raw = await readFile(pkgPath, "utf-8");
-	const pkg = JSON.parse(raw);
+type PublishPkg = {
+	exports?: Record<string, unknown>;
+	typesVersions?: { "*": Record<string, string[]> };
+	bin?: Record<string, string>;
+	files?: string[];
+	dependencies?: Record<string, string>;
+	devDependencies?: Record<string, string>;
+	peerDependencies?: Record<string, string>;
+};
 
+function toDistPath(value: string, keepExt = false): string {
+	const stripped = value.replace(/^\.\//, "");
+	return keepExt ? `./dist/${stripped}` : `./dist/${stripped.replace(/\.tsx?$/, ".js")}`;
+}
+
+function isAlreadyRewritten(pkg: PublishPkg): boolean {
 	const mainExport = pkg.exports?.["."];
-	const alreadyRewritten =
-		typeof mainExport === "string"
-			? mainExport.startsWith("./dist/")
-			: typeof mainExport === "object" && mainExport?.default?.startsWith("./dist/");
+	if (typeof mainExport === "string") return mainExport.startsWith("./dist/");
+	return (
+		typeof mainExport === "object" &&
+		mainExport !== null &&
+		"default" in mainExport &&
+		typeof mainExport.default === "string" &&
+		mainExport.default.startsWith("./dist/")
+	);
+}
 
-	if (alreadyRewritten) {
-		console.log("✓ package.json already rewritten for publish, skipping");
-		return;
+function rewriteExports(pkg: PublishPkg): void {
+	if (!pkg.exports) return;
+	for (const [key, value] of Object.entries(pkg.exports)) {
+		if (typeof value !== "string") continue;
+		if (value.endsWith(".d.ts")) {
+			pkg.exports[key] = toDistPath(value, true);
+			continue;
+		}
+		const jsPath = toDistPath(value);
+		pkg.exports[key] = { types: jsPath.replace(/\.js$/, ".d.ts"), default: jsPath };
 	}
+}
 
-	await writeFile(join(ROOT, "package.json.bak"), raw, "utf-8");
+function rewriteTypesVersions(pkg: PublishPkg): void {
+	const star = pkg.typesVersions?.["*"];
+	if (!star) return;
+	for (const [key, paths] of Object.entries(star)) {
+		star[key] = paths.map((p) => toDistPath(p, true));
+	}
+}
 
-	const toDistPath = (value: string, keepExt = false): string => {
-		const stripped = value.replace(/^\.\//, "");
-		return keepExt ? `./dist/${stripped}` : `./dist/${stripped.replace(/\.tsx?$/, ".js")}`;
-	};
+function rewriteBin(pkg: PublishPkg): void {
+	if (!pkg.bin) return;
+	for (const [name, value] of Object.entries(pkg.bin)) {
+		pkg.bin[name] = toDistPath(value);
+	}
+}
 
-	if (pkg.exports) {
-		for (const [key, value] of Object.entries(pkg.exports)) {
-			if (typeof value === "string") {
-				if (value.endsWith(".d.ts")) {
-					// Pure type export — keep as-is but point to dist
-					pkg.exports[key] = toDistPath(value, true);
-				} else {
-					// Add types + default conditions
-					const jsPath = toDistPath(value);
-					const dtsPath = jsPath.replace(/\.js$/, ".d.ts");
-					pkg.exports[key] = { types: dtsPath, default: jsPath };
-				}
-			}
+async function resolveWorkspaceVersion(
+	name: string,
+	spec: string,
+	monorepoRoot: string,
+): Promise<string | null> {
+	const prefix = spec.replace("workspace:", "") || "^";
+	const shortName = name.replace(/^@useavalon\//, "");
+	const candidates = [
+		join(monorepoRoot, "packages", "integrations", shortName, "package.json"),
+		join(monorepoRoot, "packages", shortName, "package.json"),
+	];
+	for (const candidate of candidates) {
+		try {
+			const depPkg = JSON.parse(await readFile(candidate, "utf-8")) as {
+				name: string;
+				version: string;
+			};
+			if (depPkg.name !== name) continue;
+			return prefix === "*" ? `>=${depPkg.version}` : `${prefix}${depPkg.version}`;
+		} catch {
+			// Candidate path may not exist for this package name.
 		}
 	}
+	return null;
+}
 
-	if (pkg.typesVersions?.["*"]) {
-		for (const [key, paths] of Object.entries(pkg.typesVersions["*"])) {
-			if (Array.isArray(paths)) {
-				pkg.typesVersions["*"][key] = (paths as string[]).map((p) => toDistPath(p, true));
-			}
-		}
-	}
-
-	pkg.files = ["dist/**/*.js", "dist/**/*.d.ts", "README.md"];
-
-	// Resolve workspace: protocol references to actual versions.
-	// npm doesn't understand workspace:^ or workspace:* — they must be
-	// replaced with the real version from the referenced package.json.
+async function resolveWorkspaceDeps(pkg: PublishPkg): Promise<void> {
 	const monorepoRoot = join(ROOT, "..", "..");
 	for (const depField of ["dependencies", "devDependencies", "peerDependencies"] as const) {
 		const deps = pkg[depField];
 		if (!deps) continue;
 		for (const [name, version] of Object.entries(deps)) {
-			if (typeof version === "string" && version.startsWith("workspace:")) {
-				const prefix = version.replace("workspace:", "") || "^";
-				const shortName = name.replace(/^@useavalon\//, "");
-				const candidates = [
-					join(monorepoRoot, "packages", "integrations", shortName, "package.json"),
-					join(monorepoRoot, "packages", shortName, "package.json"),
-				];
-				let resolved = false;
-				for (const candidate of candidates) {
-					try {
-						const depPkg = JSON.parse(await readFile(candidate, "utf-8"));
-						if (depPkg.name === name) {
-							const resolvedVersion =
-								prefix === "*" ? `>=${depPkg.version}` : `${prefix}${depPkg.version}`;
-							deps[name] = resolvedVersion;
-							console.log(`  ✓ Resolved ${name}: ${version} → ${resolvedVersion}`);
-							resolved = true;
-							break;
-						}
-					} catch {}
-				}
-				if (!resolved) {
-					console.warn(`  ⚠ Could not resolve ${name}: ${version}`);
-				}
+			if (!version.startsWith("workspace:")) continue;
+			const resolved = await resolveWorkspaceVersion(name, version, monorepoRoot);
+			if (!resolved) {
+				console.warn(`  ⚠ Could not resolve ${name}: ${version}`);
+				continue;
 			}
+			deps[name] = resolved;
+			console.log(`  ✓ Resolved ${name}: ${version} → ${resolved}`);
 		}
 	}
+}
 
-	await writeFile(pkgPath, JSON.stringify(pkg, null, "\t") + "\n", "utf-8");
+async function rewritePackageJsonForPublish() {
+	const pkgPath = join(ROOT, "package.json");
+	const raw = await readFile(pkgPath, "utf-8");
+	const pkg = JSON.parse(raw) as PublishPkg;
+
+	if (isAlreadyRewritten(pkg)) {
+		console.log("✓ package.json already rewritten for publish, skipping");
+		return;
+	}
+
+	await writeFile(join(ROOT, "package.json.bak"), raw, "utf-8");
+	rewriteExports(pkg);
+	rewriteTypesVersions(pkg);
+	rewriteBin(pkg);
+	pkg.files = ["dist/**/*.js", "dist/**/*.d.ts", "README.md"];
+	await resolveWorkspaceDeps(pkg);
+	await writeFile(pkgPath, `${JSON.stringify(pkg, null, "\t")}\n`, "utf-8");
 	console.log("✓ Rewrote package.json exports → dist/ for publish");
 }
 

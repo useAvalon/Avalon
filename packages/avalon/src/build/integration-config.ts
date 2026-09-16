@@ -88,7 +88,11 @@ export const INTEGRATION_BUILD_CONFIGS: Record<string, IntegrationBuildConfig> =
 			"react-dom/client",
 		],
 		ssrExternal: [],
-		ssrNoExternal: ["react", "react-dom", "react-dom/client", "react-dom/server"],
+		// React 19's default export is CJS `index.js`. Putting it in
+		// noExternal makes Vite's SSR runner execute that file as ESM
+		// (`ReferenceError: module is not defined`). Leave it external so
+		// Node loads the CJS build.
+		ssrNoExternal: [],
 		requiresPlugin: true,
 		pluginPackage: "@vitejs/plugin-react",
 	},

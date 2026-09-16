@@ -1,14 +1,17 @@
 name: Release
 
-# Manual workflow for publishing beta, rc, and stable releases.
-# Supports releasing individual packages or everything at once.
-# Automatically detects the semver bump from conventional commit messages
-# since the last release tag. Use bump-override to force a specific bump.
+# Publish beta, rc, and stable releases from the GitHub Actions UI.
+# Do not npm publish from a laptop — this workflow is the only stable path.
+#
+# Every channel runs lint, unit tests, typecheck, and `bun run test:install`
+# (pack → create-avalon --yes → install → build) before `npm publish`.
+# A failed install smoke blocks the release.
 #
 # Examples:
 #   package=core,  channel=beta  → auto-detects bump from commits
 #   package=lit,   channel=stable, bump-override=major → forces major bump
 #   package=all,   channel=stable → auto-detects bump for all packages
+#   dry-run=true (default) → bump + smoke + npm publish --dry-run, no git push
 
 on:
   workflow_dispatch:
@@ -57,9 +60,24 @@ permissions:
   id-token: write
 
 jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+      - run: bun install
+      - run: bunx biome ci .
+      - run: bunx vitest run
+      - run: bunx tsc --noEmit
+
   release:
     name: Release ${{ inputs.package }} (${{ inputs.channel }})
+    needs: verify
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
@@ -182,10 +200,10 @@ jobs:
         run: |
           case "${{ inputs.package }}" in
             core)
-              echo "packages=packages/integrations/core packages/avalon" >> "$GITHUB_OUTPUT"
+              echo "packages=packages/integrations/core packages/avalon packages/integrations/preact packages/seo packages/create-avalon" >> "$GITHUB_OUTPUT"
               ;;
             all)
-              echo "packages=packages/integrations/core packages/avalon packages/integrations/lit packages/integrations/react packages/integrations/preact packages/integrations/svelte packages/integrations/solid packages/integrations/vue packages/integrations/qwik" >> "$GITHUB_OUTPUT"
+              echo "packages=packages/integrations/core packages/avalon packages/create-avalon packages/seo packages/agent-optimization packages/integrations/lit packages/integrations/react packages/integrations/preact packages/integrations/svelte packages/integrations/solid packages/integrations/vue packages/integrations/qwik" >> "$GITHUB_OUTPUT"
               ;;
             mcp)
               echo "packages=packages/mcp" >> "$GITHUB_OUTPUT"
@@ -194,6 +212,9 @@ jobs:
               echo "packages=packages/integrations/${{ inputs.package }}" >> "$GITHUB_OUTPUT"
               ;;
           esac
+
+      - name: Install smoke (scaffold + build from packed tarballs)
+        run: bun run test:install
 
       - name: Publish to npm (dry run)
         if: ${{ inputs.dry-run == true }}

@@ -171,10 +171,10 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 	}
 
 	const core = coreResult as RenderEngine;
-	// A React shell requires the React integration; ensure it's present.
+	// The page shell always needs its own integration + runtime at the app level.
 	const integrations = integrationsResult as Integration[];
-	if (core === "react" && !integrations.includes("react")) {
-		integrations.push("react");
+	if (!integrations.includes(core)) {
+		integrations.push(core);
 	}
 
 	return {
