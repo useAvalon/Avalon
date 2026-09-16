@@ -76,7 +76,16 @@ Report vulnerabilities privately — see [SECURITY.md](./SECURITY.md). Do not fi
 
 A failed `test:install` blocks `npm publish`. That is intentional — a broken `latest` must not ship.
 
-Already-published versions are skipped, so a retry after a partial publish can still commit tags. Do not re-run a finished release with a bump — that would cut the next version. `create-avalon` is unscoped; the Actions token must be granted publish access to that name on npm. If a core release warns that `create-avalon` is outside the token's grant, add the package to the token and re-run **Release** with package `create-avalon` and bump `none`.
+Already-published versions are skipped, so a retry after a partial publish can still commit tags. Do not re-run a finished release with a bump — that would cut the next version.
+
+Publish uses npm **trusted publishing** (OIDC), not a long-lived token. Each package that Release or Canary ships needs its own Trusted Publisher on npmjs.com (Settings → Trusted Publisher → GitHub Actions):
+
+- Organization or user: `useAvalon`
+- Repository: `Avalon`
+- Workflow filename: `release.yml` (and `canary.yml` for packages on the canary train)
+- Allow `npm publish`
+
+`create-avalon` is a separate unscoped package page. Keep that name — `npm create avalon` depends on it. Add the same `release.yml` trusted publisher there, then re-run **Release** with package `create-avalon` and bump `none`.
 
 ## License
 

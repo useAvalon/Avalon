@@ -7,7 +7,7 @@ name: Release
 # (pack → create-avalon --yes → install → build) before `npm publish`.
 # A failed install smoke blocks the release.
 # Already-published versions are skipped. An unscoped 403 (create-avalon
-# outside the org token) is a warning; git tags still land for the rest.
+# missing a trusted publisher) is a warning; git tags still land for the rest.
 #
 # Examples:
 #   package=core,  channel=beta  → auto-detects bump from commits
@@ -91,6 +91,9 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
+
+      # Trusted publishing needs npm 11.5.1+. Node 22 ships an older CLI.
+      - run: npm install -g npm@^11.5.1
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
@@ -244,10 +247,11 @@ jobs:
       - name: Publish to npm
         if: ${{ inputs.dry-run == false }}
         id: publish
-        env:
-          NPM_TOKEN: ${{ secrets.AVALON_RELEASE }}
         run: |
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+          # A token in .npmrc / NODE_AUTH_TOKEN wins over OIDC and hides
+          # trusted publishing. Leave both unset.
+          unset NODE_AUTH_TOKEN NPM_TOKEN
+          rm -f ~/.npmrc
           TAG="${{ inputs.channel }}"
           if [ "$TAG" = "stable" ]; then
             TAG="latest"
