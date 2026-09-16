@@ -6,6 +6,8 @@ name: Release
 # Every channel runs lint, unit tests, typecheck, and `bun run test:install`
 # (pack → create-avalon --yes → install → build) before `npm publish`.
 # A failed install smoke blocks the release.
+# Already-published versions are skipped. An unscoped 403 (create-avalon
+# outside the org token) is a warning; git tags still land for the rest.
 #
 # Examples:
 #   package=core,  channel=beta  → auto-detects bump from commits
@@ -22,6 +24,7 @@ on:
         type: choice
         options:
           - core
+          - create-avalon
           - lit
           - react
           - preact
@@ -38,6 +41,7 @@ on:
         default: auto
         options:
           - auto
+          - none
           - patch
           - minor
           - major
@@ -105,7 +109,8 @@ jobs:
           PACKAGE="${{ inputs.package }}"
           OVERRIDE="${{ inputs.bump-override }}"
 
-          # If override is set, skip detection
+          # If override is set, skip detection. `none` republishes the
+          # versions already in package.json (used after a partial release).
           if [ "$OVERRIDE" != "auto" ]; then
             echo "bump=$OVERRIDE" >> "$GITHUB_OUTPUT"
             echo "reason=manual override ($OVERRIDE)" >> "$GITHUB_OUTPUT"
@@ -193,6 +198,7 @@ jobs:
           echo "╚══════════════════════════════════════════════════╝"
 
       - name: Bump version
+        if: ${{ steps.detect-bump.outputs.bump != 'none' }}
         run: |
           bun run scripts/bump-version.ts \
             --bump=${{ steps.detect-bump.outputs.bump }} \
@@ -211,6 +217,9 @@ jobs:
               ;;
             mcp)
               echo "packages=packages/mcp" >> "$GITHUB_OUTPUT"
+              ;;
+            create-avalon)
+              echo "packages=packages/create-avalon" >> "$GITHUB_OUTPUT"
               ;;
             *)
               echo "packages=packages/integrations/${{ inputs.package }}" >> "$GITHUB_OUTPUT"
@@ -234,6 +243,7 @@ jobs:
 
       - name: Publish to npm
         if: ${{ inputs.dry-run == false }}
+        id: publish
         env:
           NPM_TOKEN: ${{ secrets.AVALON_RELEASE }}
         run: |
@@ -242,26 +252,23 @@ jobs:
           if [ "$TAG" = "stable" ]; then
             TAG="latest"
           fi
-          for pkg in ${{ steps.targets.outputs.packages }}; do
-            if [ -f "$pkg/package.json" ]; then
-              echo "Publishing $pkg with tag $TAG..."
-              cd "$pkg"
-              npm publish --tag "$TAG" --access public
-              cd -
-            fi
-          done
+          bun scripts/publish-packages.ts --tag "$TAG" -- ${{ steps.targets.outputs.packages }}
 
       - name: Commit version bump
-        if: ${{ inputs.dry-run == false }}
+        if: ${{ always() && !cancelled() && inputs.dry-run == false && steps.publish.outputs.commit == 'true' }}
         run: |
           # Safety: remove any leftover publish backups so they are not committed
           find packages -name "package.json.bak" -delete
           git add -A
-          git commit -m "release: ${{ inputs.package }} (${{ inputs.channel }}) [skip ci]"
-          git push
+          if git diff --cached --quiet; then
+            echo "No version changes to commit"
+          else
+            git commit -m "release: ${{ inputs.package }} (${{ inputs.channel }}) [skip ci]"
+            git push
+          fi
 
       - name: Create per-package tags and GitHub Releases
-        if: ${{ inputs.dry-run == false }}
+        if: ${{ always() && !cancelled() && inputs.dry-run == false && steps.publish.outputs.commit == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -278,6 +285,11 @@ jobs:
             # Short name without the @useavalon/ scope, e.g. @useavalon/avalon -> avalon
             SHORT_NAME="${NAME##*/}"
             TAG_NAME="${SHORT_NAME}/v${VERSION}"
+
+            if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+              echo "Tag $TAG_NAME already exists — skipping"
+              continue
+            fi
 
             echo "Creating release $NAME@$VERSION (tag $TAG_NAME)"
             git tag "$TAG_NAME"
