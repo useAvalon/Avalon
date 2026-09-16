@@ -133,11 +133,11 @@ export default function Layout({ children, frontmatter }: LayoutProps) {
 
 ## JSON-LD Structured Data
 
-Avalon's [`@useavalon/agent-optimization`](/docs/plugins/agent-optimization) plugin automatically injects JSON-LD structured data for pages with title or description metadata. This helps search engines understand your content.
+[`@useavalon/seo`](/docs/plugins/seo) injects Schema.org JSON-LD (WebPage, WebSite, BreadcrumbList, and Article when `article:published_time` is present). [`@useavalon/agent-optimization`](/docs/plugins/agent-optimization) covers sitemap, llms.txt, and markdown — not structured data.
 
 ### Automatic Injection
 
-When using the agent-optimization plugin, Schema.org WebPage JSON-LD is automatically generated:
+With the SEO plugin, WebPage JSON-LD is generated from the page title and description:
 
 ```json
 {
@@ -177,7 +177,7 @@ export const metadata = {
 Or use the helper functions directly:
 
 ```tsx
-import { buildWebPageJsonLd, injectJsonLd } from '@useavalon/agent-optimization';
+import { buildWebPageJsonLd, injectJsonLd } from '@useavalon/seo';
 
 // Build JSON-LD object
 const jsonLd = buildWebPageJsonLd(
@@ -302,3 +302,8 @@ export const metadata: PageMetadata = {
   ],
 };
 ```
+
+## Related
+
+- [SEO](/docs/plugins/seo) — Open Graph, Twitter cards, canonical URLs, JSON-LD
+- [Agent Optimization](/docs/plugins/agent-optimization) — sitemap, llms.txt, markdown negotiation

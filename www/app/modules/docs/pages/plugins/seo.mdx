@@ -1,0 +1,168 @@
+---
+title: SEO Plugin
+description: Auto-inject Open Graph, Twitter cards, canonical URLs, JSON-LD, and font preconnect links with @useavalon/seo.
+---
+
+`@useavalon/seo` intercepts rendered HTML and fills in missing search and social tags. It reads tags already in the document and does not duplicate them.
+
+Use this plugin for crawlers and share previews. For `/sitemap.xml`, `llms.txt`, and `Accept: text/markdown`, use [`@useavalon/agent-optimization`](/docs/plugins/agent-optimization).
+
+Page-level `title`, `description`, and `openGraph` still come from a [`metadata` export](/docs/metadata). The plugin turns those into tags when the layout left them out.
+
+## Installation
+
+```bash
+bun add @useavalon/seo
+```
+
+`create-avalon` adds this plugin by default when you keep the `seo` option.
+
+## Usage
+
+```ts
+import { defineConfig, type UserConfig } from 'vite';
+import { avalon } from '@useavalon/avalon';
+import { seo } from '@useavalon/seo';
+
+export default defineConfig(async (): Promise<UserConfig> => {
+  const avalonPlugins = await avalon({
+    core: 'preact',
+    modules: 'app/modules',
+  });
+
+  return {
+    plugins: [
+      seo({
+        siteUrl: 'https://example.com',
+        siteName: 'My Site',
+        defaultDescription: 'A site built with Avalon',
+        defaultOgImage: {
+          url: '/og-image.png',
+          width: 1200,
+          height: 630,
+        },
+        twitterSite: '@mysite',
+        twitterCreator: '@author',
+        titleSuffix: ' — My Site',
+        searchPath: '/search',
+        fontPreconnect: [
+          'https://fonts.googleapis.com',
+          'https://fonts.gstatic.com',
+        ],
+      }),
+      ...avalonPlugins,
+    ],
+  };
+});
+```
+
+Put `seo()` before the Avalon plugin list so it can patch `res.end` before SSR writes HTML.
+
+## What it injects
+
+### Meta tags
+
+- **Canonical** — `<link rel="canonical">` from the request path
+- **Open Graph** — `og:title`, `og:description`, `og:url`, `og:type`, `og:locale`, `og:site_name`, `og:image` plus width and height when configured
+- **Twitter cards** — `twitter:card`, `twitter:site`, `twitter:creator`, `twitter:title`, `twitter:description`, `twitter:image`
+- **Font preconnect** — `<link rel="preconnect">` for each URL in `fontPreconnect`
+
+### JSON-LD
+
+- **WebPage** — every HTML response
+- **WebSite** — includes `SearchAction` when `searchPath` is set
+- **BreadcrumbList** — from URL path segments
+- **Article** — when the HTML has `article:published_time` (see below)
+- **Speakable** — `SpeakableSpecification` on Article when `speakable` is on
+
+## Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `siteUrl` | `string` | required | Site origin used for canonical, OG URL, and JSON-LD |
+| `siteName` | `string` | required | Name for OG and WebSite JSON-LD |
+| `defaultDescription` | `string?` | — | Fallback meta description |
+| `defaultOgImage` | `{ url, width?, height? }?` | — | Default OG image |
+| `twitterSite` | `string?` | — | `twitter:site` handle |
+| `twitterCreator` | `string?` | — | `twitter:creator` handle |
+| `locale` | `string?` | `'en_US'` | Default `og:locale` |
+| `author` | `PersonConfig?` | — | Person used in Article JSON-LD |
+| `publisher` | `OrganizationConfig?` | — | Organization used in Article JSON-LD |
+| `searchPath` | `string?` | — | Search page path; enables WebSite `SearchAction` |
+| `searchQueryParam` | `string?` | `'q'` | Query parameter for `SearchAction` |
+| `titleSuffix` | `string \| false?` | — | Appended to the document title. `false` disables it |
+| `canonical` | `boolean?` | `true` | Inject canonical URLs |
+| `openGraph` | `boolean?` | `true` | Inject Open Graph tags |
+| `twitterCards` | `boolean?` | `true` | Inject Twitter card tags |
+| `structuredData` | `boolean?` | `true` | Inject JSON-LD |
+| `breadcrumbs` | `boolean?` | `true` | Inject BreadcrumbList JSON-LD |
+| `speakable` | `boolean?` | `true` | Add Speakable on Article JSON-LD |
+| `speakableSelectors` | `string[]?` | `['h1', '[data-speakable]']` | CSS selectors for speakable nodes |
+| `fontPreconnect` | `string[]?` | — | Font CDN origins to preconnect |
+
+`PersonConfig`: `name`, optional `url`, `image`, `jobTitle`, `worksFor`, `description`, `sameAs`.
+
+`OrganizationConfig`: `name`, optional `url`, `logo: { url, width?, height? }`.
+
+## Article JSON-LD
+
+The plugin treats a page as an article when the HTML includes `article:published_time`. Emit those tags from layout or `metadata.head`:
+
+```tsx
+export const metadata = {
+  title: 'My Blog Post',
+  description: 'A post about islands.',
+  head: [
+    { tag: 'meta', attrs: { property: 'article:published_time', content: '2026-01-15' } },
+    { tag: 'meta', attrs: { property: 'article:modified_time', content: '2026-02-01' } },
+    { tag: 'meta', attrs: { property: 'article:author', content: 'Jane Doe' } },
+    { tag: 'meta', attrs: { property: 'article:section', content: 'Tech' } },
+    { tag: 'meta', attrs: { property: 'article:tag', content: 'javascript' } },
+  ],
+};
+```
+
+With `author` and `publisher` in the plugin config, Article JSON-LD includes Person, Organization (with logo ImageObject when set), image dimensions, and Speakable.
+
+## Manual helpers
+
+```ts
+import {
+  buildWebPageJsonLd,
+  buildWebSiteJsonLd,
+  buildArticleJsonLd,
+  buildBreadcrumbListJsonLd,
+  injectJsonLd,
+} from '@useavalon/seo';
+
+const page = buildWebPageJsonLd(
+  { title: 'My Page', description: 'Description', openGraph: { image: '/img.png' } },
+  'https://example.com/my-page',
+);
+
+const html = injectJsonLd(originalHtml, page);
+```
+
+`buildWebSiteJsonLd` takes the resolved SEO config (not a URL string).
+
+## With agent-optimization
+
+```ts
+plugins: [
+  seo({ siteUrl: 'https://example.com', siteName: 'My Site' }),
+  agentOptimization({
+    sitemap: { siteUrl: 'https://example.com' },
+    markdown: true,
+    llms: {
+      siteUrl: 'https://example.com',
+      siteName: 'My Site',
+    },
+  }),
+  ...avalonPlugins,
+],
+```
+
+## Related
+
+- [Page Metadata](/docs/metadata) — `metadata` export and layout `frontmatter`
+- [Agent Optimization](/docs/plugins/agent-optimization) — sitemap, llms.txt, markdown negotiation

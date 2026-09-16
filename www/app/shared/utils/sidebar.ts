@@ -76,7 +76,10 @@ export const SIDEBAR: SidebarCategory[] = [
 	},
 	{
 		label: "PLUGINS",
-		items: [{ title: "Agent Optimization", href: "/docs/plugins/agent-optimization" }],
+		items: [
+			{ title: "SEO", href: "/docs/plugins/seo" },
+			{ title: "Agent Optimization", href: "/docs/plugins/agent-optimization" },
+		],
 	},
 ];
 
