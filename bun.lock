@@ -52,7 +52,7 @@
     },
     "packages/avalon": {
       "name": "@useavalon/avalon",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "bin": {
         "avalon": "bin/avalon.ts",
       },
@@ -90,7 +90,7 @@
     },
     "packages/create-avalon": {
       "name": "create-avalon",
-      "version": "0.1.25",
+      "version": "0.2.0",
       "bin": {
         "create-avalon": "dist/cli.js",
       },
@@ -104,7 +104,7 @@
     },
     "packages/integrations/core": {
       "name": "@useavalon/core",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "peerDependencies": {
         "vite": "^8.0.0",
       },
@@ -137,7 +137,7 @@
     },
     "packages/integrations/preact": {
       "name": "@useavalon/preact",
-      "version": "0.1.8",
+      "version": "0.2.0",
       "dependencies": {
         "@preact/preset-vite": "^2.10.1",
         "@useavalon/avalon": "workspace:^",
@@ -249,7 +249,7 @@
     },
     "packages/seo": {
       "name": "@useavalon/seo",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "dependencies": {
         "zod": "^4.3.6",
       },
