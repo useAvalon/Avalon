@@ -252,6 +252,13 @@ jobs:
           if [ "$TAG" = "stable" ]; then
             TAG="latest"
           fi
+          # Bun's process.execPath is not Node, so npm is not a sibling of the
+          # runtime binary. Pass the setup-node npm explicitly.
+          export NPM_BIN="$(command -v npm)"
+          if [ ! -x "$NPM_BIN" ]; then
+            echo "::error::npm is not on PATH"
+            exit 1
+          fi
           bun scripts/publish-packages.ts --tag "$TAG" -- ${{ steps.targets.outputs.packages }}
 
       - name: Commit version bump
