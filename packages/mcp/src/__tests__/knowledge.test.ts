@@ -137,6 +137,7 @@ describe("docs knowledge", () => {
 		expect(routing).toContain("app/modules");
 		expect(routing).toContain("src/pages");
 		expect(routing).toContain("clientNavigation");
+		expect(routing).toContain("app/modules/about/pages/index.tsx");
 	});
 
 	it("ssr-renderer documents the default re-export and when to customize", () => {

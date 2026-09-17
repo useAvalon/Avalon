@@ -40,6 +40,10 @@ export default async function HomePage() {
         <code style={{ display: 'block', padding: '0.6rem 1.2rem', borderRadius: '6px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#a5b4fc', fontSize: '0.85rem', fontFamily: 'ui-monospace, monospace' }}>
           Edit app/modules/main/pages/index.tsx
         </code>
+        <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: '0.5rem 0 0' }}>
+          <a href="/about" style={{ color: '#818cf8', textDecoration: 'none' }}>About</a>
+          {' '}is the about module — app/modules/about/pages/index.tsx → /about
+        </p>
       </div>
 
       <footer style={{ position: 'relative', zIndex: 1, marginTop: '4rem', paddingTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.06)', width: '100%', maxWidth: '640px' }}>
@@ -48,6 +52,29 @@ export default async function HomePage() {
           <a href="https://useavalon.dev" target="_blank" rel="noopener noreferrer" style={{ color: '#818cf8', textDecoration: 'none' }}>Avalon</a>
         </p>
       </footer>
+    </div>
+  );
+}
+`;
+}
+
+export function generateAboutPage(): string {
+	return `export const metadata = {
+  title: 'About',
+  description: 'The about module maps to the /about route.',
+};
+
+export default function AboutPage() {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(145deg, #0a0a12 0%, #0d1117 40%, #111827 100%)', color: '#e2e8f0', fontFamily: 'system-ui, -apple-system, sans-serif', padding: '2rem', textAlign: 'center' }}>
+      <p style={{ fontSize: '0.8rem', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#818cf8', marginBottom: '1.5rem', fontWeight: 500 }}>Module route</p>
+      <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 700, lineHeight: 1.1, margin: '0 0 1.5rem' }}>About</h1>
+      <p style={{ fontSize: '1.05rem', lineHeight: 1.7, color: '#94a3b8', marginBottom: '2rem', maxWidth: '480px' }}>
+        This page is <code style={{ color: '#a5b4fc' }}>app/modules/about/pages/index.tsx</code>.
+        A module name is a URL prefix, so the about module is <code style={{ color: '#a5b4fc' }}>/about</code>.
+        The main module is the site root.
+      </p>
+      <a href="/" style={{ color: '#818cf8', textDecoration: 'none', fontWeight: 500 }}>Home</a>
     </div>
   );
 }

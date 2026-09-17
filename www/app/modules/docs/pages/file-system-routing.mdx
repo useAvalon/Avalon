@@ -12,7 +12,17 @@ next:
 
 ## How routing works
 
-Avalon automatically generates routes from files in `src/pages/`. The file path maps directly to the URL path — no configuration needed.
+`create-avalon` uses **module-based** routing. Each folder under `app/modules/` is a URL prefix. `main` (also `home`, `root`, and `index`) is the site root.
+
+| File | URL |
+|---|---|
+| `app/modules/main/pages/index.tsx` | `/` |
+| `app/modules/about/pages/index.tsx` | `/about` |
+| `app/modules/blog/pages/[slug].tsx` | `/blog/:slug` |
+
+Add a module to add a route prefix. Full module layout, shared layouts, and aliases: [Modules](/docs/modules).
+
+Without `modules` in your Vite config, routes come from `src/pages/` instead. The file path maps directly to the URL path.
 
 ## Static routes
 

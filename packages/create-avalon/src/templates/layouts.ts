@@ -50,3 +50,12 @@ export default async function MainLayout({ children }: Readonly<LayoutProps>) {
 }
 `;
 }
+
+export function generateAboutLayout(_config: ProjectConfig): string {
+	return `import type { LayoutProps } from '@useavalon/avalon';
+
+export default async function AboutLayout({ children }: Readonly<LayoutProps>) {
+  return <>{children}</>;
+}
+`;
+}

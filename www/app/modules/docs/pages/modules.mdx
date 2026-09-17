@@ -63,6 +63,8 @@ Module names map to URL prefixes. A module named `blog` serves pages under `/blo
 
 The `home`, `root`, `main`, and `index` module names are special — they map to `/` instead of `/home`.
 
+`create-avalon` scaffolds two modules so that mapping is visible: `main` → `/` and `about` → `/about`. Add another folder under `app/modules` to add another prefix.
+
 ## Shared layouts
 
 The `layoutsDir` option points to shared layouts that wrap all modules. A root layout at `app/shared/layouts/_layout.tsx` wraps every page, while module-specific layouts nest inside it.

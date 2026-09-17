@@ -377,11 +377,11 @@ Enable with \`modules: 'app/modules'\` in your config. Each module owns its own 
 | File | URL |
 |------|-----|
 | \`app/modules/main/pages/index.tsx\` | \`/\` |
-| \`app/modules/home/pages/about.tsx\` | \`/about\` |
+| \`app/modules/about/pages/index.tsx\` | \`/about\` |
 | \`app/modules/blog/pages/[slug].tsx\` | \`/blog/:slug\` |
 | \`app/modules/docs/pages/[...slug].tsx\` | \`/docs/*\` |
 
-Module folder names are organizational — routes come from the file path **inside** each module's \`pages/\` dir, and all modules share one flat URL space. Customize the sub-folder names with \`modules: { dir, pagesDirName, layoutsDirName }\`.
+A module name is a URL prefix. \`main\`, \`home\`, \`root\`, and \`index\` map to \`/\` instead of \`/main\`. \`create-avalon\` scaffolds \`main\` and \`about\` so that mapping is visible. Customize the sub-folder names with \`modules: { dir, pagesDirName, layoutsDirName }\`.
 
 ## Flat
 
@@ -970,10 +970,11 @@ my-app/
 │   ├── entry-client.ts          # import "virtual:avalon/client-entry";
 │   ├── actions/index.ts         # server actions (optional)
 │   ├── modules/
-│   │   └── main/
-│   │       ├── pages/           # file-system routes for this module
-│   │       ├── components/      # islands + components
-│   │       └── layouts/
+│   │   ├── main/                # site root (/)
+│   │   │   ├── pages/
+│   │   │   ├── components/
+│   │   │   └── layouts/
+│   │   └── about/               # /about — module name is the URL prefix
 │   └── shared/
 │       ├── layouts/             # shared layouts
 │       ├── components/
@@ -1112,7 +1113,7 @@ Interactive by default. Pass \`--yes\` (or run without a TTY) to skip prompts an
 | Deploy | \`cloudflare\` · \`netlify\` · \`none\` | \`cloudflare\` emits \`wrangler.toml\`, \`public/_headers\`, \`DEPLOY.md\`, and Wrangler \`preview\`/\`deploy\` scripts. \`netlify\` emits \`netlify.toml\` + \`DEPLOY.md\`. Both always get \`build.mjs\` + \`post-build.mjs\`. |
 | Cron | yes/no (default no) | Scaffolds an example task + \`nitro.cron\` config. |
 
-Generates the module-based layout (\`app/modules/main\`, \`app/shared\`, \`middleware\`, \`routes/api\`, \`server\`, \`public\`) — see the configuration topic.
+Generates the module-based layout (\`app/modules/main\` → \`/\`, \`app/modules/about\` → \`/about\`, \`app/shared\`, \`middleware\`, \`routes/api\`, \`server\`, \`public\`) — see the configuration topic.
 
 ## \`avalon\` — project CLI
 
