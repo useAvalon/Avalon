@@ -41,6 +41,7 @@ export const API_ENTRIES: ApiEntry[] = [
 			"type CacheOptions",
 			"type IntegrationName",
 			"type IslandDirective",
+			"type LayoutFrontmatter",
 			"type LayoutProps",
 			"type ServerIslandProp",
 			"type IslandState",

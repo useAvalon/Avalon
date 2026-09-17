@@ -256,6 +256,7 @@ export type {
 	LayoutData,
 	LayoutDiscoveryOptions,
 	LayoutErrorInfo,
+	LayoutFrontmatter,
 	LayoutHandler,
 	LayoutLoader,
 	// Core layout types (from hand-written interfaces — proper types, no Zod inference)

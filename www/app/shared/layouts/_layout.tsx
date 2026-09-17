@@ -6,9 +6,10 @@ import styles from "./_layout.module.css";
 import "../styles/main.css";
 
 export default async function RootLayout({ children, frontmatter }: Readonly<LayoutProps>) {
-	const title = (frontmatter?.title as string) || "Avalon";
-	const description = frontmatter?.description as string | undefined;
-	const currentPath = frontmatter?.currentPath as string | undefined;
+	const title = frontmatter?.title || "Avalon";
+	const description = frontmatter?.description;
+	const currentPath =
+		typeof frontmatter?.currentPath === "string" ? frontmatter.currentPath : undefined;
 
 	return (
 		<html lang="en" data-theme="dark">
