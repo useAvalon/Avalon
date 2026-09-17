@@ -1,5 +1,13 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { ssrDomShimModuleSource, ssrDomStubFileSource } from "../ssr-dom-shim-module.ts";
+import {
+	projectHasLitDomShim,
+	ssrDomShimModuleSource,
+	ssrDomSourceForProject,
+	ssrDomStubFileSource,
+} from "../ssr-dom-shim-module.ts";
 
 describe("ssrDomShimModuleSource", () => {
 	it("installs a document stub and real ssr-dom-shim classes", () => {
@@ -29,5 +37,16 @@ describe("ssrDomStubFileSource", () => {
 		expect(src).toContain("registry.get(name)");
 		expect(src).not.toMatch(/define\(\)\s*\{\s*\}/);
 		expect(src).toContain("avalon-ce-probe");
+	});
+});
+
+describe("ssrDomSourceForProject", () => {
+	it("emits the self-contained stub when the Lit shim is not installed", () => {
+		const dir = mkdtempSync(join(tmpdir(), "avalon-no-lit-"));
+		writeFileSync(join(dir, "package.json"), JSON.stringify({ name: "no-lit", type: "module" }));
+		expect(projectHasLitDomShim(dir)).toBe(false);
+		const src = ssrDomSourceForProject(dir);
+		expect(src).not.toContain("@lit-labs/ssr-dom-shim");
+		expect(src).toContain("registry.set(name, ctor)");
 	});
 });

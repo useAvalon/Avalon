@@ -30,7 +30,7 @@ import {
 } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
 import { patchCloudflareWorkerOutput } from "./cloudflare-worker-patch.ts";
-import { fetchHandlerWrapperSource } from "./fetch-handler-wrapper.ts";
+import { fetchHandlerWrapperSource, projectHasLitDomShim } from "./fetch-handler-wrapper.ts";
 
 export interface PrerenderConfig {
 	/** Routes to prerender (default: ['/']) */
@@ -478,10 +478,15 @@ export function isNetlifyHandler(serverEntryPath: string): boolean {
 	return serverEntryPath.split(/[/\\]/).includes(".netlify");
 }
 
-function writeFetchHandlerWrapper(modulePath: string, port: number): string {
+function writeFetchHandlerWrapper(modulePath: string, port: number, cwd: string): string {
 	const wrapperPath = join(dirname(modulePath), "_prerender-server.mjs");
 	const importSpec = `./${basename(modulePath)}`;
-	writeFileSync(wrapperPath, fetchHandlerWrapperSource(importSpec, port));
+	writeFileSync(
+		wrapperPath,
+		fetchHandlerWrapperSource(importSpec, port, {
+			litDomShim: projectHasLitDomShim(cwd),
+		}),
+	);
 	return wrapperPath;
 }
 
@@ -548,7 +553,7 @@ async function prerenderIfConfigured(
 	let actualEntry = serverEntry;
 
 	if (isCloudflareWorker) {
-		actualEntry = writeFetchHandlerWrapper(serverEntry, port);
+		actualEntry = writeFetchHandlerWrapper(serverEntry, port, cwd);
 		console.log("[prerender] Cloudflare worker detected — using wrapper");
 	} else if (isNetlifyHandler(serverEntry)) {
 		const mainMjsPath = join(dirname(serverEntry), "main.mjs");
@@ -556,7 +561,7 @@ async function prerenderIfConfigured(
 			console.error("[prerender] Netlify handler detected but main.mjs not found");
 			return;
 		}
-		actualEntry = writeFetchHandlerWrapper(mainMjsPath, port);
+		actualEntry = writeFetchHandlerWrapper(mainMjsPath, port, cwd);
 		console.log("[prerender] Netlify handler detected — using wrapper");
 	}
 

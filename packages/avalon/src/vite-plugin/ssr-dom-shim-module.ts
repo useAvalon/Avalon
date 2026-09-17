@@ -8,10 +8,33 @@
  * can emit declarative shadow DOM. A no-op `customElements.define` left Lit
  * islands as empty tags until client hydration.
  *
+ * Non-Lit apps do not install that package. A static import in the prerender
+ * wrapper or Nitro virtual module then crashes with ERR_MODULE_NOT_FOUND.
+ * Use {@link ssrDomSourceForProject} so the real shim is only emitted when
+ * Node can resolve it.
+ *
  * Cloudflare's on-disk `_dom_stub.mjs` cannot use bare package imports (the
  * Pages worker has no node_modules). Use {@link ssrDomStubFileSource} there.
  */
+import { createRequire } from "node:module";
+import { join } from "node:path";
+
 export const SSR_DOM_VIRTUAL_ID = "virtual:avalon/ssr-dom";
+
+/** True when `@lit-labs/ssr-dom-shim` is resolvable from the project. */
+export function projectHasLitDomShim(fromDir = process.cwd()): boolean {
+	try {
+		createRequire(join(fromDir, "package.json")).resolve("@lit-labs/ssr-dom-shim");
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** Real Lit shim when the package is installed; self-contained stub otherwise. */
+export function ssrDomSourceForProject(fromDir = process.cwd()): string {
+	return projectHasLitDomShim(fromDir) ? ssrDomShimModuleSource() : ssrDomStubFileSource();
+}
 
 /** Shared document / Node stubs for lit-html module evaluation. */
 function documentStubSource(): string {
