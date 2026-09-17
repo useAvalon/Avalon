@@ -5,7 +5,7 @@ export type RenderEngine = "preact" | "react";
 
 export type StylingOption = "css-modules" | "tailwind" | "shadcn";
 
-export type Plugin = "seo" | "agent-optimization" | "syntax-highlighting";
+export type Plugin = "seo" | "agent-optimization";
 
 export type MiddlewareOption = "h3" | "hono" | "elysia";
 
@@ -30,11 +30,7 @@ export const STYLING_OPTIONS = [
 	"tailwind",
 	"shadcn",
 ] as const satisfies readonly StylingOption[];
-export const PLUGINS = [
-	"seo",
-	"agent-optimization",
-	"syntax-highlighting",
-] as const satisfies readonly Plugin[];
+export const PLUGINS = ["seo", "agent-optimization"] as const satisfies readonly Plugin[];
 export const MIDDLEWARE_OPTIONS = [
 	"h3",
 	"hono",

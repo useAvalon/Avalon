@@ -109,11 +109,6 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 				label: "agent-optimization",
 				hint: "LLM/AI optimization (llms.txt, markdown, sitemap)",
 			},
-			{
-				value: "syntax-highlighting",
-				label: "syntax-highlighting",
-				hint: "Code block highlighting for MDX (rehype-highlight)",
-			},
 		],
 		initialValues: ["seo"],
 		required: false,

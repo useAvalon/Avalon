@@ -5,6 +5,9 @@ export function generateStylingFiles(config: ProjectConfig): Map<string, string>
 
 	// Common files for all styling options
 	files.set("app/shared/styles/main.css", generateMainCss(config));
+	// MDX rehype-highlight is always on; the theme lives in public/ so the
+	// root layout can link /syntax-highlighting.css without a build step.
+	files.set("public/syntax-highlighting.css", generateSyntaxHighlightingCss());
 
 	// Only generate reset.css for css-modules — Tailwind's preflight handles resets
 	if (config.styling === "css-modules") {
@@ -212,4 +215,30 @@ function generateShadcnComponentsJson(config: ProjectConfig): string {
 	};
 
 	return JSON.stringify(componentsConfig, null, 2) + "\n";
+}
+
+/** highlight.js GitHub Dark tokens used by Avalon's MDX rehype-highlight pipeline. */
+function generateSyntaxHighlightingCss(): string {
+	return `code.hljs { padding: 3px 5px; }
+pre code.hljs { display: block; overflow-x: auto; padding: 1em; }
+.hljs { color: #c9d1d9; background: transparent; }
+.hljs-doctag, .hljs-keyword, .hljs-meta .hljs-keyword, .hljs-template-tag,
+.hljs-template-variable, .hljs-type, .hljs-variable.language_ { color: #ff7b72; }
+.hljs-title, .hljs-title.class_, .hljs-title.class_.inherited__,
+.hljs-title.function_ { color: #d2a8ff; }
+.hljs-attr, .hljs-attribute, .hljs-literal, .hljs-meta, .hljs-number,
+.hljs-operator, .hljs-variable, .hljs-selector-attr, .hljs-selector-class,
+.hljs-selector-id { color: #79c0ff; }
+.hljs-regexp, .hljs-string, .hljs-meta .hljs-string { color: #a5d6ff; }
+.hljs-built_in, .hljs-symbol { color: #ffa657; }
+.hljs-comment, .hljs-code, .hljs-formula { color: #8b949e; }
+.hljs-name, .hljs-quote, .hljs-selector-tag, .hljs-selector-pseudo { color: #7ee787; }
+.hljs-subst { color: #c9d1d9; }
+.hljs-section { color: #1f6feb; font-weight: bold; }
+.hljs-bullet { color: #f2cc60; }
+.hljs-emphasis { color: #c9d1d9; font-style: italic; }
+.hljs-strong { color: #c9d1d9; font-weight: bold; }
+.hljs-addition { color: #aff5b4; background-color: #033a16; }
+.hljs-deletion { color: #ffdcd7; background-color: #67060c; }
+`;
 }

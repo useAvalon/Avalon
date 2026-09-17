@@ -1100,14 +1100,14 @@ bun create avalon my-app
 # or: npm create avalon@latest my-app
 \`\`\`
 
-It's **interactive** — the only command-line flags are \`-v/--version\` and \`-h/--help\` (project name is a positional arg). There are no flags to pre-select the options; you answer prompts:
+Interactive by default. Pass \`--yes\` (or run without a TTY) to skip prompts and use flags + defaults:
 
 | Prompt | Options | Notes |
 |--------|---------|-------|
 | Core (rendering engine) | \`preact\` (default) · \`react\` | Shell engine for pages/layouts. |
 | Integrations | preact, react, vue, svelte, solid, lit, qwik | Multi-select (optional). React is force-added if core is \`react\`. |
 | Styling | \`css-modules\` · \`tailwind\` · \`shadcn\` | \`shadcn\` only offered when core is \`react\` (Radix-based). |
-| Plugins | \`seo\` (default) · \`agent-optimization\` · \`syntax-highlighting\` | Multi-select. |
+| Plugins | \`seo\` (default) · \`agent-optimization\` | Multi-select. MDX syntax highlighting is always on. |
 | Middleware | \`h3\` · \`hono\` · \`elysia\` | \`hono\`/\`elysia\` generate a \`server.ts\` entry. |
 | Deploy | \`cloudflare\` · \`netlify\` · \`none\` | \`cloudflare\` emits \`wrangler.toml\`, \`public/_headers\`, \`DEPLOY.md\`, and Wrangler \`preview\`/\`deploy\` scripts. \`netlify\` emits \`netlify.toml\` + \`DEPLOY.md\`. Both always get \`build.mjs\` + \`post-build.mjs\`. |
 | Cron | yes/no (default no) | Scaffolds an example task + \`nitro.cron\` config. |

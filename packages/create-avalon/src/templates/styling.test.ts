@@ -20,6 +20,13 @@ describe("generateStylingFiles", () => {
 		expect(files.has("app/shared/styles/main.css")).toBe(true);
 	});
 
+	it("always ships the MDX syntax-highlighting stylesheet", () => {
+		const files = generateStylingFiles(baseConfig);
+		const css = files.get("public/syntax-highlighting.css");
+		expect(css).toBeDefined();
+		expect(css).toContain(".hljs");
+	});
+
 	it("generates reset.css for css-modules", () => {
 		const files = generateStylingFiles(baseConfig);
 		expect(files.has("app/shared/styles/reset.css")).toBe(true);

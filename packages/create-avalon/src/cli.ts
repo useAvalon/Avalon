@@ -36,7 +36,7 @@ async function main(): Promise<void> {
 				"      --core           Rendering engine: preact (default) | react",
 				"      --integrations   Comma list: preact,react,vue,svelte,solid,lit,qwik",
 				"      --styling        css-modules (default) | tailwind | shadcn",
-				"      --plugins        Comma list: seo (default),agent-optimization,syntax-highlighting",
+				"      --plugins        Comma list: seo (default),agent-optimization",
 				"      --middleware     h3 (default) | hono | elysia",
 				"      --deploy         cloudflare | netlify | none (default)",
 				"      --cron           Scaffold an example cron task + config",

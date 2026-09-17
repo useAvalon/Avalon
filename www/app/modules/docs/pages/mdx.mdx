@@ -82,7 +82,11 @@ function Hello() {
 ```
 ````
 
-Avalon includes a `syntax-highlighting.css` stylesheet. Make sure it's linked in your root layout or HTML template.
+Avalon includes a `syntax-highlighting.css` stylesheet. `create-avalon` links it in the root layout. Add the same link if you started from a blank project:
+
+```tsx
+<link rel="stylesheet" href="/syntax-highlighting.css" />
+```
 
 ### Supported Languages
 
