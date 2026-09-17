@@ -147,6 +147,13 @@ describe("docs knowledge", () => {
 		expect(renderer).toContain("wrapWithLayouts");
 	});
 
+	it("cli lists create-avalon plugins without syntax-highlighting", () => {
+		const cli = getDoc("cli")?.content ?? "";
+		expect(cli).toContain("--yes");
+		expect(cli).toContain("MDX syntax highlighting is always on");
+		expect(cli).not.toMatch(/Plugins \|.*syntax-highlighting/);
+	});
+
 	it("state topic states there is no built-in shared store", () => {
 		const state = getDoc("state-management")?.content ?? "";
 		expect(state.toLowerCase()).toContain("no built-in shared");

@@ -150,10 +150,10 @@ describe("resolveConfigNonInteractive", () => {
 		const config = resolveConfigNonInteractive({
 			...base,
 			integrations: "react, vue ,svelte",
-			plugins: "seo, syntax-highlighting",
+			plugins: "seo, agent-optimization",
 		});
 		expect(config.integrations).toEqual(["react", "vue", "svelte", "preact"]);
-		expect(config.plugins).toEqual(["seo", "syntax-highlighting"]);
+		expect(config.plugins).toEqual(["seo", "agent-optimization"]);
 	});
 
 	it("forces the react integration when core is react", () => {
@@ -180,6 +180,12 @@ describe("resolveConfigNonInteractive", () => {
 	it("rejects an unknown value inside a comma list", () => {
 		expect(() => resolveConfigNonInteractive({ ...base, integrations: "react,angular" })).toThrow(
 			/angular/,
+		);
+	});
+
+	it("rejects syntax-highlighting as a plugin (MDX highlighting is always on)", () => {
+		expect(() => resolveConfigNonInteractive({ ...base, plugins: "syntax-highlighting" })).toThrow(
+			/syntax-highlighting/,
 		);
 	});
 

@@ -21,7 +21,7 @@ The CLI walks you through:
 - Project name and directory
 - Rendering engine (Preact or React) and island integrations
 - Styling approach (CSS Modules, Tailwind, shadcn)
-- Plugins (SEO, agent optimization, syntax highlighting)
+- Plugins (SEO, agent optimization). MDX syntax highlighting is always on.
 - Middleware (h3, Hono, Elysia)
 - Deploy target (**Cloudflare Pages**, Netlify, or none)
 - Scheduled jobs (cron)
