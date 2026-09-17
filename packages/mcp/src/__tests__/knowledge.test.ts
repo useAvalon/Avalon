@@ -139,6 +139,14 @@ describe("docs knowledge", () => {
 		expect(routing).toContain("clientNavigation");
 	});
 
+	it("ssr-renderer documents the default re-export and when to customize", () => {
+		const renderer = getDoc("ssr-renderer")?.content ?? "";
+		expect(renderer).toContain("virtual:avalon/renderer");
+		expect(renderer).toContain("registerHydrationDirective");
+		expect(renderer).toContain("createNitroRenderer");
+		expect(renderer).toContain("wrapWithLayouts");
+	});
+
 	it("state topic states there is no built-in shared store", () => {
 		const state = getDoc("state-management")?.content ?? "";
 		expect(state.toLowerCase()).toContain("no built-in shared");

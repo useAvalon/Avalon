@@ -108,8 +108,27 @@ export const API_ENTRIES: ApiEntry[] = [
 	},
 	{
 		importPath: "@useavalon/avalon/nitro/renderer",
-		exports: ["the SSR renderer handler (page/island server rendering)"],
-		description: "Nitro SSR renderer entry — usually wired automatically via server/renderer.ts.",
+		exports: ["createNitroRenderer", "createNitroCatchAllRenderer"],
+		description:
+			"Build a custom Nitro SSR handler. Most apps re-export virtual:avalon/renderer from server/renderer.ts instead. Use createNitroRenderer only to replace wrapWithLayouts or loadPage.",
+	},
+	{
+		importPath: "virtual:avalon/renderer",
+		exports: ["default (Nitro handler with .fetch)"],
+		description:
+			"Default SSR catch-all. Re-export from server/renderer.ts. Register custom hydration directives before that export. See the ssr-renderer doc.",
+	},
+	{
+		importPath: "virtual:avalon/layouts",
+		exports: ["wrapWithLayouts"],
+		description:
+			"Compose page HTML with discovered layouts. Already used by virtual:avalon/renderer. Importing it does not customize the default renderer.",
+	},
+	{
+		importPath: "virtual:avalon/assets",
+		exports: ["injectAssets", "clientAssets"],
+		description:
+			"Inject client CSS/JS into rendered HTML. Already used by virtual:avalon/renderer.",
 	},
 	{
 		importPath: "@useavalon/avalon/nitro/config",

@@ -180,7 +180,7 @@ describe("scaffoldProject", () => {
 
 		const content = await read("server/renderer.ts");
 		expect(content).toContain("virtual:avalon/renderer");
-		expect(content).toContain("provided by");
+		expect(content).toContain("useavalon.dev/docs/ssr-renderer");
 	});
 
 	it("does not generate index.html", async () => {

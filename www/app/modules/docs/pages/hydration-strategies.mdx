@@ -67,7 +67,7 @@ Hydrates when a media query matches. Similar to the built-in `media:` condition 
 
 ## Registering your own directive
 
-Register custom directives in your `server/renderer.ts` before the export:
+Register custom directives in your `server/renderer.ts` before the default export. That file is Nitro's SSR entry — leave `export { default } from 'virtual:avalon/renderer'` in place unless you need to wrap or replace the handler. See [SSR Renderer](/docs/ssr-renderer).
 
 ```ts
 import { registerHydrationDirective } from '@useavalon/avalon';
