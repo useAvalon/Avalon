@@ -19,6 +19,17 @@ export interface LayoutContext {
 
 export type LayoutData = Record<string, unknown>;
 
+/**
+ * Page metadata passed into layouts. `title` and `description` are strings so
+ * they can be used in `<title>` and `<meta content>` without a cast. Other
+ * keys stay open for MDX frontmatter.
+ */
+export interface LayoutFrontmatter {
+	title?: string;
+	description?: string;
+	[key: string]: unknown;
+}
+
 export type LayoutLoader = (ctx: LayoutContext) => Promise<LayoutData>;
 
 /**
@@ -38,7 +49,7 @@ export type LayoutLoader = (ctx: LayoutContext) => Promise<LayoutData>;
 export interface LayoutProps<TChildren = import("preact").ComponentChildren> {
 	children: TChildren;
 	data: LayoutData;
-	frontmatter?: Record<string, unknown>;
+	frontmatter?: LayoutFrontmatter;
 	route: {
 		path: string;
 		params: Record<string, string>;
@@ -120,5 +131,5 @@ export interface PageModule {
 	default: ComponentType<Record<string, unknown>>;
 	layoutConfig?: LayoutConfig;
 	loader?: LayoutLoader;
-	frontmatter?: Record<string, unknown>;
+	frontmatter?: LayoutFrontmatter;
 }

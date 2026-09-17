@@ -78,9 +78,16 @@ describe("generateRootLayout", () => {
 		expect(result).toContain('href="/favicon.ico"');
 	});
 
+	it("always links the built-in MDX syntax-highlighting stylesheet", () => {
+		const result = generateRootLayout(baseConfig);
+		expect(result).toContain('href="/syntax-highlighting.css"');
+	});
+
 	it("includes meta description from frontmatter", () => {
 		const result = generateRootLayout(baseConfig);
 		expect(result).toContain('name="description"');
+		expect(result).toContain("typeof frontmatter?.description === 'string'");
+		expect(result).toContain("content={description}");
 	});
 
 	it("does not include OG/Twitter tags (handled by @useavalon/seo plugin)", () => {
