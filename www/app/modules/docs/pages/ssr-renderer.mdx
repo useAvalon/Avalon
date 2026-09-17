@@ -1,0 +1,123 @@
+---
+title: SSR Renderer
+description: What server/renderer.ts does, when to leave the default export, and how to customize it.
+currentPath: /docs/ssr-renderer
+prev:
+  title: Streaming SSR
+  href: /docs/streaming-ssr
+next:
+  title: Middleware
+  href: /docs/middleware
+---
+
+`create-avalon` writes `server/renderer.ts` as a one-line re-export. That file is Nitro's SSR catch-all: requests that are not API routes or static files go through it and come back as HTML.
+
+```ts
+export { default } from 'virtual:avalon/renderer';
+```
+
+Leave that export in place unless you have one of the jobs below. Importing `wrapWithLayouts` or `injectAssets` by itself does nothing — those modules are already wired inside `virtual:avalon/renderer`.
+
+## What the default renderer does
+
+The virtual module:
+
+- Resolves the page for the request (`virtual:avalon/page-loader`)
+- Renders the page component to HTML
+- Wraps that HTML in discovered layouts (`virtual:avalon/layouts`)
+- Injects client CSS, JS, and the hydration entry (`virtual:avalon/assets`)
+- Registers built-in hydration directives (`on:delay`, `on:scroll`, `on:event`, `on:match`)
+
+You do not configure this in `vite.config.ts`. The file exists so Nitro has a stable SSR entry, and so you have a place to hook in.
+
+## When to customize
+
+| You need | What to change |
+|---|---|
+| A custom `on:*` hydration trigger | Register a directive, then keep the default export |
+| Extra headers, logging, or a wrapper around every HTML response | Wrap `renderer.fetch` |
+| Different layout composition or asset injection | Replace the handler with `createNitroRenderer` |
+
+Most apps never leave the first row.
+
+## Custom hydration directives
+
+Register the directive in `server/renderer.ts` **before** the re-export. The default renderer then picks it up.
+
+```ts
+import { registerHydrationDirective } from '@useavalon/avalon';
+
+registerHydrationDirective('on:countdown', {
+  name: 'on:countdown',
+  script: (el, hydrate, arg) => {
+    setTimeout(hydrate, Number.parseInt(arg || '1000', 10));
+  },
+});
+
+export { default } from 'virtual:avalon/renderer';
+```
+
+```tsx
+<Widget island={{ condition: 'on:countdown', conditionArg: '2000' }} />
+```
+
+See [Hydration Strategies](/docs/hydration-strategies) for the built-in custom directives and the `script` callback arguments.
+
+## Wrap the handler
+
+The default export is a Nitro handler with `.fetch(request)`. Wrap that when you want to touch the request or response without replacing layout or asset logic:
+
+```ts
+import renderer from 'virtual:avalon/renderer';
+
+export default {
+  fetch(request: Request) {
+    return renderer.fetch(request);
+  },
+};
+```
+
+Add headers, status mapping, or logging around that `fetch` call. Do not drop `.fetch` — Nitro's SSR dispatcher calls it.
+
+## Replace layout wrapping or asset injection
+
+Only do this when the default `wrapWithLayouts` / `injectAssets` path is wrong for your app. You rebuild the handler and pass your own functions:
+
+```ts
+import { createNitroRenderer } from '@useavalon/avalon/nitro/renderer';
+import avalonConfig from 'virtual:avalon/config';
+import { loadPage } from 'virtual:avalon/page-loader';
+import { wrapWithLayouts } from 'virtual:avalon/layouts';
+import { injectAssets } from 'virtual:avalon/assets';
+
+export default createNitroRenderer({
+  avalonConfig,
+  isDev: avalonConfig.isDev,
+  resolvePageRoute: async (pathname) => {
+    const match = loadPage(pathname);
+    if (!match || !('default' in match.module)) return null;
+    return { filePath: `[virtual:${pathname}]`, pattern: pathname, params: match.params };
+  },
+  loadPageModule: async (filePath) => {
+    const m = filePath.match(/^\[virtual:(.+)\]$/);
+    const pathname = m ? m[1] : filePath;
+    const match = loadPage(pathname);
+    if (match) return match.module;
+    return { default: () => null };
+  },
+  wrapWithLayouts: async (pageHtml, pageModule, context) => {
+    const html = await wrapWithLayouts(pageHtml, pageModule, context, injectAssets);
+    return html;
+  },
+});
+```
+
+`wrapWithLayouts` from `virtual:avalon/layouts` already accepts an optional `injectAssets` callback. Pass it through unless you are replacing asset injection too.
+
+If you only need a custom directive or a response wrapper, do not copy this block. The virtual renderer already does it.
+
+## Related
+
+- [Layouts](/docs/layouts) — how layouts nest and how to skip them
+- [Streaming SSR](/docs/streaming-ssr) — when the shell flushes before page data
+- [Hydration Strategies](/docs/hydration-strategies) — custom `on:*` directives

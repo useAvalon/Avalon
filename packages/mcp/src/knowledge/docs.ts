@@ -980,12 +980,46 @@ my-app/
 │       └── styles/
 ├── middleware/                  # global middleware
 ├── routes/api/                  # API routes (Nitro)
-├── server/renderer.ts           # export { default } from 'virtual:avalon/renderer';
+├── server/renderer.ts           # export { default } from 'virtual:avalon/renderer' — see ssr-renderer
 ├── public/
 └── vite.config.ts
 \`\`\`
 
 A simpler **flat** layout also works without \`modules\`: \`src/pages\`, \`src/layouts\`, \`src/components\`.`,
+	},
+	{
+		id: "ssr-renderer",
+		title: "SSR Renderer",
+		keywords: [
+			"renderer",
+			"server/renderer",
+			"virtual:avalon/renderer",
+			"wrapWithLayouts",
+			"injectAssets",
+			"createNitroRenderer",
+			"customize",
+		],
+		content: `# SSR Renderer
+
+\`create-avalon\` writes \`server/renderer.ts\` as a one-line re-export. That file is Nitro's SSR catch-all.
+
+\`\`\`ts
+export { default } from 'virtual:avalon/renderer';
+\`\`\`
+
+Leave that export in place unless you have a reason to change it. Importing \`wrapWithLayouts\` or \`injectAssets\` by itself does nothing — those modules are already wired inside \`virtual:avalon/renderer\`.
+
+## What the default renderer does
+
+Resolves the page, renders it, wraps layouts (\`virtual:avalon/layouts\`), injects client assets (\`virtual:avalon/assets\`), and registers built-in hydration directives.
+
+## When to customize
+
+- **Custom \`on:*\` directive:** \`registerHydrationDirective(...)\` then keep the default export. See hydration-strategies.
+- **Wrap every HTML response:** import the default renderer and call \`renderer.fetch(request)\`. Nitro's dispatcher needs \`.fetch\`.
+- **Replace layout wrapping or asset injection:** \`createNitroRenderer\` from \`@useavalon/avalon/nitro/renderer\`, passing your own \`wrapWithLayouts\`. Only do this when the default path is wrong.
+
+Most apps never leave the first case.`,
 	},
 	{
 		id: "frameworks",

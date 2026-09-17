@@ -1,11 +1,7 @@
 /**
- * SSR Renderer — provided by Avalon's virtual module system.
- *
- * Avalon auto-discovers layouts, injects client assets, and handles
- * layout wrapping. Import from the virtual modules directly to customize:
- *
- *   import { wrapWithLayouts } from 'virtual:avalon/layouts';
- *   import { injectAssets } from 'virtual:avalon/assets';
+ * Nitro SSR catch-all. Keep the default re-export unless you need a custom
+ * hydration directive or a wrapper around renderer.fetch.
+ * See https://useavalon.dev/docs/ssr-renderer
  */
 
 import { registerHydrationDirective } from "@useavalon/avalon";
