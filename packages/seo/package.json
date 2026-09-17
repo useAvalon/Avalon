@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/seo",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "SEO plugin for Avalon — auto-injects Open Graph, Twitter cards, canonical URLs, JSON-LD structured data, and robots meta tags",
 	"license": "MIT",
 	"type": "module",
@@ -22,7 +22,7 @@
 		"schema-org"
 	],
 	"exports": {
-		".": "./mod.ts"
+		".": "./dist/mod.js"
 	},
 	"scripts": {
 		"build": "bun run scripts/build.ts",
@@ -30,10 +30,8 @@
 		"postpublish": "bun run scripts/postpublish.ts"
 	},
 	"files": [
-		"mod.ts",
-		"src/**/*.ts",
-		"!src/**/__tests__/**",
-		"!src/**/*.test.ts",
+		"dist/**/*.js",
+		"dist/**/*.d.ts",
 		"README.md"
 	],
 	"dependencies": {

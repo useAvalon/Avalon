@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/preact",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "Preact integration for Avalon islands architecture",
 	"license": "MIT",
 	"type": "module",
@@ -19,11 +19,11 @@
 		"lightweight"
 	],
 	"exports": {
-		".": "./mod.ts",
-		"./server": "./server/renderer.ts",
-		"./client": "./client/index.ts",
-		"./client/hmr": "./client/hmr-adapter.ts",
-		"./types": "./types.ts"
+		".": "./dist/mod.js",
+		"./server": "./dist/server/renderer.js",
+		"./client": "./dist/client/index.js",
+		"./client/hmr": "./dist/client/hmr-adapter.js",
+		"./types": "./dist/types.js"
 	},
 	"scripts": {
 		"build": "bun run ../../../scripts/build-package.ts",
@@ -31,16 +31,13 @@
 		"postpublish": "bun run ../../../scripts/postpublish.ts"
 	},
 	"files": [
-		"**/*.ts",
-		"**/*.tsx",
-		"!**/__tests__/**",
-		"!**/*.test.ts",
-		"!vitest.config.ts",
+		"dist/**/*.js",
+		"dist/**/*.d.ts",
 		"README.md"
 	],
 	"dependencies": {
-		"@useavalon/avalon": "workspace:^",
-		"@useavalon/core": "workspace:^",
+		"@useavalon/avalon": "^0.5.1",
+		"@useavalon/core": "^0.5.1",
 		"@preact/preset-vite": "^2.10.1"
 	},
 	"peerDependencies": {

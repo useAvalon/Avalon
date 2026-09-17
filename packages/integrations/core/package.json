@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/core",
-	"version": "0.5.0",
+	"version": "0.5.1",
 	"description": "Core types and utilities for Avalon framework integrations",
 	"license": "MIT",
 	"type": "module",
@@ -18,10 +18,10 @@
 		"integration"
 	],
 	"exports": {
-		".": "./types.ts",
-		"./types": "./types.ts",
-		"./utils": "./utils.ts",
-		"./base": "./base-integration.ts"
+		".": "./dist/types.js",
+		"./types": "./dist/types.js",
+		"./utils": "./dist/utils.js",
+		"./base": "./dist/base-integration.js"
 	},
 	"scripts": {
 		"build": "bun run ../../../scripts/build-package.ts",
@@ -29,8 +29,8 @@
 		"postpublish": "bun run ../../../scripts/postpublish.ts"
 	},
 	"files": [
-		"*.ts",
-		"!vitest.config.ts",
+		"dist/**/*.js",
+		"dist/**/*.d.ts",
 		"README.md"
 	],
 	"peerDependencies": {
