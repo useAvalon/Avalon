@@ -92,6 +92,18 @@ describe("scaffoldProject", () => {
 		expect(mainPage).toContain("HomePage");
 	});
 
+	it("scaffolds an about module that maps to /about", async () => {
+		const target = join(tempDir, "out");
+		await scaffoldProject(baseConfig, target);
+
+		const aboutPage = await read("app/modules/about/pages/index.tsx");
+		expect(aboutPage).toContain("AboutPage");
+		expect(aboutPage).toContain("/about");
+
+		const aboutLayout = await read("app/modules/about/layouts/_layout.tsx");
+		expect(aboutLayout).toContain("AboutLayout");
+	});
+
 	it("generates middleware and API route", async () => {
 		const target = join(tempDir, "out");
 		await scaffoldProject(baseConfig, target);

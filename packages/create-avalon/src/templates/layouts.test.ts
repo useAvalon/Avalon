@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ProjectConfig } from "../types";
-import { generateMainLayout, generateRootLayout } from "./layouts";
+import { generateAboutLayout, generateMainLayout, generateRootLayout } from "./layouts";
 
 describe("generateRootLayout", () => {
 	const baseConfig: ProjectConfig = {
@@ -146,5 +146,24 @@ describe("generateMainLayout", () => {
 			const result = generateMainLayout(config);
 			expect(result).not.toContain(".module.css");
 		}
+	});
+});
+
+describe("generateAboutLayout", () => {
+	const baseConfig: ProjectConfig = {
+		projectName: "my-app",
+		core: "preact",
+		integrations: [],
+		styling: "css-modules",
+		plugins: [],
+		middleware: "h3",
+		deploy: "none",
+	};
+
+	it("is a passthrough fragment layout named AboutLayout", () => {
+		const result = generateAboutLayout(baseConfig);
+		expect(result).toContain("export default async function AboutLayout");
+		expect(result).toContain("<>{children}</>");
+		expect(result).not.toContain("<html");
 	});
 });

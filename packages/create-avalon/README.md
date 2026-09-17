@@ -44,10 +44,11 @@ A ready-to-run Avalon project with file-system routing, islands architecture, an
 my-project/
 ├── app/
 │   ├── modules/
-│   │   └── main/
-│   │       ├── pages/          # File-system routes
-│   │       ├── components/     # Interactive components
-│   │       └── layouts/        # Module layouts
+│   │   ├── main/               # Site root (/)
+│   │   │   ├── pages/          # File-system routes for this module
+│   │   │   ├── components/
+│   │   │   └── layouts/
+│   │   └── about/              # /about — a module name is a URL prefix
 │   └── shared/
 │       ├── layouts/            # Root layout
 │       ├── components/         # Shared components

@@ -46,6 +46,11 @@ describe("generateViteConfig", () => {
 		expect(result).toContain(`layoutsDir: 'app/shared/layouts'`);
 	});
 
+	it("prerenders the main and about module routes", () => {
+		const result = generateViteConfig(baseConfig);
+		expect(result).toContain(`routes: ['/', '/about']`);
+	});
+
 	it("includes nitro config with preset, streaming, clientEntry, and globalCSS", () => {
 		const result = generateViteConfig(baseConfig);
 		expect(result).toContain(`nitro: {`);

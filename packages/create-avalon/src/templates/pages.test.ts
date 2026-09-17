@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ProjectConfig } from "../types";
-import { generateMainPage } from "./pages";
+import { generateAboutPage, generateMainPage } from "./pages";
 
 describe("generateMainPage", () => {
 	const baseConfig: ProjectConfig = {
@@ -77,5 +77,21 @@ describe("generateMainPage", () => {
 	it("includes Islands Architecture label", () => {
 		const result = generateMainPage(baseConfig);
 		expect(result).toContain("Islands Architecture");
+	});
+
+	it("links to the about module route", () => {
+		const result = generateMainPage(baseConfig);
+		expect(result).toContain('href="/about"');
+		expect(result).toContain("app/modules/about/pages/index.tsx");
+	});
+});
+
+describe("generateAboutPage", () => {
+	it("maps the about module to /about", () => {
+		const result = generateAboutPage();
+		expect(result).toContain("export default function AboutPage");
+		expect(result).toContain("app/modules/about/pages/index.tsx");
+		expect(result).toContain("/about");
+		expect(result).toContain('href="/"');
 	});
 });

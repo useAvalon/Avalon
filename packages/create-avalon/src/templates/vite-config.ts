@@ -98,7 +98,7 @@ export function generateViteConfig(config: ProjectConfig): string {
 		`      clientEntry: 'app/entry-client',`,
 		`      globalCSS: ['app/shared/styles/main.css'],`,
 		`      prerender: {`,
-		`        routes: ['/'],`,
+		`        routes: ['/', '/about'],`,
 		`        crawlLinks: true,`,
 		`        ignore: [],`,
 		`      },`,
