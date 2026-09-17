@@ -6,13 +6,16 @@ name: Release
 # Every channel runs lint, unit tests, typecheck, and `bun run test:install`
 # (pack → create-avalon --yes → install → build) before `npm publish`.
 # A failed install smoke blocks the release.
-# Already-published versions are skipped. An unscoped 403 (create-avalon
-# missing a trusted publisher) is a warning; git tags still land for the rest.
+# Already-published versions are skipped. A failed publish does not
+# commit the bump — retry with the same bump so those versions finish.
+# An unscoped 403 (create-avalon missing a trusted publisher) fails the
+# job the same way; do not tag a half release.
 #
 # Examples:
 #   package=core,  channel=beta  → auto-detects bump from commits
 #   package=lit,   channel=stable, bump-override=major → forces major bump
 #   package=all,   channel=stable → auto-detects bump for all packages
+#   package=core,  bump-override=none → publish versions already in package.json
 #   dry-run=true (default) → bump + smoke + npm publish --dry-run, no git push
 
 on:
@@ -112,8 +115,8 @@ jobs:
           PACKAGE="${{ inputs.package }}"
           OVERRIDE="${{ inputs.bump-override }}"
 
-          # If override is set, skip detection. `none` republishes the
-          # versions already in package.json (used after a partial release).
+          # If override is set, skip detection. `none` publishes the
+          # versions already in package.json without incrementing.
           if [ "$OVERRIDE" != "auto" ]; then
             echo "bump=$OVERRIDE" >> "$GITHUB_OUTPUT"
             echo "reason=manual override ($OVERRIDE)" >> "$GITHUB_OUTPUT"
@@ -266,7 +269,9 @@ jobs:
           bun scripts/publish-packages.ts --tag "$TAG" -- ${{ steps.targets.outputs.packages }}
 
       - name: Commit version bump
-        if: ${{ always() && !cancelled() && inputs.dry-run == false && steps.publish.outputs.commit == 'true' }}
+        # success() keeps a failed publish from pushing the bump. Retry
+        # with the same bump; versions already on npm are skipped.
+        if: ${{ success() && inputs.dry-run == false && steps.publish.outputs.commit == 'true' }}
         run: |
           # Safety: remove any leftover publish backups so they are not committed
           find packages -name "package.json.bak" -delete
@@ -279,7 +284,7 @@ jobs:
           fi
 
       - name: Create per-package tags and GitHub Releases
-        if: ${{ always() && !cancelled() && inputs.dry-run == false && steps.publish.outputs.commit == 'true' }}
+        if: ${{ success() && inputs.dry-run == false && steps.publish.outputs.commit == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

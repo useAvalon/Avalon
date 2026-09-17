@@ -1,9 +1,10 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
 	isCredentialForbidden,
+	isReleaseComplete,
 	isUnscopedName,
 	publishPackages,
 	registryUrl,
@@ -71,7 +72,7 @@ describe("publishPackages", () => {
 		expect(shouldCommit(result)).toBe(true);
 	});
 
-	it("warns on an unscoped 403 instead of failing the release", async () => {
+	it("records an unscoped 403 as incomplete so the bump stays off main", async () => {
 		const dir = writePkg("create-avalon", "0.2.0");
 		const result = await publishPackages([dir], "latest", {
 			fetchStatus: async () => 404,
@@ -83,6 +84,8 @@ describe("publishPackages", () => {
 		});
 		expect(result.warned).toEqual(["create-avalon@0.2.0"]);
 		expect(result.failed).toEqual([]);
+		expect(isReleaseComplete(result)).toBe(false);
+		expect(shouldCommit(result)).toBe(false);
 		expect(isUnscopedName("create-avalon")).toBe(true);
 		expect(
 			isCredentialForbidden(
@@ -91,7 +94,7 @@ describe("publishPackages", () => {
 		).toBe(true);
 	});
 
-	it("still commits when scoped packages were skipped and create-avalon 403s", async () => {
+	it("does not commit when create-avalon 403s even if others were skipped", async () => {
 		const avalon = writePkg("@useavalon/avalon", "0.5.0");
 		const create = writePkg("create-avalon", "0.2.0");
 		const result = await publishPackages([avalon, create], "latest", {
@@ -104,7 +107,28 @@ describe("publishPackages", () => {
 		expect(result.skipped).toEqual(["@useavalon/avalon@0.5.0"]);
 		expect(result.warned).toEqual(["create-avalon@0.2.0"]);
 		expect(result.failed).toEqual([]);
-		expect(shouldCommit(result)).toBe(true);
+		expect(shouldCommit(result)).toBe(false);
+	});
+
+	it("does not commit when one package publishes and another fails", async () => {
+		const create = writePkg("create-avalon", "0.2.1");
+		const avalon = writePkg("@useavalon/avalon", "0.5.1");
+		const result = await publishPackages([create, avalon], "latest", {
+			fetchStatus: async () => 404,
+			publish: (dir) => {
+				const name = (
+					JSON.parse(readFileSync(join(dir, "package.json"), "utf8")) as {
+						name: string;
+					}
+				).name;
+				if (name === "create-avalon") return { ok: true, stderr: "" };
+				return { ok: false, stderr: "npm error ENEEDAUTH" };
+			},
+		});
+		expect(result.published).toEqual(["create-avalon@0.2.1"]);
+		expect(result.failed).toEqual(["@useavalon/avalon@0.5.1"]);
+		expect(isReleaseComplete(result)).toBe(false);
+		expect(shouldCommit(result)).toBe(false);
 	});
 
 	it("fails a scoped package that npm rejects", async () => {

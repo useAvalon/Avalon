@@ -1,10 +1,10 @@
 /**
  * Publish workspace packages to npm.
  *
- * Versions already on the registry are skipped so a retry after a partial
- * release can finish git tags without republishing. Unscoped names such as
- * `create-avalon` need their own trusted publisher on npmjs.com; a 403
- * there is a warning, not a hard failure.
+ * Versions already on the registry are skipped so a retry can finish the
+ * same versions without cutting a new patch. The version bump stays off
+ * main until every target is on npm (or was already there). An unscoped
+ * 403 (`create-avalon` missing a trusted publisher) is incomplete.
  *
  * Usage: bun scripts/publish-packages.ts --tag latest -- packages/avalon ...
  */
@@ -38,7 +38,14 @@ export function isCredentialForbidden(stderr: string): boolean {
 	return /403|ENEEDAUTH|You may not perform that action/i.test(stderr);
 }
 
+/** True when nothing in the set failed or warned. */
+export function isReleaseComplete(result: PublishResult): boolean {
+	return result.failed.length === 0 && result.warned.length === 0;
+}
+
+/** Commit the bump only when every target landed or was already on npm. */
 export function shouldCommit(result: PublishResult): boolean {
+	if (!isReleaseComplete(result)) return false;
 	return result.published.length > 0 || result.skipped.length > 0;
 }
 
@@ -112,7 +119,7 @@ export async function publishPackages(
 
 		if (isUnscopedName(pkg.name) && isCredentialForbidden(published.stderr)) {
 			console.warn(
-				`Unscoped ${id} has no trusted publisher for release.yml. On npmjs.com add GitHub Actions useAvalon / Avalon / release.yml, then re-run Release for create-avalon with bump=none.`,
+				`Unscoped ${id} has no trusted publisher for release.yml. On npmjs.com add GitHub Actions useAvalon / Avalon / release.yml, then re-run Release with the same bump so already-published versions are skipped.`,
 			);
 			result.warned.push(id);
 			continue;
@@ -128,7 +135,7 @@ export async function publishPackages(
 function writeGithubOutput(result: PublishResult): void {
 	const output = process.env.GITHUB_OUTPUT;
 	if (!output) return;
-	appendFileSync(output, `commit=${shouldCommit(result)}\nfailed=${result.failed.length > 0}\n`);
+	appendFileSync(output, `commit=${shouldCommit(result)}\nfailed=${!isReleaseComplete(result)}\n`);
 }
 
 if (import.meta.main) {
@@ -142,7 +149,7 @@ if (import.meta.main) {
 
 	const result = await publishPackages(positionals, values.tag ?? "latest");
 	writeGithubOutput(result);
-	if (result.failed.length > 0) {
+	if (!isReleaseComplete(result)) {
 		process.exit(1);
 	}
 }
