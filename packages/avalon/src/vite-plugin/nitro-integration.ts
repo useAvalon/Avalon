@@ -47,7 +47,7 @@ import { generateComponentId } from "../server-islands/manifest.ts";
 import { buildDevCssRouteTable } from "./dev-css-graph.ts";
 import { createDevCssHmrPlugin, generateDevCssHmrModule } from "./dev-css-hmr.ts";
 import { resolveToRelativePath } from "./server-islands-plugin.ts";
-import { SSR_DOM_VIRTUAL_ID, ssrDomShimModuleSource } from "./ssr-dom-shim-module.ts";
+import { SSR_DOM_VIRTUAL_ID, ssrDomSourceForProject } from "./ssr-dom-shim-module.ts";
 import type { ResolvedAvalonConfig } from "./types.ts";
 
 /**
@@ -590,7 +590,7 @@ function buildNitroVitePluginOptions(
 			// bundler traces and inlines the full dependency tree.
 			"virtual:server-island-integrations": () =>
 				generateServerIslandIntegrationsModule(avalonConfig.integrations),
-			[SSR_DOM_VIRTUAL_ID]: () => ssrDomShimModuleSource(),
+			[SSR_DOM_VIRTUAL_ID]: () => ssrDomSourceForProject(serverIslandProjectRoot),
 		},
 		// Ensure undici is always traced — Nitro's server bundle imports it
 		// for its HTTP agent but doesn't always trace it automatically.
@@ -1363,7 +1363,7 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 			if (id === RESOLVED_VIRTUAL_IDS.INTEGRATION_LOADER)
 				return generateIntegrationLoaderModule(avalonConfig);
 			if (id === RESOLVED_VIRTUAL_IDS.ACTIONS) return generateActionsClientModule();
-			if (id === RESOLVED_VIRTUAL_IDS.SSR_DOM) return ssrDomShimModuleSource();
+			if (id === RESOLVED_VIRTUAL_IDS.SSR_DOM) return ssrDomSourceForProject();
 			return null;
 		},
 

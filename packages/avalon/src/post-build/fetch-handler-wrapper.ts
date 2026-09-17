@@ -4,15 +4,29 @@
  *
  * Cloudflare Pages' Nitro handler calls `ctx.waitUntil.bind(ctx)`. An empty
  * `{}` as the third argument throws when bind is read off undefined.
+ *
+ * The wrapper only imports `@lit-labs/ssr-dom-shim` when that package is in
+ * the app. Non-Lit projects do not install it; a static import would crash
+ * prerender with ERR_MODULE_NOT_FOUND.
  */
-import { ssrDomShimModuleSource } from "../vite-plugin/ssr-dom-shim-module.ts";
+import {
+	ssrDomShimModuleSource,
+	ssrDomStubFileSource,
+} from "../vite-plugin/ssr-dom-shim-module.ts";
 
-export function fetchHandlerWrapperSource(importSpec: string, port: number): string {
+export { projectHasLitDomShim } from "../vite-plugin/ssr-dom-shim-module.ts";
+
+export function fetchHandlerWrapperSource(
+	importSpec: string,
+	port: number,
+	options: { litDomShim?: boolean } = {},
+): string {
+	const domShim = options.litDomShim ? ssrDomShimModuleSource() : ssrDomStubFileSource();
 	return `
 import 'urlpattern-polyfill';
 import { createServer } from 'node:http';
 
-${ssrDomShimModuleSource()}
+${domShim}
 
 const mod = await import(${JSON.stringify(importSpec)});
 const handler = mod.handler || mod.default;
