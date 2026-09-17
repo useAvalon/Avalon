@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/seo",
-	"version": "0.2.1",
+	"version": "0.2.2",
 	"description": "SEO plugin for Avalon — auto-injects Open Graph, Twitter cards, canonical URLs, JSON-LD structured data, and robots meta tags",
 	"license": "MIT",
 	"type": "module",
