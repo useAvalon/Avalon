@@ -87,21 +87,3 @@ describe("preactIntegration.config()", () => {
 		});
 	});
 });
-
-describe("preactIntegration.getHydrationScript()", () => {
-	const script = preactIntegration.getHydrationScript();
-
-	it("returns a non-empty string", () => {
-		expect(script).toBeTruthy();
-		expect(typeof script).toBe("string");
-		expect(script.length).toBeGreaterThan(0);
-	});
-
-	it('contains a query selector for data-framework="preact"', () => {
-		expect(script).toContain('data-framework="preact"');
-	});
-
-	it("contains dynamic import logic", () => {
-		expect(script).toContain("import(");
-	});
-});

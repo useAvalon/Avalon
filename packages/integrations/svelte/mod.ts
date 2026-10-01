@@ -10,7 +10,6 @@
 
 import type { Integration, IntegrationConfig } from "@useavalon/core/types";
 import type { Plugin } from "vite";
-import { getHydrationScript } from "./client/hydration.ts";
 import { render } from "./server/renderer.ts";
 
 /**
@@ -40,7 +39,6 @@ export const svelteIntegration: Integration = {
 	version: "0.1.0",
 
 	render,
-	getHydrationScript,
 
 	config(): IntegrationConfig {
 		return config;
@@ -73,7 +71,7 @@ export const svelteIntegration: Integration = {
 	},
 };
 
-export { getHydrationScript, hydrate, mount } from "./client/hydration.ts";
+export { hydrate, mount } from "./client/hydration.ts";
 export {
 	combineCss,
 	extractCss,

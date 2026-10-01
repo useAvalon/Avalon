@@ -102,26 +102,3 @@ function performHydration(
 		element.removeAttribute("defer-hydration");
 	}
 }
-
-/**
- * Get hydration script for automatic island hydration
- */
-export function getHydrationScript(): string {
-	return `
-    import { hydrate } from '@useavalon/lit/client';
-    
-    document.querySelectorAll('[data-framework="lit"]').forEach(async (el) => {
-      const src = el.getAttribute('data-src');
-      const propsJson = el.getAttribute('data-props');
-      const props = propsJson ? JSON.parse(propsJson) : {};
-      
-      try {
-        const module = await import(src);
-        const Component = module.default || module;
-        hydrate(el, Component, props);
-      } catch (error) {
-        console.error('Failed to hydrate Lit component:', src, error);
-      }
-    });
-  `;
-}

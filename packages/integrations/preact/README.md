@@ -13,7 +13,6 @@ Preact integration for [Avalon](https://useavalon.dev). Server-side rendering an
 
 ```tsx
 // components/Counter.preact.tsx
-/** @jsxImportSource preact */
 import { useState } from "preact/hooks";
 
 export default function Counter() {

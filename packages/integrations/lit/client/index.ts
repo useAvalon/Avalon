@@ -5,4 +5,4 @@
  */
 
 export type { LitHydrationOptions } from "../types.ts";
-export { getHydrationScript, hydrate, mount, unmount } from "./hydration.ts";
+export { hydrate, mount, unmount } from "./hydration.ts";

@@ -59,7 +59,3 @@ export function unmount(container: Element): void {
 	app.unmount();
 	apps.delete(container);
 }
-
-export function getHydrationScript(): string {
-	return "";
-}

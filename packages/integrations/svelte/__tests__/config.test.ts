@@ -61,21 +61,3 @@ describe("svelteIntegration.config()", () => {
 		});
 	});
 });
-
-describe("svelteIntegration.getHydrationScript()", () => {
-	const script = svelteIntegration.getHydrationScript();
-
-	it("returns a non-empty string", () => {
-		expect(script).toBeTruthy();
-		expect(typeof script).toBe("string");
-		expect(script.length).toBeGreaterThan(0);
-	});
-
-	it('contains a query selector for data-framework="svelte"', () => {
-		expect(script).toContain('data-framework="svelte"');
-	});
-
-	it("contains dynamic import logic", () => {
-		expect(script).toContain("import(");
-	});
-});

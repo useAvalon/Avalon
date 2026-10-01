@@ -53,12 +53,6 @@ export const qwikIntegration: Integration = {
 
 	render,
 
-	// getHydrationScript is required by the Integration interface but Qwik
-	// uses the Qwikloader for resumability — there is no per-island script.
-	getHydrationScript(): string {
-		return "";
-	},
-
 	config(): IntegrationConfig {
 		return config;
 	},

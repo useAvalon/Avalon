@@ -80,11 +80,6 @@ export interface Integration {
 	 */
 	render(params: RenderParams): Promise<RenderResult>;
 	/**
-	 * Get the hydration script for client-side initialization
-	 * @returns JavaScript code as a string
-	 */
-	getHydrationScript(): string;
-	/**
 	 * Get the integration configuration
 	 * @returns Integration configuration object
 	 */

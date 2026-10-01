@@ -19,11 +19,6 @@ export abstract class BaseIntegration implements Integration {
 	abstract render(params: RenderParams): Promise<RenderResult>;
 
 	/**
-	 * Get hydration script (must be implemented by subclass)
-	 */
-	abstract getHydrationScript(): string;
-
-	/**
 	 * Get integration configuration (must be implemented by subclass)
 	 */
 	abstract config(): IntegrationConfig;

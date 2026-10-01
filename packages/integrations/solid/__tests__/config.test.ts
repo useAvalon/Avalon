@@ -83,24 +83,6 @@ describe("solidIntegration.config()", () => {
 	});
 });
 
-describe("solidIntegration.getHydrationScript()", () => {
-	const script = solidIntegration.getHydrationScript();
-
-	it("returns a non-empty string", () => {
-		expect(script).toBeTruthy();
-		expect(typeof script).toBe("string");
-		expect(script.length).toBeGreaterThan(0);
-	});
-
-	it('contains a query selector for data-framework="solid"', () => {
-		expect(script).toContain('data-framework="solid"');
-	});
-
-	it("contains dynamic import logic", () => {
-		expect(script).toContain("import(");
-	});
-});
-
 describe("solidIntegration.vitePlugin() — tree-shaking config", () => {
 	it("configures vite-plugin-solid with hydratable: true", async () => {
 		const plugins = await solidIntegration.vitePlugin!();
