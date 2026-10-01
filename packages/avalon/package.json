@@ -30,7 +30,7 @@
 		"mdx"
 	],
 	"bin": {
-		"avalon": "./dist/bin/avalon.js"
+		"avalon": "bin/avalon.ts"
 	},
 	"scripts": {
 		"build:client": "bun run scripts/build-client.ts",
@@ -39,107 +39,48 @@
 		"postpublish": "bun run scripts/postpublish.ts"
 	},
 	"exports": {
-		".": {
-			"types": "./dist/mod.d.ts",
-			"default": "./dist/mod.js"
-		},
-		"./actions": {
-			"types": "./dist/src/actions/define.d.ts",
-			"default": "./dist/src/actions/define.js"
-		},
-		"./cron": {
-			"types": "./dist/src/cron/define.d.ts",
-			"default": "./dist/src/cron/define.js"
-		},
-		"./client": {
-			"types": "./dist/src/client/components.d.ts",
-			"default": "./dist/src/client/components.js"
-		},
-		"./client/main": {
-			"types": "./dist/src/client/main.d.ts",
-			"default": "./dist/src/client/main.js"
-		},
-		"./client/main-slim": {
-			"types": "./dist/src/client/main-slim.d.ts",
-			"default": "./dist/src/client/main-slim.js"
-		},
-		"./client/router": {
-			"types": "./dist/src/client/router/index.d.ts",
-			"default": "./dist/src/client/router/index.js"
-		},
-		"./client/strategies": {
-			"types": "./dist/src/client/strategies.d.ts",
-			"default": "./dist/src/client/strategies.js"
-		},
-		"./client/hmr": {
-			"types": "./dist/src/client/framework-adapter.d.ts",
-			"default": "./dist/src/client/framework-adapter.js"
-		},
-		"./islands/framework-detection": {
-			"types": "./dist/src/islands/framework-detection.d.ts",
-			"default": "./dist/src/islands/framework-detection.js"
-		},
-		"./islands/integration-registry": {
-			"types": "./dist/src/core/integrations/registry.d.ts",
-			"default": "./dist/src/core/integrations/registry.js"
-		},
-		"./islands/universal-css-collector": {
-			"types": "./dist/src/islands/universal-css-collector.d.ts",
-			"default": "./dist/src/islands/universal-css-collector.js"
-		},
-		"./islands/universal-head-collector": {
-			"types": "./dist/src/islands/universal-head-collector.d.ts",
-			"default": "./dist/src/islands/universal-head-collector.js"
-		},
-		"./middleware": {
-			"types": "./dist/src/middleware/index.d.ts",
-			"default": "./dist/src/middleware/index.js"
-		},
-		"./nitro/renderer": {
-			"types": "./dist/src/nitro/renderer.d.ts",
-			"default": "./dist/src/nitro/renderer.js"
-		},
-		"./nitro/types": {
-			"types": "./dist/src/nitro/types.d.ts",
-			"default": "./dist/src/nitro/types.js"
-		},
-		"./nitro/config": {
-			"types": "./dist/src/nitro/config.d.ts",
-			"default": "./dist/src/nitro/config.js"
-		},
-		"./types/island-jsx": "./dist/src/types/island-jsx.d.ts",
-		"./types": "./dist/src/types/index.d.ts",
-		"./prerender": {
-			"types": "./dist/src/prerender/index.d.ts",
-			"default": "./dist/src/prerender/index.js"
-		},
-		"./post-build": {
-			"types": "./dist/src/post-build/index.d.ts",
-			"default": "./dist/src/post-build/index.js"
-		},
-		"./render/collect-css": {
-			"types": "./dist/src/render/collect-css.d.ts",
-			"default": "./dist/src/render/collect-css.js"
-		},
-		"./render/dev-css-select": {
-			"types": "./dist/src/render/dev-css-select.d.ts",
-			"default": "./dist/src/render/dev-css-select.js"
-		},
-		"./render/shell-engine": {
-			"types": "./dist/src/render/shell-engine.d.ts",
-			"default": "./dist/src/render/shell-engine.js"
-		}
+		".": "./mod.ts",
+		"./actions": "./src/actions/define.ts",
+		"./cron": "./src/cron/define.ts",
+		"./client": "./src/client/components.ts",
+		"./client/main": "./src/client/main.js",
+		"./client/main-slim": "./src/client/main-slim.js",
+		"./client/router": "./src/client/router/index.ts",
+		"./client/strategies": "./src/client/strategies.js",
+		"./client/hmr": "./src/client/framework-adapter.ts",
+		"./islands/framework-detection": "./src/islands/framework-detection.ts",
+		"./islands/integration-registry": "./src/core/integrations/registry.ts",
+		"./islands/universal-css-collector": "./src/islands/universal-css-collector.ts",
+		"./islands/universal-head-collector": "./src/islands/universal-head-collector.ts",
+		"./middleware": "./src/middleware/index.ts",
+		"./nitro/renderer": "./src/nitro/renderer.ts",
+		"./nitro/types": "./src/nitro/types.ts",
+		"./nitro/config": "./src/nitro/config.ts",
+		"./types/island-jsx": "./src/types/island-jsx.d.ts",
+		"./types": "./src/types/index.d.ts",
+		"./prerender": "./src/prerender/index.ts",
+		"./post-build": "./src/post-build/index.ts",
+		"./render/collect-css": "./src/render/collect-css.ts",
+		"./render/dev-css-select": "./src/render/dev-css-select.ts",
+		"./render/shell-engine": "./src/render/shell-engine.ts"
 	},
 	"typesVersions": {
 		"*": {
 			"types": [
-				"./dist/src/types/index.d.ts"
+				"./src/types/index.d.ts"
 			]
 		}
 	},
 	"files": [
-		"dist/**/*.js",
-		"dist/**/*.d.ts",
+		"mod.ts",
+		"bin/**/*.ts",
+		"src/**/*.ts",
+		"src/**/*.tsx",
+		"src/**/*.js",
+		"src/**/*.d.ts",
+		"!src/**/*.test.ts",
+		"!src/**/tests/**",
+		"!src/**/__tests__/**",
 		"README.md"
 	],
 	"devDependencies": {
@@ -165,7 +106,7 @@
 	"dependencies": {
 		"@mdx-js/rollup": "^3.0.0",
 		"rehype-highlight": "^7.0.0",
-		"@useavalon/core": "^0.5.1",
+		"@useavalon/core": "workspace:^",
 		"h3": "^2.0.1-rc.16",
 		"marked": "^17.0.4",
 		"oxc-parser": "^0.120.0",

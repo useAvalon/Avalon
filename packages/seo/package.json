@@ -22,7 +22,7 @@
 		"schema-org"
 	],
 	"exports": {
-		".": "./dist/mod.js"
+		".": "./mod.ts"
 	},
 	"scripts": {
 		"build": "bun run scripts/build.ts",
@@ -30,8 +30,10 @@
 		"postpublish": "bun run scripts/postpublish.ts"
 	},
 	"files": [
-		"dist/**/*.js",
-		"dist/**/*.d.ts",
+		"mod.ts",
+		"src/**/*.ts",
+		"!src/**/__tests__/**",
+		"!src/**/*.test.ts",
 		"README.md"
 	],
 	"dependencies": {

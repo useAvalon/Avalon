@@ -9,7 +9,7 @@
  * Usage: bun scripts/publish-packages.ts --tag latest -- packages/avalon ...
  */
 import { spawnSync } from "node:child_process";
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 
@@ -58,6 +58,25 @@ export function resolveNpmBin(): string {
 	return "/usr/bin/npm";
 }
 
+/**
+ * The build step rewrites package.json to dist/ paths and saves the source
+ * manifest as package.json.bak. The lifecycle postpublish hook is meant to
+ * undo that, but the release commit runs `git add -A`, so any manifest left
+ * rewritten lands on main and breaks workspace consumers that have no dist/.
+ * Restoring here, regardless of the hook, keeps the committed manifest on
+ * source paths while keeping the bumped version.
+ */
+export function restoreSourceManifest(dir: string): void {
+	const bakPath = join(dir, "package.json.bak");
+	if (!existsSync(bakPath)) return;
+	const pkgPath = join(dir, "package.json");
+	const { version } = JSON.parse(readFileSync(pkgPath, "utf8")) as { version: string };
+	const original = JSON.parse(readFileSync(bakPath, "utf8")) as Record<string, unknown>;
+	original.version = version;
+	writeFileSync(pkgPath, `${JSON.stringify(original, null, "\t")}\n`, "utf8");
+	rmSync(bakPath);
+}
+
 function defaultPublish(dir: string, tag: string): { ok: boolean; stderr: string } {
 	const npm = resolveNpmBin();
 	if (!existsSync(npm)) {
@@ -96,6 +115,12 @@ export async function publishPackages(
 			console.warn(`Skipping ${dir}: no package.json`);
 			continue;
 		}
+
+		// Always restore before reading — the build step rewrites package.json to
+		// dist/ paths, and the postpublish lifecycle hook may not have run (e.g.
+		// when the version is skipped as already-published). Without this, git
+		// add -A in the release commit lands dist-style exports on main.
+		restoreSourceManifest(dir);
 
 		const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
 			name: string;
