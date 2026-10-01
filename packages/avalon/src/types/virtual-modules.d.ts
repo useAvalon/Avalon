@@ -105,11 +105,21 @@ declare module "virtual:avalon-actions-manifest" {
 	export const server: Record<string, unknown>;
 }
 
-declare module "virtual:avalon/actions" {
+declare module "avalon/actions" {
 	/**
 	 * The typed action client proxy. This declaration is overridden by the
 	 * generated `avalon-actions.d.ts` when an actions entry exists, which types
 	 * `actions` against the project's `server` export.
+	 * `virtual:avalon/actions` is the same module.
 	 */
 	export const actions: Record<string, (input?: unknown) => Promise<unknown>>;
+	export default actions;
+}
+
+declare module "virtual:avalon/actions" {
+	/**
+	 * Alias of `avalon/actions`. Prefer `import { actions } from "avalon/actions"`.
+	 */
+	export const actions: Record<string, (input?: unknown) => Promise<unknown>>;
+	export default actions;
 }

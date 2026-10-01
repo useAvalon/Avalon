@@ -12,7 +12,6 @@ declare module "/@useavalon/preact/client" {
 		props?: Record<string, unknown>,
 	): void;
 	export function unmount(container: Element): void;
-	export function getHydrationScript(): string;
 }
 
 declare module "/@useavalon/react/client" {
@@ -22,7 +21,6 @@ declare module "/@useavalon/react/client" {
 		props?: Record<string, unknown>,
 	): void;
 	export function unmount(container: Element): void;
-	export function getHydrationScript(): string;
 }
 
 declare module "/@useavalon/vue/client" {
@@ -32,7 +30,6 @@ declare module "/@useavalon/vue/client" {
 		props?: Record<string, unknown>,
 	): void;
 	export function unmount(container: Element): void;
-	export function getHydrationScript(): string;
 }
 
 declare module "/@useavalon/svelte/client" {
@@ -42,7 +39,6 @@ declare module "/@useavalon/svelte/client" {
 		props?: Record<string, unknown>,
 	): void;
 	export function unmount(container: Element): void;
-	export function getHydrationScript(): string;
 }
 
 declare module "/@useavalon/solid/client" {
@@ -52,7 +48,6 @@ declare module "/@useavalon/solid/client" {
 		props?: Record<string, unknown>,
 	): void;
 	export function unmount(container: Element): void;
-	export function getHydrationScript(): string;
 }
 
 declare module "/@useavalon/lit/client" {
@@ -62,7 +57,6 @@ declare module "/@useavalon/lit/client" {
 		props?: Record<string, unknown>,
 	): void;
 	export function unmount(container: Element): void;
-	export function getHydrationScript(): string;
 }
 
 declare module "/@useavalon/qwik/client" {
@@ -72,7 +66,6 @@ declare module "/@useavalon/qwik/client" {
 		props?: Record<string, unknown>,
 	): void;
 	export function unmount(container: Element): void;
-	export function getHydrationScript(): string;
 }
 
 // HMR adapter virtual modules

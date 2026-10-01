@@ -33,6 +33,7 @@ import {
 import { createImagePlugin } from "./image-optimization.ts";
 import { activateIntegrations, activateSingleIntegration } from "./integration-activator.ts";
 import { islandSidecarPlugin } from "./island-sidecar-plugin.ts";
+import { jsxImportSourceForFilename, withJsxImportSource } from "./jsx-import-source.ts";
 import { createNitroIntegration } from "./nitro-integration.ts";
 import { serverIslandsPlugin } from "./server-islands-plugin.ts";
 import {
@@ -523,7 +524,20 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 	// Island code splitting: bundles framework adapter + runtime into island chunks
 	const codeSplitting = islandCodeSplittingPlugin(preResolvedConfig, config?.nitro);
 
+	// Inject `@jsxImportSource` from the filename before OXC compiles JSX.
+	// enforce: "pre" runs ahead of Vite's oxc transform, which honors the comment.
+	const jsxImportSourcePlugin: Plugin = {
+		name: "avalon:jsx-import-source",
+		enforce: "pre",
+		transform(code, id) {
+			const source = jsxImportSourceForFilename(id, config?.core ?? "preact");
+			if (!source) return null;
+			return withJsxImportSource(code, source);
+		},
+	};
+
 	return [
+		jsxImportSourcePlugin,
 		preactCompatResolver,
 		stubBuildTimePlugins,
 		pageTransformPlugin,

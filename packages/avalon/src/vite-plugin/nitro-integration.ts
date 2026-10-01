@@ -395,6 +395,8 @@ export const VIRTUAL_MODULE_IDS = {
 	DEV_CSS_HMR: "virtual:avalon/dev-css-hmr",
 	INTEGRATION_LOADER: "virtual:avalon/integration-loader",
 	ACTIONS: "virtual:avalon/actions",
+	/** App-facing alias of `virtual:avalon/actions`. */
+	ACTIONS_PUBLIC: "avalon/actions",
 	SSR_DOM: SSR_DOM_VIRTUAL_ID,
 } as const;
 
@@ -413,6 +415,14 @@ export const RESOLVED_VIRTUAL_IDS = {
 	ACTIONS: `\0${VIRTUAL_MODULE_IDS.ACTIONS}`,
 	SSR_DOM: `\0${VIRTUAL_MODULE_IDS.SSR_DOM}`,
 } as const;
+
+/** Resolved id for `avalon/actions` and `virtual:avalon/actions`, or null. */
+export function actionsModuleResolvedId(id: string): string | null {
+	if (id === VIRTUAL_MODULE_IDS.ACTIONS || id === VIRTUAL_MODULE_IDS.ACTIONS_PUBLIC) {
+		return RESOLVED_VIRTUAL_IDS.ACTIONS;
+	}
+	return null;
+}
 
 export interface NitroIntegrationResult {
 	nitroOptions: NitroConfigOutput;
@@ -1334,7 +1344,8 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 			if (id === VIRTUAL_MODULE_IDS.DEV_CSS_HMR) return RESOLVED_VIRTUAL_IDS.DEV_CSS_HMR;
 			if (id === VIRTUAL_MODULE_IDS.INTEGRATION_LOADER)
 				return RESOLVED_VIRTUAL_IDS.INTEGRATION_LOADER;
-			if (id === VIRTUAL_MODULE_IDS.ACTIONS) return RESOLVED_VIRTUAL_IDS.ACTIONS;
+			const actionsId = actionsModuleResolvedId(id);
+			if (actionsId) return actionsId;
 			if (id === VIRTUAL_MODULE_IDS.SSR_DOM) return RESOLVED_VIRTUAL_IDS.SSR_DOM;
 			return null;
 		},

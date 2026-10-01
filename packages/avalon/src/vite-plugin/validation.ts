@@ -44,7 +44,6 @@ export interface ValidationSummary {
  * - name: string - Unique name of the integration
  * - version: string - Version of the integration package
  * - render: function - Server-side rendering function
- * - getHydrationScript: function - Returns hydration script for client
  * - config: function - Returns integration configuration
  *
  * Also checks optional properties if present:
@@ -86,7 +85,6 @@ export function validateIntegration(integration: unknown): ValidationResult {
 	checkStringProp(obj, "name", errors);
 	checkStringProp(obj, "version", errors);
 	checkFunctionProp(obj, "render", errors);
-	checkFunctionProp(obj, "getHydrationScript", errors);
 	checkFunctionProp(obj, "config", errors);
 
 	if (obj.vitePlugin !== undefined && typeof obj.vitePlugin !== "function") {
