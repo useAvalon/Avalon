@@ -16,18 +16,25 @@
  * Cloudflare's on-disk `_dom_stub.mjs` cannot use bare package imports (the
  * Pages worker has no node_modules). Use {@link ssrDomStubFileSource} there.
  */
-import { createRequire } from "node:module";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 
 export const SSR_DOM_VIRTUAL_ID = "virtual:avalon/ssr-dom";
 
-/** True when `@lit-labs/ssr-dom-shim` is resolvable from the project. */
+/**
+ * True when `@lit-labs/ssr-dom-shim` is installed in a `node_modules` on the
+ * project's lookup path. Walks directories instead of using `require.resolve`
+ * because Bun resolves missing packages from its global auto-install cache,
+ * which the built output cannot import.
+ */
 export function projectHasLitDomShim(fromDir = process.cwd()): boolean {
-	try {
-		createRequire(join(fromDir, "package.json")).resolve("@lit-labs/ssr-dom-shim");
-		return true;
-	} catch {
-		return false;
+	let dir = resolve(fromDir);
+	while (true) {
+		if (existsSync(join(dir, "node_modules", "@lit-labs", "ssr-dom-shim", "package.json")))
+			return true;
+		const parent = dirname(dir);
+		if (parent === dir) return false;
+		dir = parent;
 	}
 }
 

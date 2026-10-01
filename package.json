@@ -14,7 +14,7 @@
 	"scripts": {
 		"dev": "bun run --filter avalon-demo dev",
 		"build": "bun run --filter avalon-demo build",
-		"test": "bunx vitest run",
+		"test": "bun --bun x vitest run",
 		"test:install": "bun scripts/smoke-create-avalon.ts",
 		"lint": "bunx biome check .",
 		"format": "bunx biome format --write .",
