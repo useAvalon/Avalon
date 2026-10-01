@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -9,6 +9,7 @@ import {
 	publishPackages,
 	registryUrl,
 	resolveNpmBin,
+	restoreSourceManifest,
 	shouldCommit,
 } from "./publish-packages.ts";
 
@@ -139,5 +140,25 @@ describe("publishPackages", () => {
 		});
 		expect(result.failed).toEqual(["@useavalon/avalon@0.6.0"]);
 		expect(shouldCommit(result)).toBe(false);
+	});
+});
+
+describe("restoreSourceManifest", () => {
+	it("restores source exports and keeps the bumped version", () => {
+		const dir = mkdtempSync(join(tmpdir(), "avalon-restore-"));
+		const pkgPath = join(dir, "package.json");
+		const bakPath = join(dir, "package.json.bak");
+		writeFileSync(bakPath, JSON.stringify({ version: "0.5.0", exports: { ".": "./mod.ts" } }));
+		writeFileSync(pkgPath, JSON.stringify({ version: "0.5.1", exports: { ".": "./dist/mod.js" } }));
+		restoreSourceManifest(dir);
+		const restored = JSON.parse(readFileSync(pkgPath, "utf8"));
+		expect(restored).toEqual({ version: "0.5.1", exports: { ".": "./mod.ts" } });
+		expect(existsSync(bakPath)).toBe(false);
+	});
+
+	it("does nothing without a backup", () => {
+		const dir = writePkg("x", "1.0.0");
+		restoreSourceManifest(dir);
+		expect(JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).version).toBe("1.0.0");
 	});
 });
