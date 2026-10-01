@@ -1,5 +1,3 @@
-/** @jsxImportSource preact */
-
 import * as fc from "fast-check";
 import { h } from "preact";
 import { render } from "preact-render-to-string";

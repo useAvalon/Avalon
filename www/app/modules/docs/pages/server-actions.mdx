@@ -54,7 +54,7 @@ Import the typed `actions` proxy. Types are inferred from your `server` export
 automatically:
 
 ```ts
-import { actions } from "virtual:avalon/actions";
+import { actions } from "avalon/actions";
 
 const { data, error } = await actions.greet({ name: "World" });
 if (error) {
@@ -77,9 +77,9 @@ is `undefined` and `error` is an `ActionError` with a `code`, `message`, and
   </form>
 </DocsLiveFrame>
 
-### Explicit client (no virtual module)
+### Explicit client
 
-If you prefer not to use the virtual import, build a typed client yourself:
+If you prefer not to use the `avalon/actions` proxy, build a typed client yourself:
 
 ```ts
 import { createActionClient } from "@useavalon/avalon/actions";

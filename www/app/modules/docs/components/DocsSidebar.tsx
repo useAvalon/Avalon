@@ -1,5 +1,3 @@
-/** @jsxImportSource preact */
-
 import { getSidebarState, SIDEBAR } from "@shared/utils/sidebar.ts";
 import { useEffect, useState } from "preact/hooks";
 import styles from "./DocsSidebar.module.css";

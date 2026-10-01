@@ -1,4 +1,3 @@
-/** @jsxImportSource preact */
 import { useEffect, useState } from "preact/hooks";
 import styles from "./ThemeToggle.module.css";
 

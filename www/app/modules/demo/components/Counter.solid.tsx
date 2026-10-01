@@ -1,4 +1,3 @@
-/** @jsxImportSource solid-js */
 import { createSignal, onMount } from "solid-js";
 import "./Counter.solid.css";
 

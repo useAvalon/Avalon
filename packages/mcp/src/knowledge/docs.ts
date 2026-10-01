@@ -127,7 +127,7 @@ import { Widget as Counter } from './widgets'; // aliased re-export
 Import the island directly from its \`*.<framework>.tsx\` file; avoid barrels, aliased re-exports, or dynamic indirection for anything used as an island.
 
 ## Other gotchas
-- JSX islands need the right pragma, e.g. \`/** @jsxImportSource preact */\` (or \`react\` / \`solid-js\`).`,
+- The filename selects the JSX runtime (plain \`.tsx\` is Preact, \`*.react.tsx\` is React, \`*.solid.tsx\` is Solid, \`*.qwik.tsx\` is Qwik). An explicit \`@jsxImportSource\` comment overrides it.`,
 	},
 	{
 		id: "state-management",
@@ -300,7 +300,7 @@ Combine with \`island\` for personalized + interactive:
 />
 \`\`\`
 
-Props are encrypted (AES-256-GCM). For multi-instance deploys set a stable \`AVALON_KEY\` (generate with \`npx avalon key\`). Props must be JSON-serializable.`,
+Props are encrypted (AES-256-GCM). For multi-instance deploys set a stable \`AVALON_KEY\` (generate with \`npx @useavalon/avalon key\`). Props must be JSON-serializable.`,
 	},
 	{
 		id: "server-actions",
@@ -343,7 +343,7 @@ export const server = {
 Call from the client via the typed proxy — it never throws, always returns \`{ data, error }\`:
 
 \`\`\`ts
-import { actions } from 'virtual:avalon/actions';
+import { actions } from 'avalon/actions';
 const { data, error } = await actions.greet({ name: 'World' });
 \`\`\`
 
@@ -1050,16 +1050,16 @@ const plugins = await avalon({ integrations: ['react', 'vue'] });
 bun add react react-dom
 \`\`\`
 
-## JSX pragma
+## JSX runtime
 
-JSX-based frameworks require a pragma at the top of each island file so the correct JSX runtime is used:
+The island filename selects the JSX runtime. Avalon injects \`@jsxImportSource\` at build time. An explicit pragma overrides the filename.
 
-\`\`\`tsx
-/** @jsxImportSource react */   // or preact / solid-js
-import { useState } from 'react';
-\`\`\`
-
-- \`.vue\` and \`.svelte\` islands are written in their native single-file formats (no pragma).
+- \`.tsx\` / \`.jsx\` → page-shell \`core\` (\`preact\` by default)
+- \`*.react.tsx\` → \`react\`
+- \`*.solid.tsx\` → \`solid-js\`
+- \`*.qwik.tsx\` → \`@builder.io/qwik\`
+- \`*.preact.tsx\` → \`preact\`
+- \`.vue\` and \`.svelte\` islands are written in their native single-file formats.
 - The framework is auto-detected from the island **filename** (\`*.react.tsx\`, \`*.solid.tsx\`, \`*.vue\`, …) — you do not pick it at the call site (contrast with Astro's \`client:only="react"\`). A plain \`.tsx\` file is Preact. See the islands topic for the naming table.
 - Each island is an independent tree: **context/providers cannot span multiple islands**. There is no built-in shared store — see the "State & Cross-Island Communication" topic.
 
@@ -1120,7 +1120,7 @@ Generates the module-based layout (\`app/modules/main\` → \`/\`, \`app/modules
 One command:
 
 \`\`\`bash
-npx avalon key
+npx @useavalon/avalon key
 \`\`\`
 
 Prints a cryptographically random AES-256-GCM key for server islands and tells you to \`export AVALON_KEY="…"\`. Set a stable \`AVALON_KEY\` for multi-instance deploys so encrypted server-island props stay decryptable across instances.`,

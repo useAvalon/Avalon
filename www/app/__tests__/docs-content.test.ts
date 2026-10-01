@@ -15,12 +15,12 @@ const introduction = readFileSync(
 const viteConfig = readFileSync(path.resolve(cwd, "www/vite.config.ts"), "utf-8");
 
 describe("Quick Start content", () => {
-	it("contains npx avalon my-app", () => {
-		expect(quickStart).toContain("npx avalon my-app");
+	it("contains npm create avalon@latest my-app", () => {
+		expect(quickStart).toContain("npm create avalon@latest my-app");
 	});
 
-	it("contains bunx avalon my-app", () => {
-		expect(quickStart).toContain("bunx avalon my-app");
+	it("contains bunx create-avalon my-app", () => {
+		expect(quickStart).toContain("bunx create-avalon my-app");
 	});
 
 	it("contains http://localhost:3000", () => {

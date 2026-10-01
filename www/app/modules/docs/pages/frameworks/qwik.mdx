@@ -32,22 +32,15 @@ Qwik doesn't hydrate — it resumes. The server serializes component state direc
 
 Because of this, Qwik islands don't use the `island` prop. They're always resumable by default.
 
-## JSX pragma
+## File name
 
-Qwik islands require the `/** @jsxImportSource @builder.io/qwik */` pragma:
-
-```tsx
-/** @jsxImportSource @builder.io/qwik */
-import { component$ } from '@builder.io/qwik';
-```
+Qwik islands use the `.qwik.tsx` extension. Avalon compiles those files with `@builder.io/qwik` as the JSX runtime. A `/** @jsxImportSource @builder.io/qwik */` comment is optional and overrides the filename.
 
 ## Writing a Qwik island
 
-Qwik islands use the `.qwik.tsx` extension. Use `component$` to define them:
+Use `component$` to define them:
 
 ```tsx
-/** @jsxImportSource @builder.io/qwik */
-
 import { component$, useSignal } from '@builder.io/qwik';
 import { defineQwikIsland } from '@useavalon/qwik/island';
 
@@ -87,7 +80,6 @@ No `island` prop needed — Qwik handles resumability on its own.
 Qwik uses signals for fine-grained reactivity:
 
 ```tsx
-/** @jsxImportSource @builder.io/qwik */
 import { component$, useSignal, useComputed$ } from '@builder.io/qwik';
 import { defineQwikIsland } from '@useavalon/qwik/island';
 
@@ -111,7 +103,6 @@ export default defineQwikIsland(DoubleCounter);
 Use `useVisibleTask$` for code that should run when the component becomes visible in the viewport:
 
 ```tsx
-/** @jsxImportSource @builder.io/qwik */
 import { component$, useSignal, useVisibleTask$ } from '@builder.io/qwik';
 import { defineQwikIsland } from '@useavalon/qwik/island';
 

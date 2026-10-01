@@ -1,4 +1,3 @@
-/** @jsxImportSource preact */
 import { useEffect, useRef, useState } from "preact/hooks";
 import styles from "./TableOfContents.module.css";
 

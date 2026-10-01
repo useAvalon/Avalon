@@ -1,0 +1,20 @@
+{
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"jsxImportSource": "react",
+		"experimentalDecorators": true,
+		"allowArbitraryExtensions": true,
+		"composite": true,
+		"noEmit": false,
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"outDir": ".tsbuild/react",
+		"paths": {
+			"@shared/*": ["./app/shared/*"],
+			"@modules/*": ["./app/modules/*"],
+			"#imports": ["./.nitro/types/nitro-imports.d.ts"]
+		},
+		"types": ["nitro/types"]
+	},
+	"include": ["app/**/*.react.tsx", "app/**/*.react.jsx", "app/**/*.d.ts"]
+}

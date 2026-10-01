@@ -171,9 +171,20 @@ describe("docs knowledge", () => {
 describe("scaffold knowledge", () => {
 	it("generates island-usage with the requested condition and no client:*", () => {
 		const t = scaffold("island-usage", "UserCard", "on:visible");
-		expect(t.code).toContain("island={{ condition: 'on:visible' }}");
+		expect(t.code).toContain('island={{ condition: "on:visible" }}');
 		expect(t.code).not.toMatch(/client:(load|visible|idle|media|only)/);
 		expect(t.suggestedPath).toMatch(/\.tsx$/);
+	});
+
+	it("trims conditions and escapes quotes in generated island props", () => {
+		const media = "media:(prefers-reduced-motion: 'reduce')";
+		const t = scaffold("island-usage", "Banner", `  ${media}  `);
+		expect(t.code).toContain(`island={{ condition: ${JSON.stringify(media.trim())} }}`);
+		expect(t.code).not.toMatch(/condition: 'media:/);
+	});
+
+	it("rejects unknown hydration condition spellings", () => {
+		expect(() => scaffold("island-usage", "X", "onvisble")).toThrow(/Unknown hydration condition/);
 	});
 
 	it("generates island-usage with clientOnly when asked to skip SSR", () => {

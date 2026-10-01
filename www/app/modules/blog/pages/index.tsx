@@ -1,5 +1,3 @@
-/** @jsxImportSource preact */
-
 import styles from "./index.module.css";
 
 type Topic = "tutorial" | "deep-dive" | "engineering";

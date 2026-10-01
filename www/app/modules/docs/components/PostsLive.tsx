@@ -1,5 +1,3 @@
-/** @jsxImportSource preact */
-
 import styles from "./DocsLive.module.css";
 
 const POSTS = [

@@ -22,10 +22,9 @@ const plugins = await avalon({
 
 ## Writing a Preact island
 
-Use the `/** @jsxImportSource preact */` pragma at the top of your file:
+A plain `.tsx` file uses Preact when `core` is `"preact"` (the default). `*.preact.tsx` is Preact even when the page shell is React.
 
 ```tsx
-/** @jsxImportSource preact */
 import { useState } from 'preact/hooks';
 
 export default function Counter() {
@@ -57,7 +56,6 @@ export default function Page() {
 Preact Signals work inside islands for fine-grained reactivity:
 
 ```tsx
-/** @jsxImportSource preact */
 import { signal } from '@preact/signals';
 
 const count = signal(0);

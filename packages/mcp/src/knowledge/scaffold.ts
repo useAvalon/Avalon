@@ -39,32 +39,65 @@ const toPascal = (name: string): string =>
 		.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
 		.join("") || "Component";
 
-const toKebab = (name: string): string =>
-	name
+function trimEdgeHyphens(value: string): string {
+	let start = 0;
+	let end = value.length;
+	while (start < end && value[start] === "-") start++;
+	while (end > start && value[end - 1] === "-") end--;
+	return value.slice(start, end);
+}
+
+const toKebab = (name: string): string => {
+	const dashed = name
 		.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
 		.replace(/[^a-zA-Z0-9]+/g, "-")
-		.toLowerCase()
-		.replace(/^-+|-+$/g, "") || "example";
+		.toLowerCase();
+	return trimEdgeHyphens(dashed) || "example";
+};
 
-function isClientOnlyCondition(condition: string): boolean {
-	const normalized = condition.trim().replaceAll(/\s+/g, "").toLowerCase();
-	return (
-		normalized === "clientonly" || normalized === "client:only" || normalized === "client-only"
+type IslandMode = { kind: "client-only" } | { kind: "condition"; condition: string };
+
+const CLIENT_ONLY = /^client[:-]?only$/i;
+
+const BUILTIN_HYDRATION_CONDITIONS = new Set([
+	"on:client",
+	"on:visible",
+	"on:interaction",
+	"on:idle",
+]);
+
+/** Custom directives register as `on:<name>`; media queries use `media:<query>`. */
+function validateHydrationCondition(condition: string): void {
+	if (BUILTIN_HYDRATION_CONDITIONS.has(condition)) return;
+	if (condition.startsWith("media:")) {
+		if (condition.length > "media:".length) return;
+		throw new Error("Hydration condition media: requires a CSS media query.");
+	}
+	if (/^on:[A-Za-z][\w-]*$/.test(condition)) return;
+	throw new Error(
+		`Unknown hydration condition ${JSON.stringify(condition)}. Expected on:client, on:visible, on:interaction, on:idle, media:<query>, client-only, or a custom on:<name> directive.`,
 	);
 }
 
-function islandUsageProp(condition: string): string {
-	if (isClientOnlyCondition(condition)) {
-		return "island={{ clientOnly: true }}";
+function parseIslandMode(raw: string): IslandMode {
+	const condition = raw.trim();
+	if (CLIENT_ONLY.test(condition.replaceAll(/\s+/g, ""))) {
+		return { kind: "client-only" };
 	}
-	return `island={{ condition: '${condition}' }}`;
+	validateHydrationCondition(condition);
+	return { kind: "condition", condition };
 }
 
-function islandUsageDescription(name: string, condition: string): string {
-	if (isClientOnlyCondition(condition)) {
-		return `Using the ${name} island as client-only (no SSR, mount in the browser).`;
-	}
-	return `Using the ${name} island with the '${condition}' hydration condition.`;
+function islandUsageProp(mode: IslandMode): string {
+	return mode.kind === "client-only"
+		? "island={{ clientOnly: true }}"
+		: `island={{ condition: ${JSON.stringify(mode.condition)} }}`;
+}
+
+function islandUsageDescription(name: string, mode: IslandMode): string {
+	return mode.kind === "client-only"
+		? `Using the ${name} island as client-only (no SSR, mount in the browser).`
+		: `Using the ${name} island with the ${JSON.stringify(mode.condition)} hydration condition.`;
 }
 
 /**
@@ -127,8 +160,7 @@ export default function ${Pascal}Detail({ event }: { event: H3Event }) {
 				suggestedPath: `app/modules/main/components/${Pascal}.tsx`,
 				description:
 					"An interactive Preact island component (a plain .tsx is Preact; name it *.react.tsx for React).",
-				code: `/** @jsxImportSource preact */
-import { useState } from 'preact/hooks';
+				code: `import { useState } from 'preact/hooks';
 
 export default function ${Pascal}({ initialCount = 0 }: { initialCount?: number }) {
   const [count, setCount] = useState(initialCount);
@@ -141,23 +173,25 @@ export default function ${Pascal}({ initialCount = 0 }: { initialCount?: number 
 `,
 			};
 
-		case "island-usage":
+		case "island-usage": {
+			const mode = parseIslandMode(condition);
 			return {
 				kind,
 				suggestedPath: `app/modules/main/pages/index.tsx`,
-				description: islandUsageDescription(Pascal, condition),
+				description: islandUsageDescription(Pascal, mode),
 				code: `import ${Pascal} from '../components/${Pascal}.tsx';
 
 export default function Page() {
   return (
     <div>
       {/* Avalon controls hydration via the island prop — NOT client:* attributes */}
-      <${Pascal} ${islandUsageProp(condition)} initialCount={5} />
+      <${Pascal} ${islandUsageProp(mode)} initialCount={5} />
     </div>
   );
 }
 `,
 			};
+		}
 
 		case "server-island":
 			return {
@@ -189,7 +223,7 @@ export default function Page() {
 import { z } from 'zod';
 
 export const server = {
-  ${kebab.replace(/-/g, "_")}: defineAction({
+  ${kebab.replaceAll("-", "_")}: defineAction({
     input: z.object({ name: z.string().min(1) }),
     handler: async ({ name }, ctx) => {
       if (!ctx.cookies.get('session')) {
@@ -201,8 +235,8 @@ export const server = {
 };
 
 // Call from the client:
-//   import { actions } from 'virtual:avalon/actions';
-//   const { data, error } = await actions.${kebab.replace(/-/g, "_")}({ name: 'World' });
+//   import { actions } from 'avalon/actions';
+//   const { data, error } = await actions.${kebab.replaceAll("-", "_")}({ name: 'World' });
 `,
 			};
 

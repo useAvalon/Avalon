@@ -1,4 +1,3 @@
-/** @jsxImportSource preact */
 import { useEffect, useRef } from "preact/hooks";
 
 /**

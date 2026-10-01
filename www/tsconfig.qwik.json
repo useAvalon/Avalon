@@ -1,0 +1,20 @@
+{
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"jsxImportSource": "@builder.io/qwik",
+		"experimentalDecorators": true,
+		"allowArbitraryExtensions": true,
+		"composite": true,
+		"noEmit": false,
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"outDir": ".tsbuild/qwik",
+		"paths": {
+			"@shared/*": ["./app/shared/*"],
+			"@modules/*": ["./app/modules/*"],
+			"#imports": ["./.nitro/types/nitro-imports.d.ts"]
+		},
+		"types": ["nitro/types"]
+	},
+	"include": ["app/**/*.qwik.tsx", "app/**/*.qwik.jsx", "app/**/*.d.ts"]
+}

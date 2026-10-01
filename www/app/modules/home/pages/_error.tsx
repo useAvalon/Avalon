@@ -27,7 +27,7 @@ export const metadata = {
 	robots: "noindex, nofollow",
 };
 
-export default function ErrorPage(props: ErrorPageProps) {
+export default function ErrorPage(props: Readonly<ErrorPageProps>) {
 	const { statusCode, message, stack, url } = props;
 	const isDev = typeof window !== "undefined" ? window.location.hostname === "localhost" : false;
 

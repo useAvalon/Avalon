@@ -39,7 +39,7 @@ export function createPrompts(): PromptDefinition[] {
 					`Desired hydration: ${hydration}.`,
 					"",
 					"Requirements:",
-					"- Write the island as a framework component (default: Preact with `/** @jsxImportSource preact */`).",
+					"- Write the island as a framework component. A plain `.tsx` file is Preact; use `*.react.tsx`, `*.solid.tsx`, or `*.qwik.tsx` for those frameworks. Do not add `@jsxImportSource` unless overriding the filename.",
 					"- Use it in a page via the `island` prop: `island={{ condition: '...' }}`.",
 					"- Do NOT use Astro `client:*` attributes — they do not exist in Avalon.",
 					"- If unsure which condition to use, call the `avalon_hydration_directive` tool.",
