@@ -67,6 +67,9 @@ describe("scaffoldProject", () => {
 		const tsconfig = JSON.parse(await read("tsconfig.json"));
 		expect(tsconfig.compilerOptions.paths["@shared/*"]).toEqual(["./app/shared/*"]);
 		expect(tsconfig.compilerOptions.paths["@modules/*"]).toEqual(["./app/modules/*"]);
+		expect(await exists(join(target, "tsconfig.react.json"))).toBe(true);
+		expect(await exists(join(target, "tsconfig.solid.json"))).toBe(true);
+		expect(await exists(join(target, "tsconfig.qwik.json"))).toBe(true);
 	});
 
 	it("generates vite.config.ts", async () => {

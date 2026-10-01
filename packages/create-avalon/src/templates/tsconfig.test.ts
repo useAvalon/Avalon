@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateEnvDts, generateTsConfig } from "./tsconfig";
+import { generateEnvDts, generateFrameworkTsConfigs, generateTsConfig } from "./tsconfig";
 
 describe("generateTsConfig", () => {
 	it("returns valid JSON with 2-space indent", () => {
@@ -60,6 +60,36 @@ describe("generateTsConfig", () => {
 	it("has exactly 6 include patterns", () => {
 		const tsconfig = JSON.parse(generateTsConfig());
 		expect(tsconfig.include).toHaveLength(6);
+	});
+
+	it("excludes framework island extensions from the page-shell project", () => {
+		const tsconfig = JSON.parse(generateTsConfig());
+		expect(tsconfig.exclude).toEqual([
+			"app/**/*.react.tsx",
+			"app/**/*.react.jsx",
+			"app/**/*.solid.tsx",
+			"app/**/*.solid.jsx",
+			"app/**/*.qwik.tsx",
+			"app/**/*.qwik.jsx",
+		]);
+		expect(tsconfig.references).toEqual([
+			{ path: "./tsconfig.react.json" },
+			{ path: "./tsconfig.solid.json" },
+			{ path: "./tsconfig.qwik.json" },
+		]);
+	});
+});
+
+describe("generateFrameworkTsConfigs", () => {
+	it("gives each island extension its own jsxImportSource", () => {
+		const files = generateFrameworkTsConfigs();
+		expect(JSON.parse(files["tsconfig.react.json"]).compilerOptions.jsxImportSource).toBe("react");
+		expect(JSON.parse(files["tsconfig.solid.json"]).compilerOptions.jsxImportSource).toBe(
+			"solid-js",
+		);
+		expect(JSON.parse(files["tsconfig.qwik.json"]).compilerOptions.jsxImportSource).toBe(
+			"@builder.io/qwik",
+		);
 	});
 });
 

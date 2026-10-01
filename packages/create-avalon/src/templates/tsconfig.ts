@@ -1,35 +1,88 @@
+const APP_INCLUDE = [
+	"app/**/*.ts",
+	"app/**/*.tsx",
+	"app/**/*.d.ts",
+	"server/**/*.ts",
+	"routes/**/*.ts",
+	"middleware/**/*.ts",
+];
+
+/** Referenced projects so the editor typechecks each island extension with its JSX runtime. */
+const JSX_FRAMEWORKS = [
+	{
+		filename: "tsconfig.react.json",
+		source: "react",
+		outDir: ".tsbuild/react",
+		globs: ["app/**/*.react.tsx", "app/**/*.react.jsx"],
+	},
+	{
+		filename: "tsconfig.solid.json",
+		source: "solid-js",
+		outDir: ".tsbuild/solid",
+		globs: ["app/**/*.solid.tsx", "app/**/*.solid.jsx"],
+	},
+	{
+		filename: "tsconfig.qwik.json",
+		source: "@builder.io/qwik",
+		outDir: ".tsbuild/qwik",
+		globs: ["app/**/*.qwik.tsx", "app/**/*.qwik.jsx"],
+	},
+] as const;
+
+function compilerOptions(jsxImportSource: string) {
+	return {
+		target: "ESNext",
+		module: "ESNext",
+		moduleResolution: "bundler",
+		strict: true,
+		esModuleInterop: true,
+		skipLibCheck: true,
+		allowArbitraryExtensions: true,
+		allowImportingTsExtensions: true,
+		noEmit: true,
+		jsx: "react-jsx",
+		// The page shell's JSX. React libraries (Radix/shadcn) typecheck
+		// natively under the React engine; under Preact they resolve via compat.
+		jsxImportSource,
+		paths: {
+			"@shared/*": ["./app/shared/*"],
+			"@modules/*": ["./app/modules/*"],
+		},
+	};
+}
+
 export function generateTsConfig(core: "preact" | "react" = "preact"): string {
 	const tsconfig = {
-		compilerOptions: {
-			target: "ESNext",
-			module: "ESNext",
-			moduleResolution: "bundler",
-			strict: true,
-			esModuleInterop: true,
-			skipLibCheck: true,
-			allowArbitraryExtensions: true,
-			allowImportingTsExtensions: true,
-			noEmit: true,
-			jsx: "react-jsx",
-			// The page shell's JSX. React libraries (Radix/shadcn) typecheck
-			// natively under the React engine; under Preact they resolve via compat.
-			jsxImportSource: core,
-			paths: {
-				"@shared/*": ["./app/shared/*"],
-				"@modules/*": ["./app/modules/*"],
-			},
-		},
-		include: [
-			"app/**/*.ts",
-			"app/**/*.tsx",
-			"app/**/*.d.ts",
-			"server/**/*.ts",
-			"routes/**/*.ts",
-			"middleware/**/*.ts",
-		],
+		compilerOptions: compilerOptions(core),
+		include: APP_INCLUDE,
+		exclude: JSX_FRAMEWORKS.flatMap((framework) => [...framework.globs]),
+		references: JSX_FRAMEWORKS.map((framework) => ({ path: `./${framework.filename}` })),
 	};
 
 	return JSON.stringify(tsconfig, null, 2);
+}
+
+/** Sibling tsconfigs referenced by `generateTsConfig`. One file per JSX island extension. */
+export function generateFrameworkTsConfigs(): Record<string, string> {
+	const files: Record<string, string> = {};
+	for (const framework of JSX_FRAMEWORKS) {
+		files[framework.filename] = JSON.stringify(
+			{
+				compilerOptions: {
+					...compilerOptions(framework.source),
+					composite: true,
+					noEmit: false,
+					declaration: true,
+					emitDeclarationOnly: true,
+					outDir: framework.outDir,
+				},
+				include: [...framework.globs, "app/**/*.d.ts"],
+			},
+			null,
+			2,
+		);
+	}
+	return files;
 }
 
 export function generateEnvDts(integrations: string[] = []): string {

@@ -366,6 +366,7 @@ export function generateGitignore(_config: ProjectConfig): string {
 		"node_modules/",
 		"dist/",
 		".output/",
+		".tsbuild/",
 		".netlify/",
 		".wrangler/",
 		"*.log",
