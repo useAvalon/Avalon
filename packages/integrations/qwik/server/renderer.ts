@@ -97,6 +97,11 @@ export async function render(params: RenderParams): Promise<RenderResult> {
 			},
 			base: "/",
 			symbolMapper,
+			// Inline the Qwikloader so activateQwikLoader can evaluate it after
+			// client-side navigation. With 'module' (the default), Qwik emits
+			// <script type="module" src="..."> which is skipped by DOMParser
+			// and cannot be re-evaluated by activateQwikLoader.
+			qwikLoader: "inline",
 		});
 
 		const html = typeof result === "string" ? result : result.html;

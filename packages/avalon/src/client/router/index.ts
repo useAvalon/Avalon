@@ -44,6 +44,7 @@ import {
 	putCachedDocument,
 	ROUTER_FETCH_HEADERS,
 } from "./prefetch.ts";
+import { activateQwikLoader } from "./qwik-boot.ts";
 import {
 	copyHtmlAttributes,
 	isHtmlResponse,
@@ -205,6 +206,10 @@ async function swapDocument(
 	clearViewTransitionGeometry(document.body);
 
 	dispatchAfterSwap({ from, to });
+	// DOMParser does not execute scripts, so inline Qwik boot code (the
+	// qwikloader and the qwikevents snippet inside SSR'd islands) never runs
+	// during client navigation. Re-evaluate it so Qwik islands resume.
+	activateQwikLoader(document.body);
 	scanAndHydrate(document.body);
 	await bootServerIslands(document.body);
 	announceRoute(document.title);

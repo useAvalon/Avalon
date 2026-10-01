@@ -13,7 +13,6 @@
 
 import type { Integration, IntegrationConfig } from "@useavalon/core/types";
 import type { Plugin } from "vite";
-import { getHydrationScript } from "./client/hydration.ts";
 import { render } from "./server/renderer.ts";
 
 /**
@@ -54,7 +53,11 @@ export const qwikIntegration: Integration = {
 
 	render,
 
-	getHydrationScript,
+	// getHydrationScript is required by the Integration interface but Qwik
+	// uses the Qwikloader for resumability — there is no per-island script.
+	getHydrationScript(): string {
+		return "";
+	},
 
 	config(): IntegrationConfig {
 		return config;
@@ -229,7 +232,7 @@ export type {
 	RenderParams,
 	RenderResult,
 } from "@useavalon/core/types";
-export { getHydrationScript, hydrate } from "./client/hydration.ts";
+export { hydrate } from "./client/hydration.ts";
 // Re-export public API
 export { render, renderWithErrorBoundary } from "./server/renderer.ts";
 export {

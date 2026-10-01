@@ -83,25 +83,3 @@ describe("qwikIntegration.config()", () => {
 		});
 	});
 });
-
-describe("qwikIntegration.getHydrationScript()", () => {
-	const script = qwikIntegration.getHydrationScript();
-
-	it("returns a non-empty string", () => {
-		expect(script).toBeTruthy();
-		expect(typeof script).toBe("string");
-		expect(script.length).toBeGreaterThan(0);
-	});
-
-	it('contains a query selector for data-framework="qwik"', () => {
-		expect(script).toContain('data-framework="qwik"');
-	});
-
-	it("contains dynamic import logic", () => {
-		expect(script).toContain("import(");
-	});
-
-	it("references q:container for resumability detection", () => {
-		expect(script).toContain("q:container");
-	});
-});
