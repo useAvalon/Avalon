@@ -956,8 +956,21 @@ export function pageIslandTransform(options: PageIslandTransformOptions = {}): P
 
 			// Build metadata only for components actually used with island prop
 			const islandMeta = buildIslandMeta(code, componentImports, id, resolvedAliases);
-			if (islandMeta.size === 0) return null;
 
+			// Qwik components cannot have an island prop — they use resumability.
+			// Catch this early so the error is clear rather than a cryptic crash
+			// from Qwik's component$() being called by Preact's renderToString.
+			for (const [name, meta] of islandMeta) {
+				if (meta.framework === "qwik" && !meta.autoIsland) {
+					this.error(
+						`<${name}> is a Qwik component and cannot use the \`island\` prop. ` +
+							`Qwik uses resumability — the Qwikloader activates it automatically. ` +
+							`Remove the \`island\` prop from <${name}>.`,
+					);
+				}
+			}
+
+			if (islandMeta.size === 0) return null;
 			const clientOnlyOnlyNames = collectClientOnlyOnlyNames(code, [...islandMeta.keys()]);
 
 			let transformed = `import { renderIsland as __pageRenderIsland } from '@useavalon/avalon';\n${code}`;

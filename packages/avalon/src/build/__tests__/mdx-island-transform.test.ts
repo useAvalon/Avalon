@@ -53,6 +53,25 @@ export default function MDXContent(props = {}) {
 		expect(out).toContain("component: ActionsDemo");
 	});
 
+	it("auto-wraps Qwik components without an island prop (ssrOnly)", () => {
+		const code = `import DocsLiveFrame from "../components/DocsLiveFrame.tsx";
+import QwikCounter from "../../demo/components/Counter.qwik.tsx";
+function _createMdxContent(props) {
+  return _jsxDEV(DocsLiveFrame, { label: "Live", children: _jsxDEV(QwikCounter, {}) });
+}
+export default function MDXContent(props = {}) {
+  return _createMdxContent(props);
+}
+`;
+		const out = runTransform(code);
+		expect(out).toContain("__AvalonRenderIsland");
+		expect(out).toContain('framework: "qwik"');
+		expect(out).toContain("ssrOnly: true");
+		expect(out).toContain("component: QwikCounter");
+		expect(out).toContain("_jsxDEV(DocsLiveFrame");
+		expect(out).not.toMatch(/_jsxDEV\(QwikCounter/);
+	});
+
 	it("omits the component binding for client-only islands", () => {
 		const code = `import BrowserCounter from "../demo/components/BrowserCounter.tsx";
 function _createMdxContent(props) {

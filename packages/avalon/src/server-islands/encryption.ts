@@ -99,7 +99,7 @@ export function getKey(): string {
 	if (nodeEnv === "production") {
 		throw new Error(
 			"AVALON_KEY is required in production for server islands. " +
-				"Generate one with `npx avalon key` and set it as an environment variable " +
+				"Generate one with `npx @useavalon/avalon key` and set it as an environment variable " +
 				"so all server instances share the same encryption secret.",
 		);
 	}
