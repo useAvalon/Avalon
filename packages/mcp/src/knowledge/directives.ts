@@ -186,7 +186,7 @@ export default function Page() {
 }`,
 	gotchas: [
 		"Islands are discovered by USAGE (the `island` prop), not by a special directory. Any imported component becomes an island when you add the prop.",
-		"JSX islands need the right pragma for their renderer, e.g. `/** @jsxImportSource preact */` at the top of the file.",
+		"The filename selects the JSX runtime: plain `.tsx` is Preact, `*.react.tsx` is React, `*.solid.tsx` is Solid, `*.qwik.tsx` is Qwik. An explicit `@jsxImportSource` comment overrides it.",
 		"`on:delay`, `on:event`, `on:scroll`, and `on:match` are built-in CUSTOM directives — enable them by calling `registerBuiltinDirectives()` in your server entry.",
 		"Across client navigations, islands are disposed and rehydrated unless you set `island={{ persist: 'key' }}` (or `data-router-persist` on a wrapper).",
 		"`clientOnly: true` skips SSR of the component. The page still serializes props. Users without JavaScript do not see that component.",

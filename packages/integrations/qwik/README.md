@@ -14,7 +14,6 @@ Qwik integration for [Avalon](https://useavalon.dev). Server-side rendering and 
 
 ```tsx
 // components/Counter.qwik.tsx
-/** @jsxImportSource @builder.io/qwik */
 import { component$, useSignal } from "@builder.io/qwik";
 
 export default component$(() => {

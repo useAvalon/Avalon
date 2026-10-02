@@ -18,7 +18,7 @@ import { generatePackageJson } from "./templates/package-json";
 import { generate404Page, generateAboutPage, generateMainPage } from "./templates/pages";
 import { generatePostBuildMjs } from "./templates/post-build";
 import { generateStylingFiles } from "./templates/styling";
-import { generateEnvDts, generateTsConfig } from "./templates/tsconfig";
+import { generateEnvDts, generateFrameworkTsConfigs, generateTsConfig } from "./templates/tsconfig";
 import { generateViteConfig } from "./templates/vite-config";
 import type { ProjectConfig } from "./types";
 import { BASE_DIRS } from "./types";
@@ -70,6 +70,9 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 	// Generate and write core config files
 	await writeFile(join(targetDir, "package.json"), generatePackageJson(config));
 	await writeFile(join(targetDir, "tsconfig.json"), generateTsConfig(config.core));
+	for (const [filename, contents] of Object.entries(generateFrameworkTsConfigs())) {
+		await writeFile(join(targetDir, filename), contents);
+	}
 	await writeFile(join(targetDir, "vite.config.ts"), generateViteConfig(config));
 
 	// Generate and write layout and page files

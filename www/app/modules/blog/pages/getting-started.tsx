@@ -42,7 +42,6 @@ bun run dev`}</code>
 			</p>
 			<pre>
 				<code>{`// src/components/Counter.tsx
-/** @jsxImportSource preact */
 import { useState } from 'preact/hooks';
 
 export default function Counter() {

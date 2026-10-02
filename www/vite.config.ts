@@ -54,15 +54,7 @@ export default defineConfig(async (): Promise<UserConfig> => {
 			// Islands still hydrate on the client as normal.
 			prerender: {
 				crawlLinks: true,
-				routes: [
-					"/",
-					"/demo",
-					"/demo/data-fetching",
-					"/demo/server-islands",
-					"/demo/server-island-pure",
-					"/demo/server-island-hydrated",
-					"/demo/server-actions",
-				],
+				routes: ["/"],
 				ignore: [],
 				failOnError: true,
 			},

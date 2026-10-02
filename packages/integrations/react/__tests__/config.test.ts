@@ -84,24 +84,6 @@ describe("reactIntegration.config()", () => {
 	});
 });
 
-describe("reactIntegration.getHydrationScript()", () => {
-	const script = reactIntegration.getHydrationScript();
-
-	it("returns a non-empty string", () => {
-		expect(script).toBeTruthy();
-		expect(typeof script).toBe("string");
-		expect(script.length).toBeGreaterThan(0);
-	});
-
-	it('contains a query selector for data-framework="react"', () => {
-		expect(script).toContain('data-framework="react"');
-	});
-
-	it("contains dynamic import logic", () => {
-		expect(script).toContain("import(");
-	});
-});
-
 describe("reactIntegration.vitePlugin() — Vite 8 / Rolldown config patch", () => {
 	it("does not leak a `jsx` key into oxc or optimizeDeps.rolldownOptions", async () => {
 		const vitePlugin = reactIntegration.vitePlugin;

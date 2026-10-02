@@ -1,5 +1,4 @@
-/** @jsxImportSource preact */
-import { actions } from "virtual:avalon/actions";
+import { actions } from "avalon/actions";
 import { useState } from "preact/hooks";
 
 const cardStyle = {

@@ -92,7 +92,3 @@ export function unmount(container: Element): void {
 	dispose();
 	disposers.delete(container);
 }
-
-export function getHydrationScript(): string {
-	return "";
-}

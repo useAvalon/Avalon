@@ -660,7 +660,7 @@ export class IsolatedSSRRenderer {
 		const strategies: Record<string, string[]> = {
 			solid: [
 				"Ensure solid-js and solid-js/web are installed",
-				"Check that Solid components use proper JSX import source: /** @jsxImportSource solid-js */",
+				"Name Solid islands *.solid.tsx so Avalon selects the solid-js JSX runtime",
 				"Verify Solid components export default function",
 			],
 			vue: [
@@ -675,7 +675,7 @@ export class IsolatedSSRRenderer {
 			],
 			preact: [
 				"Ensure preact and preact-render-to-string are installed",
-				"Check that Preact components use proper JSX import source: /** @jsxImportSource preact */",
+				"Name Preact islands *.tsx (or *.preact.tsx) so Avalon selects the preact JSX runtime",
 				"Verify Preact components export default function",
 			],
 		};

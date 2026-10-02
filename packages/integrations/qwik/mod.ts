@@ -13,7 +13,6 @@
 
 import type { Integration, IntegrationConfig } from "@useavalon/core/types";
 import type { Plugin } from "vite";
-import { getHydrationScript } from "./client/hydration.ts";
 import { render } from "./server/renderer.ts";
 
 /**
@@ -53,8 +52,6 @@ export const qwikIntegration: Integration = {
 	version: "0.1.0",
 
 	render,
-
-	getHydrationScript,
 
 	config(): IntegrationConfig {
 		return config;
@@ -229,7 +226,7 @@ export type {
 	RenderParams,
 	RenderResult,
 } from "@useavalon/core/types";
-export { getHydrationScript, hydrate } from "./client/hydration.ts";
+export { hydrate } from "./client/hydration.ts";
 // Re-export public API
 export { render, renderWithErrorBoundary } from "./server/renderer.ts";
 export {

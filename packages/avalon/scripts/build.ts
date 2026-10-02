@@ -13,6 +13,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
 import { minify } from "oxc-minify";
 import { transform } from "oxc-transform";
+import { preserveViteIgnore } from "../../../scripts/preserve-vite-ignore.ts";
 import { rewriteImportExtensions } from "./rewrite-import-extensions.ts";
 
 const ROOT = join(import.meta.dir, "..");
@@ -52,6 +53,55 @@ async function compileBin() {
 	await writeFile(join(DIST_DIR, "bin", "avalon.js"), js, "utf-8");
 }
 
+async function writeMinifiedJs(outRel: string, fileLabel: string, source: string): Promise<void> {
+	const minified = await minify(fileLabel, source);
+	await writeFile(join(DIST_DIR, outRel), preserveViteIgnore(minified.code), "utf-8");
+}
+
+async function compileTypeScriptFile(
+	file: string,
+	rel: string,
+	ext: string,
+): Promise<"compiled" | "copied"> {
+	const code = await readFile(file, "utf-8");
+	if (file.endsWith(".d.ts")) {
+		await writeFile(join(DIST_DIR, rel), code, "utf-8");
+		return "copied";
+	}
+
+	const result = await transform(file, code, {
+		sourcemap: false,
+		typescript: { onlyRemoveTypeImports: false },
+		...(ext === ".tsx" && {
+			jsx: {
+				runtime: "automatic",
+				importSource: "preact",
+			},
+		}),
+	});
+
+	const output = rewriteImportExtensions(result.code);
+	const jsName = rel.replace(/\.tsx?$/, ".js");
+	await writeMinifiedJs(jsName, file.replace(/\.tsx?$/, ".js"), output);
+	return "compiled";
+}
+
+async function compileNonTypeScriptFile(
+	file: string,
+	rel: string,
+	ext: string,
+): Promise<"compiled" | "copied"> {
+	const code = await readFile(file, "utf-8");
+	if (ext !== ".js") {
+		await writeFile(join(DIST_DIR, rel), code, "utf-8");
+		return "copied";
+	}
+
+	const rewritten = rewriteImportExtensions(code);
+	await writeMinifiedJs(rel, file, rewritten);
+	return "compiled";
+}
+
 async function compileToDistDir() {
 	await rm(DIST_DIR, { recursive: true, force: true });
 
@@ -68,43 +118,13 @@ async function compileToDistDir() {
 		const outDir = join(DIST_DIR, dirname(rel));
 		await mkdir(outDir, { recursive: true });
 
-		if (ext === ".ts" || ext === ".tsx") {
-			const code = await readFile(file, "utf-8");
+		const outcome =
+			ext === ".ts" || ext === ".tsx"
+				? await compileTypeScriptFile(file, rel, ext)
+				: await compileNonTypeScriptFile(file, rel, ext);
 
-			if (file.endsWith(".d.ts")) {
-				await writeFile(join(DIST_DIR, rel), code, "utf-8");
-				copied++;
-				continue;
-			}
-
-			const result = await transform(file, code, {
-				sourcemap: false,
-				typescript: { onlyRemoveTypeImports: false },
-				...(ext === ".tsx" && {
-					jsx: {
-						runtime: "automatic",
-						importSource: "preact",
-					},
-				}),
-			});
-
-			const output = rewriteImportExtensions(result.code);
-			const minified = await minify(file.replace(/\.tsx?$/, ".js"), output);
-			const jsName = rel.replace(/\.tsx?$/, ".js");
-			await writeFile(join(DIST_DIR, jsName), minified.code, "utf-8");
-			compiled++;
-		} else {
-			const code = await readFile(file, "utf-8");
-			if (ext === ".js") {
-				const rewritten = rewriteImportExtensions(code);
-				const minified = await minify(file, rewritten);
-				await writeFile(join(DIST_DIR, rel), minified.code, "utf-8");
-				compiled++;
-			} else {
-				await writeFile(join(DIST_DIR, rel), code, "utf-8");
-				copied++;
-			}
-		}
+		if (outcome === "compiled") compiled++;
+		else copied++;
 	}
 
 	await compileBin();

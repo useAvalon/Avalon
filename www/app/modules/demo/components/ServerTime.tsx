@@ -1,5 +1,3 @@
-/** @jsxImportSource preact */
-
 export default function ServerTime() {
 	const now = new Date();
 	return (

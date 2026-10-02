@@ -129,38 +129,6 @@ function detectSSRContent(element: HTMLElement) {
 }
 
 /**
- * Get the hydration script for Svelte components
- *
- * Returns JavaScript code that will be injected into the page to handle
- * automatic hydration of all Svelte islands.
- *
- * @returns Hydration script code
- */
-export function getHydrationScript(): string {
-	return `
-    import { hydrate } from '@useavalon/svelte/client';
-    
-    // Auto-hydrate all Svelte islands
-    document.querySelectorAll('[data-framework="svelte"]').forEach(async (el) => {
-      const src = el.getAttribute('data-src');
-      const propsJson = el.getAttribute('data-props');
-      const props = propsJson ? JSON.parse(propsJson) : {};
-      
-      try {
-        // Dynamically import the Svelte component
-        const module = await import(src);
-        const Component = module.default || module;
-        
-        // Hydrate the component
-        hydrate(el, Component, props);
-      } catch (error) {
-        console.error('Failed to hydrate Svelte component:', src, error);
-      }
-    });
-  `;
-}
-
-/**
  * Mount a Svelte component (client-only, no hydration)
  *
  * Creates a new Svelte component instance without hydration.

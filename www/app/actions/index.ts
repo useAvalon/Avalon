@@ -2,7 +2,7 @@
  * Server Actions for the Avalon demo site.
  *
  * Actions are type-safe server functions. Define them under the `server` export
- * and call them from the client via `import { actions } from "virtual:avalon/actions"`.
+ * and call them from the client via `import { actions } from "avalon/actions"`.
  */
 
 import { ActionError, defineAction } from "@useavalon/avalon/actions";

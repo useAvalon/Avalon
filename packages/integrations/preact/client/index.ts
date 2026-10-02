@@ -8,7 +8,6 @@
 export type { PreactHydrationOptions } from "../types.ts";
 export {
 	cleanupHydration,
-	getHydrationScript,
 	hydrate,
 	isHydrationReady,
 	mount,

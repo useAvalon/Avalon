@@ -42,32 +42,6 @@ export function unmount(container: HTMLElement): void {
 }
 
 /**
- * Get the hydration script for Preact islands
- * This script is injected into the page to enable client-side hydration
- */
-export function getHydrationScript(): string {
-	const script = [
-		"import { hydrate } from '@useavalon/preact/client';",
-		"",
-		"document.querySelectorAll('[data-framework=\"preact\"]').forEach(async (el) => {",
-		"  const src = el.getAttribute('data-src');",
-		"  const propsStr = el.getAttribute('data-props');",
-		"  const props = propsStr ? JSON.parse(propsStr) : {};",
-		"  ",
-		"  try {",
-		"    const module = await import(src);",
-		"    const Component = module.default || module;",
-		"    hydrate(el, Component, props);",
-		"  } catch (error) {",
-		"    console.error('Failed to hydrate Preact island:', error);",
-		"  }",
-		"});",
-	].join("\n");
-
-	return script;
-}
-
-/**
  * Check if a container is ready for hydration
  */
 export function isHydrationReady(container: HTMLElement) {

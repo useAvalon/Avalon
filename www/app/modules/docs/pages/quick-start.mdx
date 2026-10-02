@@ -20,13 +20,13 @@ import DocsSteps from '../components/DocsSteps.tsx';
 The fastest way to get started is with the Avalon CLI:
 
 ```bash
-npx avalon my-app
+npm create avalon@latest my-app
 ```
 
 For Bun users:
 
 ```bash
-bunx avalon my-app
+bunx create-avalon my-app
 ```
 
 This will walk you through selecting your frameworks, styling approach, and deployment target.
@@ -75,7 +75,6 @@ Visit `http://localhost:3000/hello` — you'll see your page rendered as pure HT
 Islands are interactive components that hydrate on the client. Create `src/components/Counter.tsx`:
 
 ```tsx
-/** @jsxImportSource preact */
 import { useState } from 'preact/hooks';
 
 export default function Counter() {

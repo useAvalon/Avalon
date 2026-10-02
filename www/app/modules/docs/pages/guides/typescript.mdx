@@ -1,6 +1,6 @@
 ---
 title: TypeScript
-description: TypeScript setup, JSX pragmas, and type imports in Avalon.
+description: TypeScript setup, JSX runtimes, and type imports in Avalon.
 ---
 
 Avalon is built with TypeScript and provides types for all its APIs. Pages, layouts, and islands are all `.tsx` or `.ts` files by default.
@@ -19,13 +19,24 @@ Client-side component types come from `@useavalon/avalon/client`:
 import type { ImageProps } from '@useavalon/avalon/client';
 ```
 
-## JSX pragmas
+## JSX runtime
 
-Avalon uses Preact as the default JSX runtime for pages and layouts. For islands using other frameworks, add a JSX pragma at the top of the file:
+The filename selects the JSX runtime. Avalon injects `@jsxImportSource` during the build, and the scaffolded tsconfig gives the editor the same mapping:
+
+| Framework | Extension | JSX runtime |
+|-----------|-----------|-------------|
+| Preact | `.tsx`, `.jsx`, `.preact.tsx` | `preact` (or `react` when `core` is `"react"`) |
+| React | `.react.tsx` | `react` |
+| Solid | `.solid.tsx` | `solid-js` |
+| Qwik | `.qwik.tsx` | `@builder.io/qwik` |
+| Vue | `.vue` | — |
+| Svelte | `.svelte` | — |
+| Lit | `.lit.ts` | — (decorators, not JSX) |
+
+Plain `.tsx` follows `core` (`preact` by default). An explicit `/** @jsxImportSource … */` at the top of a file overrides that choice.
 
 ```tsx
-// React island
-/** @jsxImportSource react */
+// src/components/Counter.react.tsx
 import { useState } from 'react';
 
 export default function Counter() {
@@ -35,8 +46,7 @@ export default function Counter() {
 ```
 
 ```tsx
-// Solid island
-/** @jsxImportSource solid-js */
+// src/components/Counter.solid.tsx
 import { createSignal } from 'solid-js';
 
 export default function Counter() {
@@ -44,22 +54,6 @@ export default function Counter() {
   return <button onClick={() => setCount(c => c + 1)}>Count: {count()}</button>;
 }
 ```
-
-Preact islands don't need a pragma since it's the default `jsxImportSource`.
-
-## Framework-specific file extensions
-
-Some frameworks use their own file extensions instead of JSX pragmas:
-
-| Framework | Extension | Pragma needed? |
-|-----------|-----------|----------------|
-| Preact | `.tsx` | No (default) |
-| React | `.tsx` | Yes: `/** @jsxImportSource react */` |
-| Solid | `.solid.tsx` | Convention-based, or use pragma |
-| Vue | `.vue` | No |
-| Svelte | `.svelte` | No |
-| Lit | `.ts` | No (uses decorators, not JSX) |
-| Qwik | `.qwik.tsx` | Convention-based |
 
 ## tsconfig
 

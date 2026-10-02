@@ -80,24 +80,6 @@ describe("litIntegration.config()", () => {
 	});
 });
 
-describe("litIntegration.getHydrationScript()", () => {
-	const script = litIntegration.getHydrationScript();
-
-	it("returns a non-empty string", () => {
-		expect(script).toBeTruthy();
-		expect(typeof script).toBe("string");
-		expect(script.length).toBeGreaterThan(0);
-	});
-
-	it('contains a query selector for data-framework="lit"', () => {
-		expect(script).toContain('data-framework="lit"');
-	});
-
-	it("contains dynamic import logic", () => {
-		expect(script).toContain("import(");
-	});
-});
-
 describe("Lit SSR declarative shadow DOM", () => {
 	it("marks shadow roots clonable so client-navigation swaps keep styles", async () => {
 		const { readFileSync } = await import("node:fs");

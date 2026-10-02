@@ -42,7 +42,7 @@ The `condition` field controls when the island hydrates. Add `clientOnly: true` 
 <DocsLiveFrame label="Live" variant="grid" compact>
   <PreactCounter island={{ condition: 'on:interaction' }} />
   <SvelteCounter island={{ condition: 'on:interaction' }} />
-  <QwikCounter island={{ condition: 'on:interaction' }} />
+  <QwikCounter />
 </DocsLiveFrame>
 
 Click a counter. That island loads its JavaScript. The rest of the page stays static.

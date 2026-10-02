@@ -8,7 +8,32 @@ vi.mock("@builder.io/qwik", () => ({
 	jsx: (Component: unknown, props: unknown) => qwikJsx(Component, props),
 }));
 
-const { mount, unmount } = await import("../client/hydration.ts");
+const { hydrate, mount, unmount } = await import("../client/hydration.ts");
+
+function island(opts: { childContainer?: boolean }): HTMLElement {
+	return {
+		children: [{}],
+		dataset: {},
+		matches: () => false,
+		querySelector: (selector: string) =>
+			opts.childContainer && selector.includes("container") ? {} : null,
+	} as unknown as HTMLElement;
+}
+
+describe("qwik hydrate", () => {
+	it("skips client render when SSR q:container is inside the island", () => {
+		hydrate(island({ childContainer: true }), (() => null) as never, {});
+		expect(qwikRender).not.toHaveBeenCalled();
+	});
+
+	it("still client-renders when the container is only an ancestor", async () => {
+		hydrate(island({}), (() => null) as never, {});
+		await vi.waitFor(() => {
+			expect(qwikRender).toHaveBeenCalledOnce();
+		});
+		qwikRender.mockClear();
+	});
+});
 
 describe("qwik mount", () => {
 	it("client-renders via qwik.render and unmount is a no-op", async () => {

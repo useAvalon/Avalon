@@ -64,10 +64,10 @@ export const API_ENTRIES: ApiEntry[] = [
 		description: "Server Actions: define type-safe server functions and build typed clients.",
 	},
 	{
-		importPath: "virtual:avalon/actions",
+		importPath: "avalon/actions",
 		exports: ["actions (typed client proxy)"],
 		description:
-			"Client-side virtual module exposing your `server` actions as an async proxy returning { data, error }.",
+			"Client-side module exposing your `server` actions as an async proxy returning { data, error }. `virtual:avalon/actions` resolves to the same module.",
 	},
 	{
 		importPath: "@useavalon/avalon/cron",

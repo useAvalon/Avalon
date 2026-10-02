@@ -280,6 +280,20 @@ function scheduleIsland(island: HTMLElement): void {
 	if (renderStrategy === "ssr-only") return;
 	if (island.dataset.hydrated) return;
 
+	// Qwik uses resumability — the Qwikloader handles event delegation
+	// automatically once the page loads. If a Qwik container is already
+	// present in the DOM, Avalon's hydration machinery has nothing to do:
+	// wiring up an interaction/visible observer would only cause unnecessary
+	// network requests when the user interacts with an already-live component.
+	if (
+		framework === "qwik" &&
+		(island.matches(String.raw`[q\:container]`) ||
+			island.querySelector(String.raw`[q\:container]`) !== null)
+	) {
+		island.dataset.hydrated = "true";
+		return;
+	}
+
 	if (condition === "on:client") {
 		hydrateIsland(island, framework);
 		return;

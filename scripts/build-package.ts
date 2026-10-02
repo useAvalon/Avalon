@@ -12,6 +12,7 @@ import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, extname, join, relative } from "node:path";
 import { minify } from "oxc-minify";
 import { transform } from "oxc-transform";
+import { preserveViteIgnore } from "./preserve-vite-ignore.ts";
 
 const ROOT = process.cwd();
 const SRC_DIRS = ["src", "client", "server"];
@@ -67,13 +68,17 @@ async function compileFile(file: string, rel: string): Promise<boolean> {
 		});
 		const output = rewriteImportExtensions(result.code);
 		const min = await minify(rel.replace(/\.tsx?$/, ".js"), output);
-		await writeFile(join(DIST_DIR, rel.replace(/\.tsx?$/, ".js")), min.code, "utf-8");
+		await writeFile(
+			join(DIST_DIR, rel.replace(/\.tsx?$/, ".js")),
+			preserveViteIgnore(min.code),
+			"utf-8",
+		);
 		return true;
 	}
 	if (ext === ".js") {
 		const code = await readFile(file, "utf-8");
 		const min = await minify(rel, code);
-		await writeFile(join(DIST_DIR, rel), min.code, "utf-8");
+		await writeFile(join(DIST_DIR, rel), preserveViteIgnore(min.code), "utf-8");
 		return true;
 	}
 	const code = await readFile(file, "utf-8");

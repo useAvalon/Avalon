@@ -1,5 +1,3 @@
-/** @jsxImportSource preact */
-
 import type { ResourceInfo } from "../utils/resource-timing";
 import styles from "./NetworkPanel.module.css";
 

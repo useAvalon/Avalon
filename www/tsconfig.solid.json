@@ -1,0 +1,20 @@
+{
+	"extends": "../tsconfig.json",
+	"compilerOptions": {
+		"jsxImportSource": "solid-js",
+		"experimentalDecorators": true,
+		"allowArbitraryExtensions": true,
+		"composite": true,
+		"noEmit": false,
+		"declaration": true,
+		"emitDeclarationOnly": true,
+		"outDir": ".tsbuild/solid",
+		"paths": {
+			"@shared/*": ["./app/shared/*"],
+			"@modules/*": ["./app/modules/*"],
+			"#imports": ["./.nitro/types/nitro-imports.d.ts"]
+		},
+		"types": ["nitro/types"]
+	},
+	"include": ["app/**/*.solid.tsx", "app/**/*.solid.jsx", "app/**/*.d.ts"]
+}

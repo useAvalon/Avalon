@@ -1,4 +1,3 @@
-/** @jsxImportSource preact */
 import { type ComponentChildren, Fragment, isValidElement, type VNode } from "preact";
 import styles from "./DocsSteps.module.css";
 

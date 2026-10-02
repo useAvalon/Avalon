@@ -1,4 +1,3 @@
-/** @jsxImportSource preact */
 import { useEffect, useState } from "preact/hooks";
 import { getResourceInfo, type ResourceInfo } from "../utils/resource-timing";
 import styles from "./InteractiveExample.module.css";

@@ -1,5 +1,3 @@
-/** @jsxImportSource preact */
-
 import { h } from "preact";
 import { render } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";

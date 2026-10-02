@@ -26,21 +26,13 @@ Install SolidJS:
 bun add solid-js
 ```
 
-## JSX pragma
+## File name
 
-Solid islands require the `/** @jsxImportSource solid-js */` pragma at the top of each island file:
-
-```tsx
-/** @jsxImportSource solid-js */
-import { createSignal } from 'solid-js';
-```
+Solid islands use the `.solid.tsx` extension. Avalon compiles those files with the `solid-js` JSX runtime. A `/** @jsxImportSource solid-js */` comment is optional and overrides the filename.
 
 ## Writing a Solid island
 
-Solid islands use the `.solid.tsx` extension so Avalon knows to use the Solid integration. Add the `/** @jsxImportSource solid-js */` pragma at the top:
-
 ```tsx
-/** @jsxImportSource solid-js */
 // src/components/Counter.solid.tsx
 import { createSignal } from 'solid-js';
 
@@ -74,7 +66,6 @@ export default function Page() {
 All SolidJS primitives work inside islands:
 
 ```tsx
-/** @jsxImportSource solid-js */
 import { createSignal, createMemo, createEffect } from 'solid-js';
 
 export default function App() {
@@ -99,7 +90,6 @@ export default function App() {
 SolidJS stores provide fine-grained reactivity for objects:
 
 ```tsx
-/** @jsxImportSource solid-js */
 import { createStore } from 'solid-js/store';
 
 export default function TodoList() {

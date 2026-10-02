@@ -22,5 +22,18 @@
 		"middleware/**/*.ts",
 		"nitro.config.ts",
 		"../packages/avalon/src/types/index.d.ts"
+	],
+	"exclude": [
+		"app/**/*.react.tsx",
+		"app/**/*.react.jsx",
+		"app/**/*.solid.tsx",
+		"app/**/*.solid.jsx",
+		"app/**/*.qwik.tsx",
+		"app/**/*.qwik.jsx"
+	],
+	"references": [
+		{ "path": "./tsconfig.react.json" },
+		{ "path": "./tsconfig.solid.json" },
+		{ "path": "./tsconfig.qwik.json" }
 	]
 }

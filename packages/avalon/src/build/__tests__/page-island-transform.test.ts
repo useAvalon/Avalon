@@ -511,6 +511,24 @@ export default function Page() {
 	});
 });
 
+describe("pageIslandTransform — Qwik auto-island", () => {
+	it("wraps .qwik. components without an island prop as ssrOnly", () => {
+		const code = `import QwikCounter from "../../demo/components/Counter.qwik.tsx";
+export default function Page() {
+  return (
+    <div>
+      <QwikCounter />
+    </div>
+  );
+}`;
+		const out = runTransform(code);
+		expect(out).toContain('framework: "qwik"');
+		expect(out).toContain("ssrOnly: true");
+		expect(out).toContain("component: QwikCounter");
+		expectParses(out);
+	});
+});
+
 describe("pageIslandTransform — clientOnly", () => {
 	it("emits ssr: false when clientOnly is true", () => {
 		const code = `import Chart from "../components/Chart.tsx";

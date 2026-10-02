@@ -25,7 +25,8 @@ With `autoDiscoverIntegrations: true` (the default), Avalon detects which framew
 - `.svelte` files → Svelte integration
 - `.solid.tsx` files → Solid integration
 - `.qwik.tsx` files → Qwik integration
-- `.tsx` with `/** @jsxImportSource react */` → React integration
+- `.react.tsx` files → React integration
+- `.tsx` files → Preact integration (or React when `core` is `"react"`)
 
 This means you can often skip the `integrations` array entirely — Avalon figures it out.
 

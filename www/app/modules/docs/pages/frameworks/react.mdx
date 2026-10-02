@@ -26,20 +26,14 @@ Install the peer dependencies if not already present:
 bun add react react-dom
 ```
 
-## JSX pragma
+## File name
 
-React islands require the `/** @jsxImportSource react */` pragma at the top of each island file. This tells the JSX transform to use React's JSX runtime:
-
-```tsx
-/** @jsxImportSource react */
-import { useState } from 'react';
-```
+Name the file `*.react.tsx`. Avalon uses that extension to compile the file with React's JSX runtime. A `/** @jsxImportSource react */` comment is optional and overrides the filename.
 
 ## Writing a React island
 
 ```tsx
-/** @jsxImportSource react */
-// src/components/Counter.tsx
+// src/components/Counter.react.tsx
 import { useState } from 'react';
 
 export default function Counter({ initialCount = 0 }: { initialCount?: number }) {
@@ -56,7 +50,7 @@ export default function Counter({ initialCount = 0 }: { initialCount?: number })
 ## Using the island
 
 ```tsx
-import Counter from '../components/Counter.tsx';
+import Counter from '../components/Counter.react.tsx';
 
 export default function Page() {
   return (
@@ -76,7 +70,6 @@ React islands are server-rendered to HTML by default using `react-dom/server`. T
 All React hooks work inside islands. Context providers must live inside the island itself — they cannot span across multiple islands.
 
 ```tsx
-/** @jsxImportSource react */
 import { createContext, useContext, useState } from 'react';
 
 const ThemeContext = createContext('light');

@@ -1,5 +1,3 @@
-/** @jsxImportSource react */
-
 import { getResourceInfo, type ResourceInfo } from "@shared/utils/resource-timing";
 import { useEffect, useState } from "react";
 

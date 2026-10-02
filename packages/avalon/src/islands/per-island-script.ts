@@ -112,6 +112,13 @@ function generateHydrateCall(
 		`async function h(){`,
 		`var e=document.getElementById(${JSON.stringify(islandId)});`,
 		`if(!e||e.dataset.hydrated)return;`,
+		// Qwik resumability: the Qwikloader handles activation automatically.
+		// If a q:container is already present the component is already live — skip.
+		...(framework === "qwik"
+			? [
+					`if(e.matches("[q\\\\:container]")||e.querySelector("[q\\\\:container]")){e.dataset.hydrated="true";return;}`,
+				]
+			: []),
 		`try{`,
 		`var p=${escapeJsonForScript(propsJson)};`,
 		`var m=await import(${JSON.stringify(componentSrc)});`,

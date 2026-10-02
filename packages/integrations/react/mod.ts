@@ -8,7 +8,6 @@
 
 import type { Integration, IntegrationConfig } from "@useavalon/core/types";
 import type { Plugin } from "vite";
-import { getHydrationScript } from "./client/hydration.ts";
 import { render } from "./server/renderer.ts";
 
 /**
@@ -51,8 +50,6 @@ export const reactIntegration: Integration = {
 	version: "0.1.0",
 
 	render,
-
-	getHydrationScript,
 
 	config(): IntegrationConfig {
 		return config;
@@ -162,7 +159,6 @@ export type { Integration, IntegrationConfig } from "@useavalon/core/types";
 // Client-side exports
 export {
 	cleanupHydration,
-	getHydrationScript,
 	hydrate,
 	isHydrationReady,
 } from "./client/hydration.ts";

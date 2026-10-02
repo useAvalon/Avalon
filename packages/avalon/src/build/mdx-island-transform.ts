@@ -38,6 +38,27 @@ interface IslandImport {
 	localName: string;
 	importPath: string;
 	islandPropUsage: boolean;
+	autoIsland: boolean;
+}
+
+type ViteAlias = { find: string | RegExp; replacement: string };
+
+/** Qwik uses resumability — auto-wrap as ssrOnly without an `island` prop. */
+const AUTO_ISLAND_FRAMEWORKS = new Set(["qwik"]);
+
+const FALLBACK_ALIASES: Array<{ prefix: string; map: (rest: string) => string }> = [
+	{ prefix: "@shared/", map: (rest) => `/app/shared/${rest}` },
+	{ prefix: "@modules/", map: (rest) => `/app/modules/${rest}` },
+	{ prefix: "@/", map: (rest) => `/app/${rest}` },
+	{ prefix: "$components/", map: (rest) => `/src/components/${rest}` },
+	{ prefix: "$islands/", map: (rest) => `/src/islands/${rest}` },
+	{ prefix: "~/", map: (rest) => `/src/${rest}` },
+];
+
+const ISLAND_PROP_IN_PROPS_RE = /\bisland\s*:\s*/;
+const FIRST_IMPORT_LINE_RE = /^import [^\n]+from [^\n]+\n/m;
+function compiledJsxStartRe(): RegExp {
+	return /(?:_?jsxs?(?:DEV)?)\s*\(\s*([A-Z]\w*)\s*,/g;
 }
 
 /**
@@ -54,6 +75,14 @@ function findAllDefaultImports(code: string): Map<string, string> {
 	return imports;
 }
 
+function isTopLevelPropertyKey(propsStr: string, pos: number, key: string): boolean {
+	const rest = propsStr.slice(pos);
+	if (!rest.startsWith(key)) return false;
+	if (!/^\s*:/.test(rest.slice(key.length))) return false;
+	const prev = propsStr[pos - 1];
+	return pos === 1 || !/\w/.test(prev);
+}
+
 /**
  * True when `key` is a top-level property of a `{ ... }` object literal.
  * Nested objects (including compiled child JSX props) do not count.
@@ -62,14 +91,10 @@ function hasTopLevelKey(propsStr: string, key: string): boolean {
 	let pos = 1;
 	let depth = 1;
 	while (pos < propsStr.length && depth > 0) {
-		const ch = propsStr[pos];
-		if (depth === 1) {
-			const rest = propsStr.slice(pos);
-			if (rest.startsWith(key) && /^\s*:/.test(rest.slice(key.length))) {
-				const prev = propsStr[pos - 1];
-				if (pos === 1 || !/\w/.test(prev)) return true;
-			}
+		if (depth === 1 && isTopLevelPropertyKey(propsStr, pos, key)) {
+			return true;
 		}
+		const ch = propsStr[pos];
 		if (ch === "{" || ch === "(" || ch === "[") {
 			depth++;
 			pos++;
@@ -85,23 +110,41 @@ function hasTopLevelKey(propsStr: string, key: string): boolean {
 	return false;
 }
 
+/** Raw MDX/JSX tags whose attributes include an `island` prop. */
+function findRawJsxIslandComponents(code: string): Set<string> {
+	const components = new Set<string>();
+	const tagStartRe = /<([A-Z]\w*)\b/g;
+	for (let m = tagStartRe.exec(code); m !== null; m = tagStartRe.exec(code)) {
+		let i = m.index + m[0].length;
+		while (i < code.length) {
+			const ch = code[i];
+			if (ch === ">") break;
+			if (ch === "/" && code[i + 1] === ">") break;
+			if (ch === "'" || ch === '"' || ch === "`") {
+				i = skipStringLiteral(code, i);
+				continue;
+			}
+			i++;
+		}
+		const attrs = code.slice(m.index + m[0].length, i);
+		if (/\bisland\s*[={]/.test(attrs)) {
+			components.add(m[1]);
+		}
+	}
+	return components;
+}
+
 /**
  * Find components used with the island prop in the code
  * Handles both raw JSX (<Component island={...}) and compiled JSX (_jsxDEV(Component, { island:)
  */
 function findIslandPropUsage(code: string): Set<string> {
-	const components = new Set<string>();
-
-	// Match raw JSX: <ComponentName ... island={...} or <ComponentName ... island ...
-	const rawJsxRe = /<([A-Z]\w*)\s+[^>]*\bisland\s*[={]/g;
-	for (let m = rawJsxRe.exec(code); m !== null; m = rawJsxRe.exec(code)) {
-		components.add(m[1]);
-	}
+	const components = findRawJsxIslandComponents(code);
 
 	// Match each compiled jsx(Component, { ... }) and only count a top-level island key.
 	// A flat `[^}]*island` scan would also match a child's island inside `children:`.
-	const compiledJsxStartRe = /(?:_?jsxs?(?:DEV)?)\s*\(\s*([A-Z]\w*)\s*,/g;
-	for (let m = compiledJsxStartRe.exec(code); m !== null; m = compiledJsxStartRe.exec(code)) {
+	const compiledJsxRe = compiledJsxStartRe();
+	for (let m = compiledJsxRe.exec(code); m !== null; m = compiledJsxRe.exec(code)) {
 		let pos = m.index + m[0].length;
 		while (pos < code.length && /\s/.test(code[pos])) pos++;
 		if (code[pos] !== "{") continue;
@@ -114,98 +157,99 @@ function findIslandPropUsage(code: string): Set<string> {
 	return components;
 }
 
+/** Components referenced in compiled MDX jsx/jsxs calls (_jsxDEV(Foo, …)). */
+function findCompiledJsxUsage(code: string): Set<string> {
+	const components = new Set<string>();
+	const compiledJsxRe = compiledJsxStartRe();
+	for (let m = compiledJsxRe.exec(code); m !== null; m = compiledJsxRe.exec(code)) {
+		components.add(m[1]);
+	}
+	return components;
+}
+
 function findIslandImports(code: string, patterns: RegExp[]): IslandImport[] {
 	const imports: IslandImport[] = [];
 	const allImports = findAllDefaultImports(code);
 	const islandPropComponents = findIslandPropUsage(code);
+	const jsxComponents = findCompiledJsxUsage(code);
 
 	for (const [localName, importPath] of allImports) {
 		const quotedPath = `"${importPath}"`;
 		const isFromIslandsDir = patterns.some((p) => p.test(quotedPath));
 		const hasIslandProp = islandPropComponents.has(localName);
+		const framework = detectFramework(importPath);
+		const autoIsland =
+			Boolean(framework && AUTO_ISLAND_FRAMEWORKS.has(framework)) &&
+			jsxComponents.has(localName) &&
+			!hasIslandProp;
 
-		if (isFromIslandsDir || hasIslandProp) {
-			imports.push({ localName, importPath, islandPropUsage: hasIslandProp });
+		if (isFromIslandsDir || hasIslandProp || autoIsland) {
+			imports.push({ localName, importPath, islandPropUsage: hasIslandProp, autoIsland });
 		}
 	}
 
 	return imports;
 }
 
+function normalizeReplacement(replacement: string): string {
+	return replacement.startsWith("/") ? replacement : `/${replacement}`;
+}
+
+function resolveViaAliases(importPath: string, aliases: ViteAlias[]): string | null {
+	for (const { find, replacement } of aliases) {
+		const target = normalizeReplacement(replacement);
+		if (typeof find === "string") {
+			if (importPath === find || importPath.startsWith(`${find}/`)) {
+				return `${target}${importPath.slice(find.length)}`;
+			}
+		} else if (find.test(importPath)) {
+			return importPath.replace(find, target);
+		}
+	}
+	return null;
+}
+
+function resolveViaFallbackAliases(importPath: string): string | null {
+	for (const { prefix, map } of FALLBACK_ALIASES) {
+		if (importPath.startsWith(prefix)) return map(importPath.slice(prefix.length));
+	}
+	return null;
+}
+
+function resolveRelativeImport(importPath: string, fileId: string): string | null {
+	if (!importPath.startsWith(".")) return null;
+
+	const normalized = fileId.replaceAll("\\", "/");
+	let baseIndex = normalized.indexOf("/app/");
+	if (baseIndex === -1) baseIndex = normalized.indexOf("/src/");
+	if (baseIndex === -1) return null;
+
+	const parts = dirname(normalized.slice(baseIndex)).split("/");
+	for (const part of importPath.split("/")) {
+		if (part === "..") parts.pop();
+		else if (part !== ".") parts.push(part);
+	}
+	return parts.join("/");
+}
+
+function resolveIslandsDirFallback(importPath: string): string | null {
+	if (!importPath.includes("/islands/")) return null;
+	return `/src/islands/${importPath.split("/").at(-1)}`;
+}
+
 /**
  * Resolve an import path to an absolute src path for renderIsland
  */
-function resolveIslandSrc(
-	importPath: string,
-	fileId: string,
-	aliases: Array<{ find: string | RegExp; replacement: string }> = [],
-): string {
-	// Already absolute
-	if (importPath.startsWith("/src/")) return importPath;
-	if (importPath.startsWith("/app/")) return importPath;
+function resolveIslandSrc(importPath: string, fileId: string, aliases: ViteAlias[] = []): string {
 	if (importPath.startsWith("/")) return importPath;
 
-	// Try Vite resolve.alias first — respects user configuration
-	for (const alias of aliases) {
-		const find = alias.find;
-		if (typeof find === "string") {
-			if (importPath === find || importPath.startsWith(`${find}/`)) {
-				const rest = importPath.slice(find.length);
-				const replacement = alias.replacement.startsWith("/")
-					? alias.replacement
-					: `/${alias.replacement}`;
-				return `${replacement}${rest}`;
-			}
-		} else if (find instanceof RegExp && find.test(importPath)) {
-			const replacement = alias.replacement.startsWith("/")
-				? alias.replacement
-				: `/${alias.replacement}`;
-			return importPath.replace(find, replacement);
-		}
-	}
-
-	// Fallback aliases for backwards compatibility
-	if (importPath.startsWith("@/")) return `/app/${importPath.slice(2)}`;
-	if (importPath.startsWith("@shared/")) return `/app/shared/${importPath.slice(8)}`;
-	if (importPath.startsWith("@modules/")) return `/app/modules/${importPath.slice(9)}`;
-	if (importPath.startsWith("$components/")) return `/src/components/${importPath.slice(12)}`;
-	if (importPath.startsWith("$islands/")) return `/src/islands/${importPath.slice(9)}`;
-	if (importPath.startsWith("~/")) return `/src/${importPath.slice(2)}`;
-
-	// Relative import - resolve relative to the file
-	if (importPath.startsWith(".")) {
-		const normalized = fileId.replaceAll("\\", "/");
-
-		// Try to find /app/ or /src/ in the path
-		let baseIndex = normalized.indexOf("/app/");
-		if (baseIndex === -1) baseIndex = normalized.indexOf("/src/");
-
-		if (baseIndex !== -1) {
-			const fileDir = dirname(normalized.slice(baseIndex));
-			// Simple path resolution
-			const parts = fileDir.split("/");
-			const importParts = importPath.split("/");
-
-			for (const part of importParts) {
-				if (part === "..") {
-					parts.pop();
-				} else if (part !== ".") {
-					parts.push(part);
-				}
-			}
-
-			return parts.join("/");
-		}
-	}
-
-	// Fallback for islands directory pattern
-	if (importPath.includes("/islands/")) {
-		const parts = importPath.split("/");
-		return `/src/islands/${parts.at(-1)}`;
-	}
-
-	// Fallback: return as-is with /src/ prefix
-	return `/src/${importPath.split("/").pop()}`;
+	return (
+		resolveViaAliases(importPath, aliases) ??
+		resolveViaFallbackAliases(importPath) ??
+		resolveRelativeImport(importPath, fileId) ??
+		resolveIslandsDirFallback(importPath) ??
+		`/src/${importPath.split("/").pop()}`
+	);
 }
 
 function detectFramework(src: string): string | undefined {
@@ -265,11 +309,9 @@ function findJsxCallEnd(code: string, startIdx: number): number {
 	let pos = startIdx;
 	let depth = 0;
 
-	// Find the opening parenthesis
 	while (pos < code.length && code[pos] !== "(") pos++;
 	if (pos >= code.length) return startIdx;
 
-	// Now track parentheses depth
 	while (pos < code.length) {
 		const ch = code[pos];
 		if (ch === "(") {
@@ -290,66 +332,118 @@ function findJsxCallEnd(code: string, startIdx: number): number {
 	return pos;
 }
 
-/**
- * Extract the island prop value from a JSX props object.
- * Given `{ island: { condition: 'on:interaction' }, other: 1 }`, returns `{ condition: 'on:interaction' }`
- */
-function extractIslandProp(propsStr: string): { islandValue: string; otherProps: string } | null {
-	// Find `island:` or `island :` in the props
-	const islandMatch = propsStr.match(/\bisland\s*:\s*/);
-	if (!islandMatch) return null;
-
-	const islandStart = islandMatch.index! + islandMatch[0].length;
-
-	// The island value could be:
-	// 1. An object literal: { condition: 'on:interaction' }
-	// 2. A variable reference: islandOpts
-	// 3. A more complex expression
-
-	let islandEnd: number;
+function findIslandValueEnd(propsStr: string, islandStart: number): number {
 	if (propsStr[islandStart] === "{") {
-		// Object literal - find matching closing brace
-		islandEnd = skipBracedExpression(propsStr, islandStart);
-	} else {
-		// Find the next comma or closing brace
-		let pos = islandStart;
-		let depth = 0;
-		while (pos < propsStr.length) {
-			const ch = propsStr[pos];
-			if (ch === "{" || ch === "[" || ch === "(") {
-				depth++;
-				pos++;
-			} else if (ch === "}" || ch === "]" || ch === ")") {
-				if (depth === 0) break;
-				depth--;
-				pos++;
-			} else if (ch === "," && depth === 0) {
-				break;
-			} else {
-				pos++;
-			}
-		}
-		islandEnd = pos;
+		return skipBracedExpression(propsStr, islandStart);
 	}
 
-	const islandValue = propsStr.slice(islandStart, islandEnd).trim();
+	let pos = islandStart;
+	let depth = 0;
+	while (pos < propsStr.length) {
+		const ch = propsStr[pos];
+		if (ch === "{" || ch === "[" || ch === "(") {
+			depth++;
+			pos++;
+		} else if (ch === "}" || ch === "]" || ch === ")") {
+			if (depth === 0) break;
+			depth--;
+			pos++;
+		} else if (ch === "," && depth === 0) {
+			break;
+		} else {
+			pos++;
+		}
+	}
+	return pos;
+}
 
-	// Build other props by removing the island prop
-	const beforeIsland = propsStr.slice(0, islandMatch.index!).trim();
+function mergePropsWithoutIsland(propsStr: string, islandIndex: number, islandEnd: number): string {
+	const beforeIsland = propsStr.slice(0, islandIndex).trim();
 	const afterIsland = propsStr.slice(islandEnd).trim();
-
-	// Clean up: remove trailing/leading commas
 	let otherProps = beforeIsland;
 	if (afterIsland.startsWith(",")) {
 		otherProps += afterIsland.slice(1);
 	} else {
 		otherProps += afterIsland;
 	}
+	return otherProps.replace(/,\s*}$/, "}").replace(/{\s*,/, "{");
+}
 
-	// Remove trailing comma before closing brace
-	otherProps = otherProps.replace(/,\s*}$/, "}").replace(/{\s*,/, "{");
+/**
+ * Extract the island prop value from a JSX props object.
+ * Given `{ island: { condition: 'on:interaction' }, other: 1 }`, returns `{ condition: 'on:interaction' }`
+ */
+function extractIslandProp(propsStr: string): { islandValue: string; otherProps: string } | null {
+	const islandMatch = ISLAND_PROP_IN_PROPS_RE.exec(propsStr);
+	if (!islandMatch) return null;
+
+	const islandIndex = islandMatch.index;
+	const islandStart = islandIndex + islandMatch[0].length;
+	const islandEnd = findIslandValueEnd(propsStr, islandStart);
+	const islandValue = propsStr.slice(islandStart, islandEnd).trim();
+	const otherProps = mergePropsWithoutIsland(propsStr, islandIndex, islandEnd);
 
 	return { islandValue, otherProps };
+}
+
+function jsxCallPatternFor(componentName: string): RegExp {
+	return new RegExp(String.raw`(_?jsxs?(?:DEV)?)\s*\(\s*${componentName}\s*,`, "g");
+}
+
+function buildAutoIslandRenderCall(
+	componentName: string,
+	srcPath: string,
+	fwArg: string,
+	propsStr: string,
+): string {
+	const hasOtherProps = propsStr.trim() !== "{}" && propsStr.trim() !== "";
+	const propsArg = hasOtherProps ? `props: ${propsStr},` : "";
+	return `(await __AvalonRenderIsland({ src: "${srcPath}", ${fwArg} component: ${componentName}, ${propsArg} ssr: true, ssrOnly: true }))`;
+}
+
+function buildIslandRenderCall(
+	componentName: string,
+	srcPath: string,
+	fwArg: string,
+	islandValue: string,
+	otherProps: string,
+): string {
+	const hasOtherProps = otherProps.trim() !== "{}" && otherProps.trim() !== "";
+	const propsArg = hasOtherProps ? `props: ${otherProps},` : "";
+	const omitComponent = /\bclientOnly\s*:\s*true\b/.test(islandValue);
+	const compArg = omitComponent ? "" : `component: ${componentName},`;
+	return `(await __AvalonRenderIsland({ src: "${srcPath}", ${fwArg} ${compArg} ...(${islandValue}), ${propsArg} ssr: ${islandSsrExpression(islandValue)} }))`;
+}
+
+function renderCallForJsxMatch(
+	fullCall: string,
+	componentName: string,
+	srcPath: string,
+	framework: string | undefined,
+	autoIsland: boolean,
+): string | null {
+	const propsStart = fullCall.indexOf("{");
+	if (propsStart === -1) return null;
+
+	const propsStr = fullCall.slice(propsStart, skipBracedExpression(fullCall, propsStart));
+	const fwArg = framework ? `framework: "${framework}",` : "";
+
+	if (autoIsland) {
+		return buildAutoIslandRenderCall(componentName, srcPath, fwArg, propsStr);
+	}
+
+	if (!fullCall.includes("island")) return null;
+
+	const extracted = extractIslandProp(propsStr);
+	if (!extracted) return null;
+
+	return buildIslandRenderCall(
+		componentName,
+		srcPath,
+		fwArg,
+		extracted.islandValue,
+		extracted.otherProps,
+	);
 }
 
 /**
@@ -362,65 +456,30 @@ function replaceJsxCalls(
 	componentName: string,
 	srcPath: string,
 	framework: string | undefined,
+	autoIsland: boolean,
 ): string {
-	// Match patterns like: _jsxDEV(ComponentName, or jsxDEV(ComponentName, or jsx(ComponentName,
-	const jsxCallPattern = new RegExp(`(_?jsxs?(?:DEV)?)\\s*\\(\\s*${componentName}\\s*,`, "g");
+	const jsxCallPattern = jsxCallPatternFor(componentName);
 
 	let result = "";
 	let lastIndex = 0;
 
 	for (let match = jsxCallPattern.exec(code); match !== null; match = jsxCallPattern.exec(code)) {
 		const matchStart = match.index;
-		const _jsxFn = match[1];
-
-		// Find the end of this JSX call
 		const callEnd = findJsxCallEnd(code, matchStart);
 		const fullCall = code.slice(matchStart, callEnd);
+		const renderCall = renderCallForJsxMatch(
+			fullCall,
+			componentName,
+			srcPath,
+			framework,
+			autoIsland,
+		);
 
-		// Check if this call has an island prop
-		if (!fullCall.includes("island")) {
-			// No island prop, keep as-is
+		if (renderCall) {
+			result += code.slice(lastIndex, matchStart) + renderCall;
+		} else {
 			result += code.slice(lastIndex, callEnd);
-			lastIndex = callEnd;
-			continue;
 		}
-
-		// Extract the props object - it's the second argument
-		// Pattern: jsxFn(Component, { props }, key, isStatic, source, self)
-		const propsStart = fullCall.indexOf("{");
-		if (propsStart === -1) {
-			result += code.slice(lastIndex, callEnd);
-			lastIndex = callEnd;
-			continue;
-		}
-
-		const propsEnd = skipBracedExpression(fullCall, propsStart);
-		const propsStr = fullCall.slice(propsStart, propsEnd);
-
-		const extracted = extractIslandProp(propsStr);
-		if (!extracted) {
-			result += code.slice(lastIndex, callEnd);
-			lastIndex = callEnd;
-			continue;
-		}
-
-		const { islandValue, otherProps } = extracted;
-		const fwArg = framework ? `framework: "${framework}",` : "";
-
-		// Check if otherProps is empty (just `{}`)
-		const hasOtherProps = otherProps.trim() !== "{}" && otherProps.trim() !== "";
-		const propsArg = hasOtherProps ? `props: ${otherProps},` : "";
-		// Keep the imported binding in scope so Vue/Svelte/Solid SSR can render
-		// the already-loaded module. Skip it for client-only islands so the
-		// island file is not evaluated on the server.
-		const omitComponent = /\bclientOnly\s*:\s*true\b/.test(islandValue);
-		const compArg = omitComponent ? "" : `component: ${componentName},`;
-
-		// Build the renderIsland call
-		// We spread the island value to get condition, ssr, etc.
-		const renderCall = `(await __AvalonRenderIsland({ src: "${srcPath}", ${fwArg} ${compArg} ...(${islandValue}), ${propsArg} ssr: ${islandSsrExpression(islandValue)} }))`;
-
-		result += code.slice(lastIndex, matchStart) + renderCall;
 		lastIndex = callEnd;
 	}
 
@@ -428,17 +487,63 @@ function replaceJsxCalls(
 	return result;
 }
 
+function ensureRenderIslandImport(code: string): string {
+	const hasAvalonImport =
+		code.includes('from "@useavalon/avalon"') || code.includes("from '@useavalon/avalon'");
+	if (hasAvalonImport) return code;
+
+	const firstImport = FIRST_IMPORT_LINE_RE.exec(code);
+	if (!firstImport) return code;
+
+	const pos = firstImport.index + firstImport[0].length;
+	const line = 'import { renderIsland as __AvalonRenderIsland } from "@useavalon/avalon";\n';
+	return code.slice(0, pos) + line + code.slice(pos);
+}
+
+function makeMdxExportsAsync(code: string): string {
+	let transformed = code.replace(
+		/function\s+_createMdxContent\s*\(/g,
+		"async function _createMdxContent(",
+	);
+	transformed = transformed.replace(
+		/export\s+default\s+function\s+MDXContent\s*\(/g,
+		"export default async function MDXContent(",
+	);
+	return transformed;
+}
+
+function applyIslandImportTransforms(
+	code: string,
+	islandImports: IslandImport[],
+	fileId: string,
+	aliases: ViteAlias[],
+	onQwikIslandProp: (island: IslandImport) => void,
+): string {
+	let transformed = code;
+	for (const island of islandImports) {
+		const srcPath = resolveIslandSrc(island.importPath, fileId, aliases);
+		const fw = detectFramework(srcPath);
+
+		if (fw === "qwik" && island.islandPropUsage) {
+			onQwikIslandProp(island);
+		}
+
+		transformed = replaceJsxCalls(transformed, island.localName, srcPath, fw, island.autoIsland);
+	}
+	return transformed;
+}
+
 export function mdxIslandTransform(options: MDXIslandTransformOptions = {}): Plugin {
 	const { islandPathPatterns = DEFAULT_ISLAND_PATTERNS, verbose = false } = options;
 
-	let resolvedAliases: Array<{ find: string | RegExp; replacement: string }> = [];
+	let resolvedAliases: ViteAlias[] = [];
 
 	return {
 		name: "avalon:mdx-island-transform",
 		enforce: "post",
 
 		configResolved(config) {
-			resolvedAliases = (config.resolve?.alias as typeof resolvedAliases) ?? [];
+			resolvedAliases = (config.resolve?.alias as ViteAlias[]) ?? [];
 		},
 
 		transform(code: string, id: string) {
@@ -462,46 +567,21 @@ export function mdxIslandTransform(options: MDXIslandTransformOptions = {}): Plu
 				}
 			}
 
-			let transformed = code;
-
-			// Add the renderIsland import for async SSR
-			const hasAvalonImport =
-				transformed.includes('from "@useavalon/avalon"') ||
-				transformed.includes("from '@useavalon/avalon'");
-
-			if (!hasAvalonImport) {
-				const firstImport = /^(import\s.+?from\s+.+?\n)/m.exec(transformed);
-				if (firstImport) {
-					const pos = transformed.indexOf(firstImport[0]) + firstImport[0].length;
-					const line =
-						'import { renderIsland as __AvalonRenderIsland } from "@useavalon/avalon";\n';
-					transformed = transformed.slice(0, pos) + line + transformed.slice(pos);
-				}
-			}
-
-			// Replace JSX calls with renderIsland await expressions
-			for (const island of islandImports) {
-				const srcPath = resolveIslandSrc(island.importPath, id, resolvedAliases);
-				const fw = detectFramework(srcPath);
-
-				transformed = replaceJsxCalls(transformed, island.localName, srcPath, fw);
-			}
-
-			// Make the MDX content function async so we can use await
-			// Transform: function _createMdxContent(props) {
-			// Into: async function _createMdxContent(props) {
-			transformed = transformed.replace(
-				/function\s+_createMdxContent\s*\(/g,
-				"async function _createMdxContent(",
+			let transformed = ensureRenderIslandImport(code);
+			transformed = applyIslandImportTransforms(
+				transformed,
+				islandImports,
+				id,
+				resolvedAliases,
+				(island) => {
+					this.error(
+						`<${island.localName}> is a Qwik component and cannot use the \`island\` prop. ` +
+							`Qwik uses resumability — the Qwikloader activates it automatically. ` +
+							`Remove the \`island\` prop from <${island.localName}>.`,
+					);
+				},
 			);
-
-			// Also make the default export async if it wraps _createMdxContent
-			// Transform: export default function MDXContent(props = {}) {
-			// Into: export default async function MDXContent(props = {}) {
-			transformed = transformed.replace(
-				/export\s+default\s+function\s+MDXContent\s*\(/g,
-				"export default async function MDXContent(",
-			);
+			transformed = makeMdxExportsAsync(transformed);
 
 			if (verbose) {
 				console.log(`[mdx-island-transform] Transformed ${id}`);

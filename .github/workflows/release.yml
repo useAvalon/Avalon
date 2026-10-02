@@ -77,7 +77,7 @@ jobs:
           bun-version: latest
       - run: bun install
       - run: bunx biome ci .
-      - run: bunx vitest run
+      - run: bun --bun x vitest run
       - run: bunx tsc --noEmit
 
   release:

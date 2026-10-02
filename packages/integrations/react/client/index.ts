@@ -7,7 +7,6 @@
 
 export {
 	cleanupHydration,
-	getHydrationScript,
 	hydrate,
 	isHydrationReady,
 	mount,
