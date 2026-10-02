@@ -5,12 +5,6 @@ export function generateRootLayout(config: ProjectConfig): string {
 
 	imports.push(`import type { LayoutProps } from '@useavalon/avalon';`);
 
-	if (config.styling === "css-modules") {
-		imports.push(`import '../styles/main.css';`);
-	} else {
-		imports.push(`import '../styles/main.css';`);
-	}
-
 	const safeName = config.projectName
 		.replace(/\\/g, "\\\\")
 		.replace(/'/g, "\\'")
@@ -33,20 +27,11 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
         <link rel="icon" href="/favicon.ico" />
         <link rel="stylesheet" href="/syntax-highlighting.css" />
       </head>
-      <body style={{ margin: 0 }}>
+      <body>
         {children}
       </body>
     </html>
   );
-}
-`;
-}
-
-export function generateMainLayout(config: ProjectConfig): string {
-	return `import type { LayoutProps } from '@useavalon/avalon';
-
-export default async function MainLayout({ children }: Readonly<LayoutProps>) {
-  return <>{children}</>;
 }
 `;
 }

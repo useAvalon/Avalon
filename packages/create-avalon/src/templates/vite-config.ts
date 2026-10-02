@@ -1,41 +1,17 @@
 import type { ProjectConfig } from "../types";
 import { EXAMPLE_CRON_HANDLER, EXAMPLE_CRON_SCHEDULE } from "./cron";
 
-export function generateViteConfig(config: ProjectConfig): string {
-	const imports: string[] = [
-		`import { resolve } from 'node:path';`,
-		`import { defineConfig, type UserConfig } from 'vite';`,
-		`import { avalon } from '@useavalon/avalon';`,
-	];
+const DEV_SITE_URL = "http://localhost:3000";
 
-	// Tailwind import
-	const needsTailwind = config.styling === "tailwind" || config.styling === "shadcn";
-	if (needsTailwind) {
-		imports.push(`import tailwindcss from '@tailwindcss/vite';`);
-	}
+function escapeForSingleQuotedJs(value: string): string {
+	return value.replaceAll("'", String.raw`\'`);
+}
 
-	// SEO plugin import (always included)
-	const hasSeo = config.plugins.includes("seo");
-	if (hasSeo) {
-		imports.push(`import { seo } from '@useavalon/seo';`);
-	}
-
-	// Agent optimization import
-	const hasAgentOptimization = config.plugins.includes("agent-optimization");
-	if (hasAgentOptimization) {
-		imports.push(`import { agentOptimization } from '@useavalon/agent-optimization';`);
-	}
-
-	// Build integrations array — only user-selected integrations
-	const integrationsList = config.integrations.map((i) => `'${i}'`).join(", ");
-
-	// Build plugins array
-	const pluginEntries: string[] = [];
-
-	if (hasSeo) {
-		pluginEntries.push(`    seo({
-      siteUrl: 'http://localhost:3000',
-      siteName: '${config.projectName.replace(/'/g, "\\'")}',
+function buildSeoPluginEntry(projectName: string): string {
+	const siteName = escapeForSingleQuotedJs(projectName);
+	return `    seo({
+      siteUrl: '${DEV_SITE_URL}',
+      siteName: '${siteName}',
       defaultDescription: 'Built with Avalon',
       defaultOgImage: {
         url: '/og-image.png',
@@ -44,29 +20,59 @@ export function generateViteConfig(config: ProjectConfig): string {
       },
       breadcrumbs: true,
       speakable: true,
-    }),`);
-	}
+    }),`;
+}
 
-	if (hasAgentOptimization) {
-		pluginEntries.push(`    agentOptimization({
-      sitemap: { siteUrl: 'http://localhost:3000' },
+function buildAgentOptimizationEntry(projectName: string): string {
+	const siteName = escapeForSingleQuotedJs(projectName);
+	return `    agentOptimization({
+      sitemap: { siteUrl: '${DEV_SITE_URL}' },
       markdown: true,
       llms: {
-        siteUrl: 'http://localhost:3000',
-        siteName: '${config.projectName.replace(/'/g, "\\'")}',
+        siteUrl: '${DEV_SITE_URL}',
+        siteName: '${siteName}',
         siteDescription: 'Built with Avalon',
         sections: { 'Pages': ['/'] },
       },
-    }),`);
+    }),`;
+}
+
+export function generateViteConfig(config: ProjectConfig): string {
+	const imports: string[] = [
+		`import { resolve } from 'node:path';`,
+		`import { defineConfig } from 'vite';`,
+		`import { avalon } from '@useavalon/avalon';`,
+	];
+
+	const needsTailwind = config.styling === "tailwind" || config.styling === "shadcn";
+	if (needsTailwind) {
+		imports.push(`import tailwindcss from '@tailwindcss/vite';`);
 	}
 
-	pluginEntries.push(`    ...avalonPlugins,`);
+	const hasSeo = config.plugins.includes("seo");
+	if (hasSeo) {
+		imports.push(`import { seo } from '@useavalon/seo';`);
+	}
 
+	const hasAgentOptimization = config.plugins.includes("agent-optimization");
+	if (hasAgentOptimization) {
+		imports.push(`import { agentOptimization } from '@useavalon/agent-optimization';`);
+	}
+
+	const integrationsList = config.integrations.map((i) => `'${i}'`).join(", ");
+
+	const pluginEntries: string[] = [];
+	if (hasSeo) {
+		pluginEntries.push(buildSeoPluginEntry(config.projectName));
+	}
+	if (hasAgentOptimization) {
+		pluginEntries.push(buildAgentOptimizationEntry(config.projectName));
+	}
+	pluginEntries.push(`    ...avalonPlugins,`);
 	if (needsTailwind) {
 		pluginEntries.push(`    tailwindcss(),`);
 	}
 
-	// Cron block for the nitro config, if scheduled jobs were requested.
 	const cronLines = config.cron
 		? [
 				`      // Scheduled jobs (cron). Each entry maps a schedule to a task file`,
@@ -77,14 +83,13 @@ export function generateViteConfig(config: ProjectConfig): string {
 			]
 		: [];
 
-	// Cloudflare Pages needs a current compatibility date for node:fs under nodejs_compat.
 	const compatLines =
 		config.deploy === "cloudflare" ? [`      compatibilityDate: '2026-09-04',`] : [];
 
 	const lines = [
 		imports.join("\n"),
 		"",
-		`export default defineConfig(async (): Promise<UserConfig> => {`,
+		`export default defineConfig(async () => {`,
 		`  const avalonPlugins = await avalon({`,
 		`    core: '${config.core}',`,
 		`    integrations: [${integrationsList}],`,

@@ -72,13 +72,20 @@ describe("generateStylingFiles", () => {
 	it("generates .module.css for home page with css-modules", () => {
 		const files = generateStylingFiles(baseConfig);
 		expect(files.has("app/modules/main/pages/index.module.css")).toBe(true);
-		expect(files.get("app/modules/main/pages/index.module.css")).toContain(".page");
+		expect(files.get("app/modules/main/pages/index.module.css")).toContain(".shell");
 	});
 
-	it("generates .module.css for home layout with css-modules", () => {
+	it("generates .module.css for about page with css-modules", () => {
 		const files = generateStylingFiles(baseConfig);
-		expect(files.has("app/modules/main/layouts/_layout.module.css")).toBe(true);
-		expect(files.get("app/modules/main/layouts/_layout.module.css")).toContain(".layout");
+		expect(files.has("app/modules/about/pages/index.module.css")).toBe(true);
+		expect(files.get("app/modules/about/pages/index.module.css")).toContain(".shell");
+		expect(files.get("app/modules/about/pages/index.module.css")).toContain(".homeLink");
+	});
+
+	it("generates .module.css for 404 page with css-modules", () => {
+		const files = generateStylingFiles(baseConfig);
+		expect(files.has("app/modules/main/pages/404.module.css")).toBe(true);
+		expect(files.get("app/modules/main/pages/404.module.css")).toContain(".status");
 	});
 
 	it("main.css imports tokens.css for css-modules", () => {
@@ -122,7 +129,8 @@ describe("generateStylingFiles", () => {
 		expect(files.has("app/shared/styles/tokens.css")).toBe(false);
 		expect(files.has("app/shared/layouts/_layout.module.css")).toBe(false);
 		expect(files.has("app/modules/main/pages/index.module.css")).toBe(false);
-		expect(files.has("app/modules/main/layouts/_layout.module.css")).toBe(false);
+		expect(files.has("app/modules/about/pages/index.module.css")).toBe(false);
+		expect(files.has("app/modules/main/pages/404.module.css")).toBe(false);
 	});
 
 	it("does not generate components.json for tailwind", () => {
@@ -151,7 +159,9 @@ describe("generateStylingFiles", () => {
 		const config: ProjectConfig = { ...baseConfig, styling: "shadcn" };
 		const files = generateStylingFiles(config);
 		expect(files.has("components.json")).toBe(true);
-		const json = JSON.parse(files.get("components.json")!);
+		const componentsJson = files.get("components.json");
+		expect(componentsJson).toBeDefined();
+		const json = JSON.parse(componentsJson ?? "");
 		expect(json.$schema).toBe("https://ui.shadcn.com/schema.json");
 		expect(json.style).toBe("default");
 		expect(json.tailwind.config).toBe("tailwind.config.js");
@@ -164,7 +174,6 @@ describe("generateStylingFiles", () => {
 		expect(files.has("app/shared/styles/tokens.css")).toBe(false);
 		expect(files.has("app/shared/layouts/_layout.module.css")).toBe(false);
 		expect(files.has("app/modules/main/pages/index.module.css")).toBe(false);
-		expect(files.has("app/modules/main/layouts/_layout.module.css")).toBe(false);
 	});
 
 	it("generates cn utility for shadcn", () => {

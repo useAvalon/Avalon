@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ProjectConfig } from "../types";
-import { generateAboutPage, generateMainPage } from "./pages";
+import { generate404Page, generateAboutPage, generateMainPage } from "./pages";
 
 describe("generateMainPage", () => {
 	const baseConfig: ProjectConfig = {
@@ -59,18 +59,25 @@ describe("generateMainPage", () => {
 		expect(result).toContain("https://useavalon.dev");
 	});
 
-	it("uses inline styles regardless of styling option", () => {
-		for (const styling of ["css-modules", "tailwind", "shadcn"] as const) {
-			const config: ProjectConfig = { ...baseConfig, styling };
-			const result = generateMainPage(config);
-			expect(result).toContain("style={{");
-			expect(result).not.toContain(".module.css");
-			expect(result).not.toContain("className={styles.");
-		}
+	it("uses CSS modules when css-modules styling is selected", () => {
+		const result = generateMainPage(baseConfig);
+		expect(result).toContain("import styles from './index.module.css'");
+		expect(result).toContain("className={styles.shell}");
+		expect(result).not.toContain("style={{");
 	});
 
-	it("does not import any CSS modules", () => {
-		const result = generateMainPage(baseConfig);
+	it("uses Tailwind classes when tailwind styling is selected", () => {
+		const config: ProjectConfig = { ...baseConfig, styling: "tailwind" };
+		const result = generateMainPage(config);
+		expect(result).toContain('className="flex min-h-screen');
+		expect(result).not.toContain("import styles");
+		expect(result).not.toContain("style={{");
+	});
+
+	it("uses Tailwind classes when shadcn styling is selected", () => {
+		const config: ProjectConfig = { ...baseConfig, styling: "shadcn" };
+		const result = generateMainPage(config);
+		expect(result).toContain('className="flex min-h-screen');
 		expect(result).not.toContain("import styles");
 	});
 
@@ -87,11 +94,71 @@ describe("generateMainPage", () => {
 });
 
 describe("generateAboutPage", () => {
+	const baseConfig: ProjectConfig = {
+		projectName: "my-app",
+		core: "preact",
+		integrations: [],
+		styling: "css-modules",
+		plugins: [],
+		middleware: "h3",
+		deploy: "none",
+	};
+
 	it("maps the about module to /about", () => {
-		const result = generateAboutPage();
+		const result = generateAboutPage(baseConfig);
 		expect(result).toContain("export default function AboutPage");
 		expect(result).toContain("app/modules/about/pages/index.tsx");
 		expect(result).toContain("/about");
 		expect(result).toContain('href="/"');
+	});
+
+	it("uses CSS modules when css-modules styling is selected", () => {
+		const result = generateAboutPage(baseConfig);
+		expect(result).toContain("import styles from './index.module.css'");
+		expect(result).toContain("className={styles.shell}");
+		expect(result).not.toContain("style={{");
+	});
+
+	it("uses Tailwind classes when tailwind styling is selected", () => {
+		const config: ProjectConfig = { ...baseConfig, styling: "tailwind" };
+		const result = generateAboutPage(config);
+		expect(result).toContain('className="flex min-h-screen');
+		expect(result).not.toContain("import styles");
+		expect(result).not.toContain("style={{");
+	});
+});
+
+describe("generate404Page", () => {
+	const baseConfig: ProjectConfig = {
+		projectName: "my-app",
+		core: "preact",
+		integrations: [],
+		styling: "css-modules",
+		plugins: [],
+		middleware: "h3",
+		deploy: "none",
+	};
+
+	it("exports NotFoundPage with noindex metadata", () => {
+		const result = generate404Page(baseConfig);
+		expect(result).toContain("export default function NotFoundPage");
+		expect(result).toContain("robots: 'noindex, nofollow'");
+		expect(result).toContain('href="/"');
+		expect(result).toContain("Go Home");
+	});
+
+	it("uses CSS modules when css-modules styling is selected", () => {
+		const result = generate404Page(baseConfig);
+		expect(result).toContain("import styles from './404.module.css'");
+		expect(result).toContain("className={styles.page}");
+		expect(result).not.toContain("style={{");
+	});
+
+	it("uses Tailwind classes when tailwind styling is selected", () => {
+		const config: ProjectConfig = { ...baseConfig, styling: "tailwind" };
+		const result = generate404Page(config);
+		expect(result).toContain('className="flex min-h-screen');
+		expect(result).not.toContain("import styles");
+		expect(result).not.toContain("style={{");
 	});
 });

@@ -45,18 +45,31 @@ export function readScroll(): ScrollPosition {
 	return { x: window.scrollX, y: window.scrollY };
 }
 
+function scrollWindow(x: number, y: number): void {
+	const root = document.documentElement;
+	const previousBehavior = root.style.scrollBehavior;
+	root.style.scrollBehavior = "auto";
+	try {
+		window.scrollTo({ left: x, top: y, behavior: "instant" });
+	} catch {
+		window.scrollTo(x, y);
+	} finally {
+		root.style.scrollBehavior = previousBehavior;
+	}
+}
+
 export function applyScroll(position: ScrollPosition | "top", hash?: string): void {
 	if (hash) {
 		const id = decodeURIComponent(hash.slice(1));
 		const target = document.getElementById(id);
 		if (target) {
-			target.scrollIntoView();
+			target.scrollIntoView({ behavior: "instant", block: "start" });
 			return;
 		}
 	}
 	if (position === "top") {
-		window.scrollTo(0, 0);
+		scrollWindow(0, 0);
 		return;
 	}
-	window.scrollTo(position.x, position.y);
+	scrollWindow(position.x, position.y);
 }

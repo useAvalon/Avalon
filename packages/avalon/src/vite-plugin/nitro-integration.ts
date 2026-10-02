@@ -1788,20 +1788,27 @@ async function generateLayoutsModule(
 	let idx = 0;
 	const sharedLayoutsPath = resolve(cwd, avalonConfig.layoutsDir);
 
-	for (const { dir, prefix } of layoutDirs) {
-		const layoutFile = join(dir, "_layout.tsx");
-		try {
-			const s = await fsStat(layoutFile);
-			if (!s.isFile()) continue;
-		} catch {
-			continue;
-		}
-		const relPath = relative(cwd, layoutFile).replaceAll("\\", "/");
-		const importPath = relPath.startsWith("/") ? relPath : `/${relPath}`;
-		const isShared = dir.startsWith(sharedLayoutsPath);
-		const isRootLayout = isShared && !avalonConfig.modules;
+	const discoveredLayouts = await Promise.all(
+		layoutDirs.map(async ({ dir, prefix }) => {
+			const layoutFile = join(dir, "_layout.tsx");
+			try {
+				const s = await fsStat(layoutFile);
+				if (!s.isFile()) return null;
+			} catch {
+				return null;
+			}
+			const relPath = relative(cwd, layoutFile).replaceAll("\\", "/");
+			const importPath = relPath.startsWith("/") ? relPath : `/${relPath}`;
+			const isShared = dir.startsWith(sharedLayoutsPath);
+			return { prefix, importPath, isShared, filePath: layoutFile };
+		}),
+	);
+
+	for (const entry of discoveredLayouts) {
+		if (!entry) continue;
+		const isRootLayout = entry.isShared && !avalonConfig.modules;
 		const varName = isRootLayout ? "RootLayout" : `Layout_${idx}`;
-		layouts.push({ prefix, importPath, varName, isShared, filePath: layoutFile });
+		layouts.push({ ...entry, varName });
 		idx++;
 	}
 
@@ -1813,19 +1820,21 @@ async function generateLayoutsModule(
 	// We parse the source file with a simple regex — this is reliable because
 	// the layoutConfig is a static top-level export. Doing this at generation
 	// time bakes the decision into the emitted module as a boolean literal.
-	const skipRootByPath = new Map<string, boolean>();
-	for (const l of moduleLayouts) {
-		try {
-			const src = await readFile(l.filePath, "utf8");
-			// Look for: skipLayouts: [... '_layout' ...] or ["_layout"]
-			const configMatch = src.match(/layoutConfig\s*=\s*{[\s\S]*?skipLayouts\s*:\s*\[([^\]]*)\]/);
-			const skips = configMatch?.[1] ?? "";
-			const hasRootSkip = /['"`]_layout['"`]/.test(skips);
-			skipRootByPath.set(l.importPath, hasRootSkip);
-		} catch {
-			skipRootByPath.set(l.importPath, false);
-		}
-	}
+	const skipRootEntries = await Promise.all(
+		moduleLayouts.map(async (l) => {
+			try {
+				const src = await readFile(l.filePath, "utf8");
+				// Look for: skipLayouts: [... '_layout' ...] or ["_layout"]
+				const configMatch = src.match(/layoutConfig\s*=\s*{[\s\S]*?skipLayouts\s*:\s*\[([^\]]*)\]/);
+				const skips = configMatch?.[1] ?? "";
+				const hasRootSkip = /['"`]_layout['"`]/.test(skips);
+				return [l.importPath, hasRootSkip] as const;
+			} catch {
+				return [l.importPath, false] as const;
+			}
+		}),
+	);
+	const skipRootByPath = new Map<string, boolean>(skipRootEntries);
 
 	// Generate imports — just the default components. `skipRoot` is resolved
 	// at generation time from the source file.
@@ -1834,11 +1843,10 @@ async function generateLayoutsModule(
 	const entries = moduleLayouts
 		.toSorted((a, b) => b.prefix.length - a.prefix.length)
 		.map((l) => {
-			// skipRoot is true if the layout's prefix matches the root ('/')
-			// OR if the layout itself declared skipLayouts: ['_layout'].
-			const pathBased = l.prefix === "/";
-			const declaredSkip = skipRootByPath.get(l.importPath) ?? false;
-			const skipRoot = pathBased || declaredSkip;
+			// skipRoot only when the module layout opts out via layoutConfig.skipLayouts.
+			// Prefix '/' (main/home module) must still wrap with the shared root layout
+			// unless this layout renders a full document shell.
+			const skipRoot = skipRootByPath.get(l.importPath) ?? false;
 			return `  { prefix: ${JSON.stringify(l.prefix)}, Layout: ${l.varName}, skipRoot: ${skipRoot} }`;
 		});
 
@@ -2156,14 +2164,16 @@ async function discoverLayoutCssImports(
 	const { readdir } = await import("node:fs/promises");
 	const { relative, join: pathJoin } = await import("node:path");
 	const cssImports: string[] = [];
-	for (const { dir } of layoutDirs) {
-		let entries: Dirent[];
-		try {
-			entries = await readdir(dir, { withFileTypes: true });
-		} catch {
-			// Directory doesn't exist or can't be read — skip
-			continue;
-		}
+	const dirEntries = await Promise.all(
+		layoutDirs.map(async ({ dir }) => {
+			try {
+				return { dir, entries: await readdir(dir, { withFileTypes: true }) };
+			} catch {
+				return { dir, entries: [] as Dirent[] };
+			}
+		}),
+	);
+	for (const { dir, entries } of dirEntries) {
 		for (const entry of entries) {
 			if (!entry.isFile() || !entry.name.endsWith(".css")) continue;
 			const absPath = pathJoin(dir, entry.name);
@@ -2229,9 +2239,13 @@ async function generateClientEntryModule(
 
 	// Global CSS from config
 	const globalCSS = nitroConfig.globalCSS ?? [];
-	for (const cssPath of globalCSS) {
-		const importPath = cssPath.startsWith("/") ? cssPath : `/${cssPath}`;
-		lines.push(`// Global CSS`, `import '${importPath}';`);
+	if (globalCSS.length > 0) {
+		lines.push(
+			...globalCSS.flatMap((cssPath) => {
+				const importPath = cssPath.startsWith("/") ? cssPath : `/${cssPath}`;
+				return [`// Global CSS`, `import '${importPath}';`];
+			}),
+		);
 	}
 
 	if (globalCSS.length > 0) lines.push(``);
@@ -2515,13 +2529,16 @@ async function loadDevLayoutModulesWithCss(
 	layoutFiles: string[],
 	cssContents: string[],
 ): Promise<DevLayoutEntry[]> {
-	const layoutModules: DevLayoutEntry[] = [];
-	for (const layoutFile of layoutFiles) {
-		const layoutModule = await server.ssrLoadModule(layoutFile);
-		layoutModules.push({ file: layoutFile, module: layoutModule });
-	}
-	for (const layoutFile of layoutFiles) {
-		const layoutCss = await collectCssFromModuleGraph(server, layoutFile);
+	const layoutModules = await Promise.all(
+		layoutFiles.map(async (layoutFile) => ({
+			file: layoutFile,
+			module: await server.ssrLoadModule(layoutFile),
+		})),
+	);
+	const cssBatches = await Promise.all(
+		layoutFiles.map((layoutFile) => collectCssFromModuleGraph(server, layoutFile)),
+	);
+	for (const layoutCss of cssBatches) {
 		cssContents.push(...layoutCss);
 	}
 	return layoutModules;
@@ -2537,24 +2554,29 @@ async function categorizeShellWrapperLayouts(
 	h: ShellHyperscript,
 	preactRender: ShellRenderFn,
 ): Promise<{ shellLayouts: DevLayoutEntry[]; wrapperLayouts: DevLayoutEntry[] }> {
+	const categorized = await Promise.all(
+		activeLayouts.map(async (layout) => {
+			const LayoutComponent = layout.module.default;
+			if (!LayoutComponent || typeof LayoutComponent !== "function") {
+				return { layout, isShell: false };
+			}
+			try {
+				const testProps = { ...layoutProps, children: h("div", null, "test") };
+				const testResult = (LayoutComponent as (props: unknown) => unknown)(testProps);
+				const resolvedTest = testResult instanceof Promise ? await testResult : testResult;
+				const testHtml = preactRender(resolvedTest);
+				const isShell = testHtml.trim().startsWith("<html") || testHtml.includes("<!DOCTYPE");
+				return { layout, isShell };
+			} catch {
+				return { layout, isShell: false };
+			}
+		}),
+	);
 	const shellLayouts: DevLayoutEntry[] = [];
 	const wrapperLayouts: DevLayoutEntry[] = [];
-	for (const layout of activeLayouts) {
-		const LayoutComponent = layout.module.default;
-		if (!LayoutComponent || typeof LayoutComponent !== "function") continue;
-		try {
-			const testProps = { ...layoutProps, children: h("div", null, "test") };
-			const testResult = (LayoutComponent as (props: unknown) => unknown)(testProps);
-			const resolvedTest = testResult instanceof Promise ? await testResult : testResult;
-			const testHtml = preactRender(resolvedTest);
-			if (testHtml.trim().startsWith("<html") || testHtml.includes("<!DOCTYPE")) {
-				shellLayouts.push(layout);
-			} else {
-				wrapperLayouts.push(layout);
-			}
-		} catch {
-			wrapperLayouts.push(layout);
-		}
+	for (const { layout, isShell } of categorized) {
+		if (isShell) shellLayouts.push(layout);
+		else wrapperLayouts.push(layout);
 	}
 	return { shellLayouts, wrapperLayouts };
 }
@@ -2630,10 +2652,12 @@ async function applyWrapperLayouts(
 	preactRender: ShellRenderFn,
 	logLabel: string,
 ): Promise<string> {
-	let content = pageContent;
-	for (const { module: layoutModule } of wrapperLayouts) {
+	return wrapperLayouts.reduce(async (contentPromise, { module: layoutModule }) => {
+		const content = await contentPromise;
 		const LayoutComponent = layoutModule.default;
-		if (!LayoutComponent || typeof LayoutComponent !== "function") continue;
+		if (!LayoutComponent || typeof LayoutComponent !== "function") {
+			return content;
+		}
 		try {
 			const props = {
 				...layoutProps,
@@ -2641,12 +2665,12 @@ async function applyWrapperLayouts(
 			};
 			const layoutResult = (LayoutComponent as (props: unknown) => unknown)(props);
 			const resolvedLayout = layoutResult instanceof Promise ? await layoutResult : layoutResult;
-			content = preactRender(resolvedLayout);
+			return preactRender(resolvedLayout);
 		} catch (error) {
 			console.error(`${logLabel} Error rendering wrapper layout:`, error);
+			return content;
 		}
-	}
-	return content;
+	}, Promise.resolve(pageContent));
 }
 
 /**
@@ -3083,9 +3107,11 @@ async function discoverLayoutFiles(pathname: string, server: ViteDevServer): Pro
 
 		// For root routes, check the home/root/main/index module
 		if (!firstSegment || rootModules.includes(firstSegment.toLowerCase())) {
-			for (const moduleName of rootModules) {
-				await tryAddLayout(`${modulesDir}/${moduleName}/${layoutsDirName}/${layoutFileName}`);
-			}
+			await Promise.all(
+				rootModules.map((moduleName) =>
+					tryAddLayout(`${modulesDir}/${moduleName}/${layoutsDirName}/${layoutFileName}`),
+				),
+			);
 		} else {
 			// For other routes, check the module matching the first segment
 			await tryAddLayout(`${modulesDir}/${firstSegment}/${layoutsDirName}/${layoutFileName}`);
@@ -3094,13 +3120,15 @@ async function discoverLayoutFiles(pathname: string, server: ViteDevServer): Pro
 
 	// 3. Check traditional layouts directory (src/layouts/)
 	const traditionalLayoutsDir = `${viteRoot}/src/layouts`;
-	for (const pathSegment of paths) {
-		const fullPath =
-			pathSegment === ""
-				? `${traditionalLayoutsDir}/${layoutFileName}`
-				: `${traditionalLayoutsDir}${pathSegment}/${layoutFileName}`;
-		await tryAddLayout(fullPath);
-	}
+	await Promise.all(
+		paths.map((pathSegment) => {
+			const fullPath =
+				pathSegment === ""
+					? `${traditionalLayoutsDir}/${layoutFileName}`
+					: `${traditionalLayoutsDir}${pathSegment}/${layoutFileName}`;
+			return tryAddLayout(fullPath);
+		}),
+	);
 
 	return layoutFiles;
 }
@@ -3121,22 +3149,35 @@ async function tryPageFile(viteRoot: string, relativePath: string): Promise<stri
  * Tries `${base}${ext}` for each extension, then `${base}/index${ext}` (unless
  * `base` already ends with `/index`). Returns the first match, else null.
  */
+async function firstExistingPageFile(
+	viteRoot: string,
+	candidates: string[],
+): Promise<string | null> {
+	return candidates.reduce(
+		async (found, candidate) => {
+			const prev = await found;
+			if (prev) return prev;
+			return tryPageFile(viteRoot, candidate);
+		},
+		Promise.resolve(null as string | null),
+	);
+}
+
 async function resolvePageWithExtensions(
 	viteRoot: string,
 	base: string,
 	extensions: string[],
 ): Promise<string | null> {
-	for (const ext of extensions) {
-		const result = await tryPageFile(viteRoot, `${base}${ext}`);
-		if (result) return result;
-	}
-	if (!base.endsWith("/index")) {
-		for (const ext of extensions) {
-			const result = await tryPageFile(viteRoot, `${base}/index${ext}`);
-			if (result) return result;
-		}
-	}
-	return null;
+	const direct = await firstExistingPageFile(
+		viteRoot,
+		extensions.map((ext) => `${base}${ext}`),
+	);
+	if (direct) return direct;
+	if (base.endsWith("/index")) return null;
+	return firstExistingPageFile(
+		viteRoot,
+		extensions.map((ext) => `${base}/index${ext}`),
+	);
 }
 
 /** Computes the extension-less page base path within a module's pages directory. */

@@ -25,7 +25,7 @@ describe("generateViteConfig", () => {
 	it("imports defineConfig from vite and avalon from @useavalon/avalon", () => {
 		const result = generateViteConfig(baseConfig);
 		expect(result).toContain(`import { resolve } from 'node:path';`);
-		expect(result).toContain(`import { defineConfig, type UserConfig } from 'vite';`);
+		expect(result).toContain(`import { defineConfig } from 'vite';`);
 		expect(result).toContain(`import { avalon } from '@useavalon/avalon';`);
 	});
 

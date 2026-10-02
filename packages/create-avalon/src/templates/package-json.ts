@@ -66,6 +66,7 @@ export function generatePackageJson(config: ProjectConfig): string {
 		typescript: "^5.0.0",
 		nitro: "^3.0.260311-beta",
 		"vite-imagetools": "^7.0.0",
+		"@types/node": "^22.0.0",
 	};
 
 	switch (config.styling) {
