@@ -1788,20 +1788,27 @@ async function generateLayoutsModule(
 	let idx = 0;
 	const sharedLayoutsPath = resolve(cwd, avalonConfig.layoutsDir);
 
-	for (const { dir, prefix } of layoutDirs) {
-		const layoutFile = join(dir, "_layout.tsx");
-		try {
-			const s = await fsStat(layoutFile);
-			if (!s.isFile()) continue;
-		} catch {
-			continue;
-		}
-		const relPath = relative(cwd, layoutFile).replaceAll("\\", "/");
-		const importPath = relPath.startsWith("/") ? relPath : `/${relPath}`;
-		const isShared = dir.startsWith(sharedLayoutsPath);
-		const isRootLayout = isShared && !avalonConfig.modules;
+	const discoveredLayouts = await Promise.all(
+		layoutDirs.map(async ({ dir, prefix }) => {
+			const layoutFile = join(dir, "_layout.tsx");
+			try {
+				const s = await fsStat(layoutFile);
+				if (!s.isFile()) return null;
+			} catch {
+				return null;
+			}
+			const relPath = relative(cwd, layoutFile).replaceAll("\\", "/");
+			const importPath = relPath.startsWith("/") ? relPath : `/${relPath}`;
+			const isShared = dir.startsWith(sharedLayoutsPath);
+			return { prefix, importPath, isShared, filePath: layoutFile };
+		}),
+	);
+
+	for (const entry of discoveredLayouts) {
+		if (!entry) continue;
+		const isRootLayout = entry.isShared && !avalonConfig.modules;
 		const varName = isRootLayout ? "RootLayout" : `Layout_${idx}`;
-		layouts.push({ prefix, importPath, varName, isShared, filePath: layoutFile });
+		layouts.push({ ...entry, varName });
 		idx++;
 	}
 
@@ -1813,19 +1820,21 @@ async function generateLayoutsModule(
 	// We parse the source file with a simple regex — this is reliable because
 	// the layoutConfig is a static top-level export. Doing this at generation
 	// time bakes the decision into the emitted module as a boolean literal.
-	const skipRootByPath = new Map<string, boolean>();
-	for (const l of moduleLayouts) {
-		try {
-			const src = await readFile(l.filePath, "utf8");
-			// Look for: skipLayouts: [... '_layout' ...] or ["_layout"]
-			const configMatch = src.match(/layoutConfig\s*=\s*{[\s\S]*?skipLayouts\s*:\s*\[([^\]]*)\]/);
-			const skips = configMatch?.[1] ?? "";
-			const hasRootSkip = /['"`]_layout['"`]/.test(skips);
-			skipRootByPath.set(l.importPath, hasRootSkip);
-		} catch {
-			skipRootByPath.set(l.importPath, false);
-		}
-	}
+	const skipRootEntries = await Promise.all(
+		moduleLayouts.map(async (l) => {
+			try {
+				const src = await readFile(l.filePath, "utf8");
+				// Look for: skipLayouts: [... '_layout' ...] or ["_layout"]
+				const configMatch = src.match(/layoutConfig\s*=\s*{[\s\S]*?skipLayouts\s*:\s*\[([^\]]*)\]/);
+				const skips = configMatch?.[1] ?? "";
+				const hasRootSkip = /['"`]_layout['"`]/.test(skips);
+				return [l.importPath, hasRootSkip] as const;
+			} catch {
+				return [l.importPath, false] as const;
+			}
+		}),
+	);
+	const skipRootByPath = new Map<string, boolean>(skipRootEntries);
 
 	// Generate imports — just the default components. `skipRoot` is resolved
 	// at generation time from the source file.
@@ -2155,14 +2164,16 @@ async function discoverLayoutCssImports(
 	const { readdir } = await import("node:fs/promises");
 	const { relative, join: pathJoin } = await import("node:path");
 	const cssImports: string[] = [];
-	for (const { dir } of layoutDirs) {
-		let entries: Dirent[];
-		try {
-			entries = await readdir(dir, { withFileTypes: true });
-		} catch {
-			// Directory doesn't exist or can't be read — skip
-			continue;
-		}
+	const dirEntries = await Promise.all(
+		layoutDirs.map(async ({ dir }) => {
+			try {
+				return { dir, entries: await readdir(dir, { withFileTypes: true }) };
+			} catch {
+				return { dir, entries: [] as Dirent[] };
+			}
+		}),
+	);
+	for (const { dir, entries } of dirEntries) {
 		for (const entry of entries) {
 			if (!entry.isFile() || !entry.name.endsWith(".css")) continue;
 			const absPath = pathJoin(dir, entry.name);
