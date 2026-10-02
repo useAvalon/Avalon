@@ -1,5 +1,5 @@
 import { parseSync } from "oxc-parser";
-import ts from "typescript";
+import * as ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { pageIslandTransform } from "../page-island-transform.ts";
 
