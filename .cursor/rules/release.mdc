@@ -8,7 +8,7 @@ alwaysApply: false
 
 Packages version independently (`@useavalon/avalon`, integrations, `create-avalon`). Do not hand-edit version fields — use `scripts/bump-version.ts` or the workflows.
 
-- **canary**: push to `main` when publishable package source changes (tests/README-only and `www/` do not trigger). Changed packages only on the `-canary.N` train.
+- **canary**: push to `main` when publishable package source changes (tests/README-only and `www/` do not trigger). Each changed package publishes its own npm `-canary.N` (N per package) and GitHub pre-release tag `short-name/vX.Y.Z-canary.N`.
 - **beta** / **rc** / **stable**: manual `release.yml` (`workflow_dispatch`). Dry-run is the default.
 - `--package=all` only when a core/shared API break hits every integration.
 - Tags are scoped (`core/v0.2.0`). CI: `ci.yml` lint/format/typecheck; `canary.yml` publishes changed packages.

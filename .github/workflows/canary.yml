@@ -1,25 +1,15 @@
 name: Canary Release
 
-# Publishes a canary when push to main changes publishable package *source*
-# (not tests, README-only, or non-canary packages like create-avalon / seo).
-#
-# Model (Next.js style):
-# - A single "release train" is anchored to the flagship @useavalon/avalon
-#   package's next patch version, e.g. stable 0.1.92 -> train v0.1.93.
-# - Each merge publishes an incrementing pre-release: v0.1.93-canary.0,
-#   v0.1.93-canary.1, ... All canaries appear on the GitHub Releases page as
-#   pre-releases; the stable release keeps the "Latest" badge in the sidebar.
-# - When a stable 0.1.93 ships, the train advances to v0.1.94-canary.0.
-# - Each changed package publishes its own npm version under the canary tag,
-#   sharing the same -canary.N suffix.
+# Publishes npm canaries for changed packages only. Each package gets its own
+# version (next patch + -canary.N where N is per-package on npm) and its own
+# GitHub pre-release tag (e.g. avalon/v0.5.3-canary.4), matching stable release.yml.
+# Test-only and README-only edits under a package do not publish.
 
 on:
   push:
     branches: [main]
     paths:
-      - "packages/avalon/**"
-      - "packages/integrations/**"
-      - "packages/mcp/**"
+      - "packages/**"
   workflow_dispatch:
     inputs:
       packages:
@@ -38,6 +28,9 @@ on:
           - vue
           - qwik
           - mcp
+          - seo
+          - create-avalon
+          - agent-optimization
 
 permissions:
   contents: write
@@ -57,6 +50,9 @@ jobs:
       vue: ${{ steps.resolve.outputs.vue }}
       qwik: ${{ steps.resolve.outputs.qwik }}
       mcp: ${{ steps.resolve.outputs.mcp }}
+      seo: ${{ steps.resolve.outputs.seo }}
+      create_avalon: ${{ steps.resolve.outputs.create_avalon }}
+      agent_optimization: ${{ steps.resolve.outputs.agent_optimization }}
       any: ${{ steps.resolve.outputs.any }}
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
@@ -145,12 +141,33 @@ jobs:
               - '!packages/mcp/**/*.test.tsx'
               - '!packages/mcp/**/*.test.mjs'
               - '!packages/mcp/**/README.md'
+            seo:
+              - 'packages/seo/**'
+              - '!packages/seo/**/__tests__/**'
+              - '!packages/seo/**/tests/**'
+              - '!packages/seo/**/*.test.ts'
+              - '!packages/seo/**/*.test.tsx'
+              - '!packages/seo/**/*.test.mjs'
+              - '!packages/seo/**/README.md'
+            create_avalon:
+              - 'packages/create-avalon/**'
+              - '!packages/create-avalon/**/__tests__/**'
+              - '!packages/create-avalon/**/tests/**'
+              - '!packages/create-avalon/**/*.test.ts'
+              - '!packages/create-avalon/**/*.test.tsx'
+              - '!packages/create-avalon/**/*.test.mjs'
+              - '!packages/create-avalon/**/README.md'
+            agent_optimization:
+              - 'packages/agent-optimization/**'
+              - '!packages/agent-optimization/**/__tests__/**'
+              - '!packages/agent-optimization/**/tests/**'
+              - '!packages/agent-optimization/**/*.test.ts'
+              - '!packages/agent-optimization/**/*.test.tsx'
+              - '!packages/agent-optimization/**/*.test.mjs'
+              - '!packages/agent-optimization/**/README.md'
       - name: Resolve publish targets
         id: resolve
-        # Expressions are passed via env and referenced as shell vars rather than
-        # interpolated directly into the script (consistent, injection-safe).
         env:
-          # Empty on push; the selected option on manual dispatch.
           SELECTION: ${{ inputs.packages }}
           EVENT_NAME: ${{ github.event_name }}
           CH_CORE: ${{ steps.changes.outputs.core }}
@@ -162,23 +179,21 @@ jobs:
           CH_VUE: ${{ steps.changes.outputs.vue }}
           CH_QWIK: ${{ steps.changes.outputs.qwik }}
           CH_MCP: ${{ steps.changes.outputs.mcp }}
+          CH_SEO: ${{ steps.changes.outputs.seo }}
+          CH_CREATE_AVALON: ${{ steps.changes.outputs.create_avalon }}
+          CH_AGENT_OPTIMIZATION: ${{ steps.changes.outputs.agent_optimization }}
         run: |
           set -euo pipefail
           declare -A VAL
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            # Manual run: honor the selected package (or "all"). `all` covers the
-            # framework train only; mcp has an independent version line and must
-            # be selected explicitly.
-            for p in core lit react preact svelte solid vue qwik; do
+            for p in core lit react preact svelte solid vue qwik mcp seo create-avalon agent-optimization; do
               if [ "$SELECTION" = "all" ] || [ "$SELECTION" = "$p" ]; then
                 VAL[$p]=true
               else
                 VAL[$p]=false
               fi
             done
-            if [ "$SELECTION" = "mcp" ]; then VAL[mcp]=true; else VAL[mcp]=false; fi
           else
-            # Push run: mirror the paths-filter results (default missing → false).
             VAL[core]="${CH_CORE:-false}"
             VAL[lit]="${CH_LIT:-false}"
             VAL[react]="${CH_REACT:-false}"
@@ -188,12 +203,26 @@ jobs:
             VAL[vue]="${CH_VUE:-false}"
             VAL[qwik]="${CH_QWIK:-false}"
             VAL[mcp]="${CH_MCP:-false}"
+            VAL[seo]="${CH_SEO:-false}"
+            VAL[create-avalon]="${CH_CREATE_AVALON:-false}"
+            VAL[agent-optimization]="${CH_AGENT_OPTIMIZATION:-false}"
           fi
 
           ANY=false
-          for p in core lit react preact svelte solid vue qwik mcp; do
-            echo "${p}=${VAL[$p]}" >> "$GITHUB_OUTPUT"
-            if [ "${VAL[$p]}" = "true" ]; then ANY=true; fi
+          echo "core=${VAL[core]:-false}" >> "$GITHUB_OUTPUT"
+          echo "lit=${VAL[lit]:-false}" >> "$GITHUB_OUTPUT"
+          echo "react=${VAL[react]:-false}" >> "$GITHUB_OUTPUT"
+          echo "preact=${VAL[preact]:-false}" >> "$GITHUB_OUTPUT"
+          echo "svelte=${VAL[svelte]:-false}" >> "$GITHUB_OUTPUT"
+          echo "solid=${VAL[solid]:-false}" >> "$GITHUB_OUTPUT"
+          echo "vue=${VAL[vue]:-false}" >> "$GITHUB_OUTPUT"
+          echo "qwik=${VAL[qwik]:-false}" >> "$GITHUB_OUTPUT"
+          echo "mcp=${VAL[mcp]:-false}" >> "$GITHUB_OUTPUT"
+          echo "seo=${VAL[seo]:-false}" >> "$GITHUB_OUTPUT"
+          echo "create_avalon=${VAL[create-avalon]:-false}" >> "$GITHUB_OUTPUT"
+          echo "agent_optimization=${VAL[agent-optimization]:-false}" >> "$GITHUB_OUTPUT"
+          for p in core lit react preact svelte solid vue qwik mcp seo create-avalon agent-optimization; do
+            if [ "${VAL[$p]:-false}" = "true" ]; then ANY=true; fi
           done
           echo "any=${ANY}" >> "$GITHUB_OUTPUT"
 
@@ -212,7 +241,6 @@ jobs:
         with:
           node-version: "22"
 
-      # Trusted publishing needs npm 11.5.1+. Node 22 ships an older CLI.
       - run: npm install -g npm@^11.5.1
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -221,37 +249,34 @@ jobs:
 
       - run: bun install
 
-      - name: Compute canary train and counter
-        id: train
+      - name: Bump and publish changed packages
+        id: publish
+        env:
+          PUB_CORE: ${{ needs.detect-changes.outputs.core }}
+          PUB_LIT: ${{ needs.detect-changes.outputs.lit }}
+          PUB_REACT: ${{ needs.detect-changes.outputs.react }}
+          PUB_PREACT: ${{ needs.detect-changes.outputs.preact }}
+          PUB_SVELTE: ${{ needs.detect-changes.outputs.svelte }}
+          PUB_SOLID: ${{ needs.detect-changes.outputs.solid }}
+          PUB_VUE: ${{ needs.detect-changes.outputs.vue }}
+          PUB_QWIK: ${{ needs.detect-changes.outputs.qwik }}
+          PUB_MCP: ${{ needs.detect-changes.outputs.mcp }}
+          PUB_SEO: ${{ needs.detect-changes.outputs.seo }}
+          PUB_CREATE_AVALON: ${{ needs.detect-changes.outputs.create_avalon }}
+          PUB_AGENT_OPTIMIZATION: ${{ needs.detect-changes.outputs.agent_optimization }}
         run: |
-          # Anchor the release train to the flagship @useavalon/avalon next patch.
-          AVALON_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('packages/avalon/package.json','utf-8')).version.split('-')[0])")
+          set -euo pipefail
+          unset NODE_AUTH_TOKEN NPM_TOKEN
+          rm -f ~/.npmrc
+
           next_patch() {
             local base="$1"
             local maj min pat
             IFS=. read -r maj min pat <<< "$base"
             echo "${maj}.${min}.$((pat + 1))"
           }
-          TRAIN="v$(next_patch "$AVALON_VERSION")"
 
-          # Determine the next canary counter. The counter must be greater than
-          # any -canary.N already PUBLISHED to npm (the source of truth) as well
-          # as any existing git tag. Deriving from npm makes the workflow robust
-          # to partial failures: if a previous run published some packages but
-          # failed before tagging, we still advance past the published versions
-          # instead of colliding (npm 403 "cannot publish over existing version").
-          git fetch --tags --force --quiet
-
-          # Highest N among existing git tags for this train.
-          TAG_N=$(git tag --list "${TRAIN}-canary.*" \
-            | sed -E "s/.*-canary\.//" \
-            | sort -n | tail -1)
-          [ -z "$TAG_N" ] && TAG_N=-1
-
-          # Highest published canary N for a package, matching its own canary
-          # base version (next patch of its current stable). Persisted canaries
-          # from older trains use a different base, so they're correctly ignored.
-          max_published_n() {
+          max_published_canary_n() {
             local cfg="$1"
             [ -f "$cfg" ] || { echo -1; return; }
             local name base
@@ -275,57 +300,17 @@ jobs:
             " "$base"
           }
 
-          MAX="$TAG_N"
-          for CFG in \
-            packages/avalon/package.json \
-            packages/integrations/core/package.json \
-            packages/integrations/lit/package.json \
-            packages/integrations/react/package.json \
-            packages/integrations/preact/package.json \
-            packages/integrations/svelte/package.json \
-            packages/integrations/solid/package.json \
-            packages/integrations/vue/package.json \
-            packages/integrations/qwik/package.json \
-            packages/mcp/package.json; do
-            PUB_N=$(max_published_n "$CFG")
-            if [ "$PUB_N" -gt "$MAX" ]; then MAX="$PUB_N"; fi
-          done
-
-          N=$((MAX + 1))
-
-          echo "train=$TRAIN" >> "$GITHUB_OUTPUT"
-          echo "counter=$N" >> "$GITHUB_OUTPUT"
-          echo "tag=${TRAIN}-canary.${N}" >> "$GITHUB_OUTPUT"
-          echo "Release train: ${TRAIN}-canary.${N}"
-
-      - name: Bump and publish changed packages
-        env:
-          N: ${{ steps.train.outputs.counter }}
-          PUB_CORE: ${{ needs.detect-changes.outputs.core }}
-          PUB_LIT: ${{ needs.detect-changes.outputs.lit }}
-          PUB_REACT: ${{ needs.detect-changes.outputs.react }}
-          PUB_PREACT: ${{ needs.detect-changes.outputs.preact }}
-          PUB_SVELTE: ${{ needs.detect-changes.outputs.svelte }}
-          PUB_SOLID: ${{ needs.detect-changes.outputs.solid }}
-          PUB_VUE: ${{ needs.detect-changes.outputs.vue }}
-          PUB_QWIK: ${{ needs.detect-changes.outputs.qwik }}
-          PUB_MCP: ${{ needs.detect-changes.outputs.mcp }}
-        run: |
-          unset NODE_AUTH_TOKEN NPM_TOKEN
-          rm -f ~/.npmrc
-          next_patch() {
-            local base="$1"
-            local maj min pat
-            IFS=. read -r maj min pat <<< "$base"
-            echo "${maj}.${min}.$((pat + 1))"
-          }
+          : > published-package-dirs.txt
 
           publish_pkg() {
             local CONFIG="$1"
             if [ ! -f "$CONFIG" ]; then
               return
             fi
+            local BASE_VERSION N CANARY_VERSION PKG_NAME PKG_DIR
             BASE_VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$CONFIG','utf-8')).version.split('-')[0])")
+            N=$(max_published_canary_n "$CONFIG")
+            N=$((N + 1))
             CANARY_VERSION="$(next_patch "$BASE_VERSION")-canary.${N}"
             node -e "
               const fs = require('fs');
@@ -334,9 +319,6 @@ jobs:
               fs.writeFileSync('$CONFIG', JSON.stringify(config, null, '\t') + '\n');
             "
             PKG_NAME=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$CONFIG','utf-8')).name)")
-            # Idempotency safety net: never attempt to publish over an existing
-            # version (npm returns 403). The counter is computed to avoid this,
-            # but a re-run of the same commit could otherwise collide.
             if npm view "${PKG_NAME}@${CANARY_VERSION}" version >/dev/null 2>&1; then
               echo "Skip: ${PKG_NAME}@${CANARY_VERSION} already published"
               return
@@ -346,6 +328,7 @@ jobs:
             cd "$PKG_DIR"
             npm publish --tag canary --access public
             cd - > /dev/null
+            echo "$PKG_DIR" >> published-package-dirs.txt
           }
 
           if [ "$PUB_CORE" = "true" ]; then
@@ -376,17 +359,49 @@ jobs:
           if [ "$PUB_MCP" = "true" ]; then
             publish_pkg "packages/mcp/package.json"
           fi
+          if [ "$PUB_SEO" = "true" ]; then
+            publish_pkg "packages/seo/package.json"
+          fi
+          if [ "$PUB_CREATE_AVALON" = "true" ]; then
+            publish_pkg "packages/create-avalon/package.json"
+          fi
+          if [ "$PUB_AGENT_OPTIMIZATION" = "true" ]; then
+            publish_pkg "packages/agent-optimization/package.json"
+          fi
 
-      - name: Create canary tag and GitHub pre-release
+          if [ ! -s published-package-dirs.txt ]; then
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create per-package canary tags and GitHub pre-releases
+        if: steps.publish.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ steps.train.outputs.tag }}
         run: |
-          # Tag the released commit (do not commit the canary version bumps to main).
-          git tag "$TAG"
-          git push origin "$TAG"
+          set -euo pipefail
+          while IFS= read -r pkg; do
+            [ -n "$pkg" ] || continue
+            if [ ! -f "$pkg/package.json" ]; then
+              continue
+            fi
+            NAME=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$pkg/package.json','utf-8')).name)")
+            VERSION=$(node -e "console.log(JSON.parse(require('fs').readFileSync('$pkg/package.json','utf-8')).version)")
+            SHORT_NAME="${NAME##*/}"
+            TAG_NAME="${SHORT_NAME}/v${VERSION}"
 
-          gh release create "$TAG" \
-            --title "$TAG" \
-            --generate-notes \
-            --prerelease
+            if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+              echo "Tag $TAG_NAME already exists — skipping"
+              continue
+            fi
+
+            echo "Creating canary release $NAME@$VERSION (tag $TAG_NAME)"
+            git tag "$TAG_NAME"
+            git push origin "$TAG_NAME"
+
+            gh release create "$TAG_NAME" \
+              --title "${NAME}@${VERSION}" \
+              --generate-notes \
+              --prerelease
+          done < published-package-dirs.txt
