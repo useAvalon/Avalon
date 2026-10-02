@@ -19,7 +19,7 @@ export default defineConfig({
 		exclude: ["node_modules", "dist", ".output"],
 		server: {
 			deps: {
-				inline: ["zod", "typescript"],
+				inline: ["zod"],
 			},
 		},
 	},
