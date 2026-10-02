@@ -49,7 +49,7 @@ describe("generatePackageJson", () => {
 		const pkg = JSON.parse(generatePackageJson(baseConfig));
 		expect(pkg.devDependencies.vite).toBe("^8.0.0");
 		expect(pkg.devDependencies.typescript).toBe("^5.0.0");
-		expect(pkg.devDependencies.nitro).toBe("^3.0.260311-beta");
+		expect(pkg.devDependencies.nitro).toBe("^3.0.260903-beta");
 		expect(pkg.devDependencies["vite-imagetools"]).toBe("^7.0.0");
 		expect(pkg.devDependencies["@types/node"]).toBe("^22.0.0");
 	});
@@ -121,8 +121,8 @@ describe("generatePackageJson", () => {
 	it("always installs the core engine integration and runtime", () => {
 		const pkg = JSON.parse(generatePackageJson(baseConfig));
 		expect(pkg.dependencies["@useavalon/preact"]).toBe("latest");
-		expect(pkg.dependencies.preact).toBe("^10.0.0");
-		expect(pkg.dependencies["preact-render-to-string"]).toBe("^6.0.0");
+		expect(pkg.dependencies.preact).toBe("^11.0.0");
+		expect(pkg.dependencies["preact-render-to-string"]).toBe("^6.8.0");
 		expect(pkg.dependencies.react).toBeUndefined();
 		expect(pkg.dependencies.vue).toBeUndefined();
 	});

@@ -30,6 +30,9 @@ packages/avalon/src/client/**/*.js
 .vite/
 */.vite/
 
+# Vitest 5 artifacts
+.vitest/
+
 # Auto-generated island sidecar declarations
 # Foreign-extension sidecars (allowArbitraryExtensions)
 *.d.vue.ts

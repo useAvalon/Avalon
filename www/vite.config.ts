@@ -3,6 +3,7 @@ import { agentOptimization } from "@useavalon/agent-optimization";
 import { avalon } from "@useavalon/avalon";
 import { seo } from "@useavalon/seo";
 import { defineConfig, type UserConfig } from "vite";
+import { quietDevWarningsPlugin } from "./vite-quiet-dev-warnings.ts";
 
 export default defineConfig(async (): Promise<UserConfig> => {
 	const avalonPlugins = await avalon({
@@ -36,6 +37,9 @@ export default defineConfig(async (): Promise<UserConfig> => {
 				},
 				"/favicon.ico": {
 					headers: { "Cache-Control": "public, max-age=86400" },
+				},
+				"/syntax-highlighting.css": {
+					headers: { "Cache-Control": "public, max-age=3600, must-revalidate" },
 				},
 			},
 			runtimeConfig: {
@@ -95,6 +99,7 @@ export default defineConfig(async (): Promise<UserConfig> => {
 		},
 
 		plugins: [
+			quietDevWarningsPlugin(),
 			seo({
 				siteUrl: "http://localhost:8012",
 				siteName: "Avalon",

@@ -14,6 +14,7 @@
 import type { Integration, IntegrationConfig } from "@useavalon/core/types";
 import type { Plugin } from "vite";
 import { render } from "./server/renderer.ts";
+import { loadQwikWasmBinding } from "./wasm-binding.ts";
 
 /**
  * Qwik integration configuration
@@ -72,6 +73,14 @@ export const qwikIntegration: Integration = {
 	 */
 	async vitePlugin(): Promise<Plugin | Plugin[]> {
 		const { createOptimizer } = await import("@builder.io/qwik/optimizer");
+		const binding = await loadQwikWasmBinding();
+		let optimizerPromise: ReturnType<typeof createOptimizer> | null = null;
+		const getOptimizer = () => {
+			if (!optimizerPromise) {
+				optimizerPromise = createOptimizer({ binding });
+			}
+			return optimizerPromise;
+		};
 
 		// Resolved project root — set by configResolved, used by the transform
 		let projectRoot = process.cwd();
@@ -114,7 +123,7 @@ export const qwikIntegration: Integration = {
 				const isSSR = options?.ssr === true;
 
 				try {
-					const optimizer = await createOptimizer();
+					const optimizer = await getOptimizer();
 					const result = await optimizer.transformModules({
 						srcDir: projectRoot,
 						input: [{ path: bareId, code }],

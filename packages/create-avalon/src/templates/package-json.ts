@@ -9,7 +9,7 @@ import { cloudflareProjectName } from "./deploy";
  * framework (mirrors each integration's peerDependencies).
  */
 const INTEGRATION_RUNTIME_DEPS: Record<Integration, Record<string, string>> = {
-	preact: { preact: "^10.0.0", "preact-render-to-string": "^6.0.0" },
+	preact: { preact: "^11.0.0", "preact-render-to-string": "^6.8.0" },
 	react: { react: "^19.0.0", "react-dom": "^19.0.0" },
 	vue: { vue: "^3.4.0" },
 	svelte: { svelte: "^5.0.0" },
@@ -64,7 +64,7 @@ export function generatePackageJson(config: ProjectConfig): string {
 	const devDependencies: Record<string, string> = {
 		vite: "^8.0.0",
 		typescript: "^5.0.0",
-		nitro: "^3.0.260311-beta",
+		nitro: "^3.0.260903-beta",
 		"vite-imagetools": "^7.0.0",
 		"@types/node": "^22.0.0",
 	};

@@ -34,7 +34,7 @@
 	],
 	"dependencies": {
 		"@useavalon/avalon": "workspace:^",
-		"zod": "^4.3.6"
+		"zod": "^4.6.5"
 	},
 	"peerDependencies": {
 		"vite": "^8.0.0"
@@ -46,8 +46,8 @@
 	},
 	"devDependencies": {
 		"fast-check": "^4.8.0",
-		"oxc-minify": "^0.120.0",
-		"oxc-transform": "^0.120.0",
-		"vitest": "^4.1.0"
+		"oxc-minify": "^0.152.0",
+		"oxc-transform": "^0.152.0",
+		"vitest": "^5.0.3"
 	}
 }
