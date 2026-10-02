@@ -55,7 +55,7 @@ Open `http://localhost:3000` in your browser. You should see the Avalon welcome 
 
 ## Create a page
 
-Pages live in `src/pages/`. Create `src/pages/hello.tsx`:
+Scaffolded apps use **module-based routing**: each folder under `app/modules/` owns its own `pages/` tree. The **main** module maps to the site root, so add `app/modules/main/pages/hello.tsx`:
 
 ```tsx
 export default function HelloPage() {
@@ -70,9 +70,11 @@ export default function HelloPage() {
 
 Visit `http://localhost:3000/hello` — you'll see your page rendered as pure HTML with no client-side JavaScript.
 
+Need a URL prefix (e.g. `/about`)? Add another module: `app/modules/about/pages/index.tsx`. See [File-System Routing](/docs/file-system-routing).
+
 ## Add an island
 
-Islands are interactive components that hydrate on the client. Create `src/components/Counter.tsx`:
+Islands are interactive components that hydrate on the client. Create `app/modules/main/components/Counter.tsx`:
 
 ```tsx
 import { useState } from 'preact/hooks';
@@ -87,7 +89,7 @@ export default function Counter() {
 }
 ```
 
-Then use it in your page with the `island` prop to control when it hydrates:
+Then import the island file **directly** (no barrel re-exports) and use the `island` prop to control when it hydrates:
 
 ```tsx
 import Counter from '../components/Counter.tsx';

@@ -51,6 +51,7 @@ describe("generatePackageJson", () => {
 		expect(pkg.devDependencies.typescript).toBe("^5.0.0");
 		expect(pkg.devDependencies.nitro).toBe("^3.0.260311-beta");
 		expect(pkg.devDependencies["vite-imagetools"]).toBe("^7.0.0");
+		expect(pkg.devDependencies["@types/node"]).toBe("^22.0.0");
 	});
 
 	it("adds hono dependency when hono middleware selected", () => {

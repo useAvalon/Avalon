@@ -19,7 +19,8 @@ export function generateStylingFiles(config: ProjectConfig): Map<string, string>
 			files.set("app/shared/styles/tokens.css", generateTokensCss());
 			files.set("app/shared/layouts/_layout.module.css", generateLayoutModuleCss());
 			files.set("app/modules/main/pages/index.module.css", generatePageModuleCss());
-			files.set("app/modules/main/layouts/_layout.module.css", generateLayoutModuleCss());
+			files.set("app/modules/main/pages/404.module.css", generateNotFoundPageModuleCss());
+			files.set("app/modules/about/pages/index.module.css", generateAboutPageModuleCss());
 			break;
 
 		case "tailwind":
@@ -48,7 +49,7 @@ function generateMainCss(config: ProjectConfig): string {
 		imports.push(`@import './global.css';`);
 	}
 
-	return imports.join("\n") + "\n";
+	return `${imports.join("\n")}\n`;
 }
 
 function generateResetCss(): string {
@@ -126,17 +127,216 @@ function generateLayoutModuleCss(): string {
 `;
 }
 
-function generatePageModuleCss(): string {
-	return `.page {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem 1rem;
+const LANDING_EYEBROW_CSS = `.eyebrow {
+  font-size: 0.8rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #818cf8;
+  margin: 0 0 1.5rem;
+  font-weight: 500;
+}`;
+
+const LANDING_LINK_CSS = `.link {
+  color: #818cf8;
+  text-decoration: none;
+}`;
+
+function generateScaffoldPageShellCss(): string {
+	return `.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  color: #e2e8f0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background:
+    radial-gradient(ellipse 80% 80% at 10% 10%, rgba(99, 102, 241, 0.12), transparent 70%),
+    radial-gradient(ellipse 60% 60% at 90% 90%, rgba(168, 85, 247, 0.08), transparent 70%),
+    linear-gradient(145deg, #0a0a12 0%, #0d1117 40%, #111827 100%);
+}`;
 }
 
+function generatePageModuleCss(): string {
+	return `${generateScaffoldPageShellCss()}
+
+.content {
+  max-width: 640px;
+}
+
+${LANDING_EYEBROW_CSS}
+
 .title {
-  font-size: 2rem;
+  font-size: clamp(2.5rem, 6vw, 4rem);
   font-weight: 700;
-  margin-bottom: 1rem;
+  line-height: 1.1;
+  margin: 0 0 1.5rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #94a3b8 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.lead {
+  font-size: 1.15rem;
+  line-height: 1.7;
+  color: #94a3b8;
+  margin: 0 auto 2.5rem;
+  max-width: 480px;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btnPrimary,
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.btnPrimary {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+}
+
+.btnPrimary:hover,
+.btnSecondary:hover {
+  opacity: 0.9;
+}
+
+.btnSecondary {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+.getStarted {
+  margin-top: 4rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.getStartedLabel {
+  font-size: 0.75rem;
+  color: #64748b;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.codeHint {
+  display: block;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #a5b4fc;
+  font-size: 0.85rem;
+  font-family: ui-monospace, monospace;
+}
+
+.moduleHint {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin: 0.5rem 0 0;
+}
+
+${LANDING_LINK_CSS}
+
+.footer {
+  margin-top: 4rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  width: 100%;
+  max-width: 640px;
+}
+
+.footerText {
+  font-size: 0.8rem;
+  color: #475569;
+  margin: 0;
+}
+`;
+}
+
+function generateNotFoundPageModuleCss(): string {
+	return `.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  text-align: center;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.status {
+  font-size: 4rem;
+  margin: 0 0 1rem;
+}
+
+.message {
+  font-size: 1.25rem;
+  color: #64748b;
+  margin: 0 0 2rem;
+}
+
+.homeLink {
+  color: #6366f1;
+  text-decoration: none;
+  font-weight: 500;
+}
+`;
+}
+
+function generateAboutPageModuleCss(): string {
+	return `${generateScaffoldPageShellCss()}
+
+.content {
+  max-width: 480px;
+}
+
+${LANDING_EYEBROW_CSS}
+
+.title {
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0 0 1.5rem;
+}
+
+.body {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: #94a3b8;
+  margin: 0 0 2rem;
+}
+
+.code {
+  color: #a5b4fc;
+  font-family: ui-monospace, monospace;
+}
+
+.homeLink {
+  color: #818cf8;
+  text-decoration: none;
+  font-weight: 500;
 }
 `;
 }
@@ -187,7 +387,7 @@ function generateTailwindGlobalCss(config: ProjectConfig): string {
 }`);
 	}
 
-	return lines.join("\n") + "\n";
+	return `${lines.join("\n")}\n`;
 }
 
 function generateCnUtil(): string {
@@ -200,7 +400,7 @@ export function cn(...inputs: ClassValue[]) {
 `;
 }
 
-function generateShadcnComponentsJson(config: ProjectConfig): string {
+function generateShadcnComponentsJson(_config: ProjectConfig): string {
 	const componentsConfig = {
 		$schema: "https://ui.shadcn.com/schema.json",
 		style: "default",
@@ -214,7 +414,7 @@ function generateShadcnComponentsJson(config: ProjectConfig): string {
 		},
 	};
 
-	return JSON.stringify(componentsConfig, null, 2) + "\n";
+	return `${JSON.stringify(componentsConfig, null, 2)}\n`;
 }
 
 /** highlight.js GitHub Dark tokens used by Avalon's MDX rehype-highlight pipeline. */

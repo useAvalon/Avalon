@@ -12,13 +12,18 @@ import {
 	generateWranglerToml,
 } from "./templates/deploy";
 import { getFaviconBuffer } from "./templates/favicon";
-import { generateAboutLayout, generateMainLayout, generateRootLayout } from "./templates/layouts";
+import { generateAboutLayout, generateRootLayout } from "./templates/layouts";
 import { generateSampleMiddleware } from "./templates/middleware";
 import { generatePackageJson } from "./templates/package-json";
 import { generate404Page, generateAboutPage, generateMainPage } from "./templates/pages";
 import { generatePostBuildMjs } from "./templates/post-build";
 import { generateStylingFiles } from "./templates/styling";
-import { generateEnvDts, generateFrameworkTsConfigs, generateTsConfig } from "./templates/tsconfig";
+import {
+	generateEnvDts,
+	generateFrameworkTsConfigs,
+	generateTsConfig,
+	generateViteEnvDts,
+} from "./templates/tsconfig";
 import { generateViteConfig } from "./templates/vite-config";
 import type { ProjectConfig } from "./types";
 import { BASE_DIRS } from "./types";
@@ -74,20 +79,17 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 		await writeFile(join(targetDir, filename), contents);
 	}
 	await writeFile(join(targetDir, "vite.config.ts"), generateViteConfig(config));
+	await writeFile(join(targetDir, "vite-env.d.ts"), generateViteEnvDts(config));
 
 	// Generate and write layout and page files
 	await writeFile(join(targetDir, "app/shared/layouts/_layout.tsx"), generateRootLayout(config));
-	await writeFile(
-		join(targetDir, "app/modules/main/layouts/_layout.tsx"),
-		generateMainLayout(config),
-	);
 	await writeFile(join(targetDir, "app/modules/main/pages/index.tsx"), generateMainPage(config));
-	await writeFile(join(targetDir, "app/modules/main/pages/404.tsx"), generate404Page());
+	await writeFile(join(targetDir, "app/modules/main/pages/404.tsx"), generate404Page(config));
 	await writeFile(
 		join(targetDir, "app/modules/about/layouts/_layout.tsx"),
 		generateAboutLayout(config),
 	);
-	await writeFile(join(targetDir, "app/modules/about/pages/index.tsx"), generateAboutPage());
+	await writeFile(join(targetDir, "app/modules/about/pages/index.tsx"), generateAboutPage(config));
 
 	// Generate and write middleware and API route
 	await writeFile(join(targetDir, "middleware/01.logger.ts"), generateSampleMiddleware(config));

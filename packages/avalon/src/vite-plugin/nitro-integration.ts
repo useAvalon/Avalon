@@ -1834,11 +1834,10 @@ async function generateLayoutsModule(
 	const entries = moduleLayouts
 		.toSorted((a, b) => b.prefix.length - a.prefix.length)
 		.map((l) => {
-			// skipRoot is true if the layout's prefix matches the root ('/')
-			// OR if the layout itself declared skipLayouts: ['_layout'].
-			const pathBased = l.prefix === "/";
-			const declaredSkip = skipRootByPath.get(l.importPath) ?? false;
-			const skipRoot = pathBased || declaredSkip;
+			// skipRoot only when the module layout opts out via layoutConfig.skipLayouts.
+			// Prefix '/' (main/home module) must still wrap with the shared root layout
+			// unless this layout renders a full document shell.
+			const skipRoot = skipRootByPath.get(l.importPath) ?? false;
 			return `  { prefix: ${JSON.stringify(l.prefix)}, Layout: ${l.varName}, skipRoot: ${skipRoot} }`;
 		});
 

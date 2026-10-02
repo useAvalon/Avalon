@@ -43,18 +43,31 @@ Your site is now running at `http://localhost:3000`.
 
 ## Project structure
 
+Scaffolded apps use **modules** (URL prefixes) under `app/`, not a top-level `src/` folder.
+
 <div class="docs-block">
 
 ```
 my-app/
-├── src/
-│   ├── components/     # UI, including islands
-│   ├── layouts/        # Layout wrappers
-│   └── pages/          # File-system routes
-├── public/             # Static assets
-├── routes/             # API routes
-├── nitro.config.ts
-└── vite.config.ts
+├── app/
+│   ├── modules/
+│   │   ├── main/               # Site root (/)
+│   │   │   ├── pages/          # File-system routes for this module
+│   │   │   ├── components/     # UI, including islands
+│   │   │   └── layouts/        # Module layout wrappers
+│   │   └── about/              # /about — module name = URL prefix
+│   └── shared/
+│       ├── layouts/            # Root HTML shell
+│       ├── components/
+│       └── styles/             # Global CSS (via nitro globalCSS)
+├── middleware/                 # Server middleware
+├── routes/
+│   └── api/                    # API routes (Nitro)
+├── server/                     # SSR renderer entry
+├── public/                     # Static assets
+├── vite.config.ts              # Avalon + Nitro config
+├── build.mjs                   # Production build entry
+└── package.json
 ```
 
 </div>
@@ -76,12 +89,20 @@ bun add -d vite nitro
 
 ```ts
 import { defineConfig } from 'vite';
-import { avalon } from '@useavalon/avalon/vite';
+import { avalon } from '@useavalon/avalon';
 
 export default defineConfig(async () => {
   const plugins = await avalon({
-    pagesDir: 'src/pages',
+    core: 'preact',
+    modules: 'app/modules',
+    layoutsDir: 'app/shared/layouts',
     integrations: ['preact'],
+    nitro: {
+      preset: 'node_server',
+      streaming: true,
+      clientEntry: 'app/entry-client',
+      globalCSS: ['app/shared/styles/main.css'],
+    },
   });
   return { plugins };
 });
