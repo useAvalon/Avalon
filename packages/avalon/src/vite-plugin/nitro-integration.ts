@@ -2239,9 +2239,13 @@ async function generateClientEntryModule(
 
 	// Global CSS from config
 	const globalCSS = nitroConfig.globalCSS ?? [];
-	for (const cssPath of globalCSS) {
-		const importPath = cssPath.startsWith("/") ? cssPath : `/${cssPath}`;
-		lines.push(`// Global CSS`, `import '${importPath}';`);
+	if (globalCSS.length > 0) {
+		lines.push(
+			...globalCSS.flatMap((cssPath) => {
+				const importPath = cssPath.startsWith("/") ? cssPath : `/${cssPath}`;
+				return [`// Global CSS`, `import '${importPath}';`];
+			}),
+		);
 	}
 
 	if (globalCSS.length > 0) lines.push(``);
@@ -2525,13 +2529,16 @@ async function loadDevLayoutModulesWithCss(
 	layoutFiles: string[],
 	cssContents: string[],
 ): Promise<DevLayoutEntry[]> {
-	const layoutModules: DevLayoutEntry[] = [];
-	for (const layoutFile of layoutFiles) {
-		const layoutModule = await server.ssrLoadModule(layoutFile);
-		layoutModules.push({ file: layoutFile, module: layoutModule });
-	}
-	for (const layoutFile of layoutFiles) {
-		const layoutCss = await collectCssFromModuleGraph(server, layoutFile);
+	const layoutModules = await Promise.all(
+		layoutFiles.map(async (layoutFile) => ({
+			file: layoutFile,
+			module: await server.ssrLoadModule(layoutFile),
+		})),
+	);
+	const cssBatches = await Promise.all(
+		layoutFiles.map((layoutFile) => collectCssFromModuleGraph(server, layoutFile)),
+	);
+	for (const layoutCss of cssBatches) {
 		cssContents.push(...layoutCss);
 	}
 	return layoutModules;
@@ -2547,24 +2554,29 @@ async function categorizeShellWrapperLayouts(
 	h: ShellHyperscript,
 	preactRender: ShellRenderFn,
 ): Promise<{ shellLayouts: DevLayoutEntry[]; wrapperLayouts: DevLayoutEntry[] }> {
+	const categorized = await Promise.all(
+		activeLayouts.map(async (layout) => {
+			const LayoutComponent = layout.module.default;
+			if (!LayoutComponent || typeof LayoutComponent !== "function") {
+				return { layout, isShell: false };
+			}
+			try {
+				const testProps = { ...layoutProps, children: h("div", null, "test") };
+				const testResult = (LayoutComponent as (props: unknown) => unknown)(testProps);
+				const resolvedTest = testResult instanceof Promise ? await testResult : testResult;
+				const testHtml = preactRender(resolvedTest);
+				const isShell = testHtml.trim().startsWith("<html") || testHtml.includes("<!DOCTYPE");
+				return { layout, isShell };
+			} catch {
+				return { layout, isShell: false };
+			}
+		}),
+	);
 	const shellLayouts: DevLayoutEntry[] = [];
 	const wrapperLayouts: DevLayoutEntry[] = [];
-	for (const layout of activeLayouts) {
-		const LayoutComponent = layout.module.default;
-		if (!LayoutComponent || typeof LayoutComponent !== "function") continue;
-		try {
-			const testProps = { ...layoutProps, children: h("div", null, "test") };
-			const testResult = (LayoutComponent as (props: unknown) => unknown)(testProps);
-			const resolvedTest = testResult instanceof Promise ? await testResult : testResult;
-			const testHtml = preactRender(resolvedTest);
-			if (testHtml.trim().startsWith("<html") || testHtml.includes("<!DOCTYPE")) {
-				shellLayouts.push(layout);
-			} else {
-				wrapperLayouts.push(layout);
-			}
-		} catch {
-			wrapperLayouts.push(layout);
-		}
+	for (const { layout, isShell } of categorized) {
+		if (isShell) shellLayouts.push(layout);
+		else wrapperLayouts.push(layout);
 	}
 	return { shellLayouts, wrapperLayouts };
 }
@@ -2640,10 +2652,12 @@ async function applyWrapperLayouts(
 	preactRender: ShellRenderFn,
 	logLabel: string,
 ): Promise<string> {
-	let content = pageContent;
-	for (const { module: layoutModule } of wrapperLayouts) {
+	return wrapperLayouts.reduce(async (contentPromise, { module: layoutModule }) => {
+		const content = await contentPromise;
 		const LayoutComponent = layoutModule.default;
-		if (!LayoutComponent || typeof LayoutComponent !== "function") continue;
+		if (!LayoutComponent || typeof LayoutComponent !== "function") {
+			return content;
+		}
 		try {
 			const props = {
 				...layoutProps,
@@ -2651,12 +2665,12 @@ async function applyWrapperLayouts(
 			};
 			const layoutResult = (LayoutComponent as (props: unknown) => unknown)(props);
 			const resolvedLayout = layoutResult instanceof Promise ? await layoutResult : layoutResult;
-			content = preactRender(resolvedLayout);
+			return preactRender(resolvedLayout);
 		} catch (error) {
 			console.error(`${logLabel} Error rendering wrapper layout:`, error);
+			return content;
 		}
-	}
-	return content;
+	}, Promise.resolve(pageContent));
 }
 
 /**
@@ -3093,9 +3107,11 @@ async function discoverLayoutFiles(pathname: string, server: ViteDevServer): Pro
 
 		// For root routes, check the home/root/main/index module
 		if (!firstSegment || rootModules.includes(firstSegment.toLowerCase())) {
-			for (const moduleName of rootModules) {
-				await tryAddLayout(`${modulesDir}/${moduleName}/${layoutsDirName}/${layoutFileName}`);
-			}
+			await Promise.all(
+				rootModules.map((moduleName) =>
+					tryAddLayout(`${modulesDir}/${moduleName}/${layoutsDirName}/${layoutFileName}`),
+				),
+			);
 		} else {
 			// For other routes, check the module matching the first segment
 			await tryAddLayout(`${modulesDir}/${firstSegment}/${layoutsDirName}/${layoutFileName}`);
@@ -3104,13 +3120,15 @@ async function discoverLayoutFiles(pathname: string, server: ViteDevServer): Pro
 
 	// 3. Check traditional layouts directory (src/layouts/)
 	const traditionalLayoutsDir = `${viteRoot}/src/layouts`;
-	for (const pathSegment of paths) {
-		const fullPath =
-			pathSegment === ""
-				? `${traditionalLayoutsDir}/${layoutFileName}`
-				: `${traditionalLayoutsDir}${pathSegment}/${layoutFileName}`;
-		await tryAddLayout(fullPath);
-	}
+	await Promise.all(
+		paths.map((pathSegment) => {
+			const fullPath =
+				pathSegment === ""
+					? `${traditionalLayoutsDir}/${layoutFileName}`
+					: `${traditionalLayoutsDir}${pathSegment}/${layoutFileName}`;
+			return tryAddLayout(fullPath);
+		}),
+	);
 
 	return layoutFiles;
 }
@@ -3131,22 +3149,35 @@ async function tryPageFile(viteRoot: string, relativePath: string): Promise<stri
  * Tries `${base}${ext}` for each extension, then `${base}/index${ext}` (unless
  * `base` already ends with `/index`). Returns the first match, else null.
  */
+async function firstExistingPageFile(
+	viteRoot: string,
+	candidates: string[],
+): Promise<string | null> {
+	return candidates.reduce(
+		async (found, candidate) => {
+			const prev = await found;
+			if (prev) return prev;
+			return tryPageFile(viteRoot, candidate);
+		},
+		Promise.resolve(null as string | null),
+	);
+}
+
 async function resolvePageWithExtensions(
 	viteRoot: string,
 	base: string,
 	extensions: string[],
 ): Promise<string | null> {
-	for (const ext of extensions) {
-		const result = await tryPageFile(viteRoot, `${base}${ext}`);
-		if (result) return result;
-	}
-	if (!base.endsWith("/index")) {
-		for (const ext of extensions) {
-			const result = await tryPageFile(viteRoot, `${base}/index${ext}`);
-			if (result) return result;
-		}
-	}
-	return null;
+	const direct = await firstExistingPageFile(
+		viteRoot,
+		extensions.map((ext) => `${base}${ext}`),
+	);
+	if (direct) return direct;
+	if (base.endsWith("/index")) return null;
+	return firstExistingPageFile(
+		viteRoot,
+		extensions.map((ext) => `${base}/index${ext}`),
+	);
 }
 
 /** Computes the extension-less page base path within a module's pages directory. */

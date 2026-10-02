@@ -40,14 +40,10 @@ export function generateStylingFiles(config: ProjectConfig): Map<string, string>
 }
 
 function generateMainCss(config: ProjectConfig): string {
-	const imports: string[] = [];
-
-	if (config.styling === "css-modules") {
-		imports.push(`@import './reset.css';`);
-		imports.push(`@import './tokens.css';`);
-	} else {
-		imports.push(`@import './global.css';`);
-	}
+	const imports =
+		config.styling === "css-modules"
+			? [`@import './reset.css';`, `@import './tokens.css';`]
+			: [`@import './global.css';`];
 
 	return `${imports.join("\n")}\n`;
 }
@@ -355,12 +351,7 @@ export default {
 `;
 }
 
-function generateTailwindGlobalCss(config: ProjectConfig): string {
-	const lines = [`@import "tailwindcss";`];
-
-	if (config.styling === "shadcn") {
-		lines.push("");
-		lines.push(`@theme inline {
+const SHADCN_TAILWIND_THEME = `@theme inline {
   --color-background: oklch(1 0 0);
   --color-foreground: oklch(0.145 0 0);
   --color-card: oklch(1 0 0);
@@ -384,10 +375,13 @@ function generateTailwindGlobalCss(config: ProjectConfig): string {
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
   --radius-xl: 0.75rem;
-}`);
-	}
+}`;
 
-	return `${lines.join("\n")}\n`;
+function generateTailwindGlobalCss(config: ProjectConfig): string {
+	if (config.styling === "shadcn") {
+		return `@import "tailwindcss";\n\n${SHADCN_TAILWIND_THEME}\n`;
+	}
+	return `@import "tailwindcss";\n`;
 }
 
 function generateCnUtil(): string {
