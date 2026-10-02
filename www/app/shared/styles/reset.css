@@ -53,16 +53,12 @@ ol {
 	list-style: none;
 }
 
-/* Page regions get the UA default crossfade. Chrome is named so it is
-   excluded from the root snapshot. Do not set `animation: none` on
-   ::view-transition-old/new(root) — that leaves the root snapshot in
-   the top layer and hides later UI (Pagefind dialog). */
-[data-router-outlet="docs-page"] {
-	view-transition-name: docs-page;
-}
-[data-router-outlet="docs-toc"] {
-	view-transition-name: docs-toc;
-}
+/* Persist chrome is named so it stays out of the root snapshot and does not
+   crossfade on navigation. Outlets swap via data-router-outlet but must not
+   get view-transition-name: full-height groups morph when scrollY resets and
+   look like the page scrolling up. Root snapshots are viewport-sized only.
+   Do not set `animation: none` on ::view-transition-old/new(root) — that
+   leaves the root snapshot in the top layer and hides later UI (Pagefind). */
 [data-router-persist="docs-sidebar"] {
 	view-transition-name: docs-sidebar;
 }

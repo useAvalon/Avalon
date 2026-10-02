@@ -139,6 +139,7 @@ async function applyDocument(
 	historyKind: HistoryKind,
 	isPop: boolean,
 	viewTransition?: ViewTransitionMode,
+	scroll?: boolean,
 ): Promise<void> {
 	const from = currentUrl();
 	const to = url.pathname + url.search + url.hash;
@@ -159,7 +160,15 @@ async function applyDocument(
 	try {
 		await previous;
 		if (generation !== swapGeneration) return;
-		await swapDocument(next, { from, to, historyKind, isPop, viewTransition, generation });
+		await swapDocument(next, {
+			from,
+			to,
+			historyKind,
+			isPop,
+			viewTransition,
+			generation,
+			scroll,
+		});
 	} finally {
 		release();
 	}
@@ -174,9 +183,10 @@ async function swapDocument(
 		isPop: boolean;
 		viewTransition?: ViewTransitionMode;
 		generation: number;
+		scroll?: boolean;
 	},
 ): Promise<void> {
-	const { from, to, historyKind, isPop, viewTransition, generation } = ctx;
+	const { from, to, historyKind, isPop, viewTransition, generation, scroll } = ctx;
 	dispatchBeforeSwap({ from, to, newDocument: next });
 	if (generation !== swapGeneration) return;
 
@@ -197,6 +207,9 @@ async function swapDocument(
 			void disposeUnrestored(persisted, restorePersisted(document.body, persisted));
 		}
 		commitHistory(historyKind, to, isPop);
+		// Scroll before the update callback returns so View Transitions capture
+		// the incoming page at the target position, not at the previous scrollY.
+		applyNavigationScroll(new URL(to, location.href), isPop, scroll);
 	}, viewTransition);
 	if (generation !== swapGeneration) return;
 	if (outgoing) {
@@ -315,9 +328,9 @@ async function runNavigation(
 			historyKind === "auto" ? "push" : historyKind,
 			isPop,
 			options.viewTransition,
+			options.scroll,
 		);
 		if (signal.aborted) return;
-		applyNavigationScroll(url, isPop, options.scroll);
 	} catch (error) {
 		if (signal.aborted) return;
 		if (!(error instanceof ClientNavigationDisabledError)) {
