@@ -7,7 +7,7 @@
 import { URLPattern as URLPatternPolyfill } from "urlpattern-polyfill";
 
 export function ensureURLPattern(): void {
-	const globals = globalThis as { URLPattern?: typeof URLPatternPolyfill };
+	const globals = globalThis as unknown as { URLPattern?: typeof URLPatternPolyfill };
 	globals.URLPattern ??= URLPatternPolyfill;
 }
 

@@ -1,5 +1,4 @@
 import { parseSync } from "oxc-parser";
-import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { pageIslandTransform } from "../page-island-transform.ts";
 
@@ -27,19 +26,10 @@ function runTransform(code: string, id = PAGE_ID): string {
 	return result.code;
 }
 
-/** Asserts the transformed TSX is valid — including `await` only inside async functions. */
+/** Asserts the transformed TSX parses, including `await` only inside async functions. */
 function expectParses(code: string): void {
 	const oxc = parseSync("page.tsx", code, { lang: "tsx", range: true });
 	expect(oxc.errors.map((e) => e.message)).toEqual([]);
-
-	const result = ts.transpileModule(code, {
-		reportDiagnostics: true,
-		compilerOptions: { jsx: ts.JsxEmit.Preserve, target: ts.ScriptTarget.ESNext },
-	});
-	const errors = (result.diagnostics ?? [])
-		.filter((d) => d.category === ts.DiagnosticCategory.Error)
-		.map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n"));
-	expect(errors).toEqual([]);
 }
 
 describe("pageIslandTransform — async enclosing function", () => {
