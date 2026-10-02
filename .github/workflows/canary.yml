@@ -1,6 +1,7 @@
 name: Canary Release
 
-# Publishes a canary release on every push to main that touches packages.
+# Publishes a canary when push to main changes publishable package *source*
+# (not tests, README-only, or non-canary packages like create-avalon / seo).
 #
 # Model (Next.js style):
 # - A single "release train" is anchored to the flagship @useavalon/avalon
@@ -16,7 +17,9 @@ on:
   push:
     branches: [main]
     paths:
-      - "packages/**"
+      - "packages/avalon/**"
+      - "packages/integrations/**"
+      - "packages/mcp/**"
   workflow_dispatch:
     inputs:
       packages:
@@ -61,26 +64,87 @@ jobs:
         id: changes
         if: github.event_name == 'push'
         with:
+          # Exclusions: test-only and README edits must not publish npm canaries.
           filters: |
             core:
               - 'packages/avalon/**'
               - 'packages/integrations/core/**'
+              - '!packages/avalon/**/__tests__/**'
+              - '!packages/avalon/**/tests/**'
+              - '!packages/avalon/**/*.test.ts'
+              - '!packages/avalon/**/*.test.tsx'
+              - '!packages/avalon/**/*.test.mjs'
+              - '!packages/avalon/**/README.md'
+              - '!packages/integrations/core/**/__tests__/**'
+              - '!packages/integrations/core/**/tests/**'
+              - '!packages/integrations/core/**/*.test.ts'
+              - '!packages/integrations/core/**/*.test.tsx'
+              - '!packages/integrations/core/**/*.test.mjs'
+              - '!packages/integrations/core/**/README.md'
             lit:
               - 'packages/integrations/lit/**'
+              - '!packages/integrations/lit/**/__tests__/**'
+              - '!packages/integrations/lit/**/tests/**'
+              - '!packages/integrations/lit/**/*.test.ts'
+              - '!packages/integrations/lit/**/*.test.tsx'
+              - '!packages/integrations/lit/**/*.test.mjs'
+              - '!packages/integrations/lit/**/README.md'
             react:
               - 'packages/integrations/react/**'
+              - '!packages/integrations/react/**/__tests__/**'
+              - '!packages/integrations/react/**/tests/**'
+              - '!packages/integrations/react/**/*.test.ts'
+              - '!packages/integrations/react/**/*.test.tsx'
+              - '!packages/integrations/react/**/*.test.mjs'
+              - '!packages/integrations/react/**/README.md'
             preact:
               - 'packages/integrations/preact/**'
+              - '!packages/integrations/preact/**/__tests__/**'
+              - '!packages/integrations/preact/**/tests/**'
+              - '!packages/integrations/preact/**/*.test.ts'
+              - '!packages/integrations/preact/**/*.test.tsx'
+              - '!packages/integrations/preact/**/*.test.mjs'
+              - '!packages/integrations/preact/**/README.md'
             svelte:
               - 'packages/integrations/svelte/**'
+              - '!packages/integrations/svelte/**/__tests__/**'
+              - '!packages/integrations/svelte/**/tests/**'
+              - '!packages/integrations/svelte/**/*.test.ts'
+              - '!packages/integrations/svelte/**/*.test.tsx'
+              - '!packages/integrations/svelte/**/*.test.mjs'
+              - '!packages/integrations/svelte/**/README.md'
             solid:
               - 'packages/integrations/solid/**'
+              - '!packages/integrations/solid/**/__tests__/**'
+              - '!packages/integrations/solid/**/tests/**'
+              - '!packages/integrations/solid/**/*.test.ts'
+              - '!packages/integrations/solid/**/*.test.tsx'
+              - '!packages/integrations/solid/**/*.test.mjs'
+              - '!packages/integrations/solid/**/README.md'
             vue:
               - 'packages/integrations/vue/**'
+              - '!packages/integrations/vue/**/__tests__/**'
+              - '!packages/integrations/vue/**/tests/**'
+              - '!packages/integrations/vue/**/*.test.ts'
+              - '!packages/integrations/vue/**/*.test.tsx'
+              - '!packages/integrations/vue/**/*.test.mjs'
+              - '!packages/integrations/vue/**/README.md'
             qwik:
               - 'packages/integrations/qwik/**'
+              - '!packages/integrations/qwik/**/__tests__/**'
+              - '!packages/integrations/qwik/**/tests/**'
+              - '!packages/integrations/qwik/**/*.test.ts'
+              - '!packages/integrations/qwik/**/*.test.tsx'
+              - '!packages/integrations/qwik/**/*.test.mjs'
+              - '!packages/integrations/qwik/**/README.md'
             mcp:
               - 'packages/mcp/**'
+              - '!packages/mcp/**/__tests__/**'
+              - '!packages/mcp/**/tests/**'
+              - '!packages/mcp/**/*.test.ts'
+              - '!packages/mcp/**/*.test.tsx'
+              - '!packages/mcp/**/*.test.mjs'
+              - '!packages/mcp/**/README.md'
       - name: Resolve publish targets
         id: resolve
         # Expressions are passed via env and referenced as shell vars rather than
