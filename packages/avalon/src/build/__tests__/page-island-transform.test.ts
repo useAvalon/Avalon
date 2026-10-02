@@ -2,7 +2,7 @@ import { parseSync } from "oxc-parser";
 import { describe, expect, it } from "vitest";
 import { pageIslandTransform } from "../page-island-transform.ts";
 
-const PAGE_ID = "/project/app/modules/home/pages/index.tsx";
+const PAGE_ID = "/project/app/modules/main/pages/index.tsx";
 
 /**
  * Runs the plugin's transform hook and returns the transformed code. Throws if

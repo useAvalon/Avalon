@@ -10,7 +10,7 @@ Avalon provides error handling at two levels: page-level error pages for HTTP er
 Create a `_error.tsx` file in your pages directory to catch errors for that route segment:
 
 ```tsx
-// pages/_error.tsx
+// app/modules/main/pages/_error.tsx
 export interface ErrorPageProps {
   statusCode: number;
   message: string;
@@ -47,7 +47,7 @@ The error page receives the HTTP status code, a message, and in development mode
 Create a `404.tsx` for a custom not-found page:
 
 ```tsx
-// pages/404.tsx
+// app/modules/main/pages/404.tsx
 export default function NotFound() {
   return (
     <div>

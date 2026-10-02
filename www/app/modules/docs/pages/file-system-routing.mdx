@@ -1,6 +1,6 @@
 ---
 title: File-System Routing
-description: How Avalon maps files in src/pages/ to URL routes.
+description: How Avalon maps page files to URL routes — module prefixes and src/pages mode.
 currentPath: /docs/file-system-routing
 prev:
   title: Hydration Strategies
@@ -63,12 +63,14 @@ src/pages/docs/[...slug].tsx  →  /docs/anything/nested/here
 
 ## Special files
 
+In a module’s `pages/` folder (e.g. `app/modules/main/pages/`) or under `src/pages/`:
+
 | File | Purpose |
 |---|---|
-| `src/pages/_layout.tsx` | Root layout wrapper |
-| `src/pages/_middleware.ts` | Route middleware |
-| `src/pages/_error.tsx` | Error boundary |
-| `src/pages/404.tsx` | Custom 404 page |
+| `_layout.tsx` | Layout wrapper for that segment |
+| `_middleware.ts` | Route middleware |
+| `_error.tsx` | Error boundary |
+| `404.tsx` | Custom 404 page |
 
 ## API routes
 

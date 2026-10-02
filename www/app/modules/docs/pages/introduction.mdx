@@ -15,7 +15,7 @@ Avalon is a multi-framework islands architecture framework. Pages are static HTM
 **Core primitives:**
 - `island` prop — added to any component to make it an island; `condition` controls when it hydrates, `clientOnly: true` skips SSR and mounts in the browser
 - Hydration conditions: `on:client` (immediate), `on:visible` (IntersectionObserver), `on:interaction` (first click/hover), `on:idle` (requestIdleCallback), `media:<query>` (CSS media query)
-- File-system routing — files in `src/pages/` become routes automatically; no configuration needed
+- File-system routing — scaffolded apps use `app/modules/<name>/pages/` (the **main** module is `/`); without `modules` in config, routes come from `src/pages/`
 - Optional client navigation — `clientRouter: true` fetches the next SSR HTML document and swaps it in without a full reload
 
 **Supported frameworks:** React, Preact, Vue, Svelte, Solid, Lit (all usable in the same project)
@@ -38,7 +38,7 @@ The core idea is simple: most of your page is static HTML. Only the parts that n
 
 **Multi-framework.** Use the framework that fits the job. A data visualization in React, a form in Svelte, a counter in Preact — all on the same page, each bundled independently.
 
-**File-system routing.** Drop a file in `src/pages/` and it becomes a route. No configuration needed.
+**File-system routing.** Add a file under a module’s `pages/` folder (or under `src/pages/` when not using modules) and it becomes a route. No route table required.
 
 **Edge-ready.** Powered by [Nitro](https://nitro.build), Avalon deploys to Node, Deno, Bun, Cloudflare Workers, Vercel, and more.
 

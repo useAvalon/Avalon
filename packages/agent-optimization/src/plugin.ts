@@ -700,12 +700,12 @@ async function renderPageForLlms(projectRoot: string, urlPath: string): Promise<
 
 	// Check modular architecture first
 	// For /docs/intro -> app/modules/docs/pages/intro.tsx
-	// For / -> app/modules/home/pages/index.tsx
+	// For / -> app/modules/main/pages/index.tsx (also home, root, index)
 	const modulesDir = path.join(projectRoot, "app/modules");
-	const rootModules = ["home", "root", "main", "index"];
+	const rootModules = ["main", "home", "root", "index"];
 
 	if (segments.length === 1 && segments[0] === "index") {
-		// Root route - check home module
+		// Root route - check root module folders
 		for (const moduleName of rootModules) {
 			possibleFiles.push(
 				path.join(modulesDir, moduleName, "pages", "index.tsx"),
