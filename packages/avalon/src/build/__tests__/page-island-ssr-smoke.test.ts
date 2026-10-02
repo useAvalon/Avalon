@@ -4,7 +4,7 @@ import renderToString from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import { pageIslandTransform } from "../page-island-transform.ts";
 
-const PAGE_ID = "/project/app/modules/home/pages/index.tsx";
+const PAGE_ID = "/project/app/modules/main/pages/index.tsx";
 
 function runTransform(code: string): string {
 	const plugin = pageIslandTransform({

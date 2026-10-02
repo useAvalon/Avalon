@@ -12,11 +12,25 @@ next:
 
 ## What is a layout?
 
-A layout is a wrapper component that wraps one or more pages. Layouts live in `src/layouts/` and are automatically applied based on directory structure.
+A layout is a wrapper component that wraps one or more pages.
+
+## Module-based apps
+
+`create-avalon` sets `layoutsDir` to shared layouts that wrap every module. Each module can add its own nested layout under `layouts/`:
+
+```
+app/
+  shared/layouts/_layout.tsx       ← HTML shell for the whole site
+  modules/
+    main/layouts/_layout.tsx       ← optional wrapper for `/` routes
+    blog/layouts/_layout.tsx       ← optional wrapper for `/blog/*`
+```
+
+See [Modules](/docs/modules) for route prefixes and `skipLayouts`.
 
 ## Root layout
 
-`src/layouts/_layout.tsx` wraps every page in your app:
+`app/shared/layouts/_layout.tsx` (or `src/layouts/_layout.tsx` without modules) wraps every page:
 
 ```tsx
 import type { LayoutProps } from '@useavalon/avalon';
@@ -38,7 +52,9 @@ export default function RootLayout({ children, frontmatter }: LayoutProps) {
 
 ## Nested layouts
 
-Layouts nest based on directory structure. A layout at `src/layouts/blog/_layout.tsx` wraps all pages under `src/pages/blog/`:
+With modules, a layout at `app/modules/blog/layouts/_layout.tsx` wraps that module’s pages and nests inside the shared root layout.
+
+Without `modules` in your Vite config, layouts live in `src/layouts/` and nest by directory: `src/layouts/blog/_layout.tsx` wraps all pages under `src/pages/blog/`:
 
 ```
 src/layouts/
@@ -49,7 +65,7 @@ src/layouts/
     _layout.tsx        ← wraps src/pages/docs/* (nested inside root)
 ```
 
-The nesting is automatic — the blog layout renders inside the root layout's `{children}`.
+The nesting is automatic — inner layouts render inside the root layout's `{children}`.
 
 
 ## Skipping layouts

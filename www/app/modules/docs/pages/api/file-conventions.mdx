@@ -10,9 +10,23 @@ next:
   href: /docs/guides/deployment
 ---
 
-## Pages directory
+## Module-based apps
 
-Files in `src/pages/` become routes automatically.
+Scaffolded projects route from `app/modules/<name>/pages/`. The module name is the URL prefix except for **`main`** (also `home`, `root`, `index`), which maps to `/`.
+
+| Path | Purpose |
+|---|---|
+| `app/modules/main/pages/index.tsx` | Site root (`/`) |
+| `app/modules/about/pages/index.tsx` | `/about` |
+| `app/modules/blog/pages/[slug].tsx` | `/blog/:slug` |
+| `app/modules/<name>/layouts/_layout.tsx` | Layout for that module’s pages |
+| `app/shared/layouts/_layout.tsx` | Shared root layout (`layoutsDir`) |
+
+Page filename conventions (`index.tsx`, `[param].tsx`, `404.tsx`, `_error.tsx`, `_middleware.ts`) are the same inside any module’s `pages/` folder. See [Modules](/docs/modules) and [File-System Routing](/docs/file-system-routing).
+
+## Pages-only mode
+
+Without `modules` in your Vite config, files in `src/pages/` become routes automatically.
 
 | Convention | Purpose |
 |---|---|
@@ -23,7 +37,7 @@ Files in `src/pages/` become routes automatically.
 | `_error.tsx` | Error boundary page |
 | `_middleware.ts` | Route middleware |
 
-## Special files
+### Special files (pages-only)
 
 | File | Purpose |
 |---|---|
@@ -32,7 +46,7 @@ Files in `src/pages/` become routes automatically.
 | `_middleware.ts` | Route middleware — runs before page handlers in the same directory |
 | `index.tsx` | Index route — maps to the directory path (e.g. `src/pages/blog/index.tsx` → `/blog`) |
 
-## Layouts directory
+### Layouts directory (pages-only)
 
 Files in `src/layouts/` wrap pages automatically based on directory structure.
 
@@ -48,7 +62,7 @@ Files in `src/layouts/` wrap pages automatically based on directory structure.
 Any component can be used as an island by adding the `island` prop when using it in a page or layout. There's no requirement to place islands in a specific directory.
 
 ```tsx
-// src/pages/index.tsx
+// app/modules/main/pages/index.tsx
 import Counter from '../components/Counter.tsx';
 
 export default function Home() {

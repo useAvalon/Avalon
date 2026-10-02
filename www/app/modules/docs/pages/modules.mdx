@@ -8,7 +8,7 @@ Avalon uses a modular architecture where pages, layouts, and components are co-l
 ```
 app/
   modules/
-    home/
+    main/
       pages/index.tsx
       layouts/_layout.tsx
       components/Hero.tsx
@@ -56,12 +56,12 @@ Module names map to URL prefixes. A module named `blog` serves pages under `/blo
 
 | Module | File | URL |
 |--------|------|-----|
-| `home` | `pages/index.tsx` | `/` |
+| `main` | `pages/index.tsx` | `/` |
 | `blog` | `pages/index.tsx` | `/blog` |
 | `blog` | `pages/[slug].tsx` | `/blog/:slug` |
 | `docs` | `pages/introduction.mdx` | `/docs/introduction` |
 
-The `home`, `root`, `main`, and `index` module names are special — they map to `/` instead of `/home`.
+The `main`, `home`, `root`, and `index` module names are special — they map to `/` rather than to a URL prefixed with the module name (e.g. `/main`).
 
 `create-avalon` scaffolds two modules so that mapping is visible: `main` → `/` and `about` → `/about`. Add another folder under `app/modules` to add another prefix.
 
