@@ -12,4 +12,5 @@
 
 - [ ] One concern — no unrelated refactors or formatting-only diffs
 - [ ] Tests added or updated if behavior changed
-- [ ] No version bumps, release-workflow edits, or npm publish
+- [ ] Changeset added if this PR should ship to npm (`bunx changeset`)
+- [ ] No hand-edited `package.json` version bumps or local npm publish

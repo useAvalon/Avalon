@@ -1,14 +1,15 @@
 ---
 description: Independent package versioning and release channels
-globs: ".github/workflows/**,scripts/bump-version*"
+globs: ".github/workflows/**,scripts/publish-packages*,.changeset/**"
 alwaysApply: false
 ---
 
 # Releases
 
-Packages version independently (`@useavalon/avalon`, integrations, `create-avalon`). Do not hand-edit version fields — use `scripts/bump-version.ts` or the workflows.
+Packages version independently. Do not hand-edit version fields in PRs — add a **changeset** (`bunx changeset`) when npm publish should change.
 
-- **canary**: push to `main`, changed packages only (`X.Y.Z-canary.YYYYMMDD.sha`).
-- **beta** / **rc** / **stable**: manual `release.yml` (`workflow_dispatch`). Dry-run is the default.
-- `--package=all` only when a core/shared API break hits every integration.
-- Tags are scoped (`core/v0.2.0`). CI: `ci.yml` lint/format/typecheck; `canary.yml` publishes changed packages.
+- **PR previews**: `preview.yml` publishes to pkg.pr.new (not npm). Requires the pkg.pr.new GitHub App.
+- **Release**: merge changesets on `main` → **Version packages** PR → merge runs lint, tests, typecheck, `test:install`, then `bun run release` (`publish-packages.ts` + `changeset tag`) and GitHub Releases via changesets/action.
+- **Fixed group** (`.changeset/config.json`): `@useavalon/avalon`, `@useavalon/core`, `@useavalon/preact`, `@useavalon/seo`, `create-avalon` bump together. Other integrations, `mcp`, and plugins version on their own changesets.
+- Use `scripts/publish-packages.ts` for npm publish (rewrites workspace deps; `changeset publish` alone does not). It skips versions already on npm and exits non-zero on failure.
+- `www/` deploys via Cloudflare only — never npm.

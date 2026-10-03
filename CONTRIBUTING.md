@@ -44,7 +44,7 @@ Large or breaking changes need an issue first so the approach can be discussed.
 
 CI on pull requests runs Biome, Vitest, `tsc --noEmit`, and an install smoke (`bun run test:install`: pack workspace packages → `create-avalon --yes` → install from those tarballs → production build). All four must pass.
 
-**Do not** bump versions, edit release workflows, or publish to npm. Packages version independently. Maintainers ship **stable / beta / rc only from GitHub Actions → Release** (`workflow_dispatch` on `.github/workflows/release.yml`). That job re-runs lint, tests, typecheck, and the install smoke, then publishes. Do not `npm publish` from a laptop. Merges to `main` that touch `packages/**` already publish canary builds.
+**Do not** bump versions in `package.json` by hand or publish from a laptop. When a PR should change what ships on npm, run `bunx changeset` and commit the generated file under `.changeset/`. Merging to `main` opens or updates a **Version packages** PR; merging that PR runs the full CI smoke and publishes to npm. PRs get install previews via [pkg.pr.new](https://pkg.pr.new) (see `.github/workflows/preview.yml`), not npm canary tags.
 
 **Do not** add a dependency without an issue discussing it. Only change `bun.lock` when the change needs it.
 
@@ -69,23 +69,22 @@ Report vulnerabilities privately — see [SECURITY.md](./SECURITY.md). Do not fi
 
 ## Releases (maintainers)
 
-1. Open **Actions → Release**.
-2. Choose the package (`core` is the default install set: avalon, core, preact, seo, create-avalon), bump, and channel.
-3. Leave **dry-run** checked first. Confirm the install smoke passes.
-4. Re-run with dry-run unchecked to publish.
+1. Contributors add changesets on feature PRs (`bunx changeset`).
+2. Merge to `main`. The **Release** workflow opens or updates a **Version packages** PR (bumps + changelogs).
+3. Review and merge **Version packages**. The same workflow runs lint, tests, typecheck, and `test:install`, then `bun run release` publishes bumped packages to npm and creates GitHub Releases.
 
-A failed `test:install` blocks `npm publish`. That is intentional — a broken `latest` must not ship.
+A failed `test:install` or publish blocks shipping. `scripts/publish-packages.ts` skips versions already on npm so a retry can finish the same release.
 
-A failed publish does not commit the version bump. Retry with the **same** bump; versions already on npm are skipped. Use bump `none` only when `package.json` already has the versions you want to publish. Do not re-run a successful release with a bump — that would cut the next version.
-
-Publish uses npm **trusted publishing** (OIDC), not a long-lived token. Each package that Release or Canary ships needs its own Trusted Publisher on npmjs.com (Settings → Trusted Publisher → GitHub Actions):
+Publish uses npm **trusted publishing** (OIDC). Each public package needs a Trusted Publisher on npmjs.com (Settings → Trusted Publisher → GitHub Actions):
 
 - Organization or user: `useAvalon`
 - Repository: `Avalon`
-- Workflow filename: `release.yml` (and `canary.yml` for packages on the canary train)
+- Workflow filename: `release.yml`
 - Allow `npm publish`
 
-`create-avalon` is a separate unscoped package page. Keep that name — `npm create avalon` depends on it. Add the same `release.yml` trusted publisher there, then re-run **Release** with the same package and the same bump.
+`create-avalon` is unscoped — `npm create avalon` depends on that package name. Register the same `release.yml` trusted publisher on its npm package page.
+
+PR previews use **pkg.pr.new** (`.github/workflows/preview.yml`); install the pkg.pr.new GitHub App on the repo.
 
 ## License
 

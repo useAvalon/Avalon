@@ -7,9 +7,9 @@ alwaysApply: true
 
 Full process: `CONTRIBUTING.md`. Issue/PR templates live in `.github/`.
 
-- Fork, branch, PR against `main`. Never push to `main` (canary publish).
+- Fork, branch, PR against `main`. Never push to `main` (triggers Version packages flow).
 - One concern per PR. No unrelated refactors or formatting-only diffs.
-- Do not bump versions, publish, or edit release workflows.
+- Do not hand-bump versions or publish; add a changeset when npm should change. Do not edit release workflows without maintainer intent.
 - Do not add dependencies without an issue. Touch `bun.lock` only when needed.
 - Behavior change → colocated Vitest tests. Then `bun run lint`, `bun run test`, `bun run typecheck`.
 - Commits: `type(scope): summary` (`feat` / `fix` / `docs` / `chore` / `ci` / `refactor` / `test`).
