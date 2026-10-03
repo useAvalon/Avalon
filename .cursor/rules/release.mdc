@@ -6,10 +6,14 @@ alwaysApply: false
 
 # Releases
 
-Packages version independently. Do not hand-edit version fields in PRs — add a **changeset** (`bunx changeset`) when npm publish should change.
+Packages version independently. Do not hand-edit version fields in PRs.
 
-- **PR previews**: `preview.yml` publishes to pkg.pr.new (not npm). Requires the pkg.pr.new GitHub App.
-- **Release**: merge changesets on `main` → **Version packages** PR → merge runs lint, tests, typecheck, `test:install`, then `bun run release` (`publish-packages.ts` + `changeset tag`) and GitHub Releases via changesets/action.
+**When to add a changeset:** publishable code under `packages/` changes and should reach npm — run `bunx changeset`, commit `.changeset/*.md` in the PR. **Skip** for test-only, README-only, `www/`, or docs with no package behavior change.
+
+- **Changeset Bot** ([app](https://github.com/apps/changeset-bot)) on `useAvalon/Avalon` — PR comments when a changeset is likely missing.
+- **require-changeset.yml** — fails if publishable `packages/**` changed without `.changeset/*.md`; label **`no changeset`** to skip.
+- **PR previews**: label **`pr preview`** → `preview.yml` → pkg.pr.new (not npm).
+- **Release**: `main` → Version packages PR → merge after **ci.yml** (incl. `test:install`) → `release.yml` runs `build:packages`, then `bun run release` + GitHub Releases (`changesets/action` v2).
 - **Fixed group** (`.changeset/config.json`): `@useavalon/avalon`, `@useavalon/core`, `@useavalon/preact`, `@useavalon/seo`, `create-avalon` bump together. Other integrations, `mcp`, and plugins version on their own changesets.
 - Use `scripts/publish-packages.ts` for npm publish (rewrites workspace deps; `changeset publish` alone does not). It skips versions already on npm and exits non-zero on failure.
 - `www/` deploys via Cloudflare only — never npm.

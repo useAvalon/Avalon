@@ -1,5 +1,5 @@
-# Push to main with pending changesets -> opens/updates a "Version packages" PR.
-# Merge that PR -> verifies, publishes what was bumped, tags, creates GitHub Releases.
+# Pending changesets on main → Version packages PR. Merging that PR → build, publish, tags, GitHub Releases.
+# Lint/test/typecheck/install-smoke run in ci.yml on every PR (including Version packages) before merge.
 name: Release
 
 on:
@@ -15,12 +15,13 @@ permissions:
 
 jobs:
   release:
+    if: github.repository_owner == 'useAvalon'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
-          fetch-depth: 0
+          fetch-depth: 2
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -34,17 +35,14 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - run: bunx biome ci .
-      - run: bun --bun x vitest run
-      - run: bunx tsc --noEmit
-      - run: bun run test:install
+      - name: Build packages with a build script
+        run: bun run build:packages
 
-      - uses: changesets/action@v1
+      - uses: changesets/action@8488615a623b1b9c987934bb89eae8af6a946ac1 # v2.1.1
         with:
-          version: bun run version
-          publish: bun run release
-          commit: "release: version packages"
-          title: "release: version packages"
-          createGithubReleases: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          version-script: bun run version
+          publish-script: bun run release
+          commit-message: "release: version packages"
+          pr-title: "release: version packages"
+          create-github-releases: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}

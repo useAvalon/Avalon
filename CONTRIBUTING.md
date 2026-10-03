@@ -71,7 +71,7 @@ Report vulnerabilities privately — see [SECURITY.md](./SECURITY.md). Do not fi
 
 1. Contributors add changesets on feature PRs (`bunx changeset`).
 2. Merge to `main`. The **Release** workflow opens or updates a **Version packages** PR (bumps + changelogs).
-3. Review and merge **Version packages**. The same workflow runs lint, tests, typecheck, and `test:install`, then `bun run release` publishes bumped packages to npm and creates GitHub Releases.
+3. Review and merge **Version packages** only after **CI** is green (lint, tests, typecheck, **`test:install`**). The **Release** workflow then builds packages and runs `bun run release` (npm + GitHub Releases).
 
 A failed `test:install` or publish blocks shipping. `scripts/publish-packages.ts` skips versions already on npm so a retry can finish the same release.
 
@@ -84,7 +84,14 @@ Publish uses npm **trusted publishing** (OIDC). Each public package needs a Trus
 
 `create-avalon` is unscoped — `npm create avalon` depends on that package name. Register the same `release.yml` trusted publisher on its npm package page.
 
-PR previews use **pkg.pr.new** (`.github/workflows/preview.yml`). Install the [pkg.pr.new app](https://github.com/apps/pkg-pr-new) on the **`useAvalon/Avalon`** repo (under the org’s GitHub App settings, grant access to this repository).
+Install on **`useAvalon/Avalon`** (org → GitHub Apps → configure repository access):
+
+- **[Changeset Bot](https://github.com/apps/changeset-bot)** — nudges missing changesets on PRs.
+- **[pkg.pr.new](https://github.com/apps/pkg-pr-new)** — PR package previews when the PR has the **`pr preview`** label.
+
+In repo **Settings → Actions → General**, enable **Allow GitHub Actions to create and approve pull requests** (required for Version packages PRs).
+
+CI **`require-changeset`** fails if publishable `packages/**` code changed without a changeset; use the **`no changeset`** label when npm should not change.
 
 ## License
 

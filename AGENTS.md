@@ -67,13 +67,35 @@ Process for humans: [CONTRIBUTING.md](./CONTRIBUTING.md). Issues and PRs use the
 
 - Fork the repo, work on a branch, and open a PR against `main`. Do not push to `main` — merges there drive the Version packages release flow.
 - One concern per PR. No drive-by refactors, formatting-only diffs, or unrelated files.
-- Do not bump versions in `package.json` by hand or publish from a laptop. Add a changeset (`bunx changeset`) when npm should change; the Version packages PR handles bumps and publish after CI + `test:install`.
+- Do not bump versions in `package.json` by hand or publish from a laptop.
 - Do not add a dependency without an issue. Only change `bun.lock` when the change needs it.
 - Behavior change → tests next to the code (`__tests__` or `tests/`).
 - Commits: `type(scope): summary` (`feat`, `fix`, `docs`, `chore`, `ci`, `refactor`, `test`). Present tense; why, not a file list.
 - Before a PR: `bun run lint`, `bun run test`, `bun run typecheck`. Do not skip git hooks.
 - Do not commit, push, merge, or open a PR unless asked.
 - Vulnerabilities go to a private GitHub advisory — never a public issue or a PR that includes an exploit.
+
+## Releases and changesets
+
+npm does **not** update on every merge to `main`. Releases are **manual via changeset files** (not automatic).
+
+**Add a changeset** when the PR changes publishable package **behavior or public API** under `packages/` and should ship to npm:
+
+```bash
+bunx changeset
+```
+
+Commit the generated file under `.changeset/` in the same PR. Pick patch / minor / major; the CLI lists packages. **Fixed group** (one bump together): `@useavalon/avalon`, `@useavalon/core`, `@useavalon/preact`, `@useavalon/seo`, `create-avalon` (see `.changeset/config.json`). **Independent** (own changeset): framework integrations (`@useavalon/react`, `vue`, …), `@useavalon/mcp`, `@useavalon/agent-optimization`, and other packages outside the fixed group.
+
+**No changeset** for `www/` only, docs/copy, tests-only, CI-only, or refactors with no npm-facing change. Those merges do not open a Version packages PR.
+
+**After merge:** pending changesets → Release workflow opens/updates **Version packages** PR → merge when **CI** is green (`test:install` included) → Release workflow **`build:packages`** + `bun run release` to npm.
+
+**PR previews:** add label **`pr preview`** for pkg.pr.new (not npm). CI **`require-changeset`** enforces a changeset when publishable `packages/**` source changes unless label **`no changeset`**.
+
+Install [Changeset Bot](https://github.com/apps/changeset-bot) on the repo (maintainers).
+
+Details: [CONTRIBUTING.md](./CONTRIBUTING.md), [.changeset/README.md](./.changeset/README.md).
 
 ## Security (SSR HTML)
 

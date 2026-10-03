@@ -9,7 +9,11 @@ Full process: `CONTRIBUTING.md`. Issue/PR templates live in `.github/`.
 
 - Fork, branch, PR against `main`. Never push to `main` (triggers Version packages flow).
 - One concern per PR. No unrelated refactors or formatting-only diffs.
-- Do not hand-bump versions or publish; add a changeset when npm should change. Do not edit release workflows without maintainer intent.
+- Do not hand-bump `package.json` versions or publish to npm.
+- **Changesets (not automatic):** if the PR changes publishable behavior under `packages/` and should ship to npm, run `bunx changeset` and commit the new file under `.changeset/` in the same PR. No changeset for `www/` only, docs-only, tests-only, or CI-only work.
+- Fixed bump group: `@useavalon/avalon`, `@useavalon/core`, `@useavalon/preact`, `@useavalon/seo`, `create-avalon`. Other packages (integrations, `mcp`, `agent-optimization`, …) get their own changeset.
+- Merge to `main` with changesets → Version packages PR → merge after CI green to publish. Label **`pr preview`** for pkg.pr.new. Label **`no changeset`** when npm should not change (CI escape hatch). Install Changeset Bot on the repo.
+- Do not edit release workflows without maintainer intent.
 - Do not add dependencies without an issue. Touch `bun.lock` only when needed.
 - Behavior change → colocated Vitest tests. Then `bun run lint`, `bun run test`, `bun run typecheck`.
 - Commits: `type(scope): summary` (`feat` / `fix` / `docs` / `chore` / `ci` / `refactor` / `test`).

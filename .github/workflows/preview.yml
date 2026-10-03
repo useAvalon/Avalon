@@ -1,10 +1,11 @@
-# Every PR from this repo gets installable previews on pkg.pr.new (not npm).
-# Requires the pkg.pr.new GitHub App on the repository.
+# Publishes pkg.pr.new previews when the PR has the "pr preview" label (not npm).
+# Requires the pkg.pr.new GitHub App on useAvalon/Avalon.
 name: Preview
 
 on:
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.number }}
@@ -16,7 +17,9 @@ permissions:
 
 jobs:
   preview:
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.labels.*.name, 'pr preview')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

@@ -12,10 +12,20 @@ bunx changeset
 
 ## Independent (own changeset / version line)
 
-Framework integrations (`@useavalon/react`, `vue`, `svelte`, …), `@useavalon/mcp`, `@useavalon/agent-optimization`, and other plugins. They publish when their changeset bumps them, not with the fixed group.
+Framework integrations (`@useavalon/react`, `vue`, `svelte`, …), `@useavalon/mcp`, `@useavalon/agent-optimization`, and other packages outside the fixed group.
 
-Merging to `main` opens a **Version packages** PR; merging that PR runs tests and publishes.
+`avalon-demo` (`www/`) is in **`ignore`** — it never publishes to npm.
+
+Merging to `main` opens a **Version packages** PR; merging that PR runs **`build:packages`**, then publishes.
+
+## Automation
+
+- **[Changeset Bot](https://github.com/apps/changeset-bot)** — install on **`useAvalon/Avalon`**; comments when a PR likely needs a changeset.
+- **`require-changeset.yml`** — fails CI if publishable `packages/**` source changed without `.changeset/*.md`. Escape hatch: add the **`no changeset`** label.
+- **`ci.yml`** — lint, test, typecheck, and **`test:install`** must pass before merging (including the Version packages PR).
 
 ## PR previews (pkg.pr.new)
 
-Not npm. Install the [pkg.pr.new GitHub App](https://github.com/apps/pkg-pr-new) on the **`useAvalon/Avalon`** repository (org install: Organization → Settings → GitHub Apps → pkg.pr.new → Repository access must include **Avalon**). A 404 “app is not installed” error means the app is missing on this repo, not on your user account alone.
+Not npm. Install the [pkg.pr.new app](https://github.com/apps/pkg-pr-new) on **`useAvalon/Avalon`**. Add the **`pr preview`** label on the PR to run the Preview workflow.
+
+StackBlitz often uses Vite 7; Avalon targets **Vite 8** — run `npm i vite@8` before installing core preview URLs. `@useavalon/qwik` accepts `vite` `>=5 <9` alongside `@builder.io/qwik`.
