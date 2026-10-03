@@ -13,7 +13,10 @@ permissions:
 
 jobs:
   changeset:
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # Version packages PRs consume changesets (delete .changeset/*.md, bump package.json).
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !startsWith(github.head_ref, 'changeset-release/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
@@ -46,6 +49,10 @@ jobs:
           LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: |
           set -euo pipefail
+          if [ "${{ github.event.pull_request.title }}" = "release: version packages" ]; then
+            echo "Skipped: automated Version packages PR."
+            exit 0
+          fi
           if [ "$HAS_PUBLISHABLE" != "true" ]; then
             echo "No publishable package source changes — changeset not required."
             exit 0
