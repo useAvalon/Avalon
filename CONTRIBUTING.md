@@ -84,7 +84,7 @@ Publish uses npm **trusted publishing** (OIDC). Each public package needs a Trus
 
 `create-avalon` is unscoped — `npm create avalon` depends on that package name. Register the same `release.yml` trusted publisher on its npm package page.
 
-PR previews use **pkg.pr.new** (`.github/workflows/preview.yml`); install the pkg.pr.new GitHub App on the repo.
+PR previews use **pkg.pr.new** (`.github/workflows/preview.yml`). Install the [pkg.pr.new app](https://github.com/apps/pkg-pr-new) on the **`useAvalon/Avalon`** repo (under the org’s GitHub App settings, grant access to this repository).
 
 ## License
 

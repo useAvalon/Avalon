@@ -12,6 +12,7 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   preview:
@@ -27,6 +28,7 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - run: bun run build
-
-      - run: bunx pkg-pr-new publish --bun --compact './packages/*' './packages/integrations/*'
+      - name: Publish package previews
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bunx pkg-pr-new publish --bun --compact './packages/*' './packages/integrations/*'
