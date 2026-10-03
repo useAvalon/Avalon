@@ -19,6 +19,9 @@
 		"lint": "bunx biome check .",
 		"format": "bunx biome format --write .",
 		"typecheck": "bunx tsc --noEmit",
+		"build:packages": "bun scripts/build-packages.ts",
+		"version": "changeset version && bun install",
+		"release": "NPM_BIN=$(command -v npm) bun scripts/publish-packages.ts --tag latest -- packages/integrations/core packages/avalon packages/agent-optimization packages/mcp packages/seo packages/create-avalon packages/integrations/lit packages/integrations/react packages/integrations/preact packages/integrations/svelte packages/integrations/solid packages/integrations/vue packages/integrations/qwik && bunx changeset tag",
 		"prepare": "husky"
 	},
 	"lint-staged": {
@@ -31,6 +34,8 @@
 		"@babel/plugin-transform-class-properties": "^8.0.1",
 		"@babel/plugin-transform-typescript": "^8.0.6",
 		"@biomejs/biome": "^2.5.15",
+		"@changesets/changelog-github": "^1.0.1",
+		"@changesets/cli": "^3.0.3",
 		"@rolldown/plugin-babel": "^0.2.4",
 		"@tailwindcss/vite": "^4.3.3",
 		"@types/bun": "^1.4.2",

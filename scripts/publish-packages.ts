@@ -138,6 +138,8 @@ export async function publishPackages(
 		const published = publish(dir, tag);
 		if (published.ok) {
 			console.log(`Published ${id}`);
+			// changesets/action createGithubReleases reads publish output when present
+			console.log(`New tag: ${id}`);
 			result.published.push(id);
 			continue;
 		}
