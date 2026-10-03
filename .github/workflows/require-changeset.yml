@@ -26,6 +26,8 @@ jobs:
       - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
         id: publishable
         with:
+          # Exclusion globs only work with "every"; default "some" treats each ! rule as its own match.
+          predicate-quantifier: every
           filters: |
             packages:
               - 'packages/**'
