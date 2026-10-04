@@ -56,35 +56,29 @@ jobs:
           NITRO_PRESET: node_server
         run: bun run build
 
-      - name: Stash prerendered HTML
+      - name: Stash node preset client output
         working-directory: www
         env:
           PRERENDER_STASH: ${{ runner.temp }}/avalon-prerender-html
         run: |
           set -euo pipefail
           rm -rf "$PRERENDER_STASH"
-          mkdir -p "$PRERENDER_STASH"
-          for root in dist .output/public; do
-            [ -d "$root" ] || continue
-            while IFS= read -r -d '' file; do
-              mkdir -p "$PRERENDER_STASH/$(dirname "$file")"
-              cp "$file" "$PRERENDER_STASH/$file"
-            done < <(find "$root" -type f -name '*.html' -print0)
-          done
-          if [ -d dist/pagefind ]; then
-            mkdir -p "$PRERENDER_STASH/dist"
-            cp -a dist/pagefind "$PRERENDER_STASH/dist/pagefind"
-          elif [ -d .output/public/pagefind ]; then
-            mkdir -p "$PRERENDER_STASH/dist"
-            cp -a .output/public/pagefind "$PRERENDER_STASH/dist/pagefind"
+          mkdir -p "$PRERENDER_STASH/client"
+          # Prerender HTML and its /assets/* hashes must come from the same build.
+          if [ -d .output/public ]; then
+            rsync -a .output/public/ "$PRERENDER_STASH/client/"
           fi
-          html_count="$(find "$PRERENDER_STASH" -type f -name '*.html' | wc -l | tr -d ' ')"
+          if [ -d dist ]; then
+            rsync -a dist/ "$PRERENDER_STASH/client/"
+          fi
+          html_count="$(find "$PRERENDER_STASH/client" -type f -name '*.html' | wc -l | tr -d ' ')"
           if [ "$html_count" = "0" ]; then
             echo "::error::node_server build did not produce any prerendered HTML."
             ls -la dist .output/public 2>/dev/null || true
             exit 1
           fi
-          echo "Stashed ${html_count} prerender HTML file(s)."
+          asset_count="$(find "$PRERENDER_STASH/client/assets" -type f 2>/dev/null | wc -l | tr -d ' ')"
+          echo "Stashed ${html_count} HTML file(s) and ${asset_count} asset file(s) from node preset."
 
       - name: Clean www output before Cloudflare build
         working-directory: www
@@ -97,27 +91,14 @@ jobs:
           AVALON_SKIP_PRERENDER: "1"
         run: bun run build
 
-      - name: Merge prerendered HTML into Cloudflare dist
+      - name: Merge node client output into Cloudflare dist
         working-directory: www
         env:
           PRERENDER_STASH: ${{ runner.temp }}/avalon-prerender-html
         run: |
           set -euo pipefail
           mkdir -p dist
-          for src_root in "$PRERENDER_STASH/dist" "$PRERENDER_STASH/.output/public"; do
-            [ -d "$src_root" ] || continue
-            while IFS= read -r -d '' file; do
-              rel="${file#"$src_root"/}"
-              mkdir -p "dist/$(dirname "$rel")"
-              cp "$file" "dist/$rel"
-            done < <(find "$src_root" -type f -name '*.html' -print0)
-          done
-          for pf in "$PRERENDER_STASH/dist/pagefind" "$PRERENDER_STASH/.output/public/pagefind"; do
-            [ -d "$pf" ] || continue
-            mkdir -p dist/pagefind
-            cp -a "$pf/." dist/pagefind/
-            break
-          done
+          rsync -a --exclude '_worker.js' "$PRERENDER_STASH/client/" dist/
           bun -e "
           import { patchCloudflareRoutesAfterPrerender } from '@useavalon/avalon/post-build';
           patchCloudflareRoutesAfterPrerender(process.cwd());
@@ -138,7 +119,12 @@ jobs:
           if ! grep -q '"exclude".*"/"' dist/_routes.json; then
             echo "::warning::Expected static-first _routes.json exclude for / when index.html is present."
           fi
-          echo "Prerendered HTML merged into Cloudflare dist."
+          css="$(find dist/assets -maxdepth 1 -name 'ssr-index-*.css' -print | head -1)"
+          if [ -z "$css" ]; then
+            echo "::error::Expected ssr-index-*.css in dist/assets after merge."
+            exit 1
+          fi
+          echo "Prerendered HTML and matching assets merged into Cloudflare dist."
 
       # bunx, not wrangler-action install: `npm i` inside www/ fails on workspace:^ deps.
       # Project `useavalon` already exists in the Cloudflare account — do not call
