@@ -22,6 +22,8 @@ const OXC_PACKAGES = ["oxc-parser", "oxc-transform", "oxc-minify"] as const;
 
 const OXC_BINDING_PREFIXES = ["@oxc-parser/", "@oxc-transform/", "@oxc-minify/"] as const;
 
+const ROLLDOWN_BINDING_PREFIX = "@rolldown/binding-";
+
 function matchesPackage(id: string, pkg: string): boolean {
 	return id === pkg || id.startsWith(`${pkg}/`);
 }
@@ -33,7 +35,42 @@ export function shouldStubBuildTimeSpecifier(id: string): boolean {
 	if (VITE_PLUGIN_PACKAGES.some((pkg) => matchesPackage(id, pkg))) return true;
 	if (NODE_ONLY_PACKAGES.some((pkg) => matchesPackage(id, pkg))) return true;
 	if (OXC_PACKAGES.some((pkg) => matchesPackage(id, pkg))) return true;
-	return OXC_BINDING_PREFIXES.some((prefix) => id.startsWith(prefix));
+	if (OXC_BINDING_PREFIXES.some((prefix) => id.startsWith(prefix))) return true;
+	return id.startsWith(ROLLDOWN_BINDING_PREFIX);
+}
+
+const NITRO_WORKER_PACKAGES = [
+	"vite",
+	"rolldown",
+	"@rolldown/pluginutils",
+	"@rolldown/plugin-babel",
+] as const;
+
+/** Nitro's Cloudflare worker bundle — build-time deps that must not run on workerd. */
+export function shouldStubNitroWorkerSpecifier(id: string): boolean {
+	if (shouldStubBuildTimeSpecifier(id)) return true;
+	return NITRO_WORKER_PACKAGES.some((pkg) => matchesPackage(id, pkg));
+}
+
+const STUB_PREFIX = "\0avalon-stub:";
+
+/** Rolldown/Rollup plugin for Nitro's server bundle (separate from Vite SSR env). */
+export function createStubBuildTimeBundlerPlugin() {
+	return {
+		name: "avalon:stub-build-time-bundler",
+		resolveId(id: string) {
+			if (shouldStubNitroWorkerSpecifier(id)) {
+				return `${STUB_PREFIX}${id}`;
+			}
+			return null;
+		},
+		load(id: string) {
+			if (id.startsWith(STUB_PREFIX)) {
+				return STUB_BUILD_TIME_MODULE;
+			}
+			return null;
+		},
+	};
 }
 
 /**
@@ -52,4 +89,7 @@ export const STUB_BUILD_TIME_MODULE = [
 	"export const isRunnableDevEnvironment = () => false;",
 	"export const watch = () => ({ on() {}, close() {} });",
 	"export const FSWatcher = class {};",
+	"export const build = noop;",
+	"export const createServer = noop;",
+	"export const resolveConfig = noop;",
 ].join("\n");

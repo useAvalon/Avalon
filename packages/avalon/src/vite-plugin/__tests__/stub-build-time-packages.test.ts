@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { shouldStubBuildTimeSpecifier } from "../stub-build-time-packages.ts";
+import {
+	shouldStubBuildTimeSpecifier,
+	shouldStubNitroWorkerSpecifier,
+} from "../stub-build-time-packages.ts";
 
 describe("shouldStubBuildTimeSpecifier", () => {
 	it("stubs Vite plugin packages used by integrations", () => {
@@ -14,6 +17,12 @@ describe("shouldStubBuildTimeSpecifier", () => {
 		expect(shouldStubBuildTimeSpecifier("@oxc-parser/binding-wasm32-wasi")).toBe(true);
 	});
 
+	it("stubs rolldown native bindings but not the rolldown package itself", () => {
+		expect(shouldStubBuildTimeSpecifier("rolldown")).toBe(false);
+		expect(shouldStubBuildTimeSpecifier("@rolldown/binding-wasm32-wasi")).toBe(true);
+		expect(shouldStubBuildTimeSpecifier("@rolldown/binding-linux-x64-gnu")).toBe(true);
+	});
+
 	it("stubs native watcher addons out of the Cloudflare worker", () => {
 		expect(shouldStubBuildTimeSpecifier("vite")).toBe(false);
 		expect(shouldStubBuildTimeSpecifier("chokidar")).toBe(true);
@@ -25,5 +34,12 @@ describe("shouldStubBuildTimeSpecifier", () => {
 		expect(shouldStubBuildTimeSpecifier("preact")).toBe(false);
 		expect(shouldStubBuildTimeSpecifier("@useavalon/avalon")).toBe(false);
 		expect(shouldStubBuildTimeSpecifier("oxc-lint")).toBe(false);
+	});
+
+	it("stubs vite and rolldown only for Nitro worker bundle pass", () => {
+		expect(shouldStubNitroWorkerSpecifier("vite")).toBe(true);
+		expect(shouldStubNitroWorkerSpecifier("rolldown")).toBe(true);
+		expect(shouldStubBuildTimeSpecifier("vite")).toBe(false);
+		expect(shouldStubBuildTimeSpecifier("rolldown")).toBe(false);
 	});
 });

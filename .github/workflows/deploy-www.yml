@@ -48,11 +48,83 @@ jobs:
 
       - run: bun install
 
-      - name: Build www
+      # Cloudflare worker cannot boot under Node for post-build prerender (rolldown WASI bindings).
+      # Prerender with node_server, then merge HTML into the Cloudflare Pages output.
+      - name: Prerender www (node preset)
+        working-directory: www
+        env:
+          NITRO_PRESET: node_server
+        run: bun run build
+
+      - name: Stash node preset client output
+        working-directory: www
+        env:
+          PRERENDER_STASH: ${{ runner.temp }}/avalon-prerender-html
+        run: |
+          set -euo pipefail
+          rm -rf "$PRERENDER_STASH"
+          mkdir -p "$PRERENDER_STASH/client"
+          # Prerender HTML and its /assets/* hashes must come from the same build.
+          if [ -d .output/public ]; then
+            rsync -a .output/public/ "$PRERENDER_STASH/client/"
+          fi
+          if [ -d dist ]; then
+            rsync -a dist/ "$PRERENDER_STASH/client/"
+          fi
+          html_count="$(find "$PRERENDER_STASH/client" -type f -name '*.html' | wc -l | tr -d ' ')"
+          if [ "$html_count" = "0" ]; then
+            echo "::error::node_server build did not produce any prerendered HTML."
+            ls -la dist .output/public 2>/dev/null || true
+            exit 1
+          fi
+          asset_count="$(find "$PRERENDER_STASH/client/assets" -type f 2>/dev/null | wc -l | tr -d ' ')"
+          echo "Stashed ${html_count} HTML file(s) and ${asset_count} asset file(s) from node preset."
+
+      - name: Clean www output before Cloudflare build
+        working-directory: www
+        run: rm -rf dist .output .netlify
+
+      - name: Build www (Cloudflare Pages)
         working-directory: www
         env:
           NITRO_PRESET: cloudflare_pages
+          AVALON_SKIP_PRERENDER: "1"
         run: bun run build
+
+      - name: Merge node client output into Cloudflare dist
+        working-directory: www
+        env:
+          PRERENDER_STASH: ${{ runner.temp }}/avalon-prerender-html
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          rsync -a --exclude '_worker.js' "$PRERENDER_STASH/client/" dist/
+          bun -e "
+          import { patchCloudflareRoutesAfterPrerender } from '@useavalon/avalon/post-build';
+          patchCloudflareRoutesAfterPrerender(process.cwd());
+          "
+
+      - name: Verify Pages HTML artifact
+        working-directory: www
+        run: |
+          set -euo pipefail
+          if [ ! -f dist/index.html ]; then
+            echo "::error::dist/index.html missing after prerender merge."
+            exit 1
+          fi
+          if [ ! -f dist/_routes.json ]; then
+            echo "::error::dist/_routes.json missing after build."
+            exit 1
+          fi
+          if ! grep -q '"exclude".*"/"' dist/_routes.json; then
+            echo "::warning::Expected static-first _routes.json exclude for / when index.html is present."
+          fi
+          css="$(find dist/assets -maxdepth 1 -name 'ssr-index-*.css' -print | head -1)"
+          if [ -z "$css" ]; then
+            echo "::error::Expected ssr-index-*.css in dist/assets after merge."
+            exit 1
+          fi
+          echo "Prerendered HTML and matching assets merged into Cloudflare dist."
 
       # bunx, not wrangler-action install: `npm i` inside www/ fails on workspace:^ deps.
       # Project `useavalon` already exists in the Cloudflare account — do not call
