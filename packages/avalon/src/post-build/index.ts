@@ -27,7 +27,10 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { patchCloudflareWorkerOutput } from "./cloudflare-worker-patch.ts";
+import {
+	patchCloudflareRoutesAfterPrerender,
+	patchCloudflareWorkerOutput,
+} from "./cloudflare-worker-patch.ts";
 import { copySSRCSSToClient } from "./copy-ssr-css.ts";
 import { collectFiles, isFile } from "./fs-utils.ts";
 import { optimizePrerenderedHtml } from "./html-optimize.ts";
@@ -360,6 +363,8 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 			options.clientRouter,
 		);
 	}
+
+	patchCloudflareRoutesAfterPrerender(cwd);
 
 	injectIslandDepsPreloads(cwd, distDir);
 	optimizePrerenderedHtml(cwd, distDir);

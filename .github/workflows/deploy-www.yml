@@ -54,6 +54,24 @@ jobs:
           NITRO_PRESET: cloudflare_pages
         run: bun run build
 
+      - name: Verify Pages HTML artifact
+        working-directory: www
+        run: |
+          set -euo pipefail
+          if [ -f dist/index.html ]; then
+            echo "Prerendered index.html present — static-first _routes.json is expected."
+            exit 0
+          fi
+          if [ ! -f dist/_routes.json ]; then
+            echo "::error::dist/_routes.json missing after build."
+            exit 1
+          fi
+          if grep -q '"exclude".*"/"' dist/_routes.json; then
+            echo "::error::dist/_routes.json excludes / but index.html is missing (HTML routes would 404)."
+            exit 1
+          fi
+          echo "No prerendered index.html — Pages Function must serve HTML (worker SSR)."
+
       # bunx, not wrangler-action install: `npm i` inside www/ fails on workspace:^ deps.
       # Project `useavalon` already exists in the Cloudflare account — do not call
       # `pages project create` (it is not idempotent and logs a scary 8000002 error).

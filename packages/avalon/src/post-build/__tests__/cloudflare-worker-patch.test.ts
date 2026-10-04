@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
 	injectCloudflareDomStub,
 	patchCloudflareCreateRequire,
+	patchCloudflareRoutesAfterPrerender,
 	patchCloudflareRoutesForStaticHtml,
 	patchCloudflareWranglerJson,
 } from "../cloudflare-worker-patch.ts";
@@ -89,6 +90,38 @@ describe("injectCloudflareDomStub", () => {
 				'import "../../_dom_stub.mjs";',
 			),
 		).toBe(true);
+	});
+});
+
+describe("patchCloudflareRoutesAfterPrerender", () => {
+	it("skips _routes.json patch when prerender did not write index.html", () => {
+		const cwd = mkdtempSync(join(tmpdir(), "avalon-cf-r-skip-"));
+		dirs.push(cwd);
+		mkdirSync(join(cwd, "dist"), { recursive: true });
+		writeFileSync(
+			join(cwd, "dist", "_routes.json"),
+			JSON.stringify({ version: 1, include: ["/*"], exclude: [] }),
+		);
+
+		expect(patchCloudflareRoutesAfterPrerender(cwd)).toBe(false);
+		const routes = JSON.parse(readFileSync(join(cwd, "dist", "_routes.json"), "utf-8"));
+		expect(routes.include).toEqual(["/*"]);
+	});
+
+	it("patches _routes.json when index.html exists", () => {
+		const cwd = mkdtempSync(join(tmpdir(), "avalon-cf-r-ok-"));
+		dirs.push(cwd);
+		mkdirSync(join(cwd, "dist"), { recursive: true });
+		writeFileSync(join(cwd, "dist", "index.html"), "<!DOCTYPE html><html></html>\n");
+		writeFileSync(
+			join(cwd, "dist", "_routes.json"),
+			JSON.stringify({ version: 1, include: ["/*"], exclude: [] }),
+		);
+
+		expect(patchCloudflareRoutesAfterPrerender(cwd)).toBe(true);
+		const routes = JSON.parse(readFileSync(join(cwd, "dist", "_routes.json"), "utf-8"));
+		expect(routes.include).not.toContain("/*");
+		expect(routes.exclude).toContain("/");
 	});
 });
 

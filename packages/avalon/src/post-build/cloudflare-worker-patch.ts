@@ -160,7 +160,6 @@ export function patchCloudflareWorkerOutput(
 	const requirePatched = patchCloudflareCreateRequire(workerDir);
 	const wranglerPatched = patchCloudflareWranglerJson(workerDir, wrangler);
 	const domPatched = injectCloudflareDomStub(workerDir);
-	const routesPatched = patchCloudflareRoutesForStaticHtml(cwd);
 
 	if (requirePatched > 0) {
 		console.log(
@@ -175,8 +174,28 @@ export function patchCloudflareWorkerOutput(
 	if (domPatched) {
 		console.log("[cloudflare] Injected _dom_stub.mjs before Lit / SSR imports");
 	}
-	if (routesPatched) {
-		console.log("[cloudflare] Limited _routes.json include to dynamic SSR paths");
+	return requirePatched > 0 || wranglerPatched || domPatched;
+}
+
+/** True when post-build prerender wrote a homepage shell under `dist/`. */
+export function hasCloudflarePrerenderedHomepage(cwd: string): boolean {
+	return existsSync(join(cwd, "dist", "index.html"));
+}
+
+/**
+ * When prerender succeeded, prefer static HTML over the Pages Function.
+ * Skipped when prerender failed so `/*` SSR still serves HTML routes.
+ */
+export function patchCloudflareRoutesAfterPrerender(cwd: string): boolean {
+	if (!hasCloudflarePrerenderedHomepage(cwd)) {
+		console.log(
+			"[cloudflare] Skipping _routes.json static-first patch (no prerendered index.html)",
+		);
+		return false;
 	}
-	return requirePatched > 0 || wranglerPatched || domPatched || routesPatched;
+	if (patchCloudflareRoutesForStaticHtml(cwd)) {
+		console.log("[cloudflare] Limited _routes.json include to dynamic SSR paths");
+		return true;
+	}
+	return false;
 }
