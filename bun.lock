@@ -54,7 +54,7 @@
     },
     "packages/avalon": {
       "name": "@useavalon/avalon",
-      "version": "0.5.2",
+      "version": "0.5.3",
       "bin": {
         "avalon": "bin/avalon.ts",
       },
@@ -92,7 +92,7 @@
     },
     "packages/create-avalon": {
       "name": "create-avalon",
-      "version": "0.2.2",
+      "version": "0.5.3",
       "bin": {
         "create-avalon": "dist/cli.js",
       },
@@ -106,7 +106,7 @@
     },
     "packages/integrations/core": {
       "name": "@useavalon/core",
-      "version": "0.5.2",
+      "version": "0.5.3",
       "peerDependencies": {
         "vite": "^8.0.0",
       },
@@ -116,7 +116,7 @@
     },
     "packages/integrations/lit": {
       "name": "@useavalon/lit",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "dependencies": {
         "@babel/core": "^8.0.0",
         "@babel/plugin-proposal-decorators": "^8.0.2",
@@ -139,7 +139,7 @@
     },
     "packages/integrations/preact": {
       "name": "@useavalon/preact",
-      "version": "0.2.2",
+      "version": "0.5.3",
       "dependencies": {
         "@preact/preset-vite": "^2.10.1",
         "@useavalon/avalon": "workspace:^",
@@ -171,7 +171,7 @@
     },
     "packages/integrations/react": {
       "name": "@useavalon/react",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "dependencies": {
         "@useavalon/avalon": "workspace:^",
         "@useavalon/core": "workspace:^",
@@ -192,7 +192,7 @@
     },
     "packages/integrations/solid": {
       "name": "@useavalon/solid",
-      "version": "0.1.16",
+      "version": "0.1.17",
       "dependencies": {
         "@useavalon/avalon": "workspace:^",
         "@useavalon/core": "workspace:^",
@@ -208,7 +208,7 @@
     },
     "packages/integrations/svelte": {
       "name": "@useavalon/svelte",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "dependencies": {
         "@sveltejs/vite-plugin-svelte": "^5.0.3",
         "@useavalon/avalon": "workspace:^",
@@ -224,7 +224,7 @@
     },
     "packages/integrations/vue": {
       "name": "@useavalon/vue",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "dependencies": {
         "@useavalon/avalon": "workspace:^",
         "@useavalon/core": "workspace:^",
@@ -251,7 +251,7 @@
     },
     "packages/seo": {
       "name": "@useavalon/seo",
-      "version": "0.2.2",
+      "version": "0.5.3",
       "dependencies": {
         "zod": "^4.6.5",
       },
