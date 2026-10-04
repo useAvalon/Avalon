@@ -39,6 +39,7 @@ import { ensureIsolatedIslands } from "./isolated-islands-step.ts";
 import { patchSSRBundleCSS } from "./patch-ssr-bundle-css.ts";
 import { type PrerenderConfig, prerenderIfConfigured } from "./prerender.ts";
 
+export { patchCloudflareRoutesAfterPrerender } from "./cloudflare-worker-patch.ts";
 export { patchSSRBundleCSS } from "./patch-ssr-bundle-css.ts";
 export { isNetlifyHandler, type PrerenderConfig } from "./prerender.ts";
 
@@ -354,7 +355,7 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 	copyToNetlifyPaths(cwd);
 	patchCloudflareWorkerOutput(cwd);
 
-	if (options.prerender !== false) {
+	if (options.prerender !== false && process.env.AVALON_SKIP_PRERENDER !== "1") {
 		await prerenderIfConfigured(
 			cwd,
 			distDir,
