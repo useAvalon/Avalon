@@ -39,10 +39,17 @@ export function shouldStubBuildTimeSpecifier(id: string): boolean {
 	return id.startsWith(ROLLDOWN_BINDING_PREFIX);
 }
 
-/** Nitro's Cloudflare worker bundle — same as SSR stubs plus Vite (must not run on workerd). */
+const NITRO_WORKER_PACKAGES = [
+	"vite",
+	"rolldown",
+	"@rolldown/pluginutils",
+	"@rolldown/plugin-babel",
+] as const;
+
+/** Nitro's Cloudflare worker bundle — build-time deps that must not run on workerd. */
 export function shouldStubNitroWorkerSpecifier(id: string): boolean {
 	if (shouldStubBuildTimeSpecifier(id)) return true;
-	return matchesPackage(id, "vite");
+	return NITRO_WORKER_PACKAGES.some((pkg) => matchesPackage(id, pkg));
 }
 
 const STUB_PREFIX = "\0avalon-stub:";

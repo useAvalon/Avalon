@@ -36,8 +36,10 @@ describe("shouldStubBuildTimeSpecifier", () => {
 		expect(shouldStubBuildTimeSpecifier("oxc-lint")).toBe(false);
 	});
 
-	it("stubs vite only for Nitro worker bundle pass", () => {
+	it("stubs vite and rolldown only for Nitro worker bundle pass", () => {
 		expect(shouldStubNitroWorkerSpecifier("vite")).toBe(true);
+		expect(shouldStubNitroWorkerSpecifier("rolldown")).toBe(true);
 		expect(shouldStubBuildTimeSpecifier("vite")).toBe(false);
+		expect(shouldStubBuildTimeSpecifier("rolldown")).toBe(false);
 	});
 });
