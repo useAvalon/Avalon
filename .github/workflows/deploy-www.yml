@@ -64,18 +64,27 @@ jobs:
           set -euo pipefail
           rm -rf "$PRERENDER_STASH"
           mkdir -p "$PRERENDER_STASH"
-          find dist .output/public -type f -name '*.html' 2>/dev/null | while read -r file; do
-            mkdir -p "$PRERENDER_STASH/$(dirname "$file")"
-            cp "$file" "$PRERENDER_STASH/$file"
+          for root in dist .output/public; do
+            [ -d "$root" ] || continue
+            while IFS= read -r -d '' file; do
+              mkdir -p "$PRERENDER_STASH/$(dirname "$file")"
+              cp "$file" "$PRERENDER_STASH/$file"
+            done < <(find "$root" -type f -name '*.html' -print0)
           done
           if [ -d dist/pagefind ]; then
             mkdir -p "$PRERENDER_STASH/dist"
             cp -a dist/pagefind "$PRERENDER_STASH/dist/pagefind"
+          elif [ -d .output/public/pagefind ]; then
+            mkdir -p "$PRERENDER_STASH/dist"
+            cp -a .output/public/pagefind "$PRERENDER_STASH/dist/pagefind"
           fi
-          if ! find "$PRERENDER_STASH" -name '*.html' | grep -q .; then
+          html_count="$(find "$PRERENDER_STASH" -type f -name '*.html' | wc -l | tr -d ' ')"
+          if [ "$html_count" = "0" ]; then
             echo "::error::node_server build did not produce any prerendered HTML."
+            ls -la dist .output/public 2>/dev/null || true
             exit 1
           fi
+          echo "Stashed ${html_count} prerender HTML file(s)."
 
       - name: Clean www output before Cloudflare build
         working-directory: www
@@ -94,7 +103,21 @@ jobs:
           PRERENDER_STASH: ${{ runner.temp }}/avalon-prerender-html
         run: |
           set -euo pipefail
-          rsync -a "$PRERENDER_STASH/" ./
+          mkdir -p dist
+          for src_root in "$PRERENDER_STASH/dist" "$PRERENDER_STASH/.output/public"; do
+            [ -d "$src_root" ] || continue
+            while IFS= read -r -d '' file; do
+              rel="${file#"$src_root"/}"
+              mkdir -p "dist/$(dirname "$rel")"
+              cp "$file" "dist/$rel"
+            done < <(find "$src_root" -type f -name '*.html' -print0)
+          done
+          for pf in "$PRERENDER_STASH/dist/pagefind" "$PRERENDER_STASH/.output/public/pagefind"; do
+            [ -d "$pf" ] || continue
+            mkdir -p dist/pagefind
+            cp -a "$pf/." dist/pagefind/
+            break
+          done
           bun -e "
           import { patchCloudflareRoutesAfterPrerender } from '@useavalon/avalon/post-build';
           patchCloudflareRoutesAfterPrerender(process.cwd());
