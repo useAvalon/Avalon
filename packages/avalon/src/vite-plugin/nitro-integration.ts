@@ -48,6 +48,7 @@ import { buildDevCssRouteTable } from "./dev-css-graph.ts";
 import { createDevCssHmrPlugin, generateDevCssHmrModule } from "./dev-css-hmr.ts";
 import { resolveToRelativePath } from "./server-islands-plugin.ts";
 import { SSR_DOM_VIRTUAL_ID, ssrDomSourceForProject } from "./ssr-dom-shim-module.ts";
+import { createStubBuildTimeBundlerPlugin } from "./stub-build-time-packages.ts";
 import type { ResolvedAvalonConfig } from "./types.ts";
 
 /**
@@ -607,6 +608,14 @@ function buildNitroVitePluginOptions(
 		// Without this, the built server fails with ERR_MODULE_NOT_FOUND
 		// when spawned standalone (e.g. for prerendering).
 		traceDeps: [...new Set(["undici", ...(nitroOptions.traceDeps ?? [])])],
+	};
+
+	// Nitro's server/worker bundle is a separate Rolldown pass (no Vite stub plugin).
+	const userRolldown = (nitroOptions.rolldownConfig ?? {}) as { plugins?: unknown[] };
+	const userPlugins = Array.isArray(userRolldown.plugins) ? userRolldown.plugins : [];
+	options.rolldownConfig = {
+		...userRolldown,
+		plugins: [createStubBuildTimeBundlerPlugin(), ...userPlugins],
 	};
 
 	applyOptionalNitroViteOptions(options, nitroOptions, nitroConfig);

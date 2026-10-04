@@ -14,6 +14,12 @@ describe("shouldStubBuildTimeSpecifier", () => {
 		expect(shouldStubBuildTimeSpecifier("@oxc-parser/binding-wasm32-wasi")).toBe(true);
 	});
 
+	it("stubs rolldown native bindings out of the Cloudflare worker", () => {
+		expect(shouldStubBuildTimeSpecifier("rolldown")).toBe(true);
+		expect(shouldStubBuildTimeSpecifier("@rolldown/binding-wasm32-wasi")).toBe(true);
+		expect(shouldStubBuildTimeSpecifier("@rolldown/binding-linux-x64-gnu")).toBe(true);
+	});
+
 	it("stubs native watcher addons out of the Cloudflare worker", () => {
 		expect(shouldStubBuildTimeSpecifier("vite")).toBe(false);
 		expect(shouldStubBuildTimeSpecifier("chokidar")).toBe(true);

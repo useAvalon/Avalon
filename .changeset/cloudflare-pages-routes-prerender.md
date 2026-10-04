@@ -2,4 +2,4 @@
 "@useavalon/avalon": patch
 ---
 
-Apply Cloudflare Pages `_routes.json` static-first routing only after prerender writes `index.html`, so failed prerender no longer 404s HTML routes.
+Fix Cloudflare Pages previews: apply static-first `_routes.json` only when prerender writes `index.html`, and stub Rolldown native bindings in Nitro’s worker bundle so SSR no longer 500s with missing `@rolldown/binding-*`.
