@@ -23,12 +23,11 @@ on:
   pull_request:
     branches: [main]
     paths:
-      # PR previews only when the site or its direct deps change — not MCP, create-avalon, etc.
+      # PR previews: site + lockfiles only. Workflow/ci edits skip Pages (still deploy on merge to main).
       - "www/**"
       - "bun.lock"
       - "package.json"
       - "www/package.json"
-      - ".github/workflows/deploy-www.yml"
 
 # On main push, share a group with Release so two heavy jobs do not compete for runners.
 concurrency:
