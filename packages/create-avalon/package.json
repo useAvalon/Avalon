@@ -1,6 +1,6 @@
 {
 	"name": "create-avalon",
-	"version": "0.2.2",
+	"version": "0.5.3",
 	"description": "Scaffold a new Avalon project with multi-framework islands architecture",
 	"license": "MIT",
 	"type": "module",
