@@ -12,17 +12,22 @@ on:
     branches: [main]
     paths:
       - "www/**"
-      - "packages/**"
+      # Workspace packages linked from www/package.json (not the whole monorepo).
+      - "packages/avalon/**"
+      - "packages/seo/**"
+      - "packages/agent-optimization/**"
+      - "packages/integrations/**"
       - "bun.lock"
       - "package.json"
       - ".github/workflows/deploy-www.yml"
   pull_request:
     branches: [main]
     paths:
+      # PR previews only when the site or its direct deps change — not MCP, create-avalon, etc.
       - "www/**"
-      - "packages/**"
       - "bun.lock"
       - "package.json"
+      - "www/package.json"
       - ".github/workflows/deploy-www.yml"
 
 # On main push, share a group with Release so two heavy jobs do not compete for runners.
