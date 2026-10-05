@@ -59,13 +59,13 @@ export function generatePackageJson(config: ProjectConfig): string {
 		// h3 is included via nitro, no extra dep needed
 	}
 
-	// Pin to Avalon's peer ranges. `latest` can resolve a major that the
-	// published package does not support (vite-imagetools 12 vs peer ^7).
+	// Pin to Avalon's peer ranges. `latest` can resolve a major the published
+	// package does not support (vite-imagetools 12 vs peer ^11).
 	const devDependencies: Record<string, string> = {
 		vite: "^8.0.0",
 		typescript: "^5.0.0",
 		nitro: "^3.0.260903-beta",
-		"vite-imagetools": "^7.0.0",
+		"vite-imagetools": "^11.0.0",
 		"@types/node": "^22.0.0",
 	};
 

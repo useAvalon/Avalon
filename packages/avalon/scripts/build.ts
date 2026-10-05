@@ -137,6 +137,8 @@ async function compileToDistDir() {
 }
 
 type PublishPkg = {
+	main?: string;
+	module?: string;
 	exports?: Record<string, unknown>;
 	typesVersions?: { "*": Record<string, string[]> };
 	bin?: Record<string, string>;
@@ -144,6 +146,7 @@ type PublishPkg = {
 	dependencies?: Record<string, string>;
 	devDependencies?: Record<string, string>;
 	peerDependencies?: Record<string, string>;
+	overrides?: Record<string, string>;
 };
 
 function toDistPath(value: string, keepExt = false): string {
@@ -249,6 +252,8 @@ async function rewritePackageJsonForPublish() {
 	rewriteExports(pkg);
 	rewriteTypesVersions(pkg);
 	rewriteBin(pkg);
+	pkg.main = "./dist/mod.js";
+	pkg.module = "./dist/mod.js";
 	pkg.files = ["dist/**/*.js", "dist/**/*.d.ts", "README.md"];
 	await resolveWorkspaceDeps(pkg);
 	await writeFile(pkgPath, `${JSON.stringify(pkg, null, "\t")}\n`, "utf-8");
