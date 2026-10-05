@@ -25,8 +25,9 @@ on:
       - "package.json"
       - ".github/workflows/deploy-www.yml"
 
+# On main push, share a group with Release so two heavy jobs do not compete for runners.
 concurrency:
-  group: deploy-www-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.event_name == 'push' && format('ship-main-{0}', github.ref) || format('deploy-www-{0}', github.ref) }}
   cancel-in-progress: true
 
 permissions:
@@ -39,8 +40,6 @@ jobs:
     name: Deploy Cloudflare Pages
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    # Org/repo job timeout must be >= this (Deploy runs two full www builds + Pages upload).
-    timeout-minutes: 45
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 

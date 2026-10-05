@@ -6,7 +6,10 @@ on:
   push:
     branches: [main]
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+# Run after/before Deploy www on the same ref — one heavy main job at a time (runner queue).
+concurrency:
+  group: ship-main-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -17,7 +20,7 @@ jobs:
   release:
     if: github.repository_owner == 'useAvalon'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
