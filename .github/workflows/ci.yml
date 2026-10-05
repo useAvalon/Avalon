@@ -7,7 +7,8 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
-# One job per ref — extra workflows on the same push were starving each other for runners.
+# One workflow run per ref; cancel superseded pushes. Jobs below run in sequence (needs:)
+# so only one runner is active at a time — parallel jobs were starving each other on Free orgs.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -17,29 +18,19 @@ permissions:
   pull-requests: read
 
 jobs:
-  validate:
-    name: Validate
+  changeset:
+    name: changeset
     if: >-
-      github.event_name == 'push' ||
-      (github.event.pull_request.head.repo.full_name == github.repository &&
-      !startsWith(github.head_ref, 'changeset-release/'))
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      !startsWith(github.head_ref, 'changeset-release/')
     runs-on: ubuntu-latest
-    timeout-minutes: 25
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: "22"
-
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: latest
-
       - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
-        if: github.event_name == 'pull_request'
         id: publishable
         with:
           predicate-quantifier: every
@@ -54,14 +45,12 @@ jobs:
               - '!packages/**/README.md'
 
       - uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 # v47
-        if: github.event_name == 'pull_request'
         id: changeset-files
         with:
           files: |
             .changeset/*.md
 
       - name: Require changeset for package changes
-        if: github.event_name == 'pull_request'
         env:
           HAS_PUBLISHABLE: ${{ steps.publishable.outputs.packages }}
           HAS_CHANGESET: ${{ steps.changeset-files.outputs.any_changed }}
@@ -87,16 +76,55 @@ jobs:
           echo "::error::Publishable files under packages/ changed without a changeset. Run bunx changeset and commit .changeset/*.md, or add the no changeset label if npm should not change."
           exit 1
 
+  lint:
+    name: Lint
+    needs: changeset
+    if: ${{ !cancelled() && (needs.changeset.result == 'success' || needs.changeset.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
       - run: bun install
+      - run: bunx biome ci .
 
-      - name: Lint
-        run: bunx biome ci .
+  test:
+    name: Test
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+      - run: bun install
+      - run: bun --bun x vitest run
 
-      - name: Test
-        run: bun --bun x vitest run
+  typecheck:
+    name: Type Check
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+      - run: bun install
+      - run: bunx tsc --noEmit
 
-      - name: Typecheck
-        run: bunx tsc --noEmit
-
-      - name: Install smoke
-        run: bun run test:install
+  install-smoke:
+    name: Install smoke
+    needs: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+      - run: bun install
+      - run: bun run test:install
