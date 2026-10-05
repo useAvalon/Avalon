@@ -14,6 +14,10 @@ export function ssrCacheUntilDeploy(options?: { stream?: boolean }) {
 	if (process.env.NODE_ENV !== "production") {
 		return false as const;
 	}
+	// CI node_server build prerender-fetches routes; SSR response cache can stall that pass.
+	if (process.env.NITRO_PRESET === "node_server") {
+		return false as const;
+	}
 
 	return {
 		maxAge: 60 * 60 * 24 * 365,
