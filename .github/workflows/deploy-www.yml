@@ -1,7 +1,7 @@
 name: Deploy www
 
 # Builds the docs/marketing site and deploys to Cloudflare Pages.
-# Production: push to main. Preview: pull requests from this repo.
+# Production: push to main. PR Cloudflare preview: add the "pr preview" label (same as pkg.pr.new Preview).
 #
 # Secrets (repo Settings → Secrets and variables → Actions):
 #   CLOUDFLARE_API_TOKEN   Account → Cloudflare Pages (edit) + Account Settings (read)
@@ -22,6 +22,7 @@ on:
       - ".github/workflows/deploy-www.yml"
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
       # PR previews: site + lockfiles only. Workflow/ci edits skip Pages (still deploy on merge to main).
       - "www/**"
@@ -42,7 +43,10 @@ permissions:
 jobs:
   deploy:
     name: Deploy Cloudflare Pages
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(github.event.pull_request.labels.*.name, 'pr preview'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
