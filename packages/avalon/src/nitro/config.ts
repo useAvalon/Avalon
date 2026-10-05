@@ -36,6 +36,10 @@ export interface CacheOptions {
 	staleMaxAge?: number;
 	/** Enable stale-while-revalidate behavior */
 	swr?: boolean;
+	/** Stream the response while filling the cache (streaming SSR) */
+	stream?: boolean;
+	/** When this value changes, existing cache entries are ignored (e.g. git SHA at build time) */
+	integrity?: string;
 }
 
 /**

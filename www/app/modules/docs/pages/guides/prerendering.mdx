@@ -6,8 +6,8 @@ prev:
   title: Deployment
   href: /docs/guides/deployment
 next:
-  title: Performance
-  href: /docs/guides/performance
+  title: Caching
+  href: /docs/guides/caching
 ---
 
 ## Overview
@@ -22,7 +22,7 @@ Islands on prerendered pages still hydrate normally on the client. This is the c
 2. After the build, Avalon spawns the server locally and fetches each configured route
 3. The resulting HTML (including SSR'd island markup) is written to the output directory
 4. On deploy, the CDN serves these static files directly — no function invocation needed
-5. Routes that aren't prerendered fall through to the SSR function as normal
+5. Routes that aren't prerendered fall through to the SSR function as normal (see [caching](/docs/guides/caching) if you add Nitro SSR cache rules)
 
 ## Configuration
 

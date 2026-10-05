@@ -1,0 +1,158 @@
+---
+title: Caching
+description: Server-side response caching with Nitro route rules, cached handlers, and cached functions.
+currentPath: /docs/guides/caching
+prev:
+  title: Prerendering (SSG)
+  href: /docs/guides/prerendering
+next:
+  title: Performance
+  href: /docs/guides/performance
+---
+
+Avalon apps run on [Nitro](https://nitro.build), which provides a cache powered by [ocache](https://ocache.unjs.io/). You can cache SSR responses, API handlers, and expensive work inside routes. Storage defaults to in-memory. Nitro also supports [filesystem and KV drivers](https://nitro.build/docs/cache#cache-storage).
+
+Full API details: [Nitro cache](https://nitro.build/docs/cache).
+
+## Configuration in Avalon
+
+Pass rules through the Avalon Vite plugin:
+
+```ts
+const plugins = await avalon({
+  nitro: {
+    routeRules: {
+      '/blog/**': { cache: { maxAge: 3600, swr: true } },
+      '/api/**': { cache: false },
+    },
+  },
+});
+```
+
+Avalon **merges** your `routeRules` with defaults for hashed build output (`/assets/**`, `/islands/**`, `/chunks/**`, favicon). Override or extend those patterns in the same object.
+
+Route rules accept the same options as [`defineCachedHandler`](https://nitro.build/docs/cache#options) (`maxAge`, `swr`, `staleMaxAge`, `integrity`, `stream`, `varies`, `allowQuery`, …). With **streaming SSR** enabled, set `stream: true` on a cache rule if Nitro should stream while filling the cache.
+
+**Important:** `maxAge` defaults to **one second** in Nitro. Set it explicitly for anything you want to keep.
+
+## Choose a strategy
+
+Use the table below to match Nitro options to how often your content changes.
+
+| Content changes when… | Typical approach |
+| --- | --- |
+| **You ship a new build** (marketing, docs, mostly static pages) | [Prerender (SSG)](/docs/guides/prerendering). Optional SSR cache with **`integrity`** for uncrawled or dynamic fallbacks |
+| **Time passes** (TTL APIs, dashboards, feeds) | **`maxAge`** and optionally **`swr`** / **`staleMaxAge`** on route rules or cached handlers |
+| **Upstream data changes** (third-party APIs, CMS) | **`defineCachedFunction`** with `maxAge`, or bump **`integrity`** when you version content yourself |
+| **Every request** (sessions, carts, writes) | **`cache: false`**, **`shouldBypassCache`**, or no cache rule |
+
+### Deploy-only HTML
+
+If pages only change when you deploy, prefer **prerender** so the CDN serves static HTML. For routes that still hit SSR, use a long `maxAge`, **`swr: false`**, and an **`integrity`** string that changes each build (commit SHA, content hash, app version):
+
+```ts
+const buildId = process.env.MY_BUILD_ID ?? 'development';
+
+const plugins = await avalon({
+  nitro: {
+    routeRules: {
+      '/marketing/**': {
+        cache: {
+          maxAge: 60 * 60 * 24 * 365,
+          swr: false,
+          stream: true,
+          integrity: buildId,
+        },
+      },
+    },
+  },
+});
+```
+
+When `integrity` changes, Nitro ignores previous entries. With the default in-memory driver, a new process also starts with an empty cache. **`integrity`** matters most when cache is **shared** across workers (Redis, KV).
+
+During local development, skip SSR route caching (omit rules or set `cache: false`) so you always see fresh renders.
+
+### TTL and stale-while-revalidate
+
+Use `maxAge` and `swr` when the response should expire while the deployment stays the same:
+
+```ts
+routeRules: {
+  '/api/rates/**': {
+    cache: { maxAge: 60, swr: true, staleMaxAge: 300 },
+  },
+},
+```
+
+Shorthand: `swr: 3600` is `{ swr: true, maxAge: 3600 }`. Avoid bare `swr: true`. It only sets `maxAge` to one second.
+
+## Cached handlers
+
+Cache a full route handler (`routes/**/*.ts`):
+
+```ts
+// routes/api/health.ts
+import { defineCachedHandler } from 'nitro/cache';
+
+export default defineCachedHandler(
+  () => ({ status: 'ok', at: new Date().toISOString() }),
+  { maxAge: 30, swr: true },
+);
+```
+
+Cached handlers strip most headers and query parameters unless you allowlist them (`varies`, `allowQuery`, `allowCookies`). Do not cache personalized responses unless the cache key includes every input that changes the body.
+
+## Cached functions
+
+Cache a function used inside handlers:
+
+```ts
+import { defineCachedFunction } from 'nitro/cache';
+import { defineHandler } from 'nitro/h3';
+
+const fetchFeed = defineCachedFunction(
+  async (slug: string) => {
+    const res = await fetch(`https://example.com/feeds/${slug}.json`);
+    return res.json();
+  },
+  { maxAge: 60 * 15, name: 'feed', getKey: (slug: string) => slug },
+);
+
+export default defineHandler(async (event) => {
+  const slug = event.context.params?.slug ?? 'default';
+  return fetchFeed(slug);
+});
+```
+
+Return JSON-serializable data. For `defineCachedFunction`, Nitro’s default **`integrity`** includes function source, so deploys that change the function invalidate cached values automatically.
+
+On edge runtimes, pass `event` as the first argument when Nitro needs `waitUntil` for background cache writes. See [Nitro cached functions](https://nitro.build/docs/cache#cached-functions).
+
+## Layers in an Avalon app
+
+| Layer | Mechanism |
+| --- | --- |
+| Hashed client bundles (`/assets/**`, `/islands/**`, `/chunks/**`) | Long `Cache-Control` from Avalon’s default `routeRules` |
+| Prerendered routes | Static files at deploy time ([prerendering](/docs/guides/prerendering)) |
+| Dynamic SSR | Your `routeRules.cache`, cached handlers, or none |
+| Browser | `Cache-Control` on responses. See [Client navigation](#client-navigation) |
+
+## Client navigation
+
+With [`clientRouter`](/docs/client-navigation), in-app navigations fetch the next document with `cache: 'no-store'`, so the **browser** does not reuse a cached HTML document for swaps. That is separate from **Nitro’s server cache**. The server can still return a cached SSR body when your route rules apply.
+
+The client router also keeps a short **in-tab prefetch cache** for URLs you recently visited or prefetched.
+
+## When not to cache
+
+- Authenticated or per-user HTML unless the key varies on every distinguishing input
+- `POST`, `PUT`, `DELETE` (Nitro bypasses cache for non-GET/HEAD automatically)
+- Endpoints that must always be fresh. Use `cache: false` or `shouldBypassCache`.
+
+## Related guides
+
+- [Prerendering (SSG)](/docs/guides/prerendering)
+- [API routes](/docs/api-routes)
+- [Performance](/docs/guides/performance)
+- [Client navigation](/docs/client-navigation)
