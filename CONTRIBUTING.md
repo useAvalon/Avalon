@@ -91,7 +91,7 @@ Install on **`useAvalon/Avalon`** (org → GitHub Apps → configure repository 
 
 In repo **Settings → Actions → General**, enable **Allow GitHub Actions to create and approve pull requests** (required for Version packages PRs).
 
-CI **`require-changeset`** fails if publishable `packages/**` code changed without a changeset; use the **`no changeset`** label when npm should not change.
+CI **changeset** job fails if publishable `packages/**` code changed without a changeset; use the **`no changeset`** label when npm should not change.
 
 ## License
 

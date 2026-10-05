@@ -21,7 +21,7 @@ Merging to `main` opens a **Version packages** PR; merging that PR runs **`build
 ## Automation
 
 - **[Changeset Bot](https://github.com/apps/changeset-bot)** — install on **`useAvalon/Avalon`**; comments when a PR likely needs a changeset.
-- **`require-changeset.yml`** — fails CI if publishable `packages/**` source changed without `.changeset/*.md`. Escape hatch: add the **`no changeset`** label.
+- **CI `changeset` job** — fails if publishable `packages/**` source changed without `.changeset/*.md`. Escape hatch: add the **`no changeset`** label.
 - **`ci.yml`** — lint, test, typecheck, and **`test:install`** must pass before merging (including the Version packages PR).
 
 ## PR previews (pkg.pr.new)

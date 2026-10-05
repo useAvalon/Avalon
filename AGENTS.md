@@ -91,7 +91,7 @@ Commit the generated file under `.changeset/` in the same PR. Pick patch / minor
 
 **After merge:** pending changesets → Release workflow opens/updates **Version packages** PR → merge when **CI** is green (`test:install` included) → Release workflow **`build:packages`** + `bun run release` to npm.
 
-**PR previews:** add label **`pr preview`** for pkg.pr.new (not npm). CI **`require-changeset`** enforces a changeset when publishable `packages/**` source changes unless label **`no changeset`**.
+**PR previews:** add label **`pr preview`** for pkg.pr.new (not npm). CI **changeset** job enforces a changeset when publishable `packages/**` source changes unless label **`no changeset`**.
 
 Install [Changeset Bot](https://github.com/apps/changeset-bot) on the repo (maintainers).
 
