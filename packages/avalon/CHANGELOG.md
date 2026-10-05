@@ -1,5 +1,15 @@
 # @useavalon/avalon
 
+## 0.5.5
+
+### Patch Changes
+
+- [#93](https://github.com/useAvalon/Avalon/pull/93) [`d31ae89`](https://github.com/useAvalon/Avalon/commit/d31ae89e4ce607919493fd119befdcecec77f8a3) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Limit published `.d.ts` files to the public export graph and prune orphan declarations after emit.
+
+- [#92](https://github.com/useAvalon/Avalon/pull/92) [`dba71cd`](https://github.com/useAvalon/Avalon/commit/dba71cdb656fd319123c9b3102c3e4ab0efd4020) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Add `stream` and `integrity` to Nitro `CacheOptions` for streaming SSR cache fill and deploy-scoped invalidation.
+- Updated dependencies []:
+  - @useavalon/core@0.5.5
+
 ## 0.5.4
 
 ### Patch Changes
