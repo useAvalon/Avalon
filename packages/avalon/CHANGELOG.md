@@ -1,5 +1,13 @@
 # @useavalon/avalon
 
+## 0.5.4
+
+### Patch Changes
+
+- [#90](https://github.com/useAvalon/Avalon/pull/90) [`9b4fe02`](https://github.com/useAvalon/Avalon/commit/9b4fe020b4b011782d1e68019f718577be023c19) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Raise the optional `vite-imagetools` peer to ^11 (patched `sharp` range), add npm overrides for `sharp`, `toml`, and `yaml`, and publish `main`/`module` entry fields for registry tooling.
+- Updated dependencies []:
+  - @useavalon/core@0.5.4
+
 ## 0.5.3
 
 ### Patch Changes
