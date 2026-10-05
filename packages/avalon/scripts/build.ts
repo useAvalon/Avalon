@@ -27,16 +27,19 @@ function shouldSkipFile(name: string): boolean {
 }
 
 async function collectFiles(dir: string): Promise<string[]> {
-	const files: string[] = [];
-	for (const entry of await readdir(dir, { withFileTypes: true })) {
-		const fullPath = join(dir, entry.name);
-		if (entry.isDirectory()) {
-			if (!SKIP_DIRS.has(entry.name)) files.push(...(await collectFiles(fullPath)));
-		} else if (!shouldSkipFile(entry.name)) {
-			files.push(fullPath);
-		}
-	}
-	return files;
+	const entries = await readdir(dir, { withFileTypes: true });
+	const nested = await Promise.all(
+		entries.map(async (entry) => {
+			const fullPath = join(dir, entry.name);
+			if (entry.isDirectory()) {
+				if (SKIP_DIRS.has(entry.name)) return [];
+				return collectFiles(fullPath);
+			}
+			if (shouldSkipFile(entry.name)) return [];
+			return [fullPath];
+		}),
+	);
+	return nested.flat();
 }
 
 /** Compile the `avalon` CLI to JS. Node will not strip types from node_modules. */
@@ -102,30 +105,25 @@ async function compileNonTypeScriptFile(
 	return "compiled";
 }
 
+async function compileSourceFile(file: string, modFile: string): Promise<"compiled" | "copied"> {
+	const rel = file === modFile ? "mod.ts" : join("src", relative(SRC_DIR, file));
+	const ext = extname(file);
+	await mkdir(join(DIST_DIR, dirname(rel)), { recursive: true });
+	if (ext === ".ts" || ext === ".tsx") return compileTypeScriptFile(file, rel, ext);
+	return compileNonTypeScriptFile(file, rel, ext);
+}
+
 async function compileToDistDir() {
 	await rm(DIST_DIR, { recursive: true, force: true });
 
 	const allFiles = await collectFiles(SRC_DIR);
 	const modFile = join(ROOT, "mod.ts");
-	const filesToProcess = [modFile, ...allFiles];
+	const outcomes = await Promise.all(
+		[modFile, ...allFiles].map((file) => compileSourceFile(file, modFile)),
+	);
 
-	let compiled = 0;
-	let copied = 0;
-
-	for (const file of filesToProcess) {
-		const rel = file === modFile ? "mod.ts" : join("src", relative(SRC_DIR, file));
-		const ext = extname(file);
-		const outDir = join(DIST_DIR, dirname(rel));
-		await mkdir(outDir, { recursive: true });
-
-		const outcome =
-			ext === ".ts" || ext === ".tsx"
-				? await compileTypeScriptFile(file, rel, ext)
-				: await compileNonTypeScriptFile(file, rel, ext);
-
-		if (outcome === "compiled") compiled++;
-		else copied++;
-	}
+	const compiled = outcomes.filter((outcome) => outcome === "compiled").length;
+	const copied = outcomes.length - compiled;
 
 	await compileBin();
 	console.log(`✓ Compiled ${compiled} files, copied ${copied} files to dist/`);
@@ -205,37 +203,50 @@ async function resolveWorkspaceVersion(
 		join(monorepoRoot, "packages", "integrations", shortName, "package.json"),
 		join(monorepoRoot, "packages", shortName, "package.json"),
 	];
-	for (const candidate of candidates) {
-		try {
-			const depPkg = JSON.parse(await readFile(candidate, "utf-8")) as {
-				name: string;
-				version: string;
-			};
-			if (depPkg.name !== name) continue;
-			return prefix === "*" ? `>=${depPkg.version}` : `${prefix}${depPkg.version}`;
-		} catch {
-			// Candidate path may not exist for this package name.
-		}
-	}
-	return null;
+	const resolvedFromCandidates = await Promise.all(
+		candidates.map(async (candidate) => {
+			try {
+				const depPkg = JSON.parse(await readFile(candidate, "utf-8")) as {
+					name: string;
+					version: string;
+				};
+				if (depPkg.name !== name) return null;
+				return prefix === "*" ? `>=${depPkg.version}` : `${prefix}${depPkg.version}`;
+			} catch {
+				return null;
+			}
+		}),
+	);
+	return resolvedFromCandidates.find((value) => value !== null) ?? null;
 }
 
 async function resolveWorkspaceDeps(pkg: PublishPkg): Promise<void> {
 	const monorepoRoot = join(ROOT, "..", "..");
+	type WorkspaceDep = {
+		deps: Record<string, string>;
+		name: string;
+		version: string;
+	};
+	const pending: WorkspaceDep[] = [];
 	for (const depField of ["dependencies", "devDependencies", "peerDependencies"] as const) {
 		const deps = pkg[depField];
 		if (!deps) continue;
 		for (const [name, version] of Object.entries(deps)) {
-			if (!version.startsWith("workspace:")) continue;
+			if (version.startsWith("workspace:")) pending.push({ deps, name, version });
+		}
+	}
+
+	await Promise.all(
+		pending.map(async ({ deps, name, version }) => {
 			const resolved = await resolveWorkspaceVersion(name, version, monorepoRoot);
 			if (!resolved) {
 				console.warn(`  ⚠ Could not resolve ${name}: ${version}`);
-				continue;
+				return;
 			}
 			deps[name] = resolved;
 			console.log(`  ✓ Resolved ${name}: ${version} → ${resolved}`);
-		}
-	}
+		}),
+	);
 }
 
 async function rewritePackageJsonForPublish() {
@@ -252,15 +263,107 @@ async function rewritePackageJsonForPublish() {
 	rewriteExports(pkg);
 	rewriteTypesVersions(pkg);
 	rewriteBin(pkg);
-	pkg.main = "./dist/mod.js";
-	pkg.module = "./dist/mod.js";
+	const mainEntry = "./dist/mod.js";
+	pkg.main = mainEntry;
+	pkg.module = mainEntry;
 	pkg.files = ["dist/**/*.js", "dist/**/*.d.ts", "README.md"];
 	await resolveWorkspaceDeps(pkg);
 	await writeFile(pkgPath, `${JSON.stringify(pkg, null, "\t")}\n`, "utf-8");
 	console.log("✓ Rewrote package.json exports → dist/ for publish");
 }
 
-async function generateDeclarations() {
+function exportPathToDeclaration(exportPath: string): string | null {
+	const normalized = exportPath.replace(/^\.\//, "");
+	if (normalized.endsWith(".d.ts")) return normalized;
+	if (normalized.endsWith(".ts") || normalized.endsWith(".tsx")) {
+		return normalized.replace(/\.tsx?$/, ".d.ts");
+	}
+	if (normalized.endsWith(".js")) return normalized.replace(/\.js$/, ".d.ts");
+	return null;
+}
+
+function declarationIncludeFromExports(exportsMap: Record<string, string>): string[] {
+	const include = new Set<string>(["mod.ts"]);
+	for (const value of Object.values(exportsMap)) {
+		if (typeof value !== "string") continue;
+		const normalized = value.replace(/^\.\//, "");
+		if (normalized.endsWith(".d.ts") || normalized.endsWith(".ts") || normalized.endsWith(".tsx")) {
+			include.add(normalized);
+		}
+	}
+	return [...include].sort((a, b) => a.localeCompare(b));
+}
+
+function declarationRootsFromExports(exportsMap: Record<string, string>): string[] {
+	const roots = new Set<string>(["mod.d.ts"]);
+	for (const value of Object.values(exportsMap)) {
+		if (typeof value !== "string") continue;
+		const decl = exportPathToDeclaration(value);
+		if (decl) roots.add(decl);
+	}
+	return [...roots].sort((a, b) => a.localeCompare(b));
+}
+
+const FROM_RELATIVE = /\bfrom\s+["'](\.\.?\/[^"']+)["']/g;
+const EXPORT_FROM_RELATIVE = /export\s+\*\s+from\s+["'](\.\.?\/[^"']+)["']/g;
+
+function relativeImportsInDeclaration(source: string): string[] {
+	return [FROM_RELATIVE, EXPORT_FROM_RELATIVE].flatMap((pattern) => {
+		pattern.lastIndex = 0;
+		return Array.from(source.matchAll(pattern), (match) => match[1]);
+	});
+}
+
+async function collectDeclarationPaths(distDir: string): Promise<string[]> {
+	async function walk(dir: string): Promise<string[]> {
+		const entries = await readdir(dir, { withFileTypes: true });
+		const nested = await Promise.all(
+			entries.map(async (entry) => {
+				const full = join(dir, entry.name);
+				if (entry.isDirectory()) return walk(full);
+				if (entry.name.endsWith(".d.ts")) return [relative(distDir, full)];
+				return [];
+			}),
+		);
+		return nested.flat();
+	}
+	return walk(distDir);
+}
+
+function resolveRelativeDeclaration(fromFile: string, spec: string): string {
+	const stem = spec.replace(/\.(?:tsx?|jsx?|mjs|cjs)$/, "");
+	return join(dirname(fromFile), `${stem}.d.ts`);
+}
+
+async function pruneOrphanDeclarations(
+	distDir: string,
+	roots: string[],
+): Promise<{ kept: number; removed: number }> {
+	const existing = await collectDeclarationPaths(distDir);
+	const existingSet = new Set(existing);
+	const contents = new Map(
+		await Promise.all(
+			existing.map(async (rel) => [rel, await readFile(join(distDir, rel), "utf-8")] as const),
+		),
+	);
+
+	const reachable = new Set<string>();
+	const visitDeclaration = (rel: string): void => {
+		if (reachable.has(rel) || !existingSet.has(rel)) return;
+		reachable.add(rel);
+		for (const spec of relativeImportsInDeclaration(contents.get(rel) ?? "")) {
+			visitDeclaration(resolveRelativeDeclaration(rel, spec));
+		}
+	};
+	for (const root of roots) visitDeclaration(root);
+
+	const toRemove = existing.filter((rel) => !reachable.has(rel));
+	await Promise.all(toRemove.map((rel) => rm(join(distDir, rel), { force: true })));
+	return { kept: reachable.size, removed: toRemove.length };
+}
+
+async function generateDeclarations(exportsMap: Record<string, string>) {
+	const include = declarationIncludeFromExports(exportsMap);
 	const tsconfigBuild = {
 		compilerOptions: {
 			target: "ESNext",
@@ -280,7 +383,7 @@ async function generateDeclarations() {
 				"@useavalon/core": ["./node_modules/@useavalon/core"],
 			},
 		},
-		include: ["mod.ts", "src/**/*.ts", "src/**/*.tsx"],
+		include,
 		exclude: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/tests/**", "src/**/__tests__/**"],
 	};
 
@@ -290,12 +393,19 @@ async function generateDeclarations() {
 	try {
 		const tsc = join(ROOT, "..", "..", "node_modules", ".bin", "tsc");
 		execSync(`"${tsc}" --project tsconfig.build.json`, { cwd: ROOT, stdio: "inherit" });
-		console.log("✓ Generated declaration files");
+		const roots = declarationRootsFromExports(exportsMap);
+		const { kept, removed } = await pruneOrphanDeclarations(DIST_DIR, roots);
+		const prunedNote = removed > 0 ? `, ${removed} pruned` : "";
+		console.log(`✓ Generated declaration files (${kept} kept${prunedNote})`);
 	} finally {
 		await rm(tsconfigPath, { force: true });
 	}
 }
 
+const pkgForDeclarations = JSON.parse(
+	await readFile(join(ROOT, "package.json"), "utf-8"),
+) as PublishPkg;
+
 await compileToDistDir();
-await generateDeclarations();
+await generateDeclarations((pkgForDeclarations.exports ?? {}) as Record<string, string>);
 await rewritePackageJsonForPublish();
