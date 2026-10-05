@@ -3,8 +3,8 @@ title: Performance
 description: Tips and patterns for keeping your Avalon site fast.
 currentPath: /docs/guides/performance
 prev:
-  title: Prerendering (SSG)
-  href: /docs/guides/prerendering
+  title: Caching
+  href: /docs/guides/caching
 ---
 
 ## Zero JS by default
@@ -62,22 +62,9 @@ The component converts images to modern formats (WebP, AVIF), generates multiple
 
 Avalon streams the layout shell to the browser before page data resolves. This dramatically improves FCP on pages with async data fetching — the user sees the navigation and layout instantly while the server waits on API calls. Streaming is automatic for all pages using the modular layout system. See [Streaming SSR](/docs/streaming-ssr) for details.
 
-## Cache headers
+## Caching
 
-Configure long-lived cache headers for immutable assets:
-
-```ts
-nitro: {
-  routeRules: {
-    '/assets/**': {
-      headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
-    },
-    '/islands/**': {
-      headers: { 'Cache-Control': 'public, max-age=31536000, immutable' },
-    },
-  },
-}
-```
+Avalon merges default cache headers for hashed assets (`/assets/**`, `/islands/**`, `/chunks/**`). For **SSR pages and APIs**, use Nitro’s server cache via `routeRules`, `defineCachedHandler`, and `defineCachedFunction`. See the [Caching](/docs/guides/caching) guide.
 
 ## Bundle analysis
 

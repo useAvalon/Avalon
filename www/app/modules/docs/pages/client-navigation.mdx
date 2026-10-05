@@ -41,6 +41,8 @@ Before the body is replaced, islands marked to persist are lifted out of the old
 
 What you see is still server-rendered HTML. The only thing skipped is reloading the entire document.
 
+The router requests the next page with `cache: 'no-store'` so the browser does not serve a stale full document from its HTTP cache. Nitro can still cache SSR on the server when you configure [`routeRules`](/docs/guides/caching). Repeat visits can be served from the server cache even though the client fetches over the network on each navigation.
+
 ## Links
 
 Internal GET links use client navigation automatically. Opt out per link when you need a real reload:

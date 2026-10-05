@@ -659,11 +659,14 @@ Use \`event.context.params\`, \`readBody(event)\`, \`getQuery(event)\`, \`getHea
 
 ## Per-route rules & runtime config
 
-Set caching/headers/CORS per route with \`nitro.routeRules\`, and server-only config with \`nitro.runtimeConfig\` (read via \`useRuntimeConfig()\`):
+Set caching/headers/CORS per route with \`nitro.routeRules\`, and server-only config with \`nitro.runtimeConfig\` (read via \`useRuntimeConfig()\`). Nitro caching: \`routeRules.cache\` (\`maxAge\`, \`swr\`, \`integrity\`, \`stream\`), \`defineCachedHandler\`, \`defineCachedFunction\` — https://nitro.build/docs/cache . Deploy-only pages: prefer prerender; for SSR fallbacks use long \`maxAge\`, \`swr: false\`, and \`integrity\` set to git/CF commit SHA.
 
 \`\`\`ts
 avalon({ nitro: {
-  routeRules: { '/api/**': { cache: false, headers: { 'cache-control': 'no-store' } } },
+  routeRules: {
+    '/docs/**': { cache: { maxAge: 86400, swr: false, integrity: process.env.GITHUB_SHA } },
+    '/api/**': { cache: false },
+  },
   runtimeConfig: { tideApiToken: process.env.TIDE_TOKEN },
 } });
 \`\`\`

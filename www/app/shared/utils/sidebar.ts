@@ -71,6 +71,7 @@ export const SIDEBAR: SidebarCategory[] = [
 			{ title: "Environment Variables", href: "/docs/guides/environment-variables" },
 			{ title: "Deployment", href: "/docs/guides/deployment" },
 			{ title: "Prerendering (SSG)", href: "/docs/guides/prerendering" },
+			{ title: "Caching", href: "/docs/guides/caching" },
 			{ title: "Performance", href: "/docs/guides/performance" },
 			{ title: "Island DOM Structure", href: "/docs/guides/island-dom-structure" },
 		],

@@ -3,6 +3,7 @@ import { agentOptimization } from "@useavalon/agent-optimization";
 import { avalon } from "@useavalon/avalon";
 import { seo } from "@useavalon/seo";
 import { defineConfig, type UserConfig } from "vite";
+import { ssrCacheUntilDeploy } from "./deploy-revision.ts";
 import { quietDevWarningsPlugin } from "./vite-quiet-dev-warnings.ts";
 
 export default defineConfig(async (): Promise<UserConfig> => {
@@ -41,6 +42,13 @@ export default defineConfig(async (): Promise<UserConfig> => {
 				"/syntax-highlighting.css": {
 					headers: { "Cache-Control": "public, max-age=3600, must-revalidate" },
 				},
+				// SSR fallback when a route is not prerendered (www-only; see deploy-revision.ts).
+				"/": { cache: ssrCacheUntilDeploy() },
+				"/docs/**": { cache: ssrCacheUntilDeploy() },
+				"/blog/**": { cache: ssrCacheUntilDeploy() },
+				"/demo/**": { cache: ssrCacheUntilDeploy() },
+				"/search/**": { cache: ssrCacheUntilDeploy() },
+				"/api/**": { cache: false },
 			},
 			runtimeConfig: {
 				appName: "Avalon Demo",
