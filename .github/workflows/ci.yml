@@ -6,10 +6,10 @@ on:
   pull_request:
     branches: [main]
 
-# One runner for all checks (Free org pools are often 1–2 concurrent jobs). On PRs, share
-# the group with changeset + Deploy www so those workflows do not compete for the same slots.
+# One validate job (below) keeps CI to a single runner. Do not share this group with other
+# workflows — simultaneous runs would cancel each other when cancel-in-progress is true.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('ci-{0}', github.ref) }}
+  group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:

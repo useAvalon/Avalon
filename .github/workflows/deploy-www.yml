@@ -32,7 +32,7 @@ on:
 
 # On main push, share a group with Release so two heavy jobs do not compete for runners.
 concurrency:
-  group: ${{ github.event_name == 'push' && format('ship-main-{0}', github.ref) || format('pr-{0}', github.event.pull_request.number) }}
+  group: ${{ github.event_name == 'push' && format('ship-main-{0}', github.ref) || format('deploy-www-{0}', github.ref) }}
   cancel-in-progress: true
 
 permissions:
