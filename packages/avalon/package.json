@@ -90,7 +90,7 @@
 	"peerDependencies": {
 		"vite": "^8.0.0",
 		"nitro": "^3.0.260903-beta",
-		"vite-imagetools": "^7.0.0"
+		"vite-imagetools": "^11.0.0"
 	},
 	"peerDependenciesMeta": {
 		"nitro": {
@@ -115,9 +115,14 @@
 		"preact-render-to-string": "6.8.0",
 		"remark-frontmatter": "^5.0.0",
 		"remark-gfm": "^4.0.0",
-		"remark-mdx-frontmatter": "^5.0.0",
+		"remark-mdx-frontmatter": "^5.2.0",
 		"unified": "^11.0.0",
 		"urlpattern-polyfill": "^10.1.0",
 		"zod": "^4.6.5"
+	},
+	"overrides": {
+		"sharp": ">=0.35.4",
+		"toml": ">=4.2.0",
+		"yaml": ">=2.8.3"
 	}
 }

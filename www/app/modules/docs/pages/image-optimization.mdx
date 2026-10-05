@@ -169,6 +169,20 @@ Add the image type declarations to your `tsconfig.json`:
 4. **Set dimensions** - Include `width` and `height` to prevent layout shift
 5. **Use appropriate widths** - Match your breakpoints (e.g., 400, 800, 1200)
 
+## Security
+
+Image optimization uses [vite-imagetools](https://github.com/JonasKruckenberg/imagetools) (peer dependency, **^11.0.0**), which depends on **sharp**. Keep **sharp** at **0.35.4 or newer** so libheif/image decoder CVEs are patched. Avalon’s npm package applies dependency overrides for `sharp`; in your app you can also pin it:
+
+```json
+{
+  "overrides": {
+    "sharp": ">=0.35.4"
+  }
+}
+```
+
+Only process images you trust at build time. Disable `image` optimization if you do not need it.
+
 ## Example: Full Responsive Image
 
 ```tsx

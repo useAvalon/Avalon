@@ -50,7 +50,7 @@ describe("generatePackageJson", () => {
 		expect(pkg.devDependencies.vite).toBe("^8.0.0");
 		expect(pkg.devDependencies.typescript).toBe("^5.0.0");
 		expect(pkg.devDependencies.nitro).toBe("^3.0.260903-beta");
-		expect(pkg.devDependencies["vite-imagetools"]).toBe("^7.0.0");
+		expect(pkg.devDependencies["vite-imagetools"]).toBe("^11.0.0");
 		expect(pkg.devDependencies["@types/node"]).toBe("^22.0.0");
 	});
 

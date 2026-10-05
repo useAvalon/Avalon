@@ -87,6 +87,12 @@ Schedules accept standard 5- or 6-field cron expressions or aliases like
 - [Documentation](https://useavalon.dev/docs/introduction)
 - [GitHub](https://github.com/useAvalon/Avalon)
 
+## Bundle size tools
+
+The root export is a **Node/Vite build-time framework** (Nitro, `node:fs`, native parsers). Tools like [Bundlephobia](https://bundlephobia.com/package/@useavalon/avalon) target browser webpack bundles and often return **BuildServiceError** or build failures for this package — that is expected, not a sign of a broken publish. For shipped browser bytes, measure **`@useavalon/avalon/client/main-slim`** in your app build instead.
+
+Published tarballs include `main` / `module` pointing at `./dist/mod.js` for tools that require a legacy entry field alongside `exports`.
+
 ## License
 
 MIT
