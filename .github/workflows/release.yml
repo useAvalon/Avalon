@@ -6,9 +6,8 @@ on:
   push:
     branches: [main]
 
-# Run after/before Deploy www on the same ref — one heavy main job at a time (runner queue).
 concurrency:
-  group: ship-main-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
