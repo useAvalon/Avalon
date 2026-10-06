@@ -1,12 +1,12 @@
 # Maintainer setup (open source)
 
-Use this checklist when hardening [useAvalon/Avalon](https://github.com/useAvalon/Avalon) for public contribution. The [caelence-agent](https://github.com/useAvalon/caelence-agent) repo uses the same pattern.
+Use this checklist when hardening [useAvalon/Avalon](https://github.com/useAvalon/Avalon) for public contribution.
 
 ## Contribution model
 
 - **Fork + PR only.** Do not grant outside collaborators write access to `main` so forks cannot push upstream branches.
 - **Squash merge** is the only merge method on `main`.
-- **[CODEOWNERS](./CODEOWNERS)** + ruleset **`require_code_owner_review`** so every PR needs maintainer approval.
+- **[CODEOWNERS](./CODEOWNERS)** + branch protection **`require_code_owner_reviews`** so every PR needs maintainer approval.
 - **Required CI** before merge (job names must match [.github/workflows/ci.yml](./workflows/ci.yml)):
   - `Lint`
   - `Test`
