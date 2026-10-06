@@ -65,7 +65,7 @@ Write comments as if they have always been part of the codebase.
 
 Process for humans: [CONTRIBUTING.md](./CONTRIBUTING.md). Issues and PRs use the templates in `.github/`. Security: [SECURITY.md](./SECURITY.md).
 
-- Fork the repo, work on a branch, and open a PR against `main`. Do not push to `main` — merges there drive the Version packages release flow.
+- Fork the repo, work on a branch in the fork, and open a PR against `main` on `useAvalon/Avalon`. Do not push to upstream `main` or ask for write access — merges there drive the Version packages release flow. Maintainer approval and green CI are required before merge (squash only).
 - One concern per PR. No drive-by refactors, formatting-only diffs, or unrelated files.
 - Do not bump versions in `package.json` by hand or publish from a laptop.
 - Do not add a dependency without an issue. Only change `bun.lock` when the change needs it.

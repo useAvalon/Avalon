@@ -38,7 +38,11 @@ Or read the [documentation](https://useavalon.dev/docs/introduction).
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md). Coding agents should also read [AGENTS.md](./AGENTS.md).
+Fork the repo and open a pull request against `main`. CI must pass; a maintainer reviews before merge. See [CONTRIBUTING.md](./CONTRIBUTING.md). Coding agents should also read [AGENTS.md](./AGENTS.md).
+
+Security issues: [private advisory](https://github.com/useAvalon/Avalon/security/advisories/new), not a public issue. See [SECURITY.md](./SECURITY.md).
+
+This project follows the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## License
 

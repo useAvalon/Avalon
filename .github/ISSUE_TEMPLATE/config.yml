@@ -3,6 +3,9 @@ contact_links:
   - name: Documentation
     url: https://useavalon.dev/docs/introduction
     about: Usage questions and how-to — start with the docs.
-  - name: Report a vulnerability
+  - name: Report a vulnerability (private)
     url: https://github.com/useAvalon/Avalon/security/advisories/new
-    about: Private security advisory. Do not file a public issue.
+    about: Security reports only. Do not file these as public issues or PRs.
+  - name: Contributing
+    url: https://github.com/useAvalon/Avalon/blob/main/CONTRIBUTING.md
+    about: Fork, PR, CI, and changesets — how to propose code changes.
