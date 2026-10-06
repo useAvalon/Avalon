@@ -10,6 +10,8 @@ next:
   href: /docs/frameworks/lit
 ---
 
+import PackageManagerTabs from '../../components/PackageManagerTabs.tsx';
+
 ## Setup
 
 Add `'solid'` to the `integrations` array:
@@ -22,9 +24,7 @@ const plugins = await avalon({
 
 Install SolidJS:
 
-```bash
-bun add solid-js
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="add-package" packageName="solid-js" />
 
 ## File name
 

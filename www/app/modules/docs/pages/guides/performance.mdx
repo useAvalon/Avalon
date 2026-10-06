@@ -7,6 +7,8 @@ prev:
   href: /docs/guides/caching
 ---
 
+import PackageManagerTabs from '../../components/PackageManagerTabs.tsx';
+
 ## Zero JS by default
 
 The biggest performance win is already built in: pages ship no JavaScript unless you add an island. A page with no islands is pure HTML and CSS — no hydration, no runtime overhead.
@@ -70,9 +72,7 @@ Avalon merges default cache headers for hashed assets (`/assets/**`, `/islands/*
 
 Inspect your island bundles with Vite's built-in rollup visualizer:
 
-```bash
-bun add -d rollup-plugin-visualizer
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="add-dev-package" packageName="rollup-plugin-visualizer" />
 
 ```ts
 import { visualizer } from 'rollup-plugin-visualizer';

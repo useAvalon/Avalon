@@ -232,6 +232,20 @@
 	margin-bottom: 0;
 }
 
+/* PackageManagerTabs — floating tabs + terminal (no prose pre chrome) */
+.prose :global(.package-manager-tablist),
+.prose :global(.package-manager-tabs) [role="tablist"] {
+	background: transparent;
+	border: none;
+	box-shadow: none;
+}
+
+.prose :global(.package-manager-tabs) pre,
+.prose :global(.package-manager-tabs) pre::before,
+.prose :global(.package-manager-tabs) pre::after {
+	all: unset;
+}
+
 .prose pre {
 	background: #0d1117;
 	border: 1px solid var(--surface-border);
@@ -420,6 +434,18 @@
 	padding: var(--space-12) var(--space-4) var(--space-8) 0;
 	scrollbar-width: thin;
 	scrollbar-color: var(--surface-border) transparent;
+	min-width: 0;
+}
+
+/* Match TableOfContents.module.css — TOC UI hides here; drop the grid column too */
+@media (max-width: 1100px) {
+	.docsLayout {
+		grid-template-columns: 260px 1fr;
+	}
+
+	.tocSidebar {
+		display: none;
+	}
 }
 
 @media (max-width: 768px) {

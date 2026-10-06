@@ -1,0 +1,308 @@
+---
+title: Introducing Avalon
+date: October 6, 2026
+published: 2026-10-06
+description: Avalon is an open source framework on Vite and Nitro. Pages render to HTML on the server, and a component ships JavaScript only when you give it an island prop.
+excerpt: Avalon is an open source framework on Vite and Nitro. Pages render to HTML on the server; JavaScript ships only when you mark a component with the island prop.
+---
+
+import FencedCode from '../components/FencedCode.tsx';
+import { cartBadgeSvelte } from '../snippets/cart-badge-svelte.ts';
+
+Avalon is open source as of today, under the MIT license.
+
+If you write React or Preact, you already know how to write an Avalon page. Pages and layouts are JSX components, and the server renders them to HTML. A component sends JavaScript to the browser only when you give it an `island` prop. Islands can also be written in Vue, Svelte, Solid, Qwik, or Lit.
+
+## The cost of hydrating a whole page
+
+On most pages, the interactive parts are a small share of the markup. A product page might have a search field and an add-to-cart button, and the rest is text, images, and links.
+
+When the whole page runs as a client app, the browser downloads the framework runtime and hydrates every component, including the ones that only render text. The server already produced that HTML, so the browser repeats the work to arrive at the same result. On a route with no islands, Avalon can respond with HTML and CSS alone; open the network tab on a fresh scaffold and you will not see a framework entry script until you add an island.
+
+Astro made islands the standard answer to this: render the page to HTML and hydrate only the interactive components. Avalon uses the same model, written for developers who already work in React or Preact.
+
+Here is a layout and a blog post page:
+
+```tsx
+// app/shared/layouts/_layout.tsx
+import type { LayoutProps } from '@useavalon/avalon';
+import Nav from '../components/Nav.tsx';
+
+export default function Layout({ children }: LayoutProps) {
+  return (
+    <div class="shell">
+      <Nav />
+      <main>{children}</main>
+    </div>
+  );
+}
+```
+
+```tsx
+// app/modules/blog/pages/[slug].tsx
+import { getPost } from '../lib/posts.ts';
+
+export default async function Post({ event }) {
+  const post = await getPost(event.context.params?.slug);
+
+  return (
+    <article>
+      <h1>{post.title}</h1>
+      <p>{post.summary}</p>
+    </article>
+  );
+}
+```
+
+If you have written a React component, you can read both files without the docs. Both run only on the server, so the browser receives the finished HTML and no JavaScript.
+
+Because pages and islands are both JSX components, turning a static component into an interactive one is a one-line change at the call site:
+
+```tsx
+<SearchField />                                      // HTML only
+<SearchField island={{ condition: 'on:visible' }} /> // hydrates when visible
+```
+
+The component file stays the same. Hooks such as `useState` work inside it, and the server renders it to HTML in both cases.
+
+The server is Nitro, the engine behind Nuxt. API routes, middleware, and cron jobs come from Nitro, and one build deploys to Node, Bun, Deno, Cloudflare, Vercel, Netlify, AWS, or Azure.
+
+## Install
+
+```bash
+bun create avalon my-app
+cd my-app
+bun install
+bun run dev
+```
+
+Open `http://localhost:3000` and check the network tab. The welcome page loads HTML and CSS and no framework script, since it has no islands yet.
+
+## A page with one island
+
+Pages render only on the server, so they can fetch data directly:
+
+```tsx
+// app/modules/main/pages/index.tsx
+import SearchField from '../components/SearchField.tsx';
+
+export default async function HomePage() {
+  const products = await fetch('https://api.example.com/products').then(r => r.json());
+
+  return (
+    <main>
+      <h1>Storefront</h1>
+      <SearchField island={{ condition: 'on:interaction' }} />
+      <ul>
+        {products.map(p => <li>{p.name}</li>)}
+      </ul>
+    </main>
+  );
+}
+```
+
+The heading and the product list arrive as HTML. `SearchField` is rendered to HTML as well, and its JavaScript loads on the first click or hover.
+
+| Condition | Hydrates when |
+| --- | --- |
+| `on:client` | The page loads |
+| `on:visible` | The island scrolls into view |
+| `on:interaction` | The user first clicks or hovers it |
+| `on:idle` | The browser is idle |
+| `media:(max-width: 768px)` | A media query matches |
+| `on:delay`, `on:scroll`, `on:event`, `on:match` | A timeout, a scroll depth, a DOM event, or a media query, set with `conditionArg` |
+
+Import each island from its own file. Re-exporting islands from an `index.ts` breaks hydration.
+
+## Choosing a framework per file
+
+Plain `.tsx` files render with Preact. For other frameworks, the file suffix decides:
+
+```text
+components/
+├── SearchField.tsx        → Preact
+├── CheckoutForm.react.tsx → React
+├── PriceChart.vue         → Vue
+├── ReviewFeed.svelte      → Svelte
+└── Filters.solid.tsx      → Solid
+```
+
+Pages import all of them the same way:
+
+```tsx
+import PriceChart from '../components/PriceChart.vue';
+import CheckoutForm from '../components/CheckoutForm.react.tsx';
+
+<PriceChart island={{ condition: 'on:visible' }} history={history} />
+<CheckoutForm island={{ condition: 'on:client' }} />
+```
+
+Avalon generates type declarations for `.vue` and `.svelte` files, so a Preact page type-checks the props it passes to a Vue component.
+
+This helps when you migrate a codebase one component at a time, or when the library you need only exists for one framework.
+
+## Sharing state between islands
+
+Each island is a separate component tree. React Context or Vue's provide/inject inside one island cannot reach another, and the islands may hydrate at different times in different frameworks.
+
+In an SPA you would use a shared module store. Under SSR that module also runs on the server, and its state can leak between requests unless every read and write checks for `window`. Avalon uses `document.dispatchEvent` with a `CustomEvent` instead. Listeners are attached in the browser after hydration, so none of this runs during SSR, and any framework can dispatch or listen.
+
+Define the event name and payload type in one file:
+
+```ts
+// app/modules/main/lib/cart-events.ts
+export const CART_UPDATED = 'cart:updated';
+
+export type CartUpdatedDetail = { count: number };
+
+export function dispatchCartUpdated(count: number) {
+  document.dispatchEvent(new CustomEvent(CART_UPDATED, { detail: { count } }));
+}
+```
+
+The button, in Preact:
+
+```tsx
+// app/modules/main/components/CartAddButton.tsx
+import { useState } from 'preact/hooks';
+import { dispatchCartUpdated } from '../lib/cart-events.ts';
+
+export default function CartAddButton() {
+  const [count, setCount] = useState(0);
+
+  function add() {
+    const next = count + 1;
+    setCount(next);
+    dispatchCartUpdated(next);
+  }
+
+  return <button type="button" onClick={add}>Add to cart</button>;
+}
+```
+
+The badge, in Svelte:
+
+<FencedCode lang="xml" code={cartBadgeSvelte} />
+
+The page:
+
+```tsx
+import CartAddButton from '../components/CartAddButton.tsx';
+import CartBadge from '../components/CartBadge.svelte';
+
+export default function ShopPage() {
+  return (
+    <header>
+      <CartBadge island={{ condition: 'on:client' }} />
+      <CartAddButton island={{ condition: 'on:interaction' }} />
+    </header>
+  );
+}
+```
+
+The badge hydrates on page load so its listener is in place before anyone clicks. The button's JavaScript loads on the first hover or click. Each island is its own chunk, and the only code they share is `cart-events.ts`.
+
+`on:event` uses the same events to decide when an island loads. `island={{ condition: 'on:event', conditionArg: 'support:open' }}` keeps a component's JavaScript off the page until `support:open` fires, which fits a support chat that most visitors never open. After it has loaded, send it updates with `addEventListener` as above.
+
+For state that should survive a reload there is `usePersistentState`, and `island={{ persist: 'key' }}` keeps an island mounted across client-side navigations. The [Cross-island state](/docs/guides/cross-island-state) guide covers both.
+
+## Custom hydration conditions
+
+If none of the built-in conditions fit, register one in `server/renderer.ts`. This one hydrates after a countdown:
+
+```ts
+import { registerHydrationDirective } from '@useavalon/avalon';
+
+registerHydrationDirective('on:countdown', {
+  name: 'on:countdown',
+  script: (el, hydrate, arg) => {
+    let remaining = parseInt(arg || '5', 10);
+    const tick = setInterval(() => {
+      if (--remaining <= 0) {
+        clearInterval(tick);
+        hydrate();
+      }
+    }, 1000);
+  },
+});
+
+export { default } from 'virtual:avalon/renderer';
+```
+
+```tsx
+<Promo island={{ condition: 'on:countdown', conditionArg: '5' }} />
+```
+
+The `script` function runs in the browser and receives the island's element, a `hydrate` callback, and the `conditionArg` value. A directive could wait for a third-party script to load, or for the tab to regain focus.
+
+## Server islands
+
+A prerendered page can still contain one component that needs request-time data, such as a price that changes or the signed-in user's avatar. Without server islands, that one component forces the whole page to render on every request.
+
+With the `server` prop, the page stays prerendered or cached, and that component is fetched from the server after the page loads:
+
+```tsx
+import ProductPrice from '../components/ProductPrice.tsx';
+import { PriceSkeleton } from '../components/Skeletons.tsx';
+
+<ProductPrice
+  server={{ fallback: <PriceSkeleton />, cache: 'public, max-age=60' }}
+  productId={product.id}
+/>
+```
+
+The page ships with `PriceSkeleton` in place. The browser then fetches the rendered price as HTML, and the component sends no JavaScript. Props are encrypted with AES-256-GCM before they reach the browser, so a visitor cannot read or edit `productId` or a session value. When the encrypted props fit in a URL, the request is a GET and a CDN can cache it.
+
+Add an `island` prop as well, and the component hydrates after its server HTML arrives.
+
+## Server actions
+
+Define an action with a Zod schema for its input:
+
+```ts
+// app/actions/index.ts
+import { defineAction } from '@useavalon/avalon/actions';
+import { z } from 'zod';
+
+export const server = {
+  subscribe: defineAction({
+    accept: 'form',
+    input: z.object({ email: z.string().email() }),
+    handler: async ({ email }) => ({ subscribed: email }),
+  }),
+};
+```
+
+Islands call it through a typed proxy, without writing a fetch call or an API route:
+
+```ts
+import { actions } from 'avalon/actions';
+
+const { data, error } = await actions.subscribe({ email });
+```
+
+The call resolves to `{ data, error }` and does not throw, so every call site handles errors the same way. With `accept: 'form'`, a plain `<form method="POST" action="/_actions/subscribe">` posts to the same action when JavaScript is off.
+
+## Other features in this release
+
+- **Streaming SSR.** The browser receives the layout, CSS, and navigation before the page's data has resolved.
+- **Prerendering.** Paths you list are written to disk as HTML at build time. Other routes render per request.
+- **Client navigation.** Optional in-app routing with View Transitions. Islands marked with `persist` keep their state between pages.
+- **MDX.** `.mdx` pages with frontmatter, GFM, and syntax-highlighted fenced code.
+- **Module routing.** `app/modules/<name>/pages/` maps to a URL prefix, so each section of a site has its own folder.
+- **API routes, middleware, and cron jobs** from Nitro.
+- **Image optimization** to modern formats, with fixed dimensions to prevent layout shift.
+
+## Status
+
+This is the first public release. npm packages are on 0.x today; we may refine APIs on the path to 1.0.
+
+Feedback from this release will shape what we work on next. If something is confusing, missing, or broken, open an issue on [GitHub](https://github.com/useAvalon/Avalon) or tell us on [Discord](https://discord.gg/avalon).
+
+## Docs to read next
+
+- [Quick start](/docs/quick-start) walks through a first project.
+- [Islands](/docs/islands-architecture), [Hydration strategies](/docs/hydration-strategies), and [Cross-island state](/docs/guides/cross-island-state) cover the client side.
+- [Server islands](/docs/server-islands) and [Server actions](/docs/server-actions) cover the server side.
+
+Thanks for reading. Run `bun create avalon`, build something small, and let us know how it goes.

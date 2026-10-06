@@ -3,6 +3,8 @@ title: Agent Optimization Plugin
 description: Serve llms.txt, markdown to AI clients, and sitemap.xml with @useavalon/agent-optimization.
 ---
 
+import PackageManagerTabs from '../../components/PackageManagerTabs.tsx';
+
 `@useavalon/agent-optimization` makes the site readable to AI agents and sitemap crawlers. It does **not** inject Open Graph, Twitter cards, or JSON-LD. Those live in [`@useavalon/seo`](/docs/plugins/seo).
 
 - **`/sitemap.xml`** — Sitemap Protocol 0.9 from discovered page routes
@@ -12,9 +14,7 @@ description: Serve llms.txt, markdown to AI clients, and sitemap.xml with @useav
 
 ## Installation
 
-```bash
-bun add @useavalon/agent-optimization
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="add-package" packageName="@useavalon/agent-optimization" />
 
 `create-avalon` can add this plugin when you select `agent-optimization`.
 

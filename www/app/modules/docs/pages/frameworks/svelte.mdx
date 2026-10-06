@@ -10,6 +10,8 @@ next:
   href: /docs/frameworks/solid
 ---
 
+import PackageManagerTabs from '../../components/PackageManagerTabs.tsx';
+
 ## Setup
 
 Add `'svelte'` to the `integrations` array:
@@ -22,9 +24,7 @@ const plugins = await avalon({
 
 Install Svelte:
 
-```bash
-bun add svelte
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="add-package" packageName="svelte" />
 
 ## Writing a Svelte island
 
@@ -86,6 +86,6 @@ Svelte stores work inside islands. Note that stores are scoped to the island —
 
 ## Caveats
 
-- **Stores are scoped to the island instance** — A Svelte store created inside an island is not shared with other islands on the page. Each island is an independent component tree. If you need shared state across islands, use a global singleton (e.g. a module-level store) or URL/localStorage.
+- **Stores are scoped to the island instance** — A Svelte store created inside an island is not shared with other islands on the page. Each island is an independent component tree. For live cross-island updates, use [DOM CustomEvents](/docs/guides/cross-island-state); avoid shared module-level stores that can leak during SSR.
 - **No SSR props drilling** — You cannot pass data from the server into an island via Svelte stores. Pass initial data as props directly on the island component instead. Stores are only useful for client-side state within the island.
 - **Svelte 5 runes** — Avalon's Svelte integration targets Svelte 5. Use `$state`, `$derived`, and `$props` runes rather than the legacy `let`/`$:` reactive syntax.

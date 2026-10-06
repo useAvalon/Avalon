@@ -3,6 +3,8 @@ title: SEO Plugin
 description: Auto-inject Open Graph, Twitter cards, canonical URLs, JSON-LD, and font preconnect links with @useavalon/seo.
 ---
 
+import PackageManagerTabs from '../../components/PackageManagerTabs.tsx';
+
 `@useavalon/seo` intercepts rendered HTML and fills in missing search and social tags. It reads tags already in the document and does not duplicate them.
 
 Use this plugin for crawlers and share previews. For `/sitemap.xml`, `llms.txt`, and `Accept: text/markdown`, use [`@useavalon/agent-optimization`](/docs/plugins/agent-optimization).
@@ -11,9 +13,7 @@ Page-level `title`, `description`, and `openGraph` still come from a [`metadata`
 
 ## Installation
 
-```bash
-bun add @useavalon/seo
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="add-package" packageName="@useavalon/seo" />
 
 `create-avalon` adds this plugin by default when you keep the `seo` option.
 

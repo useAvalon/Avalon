@@ -36,8 +36,9 @@ describe("Docs CSS unit tests", () => {
 		expect(layoutCss).toMatch(/grid-template-columns\s*:\s*260px\s+1fr/);
 	});
 
-	it("_layout.module.css contains max-width: 780px", () => {
-		expect(layoutCss).toContain("max-width: 780px");
+	it("_layout.module.css hides TOC below 1100px", () => {
+		expect(layoutCss).toMatch(/@media\s*\(max-width:\s*1100px\)/);
+		expect(layoutCss).toMatch(/\.tocSidebar\s*\{[^}]*display:\s*none/);
 	});
 
 	it("_layout.module.css contains position: sticky for sidebar", () => {
@@ -48,7 +49,7 @@ describe("Docs CSS unit tests", () => {
 		// Find the @media (max-width: 768px) block and check .mobileToggle has display: flex
 		const mediaMatch = sidebarCss.match(/@media\s*\(max-width:\s*768px\)\s*\{([\s\S]*?)\n\}/);
 		expect(mediaMatch).not.toBeNull();
-		const mediaBlock = mediaMatch![1];
+		const mediaBlock = mediaMatch?.[1] ?? "";
 		expect(mediaBlock).toMatch(/\.mobileToggle\s*\{[^}]*display\s*:\s*flex/);
 	});
 });

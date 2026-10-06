@@ -6,8 +6,8 @@ prev:
   title: Quick Start
   href: /docs/quick-start
 next:
-  title: Hydration Strategies
-  href: /docs/hydration-strategies
+  title: Cross-Island State
+  href: /docs/guides/cross-island-state
 ---
 
 import DocsLiveFrame from '../components/DocsLiveFrame.tsx';
@@ -20,6 +20,8 @@ import SvelteCounter from '../../demo/components/Counter.svelte';
 An island is an interactive component that hydrates on the client. Everything outside an island is static HTML — no JavaScript, no hydration overhead.
 
 The term comes from the "islands architecture" pattern: a sea of static HTML with interactive islands scattered throughout.
+
+Islands do not share framework context or a built-in store. To update another island after hydration, use **DOM `CustomEvent`s** (not module-level singleton stores that can leak during SSR). See [Cross-Island State](/docs/guides/cross-island-state).
 
 ## The `island` prop
 

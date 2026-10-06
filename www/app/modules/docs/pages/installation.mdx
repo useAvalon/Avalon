@@ -11,11 +11,12 @@ next:
 ---
 
 import DocsSteps from '../components/DocsSteps.tsx';
+import PackageManagerTabs from '../components/PackageManagerTabs.tsx';
 
 ## Requirements
 
-- [Bun](https://bun.sh) 1.0 or later
-- Node.js 18+ (if not using Bun)
+- [Bun](https://bun.sh) 1.0 or later (recommended)
+- Node.js 18+ (npm, pnpm, or yarn)
 
 <DocsSteps>
 
@@ -23,27 +24,15 @@ import DocsSteps from '../components/DocsSteps.tsx';
 
 The fastest way to get started is with the `create avalon` scaffolder:
 
-```bash
-bun create avalon my-app
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="scaffold-and-dev" />
 
-This creates a new directory `my-app/` with a minimal project structure.
-
-## Project setup
-
-```bash
-cd my-app
-bun install
-bun run dev
-```
-
-Your site is now running at `http://localhost:3000`.
+This creates a new directory `my-app/` with a minimal project structure and starts the dev server at `http://localhost:3000`.
 
 </DocsSteps>
 
 ## Project structure
 
-Scaffolded apps use **modules** (URL prefixes) under `app/`, not a top-level `src/` folder.
+Scaffolded apps use **modules** (URL prefixes) under `app/`.
 
 <div class="docs-block">
 
@@ -80,10 +69,7 @@ If you prefer to set up manually:
 
 ### Install the core package
 
-```bash
-bun add @useavalon/avalon
-bun add -d vite nitro
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="add-avalon-core" />
 
 ### Create a Vite config
 

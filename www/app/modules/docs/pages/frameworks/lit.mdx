@@ -10,6 +10,8 @@ next:
   href: /docs/frameworks/qwik
 ---
 
+import PackageManagerTabs from '../../components/PackageManagerTabs.tsx';
+
 ## Setup
 
 Add `'lit'` to the `integrations` array:
@@ -22,9 +24,7 @@ const plugins = await avalon({
 
 Install Lit:
 
-```bash
-bun add lit
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="add-package" packageName="lit" />
 
 ### TypeScript configuration
 
@@ -106,9 +106,7 @@ export default function Page() {
 
 Avalon uses `@lit-labs/ssr` to server-render Lit components. Ensure you have the SSR packages installed:
 
-```bash
-bun add @lit-labs/ssr @lit-labs/ssr-client @lit-labs/ssr-dom-shim
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="add-package" packageName="@lit-labs/ssr @lit-labs/ssr-client @lit-labs/ssr-dom-shim" />
 
 ## Declarative Shadow DOM
 

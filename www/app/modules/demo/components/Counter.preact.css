@@ -1,0 +1,178 @@
+.counter-card.preact {
+	border-radius: 12px;
+	overflow: hidden;
+	font-family: system-ui, sans-serif;
+	color: #e0e0e0;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background: linear-gradient(135deg, #1f1630 0%, #2a1a45 100%);
+	border: 1px solid rgba(103, 58, 184, 0.35);
+}
+
+.counter-card.preact .header {
+	padding: 0.75rem 1rem;
+	border-bottom: 1px solid rgba(103, 58, 184, 0.25);
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.counter-card.preact .label {
+	font-size: 0.7rem;
+	color: #6b7280;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.counter-card.preact .badge {
+	font-size: 0.65rem;
+	padding: 2px 8px;
+	border-radius: 9999px;
+	color: #b794f6;
+	background: rgba(103, 58, 184, 0.25);
+}
+
+.counter-card.preact .content {
+	padding: 1.5rem;
+	text-align: center;
+	flex: 1;
+}
+
+.counter-card.preact .title {
+	margin: 0 0 0.25rem;
+	font-size: 1rem;
+	font-weight: 600;
+	color: #b794f6;
+}
+
+.counter-card.preact .subtitle {
+	margin: 0 0 1rem;
+	font-size: 0.75rem;
+	opacity: 0.6;
+}
+
+.counter-card.preact .count {
+	font-size: 2.5rem;
+	font-weight: 700;
+	margin: 1rem 0;
+	font-family: monospace;
+}
+
+.counter-card.preact .buttons {
+	display: flex;
+	gap: 0.75rem;
+	justify-content: center;
+}
+
+.counter-card.preact .btn {
+	padding: 0.5rem 1.25rem;
+	border-radius: 8px;
+	font-size: 1.1rem;
+	cursor: pointer;
+	transition: opacity 0.15s;
+	border: 1px solid rgba(103, 58, 184, 0.45);
+	background: rgba(103, 58, 184, 0.15);
+	color: #b794f6;
+}
+
+.counter-card.preact .btn:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.counter-card.preact .network-panel {
+	border-top: 1px solid rgba(103, 58, 184, 0.25);
+	background: rgba(0, 0, 0, 0.3);
+	font-family: monospace;
+	font-size: 11px;
+}
+
+.counter-card.preact .network-header {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0.5rem 0.75rem;
+	border-bottom: 1px solid rgba(103, 58, 184, 0.15);
+	background: rgba(0, 0, 0, 0.2);
+}
+
+.counter-card.preact .network-title {
+	color: #6b7280;
+	font-weight: 500;
+}
+
+.counter-card.preact .network-filter {
+	padding: 1px 6px;
+	border-radius: 3px;
+	font-size: 10px;
+	color: #b794f6;
+	background: rgba(103, 58, 184, 0.2);
+}
+
+.counter-card.preact .network-body {
+	padding: 0.5rem 0.75rem;
+	min-height: 32px;
+}
+
+.counter-card.preact .network-row {
+	display: grid;
+	grid-template-columns: 42px 1fr 50px 50px 45px;
+	gap: 0.5rem;
+	align-items: center;
+}
+
+.counter-card.preact .status {
+	color: #b794f6;
+	font-weight: 500;
+}
+
+.counter-card.preact .pending {
+	color: #6b7280;
+	font-size: 10px;
+}
+
+.counter-card.preact .file {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: #b794f6;
+}
+
+.counter-card.preact .file-pending {
+	color: #6b7280;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.counter-card.preact .type {
+	color: #6b7280;
+}
+
+.counter-card.preact .size {
+	color: #9ca3af;
+	text-align: right;
+}
+
+.counter-card.preact .size-pending {
+	color: #6b7280;
+	text-align: right;
+}
+
+.counter-card.preact .time {
+	color: #b794f6;
+	text-align: right;
+}
+
+.counter-card.preact .time-pending {
+	color: #6b7280;
+	text-align: right;
+}
+
+.counter-card.preact .hint {
+	margin-top: 0.75rem;
+	font-size: 0.7rem;
+	color: #6b7280;
+	font-style: italic;
+}

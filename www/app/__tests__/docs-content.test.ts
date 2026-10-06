@@ -15,12 +15,10 @@ const introduction = readFileSync(
 const viteConfig = readFileSync(path.resolve(cwd, "www/vite.config.ts"), "utf-8");
 
 describe("Quick Start content", () => {
-	it("contains npm create avalon@latest my-app", () => {
-		expect(quickStart).toContain("npm create avalon@latest my-app");
-	});
-
-	it("contains bunx create-avalon my-app", () => {
-		expect(quickStart).toContain("bunx create-avalon my-app");
+	it("uses PackageManagerTabs for scaffold and dev", () => {
+		expect(quickStart).toContain('preset="scaffold"');
+		expect(quickStart).toContain('preset="dev"');
+		expect(quickStart).toContain("PackageManagerTabs");
 	});
 
 	it("contains http://localhost:3000", () => {
@@ -53,8 +51,8 @@ describe("InteractiveExample island files", () => {
 });
 
 describe("Agent optimization config", () => {
-	it("vite.config.ts contains 'Docs': ['/docs']", () => {
-		expect(viteConfig).toContain("'Docs': ['/docs']");
+	it("vite.config.ts lists Docs in agentOptimization llms sections", () => {
+		expect(viteConfig).toContain('Docs: ["/docs"]');
 	});
 });
 
