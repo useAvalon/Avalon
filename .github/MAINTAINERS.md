@@ -21,12 +21,14 @@ Apply rules in **Settings → Rules → Rulesets** (or run the script below as a
 
 ### Protect `main`
 
+Applied via **branch protection** (Settings → Branches → `main`) or `scripts/github-apply-rulesets.sh`:
+
 | Rule | Setting |
 |------|---------|
 | Target | `main` |
-| Deletion / non-fast-forward | Block |
-| Pull request | ≥1 approval, dismiss stale reviews, **require CODEOWNERS**, resolve threads, squash only |
+| Pull request | ≥1 approval, dismiss stale reviews, **require CODEOWNERS**, resolve review threads |
 | Required checks | `Lint`, `Test`, `Type Check`, `Install smoke` (strict: branch must be up to date) |
+| Merge methods | Squash only (repo setting) |
 
 ### Protect release tags (optional)
 
