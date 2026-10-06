@@ -148,7 +148,7 @@ Import the island directly from its \`*.<framework>.tsx\` file; avoid barrels, a
 		],
 		content: `# State & Cross-Island Communication
 
-Each island is an **independent component tree**. A framework Context/provider in one island cannot be read by another — they hydrate separately. There is **no built-in shared reactive store or signals API** in Avalon. Use one of the sanctioned patterns below.
+Each island is an **independent component tree**. A framework Context/provider in one island cannot be read by another — they hydrate separately. There is **no built-in shared reactive store or signals API** in Avalon. For live cross-island updates, prefer DOM CustomEvents over module-level singleton stores (Nanostores, shared Zustand, etc.): with SSR, island modules still execute on the server and mutable module scope can leak between requests — the same islands limitation discussed in meta-framework docs (e.g. Qwik+Astro recommends custom events instead of Nanostores). Patterns below.
 
 ## 1. Per-island persisted state — \`usePersistentState\`
 

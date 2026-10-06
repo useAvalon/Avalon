@@ -21,6 +21,7 @@ export const SIDEBAR: SidebarCategory[] = [
 		label: "CORE CONCEPTS",
 		items: [
 			{ title: "Islands Architecture", href: "/docs/islands-architecture" },
+			{ title: "Cross-Island State", href: "/docs/guides/cross-island-state" },
 			{ title: "Hydration Strategies", href: "/docs/hydration-strategies" },
 			{ title: "Server Islands", href: "/docs/server-islands" },
 			{ title: "File-System Routing", href: "/docs/file-system-routing" },

@@ -12,6 +12,7 @@ next:
 
 import InteractiveExample from '@shared/components/InteractiveExample.tsx';
 import DocsSteps from '../components/DocsSteps.tsx';
+import PackageManagerTabs from '../components/PackageManagerTabs.tsx';
 
 <DocsSteps>
 
@@ -19,37 +20,17 @@ import DocsSteps from '../components/DocsSteps.tsx';
 
 The fastest way to get started is with the Avalon CLI:
 
-```bash
-npm create avalon@latest my-app
-```
-
-For Bun users:
-
-```bash
-bunx create-avalon my-app
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="scaffold" />
 
 This will walk you through selecting your frameworks, styling approach, and deployment target.
 
 ## Install dependencies
 
-```bash
-cd my-app
-npm install
-```
-
-Or with Bun:
-
-```bash
-cd my-app
-bun install
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="install" />
 
 ## Start the dev server
 
-```bash
-npm run dev
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="dev" />
 
 Open `http://localhost:3000` in your browser. You should see the Avalon welcome page.
 
@@ -107,9 +88,7 @@ export default function HelloPage() {
 
 ## Build for production
 
-```bash
-npm run build
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="build" />
 
 Avalon builds a Nitro server bundle in `.output/`. Deploy it to Node, Bun, Cloudflare Workers, Vercel, or any Nitro-compatible target.
 

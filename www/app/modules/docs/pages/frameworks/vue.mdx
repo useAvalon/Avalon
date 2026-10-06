@@ -10,6 +10,8 @@ next:
   href: /docs/frameworks/svelte
 ---
 
+import PackageManagerTabs from '../../components/PackageManagerTabs.tsx';
+
 ## Setup
 
 Add `'vue'` to the `integrations` array:
@@ -22,9 +24,7 @@ const plugins = await avalon({
 
 Install Vue:
 
-```bash
-bun add vue
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="add-package" packageName="vue" />
 
 ## Writing a Vue island
 
@@ -109,5 +109,5 @@ const count = ref(0);
 
 ## Caveats
 
-- **Stores are scoped to the island instance** — Pinia stores or `reactive` objects created inside an island are not shared with other islands on the page. Each island is an independent Vue app. For shared state across islands, use a module-level singleton or localStorage.
+- **Stores are scoped to the island instance** — Pinia stores or `reactive` objects created inside an island are not shared with other islands on the page. Each island is an independent Vue app. For live cross-island updates, use [DOM CustomEvents](/docs/guides/cross-island-state); avoid shared module-level stores that can leak during SSR.
 - **No SSR prop drilling via provide/inject** — `provide`/`inject` only works within a single island's component tree. Pass initial data as props on the island component instead.

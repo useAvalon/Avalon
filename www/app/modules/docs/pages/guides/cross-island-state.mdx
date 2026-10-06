@@ -1,0 +1,135 @@
+---
+title: Cross-Island State
+description: Share live updates between islands with DOM CustomEvents — without module-level stores that can leak on the server.
+currentPath: /docs/guides/cross-island-state
+prev:
+  title: Islands Architecture
+  href: /docs/islands-architecture
+next:
+  title: Hydration Strategies
+  href: /docs/hydration-strategies
+---
+
+import DocsLiveFrame from '../../components/DocsLiveFrame.tsx';
+import SharedCounterPreact from '../../../demo/components/SharedCounter.preact.tsx';
+import SharedCounterSvelte from '../../../demo/components/SharedCounter.svelte';
+
+Each island is an **independent component tree**. React Context, Vue provide/inject, and Svelte stores **inside one island** do not reach another island on the same page. Avalon does not ship a global reactive store.
+
+For **live** coordination between islands on the client, use the DOM event bus: **`CustomEvent` + `document.dispatchEvent` / `addEventListener`**. Listeners run only in the browser after hydration, so nothing from that channel runs during SSR.
+
+## Why not a shared module store?
+
+In SPA-only apps, **module-level singletons** (Nanostores, an exported Zustand store, a shared Svelte writable at file scope) are a common way to share state. In **islands + SSR** setups, that pattern is a poor fit for *live* cross-island updates:
+
+- Island bundles still run on the **server** during SSR. Mutable module scope can **leak between requests** or renders unless every read/write is guarded with `typeof window !== 'undefined'`.
+- Separate island roots do not share framework context anyway, so the singleton becomes an ad hoc event bus — easy to misuse under SSR.
+- Community integrations for other meta-frameworks often suggest Nanostores for cross-island state; the [Qwik + Astro integration](https://github.com/steve8708/qwik-astro#communicating-across-containers) instead recommends **custom events** — decoupled islands, no server-side mutable shared module, and signaling that stays on the client after hydration.
+
+CustomEvents match that model: **event-driven**, works across frameworks on one page, and keeps server rendering free of client-only coordination state.
+
+## Pattern — event names and typed detail
+
+Pick a stable, namespaced event name (e.g. `cart:updated`) and pass a JSON-serializable `detail` payload:
+
+```tsx
+// app/modules/main/lib/cart-events.ts
+export const CART_UPDATED = 'cart:updated';
+
+export type CartUpdatedDetail = { count: number };
+
+export function dispatchCartUpdated(count: number) {
+  document.dispatchEvent(
+    new CustomEvent(CART_UPDATED, { detail: { count }, bubbles: true }),
+  );
+}
+```
+
+## Example — add button and badge (two islands)
+
+**Add button** (Preact island):
+
+```tsx
+// app/modules/main/components/CartAddButton.tsx
+import { useState } from 'preact/hooks';
+import { dispatchCartUpdated } from '../lib/cart-events.ts';
+
+export default function CartAddButton() {
+  const [count, setCount] = useState(0);
+
+  function add() {
+    const next = count + 1;
+    setCount(next);
+    dispatchCartUpdated(next);
+  }
+
+  return <button type="button" onClick={add}>Add to cart</button>;
+}
+```
+
+**Badge** (separate island, can be another framework file):
+
+```tsx
+// app/modules/main/components/CartBadge.tsx
+import { useEffect, useState } from 'preact/hooks';
+import { CART_UPDATED, type CartUpdatedDetail } from '../lib/cart-events.ts';
+
+export default function CartBadge() {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    const onCart = (event: Event) => {
+      const detail = (event as CustomEvent<CartUpdatedDetail>).detail;
+      setCount(detail.count);
+    };
+    document.addEventListener(CART_UPDATED, onCart);
+    return () => document.removeEventListener(CART_UPDATED, onCart);
+  }, []);
+
+  return <span aria-live="polite">Cart: {count}</span>;
+}
+```
+
+**Page** — direct imports, separate hydration if you want:
+
+```tsx
+import CartAddButton from '../components/CartAddButton.tsx';
+import CartBadge from '../components/CartBadge.tsx';
+
+export default function ShopPage() {
+  return (
+    <header>
+      <CartBadge island={{ condition: 'on:client' }} />
+      <CartAddButton island={{ condition: 'on:interaction' }} />
+    </header>
+  );
+}
+```
+
+The badge can hydrate immediately; the button can wait for interaction. Both stay in sync via `cart:updated` after the user clicks.
+
+## `on:event` is for hydration, not state
+
+`island={{ condition: 'on:event', conditionArg: 'cart:updated' }}` tells Avalon to **hydrate when that event fires**. It does not replace subscribing with `addEventListener` for ongoing updates. Use `on:event` to defer loading an island; use CustomEvents to **broadcast state** to already-mounted islands.
+
+## Other options
+
+| Need | Approach |
+|------|----------|
+| State inside one island, survive reload | [`usePersistentState`](/docs/built-in-components#persistentisland) (`sessionStorage` / `localStorage`) |
+| Shareable URL, back/forward | Query params or `history.pushState` |
+| Keep live instance across **client** navigations | `island={{ persist: 'key' }}` or [`data-router-persist`](/docs/client-navigation) |
+| Request-scoped server data | [Middleware context](/docs/middleware) — not for client islands |
+
+See also [Built-in Components](/docs/built-in-components) for persistence helpers and [Client Navigation](/docs/client-navigation) for `persist` on the router.
+
+## Live demo
+
+Two islands (Preact and Svelte) share one count via `avalon-docs:shared-counter` on `document`. No module-level store — only `dispatchEvent` and `addEventListener`.
+
+<DocsLiveFrame label="Live — two islands, one count" variant="grid" compact>
+  <SharedCounterPreact island={{ condition: 'on:client' }} />
+  <SharedCounterSvelte island={{ condition: 'on:client' }} />
+</DocsLiveFrame>
+
+Use **+** or **−** on either card; the other island updates after hydration.

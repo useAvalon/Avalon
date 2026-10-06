@@ -10,6 +10,8 @@ next:
   href: /docs/frameworks/preact
 ---
 
+import PackageManagerTabs from '../../components/PackageManagerTabs.tsx';
+
 ## Setup
 
 Add `'react'` to the `integrations` array in your `vite.config.ts`:
@@ -22,9 +24,7 @@ const plugins = await avalon({
 
 Install the peer dependencies if not already present:
 
-```bash
-bun add react react-dom
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="add-package" packageName="react react-dom" />
 
 ## File name
 
@@ -90,4 +90,4 @@ export default function ThemedApp() {
 
 - **Hooks work** — `useState`, `useEffect`, `useRef`, `useMemo`, and all other React hooks work as expected inside islands.
 - **No signals** — React does not have a signals primitive. Use `useState` or `useReducer` for local state, and `useContext` for shared state within an island tree.
-- **Context cannot span islands** — A `Context.Provider` in one island cannot provide values to a different island. Each island is an independent React tree. If you need shared state across islands, use a global store (e.g. Zustand) or URL state.
+- **Context cannot span islands** — A `Context.Provider` in one island cannot provide values to a different island. Each island is an independent React tree. For live updates across islands, use [DOM CustomEvents](/docs/guides/cross-island-state); avoid module-level singleton stores that can leak on the server during SSR.

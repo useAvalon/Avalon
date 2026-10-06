@@ -1,11 +1,19 @@
-.catalogue {
+.shell {
 	width: 100%;
+	min-height: calc(100svh - var(--nav-height));
+	box-sizing: border-box;
 }
 
 .wrapper {
-	max-width: 760px;
+	max-width: 52rem;
 	margin: 0 auto;
-	padding: var(--space-12) var(--space-6) var(--space-24);
+	padding: clamp(2.5rem, 8vh, var(--space-12)) clamp(1.5rem, 5vw, 3rem) var(--space-24);
+	box-sizing: border-box;
+}
+
+/* Long-form posts: comfortable measure without feeling cramped */
+.prose {
+	max-width: 48rem;
 }
 
 .article {
@@ -34,47 +42,43 @@
 }
 
 .header {
-	margin-bottom: var(--space-12);
+	margin-bottom: var(--space-10);
 	padding-bottom: var(--space-8);
 	border-bottom: 1px solid var(--surface-border);
 }
 
 .date {
 	display: block;
-	font-size: var(--text-caption);
-	font-weight: 500;
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
-	color: var(--avalon-cyan);
-	margin-bottom: var(--space-4);
+	margin: 0 0 var(--space-3);
+	font-size: var(--text-small);
+	color: var(--color-text-muted);
 }
 
 .title {
+	margin: 0 0 var(--space-4);
 	font-family: var(--font-sans);
 	font-size: var(--text-h1);
-	font-style: normal;
-	font-weight: 600;
+	font-weight: 700;
 	color: var(--color-text-heading);
-	letter-spacing: -0.03em;
-	line-height: 1.15;
-	margin-bottom: var(--space-4);
+	letter-spacing: -0.02em;
+	line-height: 1.2;
 }
 
-.excerpt {
+.lede {
+	margin: 0;
 	font-size: var(--text-body);
 	color: var(--color-text-secondary);
 	line-height: 1.7;
 }
 
-/* Prose typography */
+/* Prose — aligned with docs reading experience */
 .prose {
-	color: var(--color-text-secondary);
+	color: var(--color-text);
 	line-height: 1.8;
 	font-size: var(--text-body);
 	font-family: var(--font-sans);
 }
 
-.prose h1,
 .prose h2,
 .prose h3,
 .prose h4 {
@@ -89,22 +93,28 @@
 
 .prose h2 {
 	font-size: var(--text-h2);
+	border-bottom: 1px solid var(--surface-border);
+	padding-bottom: var(--space-3);
 }
+
 .prose h3 {
 	font-size: var(--text-h3);
+	margin-top: var(--space-8);
 }
+
 .prose h4 {
 	font-size: var(--text-h4);
 }
 
 .prose p {
-	margin-bottom: var(--space-6);
+	margin-bottom: var(--space-4);
+	color: var(--color-text-secondary);
 }
 
 .prose a {
 	color: var(--avalon-blue);
-	text-decoration: none;
-	font-weight: 500;
+	text-decoration: underline;
+	text-underline-offset: 3px;
 	transition: color 0.15s ease;
 }
 
@@ -121,7 +131,8 @@
 .prose ul,
 .prose ol {
 	padding-left: var(--space-6);
-	margin-bottom: var(--space-6);
+	margin-bottom: var(--space-4);
+	color: var(--color-text-secondary);
 }
 
 .prose li {
@@ -131,36 +142,22 @@
 .prose :not(pre) > code {
 	font-family: var(--font-mono);
 	font-size: 0.875em;
-	background: color-mix(in srgb, var(--avalon-blue) 10%, transparent);
-	color: var(--avalon-cyan);
+	background: var(--color-bg-inset);
+	color: var(--color-text);
 	padding: 2px 6px;
-	border-radius: 0;
+	border-radius: var(--radius-sm);
+	border: 1px solid var(--surface-border);
 }
 
 .prose pre {
-	background: #0d1117;
+	background: var(--color-code-bg);
 	border: 1px solid var(--surface-border);
 	border-radius: var(--radius-md);
-	padding: 48px 32px 28px;
+	padding: var(--space-6);
 	overflow-x: auto;
 	margin-bottom: var(--space-6);
 	font-family: var(--font-mono);
-	position: relative;
-	color: #c9d1d9;
-}
-
-.prose pre::after {
-	content: "";
-	position: absolute;
-	top: 16px;
-	left: 18px;
-	width: 10px;
-	height: 10px;
-	border-radius: 50%;
-	background: #3d444d;
-	box-shadow:
-		16px 0 0 #3d444d,
-		32px 0 0 #3d444d;
+	color: var(--color-code-text);
 }
 
 .prose pre code {
@@ -170,45 +167,18 @@
 	line-height: 1.7;
 	display: block;
 	font-family: inherit;
+	border: 0;
+	color: inherit;
 }
 
 .prose pre :global(code.hljs),
 .prose pre :global(.hljs) {
 	background: transparent;
 	padding: 0;
-	color: #c9d1d9;
+	color: var(--color-code-text);
 }
 
-.prose pre :global(.hljs-keyword),
-.prose pre :global(.hljs-doctag),
-.prose pre :global(.hljs-type) {
-	color: #ff7b72;
-}
-
-.prose pre :global(.hljs-title),
-.prose pre :global(.hljs-title.function_) {
-	color: #d2a8ff;
-}
-
-.prose pre :global(.hljs-string),
-.prose pre :global(.hljs-attr),
-.prose pre :global(.hljs-number) {
-	color: #79c0ff;
-}
-
-.prose pre :global(.hljs-comment) {
-	color: #8b949e;
-}
-
-.prose pre :global(.hljs-built_in),
-.prose pre :global(.hljs-literal) {
-	color: #ffa657;
-}
-
-.prose pre :global(.hljs-tag),
-.prose pre :global(.hljs-name) {
-	color: #7ee787;
-}
+/* Token colors come from syntax-highlighting.css (global .hljs-*). */
 
 .prose strong {
 	color: var(--color-text);
@@ -219,6 +189,55 @@
 	border-left: 3px solid var(--avalon-blue);
 	padding-left: var(--space-4);
 	margin: var(--space-6) 0;
+	color: var(--color-text-secondary);
+}
+
+.prose blockquote p {
+	margin: 0;
+	color: inherit;
+}
+
+.prose table {
+	width: 100%;
+	border-collapse: collapse;
+	margin: var(--space-6) 0 var(--space-8);
+	font-size: var(--text-small);
+}
+
+.prose th {
+	text-align: left;
+	padding: var(--space-3) var(--space-4);
+	border-bottom: 1px solid var(--surface-border);
+	color: var(--color-text-heading);
+	font-weight: 600;
+	font-size: var(--text-small);
+}
+
+.prose td {
+	padding: var(--space-4);
+	border-bottom: 1px solid var(--surface-border);
+	color: var(--color-text-secondary);
+	vertical-align: top;
+	line-height: 1.6;
+}
+
+.prose td:first-child {
+	font-weight: 600;
+	color: var(--color-text);
+	white-space: nowrap;
+	width: 9rem;
+}
+
+@media (max-width: 640px) {
+	.prose table {
+		display: block;
+		overflow-x: auto;
+	}
+
+	.prose td:first-child {
+		white-space: normal;
+		width: auto;
+	}
 }
 
 @media (max-width: 768px) {

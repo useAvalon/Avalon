@@ -1,11 +1,18 @@
 /* Home module layout styles */
 
 .body {
+	display: flex;
+	flex-direction: column;
 	background: var(--color-bg, #050510);
 	color: var(--color-text, #e2e8f0);
 	font-family: var(--font-sans);
 	min-height: 100vh;
 	padding-top: var(--nav-height);
+}
+
+.main {
+	flex: 1 0 auto;
+	width: 100%;
 }
 
 /* Landing page nav — transparent over hero */
@@ -208,11 +215,12 @@
 }
 
 .footerCols {
-	max-width: 1240px;
+	width: min(1240px, 100%);
 	margin: 0 auto;
 	display: grid;
-	grid-template-columns: repeat(4, minmax(0, 1fr));
-	gap: var(--space-12);
+	grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+	gap: var(--space-10) clamp(var(--space-6), 3vw, var(--space-12));
+	align-items: start;
 }
 
 .footerCols div {
@@ -279,7 +287,7 @@
 }
 
 .footerBottom {
-	max-width: 1240px;
+	width: min(1240px, 100%);
 	margin: var(--space-8) auto 0;
 	padding-top: var(--space-6);
 	border-top: 1px solid var(--surface-border);
@@ -294,8 +302,14 @@
 	margin: 0;
 }
 
-@media (max-width: 860px) {
-	.footerCols {
-		grid-template-columns: 1fr 1fr;
+@media (max-width: 520px) {
+	.footerMark {
+		font-size: min(calc((100vw - 4rem) / 5.15), 4.5rem);
+	}
+
+	.footerBottom {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--space-2);
 	}
 }

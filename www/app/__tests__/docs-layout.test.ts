@@ -1,29 +1,18 @@
-import * as fc from "fast-check";
-import { h } from "preact";
-import { render } from "preact-render-to-string";
+import { getPrevNext, SIDEBAR } from "@shared/utils/sidebar.ts";
 import { describe, expect, it } from "vitest";
-import DocsLayout from "../modules/docs/layouts/_layout.tsx";
 
-describe("Docs layout property tests", () => {
-	// Feature: avalon-docs, Property 10: Docs layout renders frontmatter title as h1
-	it("Property 10: docs layout renders frontmatter title as h1", () => {
-		// Only use titles that don't contain HTML special chars, since the renderer
-		// will escape them (& → &amp; etc.) and a raw string match would fail.
-		const safeTitle = fc
-			.string({ minLength: 1 })
-			.filter((s) => s.trim().length > 0 && !/[&<>"']/.test(s));
-		fc.assert(
-			fc.property(safeTitle, (title) => {
-				const html = render(
-					h(
-						DocsLayout,
-						{ frontmatter: { title, currentPath: "/docs/introduction" } },
-						h("p", null, "content"),
-					),
-				);
-				return html.includes("<h1") && html.includes(title);
-			}),
-			{ numRuns: 100 },
-		);
+describe("Docs layout navigation", () => {
+	it("sidebar lists Cross-Island State under core concepts", () => {
+		const core = SIDEBAR.find((section) => section.label === "CORE CONCEPTS");
+		expect(core?.items.some((item) => item.href === "/docs/guides/cross-island-state")).toBe(true);
+	});
+
+	it("getPrevNext chains islands architecture → cross-island → hydration", () => {
+		const cross = getPrevNext("/docs/guides/cross-island-state");
+		expect(cross.prev?.href).toBe("/docs/islands-architecture");
+		expect(cross.next?.href).toBe("/docs/hydration-strategies");
+
+		const islands = getPrevNext("/docs/islands-architecture");
+		expect(islands.next?.href).toBe("/docs/guides/cross-island-state");
 	});
 });

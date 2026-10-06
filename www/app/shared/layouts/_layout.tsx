@@ -111,7 +111,7 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 						</div>
 					</div>
 				</header>
-				<main>{children}</main>
+				<main class={styles.main}>{children}</main>
 				<footer id="site-footer" class={styles.footer}>
 					<nav class={styles.footerCols} aria-label="Footer">
 						<div>

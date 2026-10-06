@@ -10,6 +10,8 @@ next:
   href: /docs/frameworks/vue
 ---
 
+import PackageManagerTabs from '../../components/PackageManagerTabs.tsx';
+
 ## Setup
 
 Preact is Avalon's default SSR renderer and is always available. No extra configuration needed.
@@ -71,9 +73,7 @@ export default function Counter() {
 
 Install signals with:
 
-```bash
-bun add @preact/signals
-```
+<PackageManagerTabs island={{ condition: 'on:client' }} preset="add-package" packageName="@preact/signals" />
 
 ## Why Preact for pages?
 
