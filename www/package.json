@@ -28,7 +28,7 @@
 		"@useavalon/vue": "workspace:^",
 		"gsap": "^3.15.0",
 		"highlight.js": "^11.12.0",
-		"h3": "^2.0.1-rc.32",
+		"h3": "^2.0.1-rc.33",
 		"lit": "^3.3.3",
 		"preact": "11.0.0",
 		"preact-render-to-string": "6.8.0",
