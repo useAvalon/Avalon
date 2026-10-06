@@ -1,5 +1,13 @@
 # @useavalon/avalon
 
+## 0.5.6
+
+### Patch Changes
+
+- [#99](https://github.com/useAvalon/Avalon/pull/99) [`4fad323`](https://github.com/useAvalon/Avalon/commit/4fad3231625e060423efc68cf8b97b5cbb2b09f6) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Recommend `bun add` in the missing framework integration error message instead of Deno.
+- Updated dependencies []:
+  - @useavalon/core@0.5.6
+
 ## 0.5.5
 
 ### Patch Changes
