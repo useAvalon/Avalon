@@ -2,7 +2,9 @@
 
 Thanks for wanting to help. Avalon is a multi-framework **islands** framework — it is not Astro. Hydration is `island={{ condition: 'on:client' }}` on an imported component. There are no `client:*` attributes.
 
-Coding agents should read [AGENTS.md](./AGENTS.md) as well as this file.
+**How we take code:** external work comes in as a **fork and a pull request** against `main`. We do not grant write access to push branches on the upstream repo. `main` is protected: CI must pass and a **maintainer must approve** before merge (squash only). See [.github/MAINTAINERS.md](./.github/MAINTAINERS.md) for the ruleset checklist.
+
+Coding agents should read [AGENTS.md](./AGENTS.md) as well as this file. Follow the [Code of Conduct](./CODE_OF_CONDUCT.md).
 
 ## Setup
 
@@ -36,13 +38,15 @@ Large or breaking changes need an issue first so the approach can be discussed.
 
 ## Pull requests
 
-1. Fork the repo and create a topic branch from `main`.
+1. Fork [useAvalon/Avalon](https://github.com/useAvalon/Avalon) and create a topic branch from `main` **in your fork**.
 2. Keep the PR to **one concern**. Do not mix features, drive-by refactors, or formatting-only diffs.
 3. Add or update tests next to the code (`__tests__` or `tests/`) when behavior changes.
 4. Run `bun run lint`, `bun run test`, and `bun run typecheck`. Do not skip git hooks.
-5. Open a PR from your fork against `main` and fill in the pull request template. Reference issues with `Fixes #123`.
+5. Open a PR **against `main` on this repo** (not your fork’s default branch). Fill in the pull request template. Reference issues with `Fixes #123`.
 
-CI on pull requests runs Biome, Vitest, `tsc --noEmit`, and an install smoke (`bun run test:install`: pack workspace packages → `create-avalon --yes` → install from those tarballs → production build). All four must pass.
+CI on pull requests runs **Lint**, **Test**, **Type Check**, and **Install smoke** (`bun run test:install`: pack workspace packages → `create-avalon --yes` → install from tarballs → production build). All four must pass before a maintainer can merge.
+
+The maintainer merges after review. **Do not ask for write access** to push directly to this repository.
 
 **Do not** bump versions in `package.json` by hand or publish from a laptop. When a PR should change what ships on npm, run `bunx changeset` and commit the generated file under `.changeset/`. Merging to `main` opens or updates a **Version packages** PR; merging that PR runs the full CI smoke and publishes to npm. PRs get install previews via [pkg.pr.new](https://pkg.pr.new) (see `.github/workflows/preview.yml`), not npm canary tags.
 
