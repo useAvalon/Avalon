@@ -42,7 +42,7 @@
 	"dependencies": {
 		"@useavalon/avalon": "workspace:^",
 		"@useavalon/core": "workspace:^",
-		"vite-plugin-solid": "^2.11.11"
+		"vite-plugin-solid": "^2.11.14"
 	},
 	"peerDependencies": {
 		"solid-js": "^1.8.0",
