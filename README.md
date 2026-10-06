@@ -14,10 +14,10 @@ Multi-framework islands architecture for the modern web. Ship interactive compon
 ## Get started
 
 ```bash
-npm create avalon@latest
-# or
-bun create avalon
+bun create avalon my-app
 ```
+
+Other package managers: `npm create avalon@latest`, `pnpm create avalon@latest`, or `yarn create avalon`. See [Installation](https://useavalon.dev/docs/installation).
 
 Or read the [documentation](https://useavalon.dev/docs/introduction).
 

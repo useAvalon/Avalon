@@ -8,8 +8,7 @@
 		"packages/seo",
 		"packages/create-avalon",
 		"packages/integrations/*",
-		"www",
-		"examples/*"
+		"www"
 	],
 	"scripts": {
 		"dev": "bun run --filter avalon-demo dev",
