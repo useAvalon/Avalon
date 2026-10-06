@@ -17,9 +17,7 @@ Core framework package for [Avalon](https://useavalon.dev) — a multi-framework
 ## Quick start
 
 ```bash
-npm create avalon@latest
-# or
-bun create avalon
+bun create avalon my-app
 ```
 
 Or install manually:

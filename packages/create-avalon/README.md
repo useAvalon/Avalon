@@ -5,16 +5,10 @@ Scaffold a new [Avalon](https://useavalon.dev) project in seconds.
 ## Usage
 
 ```bash
-npm create avalon@latest
+bun create avalon my-app
 ```
 
-Or with other package managers:
-
-```bash
-pnpm create avalon@latest
-yarn create avalon
-bun create avalon
-```
+Other package managers: `npm create avalon@latest`, `pnpm create avalon@latest`, or `yarn create avalon`.
 
 The CLI walks you through:
 
