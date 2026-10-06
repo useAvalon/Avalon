@@ -108,7 +108,7 @@
 		"rehype-highlight": "^7.0.0",
 		"@useavalon/core": "workspace:^",
 		"h3": "^2.0.1-rc.32",
-		"marked": "^17.0.4",
+		"marked": "^17.0.6",
 		"oxc-parser": "^0.152.0",
 		"oxc-transform": "^0.152.0",
 		"preact": "11.0.0",

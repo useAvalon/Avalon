@@ -41,7 +41,7 @@
 	"dependencies": {
 		"@useavalon/avalon": "workspace:^",
 		"@useavalon/core": "workspace:^",
-		"@preact/preset-vite": "^2.10.1"
+		"@preact/preset-vite": "^2.10.6"
 	},
 	"peerDependencies": {
 		"preact": "^11.0.0",
