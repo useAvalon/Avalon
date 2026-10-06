@@ -7,8 +7,9 @@ on:
     branches: [main]
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
-# One workflow run per ref; cancel superseded pushes. Jobs below run in sequence (needs:)
-# so only one runner is active at a time — parallel jobs were starving each other on Free orgs.
+# One workflow run per ref; cancel superseded pushes. Lint → test → typecheck → install-smoke
+# run in sequence (needs:) so only one heavy job uses a runner at a time on Free orgs.
+# The changeset job is PR-only and only needs prepare — it does not sit in that chain.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -18,8 +19,15 @@ permissions:
   pull-requests: read
 
 jobs:
+  prepare:
+    name: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - run: true
+
   changeset:
     name: changeset
+    needs: prepare
     if: >-
       github.event_name == 'pull_request' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
@@ -78,8 +86,7 @@ jobs:
 
   lint:
     name: Lint
-    needs: changeset
-    if: ${{ !cancelled() && (needs.changeset.result == 'success' || needs.changeset.result == 'skipped') }}
+    needs: prepare
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
