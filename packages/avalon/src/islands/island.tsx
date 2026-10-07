@@ -13,7 +13,7 @@ import { analyzeComponentFile, renderComponentSSROnly } from "./component-analys
 import { detectFramework } from "./framework-detection.ts";
 import { isCustomDirective, serializeDirectiveScript } from "./hydration-directives.ts";
 import { detectFrameworkFromPath, loadIntegration } from "./integration-loader.ts";
-import { addModulepreload } from "./modulepreload-collector.ts";
+import { addModulepreload, type ModulePreloadFetchPriority } from "./modulepreload-collector.ts";
 import { generatePerIslandScript } from "./per-island-script.ts";
 import type { Framework } from "./types.ts";
 import { addUniversalCSS } from "./universal-css-collector.ts";
@@ -83,6 +83,10 @@ export interface IslandProps {
 	persist?: string | true;
 	/** React/Preact list key — set on the host VNode, never serialized into props */
 	key?: string | number;
+	/** When false, omit modulepreload for this `on:client` island (default: true). */
+	preload?: boolean;
+	/** fetchpriority on the island modulepreload link when preload is enabled. */
+	fetchPriority?: ModulePreloadFetchPriority;
 }
 
 // ---------------------------------------------------------------------------
@@ -144,6 +148,20 @@ function isPerIslandMode(): boolean {
  * Returns the element unchanged if per-island mode is not active
  * or if the island should skip hydration.
  */
+function islandPreloadDataAttrs(
+	preload?: boolean,
+	fetchPriority?: ModulePreloadFetchPriority,
+): Record<string, string> {
+	const attrs: Record<string, string> = {};
+	if (preload === false) {
+		attrs["data-island-preload"] = "false";
+	}
+	if (fetchPriority && fetchPriority !== "auto") {
+		attrs["data-island-fetchpriority"] = fetchPriority;
+	}
+	return attrs;
+}
+
 function wrapWithPerIslandScript(
 	islandElement: JSX.Element,
 	opts: {
@@ -154,6 +172,8 @@ function wrapWithPerIslandScript(
 		props: Record<string, unknown>;
 		framework: string;
 		shouldSkipHydration: boolean;
+		preload?: boolean;
+		fetchPriority?: ModulePreloadFetchPriority;
 	},
 ): JSX.Element {
 	if (!isPerIslandMode() || opts.shouldSkipHydration) {
@@ -166,8 +186,9 @@ function wrapWithPerIslandScript(
 	// islands that hydrate immediately and benefit from early fetching.
 	// Deferred islands (on:visible, on:idle, on:interaction, media:*) are
 	// intentionally excluded since preloading defeats lazy loading.
-	if (opts.condition === "on:client") {
-		addModulepreload(componentSrc);
+	const preloadEnabled = opts.preload !== false;
+	if (opts.condition === "on:client" && preloadEnabled) {
+		addModulepreload(componentSrc, { fetchPriority: opts.fetchPriority });
 	}
 	const isCustom = isCustomDirective(opts.condition);
 	const directiveScript = isCustom ? serializeDirectiveScript(opts.condition) : undefined;
@@ -313,6 +334,8 @@ function renderIslandSSR(opts: {
 	hydrationData: Record<string, unknown>;
 	children: IslandChildren;
 	persist?: string | true;
+	preload?: boolean;
+	fetchPriority?: ModulePreloadFetchPriority;
 }): JSX.Element {
 	const {
 		islandId,
@@ -325,6 +348,8 @@ function renderIslandSSR(opts: {
 		hydrationData,
 		children,
 		persist,
+		preload,
+		fetchPriority,
 	} = opts;
 	const baseAttributes: Record<string, string> = {
 		id: islandId,
@@ -344,7 +369,11 @@ function renderIslandSSR(opts: {
 		});
 	}
 
-	const allAttributes = { ...baseAttributes, ...hydrationAttributes };
+	const allAttributes = {
+		...baseAttributes,
+		...hydrationAttributes,
+		...islandPreloadDataAttrs(preload, fetchPriority),
+	};
 
 	let islandElement: JSX.Element;
 	if (typeof children === "string") {
@@ -364,6 +393,8 @@ function renderIslandSSR(opts: {
 		props,
 		framework: detectedFramework,
 		shouldSkipHydration,
+		preload,
+		fetchPriority,
 	});
 }
 
@@ -380,6 +411,8 @@ function renderIslandClientOnly(opts: {
 	persist?: string | true;
 	/** Intentional client-only (no SSR), not an empty SSR fallthrough. */
 	clientOnly?: boolean;
+	preload?: boolean;
+	fetchPriority?: ModulePreloadFetchPriority;
 }): JSX.Element {
 	const {
 		islandId,
@@ -392,6 +425,8 @@ function renderIslandClientOnly(opts: {
 		conditionArg,
 		persist,
 		clientOnly,
+		preload,
+		fetchPriority,
 	} = opts;
 
 	const persistKey = persistAttribute(persist, src);
@@ -429,6 +464,8 @@ function renderIslandClientOnly(opts: {
 		attrs["data-condition-arg"] = conditionArg;
 	}
 
+	Object.assign(attrs, islandPreloadDataAttrs(preload, fetchPriority));
+
 	const islandElement = h("avalon-island", attrs);
 
 	return wrapWithPerIslandScript(islandElement, {
@@ -439,6 +476,8 @@ function renderIslandClientOnly(opts: {
 		props,
 		framework: detectedFramework,
 		shouldSkipHydration,
+		preload,
+		fetchPriority,
 	});
 }
 
@@ -462,6 +501,8 @@ export default function Island({
 	hydrationData = {},
 	id,
 	persist,
+	preload,
+	fetchPriority,
 }: IslandProps): JSX.Element {
 	const ssr = clientOnly === true ? false : (ssrProp ?? condition !== "on:client");
 	const islandId = toIslandId(src, id);
@@ -489,6 +530,8 @@ export default function Island({
 			hydrationData,
 			children,
 			persist,
+			preload,
+			fetchPriority,
 		});
 	}
 
@@ -509,6 +552,8 @@ export default function Island({
 		conditionArg,
 		persist,
 		clientOnly: !ssr,
+		preload,
+		fetchPriority,
 	});
 }
 
@@ -555,6 +600,8 @@ async function renderWithExplicitFramework({
 	component: preloadedComponent,
 	id,
 	persist,
+	preload,
+	fetchPriority,
 }: {
 	src: string;
 	condition: IslandProps["condition"];
@@ -568,6 +615,8 @@ async function renderWithExplicitFramework({
 	component?: unknown;
 	id?: string;
 	persist?: string | true;
+	preload?: boolean;
+	fetchPriority?: ModulePreloadFetchPriority;
 }): Promise<JSX.Element> {
 	const logPrefix = `🏝️ [${src}]`;
 
@@ -584,6 +633,8 @@ async function renderWithExplicitFramework({
 			renderOptions,
 			id,
 			persist,
+			preload,
+			fetchPriority,
 		});
 	}
 
@@ -603,6 +654,8 @@ async function renderWithExplicitFramework({
 			renderOptions,
 			id,
 			persist,
+			preload,
+			fetchPriority,
 		});
 	}
 
@@ -632,6 +685,8 @@ async function renderWithExplicitFramework({
 			hydrationData: ssrOnly ? undefined : renderResult.hydrationData,
 			id,
 			persist,
+			preload,
+			fetchPriority,
 		});
 	} catch (error) {
 		devError(`${logPrefix} Fast path SSR failed:`, error);
@@ -646,6 +701,8 @@ async function renderWithExplicitFramework({
 			renderOptions,
 			id,
 			persist,
+			preload,
+			fetchPriority,
 		});
 	}
 }
@@ -698,6 +755,8 @@ async function renderSlowPathSSR(opts: {
 	preloadedComponent?: unknown;
 	id?: string;
 	persist?: string | true;
+	preload?: boolean;
+	fetchPriority?: ModulePreloadFetchPriority;
 }): Promise<JSX.Element> {
 	const {
 		src,
@@ -709,6 +768,8 @@ async function renderSlowPathSSR(opts: {
 		preloadedComponent,
 		id,
 		persist,
+		preload,
+		fetchPriority,
 	} = opts;
 	const detectedFramework = await detectFrameworkForSrc(src);
 	const frameworkId = detectedFramework as FrameworkId;
@@ -738,6 +799,8 @@ async function renderSlowPathSSR(opts: {
 		hydrationData: ssrOnly ? undefined : renderResult.hydrationData,
 		id,
 		persist,
+		preload,
+		fetchPriority,
 	});
 }
 
@@ -796,6 +859,8 @@ export async function renderIsland({
 	key,
 	id,
 	persist,
+	preload,
+	fetchPriority,
 }: IslandProps): Promise<JSX.Element> {
 	let ssr = clientOnly === true ? false : (ssrProp ?? condition !== "on:client");
 	const startTime = isDev() ? performance.now() : 0;
@@ -857,6 +922,8 @@ export async function renderIsland({
 					component: preloadedComponent,
 					id,
 					persist,
+					preload,
+					fetchPriority,
 				}),
 				key,
 			);
@@ -877,6 +944,8 @@ export async function renderIsland({
 				component: preloadedComponent,
 				id,
 				persist,
+				preload,
+				fetchPriority,
 			}),
 			key,
 		);
@@ -903,6 +972,8 @@ async function renderIslandSlowPath(opts: {
 	component?: unknown;
 	id?: string;
 	persist?: string | true;
+	preload?: boolean;
+	fetchPriority?: ModulePreloadFetchPriority;
 }): Promise<JSX.Element> {
 	const {
 		src,
@@ -917,6 +988,8 @@ async function renderIslandSlowPath(opts: {
 		component: preloadedComponent,
 		id,
 		persist,
+		preload,
+		fetchPriority,
 	} = opts;
 	devLog(`🔍 [renderIsland] ${src} - Starting render (slow path)`, {
 		ssr,
@@ -958,6 +1031,8 @@ async function renderIslandSlowPath(opts: {
 			renderOptions,
 			id,
 			persist,
+			preload,
+			fetchPriority,
 		});
 	}
 
@@ -973,6 +1048,8 @@ async function renderIslandSlowPath(opts: {
 			preloadedComponent,
 			id,
 			persist,
+			preload,
+			fetchPriority,
 		});
 	} catch (error) {
 		const detectedFramework = await detectFrameworkForSrc(src);
@@ -987,6 +1064,8 @@ async function renderIslandSlowPath(opts: {
 			renderOptions,
 			id,
 			persist,
+			preload,
+			fetchPriority,
 		});
 	}
 }

@@ -1,5 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import {
+	formatModulepreloadLink,
+	type ModulePreloadFetchPriority,
+} from "../islands/modulepreload-collector.ts";
 import { collectFiles } from "./fs-utils.ts";
 
 function normalizeImportPath(relPath: string, importPath: string): string {
@@ -46,19 +50,68 @@ function buildDepsManifestFromOutput(cwd: string): Record<string, string[]> {
 	return depsManifest;
 }
 
-function preloadHintsForHtml(html: string, depsManifest: Record<string, string[]>): string | null {
-	const preloadHints = new Set<string>();
+type IslandDepPreloadPolicy = {
+	skip: boolean;
+	fetchPriority?: ModulePreloadFetchPriority;
+};
+
+const AVALON_ISLAND_TAG = /<avalon-island\b[^>]*>/gi;
+const DATA_SRC_ATTR = /\bdata-src="([^"]+)"/;
+const DATA_ISLAND_PRELOAD_FALSE = /\bdata-island-preload="false"/;
+const DATA_ISLAND_FETCHPRIORITY = /\bdata-island-fetchpriority="(high|low|auto)"/;
+
+/** Read `data-island-preload` / `data-island-fetchpriority` from `<avalon-island>` tags. */
+export function islandDepPreloadPolicyFromHtml(
+	html: string,
+	islandBundlePath: string,
+): IslandDepPreloadPolicy {
+	for (const match of html.matchAll(AVALON_ISLAND_TAG)) {
+		const tag = match[0];
+		const srcMatch = DATA_SRC_ATTR.exec(tag);
+		if (srcMatch?.[1] !== islandBundlePath) continue;
+
+		const skip = DATA_ISLAND_PRELOAD_FALSE.test(tag);
+		const priorityMatch = DATA_ISLAND_FETCHPRIORITY.exec(tag);
+		const fetchPriority = priorityMatch?.[1] as ModulePreloadFetchPriority | undefined;
+		return { skip, fetchPriority };
+	}
+	return { skip: false };
+}
+
+const PRIORITY_RANK: Record<ModulePreloadFetchPriority, number> = {
+	high: 3,
+	auto: 2,
+	low: 1,
+};
+
+function mergeFetchPriority(
+	a?: ModulePreloadFetchPriority,
+	b?: ModulePreloadFetchPriority,
+): ModulePreloadFetchPriority | undefined {
+	if (!a) return b;
+	if (!b) return a;
+	return PRIORITY_RANK[a] >= PRIORITY_RANK[b] ? a : b;
+}
+
+export function depPreloadHintsForHtml(
+	html: string,
+	depsManifest: Record<string, string[]>,
+): string | null {
+	const preloadHints = new Map<string, ModulePreloadFetchPriority | undefined>();
 	for (const [islandPath, deps] of Object.entries(depsManifest)) {
 		if (!html.includes(islandPath)) continue;
+		const policy = islandDepPreloadPolicyFromHtml(html, islandPath);
+		if (policy.skip) continue;
+
 		for (const dep of deps) {
-			if (!html.includes(`href="${dep}"`)) {
-				preloadHints.add(dep);
-			}
+			if (html.includes(`href="${dep}"`)) continue;
+			const existing = preloadHints.get(dep);
+			preloadHints.set(dep, mergeFetchPriority(existing, policy.fetchPriority));
 		}
 	}
 	if (preloadHints.size === 0) return null;
-	return Array.from(preloadHints)
-		.map((href) => `<link rel="modulepreload" href="${href}">`)
+	return Array.from(preloadHints.entries())
+		.map(([href, fetchPriority]) => formatModulepreloadLink(href, fetchPriority))
 		.join("\n");
 }
 
@@ -86,7 +139,7 @@ export function injectIslandDepsPreloads(cwd: string, distDir: string): void {
 		const htmlFiles = collectFiles(htmlDir, (n) => n === "index.html");
 		for (const htmlFile of htmlFiles) {
 			let html = readFileSync(htmlFile, "utf-8");
-			const hints = preloadHintsForHtml(html, depsManifest);
+			const hints = depPreloadHintsForHtml(html, depsManifest);
 			if (!hints || !html.includes("</head>")) continue;
 			html = html.replace("</head>", `${hints}\n</head>`);
 			writeFileSync(htmlFile, html);

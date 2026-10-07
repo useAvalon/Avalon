@@ -69,6 +69,22 @@ export type IslandDirective = {
 	conditionArg?: string;
 
 	/**
+	 * Emit `<link rel="modulepreload">` for this island's bundle during SSR.
+	 * Only applies to `on:client` islands. `false` skips the hint so HTML/CSS
+	 * can paint before the browser discovers the island script.
+	 *
+	 * @default true when `condition` is `on:client`
+	 */
+	preload?: boolean;
+
+	/**
+	 * `fetchpriority` on the island's modulepreload link (when preload is enabled).
+	 *
+	 * @default undefined (browser default)
+	 */
+	fetchPriority?: "high" | "low" | "auto";
+
+	/**
 	 * Skip server rendering of this component. Avalon emits an empty
 	 * `<avalon-island>` placeholder and mounts the component in the browser.
 	 * Props are still serialized. Combines with `condition` for when to mount.

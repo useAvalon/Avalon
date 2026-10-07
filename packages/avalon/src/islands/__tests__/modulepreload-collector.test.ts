@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
 	addModulepreload,
 	clearModulepreloads,
+	formatModulepreloadLink,
 	generateModulepreloadTags,
 	getModulepreloadCount,
 	getModulepreloadPaths,
@@ -95,6 +96,20 @@ describe("generateModulepreloadTags", () => {
 		const tags = generateModulepreloadTags();
 		expect(tags).toContain('rel="modulepreload"');
 		expect(tags).not.toContain('rel="preload"');
+	});
+
+	it("includes fetchpriority when set", () => {
+		addModulepreload("/islands/Counter.js", { fetchPriority: "low" });
+		const tags = generateModulepreloadTags();
+		expect(tags).toBe('<link rel="modulepreload" href="/islands/Counter.js" fetchpriority="low">');
+	});
+});
+
+describe("formatModulepreloadLink", () => {
+	it("omits fetchpriority for auto", () => {
+		expect(formatModulepreloadLink("/islands/A.js", "auto")).toBe(
+			'<link rel="modulepreload" href="/islands/A.js">',
+		);
 	});
 });
 
