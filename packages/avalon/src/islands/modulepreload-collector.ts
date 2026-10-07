@@ -32,6 +32,34 @@ function initCollector(): Map<string, ModulePreloadEntry> {
 	return globalThis.__modulepreloadPaths;
 }
 
+const PRIORITY_RANK: Record<ModulePreloadFetchPriority, number> = {
+	high: 3,
+	auto: 2,
+	low: 1,
+};
+
+/** Merge explicit fetch priorities when registering the same bundle twice. */
+export function mergeModulePreloadFetchPriority(
+	a?: ModulePreloadFetchPriority,
+	b?: ModulePreloadFetchPriority,
+): ModulePreloadFetchPriority | undefined {
+	if (a === undefined) return b;
+	if (b === undefined) return a;
+	return PRIORITY_RANK[a] >= PRIORITY_RANK[b] ? a : b;
+}
+
+/** Merge priorities where an omitted value counts as browser default (`auto`, above `low`). */
+export function mergeModulePreloadWithDefaultRank(
+	a?: ModulePreloadFetchPriority,
+	b?: ModulePreloadFetchPriority,
+): ModulePreloadFetchPriority | undefined {
+	const rankA = a ? PRIORITY_RANK[a] : PRIORITY_RANK.auto;
+	const rankB = b ? PRIORITY_RANK[b] : PRIORITY_RANK.auto;
+	if (rankA > rankB) return a;
+	if (rankB > rankA) return b;
+	return a;
+}
+
 /** Build a single modulepreload link tag. Shared with post-build island dep injection. */
 export function formatModulepreloadLink(
 	href: string,
@@ -56,9 +84,10 @@ export function addModulepreload(bundlePath: string, options?: ModulePreloadOpti
 	const collector = initCollector();
 	const existing = collector.get(bundlePath);
 	if (existing) {
-		if (!existing.fetchPriority && options?.fetchPriority) {
-			existing.fetchPriority = options.fetchPriority;
-		}
+		existing.fetchPriority = mergeModulePreloadFetchPriority(
+			existing.fetchPriority,
+			options?.fetchPriority,
+		);
 		return;
 	}
 	collector.set(bundlePath, {

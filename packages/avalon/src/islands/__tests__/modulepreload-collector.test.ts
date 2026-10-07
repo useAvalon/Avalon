@@ -25,6 +25,13 @@ describe("addModulepreload", () => {
 		expect(getModulepreloadCount()).toBe(1);
 	});
 
+	it("merges fetch priority when the same path is registered twice", () => {
+		addModulepreload("/islands/Counter.js", { fetchPriority: "low" });
+		addModulepreload("/islands/Counter.js", { fetchPriority: "high" });
+		const tags = generateModulepreloadTags();
+		expect(tags).toContain('fetchpriority="high"');
+	});
+
 	it("collects multiple distinct paths", () => {
 		addModulepreload("/islands/Counter.abc123.js");
 		addModulepreload("/islands/TodoList.def456.js");

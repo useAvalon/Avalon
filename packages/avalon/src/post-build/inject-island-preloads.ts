@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import {
 	formatModulepreloadLink,
 	type ModulePreloadFetchPriority,
+	mergeModulePreloadWithDefaultRank,
 } from "../islands/modulepreload-collector.ts";
 import { collectFiles } from "./fs-utils.ts";
 
@@ -57,40 +58,51 @@ type IslandDepPreloadPolicy = {
 
 const AVALON_ISLAND_TAG = /<avalon-island\b[^>]*>/gi;
 const DATA_SRC_ATTR = /\bdata-src="([^"]+)"/;
+const DATA_CONDITION_ATTR = /\bdata-condition="([^"]+)"/;
 const DATA_ISLAND_PRELOAD_FALSE = /\bdata-island-preload="false"/;
 const DATA_ISLAND_FETCHPRIORITY = /\bdata-island-fetchpriority="(high|low|auto)"/;
 
-/** Read `data-island-preload` / `data-island-fetchpriority` from `<avalon-island>` tags. */
+/**
+ * Aggregate preload policy for every `<avalon-island>` using `islandBundlePath`.
+ * Only `on:client` instances contribute; dependency hints skip when all opt out.
+ */
 export function islandDepPreloadPolicyFromHtml(
 	html: string,
 	islandBundlePath: string,
 ): IslandDepPreloadPolicy {
+	let sawOnClient = false;
+	let allOnClientOptOut = true;
+	let fetchPriority: ModulePreloadFetchPriority | undefined;
+
 	for (const match of html.matchAll(AVALON_ISLAND_TAG)) {
 		const tag = match[0];
 		const srcMatch = DATA_SRC_ATTR.exec(tag);
 		if (srcMatch?.[1] !== islandBundlePath) continue;
 
-		const skip = DATA_ISLAND_PRELOAD_FALSE.test(tag);
+		const condition = DATA_CONDITION_ATTR.exec(tag)?.[1];
+		if (condition !== undefined && condition !== "on:client") continue;
+
+		sawOnClient = true;
+		if (!DATA_ISLAND_PRELOAD_FALSE.test(tag)) {
+			allOnClientOptOut = false;
+		}
+
 		const priorityMatch = DATA_ISLAND_FETCHPRIORITY.exec(tag);
-		const fetchPriority = priorityMatch?.[1] as ModulePreloadFetchPriority | undefined;
-		return { skip, fetchPriority };
+		if (priorityMatch?.[1]) {
+			const tagPriority = priorityMatch[1] as ModulePreloadFetchPriority;
+			fetchPriority =
+				fetchPriority === undefined
+					? tagPriority
+					: mergeModulePreloadWithDefaultRank(fetchPriority, tagPriority);
+		} else if (fetchPriority !== undefined) {
+			fetchPriority = mergeModulePreloadWithDefaultRank(fetchPriority, undefined);
+		}
 	}
-	return { skip: false };
-}
 
-const PRIORITY_RANK: Record<ModulePreloadFetchPriority, number> = {
-	high: 3,
-	auto: 2,
-	low: 1,
-};
-
-function mergeFetchPriority(
-	a?: ModulePreloadFetchPriority,
-	b?: ModulePreloadFetchPriority,
-): ModulePreloadFetchPriority | undefined {
-	if (!a) return b;
-	if (!b) return a;
-	return PRIORITY_RANK[a] >= PRIORITY_RANK[b] ? a : b;
+	if (!sawOnClient || allOnClientOptOut) {
+		return { skip: true, fetchPriority };
+	}
+	return { skip: false, fetchPriority };
 }
 
 export function depPreloadHintsForHtml(
@@ -105,8 +117,14 @@ export function depPreloadHintsForHtml(
 
 		for (const dep of deps) {
 			if (html.includes(`href="${dep}"`)) continue;
-			const existing = preloadHints.get(dep);
-			preloadHints.set(dep, mergeFetchPriority(existing, policy.fetchPriority));
+			if (!preloadHints.has(dep)) {
+				preloadHints.set(dep, policy.fetchPriority);
+				continue;
+			}
+			preloadHints.set(
+				dep,
+				mergeModulePreloadWithDefaultRank(preloadHints.get(dep), policy.fetchPriority),
+			);
 		}
 	}
 	if (preloadHints.size === 0) return null;
