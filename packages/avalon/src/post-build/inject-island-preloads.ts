@@ -73,6 +73,7 @@ export function islandDepPreloadPolicyFromHtml(
 	let sawOnClient = false;
 	let allOnClientOptOut = true;
 	let fetchPriority: ModulePreloadFetchPriority | undefined;
+	let enabledPriorityStarted = false;
 
 	for (const match of html.matchAll(AVALON_ISLAND_TAG)) {
 		const tag = match[0];
@@ -83,18 +84,25 @@ export function islandDepPreloadPolicyFromHtml(
 		if (condition !== undefined && condition !== "on:client") continue;
 
 		sawOnClient = true;
-		if (!DATA_ISLAND_PRELOAD_FALSE.test(tag)) {
+		const optOut = DATA_ISLAND_PRELOAD_FALSE.test(tag);
+		if (!optOut) {
 			allOnClientOptOut = false;
+		} else {
+			continue;
 		}
 
 		const priorityMatch = DATA_ISLAND_FETCHPRIORITY.exec(tag);
 		if (priorityMatch?.[1]) {
 			const tagPriority = priorityMatch[1] as ModulePreloadFetchPriority;
-			fetchPriority =
-				fetchPriority === undefined
-					? tagPriority
-					: mergeModulePreloadWithDefaultRank(fetchPriority, tagPriority);
-		} else if (fetchPriority !== undefined) {
+			if (!enabledPriorityStarted) {
+				fetchPriority = tagPriority;
+				enabledPriorityStarted = true;
+			} else {
+				fetchPriority = mergeModulePreloadWithDefaultRank(fetchPriority, tagPriority);
+			}
+		} else if (!enabledPriorityStarted) {
+			enabledPriorityStarted = true;
+		} else {
 			fetchPriority = mergeModulePreloadWithDefaultRank(fetchPriority, undefined);
 		}
 	}

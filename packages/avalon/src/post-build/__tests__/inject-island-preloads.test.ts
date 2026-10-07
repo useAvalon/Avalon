@@ -45,6 +45,25 @@ describe("islandDepPreloadPolicyFromHtml", () => {
 		].join("");
 		expect(islandDepPreloadPolicyFromHtml(html, islandPath)).toEqual({ skip: false });
 	});
+
+	it("ignores fetch priority on opted-out instances", () => {
+		const html = [
+			`<avalon-island data-src="${islandPath}" data-condition="on:client" data-island-preload="false" data-island-fetchpriority="high"></avalon-island>`,
+			`<avalon-island data-src="${islandPath}" data-condition="on:client" data-island-fetchpriority="low"></avalon-island>`,
+		].join("");
+		expect(islandDepPreloadPolicyFromHtml(html, islandPath)).toEqual({
+			skip: false,
+			fetchPriority: "low",
+		});
+	});
+
+	it("preserves default priority when it precedes a low instance", () => {
+		const html = [
+			`<avalon-island data-src="${islandPath}" data-condition="on:client"></avalon-island>`,
+			`<avalon-island data-src="${islandPath}" data-condition="on:client" data-island-fetchpriority="low"></avalon-island>`,
+		].join("");
+		expect(islandDepPreloadPolicyFromHtml(html, islandPath)).toEqual({ skip: false });
+	});
 });
 
 describe("depPreloadHintsForHtml", () => {
