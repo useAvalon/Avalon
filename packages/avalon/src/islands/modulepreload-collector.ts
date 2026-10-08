@@ -7,35 +7,83 @@
  * fetching island JS chunks as soon as it parses the head, eliminating
  * the waterfall delay between HTML parse and island JS fetch.
  *
- * Only `on:client` islands are collected — deferred islands (on:visible,
- * on:idle, on:interaction, media:*) are intentionally excluded since
- * preloading them would defeat the purpose of lazy loading.
+ * Only `on:client` islands with `preload !== false` are collected —
+ * deferred islands (on:visible, on:idle, on:interaction, media:*) are
+ * intentionally excluded since preloading them would defeat lazy loading.
  */
+
+export type ModulePreloadFetchPriority = "high" | "low" | "auto";
+
+export type ModulePreloadOptions = {
+	fetchPriority?: ModulePreloadFetchPriority;
+};
+
+type ModulePreloadEntry = {
+	path: string;
+	fetchPriority?: ModulePreloadFetchPriority;
+};
 
 declare global {
-	var __modulepreloadPaths: Set<string> | undefined;
+	var __modulepreloadPaths: Map<string, ModulePreloadEntry> | undefined;
 }
 
-/**
- * Initialize the global modulepreload collector if it doesn't exist.
- */
-function initCollector(): Set<string> {
-	globalThis.__modulepreloadPaths ??= new Set();
+function initCollector(): Map<string, ModulePreloadEntry> {
+	globalThis.__modulepreloadPaths ??= new Map();
 	return globalThis.__modulepreloadPaths;
+}
+
+const PRIORITY_RANK: Record<ModulePreloadFetchPriority, number> = {
+	high: 3,
+	auto: 2,
+	low: 1,
+};
+
+/** Merge priorities where an omitted value counts as browser default (`auto`, above `low`). */
+export function mergeModulePreloadWithDefaultRank(
+	a?: ModulePreloadFetchPriority,
+	b?: ModulePreloadFetchPriority,
+): ModulePreloadFetchPriority | undefined {
+	const rankA = a ? PRIORITY_RANK[a] : PRIORITY_RANK.auto;
+	const rankB = b ? PRIORITY_RANK[b] : PRIORITY_RANK.auto;
+	if (rankA > rankB) return a;
+	if (rankB > rankA) return b;
+	return a;
+}
+
+/** Build a single modulepreload link tag. Shared with post-build island dep injection. */
+export function formatModulepreloadLink(
+	href: string,
+	fetchPriority?: ModulePreloadFetchPriority,
+): string {
+	if (!fetchPriority || fetchPriority === "auto") {
+		return `<link rel="modulepreload" href="${href}">`;
+	}
+	return `<link rel="modulepreload" href="${href}" fetchpriority="${fetchPriority}">`;
 }
 
 /**
  * Register an island's bundle path for modulepreload.
  *
  * Call this during SSR when an island with `on:client` condition is rendered.
- * The path is deduplicated automatically (Set-based).
+ * The path is deduplicated automatically (Map-based).
  *
  * @param bundlePath - The island chunk's bundle path (e.g., "/islands/Counter.abc123.js")
  */
-export function addModulepreload(bundlePath: string): void {
+export function addModulepreload(bundlePath: string, options?: ModulePreloadOptions): void {
 	if (!bundlePath) return;
 	const collector = initCollector();
-	collector.add(bundlePath);
+	const existing = collector.get(bundlePath);
+	if (existing) {
+		existing.fetchPriority = mergeModulePreloadWithDefaultRank(
+			existing.fetchPriority,
+			options?.fetchPriority,
+		);
+		return;
+	}
+	collector.set(bundlePath, {
+		path: bundlePath,
+		fetchPriority: options?.fetchPriority,
+	});
 }
 
 /**
@@ -45,12 +93,17 @@ export function addModulepreload(bundlePath: string): void {
  * @returns Array of unique bundle paths
  */
 export function getModulepreloadPaths(clear = true): string[] {
+	const entries = getModulepreloadEntries(clear);
+	return entries.map((e) => e.path);
+}
+
+function getModulepreloadEntries(clear = true): ModulePreloadEntry[] {
 	const collector = initCollector();
-	const paths = Array.from(collector);
+	const entries = Array.from(collector.values());
 	if (clear) {
 		collector.clear();
 	}
-	return paths;
+	return entries;
 }
 
 /**
@@ -60,10 +113,10 @@ export function getModulepreloadPaths(clear = true): string[] {
  * @returns A string of modulepreload link tags, or empty string if none collected
  */
 export function generateModulepreloadTags(clear = true): string {
-	const paths = getModulepreloadPaths(clear);
-	if (paths.length === 0) return "";
+	const entries = getModulepreloadEntries(clear);
+	if (entries.length === 0) return "";
 
-	return paths.map((path) => `<link rel="modulepreload" href="${path}">`).join("\n");
+	return entries.map((e) => formatModulepreloadLink(e.path, e.fetchPriority)).join("\n");
 }
 
 /**

@@ -84,7 +84,19 @@ export default defineConfig({
 
 ## Preloading critical islands
 
-For `on:client` islands that are above the fold, add a `<link rel="modulepreload">` in your layout's `<head>` to start fetching the bundle earlier.
+`on:client` islands automatically emit `<link rel="modulepreload">` during SSR so the browser can fetch island chunks in parallel with HTML parse. For large below-the-fold islands, opt out so JS does not compete with first paint:
+
+```tsx
+<HeavyDashboard island={{ condition: 'on:client', preload: false }} />
+```
+
+Tune priority on the preload link when the island is not critical for LCP:
+
+```tsx
+<Sidebar island={{ condition: 'on:client', fetchPriority: 'low' }} />
+```
+
+Deferred conditions (`on:visible`, `on:idle`, `on:interaction`, `media:*`) never get modulepreload — preloading would defeat lazy hydration.
 
 ## Measuring
 

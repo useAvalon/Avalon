@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
 	addModulepreload,
 	clearModulepreloads,
+	formatModulepreloadLink,
 	generateModulepreloadTags,
 	getModulepreloadCount,
 	getModulepreloadPaths,
@@ -22,6 +23,20 @@ describe("addModulepreload", () => {
 		addModulepreload("/islands/Counter.abc123.js");
 		addModulepreload("/islands/Counter.abc123.js");
 		expect(getModulepreloadCount()).toBe(1);
+	});
+
+	it("merges fetch priority when the same path is registered twice", () => {
+		addModulepreload("/islands/Counter.js", { fetchPriority: "low" });
+		addModulepreload("/islands/Counter.js", { fetchPriority: "high" });
+		const tags = generateModulepreloadTags();
+		expect(tags).toContain('fetchpriority="high"');
+	});
+
+	it("treats a later registration without priority as default over low", () => {
+		addModulepreload("/islands/Counter.js", { fetchPriority: "low" });
+		addModulepreload("/islands/Counter.js");
+		const tags = generateModulepreloadTags();
+		expect(tags).toBe('<link rel="modulepreload" href="/islands/Counter.js">');
 	});
 
 	it("collects multiple distinct paths", () => {
@@ -95,6 +110,20 @@ describe("generateModulepreloadTags", () => {
 		const tags = generateModulepreloadTags();
 		expect(tags).toContain('rel="modulepreload"');
 		expect(tags).not.toContain('rel="preload"');
+	});
+
+	it("includes fetchpriority when set", () => {
+		addModulepreload("/islands/Counter.js", { fetchPriority: "low" });
+		const tags = generateModulepreloadTags();
+		expect(tags).toBe('<link rel="modulepreload" href="/islands/Counter.js" fetchpriority="low">');
+	});
+});
+
+describe("formatModulepreloadLink", () => {
+	it("omits fetchpriority for auto", () => {
+		expect(formatModulepreloadLink("/islands/A.js", "auto")).toBe(
+			'<link rel="modulepreload" href="/islands/A.js">',
+		);
 	});
 });
 
