@@ -1,5 +1,13 @@
 # @useavalon/avalon
 
+## 0.5.7
+
+### Patch Changes
+
+- [#106](https://github.com/useAvalon/Avalon/pull/106) [`1fe0c65`](https://github.com/useAvalon/Avalon/commit/1fe0c659b7c19b2841d467dc70dfa450190ab5a4) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Add `island.preload` and `island.fetchPriority` to control SSR modulepreload hints and post-build dependency preloads for `on:client` islands.
+- Updated dependencies []:
+  - @useavalon/core@0.5.7
+
 ## 0.5.6
 
 ### Patch Changes
