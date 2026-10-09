@@ -53,6 +53,8 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 		process.exit(1);
 	}
 
+	const core = coreResult as RenderEngine;
+
 	const integrationsResult = await multiselect({
 		message:
 			"Which integrations would you like to include? (use space to toggle, enter to confirm)",
@@ -65,6 +67,7 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 			{ value: "lit", label: "lit", hint: "Lit 3" },
 			{ value: "qwik", label: "qwik", hint: "Qwik" },
 		],
+		initialValues: [core],
 		required: false,
 	});
 
@@ -165,7 +168,6 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 		process.exit(1);
 	}
 
-	const core = coreResult as RenderEngine;
 	// The page shell always needs its own integration + runtime at the app level.
 	const integrations = integrationsResult as Integration[];
 	if (!integrations.includes(core)) {

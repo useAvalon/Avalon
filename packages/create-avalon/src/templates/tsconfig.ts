@@ -1,4 +1,4 @@
-import type { ProjectConfig } from "../types";
+import type { Integration, ProjectConfig } from "../types";
 
 const APP_INCLUDE = [
 	"app/**/*.ts",
@@ -14,24 +14,38 @@ const APP_INCLUDE = [
 /** Referenced projects so the editor typechecks each island extension with its JSX runtime. */
 const JSX_FRAMEWORKS = [
 	{
+		integration: "react",
 		filename: "tsconfig.react.json",
 		source: "react",
 		outDir: ".tsbuild/react",
 		globs: ["app/**/*.react.tsx", "app/**/*.react.jsx"],
 	},
 	{
+		integration: "solid",
 		filename: "tsconfig.solid.json",
 		source: "solid-js",
 		outDir: ".tsbuild/solid",
 		globs: ["app/**/*.solid.tsx", "app/**/*.solid.jsx"],
 	},
 	{
+		integration: "qwik",
 		filename: "tsconfig.qwik.json",
 		source: "@builder.io/qwik",
 		outDir: ".tsbuild/qwik",
 		globs: ["app/**/*.qwik.tsx", "app/**/*.qwik.jsx"],
 	},
-] as const;
+] as const satisfies ReadonlyArray<{
+	integration: Integration;
+	filename: string;
+	source: string;
+	outDir: string;
+	globs: readonly string[];
+}>;
+
+function jsxFrameworksForIntegrations(integrations: Integration[]) {
+	const selected = new Set(integrations);
+	return JSX_FRAMEWORKS.filter((framework) => selected.has(framework.integration));
+}
 
 function compilerOptions(jsxImportSource: string) {
 	return {
@@ -55,21 +69,27 @@ function compilerOptions(jsxImportSource: string) {
 	};
 }
 
-export function generateTsConfig(core: "preact" | "react" = "preact"): string {
+export function generateTsConfig(
+	core: "preact" | "react" = "preact",
+	integrations: Integration[] = [],
+): string {
+	const jsxFrameworks = jsxFrameworksForIntegrations(integrations);
 	const tsconfig = {
 		compilerOptions: compilerOptions(core),
 		include: APP_INCLUDE,
-		exclude: JSX_FRAMEWORKS.flatMap((framework) => [...framework.globs]),
-		references: JSX_FRAMEWORKS.map((framework) => ({ path: `./${framework.filename}` })),
+		exclude: jsxFrameworks.flatMap((framework) => [...framework.globs]),
+		references: jsxFrameworks.map((framework) => ({ path: `./${framework.filename}` })),
 	};
 
 	return JSON.stringify(tsconfig, null, 2);
 }
 
 /** Sibling tsconfigs referenced by `generateTsConfig`. One file per JSX island extension. */
-export function generateFrameworkTsConfigs(): Record<string, string> {
+export function generateFrameworkTsConfigs(
+	integrations: Integration[] = [],
+): Record<string, string> {
 	const files: Record<string, string> = {};
-	for (const framework of JSX_FRAMEWORKS) {
+	for (const framework of jsxFrameworksForIntegrations(integrations)) {
 		files[framework.filename] = JSON.stringify(
 			{
 				compilerOptions: {

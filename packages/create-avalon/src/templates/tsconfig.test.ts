@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProjectConfig } from "../types";
+import type { Integration, ProjectConfig } from "../types";
 import {
 	generateEnvDts,
 	generateFrameworkTsConfigs,
@@ -70,8 +70,15 @@ describe("generateTsConfig", () => {
 		expect(tsconfig.include).toHaveLength(8);
 	});
 
-	it("excludes framework island extensions from the page-shell project", () => {
-		const tsconfig = JSON.parse(generateTsConfig());
+	it("does not exclude or reference JSX island projects when no JSX integrations are selected", () => {
+		const tsconfig = JSON.parse(generateTsConfig("preact", ["preact", "svelte"]));
+		expect(tsconfig.exclude).toEqual([]);
+		expect(tsconfig.references).toEqual([]);
+	});
+
+	it("excludes only selected JSX island extensions from the page-shell project", () => {
+		const integrations: Integration[] = ["preact", "react", "solid", "qwik"];
+		const tsconfig = JSON.parse(generateTsConfig("preact", integrations));
 		expect(tsconfig.exclude).toEqual([
 			"app/**/*.react.tsx",
 			"app/**/*.react.jsx",
@@ -90,7 +97,7 @@ describe("generateTsConfig", () => {
 
 describe("generateFrameworkTsConfigs", () => {
 	it("gives each island extension its own jsxImportSource", () => {
-		const files = generateFrameworkTsConfigs();
+		const files = generateFrameworkTsConfigs(["react", "solid", "qwik"]);
 		expect(JSON.parse(files["tsconfig.react.json"]).compilerOptions.jsxImportSource).toBe("react");
 		expect(JSON.parse(files["tsconfig.solid.json"]).compilerOptions.jsxImportSource).toBe(
 			"solid-js",
@@ -98,6 +105,11 @@ describe("generateFrameworkTsConfigs", () => {
 		expect(JSON.parse(files["tsconfig.qwik.json"]).compilerOptions.jsxImportSource).toBe(
 			"@builder.io/qwik",
 		);
+	});
+
+	it("emits only tsconfigs for selected JSX integrations", () => {
+		const files = generateFrameworkTsConfigs(["preact", "svelte"]);
+		expect(Object.keys(files)).toEqual([]);
 	});
 });
 

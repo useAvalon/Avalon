@@ -68,8 +68,19 @@ describe("scaffoldProject", () => {
 		expect(tsconfig.compilerOptions.paths["@shared/*"]).toEqual(["./app/shared/*"]);
 		expect(tsconfig.compilerOptions.paths["@modules/*"]).toEqual(["./app/modules/*"]);
 		expect(await exists(join(target, "tsconfig.react.json"))).toBe(true);
-		expect(await exists(join(target, "tsconfig.solid.json"))).toBe(true);
-		expect(await exists(join(target, "tsconfig.qwik.json"))).toBe(true);
+		expect(await exists(join(target, "tsconfig.solid.json"))).toBe(false);
+		expect(await exists(join(target, "tsconfig.qwik.json"))).toBe(false);
+	});
+
+	it("scaffolds JSX tsconfigs only for selected integrations", async () => {
+		const target = join(tempDir, "out");
+		await scaffoldProject({ ...baseConfig, integrations: ["preact", "svelte"] }, target);
+
+		expect(await exists(join(target, "tsconfig.react.json"))).toBe(false);
+		expect(await exists(join(target, "tsconfig.solid.json"))).toBe(false);
+		expect(await exists(join(target, "tsconfig.qwik.json"))).toBe(false);
+		const tsconfig = JSON.parse(await read("tsconfig.json"));
+		expect(tsconfig.references).toEqual([]);
 	});
 
 	it("generates vite.config.ts", async () => {
