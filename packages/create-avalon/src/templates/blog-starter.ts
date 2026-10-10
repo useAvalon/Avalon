@@ -226,12 +226,15 @@ export default async function BlogIndexPage() {
       </header>
 
       {featured ? (
-        <section class={styles.featured} aria-label="Featured post">
+        <section
+          class={styles.featured}
+          aria-label="Featured post"
+          data-blog-category={featured.category}
+        >
           <a
             href={\`/blog/\${featured.slug}\`}
             class={styles.featuredLink}
             data-router-transition="slide-forward"
-            data-blog-category={featured.category}
           >
             <span class={styles.category}>{featured.category}</span>
             <h2 class={styles.featuredTitle}>{featured.title}</h2>
