@@ -4,6 +4,7 @@ import { basename, resolve } from "node:path";
 import {
 	CliArgError,
 	parseCliArgs,
+	parseTemplateFlag,
 	resolveConfigNonInteractive,
 	validateDirectory,
 } from "./cli-utils";
@@ -40,8 +41,10 @@ async function main(): Promise<void> {
 				"      --middleware     h3 (default) | hono | elysia",
 				"      --deploy         cloudflare | netlify | none (default)",
 				"      --cron           Scaffold an example cron task + config",
+				"      --template       default (default) | blog — MDX blog + Pages CMS config",
 				"",
 				"Example:",
+				"  create-avalon my-app --template blog",
 				"  create-avalon my-app --yes --core react --integrations react,vue --styling shadcn",
 			].join("\n"),
 		);
@@ -63,10 +66,12 @@ async function main(): Promise<void> {
 	// a prompt would otherwise hang forever with no way to answer it.
 	const nonInteractive = args.yes || !process.stdin.isTTY;
 
+	parseTemplateFlag(args.template);
+
 	// Collect all prompts before any filesystem work
 	const config = nonInteractive
 		? resolveConfigNonInteractive(args)
-		: await collectProjectConfig(args.projectName);
+		: await collectProjectConfig(args.projectName, parseTemplateFlag(args.template));
 
 	// If the project name came from the prompt (not CLI arg), validate now
 	if (!args.projectName && config.projectName !== ".") {

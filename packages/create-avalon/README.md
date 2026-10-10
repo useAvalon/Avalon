@@ -6,12 +6,16 @@ Scaffold a new [Avalon](https://useavalon.dev) project in seconds.
 
 ```bash
 bun create avalon my-app
+bun create avalon my-blog --template blog
 ```
 
 Other package managers: `npm create avalon@latest`, `pnpm create avalon@latest`, or `yarn create avalon`.
 
+Pass `--template blog` for an MDX blog under `/blog` with a [Pages CMS](https://pagescms.org/) config (`.pages.yml`) so editors can manage posts on GitHub. You still get the usual prompts for integrations, styling, deploy, and the rest.
+
 The CLI walks you through:
 
+- Starter template (`default` or `blog`)
 - Project name and directory
 - Rendering engine (Preact or React) and island integrations
 - Styling approach (CSS Modules, Tailwind, shadcn)

@@ -1,4 +1,6 @@
 import type { ProjectConfig } from "../types";
+import { projectTemplate } from "../types";
+import { generateBlogThemeCss, generateClientRouterStylesCss } from "./blog-starter";
 
 export function generateStylingFiles(config: ProjectConfig): Map<string, string> {
 	const files = new Map<string, string>();
@@ -11,7 +13,12 @@ export function generateStylingFiles(config: ProjectConfig): Map<string, string>
 
 	// Only generate reset.css for css-modules — Tailwind's preflight handles resets
 	if (config.styling === "css-modules") {
-		files.set("app/shared/styles/reset.css", generateResetCss());
+		files.set("app/shared/styles/reset.css", generateResetCss(config));
+	}
+
+	if (projectTemplate(config) === "blog") {
+		files.set("app/shared/styles/blog-theme.css", generateBlogThemeCss());
+		files.set("app/shared/styles/view-transitions.css", generateClientRouterStylesCss());
 	}
 
 	switch (config.styling) {
@@ -20,7 +27,9 @@ export function generateStylingFiles(config: ProjectConfig): Map<string, string>
 			files.set("app/shared/layouts/_layout.module.css", generateLayoutModuleCss());
 			files.set("app/modules/main/pages/index.module.css", generatePageModuleCss());
 			files.set("app/modules/main/pages/404.module.css", generateNotFoundPageModuleCss());
-			files.set("app/modules/about/pages/index.module.css", generateAboutPageModuleCss());
+			if (projectTemplate(config) !== "blog") {
+				files.set("app/modules/about/pages/index.module.css", generateAboutPageModuleCss());
+			}
 			break;
 
 		case "tailwind":
@@ -45,10 +54,30 @@ function generateMainCss(config: ProjectConfig): string {
 			? [`@import './reset.css';`, `@import './tokens.css';`]
 			: [`@import './global.css';`];
 
+	if (projectTemplate(config) === "blog") {
+		imports.push(`@import './blog-theme.css';`);
+		imports.push(`@import './view-transitions.css';`);
+	}
+
 	return `${imports.join("\n")}\n`;
 }
 
-function generateResetCss(): string {
+function generateResetCss(config: ProjectConfig): string {
+	const persistNav =
+		projectTemplate(config) === "blog"
+			? `
+[data-router-persist="site-nav"] {
+  view-transition-name: site-nav;
+}
+
+::view-transition-group(site-nav),
+::view-transition-old(site-nav),
+::view-transition-new(site-nav) {
+  animation-duration: 0s;
+}
+`
+			: "";
+
 	return `/* CSS Reset */
 *,
 *::before,
@@ -91,7 +120,7 @@ h5,
 h6 {
   overflow-wrap: break-word;
 }
-`;
+${persistNav}`;
 }
 
 function generateTokensCss(): string {

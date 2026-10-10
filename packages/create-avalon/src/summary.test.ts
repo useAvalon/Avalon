@@ -5,6 +5,7 @@ import type { ProjectConfig } from "./types";
 describe("formatSummary", () => {
 	const baseConfig: ProjectConfig = {
 		projectName: "my-app",
+		template: "default",
 		core: "preact",
 		integrations: [],
 		styling: "css-modules",
@@ -119,6 +120,12 @@ describe("formatSummary", () => {
 		expect(result).toContain("bun run dev");
 	});
 
+	it("mentions Pages CMS for the blog template", () => {
+		const result = formatSummary({ ...baseConfig, template: "blog" });
+		expect(result).toContain("blog (MDX + Pages CMS)");
+		expect(result).toContain("PAGES-CMS.md");
+	});
+
 	it("cd command uses the actual project name", () => {
 		const result = formatSummary({ ...baseConfig, projectName: "another-project" });
 		expect(result).toContain("cd another-project");
@@ -136,6 +143,7 @@ describe("formatSummary", () => {
 	it("includes all selections for a fully configured project", () => {
 		const config: ProjectConfig = {
 			projectName: "full-app",
+			template: "default",
 			core: "preact",
 			integrations: ["react", "solid", "lit"],
 			styling: "tailwind",

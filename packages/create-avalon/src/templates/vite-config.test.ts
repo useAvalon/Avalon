@@ -197,4 +197,19 @@ describe("generateViteConfig", () => {
 			"compatibilityDate",
 		);
 	});
+
+	it("prerenders /blog instead of /about for the blog template", () => {
+		const result = generateViteConfig({ ...baseConfig, template: "blog" });
+		expect(result).toContain("routes: ['/', '/blog']");
+		expect(result).not.toContain("/about");
+	});
+
+	it("enables clientRouter for the blog template", () => {
+		const result = generateViteConfig({ ...baseConfig, template: "blog" });
+		expect(result).toContain("clientRouter: true");
+	});
+
+	it("does not enable clientRouter for the default template", () => {
+		expect(generateViteConfig(baseConfig)).not.toContain("clientRouter:");
+	});
 });

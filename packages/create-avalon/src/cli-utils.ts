@@ -12,7 +12,9 @@ import {
 	type ProjectConfig,
 	RENDER_ENGINES,
 	type RenderEngine,
+	STARTER_TEMPLATES,
 	STYLING_OPTIONS,
+	type StarterTemplate,
 	type StylingOption,
 } from "./types";
 
@@ -29,6 +31,7 @@ export interface CLIArgs {
 	middleware: string | undefined;
 	deploy: string | undefined;
 	cron: boolean;
+	template: string | undefined;
 }
 
 /** Thrown for invalid CLI flag values; the CLI prints `.message` and exits 1. */
@@ -66,6 +69,7 @@ export function parseCliArgs(argv: string[]): CLIArgs {
 			middleware: { type: "string" }, // h3 | hono | elysia
 			deploy: { type: "string" }, // cloudflare | netlify | none
 			cron: { type: "boolean", default: false },
+			template: { type: "string" }, // default | blog
 		},
 		strict: true,
 		allowPositionals: true,
@@ -83,6 +87,7 @@ export function parseCliArgs(argv: string[]): CLIArgs {
 		middleware: values.middleware,
 		deploy: values.deploy,
 		cron: values.cron ?? false,
+		template: values.template,
 	};
 }
 
@@ -108,6 +113,10 @@ function assertOneOf<T extends string>(
 		);
 	}
 	return value as T;
+}
+
+export function parseTemplateFlag(value: string | undefined): StarterTemplate | undefined {
+	return assertOneOf(value, STARTER_TEMPLATES, "template");
 }
 
 /** Validate every value in a list against an allowed set, or throw. */
@@ -142,6 +151,7 @@ export function resolveConfigNonInteractive(args: CLIArgs): ProjectConfig {
 	const middleware: MiddlewareOption =
 		assertOneOf(args.middleware, MIDDLEWARE_OPTIONS, "middleware") ?? "h3";
 	const deploy: DeployTarget = assertOneOf(args.deploy, DEPLOY_TARGETS, "deploy") ?? "none";
+	const template: StarterTemplate = parseTemplateFlag(args.template) ?? "default";
 
 	// shadcn is Radix-based and only works on the React engine.
 	if (styling === "shadcn" && core !== "react") {
@@ -155,6 +165,7 @@ export function resolveConfigNonInteractive(args: CLIArgs): ProjectConfig {
 
 	return {
 		projectName: args.projectName ?? ".",
+		template,
 		core,
 		integrations,
 		styling,
