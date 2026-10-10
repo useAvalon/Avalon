@@ -10,6 +10,13 @@ import type { IslandDirective, ServerIslandProp } from "./island-prop.d.ts";
 type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;
 
 declare module "preact" {
+	// Preact's jsx/jsxs runtime types component props as `Attributes & P`, not
+	// `IntrinsicAttributes & P`, so `island` must live on `Attributes` as well.
+	interface Attributes {
+		island?: Expand<IslandDirective>;
+		server?: Expand<ServerIslandProp>;
+	}
+
 	namespace JSX {
 		interface IntrinsicAttributes {
 			island?: Expand<IslandDirective>;
