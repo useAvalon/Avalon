@@ -1,7 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ProjectConfig } from "../types";
-import { escapeEmbeddedJsString } from "./escape";
 
 export async function writeBlogStarterFiles(
 	config: ProjectConfig,
@@ -399,7 +398,7 @@ export default function BlogLayout({ children, frontmatter }: Readonly<LayoutPro
 }
 
 function generateSiteNav(projectName: string): string {
-	const safeName = escapeEmbeddedJsString(projectName);
+	const brandLabel = JSON.stringify(projectName);
 
 	return `import styles from './SiteNav.module.css';
 
@@ -407,7 +406,7 @@ export default function SiteNav() {
   return (
     <header class={styles.bar} data-router-persist="site-nav">
       <a class={styles.brand} href="/" data-router-transition="slide-forward">
-        ${safeName}
+        {${brandLabel}}
       </a>
       <nav class={styles.nav} aria-label="Primary">
         <a class={styles.link} href="/" data-router-transition="slide-forward">
@@ -1097,12 +1096,15 @@ export default async function HomePage() {
 export default async function HomePage() {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-6 py-16 text-center">
-      <p className="mb-4 text-xs font-medium uppercase tracking-widest text-slate-500">Blog starter</p>
-      <h1 className="mb-4 text-4xl font-bold text-slate-900">Write in MDX</h1>
-      <p className="mb-8 max-w-lg text-slate-600">
-        Posts live under <code className="rounded bg-slate-100 px-1.5 py-0.5 text-sm">app/modules/blog/pages</code>.
-        Connect{' '}
-        <a className="text-blue-600 underline" href="https://pagescms.org/" target="_blank" rel="noopener noreferrer">
+      <p className="mb-4 text-xs font-medium uppercase tracking-widest text-slate-400">Blog starter</p>
+      <h1 className="mb-4 text-4xl font-bold text-slate-100">Write in MDX</h1>
+      <p className="mb-8 max-w-lg text-slate-300">
+        Posts live under{' '}
+        <code className="rounded bg-slate-800 px-1.5 py-0.5 text-sm text-slate-200">
+          app/modules/blog/pages
+        </code>
+        . Connect{' '}
+        <a className="text-blue-400 underline" href="https://pagescms.org/" target="_blank" rel="noopener noreferrer">
           Pages CMS
         </a>{' '}
         for a free editor on GitHub.
@@ -1116,7 +1118,7 @@ export default async function HomePage() {
           Read the blog
         </a>
         <a
-          className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 no-underline"
+          className="rounded-lg border border-slate-600 px-5 py-2.5 text-sm font-medium text-slate-200 no-underline"
           href="https://useavalon.dev/docs/mdx"
           target="_blank"
           rel="noopener noreferrer"
