@@ -1,5 +1,11 @@
 # create-avalon
 
+## 0.5.9
+
+### Patch Changes
+
+- [#112](https://github.com/useAvalon/Avalon/pull/112) [`84556db`](https://github.com/useAvalon/Avalon/commit/84556db20873b1ad1fef5166dede5922faf19062) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Add `--template blog` with MDX posts, client router, view transitions, and Pages CMS config.
+
 ## 0.5.8
 
 ### Patch Changes

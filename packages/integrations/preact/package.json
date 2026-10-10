@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/preact",
-	"version": "0.5.8",
+	"version": "0.5.9",
 	"description": "Preact integration for Avalon islands architecture",
 	"license": "MIT",
 	"type": "module",

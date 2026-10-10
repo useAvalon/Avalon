@@ -1,5 +1,13 @@
 # @useavalon/avalon
 
+## 0.5.9
+
+### Patch Changes
+
+- [#111](https://github.com/useAvalon/Avalon/pull/111) [`4b0bbbe`](https://github.com/useAvalon/Avalon/commit/4b0bbbeffaeaabb69606dc225cf0d55995470310) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Augment Preact `Attributes` so the global `island` prop type-checks on function components (Preact 11 jsx runtime uses `Attributes & P`).
+- Updated dependencies []:
+  - @useavalon/core@0.5.9
+
 ## 0.5.8
 
 ### Patch Changes
