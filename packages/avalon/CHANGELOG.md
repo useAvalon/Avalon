@@ -1,5 +1,12 @@
 # @useavalon/avalon
 
+## 0.5.8
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @useavalon/core@0.5.8
+
 ## 0.5.7
 
 ### Patch Changes
