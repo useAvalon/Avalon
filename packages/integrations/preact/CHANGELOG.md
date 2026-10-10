@@ -1,5 +1,13 @@
 # @useavalon/preact
 
+## 0.5.8
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @useavalon/avalon@0.5.8
+  - @useavalon/core@0.5.8
+
 ## 0.5.7
 
 ### Patch Changes
