@@ -1,4 +1,5 @@
 import type { ProjectConfig } from "./types";
+import { projectTemplate } from "./types";
 
 const STYLING_LABELS: Record<string, string> = {
 	"css-modules": "CSS Modules",
@@ -31,19 +32,30 @@ export function formatSummary(config: ProjectConfig, scaffoldedInPlace = false):
 	const styling = STYLING_LABELS[config.styling] ?? config.styling;
 	const plugins = config.plugins.length > 0 ? config.plugins.join(", ") : "none";
 	const deploy = DEPLOY_LABELS[config.deploy] ?? config.deploy;
+	const templateLabel = projectTemplate(config) === "blog" ? "blog (MDX + Pages CMS)" : "default";
+
+	const cmsSteps =
+		projectTemplate(config) === "blog"
+			? [
+					"    # Pages CMS: push to GitHub, then connect at https://app.pagescms.org",
+					"    # See PAGES-CMS.md and .pages.yml in the project root",
+				]
+			: [];
 
 	const nextSteps = scaffoldedInPlace
-		? ["    bun install", "    bun run dev", ...deployNextSteps(config)]
+		? ["    bun install", "    bun run dev", ...cmsSteps, ...deployNextSteps(config)]
 		: [
 				`    cd ${config.projectName}`,
 				"    bun install",
 				"    bun run dev",
+				...cmsSteps,
 				...deployNextSteps(config),
 			];
 
 	return [
 		"",
 		`  Project:        ${config.projectName}`,
+		`  Template:       ${templateLabel}`,
 		`  Integrations:   ${integrations}`,
 		`  Styling:        ${styling}`,
 		`  Plugins:        ${plugins}`,

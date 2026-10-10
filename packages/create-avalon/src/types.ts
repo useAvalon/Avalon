@@ -11,6 +11,9 @@ export type MiddlewareOption = "h3" | "hono" | "elysia";
 
 export type DeployTarget = "cloudflare" | "netlify" | "none";
 
+/** Starter layout copied into the new project before CLI-specific config is applied. */
+export type StarterTemplate = "default" | "blog";
+
 /**
  * Allowed values for each option, used to validate non-interactive CLI flags.
  * These mirror the choices offered by the interactive prompts.
@@ -41,9 +44,12 @@ export const DEPLOY_TARGETS = [
 	"netlify",
 	"none",
 ] as const satisfies readonly DeployTarget[];
+export const STARTER_TEMPLATES = ["default", "blog"] as const satisfies readonly StarterTemplate[];
 
 export interface ProjectConfig {
 	projectName: string;
+	/** Starter files (blog module, CMS config, …). Omit or `default` for the standard scaffold. */
+	template?: StarterTemplate;
 	/** Core rendering engine for pages/layouts. Defaults to "preact". */
 	core: RenderEngine;
 	integrations: Integration[];
@@ -80,3 +86,25 @@ export const BASE_DIRS = [
 	"public",
 	"server",
 ] as const;
+
+const BLOG_EXTRA_DIRS = [
+	"app/modules/blog/pages",
+	"app/modules/blog/layouts",
+	"app/modules/blog/lib",
+	"app/modules/blog/components",
+	"public/media",
+] as const;
+
+/** Directories created before generated files are written. */
+export function projectTemplate(config: ProjectConfig): StarterTemplate {
+	return config.template ?? "default";
+}
+
+export function scaffoldDirectories(config: ProjectConfig): readonly string[] {
+	if (projectTemplate(config) !== "blog") {
+		return BASE_DIRS;
+	}
+
+	const withoutAbout = BASE_DIRS.filter((dir) => !dir.includes("/about/"));
+	return [...withoutAbout, ...BLOG_EXTRA_DIRS];
+}

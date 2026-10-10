@@ -29,9 +29,9 @@ describe("generateTsConfig", () => {
 		expect(opts.jsx).toBe("react-jsx");
 	});
 
-	it("does not include types array (uses env.d.ts triple-slash reference instead)", () => {
+	it("includes @useavalon/avalon/types for global island prop typing", () => {
 		const tsconfig = JSON.parse(generateTsConfig());
-		expect(tsconfig.compilerOptions.types).toBeUndefined();
+		expect(tsconfig.compilerOptions.types).toEqual(["@useavalon/avalon/types"]);
 	});
 
 	it("includes @shared/* and @modules/* path aliases", () => {
