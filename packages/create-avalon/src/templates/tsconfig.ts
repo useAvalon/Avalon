@@ -62,6 +62,8 @@ function compilerOptions(jsxImportSource: string) {
 		// The page shell's JSX. React libraries (Radix/shadcn) typecheck
 		// natively under the React engine; under Preact they resolve via compat.
 		jsxImportSource,
+		// Loads island-jsx augmentations (`island` / `server` on all components).
+		types: ["@useavalon/avalon/types"],
 		paths: {
 			"@shared/*": ["./app/shared/*"],
 			"@modules/*": ["./app/modules/*"],

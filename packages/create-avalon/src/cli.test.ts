@@ -24,6 +24,7 @@ describe("parseCliArgs", () => {
 			middleware: undefined,
 			deploy: undefined,
 			cron: false,
+			template: undefined,
 		});
 	});
 
@@ -126,6 +127,7 @@ describe("resolveConfigNonInteractive", () => {
 		const config = resolveConfigNonInteractive({ ...base, projectName: "my-app" });
 		expect(config).toEqual({
 			projectName: "my-app",
+			template: "default",
 			core: "preact",
 			integrations: ["preact"],
 			styling: "css-modules",
@@ -186,6 +188,19 @@ describe("resolveConfigNonInteractive", () => {
 	it("rejects syntax-highlighting as a plugin (MDX highlighting is always on)", () => {
 		expect(() => resolveConfigNonInteractive({ ...base, plugins: "syntax-highlighting" })).toThrow(
 			/syntax-highlighting/,
+		);
+	});
+
+	it("parses --template blog", () => {
+		const args = parseCliArgs(["my-blog", "--template", "blog", "--yes"]);
+		expect(args.template).toBe("blog");
+		const config = resolveConfigNonInteractive(args);
+		expect(config.template).toBe("blog");
+	});
+
+	it("rejects an unknown template", () => {
+		expect(() => resolveConfigNonInteractive({ ...parseCliArgs([]), template: "astro" })).toThrow(
+			/template/,
 		);
 	});
 

@@ -6,10 +6,14 @@ import type {
 	Plugin,
 	ProjectConfig,
 	RenderEngine,
+	StarterTemplate,
 	StylingOption,
 } from "./types";
 
-export async function collectProjectConfig(initialName?: string): Promise<ProjectConfig> {
+export async function collectProjectConfig(
+	initialName?: string,
+	initialTemplate?: StarterTemplate,
+): Promise<ProjectConfig> {
 	intro("create-avalon");
 
 	let projectName = initialName;
@@ -29,6 +33,34 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 		}
 
 		projectName = nameResult;
+	}
+
+	let template: StarterTemplate = initialTemplate ?? "default";
+
+	if (!initialTemplate) {
+		const templateResult = await select({
+			message: "Which starter template?",
+			options: [
+				{
+					value: "default",
+					label: "Default",
+					hint: "Welcome page, about module, API route sample",
+				},
+				{
+					value: "blog",
+					label: "Blog",
+					hint: "MDX posts under /blog with Pages CMS (.pages.yml)",
+				},
+			],
+			initialValue: "default",
+		});
+
+		if (isCancel(templateResult)) {
+			cancel("Operation cancelled.");
+			process.exit(1);
+		}
+
+		template = templateResult as StarterTemplate;
 	}
 
 	const coreResult = await select({
@@ -176,6 +208,7 @@ export async function collectProjectConfig(initialName?: string): Promise<Projec
 
 	return {
 		projectName,
+		template,
 		core,
 		integrations,
 		styling: stylingResult as StylingOption,

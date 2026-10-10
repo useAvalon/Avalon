@@ -4,13 +4,14 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { scaffoldProject } from "./scaffold";
 import type { ProjectConfig } from "./types";
-import { BASE_DIRS } from "./types";
+import { scaffoldDirectories } from "./types";
 
 describe("scaffoldProject", () => {
 	let tempDir: string;
 
 	const baseConfig: ProjectConfig = {
 		projectName: "test-project",
+		template: "default",
 		core: "preact",
 		integrations: ["react"],
 		styling: "css-modules",
@@ -40,14 +41,46 @@ describe("scaffoldProject", () => {
 		return readFile(join(tempDir, "out", relativePath), "utf-8");
 	}
 
-	it("creates all BASE_DIRS inside the target directory", async () => {
+	it("creates all scaffold directories inside the target directory", async () => {
 		const target = join(tempDir, "out");
 		await scaffoldProject(baseConfig, target);
 
-		for (const dir of BASE_DIRS) {
+		for (const dir of scaffoldDirectories(baseConfig)) {
 			const dirStat = await stat(join(target, dir));
 			expect(dirStat.isDirectory(), `${dir} should be a directory`).toBe(true);
 		}
+	});
+
+	it("scaffolds the blog template with MDX posts and Pages CMS config", async () => {
+		const config: ProjectConfig = { ...baseConfig, template: "blog" };
+		const target = join(tempDir, "blog-out");
+		await scaffoldProject(config, target);
+
+		expect(await exists(join(target, "app/modules/blog/pages/welcome.mdx"))).toBe(true);
+		expect(await exists(join(target, ".pages.yml"))).toBe(true);
+		expect(await exists(join(target, "PAGES-CMS.md"))).toBe(true);
+		expect(await exists(join(target, "app/shared/components/SiteNav.tsx"))).toBe(true);
+		expect(await exists(join(target, "app/modules/about/pages/index.tsx"))).toBe(false);
+
+		const postsLib = await readFile(join(target, "app/modules/blog/lib/posts.ts"), "utf-8");
+		expect(postsLib).toContain("import.meta.glob");
+
+		const vite = await readFile(join(target, "vite.config.ts"), "utf-8");
+		expect(vite).toContain("'/blog'");
+		expect(vite).toContain("clientRouter: true");
+
+		const postBuild = await readFile(join(target, "post-build.mjs"), "utf-8");
+		expect(postBuild).toContain("clientRouter: true");
+
+		const mainCss = await readFile(join(target, "app/shared/styles/main.css"), "utf-8");
+		expect(mainCss).toContain("view-transitions.css");
+
+		const siteNav = await readFile(join(target, "app/shared/components/SiteNav.tsx"), "utf-8");
+		expect(siteNav).toContain('data-router-persist="site-nav"');
+		expect(siteNav).toContain('data-router-transition="slide-forward"');
+
+		const rootLayout = await readFile(join(target, "app/shared/layouts/_layout.tsx"), "utf-8");
+		expect(rootLayout).toContain("SiteNav");
 	});
 
 	it("generates package.json with correct project name", async () => {

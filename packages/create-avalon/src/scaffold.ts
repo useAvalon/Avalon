@@ -1,6 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { generateHelloRoute } from "./templates/api-routes";
+import {
+	generateBlogHomePage,
+	generateBlogHomePageCssModules,
+	writeBlogStarterFiles,
+} from "./templates/blog-starter";
 import { EXAMPLE_CRON_HANDLER, generateExampleCronTask } from "./templates/cron";
 import {
 	generateBuildMjs,
@@ -26,7 +31,7 @@ import {
 } from "./templates/tsconfig";
 import { generateViteConfig } from "./templates/vite-config";
 import type { ProjectConfig } from "./types";
-import { BASE_DIRS } from "./types";
+import { projectTemplate, scaffoldDirectories } from "./types";
 
 function generateHonoServerEntry(): string {
 	return `import { Hono } from 'hono';
@@ -67,10 +72,9 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 	// Create the target directory
 	await mkdir(targetDir, { recursive: true });
 
-	// Create all base directories
-	for (const dir of BASE_DIRS) {
-		await mkdir(join(targetDir, dir), { recursive: true });
-	}
+	await Promise.all(
+		scaffoldDirectories(config).map((dir) => mkdir(join(targetDir, dir), { recursive: true })),
+	);
 
 	// Generate and write core config files
 	await writeFile(join(targetDir, "package.json"), generatePackageJson(config));
@@ -78,23 +82,33 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 		join(targetDir, "tsconfig.json"),
 		generateTsConfig(config.core, config.integrations),
 	);
-	for (const [filename, contents] of Object.entries(
-		generateFrameworkTsConfigs(config.integrations),
-	)) {
-		await writeFile(join(targetDir, filename), contents);
-	}
+	await Promise.all(
+		Object.entries(generateFrameworkTsConfigs(config.integrations)).map(([filename, contents]) =>
+			writeFile(join(targetDir, filename), contents),
+		),
+	);
 	await writeFile(join(targetDir, "vite.config.ts"), generateViteConfig(config));
 	await writeFile(join(targetDir, "vite-env.d.ts"), generateViteEnvDts(config));
 
 	// Generate and write layout and page files
 	await writeFile(join(targetDir, "app/shared/layouts/_layout.tsx"), generateRootLayout(config));
-	await writeFile(join(targetDir, "app/modules/main/pages/index.tsx"), generateMainPage(config));
-	await writeFile(join(targetDir, "app/modules/main/pages/404.tsx"), generate404Page(config));
 	await writeFile(
-		join(targetDir, "app/modules/about/layouts/_layout.tsx"),
-		generateAboutLayout(config),
+		join(targetDir, "app/modules/main/pages/index.tsx"),
+		projectTemplate(config) === "blog" ? generateBlogHomePage(config) : generateMainPage(config),
 	);
-	await writeFile(join(targetDir, "app/modules/about/pages/index.tsx"), generateAboutPage(config));
+	await writeFile(join(targetDir, "app/modules/main/pages/404.tsx"), generate404Page(config));
+	if (projectTemplate(config) === "blog") {
+		await writeBlogStarterFiles(config, targetDir);
+	} else {
+		await writeFile(
+			join(targetDir, "app/modules/about/layouts/_layout.tsx"),
+			generateAboutLayout(config),
+		);
+		await writeFile(
+			join(targetDir, "app/modules/about/pages/index.tsx"),
+			generateAboutPage(config),
+		);
+	}
 
 	// Generate and write middleware and API route
 	await writeFile(join(targetDir, "middleware/01.logger.ts"), generateSampleMiddleware(config));
@@ -117,10 +131,15 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 
 	// Generate and write styling files
 	const stylingFiles = generateStylingFiles(config);
-	for (const [filePath, content] of stylingFiles) {
-		await mkdir(join(targetDir, dirname(filePath)), { recursive: true });
-		await writeFile(join(targetDir, filePath), content);
+	if (projectTemplate(config) === "blog" && config.styling === "css-modules") {
+		stylingFiles.set("app/modules/main/pages/index.module.css", generateBlogHomePageCssModules());
 	}
+	await Promise.all(
+		[...stylingFiles.entries()].map(async ([filePath, content]) => {
+			await mkdir(join(targetDir, dirname(filePath)), { recursive: true });
+			await writeFile(join(targetDir, filePath), content);
+		}),
+	);
 
 	// Write Avalon favicon
 	await writeFile(join(targetDir, "public/favicon.ico"), getFaviconBuffer());
@@ -160,7 +179,7 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 
 	// Write deployment files
 	await writeFile(join(targetDir, "build.mjs"), generateBuildMjs());
-	await writeFile(join(targetDir, "post-build.mjs"), generatePostBuildMjs());
+	await writeFile(join(targetDir, "post-build.mjs"), generatePostBuildMjs(config));
 	await writeFile(join(targetDir, ".gitignore"), generateGitignore(config));
 	await writeFile(join(targetDir, "DEPLOY.md"), generateDeployReadme(config));
 

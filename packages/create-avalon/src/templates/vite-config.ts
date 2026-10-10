@@ -1,4 +1,5 @@
 import type { ProjectConfig } from "../types";
+import { projectTemplate } from "../types";
 import { EXAMPLE_CRON_HANDLER, EXAMPLE_CRON_SCHEDULE } from "./cron";
 
 const DEV_SITE_URL = "http://localhost:3000";
@@ -23,8 +24,12 @@ function buildSeoPluginEntry(projectName: string): string {
     }),`;
 }
 
-function buildAgentOptimizationEntry(projectName: string): string {
-	const siteName = escapeForSingleQuotedJs(projectName);
+function buildAgentOptimizationEntry(config: ProjectConfig): string {
+	const siteName = escapeForSingleQuotedJs(config.projectName);
+	const sections =
+		projectTemplate(config) === "blog"
+			? `{ 'Pages': ['/'], 'Blog': ['/blog'] }`
+			: `{ 'Pages': ['/'] }`;
 	return `    agentOptimization({
       sitemap: { siteUrl: '${DEV_SITE_URL}' },
       markdown: true,
@@ -32,7 +37,7 @@ function buildAgentOptimizationEntry(projectName: string): string {
         siteUrl: '${DEV_SITE_URL}',
         siteName: '${siteName}',
         siteDescription: 'Built with Avalon',
-        sections: { 'Pages': ['/'] },
+        sections: ${sections},
       },
     }),`;
 }
@@ -66,7 +71,7 @@ export function generateViteConfig(config: ProjectConfig): string {
 		pluginEntries.push(buildSeoPluginEntry(config.projectName));
 	}
 	if (hasAgentOptimization) {
-		pluginEntries.push(buildAgentOptimizationEntry(config.projectName));
+		pluginEntries.push(buildAgentOptimizationEntry(config));
 	}
 	pluginEntries.push(`    ...avalonPlugins,`);
 	if (needsTailwind) {
@@ -86,6 +91,10 @@ export function generateViteConfig(config: ProjectConfig): string {
 	const compatLines =
 		config.deploy === "cloudflare" ? [`      compatibilityDate: '2026-09-04',`] : [];
 
+	const prerenderRoutes = projectTemplate(config) === "blog" ? `['/', '/blog']` : `['/', '/about']`;
+
+	const clientRouterLine = projectTemplate(config) === "blog" ? `    clientRouter: true,\n` : "";
+
 	const lines = [
 		imports.join("\n"),
 		"",
@@ -95,6 +104,7 @@ export function generateViteConfig(config: ProjectConfig): string {
 		`    integrations: [${integrationsList}],`,
 		`    modules: 'app/modules',`,
 		`    layoutsDir: 'app/shared/layouts',`,
+		clientRouterLine,
 		`    image: true,`,
 		`    nitro: {`,
 		`      preset: process.env.NITRO_PRESET || 'node_server',`,
@@ -103,7 +113,7 @@ export function generateViteConfig(config: ProjectConfig): string {
 		`      clientEntry: 'app/entry-client',`,
 		`      globalCSS: ['app/shared/styles/main.css'],`,
 		`      prerender: {`,
-		`        routes: ['/', '/about'],`,
+		`        routes: ${prerenderRoutes},`,
 		`        crawlLinks: true,`,
 		`        ignore: [],`,
 		`      },`,
