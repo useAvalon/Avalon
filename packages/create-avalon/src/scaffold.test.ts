@@ -84,6 +84,7 @@ describe("scaffoldProject", () => {
 		expect(cartClient).toContain("Continue to details");
 		const cartLib = await readFile(join(target, "app/modules/store/lib/cart.ts"), "utf-8");
 		expect(cartLib).toContain("storefront:cart-open");
+		expect(cartLib).toContain("transientCart");
 
 		const vite = await readFile(join(target, "vite.config.ts"), "utf-8");
 		expect(vite).toContain("clientRouter: true");

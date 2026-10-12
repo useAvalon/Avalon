@@ -241,8 +241,10 @@ function generateCartLib(): string {
 }
 
 const STORAGE_KEY = 'avalon-storefront-cart';
+let transientCart: CartLine[] | null = null;
 
 export function readCart(): CartLine[] {
+  if (transientCart !== null) return transientCart;
   if (typeof localStorage === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -258,8 +260,12 @@ export function writeCart(lines: CartLine[]): void {
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
+      transientCart = null;
+    } else {
+      transientCart = lines;
     }
   } catch {
+    transientCart = lines;
     // Quota, private mode, or disabled storage — UI still updates via event detail.
   }
 }
