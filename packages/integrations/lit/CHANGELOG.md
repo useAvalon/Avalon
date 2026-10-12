@@ -1,5 +1,13 @@
 # @useavalon/lit
 
+## 0.1.13
+
+### Patch Changes
+
+- Updated dependencies [[`1bd47c2`](https://github.com/useAvalon/Avalon/commit/1bd47c25caa2421e544ad24484c079477882777f)]:
+  - @useavalon/avalon@0.6.0
+  - @useavalon/core@0.6.0
+
 ## 0.1.12
 
 ### Patch Changes
