@@ -2,12 +2,14 @@
  * JSX augmentation for the `island` prop.
  *
  * Automatically included via tsconfig.json `compilerOptions.types`.
+ *
+ * This file must stay ambient (no top-level import/export) so `declare module`
+ * augmentations apply when the package is loaded through `compilerOptions.types`.
  */
 
-import type { IslandDirective, ServerIslandProp } from "./island-prop.d.ts";
-
-/** Force TypeScript to expand the type inline on hover instead of showing the alias name */
 type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;
+type IslandDirective = import("./island-prop.d.ts").IslandDirective;
+type ServerIslandProp = import("./island-prop.d.ts").ServerIslandProp;
 
 declare module "preact" {
 	// Preact's jsx/jsxs runtime types component props as `Attributes & P`, not
