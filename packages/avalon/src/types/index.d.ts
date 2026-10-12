@@ -12,14 +12,12 @@
  * ```
  */
 
+// Triple-slash references keep augmentations ambient when this entry is loaded
+// via `compilerOptions.types` (side-effect `import()` of a module .d.ts does not
+// always merge `declare module` augmentations into the consumer program).
+/// <reference path="./island-jsx.d.ts" />
+/// <reference path="./image.d.ts" />
+/// <reference path="./virtual-modules.d.ts" />
+
 // Re-export island prop types
 export * from "./island-prop.d.ts";
-
-// Import JSX augmentations (side-effect import for type augmentation)
-import "./island-jsx.d.ts";
-
-// Import image type declarations
-import "./image.d.ts";
-
-// Import virtual module declarations (virtual:avalon/*)
-import "./virtual-modules.d.ts";
