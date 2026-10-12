@@ -8,6 +8,7 @@ import {
 	resolveConfigNonInteractive,
 	validateDirectory,
 } from "./cli-utils";
+import { applyTemplateDefaults } from "./template-defaults";
 
 describe("parseCliArgs", () => {
 	it("returns defaults when no args provided", () => {
@@ -196,6 +197,14 @@ describe("resolveConfigNonInteractive", () => {
 		expect(args.template).toBe("blog");
 		const config = resolveConfigNonInteractive(args);
 		expect(config.template).toBe("blog");
+	});
+
+	it("parses --template storefront and defaults styling to tailwind", () => {
+		const args = parseCliArgs(["my-shop", "--template", "storefront", "--yes"]);
+		expect(args.template).toBe("storefront");
+		const config = applyTemplateDefaults(resolveConfigNonInteractive(args));
+		expect(config.template).toBe("storefront");
+		expect(config.styling).toBe("tailwind");
 	});
 
 	it("rejects an unknown template", () => {

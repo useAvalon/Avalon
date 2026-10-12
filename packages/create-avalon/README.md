@@ -7,15 +7,20 @@ Scaffold a new [Avalon](https://useavalon.dev) project in seconds.
 ```bash
 bun create avalon my-app
 bun create avalon my-blog --template blog
+bun create avalon my-shop --template storefront --yes --styling tailwind
 ```
 
 Other package managers: `npm create avalon@latest`, `pnpm create avalon@latest`, or `yarn create avalon`.
 
-Pass `--template blog` for an MDX blog under `/blog` with a [Pages CMS](https://pagescms.org/) config (`.pages.yml`) so editors can manage posts on GitHub. You still get the usual prompts for integrations, styling, deploy, and the rest.
+Pass **`--template blog`** for an MDX blog under `/blog` with a [Pages CMS](https://pagescms.org/) config (`.pages.yml`) so editors can manage posts on GitHub.
+
+Pass **`--template storefront`** for a minimalist furniture-catalogue starter adapted from [Atelier Kō](https://github.com/xocothemes/atelier-ko) (MIT): `/`, `/catalog`, `/products/[slug]`, cart drawer, client navigation with slide-forward View Transitions, JSON catalogue under `app/modules/store/content/products/`, and Tailwind + self-hosted Archivo / IBM Plex Mono. See `STOREFRONT.md` and `ATTRIBUTION.md` in the generated project.
+
+You still get the usual prompts for integrations, styling, deploy, and the rest (storefront defaults styling to Tailwind when you pick `css-modules`).
 
 The CLI walks you through:
 
-- Starter template (`default` or `blog`)
+- Starter template (`default`, `blog`, or `storefront`)
 - Project name and directory
 - Rendering engine (Preact or React) and island integrations
 - Styling approach (CSS Modules, Tailwind, shadcn)

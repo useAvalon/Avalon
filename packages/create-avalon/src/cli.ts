@@ -11,6 +11,7 @@ import {
 import { collectProjectConfig } from "./prompts";
 import { scaffoldProject } from "./scaffold";
 import { printSummary } from "./summary";
+import { applyTemplateDefaults } from "./template-defaults";
 
 async function main(): Promise<void> {
 	const args = parseCliArgs(process.argv.slice(2));
@@ -41,7 +42,7 @@ async function main(): Promise<void> {
 				"      --middleware     h3 (default) | hono | elysia",
 				"      --deploy         cloudflare | netlify | none (default)",
 				"      --cron           Scaffold an example cron task + config",
-				"      --template       default (default) | blog — MDX blog + Pages CMS config",
+				"      --template       default | blog | storefront (Atelier Kō–style catalogue)",
 				"",
 				"Example:",
 				"  create-avalon my-app --template blog",
@@ -69,9 +70,11 @@ async function main(): Promise<void> {
 	parseTemplateFlag(args.template);
 
 	// Collect all prompts before any filesystem work
-	const config = nonInteractive
-		? resolveConfigNonInteractive(args)
-		: await collectProjectConfig(args.projectName, parseTemplateFlag(args.template));
+	const config = applyTemplateDefaults(
+		nonInteractive
+			? resolveConfigNonInteractive(args)
+			: await collectProjectConfig(args.projectName, parseTemplateFlag(args.template)),
+	);
 
 	// If the project name came from the prompt (not CLI arg), validate now
 	if (!args.projectName && config.projectName !== ".") {

@@ -212,4 +212,13 @@ describe("generateViteConfig", () => {
 	it("does not enable clientRouter for the default template", () => {
 		expect(generateViteConfig(baseConfig)).not.toContain("clientRouter:");
 	});
+
+	it("enables clientRouter for the storefront template", () => {
+		const result = generateViteConfig({
+			...baseConfig,
+			template: "storefront",
+			styling: "tailwind",
+		});
+		expect(result).toContain("clientRouter: true");
+	});
 });

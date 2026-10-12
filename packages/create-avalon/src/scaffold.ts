@@ -22,6 +22,10 @@ import { generateSampleMiddleware } from "./templates/middleware";
 import { generatePackageJson } from "./templates/package-json";
 import { generate404Page, generateAboutPage, generateMainPage } from "./templates/pages";
 import { generatePostBuildMjs } from "./templates/post-build";
+import {
+	generateStorefrontHomePage,
+	writeStorefrontStarterFiles,
+} from "./templates/storefront-starter";
 import { generateStylingFiles } from "./templates/styling";
 import {
 	generateEnvDts,
@@ -93,13 +97,21 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 
 	// Generate and write layout and page files
 	await writeFile(join(targetDir, "app/shared/layouts/_layout.tsx"), generateRootLayout(config));
-	await writeFile(
-		join(targetDir, "app/modules/main/pages/index.tsx"),
-		projectTemplate(config) === "blog" ? generateBlogHomePage(config) : generateMainPage(config),
-	);
+	const template = projectTemplate(config);
+	let homePage: string;
+	if (template === "blog") {
+		homePage = generateBlogHomePage(config);
+	} else if (template === "storefront") {
+		homePage = generateStorefrontHomePage(config);
+	} else {
+		homePage = generateMainPage(config);
+	}
+	await writeFile(join(targetDir, "app/modules/main/pages/index.tsx"), homePage);
 	await writeFile(join(targetDir, "app/modules/main/pages/404.tsx"), generate404Page(config));
-	if (projectTemplate(config) === "blog") {
+	if (template === "blog") {
 		await writeBlogStarterFiles(config, targetDir);
+	} else if (template === "storefront") {
+		await writeStorefrontStarterFiles(config, targetDir);
 	} else {
 		await writeFile(
 			join(targetDir, "app/modules/about/layouts/_layout.tsx"),

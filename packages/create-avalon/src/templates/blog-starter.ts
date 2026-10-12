@@ -1282,6 +1282,16 @@ html:active-view-transition-type(slide-forward)::view-transition-old(root) {
   animation: 180ms ease-in both slide-out-left;
 }
 
+[data-router-persist="site-nav"] {
+  view-transition-name: site-nav;
+}
+
+::view-transition-group(site-nav),
+::view-transition-old(site-nav),
+::view-transition-new(site-nav) {
+  animation-duration: 0s;
+}
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(root),
   ::view-transition-new(root) {

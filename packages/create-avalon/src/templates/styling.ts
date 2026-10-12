@@ -1,6 +1,7 @@
 import type { ProjectConfig } from "../types";
 import { projectTemplate } from "../types";
 import { generateBlogThemeCss, generateClientRouterStylesCss } from "./blog-starter";
+import { getStorefrontThemeCss } from "./storefront-starter";
 
 export function generateStylingFiles(config: ProjectConfig): Map<string, string> {
 	const files = new Map<string, string>();
@@ -16,8 +17,13 @@ export function generateStylingFiles(config: ProjectConfig): Map<string, string>
 		files.set("app/shared/styles/reset.css", generateResetCss(config));
 	}
 
-	if (projectTemplate(config) === "blog") {
+	const template = projectTemplate(config);
+	if (template === "blog") {
 		files.set("app/shared/styles/blog-theme.css", generateBlogThemeCss());
+		files.set("app/shared/styles/view-transitions.css", generateClientRouterStylesCss());
+	}
+	if (template === "storefront") {
+		files.set("app/shared/styles/storefront-theme.css", getStorefrontThemeCss());
 		files.set("app/shared/styles/view-transitions.css", generateClientRouterStylesCss());
 	}
 
@@ -49,35 +55,23 @@ export function generateStylingFiles(config: ProjectConfig): Map<string, string>
 }
 
 function generateMainCss(config: ProjectConfig): string {
+	const template = projectTemplate(config);
 	const imports =
 		config.styling === "css-modules"
 			? [`@import './reset.css';`, `@import './tokens.css';`]
 			: [`@import './global.css';`];
 
-	if (projectTemplate(config) === "blog") {
-		imports.push(`@import './blog-theme.css';`);
-		imports.push(`@import './view-transitions.css';`);
+	if (template === "blog") {
+		imports.push(`@import './blog-theme.css';`, `@import './view-transitions.css';`);
+	}
+	if (template === "storefront") {
+		imports.push(`@import './storefront-theme.css';`, `@import './view-transitions.css';`);
 	}
 
 	return `${imports.join("\n")}\n`;
 }
 
-function generateResetCss(config: ProjectConfig): string {
-	const persistNav =
-		projectTemplate(config) === "blog"
-			? `
-[data-router-persist="site-nav"] {
-  view-transition-name: site-nav;
-}
-
-::view-transition-group(site-nav),
-::view-transition-old(site-nav),
-::view-transition-new(site-nav) {
-  animation-duration: 0s;
-}
-`
-			: "";
-
+function generateResetCss(_config: ProjectConfig): string {
 	return `/* CSS Reset */
 *,
 *::before,
@@ -120,7 +114,7 @@ h5,
 h6 {
   overflow-wrap: break-word;
 }
-${persistNav}`;
+`;
 }
 
 function generateTokensCss(): string {
