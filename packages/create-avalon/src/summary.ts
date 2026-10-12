@@ -32,15 +32,23 @@ export function formatSummary(config: ProjectConfig, scaffoldedInPlace = false):
 	const styling = STYLING_LABELS[config.styling] ?? config.styling;
 	const plugins = config.plugins.length > 0 ? config.plugins.join(", ") : "none";
 	const deploy = DEPLOY_LABELS[config.deploy] ?? config.deploy;
-	const templateLabel = projectTemplate(config) === "blog" ? "blog (MDX + Pages CMS)" : "default";
+	const template = projectTemplate(config);
+	const templateLabel =
+		template === "blog"
+			? "blog (MDX + Pages CMS)"
+			: template === "storefront"
+				? "storefront (Atelier Kō catalogue)"
+				: "default";
 
 	const cmsSteps =
-		projectTemplate(config) === "blog"
+		template === "blog"
 			? [
 					"    # Pages CMS: push to GitHub, then connect at https://app.pagescms.org",
 					"    # See PAGES-CMS.md and .pages.yml in the project root",
 				]
-			: [];
+			: template === "storefront"
+				? ["    # See STOREFRONT.md and ATTRIBUTION.md (theme: xocothemes/atelier-ko, MIT)"]
+				: [];
 
 	const nextSteps = scaffoldedInPlace
 		? ["    bun install", "    bun run dev", ...cmsSteps, ...deployNextSteps(config)]

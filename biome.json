@@ -52,6 +52,14 @@
 			"linter": {
 				"enabled": false
 			}
+		},
+		{
+			"includes": ["packages/create-avalon/**/*.css"],
+			"css": {
+				"parser": {
+					"tailwindDirectives": true
+				}
+			}
 		}
 	],
 	"files": {

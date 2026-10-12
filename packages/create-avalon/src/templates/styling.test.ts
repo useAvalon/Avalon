@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ProjectConfig } from "../types";
+import type { ProjectConfig, StylingOption } from "../types";
 import { generateStylingFiles } from "./styling";
 
 describe("generateStylingFiles", () => {
@@ -12,6 +12,10 @@ describe("generateStylingFiles", () => {
 		middleware: "h3",
 		deploy: "none",
 	};
+
+	function configWithStyling(styling: StylingOption): ProjectConfig {
+		return { ...baseConfig, styling };
+	}
 
 	// --- Common files ---
 
@@ -27,32 +31,23 @@ describe("generateStylingFiles", () => {
 		expect(css).toContain(".hljs");
 	});
 
-	it("generates reset.css for css-modules", () => {
-		const files = generateStylingFiles(baseConfig);
-		expect(files.has("app/shared/styles/reset.css")).toBe(true);
+	it.each([
+		["css-modules", true],
+		["tailwind", false],
+		["shadcn", false],
+	] as const)("generates reset.css only for css-modules (%s)", (styling, expected) => {
+		const files = generateStylingFiles(configWithStyling(styling));
+		expect(files.has("app/shared/styles/reset.css")).toBe(expected);
 	});
 
-	it("does not generate reset.css for tailwind", () => {
-		const config: ProjectConfig = { ...baseConfig, styling: "tailwind" };
-		const files = generateStylingFiles(config);
-		expect(files.has("app/shared/styles/reset.css")).toBe(false);
-	});
-
-	it("does not generate reset.css for shadcn", () => {
-		const config: ProjectConfig = { ...baseConfig, styling: "shadcn" };
-		const files = generateStylingFiles(config);
-		expect(files.has("app/shared/styles/reset.css")).toBe(false);
-	});
-
-	it("main.css imports reset.css for css-modules", () => {
-		const files = generateStylingFiles(baseConfig);
-		expect(files.get("app/shared/styles/main.css")).toContain("@import './reset.css'");
-	});
-
-	it("main.css does not import reset.css for tailwind", () => {
-		const config: ProjectConfig = { ...baseConfig, styling: "tailwind" };
-		const files = generateStylingFiles(config);
-		expect(files.get("app/shared/styles/main.css")).not.toContain("@import './reset.css'");
+	it.each([
+		["css-modules", true],
+		["tailwind", false],
+		["shadcn", false],
+	] as const)("main.css imports reset.css only for css-modules (%s)", (styling, shouldImport) => {
+		const main = generateStylingFiles(configWithStyling(styling)).get("app/shared/styles/main.css");
+		const assertion = shouldImport ? expect(main) : expect(main).not;
+		assertion.toContain("@import './reset.css'");
 	});
 
 	// --- CSS Modules ---
@@ -63,29 +58,19 @@ describe("generateStylingFiles", () => {
 		expect(files.get("app/shared/styles/tokens.css")).toContain("--color-primary");
 	});
 
-	it("generates .module.css for shared layout with css-modules", () => {
+	it.each([
+		["app/shared/layouts/_layout.module.css", ".layout"],
+		["app/modules/main/pages/index.module.css", ".shell"],
+		["app/modules/about/pages/index.module.css", ".shell"],
+		["app/modules/main/pages/404.module.css", ".status"],
+	] as const)("generates %s for css-modules", (path, snippet) => {
 		const files = generateStylingFiles(baseConfig);
-		expect(files.has("app/shared/layouts/_layout.module.css")).toBe(true);
-		expect(files.get("app/shared/layouts/_layout.module.css")).toContain(".layout");
-	});
-
-	it("generates .module.css for home page with css-modules", () => {
-		const files = generateStylingFiles(baseConfig);
-		expect(files.has("app/modules/main/pages/index.module.css")).toBe(true);
-		expect(files.get("app/modules/main/pages/index.module.css")).toContain(".shell");
-	});
-
-	it("generates .module.css for about page with css-modules", () => {
-		const files = generateStylingFiles(baseConfig);
-		expect(files.has("app/modules/about/pages/index.module.css")).toBe(true);
-		expect(files.get("app/modules/about/pages/index.module.css")).toContain(".shell");
-		expect(files.get("app/modules/about/pages/index.module.css")).toContain(".homeLink");
-	});
-
-	it("generates .module.css for 404 page with css-modules", () => {
-		const files = generateStylingFiles(baseConfig);
-		expect(files.has("app/modules/main/pages/404.module.css")).toBe(true);
-		expect(files.get("app/modules/main/pages/404.module.css")).toContain(".status");
+		expect(files.has(path)).toBe(true);
+		const css = files.get(path);
+		expect(css).toContain(snippet);
+		if (path === "app/modules/about/pages/index.module.css") {
+			expect(css).toContain(".homeLink");
+		}
 	});
 
 	it("main.css imports tokens.css for css-modules", () => {
@@ -102,62 +87,64 @@ describe("generateStylingFiles", () => {
 
 	// --- Tailwind ---
 
-	it("generates tailwind.config.js for tailwind", () => {
-		const config: ProjectConfig = { ...baseConfig, styling: "tailwind" };
-		const files = generateStylingFiles(config);
+	it.each(["tailwind", "shadcn"] as const)("generates tailwind.config.js for %s", (styling) => {
+		const files = generateStylingFiles(configWithStyling(styling));
 		expect(files.has("tailwind.config.js")).toBe(true);
 		expect(files.get("tailwind.config.js")).toContain("content");
-		expect(files.get("tailwind.config.js")).toContain("app/**/*.{ts,tsx}");
+		if (styling === "tailwind") {
+			expect(files.get("tailwind.config.js")).toContain("app/**/*.{ts,tsx}");
+		}
 	});
 
-	it("generates global.css with tailwind directive for tailwind", () => {
-		const config: ProjectConfig = { ...baseConfig, styling: "tailwind" };
-		const files = generateStylingFiles(config);
-		expect(files.has("app/shared/styles/global.css")).toBe(true);
-		expect(files.get("app/shared/styles/global.css")).toContain('@import "tailwindcss"');
-	});
+	it.each(["tailwind", "shadcn"] as const)(
+		"generates global.css with tailwind directive for %s",
+		(styling) => {
+			const files = generateStylingFiles(configWithStyling(styling));
+			expect(files.has("app/shared/styles/global.css")).toBe(true);
+			expect(files.get("app/shared/styles/global.css")).toContain('@import "tailwindcss"');
+		},
+	);
 
 	it("main.css imports global.css for tailwind", () => {
-		const config: ProjectConfig = { ...baseConfig, styling: "tailwind" };
-		const files = generateStylingFiles(config);
+		const files = generateStylingFiles(configWithStyling("tailwind"));
 		expect(files.get("app/shared/styles/main.css")).toContain("@import './global.css'");
 	});
 
-	it("does not generate css-modules files for tailwind", () => {
-		const config: ProjectConfig = { ...baseConfig, styling: "tailwind" };
-		const files = generateStylingFiles(config);
-		expect(files.has("app/shared/styles/tokens.css")).toBe(false);
-		expect(files.has("app/shared/layouts/_layout.module.css")).toBe(false);
-		expect(files.has("app/modules/main/pages/index.module.css")).toBe(false);
-		expect(files.has("app/modules/about/pages/index.module.css")).toBe(false);
-		expect(files.has("app/modules/main/pages/404.module.css")).toBe(false);
+	it.each([
+		[
+			"tailwind",
+			[
+				"app/shared/styles/tokens.css",
+				"app/shared/layouts/_layout.module.css",
+				"app/modules/main/pages/index.module.css",
+				"app/modules/about/pages/index.module.css",
+				"app/modules/main/pages/404.module.css",
+			],
+		],
+		[
+			"shadcn",
+			[
+				"app/shared/styles/tokens.css",
+				"app/shared/layouts/_layout.module.css",
+				"app/modules/main/pages/index.module.css",
+			],
+		],
+	] as const)("does not generate css-modules files for %s", (styling, paths) => {
+		const files = generateStylingFiles(configWithStyling(styling));
+		for (const path of paths) {
+			expect(files.has(path)).toBe(false);
+		}
 	});
 
 	it("does not generate components.json for tailwind", () => {
-		const config: ProjectConfig = { ...baseConfig, styling: "tailwind" };
-		const files = generateStylingFiles(config);
+		const files = generateStylingFiles(configWithStyling("tailwind"));
 		expect(files.has("components.json")).toBe(false);
 	});
 
 	// --- shadcn ---
 
-	it("generates tailwind.config.js for shadcn", () => {
-		const config: ProjectConfig = { ...baseConfig, styling: "shadcn" };
-		const files = generateStylingFiles(config);
-		expect(files.has("tailwind.config.js")).toBe(true);
-		expect(files.get("tailwind.config.js")).toContain("content");
-	});
-
-	it("generates global.css with tailwind directive for shadcn", () => {
-		const config: ProjectConfig = { ...baseConfig, styling: "shadcn" };
-		const files = generateStylingFiles(config);
-		expect(files.has("app/shared/styles/global.css")).toBe(true);
-		expect(files.get("app/shared/styles/global.css")).toContain('@import "tailwindcss"');
-	});
-
 	it("generates components.json for shadcn", () => {
-		const config: ProjectConfig = { ...baseConfig, styling: "shadcn" };
-		const files = generateStylingFiles(config);
+		const files = generateStylingFiles(configWithStyling("shadcn"));
 		expect(files.has("components.json")).toBe(true);
 		const componentsJson = files.get("components.json");
 		expect(componentsJson).toBeDefined();
@@ -168,25 +155,15 @@ describe("generateStylingFiles", () => {
 		expect(json.aliases.components).toBe("@shared/components");
 	});
 
-	it("does not generate css-modules files for shadcn", () => {
-		const config: ProjectConfig = { ...baseConfig, styling: "shadcn" };
-		const files = generateStylingFiles(config);
-		expect(files.has("app/shared/styles/tokens.css")).toBe(false);
-		expect(files.has("app/shared/layouts/_layout.module.css")).toBe(false);
-		expect(files.has("app/modules/main/pages/index.module.css")).toBe(false);
-	});
-
 	it("generates cn utility for shadcn", () => {
-		const config: ProjectConfig = { ...baseConfig, styling: "shadcn" };
-		const files = generateStylingFiles(config);
+		const files = generateStylingFiles(configWithStyling("shadcn"));
 		expect(files.has("app/shared/utils/cn.ts")).toBe(true);
 		expect(files.get("app/shared/utils/cn.ts")).toContain("twMerge");
 		expect(files.get("app/shared/utils/cn.ts")).toContain("clsx");
 	});
 
 	it("shadcn global.css includes CSS variables", () => {
-		const config: ProjectConfig = { ...baseConfig, styling: "shadcn" };
-		const files = generateStylingFiles(config);
+		const files = generateStylingFiles(configWithStyling("shadcn"));
 		expect(files.get("app/shared/styles/global.css")).toContain("@theme inline");
 		expect(files.get("app/shared/styles/global.css")).toContain("--color-primary");
 	});

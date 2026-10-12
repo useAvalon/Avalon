@@ -51,6 +51,11 @@ export async function collectProjectConfig(
 					label: "Blog",
 					hint: "MDX posts under /blog with Pages CMS (.pages.yml)",
 				},
+				{
+					value: "storefront",
+					label: "Storefront",
+					hint: "Atelier Kō–style catalogue, cart drawer, Tailwind (MIT, xocothemes/atelier-ko)",
+				},
 			],
 			initialValue: "default",
 		});

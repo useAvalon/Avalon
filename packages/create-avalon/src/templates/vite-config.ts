@@ -91,9 +91,16 @@ export function generateViteConfig(config: ProjectConfig): string {
 	const compatLines =
 		config.deploy === "cloudflare" ? [`      compatibilityDate: '2026-09-04',`] : [];
 
-	const prerenderRoutes = projectTemplate(config) === "blog" ? `['/', '/blog']` : `['/', '/about']`;
+	const template = projectTemplate(config);
+	const prerenderRoutes =
+		template === "blog"
+			? `['/', '/blog']`
+			: template === "storefront"
+				? `['/', '/catalog', '/cart', '/about']`
+				: `['/', '/about']`;
 
-	const clientRouterLine = projectTemplate(config) === "blog" ? `    clientRouter: true,\n` : "";
+	const clientRouterLine =
+		template === "blog" || template === "storefront" ? `    clientRouter: true,\n` : "";
 
 	const lines = [
 		imports.join("\n"),

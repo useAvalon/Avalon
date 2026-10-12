@@ -1,10 +1,21 @@
-import type { ProjectConfig } from "../types";
+import type { ProjectConfig, StarterTemplate } from "../types";
 import { projectTemplate } from "../types";
 
+function postBuildPrerenderRoutes(template: StarterTemplate): string {
+	if (template === "blog") {
+		return `['/', '/blog']`;
+	}
+	if (template === "storefront") {
+		return `['/', '/catalog', '/cart', '/about']`;
+	}
+	return `['/']`;
+}
+
 export function generatePostBuildMjs(config: ProjectConfig): string {
-	const isBlog = projectTemplate(config) === "blog";
-	const prerenderRoutes = isBlog ? `['/', '/blog']` : `['/']`;
-	const clientRouterLine = isBlog ? `\tclientRouter: true,\n` : "";
+	const template = projectTemplate(config);
+	const prerenderRoutes = postBuildPrerenderRoutes(template);
+	const clientRouterLine =
+		template === "blog" || template === "storefront" ? `\tclientRouter: true,\n` : "";
 
 	return [
 		`/**`,
