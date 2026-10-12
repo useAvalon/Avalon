@@ -26,6 +26,7 @@ import { generateStylingFiles } from "./templates/styling";
 import {
 	generateEnvDts,
 	generateFrameworkTsConfigs,
+	generateIslandJsxDts,
 	generateTsConfig,
 	generateViteEnvDts,
 } from "./templates/tsconfig";
@@ -152,6 +153,7 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 
 	// Write app env.d.ts — island prop types, virtual module declarations
 	await writeFile(join(targetDir, "app/env.d.ts"), generateEnvDts(config.integrations));
+	await writeFile(join(targetDir, "app/island-jsx.d.ts"), generateIslandJsxDts(config.core));
 
 	// Write app/entry-client.ts — the island hydration runtime entry.
 	// Vite's client environment uses this as its rollup input (see vite.config.ts),
