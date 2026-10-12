@@ -85,7 +85,7 @@
 	],
 	"devDependencies": {
 		"@types/mime-types": "^3.0.1",
-		"oxc-minify": "^0.152.0"
+		"oxc-minify": "^0.153.0"
 	},
 	"peerDependencies": {
 		"vite": "^8.0.0",
@@ -107,11 +107,11 @@
 		"@mdx-js/rollup": "^3.0.0",
 		"rehype-highlight": "^7.0.0",
 		"@useavalon/core": "workspace:^",
-		"h3": "^2.0.1-rc.33",
+		"h3": "^2.0.2",
 		"marked": "^17.0.6",
-		"oxc-parser": "^0.152.0",
-		"oxc-transform": "^0.152.0",
-		"preact": "11.0.0",
+		"oxc-parser": "^0.153.0",
+		"oxc-transform": "^0.153.0",
+		"preact": "11.0.1",
 		"preact-render-to-string": "6.8.0",
 		"remark-frontmatter": "^5.0.0",
 		"remark-gfm": "^4.0.0",
