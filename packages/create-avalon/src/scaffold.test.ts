@@ -91,7 +91,7 @@ describe("scaffoldProject", () => {
 		expect(postBuild).toContain("clientRouter: true");
 		const mainCss = await readFile(join(target, "app/shared/styles/main.css"), "utf-8");
 		expect(mainCss).toContain("view-transitions.css");
-		expect(layout).toContain('data-router-persist="site-nav"');
+		expect(layout).toContain('data-router-persist="site-nav" class="sticky top-0 z-50"');
 		const siteHeader = await readFile(
 			join(target, "app/modules/store/components/SiteHeader.tsx"),
 			"utf-8",

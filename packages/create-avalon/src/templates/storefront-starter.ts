@@ -255,7 +255,13 @@ export function readCart(): CartLine[] {
 }
 
 export function writeCart(lines: CartLine[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
+    }
+  } catch {
+    // Quota, private mode, or disabled storage — UI still updates via event detail.
+  }
 }
 
 export function cartCount(lines: CartLine[]): number {
@@ -276,7 +282,7 @@ export function addToCart(slug: string, quantity = 1): CartLine[] {
     lines.push({ slug, quantity });
   }
   writeCart(lines);
-  window.dispatchEvent(new CustomEvent('storefront:cart'));
+  window.dispatchEvent(new CustomEvent('storefront:cart', { detail: lines }));
   openCartDrawer();
   return lines;
 }
@@ -284,7 +290,7 @@ export function addToCart(slug: string, quantity = 1): CartLine[] {
 export function removeFromCart(slug: string): CartLine[] {
   const next = readCart().filter((line) => line.slug !== slug);
   writeCart(next);
-  window.dispatchEvent(new CustomEvent('storefront:cart'));
+  window.dispatchEvent(new CustomEvent('storefront:cart', { detail: next }));
   return next;
 }
 
@@ -293,7 +299,7 @@ export function setLineQuantity(slug: string, quantity: number): CartLine[] {
     .map((line) => (line.slug === slug ? { ...line, quantity } : line))
     .filter((line) => line.quantity > 0);
   writeCart(next);
-  window.dispatchEvent(new CustomEvent('storefront:cart'));
+  window.dispatchEvent(new CustomEvent('storefront:cart', { detail: next }));
   return next;
 }
 `;
@@ -304,7 +310,7 @@ function generateSiteHeader(): string {
 
 export default function SiteHeader() {
   return (
-    <header class="site-header sticky top-0 z-50">
+    <header class="site-header">
       <nav class="shell flex h-[4.5rem] items-center justify-between gap-6" aria-label="Main">
         <a
           href="/"
@@ -560,8 +566,9 @@ export default function CartDrawer() {
   }, [open]);
 
   useEffect(() => {
-    function sync() {
-      setLines(readCart());
+    function sync(event?: Event) {
+      const detail = event instanceof CustomEvent ? event.detail : undefined;
+      setLines(Array.isArray(detail) ? detail : readCart());
     }
     sync();
     window.addEventListener('storefront:cart', sync);
@@ -821,8 +828,9 @@ export default function CartPageClient({ products, locale, currency, shippingFla
   const [step, setStep] = useState<CheckoutStep>('selection');
 
   useEffect(() => {
-    function sync() {
-      setLines(readCart());
+    function sync(event?: Event) {
+      const detail = event instanceof CustomEvent ? event.detail : undefined;
+      setLines(Array.isArray(detail) ? detail : readCart());
     }
     sync();
     window.addEventListener('storefront:cart', sync);

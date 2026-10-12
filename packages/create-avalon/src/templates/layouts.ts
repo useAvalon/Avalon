@@ -122,7 +122,7 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
       <body>
         ${template === "blog" ? "<SiteNav />\n        " : ""}${
 					template === "storefront"
-						? `<div data-router-persist="site-nav">\n          <SiteHeader />\n        </div>\n        <CartDrawer island={{ condition: 'on:idle' }} />\n        `
+						? `<div data-router-persist="site-nav" class="sticky top-0 z-50">\n          <SiteHeader />\n        </div>\n        <CartDrawer island={{ condition: 'on:idle' }} />\n        `
 						: ""
 				}{children}${template === "storefront" ? "\n        <SiteFooter />" : ""}${template === "storefront" ? STOREFRONT_MOTION_BODY_SCRIPT : ""}${template === "storefront" ? STOREFRONT_NAV_SYNC_SCRIPT : ""}
       </body>
