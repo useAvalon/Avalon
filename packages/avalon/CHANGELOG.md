@@ -1,5 +1,13 @@
 # @useavalon/avalon
 
+## 0.6.0
+
+### Patch Changes
+
+- [#116](https://github.com/useAvalon/Avalon/pull/116) [`1bd47c2`](https://github.com/useAvalon/Avalon/commit/1bd47c25caa2421e544ad24484c079477882777f) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Load island JSX augmentations via triple-slash references so `compilerOptions.types` merges Preact and React `island` props correctly.
+- Updated dependencies []:
+  - @useavalon/core@0.6.0
+
 ## 0.5.9
 
 ### Patch Changes
