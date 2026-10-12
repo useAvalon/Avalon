@@ -244,7 +244,7 @@ const STORAGE_KEY = 'avalon-storefront-cart';
 let transientCart: CartLine[] | null = null;
 
 export function readCart(): CartLine[] {
-  if (transientCart !== null) return transientCart;
+  if (transientCart !== null) return transientCart.map((line) => ({ ...line }));
   if (typeof localStorage === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
