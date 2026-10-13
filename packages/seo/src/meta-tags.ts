@@ -193,6 +193,18 @@ export function injectMetaTags(html: string, url: string, config: SeoConfig): st
 		);
 	}
 
+	if (config.themeColor && !html.includes('name="theme-color"')) {
+		tags.push(`<meta name="theme-color" content="${escapeAttr(config.themeColor)}" />`);
+	}
+
+	if (config.appleTouchIcon && !html.includes("apple-touch-icon")) {
+		tags.push(`<link rel="apple-touch-icon" href="${escapeAttr(config.appleTouchIcon)}" />`);
+	}
+
+	if (config.webFontStylesheet && !html.includes(config.webFontStylesheet)) {
+		tags.push(`<link rel="stylesheet" href="${escapeAttr(config.webFontStylesheet)}" />`);
+	}
+
 	if (config.robotsImagePreview && !existing.robots && !html.includes("max-image-preview")) {
 		const directives =
 			url === SEO_ERROR_PAGE_PATH
@@ -201,7 +213,7 @@ export function injectMetaTags(html: string, url: string, config: SeoConfig): st
 		tags.push(`<meta name="robots" content="${directives}" />`);
 	}
 
-	if (config.hreflang && !skipCanonical && !html.includes("hreflang")) {
+	if (config.hreflang && !skipCanonical && !html.includes("hreflang=")) {
 		const lang = (config.locale ?? "en_US").split(/[-_]/)[0];
 		tags.push(
 			`<link rel="alternate" hreflang="${escapeAttr(lang)}" href="${escapeAttr(fullUrl)}" />`,

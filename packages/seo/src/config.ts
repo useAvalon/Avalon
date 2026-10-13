@@ -26,6 +26,7 @@ export const PersonConfigSchema = z.object({
 export const OrganizationConfigSchema = z.object({
 	name: z.string(),
 	url: z.string().optional(),
+	sameAs: z.array(z.string()).optional(),
 	logo: z
 		.object({
 			url: z.string(),
@@ -67,6 +68,14 @@ export const SeoConfigSchema = z.object({
 	locale: z.string().optional().default("en_US"),
 	/** Inject hreflang alternate links for the page locale (monolingual sites use en + x-default) */
 	hreflang: z.boolean().optional().default(false),
+	/** Mobile browser chrome color (theme-color meta) */
+	themeColor: z.string().optional(),
+	/** Apple home-screen icon URL */
+	appleTouchIcon: z.string().optional(),
+	/** First-party stylesheet with @font-face rules (e.g. /font-faces.css) */
+	webFontStylesheet: z.string().optional(),
+	/** ISO date for WebPage dateModified when the page has no article:modified_time */
+	contentModified: z.string().optional(),
 	/** Author info for Article JSON-LD */
 	author: PersonConfigSchema.optional(),
 	/** Publisher info for Article JSON-LD */

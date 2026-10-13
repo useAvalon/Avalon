@@ -15,6 +15,10 @@ export const wwwSeoConfig: SeoConfigInput = {
 	titleSuffix: " — Avalon",
 	locale: "en_US",
 	hreflang: true,
+	themeColor: "#0a0a0a",
+	appleTouchIcon: "/logo.svg",
+	webFontStylesheet: "/font-faces.css",
+	contentModified: process.env.AVALON_CONTENT_MODIFIED ?? "2026-10-13T00:00:00.000Z",
 	twitterSite: "@useAvalon",
 	searchPath: "/search",
 	searchQueryParam: "q",
@@ -26,6 +30,11 @@ export const wwwSeoConfig: SeoConfigInput = {
 		name: "Avalon",
 		url: siteUrl,
 		logo: { url: "/logo.svg", width: 512, height: 512 },
+		sameAs: [
+			"https://github.com/useAvalon/Avalon",
+			"https://x.com/useAvalon",
+			"https://discord.gg/avalon",
+		],
 	},
 	faq: [
 		{

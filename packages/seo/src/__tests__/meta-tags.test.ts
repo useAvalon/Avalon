@@ -126,6 +126,19 @@ describe("injectMetaTags", () => {
 		expect(result).not.toContain("localhost:8012");
 	});
 
+	it("injects theme-color and apple-touch-icon when configured", () => {
+		const config = {
+			...baseSeoConfig,
+			themeColor: "#0a0a0a",
+			appleTouchIcon: "/logo.svg",
+			webFontStylesheet: "/font-faces.css",
+		};
+		const result = injectMetaTags(minimalHtml, "/", config);
+		expect(result).toContain('name="theme-color" content="#0a0a0a"');
+		expect(result).toContain('rel="apple-touch-icon" href="/logo.svg"');
+		expect(result).toContain('href="/font-faces.css"');
+	});
+
 	it("injects hreflang alternates when enabled", () => {
 		const config = { ...baseSeoConfig, hreflang: true, locale: "en_US" };
 		const result = injectMetaTags(minimalHtml, "/docs/", config);

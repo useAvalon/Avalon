@@ -45,7 +45,11 @@ export interface ArticleMetadata {
 /**
  * Build a Schema.org WebPage JSON-LD object from page metadata.
  */
-export function buildWebPageJsonLd(metadata: PageMetadata, url: string): object {
+export function buildWebPageJsonLd(
+	metadata: PageMetadata,
+	url: string,
+	extras?: { dateModified?: string },
+): object {
 	const jsonLd: Record<string, string> = {
 		"@context": "https://schema.org",
 		"@type": "WebPage",
@@ -55,6 +59,7 @@ export function buildWebPageJsonLd(metadata: PageMetadata, url: string): object 
 	if (metadata.title) jsonLd["name"] = metadata.title;
 	if (metadata.description) jsonLd["description"] = metadata.description;
 	if (metadata.openGraph?.image) jsonLd["image"] = metadata.openGraph.image;
+	if (extras?.dateModified) jsonLd.dateModified = extras.dateModified;
 
 	return jsonLd;
 }
@@ -247,6 +252,7 @@ function organizationNode(publisher: OrganizationConfig, siteUrl: string): Recor
 			...(publisher.logo.height && { height: publisher.logo.height }),
 		};
 	}
+	if (publisher.sameAs?.length) pub.sameAs = publisher.sameAs;
 	return pub;
 }
 

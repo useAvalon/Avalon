@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import type { SeoConfig } from "../config.ts";
 import { SEO_ERROR_PAGE_PATH, SEO_TRANSFORM_MARKER } from "../constants.ts";
 import {
 	htmlFileToPathname,
+	needsSeoDistRefresh,
 	rewriteDevSiteUrls,
 	stripSeoTransformMarker,
 } from "../dist-transform.ts";
@@ -36,5 +38,28 @@ describe("rewriteDevSiteUrls", () => {
 		const html = '<link rel="canonical" href="http://localhost:8012/" />';
 		const out = rewriteDevSiteUrls(html, "http://localhost:8012");
 		expect(out).toBe(html);
+	});
+});
+
+describe("needsSeoDistRefresh", () => {
+	const config: SeoConfig = {
+		siteUrl: "https://example.com",
+		siteName: "Example",
+		hreflang: true,
+		locale: "en_US",
+	};
+
+	it("returns true when the marker is missing", () => {
+		expect(needsSeoDistRefresh("<html></html>", config)).toBe(true);
+	});
+
+	it("returns true when marker is present but hreflang is missing", () => {
+		const html = `<html><head>${SEO_TRANSFORM_MARKER}</head></html>`;
+		expect(needsSeoDistRefresh(html, config)).toBe(true);
+	});
+
+	it("returns false when marker and hreflang are present", () => {
+		const html = `<html><head>${SEO_TRANSFORM_MARKER}<link rel="alternate" hreflang="en" href="https://example.com/" /></head></html>`;
+		expect(needsSeoDistRefresh(html, config)).toBe(false);
 	});
 });

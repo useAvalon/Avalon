@@ -50,15 +50,42 @@ export function htmlFileToPathname(distDir: string, filePath: string): string {
 	return `/${withoutExt}/`;
 }
 
+function stripSeoJsonLd(html: string): string {
+	return html.replaceAll(
+		/<script\s+type=["']application\/ld\+json["'][^>]*>[\s\S]*?<\/script>/gi,
+		"",
+	);
+}
+
+/** Re-run transform when the marker is present but newer config tags are still missing. */
+export function needsSeoDistRefresh(html: string, config: SeoConfig): boolean {
+	if (!html.includes(SEO_TRANSFORM_MARKER)) return true;
+	if (config.hreflang && !html.includes("hreflang=")) return true;
+	if (config.themeColor && !html.includes('name="theme-color"')) return true;
+	if (config.appleTouchIcon && !html.includes("apple-touch-icon")) return true;
+	if (config.webFontStylesheet && !html.includes(config.webFontStylesheet)) return true;
+	if (config.contentModified && !html.includes('"dateModified"')) return true;
+	if (config.publisher?.sameAs?.length && !html.includes('"sameAs"')) return true;
+	const target = config.siteUrl.replace(/\/+$/, "");
+	for (const dev of DEV_SITE_ORIGINS) {
+		if (dev !== target && html.includes(dev)) return true;
+	}
+	return false;
+}
+
 /** Apply SEO transforms to every HTML file under a build output directory. */
 export function applySeoToDist(distDir: string, config: SeoConfig): number {
 	let count = 0;
 	for (const file of walkHtmlFiles(distDir)) {
 		const pathname = htmlFileToPathname(distDir, file);
 		const original = readFileSync(file, "utf-8");
-		const next = original.includes(SEO_TRANSFORM_MARKER)
-			? rewriteDevSiteUrls(original, config.siteUrl)
-			: rewriteDevSiteUrls(transformSeoHtml(original, pathname, config), config.siteUrl);
+		let next: string;
+		if (needsSeoDistRefresh(original, config)) {
+			const prepared = stripSeoJsonLd(stripSeoTransformMarker(original));
+			next = rewriteDevSiteUrls(transformSeoHtml(prepared, pathname, config), config.siteUrl);
+		} else {
+			next = rewriteDevSiteUrls(original, config.siteUrl);
+		}
 		if (next !== original) {
 			writeFileSync(file, next, "utf-8");
 			count++;

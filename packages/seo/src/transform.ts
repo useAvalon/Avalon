@@ -72,7 +72,9 @@ export function transformSeoHtml(html: string, urlOrPath: string, config: SeoCon
 	html = injectMetaTags(html, isErrorPage ? SEO_ERROR_PAGE_PATH : pathname, config);
 
 	if (config.structuredData) {
-		html = injectJsonLd(html, buildWebPageJsonLd(metadata, fullUrl));
+		const articleMeta = extractArticleMetaFromHtml(html);
+		const dateModified = articleMeta.dateModified ?? config.contentModified;
+		html = injectJsonLd(html, buildWebPageJsonLd(metadata, fullUrl, { dateModified }));
 		html = injectJsonLd(html, buildWebSiteJsonLd(config));
 
 		if (config.publisher) {
@@ -91,19 +93,19 @@ export function transformSeoHtml(html: string, urlOrPath: string, config: SeoCon
 			html = injectJsonLd(html, buildFaqPageJsonLd(config.faq));
 		}
 
-		const articleMeta = extractArticleMetaFromHtml(html);
-		if (metadata.title && articleMeta.datePublished) {
+		const articleMetaForJson = extractArticleMetaFromHtml(html);
+		if (metadata.title && articleMetaForJson.datePublished) {
 			const article: ArticleMetadata = {
 				title: metadata.title,
 				description: metadata.description,
 				image: metadata.openGraph?.image,
 				imageWidth: metadata.openGraph?.imageWidth,
 				imageHeight: metadata.openGraph?.imageHeight,
-				datePublished: articleMeta.datePublished,
-				dateModified: articleMeta.dateModified,
-				author: articleMeta.author,
-				section: articleMeta.section,
-				tags: articleMeta.tags,
+				datePublished: articleMetaForJson.datePublished,
+				dateModified: articleMetaForJson.dateModified,
+				author: articleMetaForJson.author,
+				section: articleMetaForJson.section,
+				tags: articleMetaForJson.tags,
 			};
 			html = injectJsonLd(html, buildArticleJsonLd(article, fullUrl, config));
 		}
