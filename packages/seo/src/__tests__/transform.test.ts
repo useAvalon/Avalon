@@ -35,4 +35,10 @@ describe("transformSeoHtml", () => {
 		const twice = transformSeoHtml(once, "/", baseConfig);
 		expect(twice).toBe(once);
 	});
+
+	it("does not emit Article JSON-LD without article:published_time", () => {
+		const out = transformSeoHtml(html, "/", baseConfig);
+		expect(out).not.toContain('"@type":"Article"');
+		expect(out).not.toContain('"@type": "Article"');
+	});
 });

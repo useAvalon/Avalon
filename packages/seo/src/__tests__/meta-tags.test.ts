@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SeoConfig } from "../config.ts";
+import { SEO_ERROR_PAGE_PATH } from "../constants.ts";
 import {
 	extractArticleMetaFromHtml,
 	extractMetadataFromHtml,
@@ -102,6 +103,19 @@ describe("injectMetaTags", () => {
 		const html = `<html><head><title>Blog Post</title><meta name="description" content="A post" /><meta property="article:published_time" content="2026-01-01" /></head><body></body></html>`;
 		const result = injectMetaTags(html, "/blog/post", baseSeoConfig);
 		expect(result).toContain('property="og:type" content="article"');
+	});
+
+	it("injects image preview robots directives without index/follow", () => {
+		const config = { ...baseSeoConfig, robotsImagePreview: true };
+		const result = injectMetaTags(minimalHtml, "/test", config);
+		expect(result).toContain('name="robots" content="max-image-preview:large');
+		expect(result).not.toContain("index, follow");
+	});
+
+	it("uses noindex robots on the error-page sentinel", () => {
+		const config = { ...baseSeoConfig, robotsImagePreview: true };
+		const result = injectMetaTags(minimalHtml, SEO_ERROR_PAGE_PATH, config);
+		expect(result).toContain('name="robots" content="noindex"');
 	});
 });
 

@@ -92,7 +92,7 @@ export function transformSeoHtml(html: string, urlOrPath: string, config: SeoCon
 		}
 
 		const articleMeta = extractArticleMetaFromHtml(html);
-		if (metadata.title && (articleMeta.datePublished || metadata.description)) {
+		if (metadata.title && articleMeta.datePublished) {
 			const article: ArticleMetadata = {
 				title: metadata.title,
 				description: metadata.description,

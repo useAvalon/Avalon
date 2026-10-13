@@ -138,7 +138,7 @@ export default async function HomePage() {
 					{ADAPTERS.map((a) => (
 						<li key={a.name}>
 							<a href="/docs/guides/deployment" class={styles.adapter} title={a.name}>
-								<img src={a.icon} alt={a.name} width={18} height={18} />
+								<img src={a.icon} alt="" width={18} height={18} />
 								<span>{a.name}</span>
 							</a>
 						</li>

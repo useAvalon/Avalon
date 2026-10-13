@@ -186,9 +186,11 @@ export function injectMetaTags(html: string, url: string, config: SeoConfig): st
 	}
 
 	if (config.robotsImagePreview && !existing.robots && !html.includes("max-image-preview")) {
-		tags.push(
-			`<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />`,
-		);
+		const directives =
+			url === SEO_ERROR_PAGE_PATH
+				? "noindex"
+				: "max-image-preview:large, max-snippet:-1, max-video-preview:-1";
+		tags.push(`<meta name="robots" content="${directives}" />`);
 	}
 
 	if (tags.length === 0) return html;

@@ -16,10 +16,9 @@ export default function AboutPage() {
 				without shipping JavaScript to every visitor.
 			</p>
 			<p>
-				According to our benchmarks, static regions on a typical marketing page ship zero kilobytes
-				of client runtime until you opt a component into hydration. Experts in performance
-				engineering often recommend partial hydration for content-heavy sites; Avalon makes that the
-				default path.
+				Static regions render as HTML without a client runtime until you mark a component with an
+				island hydration condition. That partial-hydration model is the default for content-heavy
+				pages: only interactive islands load framework code in the browser.
 			</p>
 			<p>
 				Another perspective: frameworks are tools, not religions. Avalon lets you keep the component
