@@ -44,6 +44,7 @@ import {
 	type ErrorHandlerOptions,
 	handleRenderError as handleRenderErrorWithCustomPages,
 } from "./error-handler.ts";
+import { applyHtmlPostProcess } from "./html-post-process.ts";
 import type {
 	AvalonRuntimeConfig,
 	HttpError,
@@ -255,8 +256,9 @@ function pageHtmlHeaders(pageModule: PageModule): Record<string, string> {
 	};
 }
 
-function finalizePageHtml(html: string, isDev: boolean): string {
-	return injectModulepreloadLinks(inlineCriticalCSS(injectHydrationScript(html, isDev)));
+function finalizePageHtml(html: string, isDev: boolean, pathname = "/"): string {
+	const processed = injectModulepreloadLinks(inlineCriticalCSS(injectHydrationScript(html, isDev)));
+	return applyHtmlPostProcess(processed, pathname);
 }
 
 async function respondWithBufferedPage(
@@ -266,7 +268,8 @@ async function respondWithBufferedPage(
 	wrapWithLayouts?: WrapWithLayouts,
 ): Promise<Response> {
 	const result = await renderPage(pageModule, renderContext, {}, wrapWithLayouts);
-	return new Response(finalizePageHtml(result.html as string, isDev), {
+	const pathname = renderContext.url?.pathname ?? "/";
+	return new Response(finalizePageHtml(result.html as string, isDev, pathname), {
 		status: result.statusCode,
 		headers: result.headers,
 	});
@@ -931,7 +934,9 @@ function enqueueStreamingShell(
 ): void {
 	const metadata = pageModule.metadata || {};
 	const raw = generateStreamingShell(metadata, context);
-	const shell = isClientNavigationDisabled(pageModule) ? stampClientNavigationOptOut(raw) : raw;
+	const stamped = isClientNavigationDisabled(pageModule) ? stampClientNavigationOptOut(raw) : raw;
+	const pathname = context.url?.pathname ?? "/";
+	const shell = applyHtmlPostProcess(stamped, pathname);
 	ctrl.enqueue(encoder.encode(shell));
 	state.shellSent = true;
 	clearShellTimeout();

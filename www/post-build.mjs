@@ -5,9 +5,12 @@
  * Netlify function copying.
  */
 import { runPostBuild } from '@useavalon/avalon/post-build';
+import { applySeoToDist } from '@useavalon/seo/dist-transform';
+import { withEnvSiteUrl } from '@useavalon/seo/site-config';
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { wwwSeoConfig } from './seo.config.ts';
 
 await runPostBuild({
 	clientRouter: true,
@@ -26,6 +29,13 @@ await runPostBuild({
 		failOnError: false,
 	},
 });
+
+const seoConfig = withEnvSiteUrl(wwwSeoConfig);
+const distDir = join(process.cwd(), 'dist');
+const seoPatched = applySeoToDist(distDir, seoConfig);
+if (seoPatched > 0) {
+	console.log(`[post-build] Applied SEO tags to ${seoPatched} HTML file(s)`);
+}
 
 /** Nitro may create an empty `.output/public` before prerender copies HTML into `dist`. */
 function countHtmlFiles(dir) {

@@ -25,6 +25,8 @@ export interface ResolvedSitemapConfig {
 	exclude?: string[];
 	/** ISO 8601 date string used for `<lastmod>`. Injectable for testing. */
 	lastmod?: string;
+	/** Replace an existing `robots.txt` in the build output. */
+	overwriteRobotsTxt?: boolean;
 }
 
 /** A single `<url>` entry in the sitemap. */

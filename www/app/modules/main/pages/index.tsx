@@ -1,3 +1,4 @@
+import { fixedSizeSizes, fixedSizeSrcSet } from "@shared/utils/fixed-size-srcset.ts";
 import BentoFeatures from "../components/BentoFeatures.tsx";
 import CompatibilityStrip from "../components/CompatibilityStrip.tsx";
 import HalftoneBg from "../components/HalftoneBg.tsx";
@@ -138,7 +139,15 @@ export default async function HomePage() {
 					{ADAPTERS.map((a) => (
 						<li key={a.name}>
 							<a href="/docs/guides/deployment" class={styles.adapter} title={a.name}>
-								<img src={a.icon} alt="" width={18} height={18} />
+								<img
+									src={a.icon}
+									alt={`${a.name} deployment logo`}
+									aria-hidden="true"
+									width={18}
+									height={18}
+									srcSet={fixedSizeSrcSet(a.icon, 18)}
+									sizes={fixedSizeSizes(18)}
+								/>
 								<span>{a.name}</span>
 							</a>
 						</li>
@@ -201,9 +210,44 @@ export default async function HomePage() {
 				</div>
 			</section>
 
+			{/* ─── FAQ (AEO) ─── */}
+			<section class={styles.section} aria-labelledby="faq-heading" data-speakable>
+				<h2 id="faq-heading" class={styles.sectionTitle}>
+					What is Avalon?
+				</h2>
+				<p class={styles.sectionBody}>
+					Avalon is a full-stack islands framework: static HTML by default, partial hydration per
+					component, and Nitro-powered deployment to any major JavaScript runtime.
+				</p>
+				<div class={styles.faqList}>
+					<div class={styles.faqItem}>
+						<h3>How do I get started with Avalon?</h3>
+						<p>
+							Run <code>bun create-avalon</code>, follow the quick start, and add islands with the{" "}
+							<code>island</code> prop when you need interactivity.
+						</p>
+					</div>
+					<div class={styles.faqItem}>
+						<h3>Why does partial hydration matter?</h3>
+						<p>
+							Experts say most marketing pages do not need a full client bundle. Hydrating only
+							islands keeps first load small and improves Core Web Vitals.
+						</p>
+					</div>
+					<div class={styles.faqItem}>
+						<h3>When should I choose islands over a SPA?</h3>
+						<p>
+							When SEO, time-to-first-byte, and static content matter. On the other hand, a SPA can
+							still make sense for highly interactive dashboards — Avalon lets you mix both on one
+							site.
+						</p>
+					</div>
+				</div>
+			</section>
+
 			{/* ─── 06 · FEATURES BENTO ─── */}
 			<section class={styles.section}>
-				<h2 class={styles.sectionTitle}>Everything else you need.</h2>
+				<h2 class={styles.sectionTitle}>What else ships with Avalon?</h2>
 				<p class={styles.sectionBody}>Beyond islands and hydration — the full toolkit.</p>
 
 				<div class={styles.figure}>

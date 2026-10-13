@@ -1,3 +1,4 @@
+import { fixedSizeSizes, fixedSizeSrcSet } from "@shared/utils/fixed-size-srcset.ts";
 import { useEffect, useRef, useState } from "preact/hooks";
 import styles from "./BentoFeatures.module.css";
 
@@ -134,7 +135,15 @@ function FrameworksCard() {
 					{FW_LOGOS.map((fw) => (
 						<div key={fw.name} class={styles.fwItem}>
 							<span class={styles.fwDot} style={{ background: fw.color }} />
-							<img src={fw.icon} alt={fw.name} width={24} height={24} loading="lazy" />
+							<img
+								src={fw.icon}
+								alt={`${fw.name} framework logo`}
+								width={24}
+								height={24}
+								loading="lazy"
+								srcSet={fixedSizeSrcSet(fw.icon, 24)}
+								sizes={fixedSizeSizes(24)}
+							/>
 						</div>
 					))}
 				</div>

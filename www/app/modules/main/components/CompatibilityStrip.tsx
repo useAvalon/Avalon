@@ -1,3 +1,4 @@
+import { fixedSizeSizes, fixedSizeSrcSet } from "@shared/utils/fixed-size-srcset.ts";
 import styles from "./CompatibilityStrip.module.css";
 
 const FRAMEWORKS = [
@@ -55,7 +56,15 @@ export default function CompatibilityStrip() {
 						{FRAMEWORKS.map((fw) => (
 							<li key={fw.name}>
 								<a href={fw.href} class={styles.chip} title={fw.file}>
-									<img src={fw.icon} alt="" width={18} height={18} />
+									<img
+										src={fw.icon}
+										alt={`${fw.name} framework logo`}
+										aria-hidden="true"
+										width={18}
+										height={18}
+										srcSet={fixedSizeSrcSet(fw.icon, 18)}
+										sizes={fixedSizeSizes(18)}
+									/>
 									<span>{fw.name}</span>
 								</a>
 							</li>

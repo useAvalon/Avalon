@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SeoConfig } from "../config.ts";
+import { SEO_ERROR_PAGE_PATH } from "../constants.ts";
 import {
 	extractArticleMetaFromHtml,
 	extractMetadataFromHtml,
@@ -102,6 +103,62 @@ describe("injectMetaTags", () => {
 		const html = `<html><head><title>Blog Post</title><meta name="description" content="A post" /><meta property="article:published_time" content="2026-01-01" /></head><body></body></html>`;
 		const result = injectMetaTags(html, "/blog/post", baseSeoConfig);
 		expect(result).toContain('property="og:type" content="article"');
+	});
+
+	it("injects image preview robots directives without index/follow", () => {
+		const config = { ...baseSeoConfig, robotsImagePreview: true };
+		const result = injectMetaTags(minimalHtml, "/test", config);
+		expect(result).toContain('name="robots" content="max-image-preview:large');
+		expect(result).not.toContain("index, follow");
+	});
+
+	it("uses noindex robots on the error-page sentinel", () => {
+		const config = { ...baseSeoConfig, robotsImagePreview: true };
+		const result = injectMetaTags(minimalHtml, SEO_ERROR_PAGE_PATH, config);
+		expect(result).toContain('name="robots" content="noindex"');
+	});
+
+	it("replaces canonical and og:url when they still point at a dev origin", () => {
+		const html = `<html><head><title>T</title><meta name="description" content="D" /><link rel="canonical" href="http://localhost:8012/" /><meta property="og:url" content="http://localhost:8012/" /></head><body></body></html>`;
+		const result = injectMetaTags(html, "/", baseSeoConfig);
+		expect(result).toContain('<link rel="canonical" href="https://example.com/" />');
+		expect(result).toContain('<meta property="og:url" content="https://example.com/" />');
+		expect(result).not.toContain("localhost:8012");
+	});
+
+	it("injects theme-color and apple-touch-icon when configured", () => {
+		const config = {
+			...baseSeoConfig,
+			themeColor: "#0a0a0a",
+			appleTouchIcon: "/logo.svg",
+			webFontStylesheet: "/font-faces.css",
+		};
+		const result = injectMetaTags(minimalHtml, "/", config);
+		expect(result).toContain('name="theme-color" content="#0a0a0a"');
+		expect(result).toContain('rel="apple-touch-icon" href="/logo.svg"');
+		expect(result).toContain('href="/font-faces.css"');
+	});
+
+	it("injects hreflang alternates when enabled", () => {
+		const config = { ...baseSeoConfig, hreflang: true, locale: "en_US" };
+		const result = injectMetaTags(minimalHtml, "/docs/", config);
+		expect(result).toContain('hreflang="en"');
+		expect(result).toContain('hreflang="x-default"');
+		expect(result).toContain('href="https://example.com/docs/"');
+	});
+
+	it("does not treat data-rel as canonical when rewriting href", () => {
+		const html = `<html><head><title>T</title><meta name="description" content="D" /><link href="/app.css" data-rel="canonical" rel="stylesheet" /></head><body></body></html>`;
+		const result = injectMetaTags(html, "/", baseSeoConfig);
+		expect(result).toContain('href="/app.css"');
+		expect(result).toContain('rel="stylesheet"');
+	});
+
+	it("replaces canonical and og:url when attributes are in reverse order", () => {
+		const html = `<html><head><title>T</title><meta name="description" content="D" /><link href="http://localhost:8012/docs/" rel="canonical" /><meta content="http://localhost:8012/docs/" property="og:url" /></head><body></body></html>`;
+		const result = injectMetaTags(html, "/docs/", baseSeoConfig);
+		expect(result).toContain('<link rel="canonical" href="https://example.com/docs/" />');
+		expect(result).toContain('<meta property="og:url" content="https://example.com/docs/" />');
 	});
 });
 

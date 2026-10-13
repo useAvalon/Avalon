@@ -9,6 +9,7 @@
  */
 
 import type { SeoConfig } from "./config.ts";
+import { SEO_ERROR_PAGE_PATH } from "./constants.ts";
 import type { PageMetadata } from "./structured-data.ts";
 
 // ---------------------------------------------------------------------------
@@ -59,13 +60,23 @@ interface ExtractedMeta {
  * via frontmatter/metadata. The plugin reads them for JSON-LD generation.
  */
 export function injectMetaTags(html: string, url: string, config: SeoConfig): string {
+	const siteUrl = config.siteUrl.replace(/\/+$/, "");
+	const pathPart = url === SEO_ERROR_PAGE_PATH ? "/" : url;
+	const fullUrl = url.startsWith("http") ? url : `${siteUrl}${pathPart}`;
+	const skipCanonical = url === SEO_ERROR_PAGE_PATH;
+
+	if (config.canonical && !skipCanonical) {
+		html = replaceCanonicalHref(html, fullUrl, siteUrl);
+	}
+	if (config.openGraph) {
+		html = replaceMetaPropertyContent(html, "og:url", fullUrl, siteUrl);
+	}
+
 	const existing = extractExistingMeta(html);
 	const tags: string[] = [];
-	const siteUrl = config.siteUrl.replace(/\/+$/, "");
-	const fullUrl = url.startsWith("http") ? url : `${siteUrl}${url}`;
 
 	// Canonical URL
-	if (config.canonical && !existing.canonical) {
+	if (config.canonical && !existing.canonical && !skipCanonical) {
 		tags.push(`<link rel="canonical" href="${escapeAttr(fullUrl)}" />`);
 	}
 
@@ -158,6 +169,56 @@ export function injectMetaTags(html: string, url: string, config: SeoConfig): st
 				}
 			}
 		}
+	}
+
+	if (config.dnsPrefetch?.length) {
+		for (const origin of config.dnsPrefetch) {
+			if (!html.includes(origin)) {
+				tags.push(`<link rel="dns-prefetch" href="${escapeAttr(origin)}" />`);
+			}
+		}
+	}
+
+	if (config.webAppManifest && !html.includes('rel="manifest"')) {
+		tags.push(`<link rel="manifest" href="${escapeAttr(config.webAppManifest)}" />`);
+	}
+
+	if (
+		config.feedUrl &&
+		!html.includes("application/rss+xml") &&
+		!html.includes("application/atom+xml")
+	) {
+		tags.push(
+			`<link rel="alternate" type="application/rss+xml" title="${escapeAttr(config.siteName)}" href="${escapeAttr(config.feedUrl)}" />`,
+		);
+	}
+
+	if (config.themeColor && !html.includes('name="theme-color"')) {
+		tags.push(`<meta name="theme-color" content="${escapeAttr(config.themeColor)}" />`);
+	}
+
+	if (config.appleTouchIcon && !html.includes("apple-touch-icon")) {
+		tags.push(`<link rel="apple-touch-icon" href="${escapeAttr(config.appleTouchIcon)}" />`);
+	}
+
+	if (config.webFontStylesheet && !html.includes(config.webFontStylesheet)) {
+		tags.push(`<link rel="stylesheet" href="${escapeAttr(config.webFontStylesheet)}" />`);
+	}
+
+	if (config.robotsImagePreview && !existing.robots && !html.includes("max-image-preview")) {
+		const directives =
+			url === SEO_ERROR_PAGE_PATH
+				? "noindex"
+				: "max-image-preview:large, max-snippet:-1, max-video-preview:-1";
+		tags.push(`<meta name="robots" content="${directives}" />`);
+	}
+
+	if (config.hreflang && !skipCanonical && !html.includes("hreflang=")) {
+		const lang = (config.locale ?? "en_US").split(/[-_]/)[0];
+		tags.push(
+			`<link rel="alternate" hreflang="${escapeAttr(lang)}" href="${escapeAttr(fullUrl)}" />`,
+		);
+		tags.push(`<link rel="alternate" hreflang="x-default" href="${escapeAttr(fullUrl)}" />`);
 	}
 
 	if (tags.length === 0) return html;
@@ -257,11 +318,7 @@ function extractExistingMeta(html: string): ExtractedMeta {
 	meta.description = extractMetaName(html, "description");
 	meta.robots = extractMetaName(html, "robots");
 
-	// Check for canonical link
-	const canonicalMatch = html.match(
-		/<link\s[^>]*rel\s*=\s*["']canonical["'][^>]*href\s*=\s*["']([^"']*)["'][^>]*\/?>/i,
-	);
-	if (canonicalMatch) meta.canonical = canonicalMatch[1];
+	meta.canonical = extractCanonicalHref(html);
 
 	// Open Graph
 	meta.ogTitle = extractMetaProperty(html, "og:title");
@@ -293,19 +350,27 @@ function extractExistingMeta(html: string): ExtractedMeta {
 
 export function extractMetaProperty(html: string, property: string): string | undefined {
 	const escaped = escapeForRegex(property);
-	const patternA =
-		String.raw`<meta\s[^>]*property\s*=\s*["']` +
-		escaped +
-		String.raw`["'][^>]*content\s*=\s*["']([^"']*)["'][^>]*/?>`;
-	const patternB =
-		String.raw`<meta\s[^>]*content\s*=\s*["']([^"']*)["'][^>]*property\s*=\s*["']` +
-		escaped +
-		String.raw`["'][^>]*/?>`;
+	const patternA = new RegExp(
+		String.raw`<meta\s[^>]*` +
+			htmlAttrEquals("property", escaped) +
+			String.raw`[^>]*` +
+			htmlAttrEquals("content") +
+			String.raw`([^"']*)["'][^>]*/?>`,
+		"i",
+	);
+	const patternB = new RegExp(
+		String.raw`<meta\s[^>]*` +
+			htmlAttrEquals("content") +
+			String.raw`([^"']*)["'][^>]*` +
+			htmlAttrEquals("property", escaped) +
+			String.raw`[^>]*/?>`,
+		"i",
+	);
 
-	const m1 = html.match(new RegExp(patternA, "i"));
+	const m1 = html.match(patternA);
 	if (m1) return m1[1];
 
-	const m2 = html.match(new RegExp(patternB, "i"));
+	const m2 = html.match(patternB);
 	return m2 ? m2[1] : undefined;
 }
 
@@ -329,6 +394,86 @@ function extractMetaName(html: string, name: string): string | undefined {
 
 function escapeForRegex(str: string): string {
 	return str.replaceAll(/[.*+?^${}()|[\]\\]/g, (match) => "\\" + match);
+}
+
+function htmlAttrEquals(attrName: string, literalValue?: string): string {
+	const name = String.raw`(?<![\w-])${escapeForRegex(attrName)}\s*=\s*["']`;
+	if (literalValue === undefined) return name;
+	return name + escapeForRegex(literalValue) + String.raw`["']`;
+}
+
+function canonicalHrefPatterns(): RegExp[] {
+	return [
+		new RegExp(
+			String.raw`<link\s[^>]*` +
+				htmlAttrEquals("rel", "canonical") +
+				String.raw`[^>]*` +
+				htmlAttrEquals("href") +
+				String.raw`([^"']*)["'][^>]*\/?>`,
+			"gi",
+		),
+		new RegExp(
+			String.raw`<link\s[^>]*` +
+				htmlAttrEquals("href") +
+				String.raw`([^"']*)["'][^>]*` +
+				htmlAttrEquals("rel", "canonical") +
+				String.raw`[^>]*\/?>`,
+			"gi",
+		),
+	];
+}
+
+function extractCanonicalHref(html: string): string | undefined {
+	for (const pattern of canonicalHrefPatterns()) {
+		const match = html.match(new RegExp(pattern.source, "i"));
+		if (match) return match[1];
+	}
+	return undefined;
+}
+
+function replaceCanonicalHref(html: string, fullUrl: string, siteUrl: string): string {
+	let out = html;
+	for (const pattern of canonicalHrefPatterns()) {
+		out = out.replaceAll(pattern, (full, href) => {
+			if (href.startsWith(siteUrl)) return full;
+			return `<link rel="canonical" href="${escapeAttr(fullUrl)}" />`;
+		});
+	}
+	return out;
+}
+
+function replaceMetaPropertyContent(
+	html: string,
+	property: string,
+	fullUrl: string,
+	siteUrl: string,
+): string {
+	const escaped = escapeForRegex(property);
+	const patternA = new RegExp(
+		String.raw`<meta\s[^>]*` +
+			htmlAttrEquals("property", escaped) +
+			String.raw`[^>]*` +
+			htmlAttrEquals("content") +
+			String.raw`([^"']*)["'][^>]*/?>`,
+		"gi",
+	);
+	const patternB = new RegExp(
+		String.raw`<meta\s[^>]*` +
+			htmlAttrEquals("content") +
+			String.raw`([^"']*)["'][^>]*` +
+			htmlAttrEquals("property", escaped) +
+			String.raw`[^>]*/?>`,
+		"gi",
+	);
+	let out = html.replaceAll(patternA, (full, content) => {
+		if (content.startsWith(siteUrl)) return full;
+		return `<meta property="${property}" content="${escapeAttr(fullUrl)}" />`;
+	});
+	out = out.replaceAll(patternB, (full, content) => {
+		if (content.startsWith(siteUrl)) return full;
+		return `<meta property="${property}" content="${escapeAttr(fullUrl)}" />`;
+	});
+	return out;
 }
 
 function escapeAttr(str: string): string {

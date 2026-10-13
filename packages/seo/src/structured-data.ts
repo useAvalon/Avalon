@@ -5,7 +5,7 @@
  * BreadcrumbList, and SearchAction types.
  */
 
-import type { OrganizationConfig, PersonConfig, SeoConfig } from "./config.ts";
+import type { FaqItem, OrganizationConfig, PersonConfig, SeoConfig } from "./config.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -45,7 +45,11 @@ export interface ArticleMetadata {
 /**
  * Build a Schema.org WebPage JSON-LD object from page metadata.
  */
-export function buildWebPageJsonLd(metadata: PageMetadata, url: string): object {
+export function buildWebPageJsonLd(
+	metadata: PageMetadata,
+	url: string,
+	extras?: { dateModified?: string },
+): object {
 	const jsonLd: Record<string, string> = {
 		"@context": "https://schema.org",
 		"@type": "WebPage",
@@ -55,6 +59,7 @@ export function buildWebPageJsonLd(metadata: PageMetadata, url: string): object 
 	if (metadata.title) jsonLd["name"] = metadata.title;
 	if (metadata.description) jsonLd["description"] = metadata.description;
 	if (metadata.openGraph?.image) jsonLd["image"] = metadata.openGraph.image;
+	if (extras?.dateModified) jsonLd.dateModified = extras.dateModified;
 
 	return jsonLd;
 }
@@ -229,30 +234,66 @@ function buildFullPersonJsonLd(person: PersonConfig): object {
 	return jsonLd;
 }
 
+function organizationNode(publisher: OrganizationConfig, siteUrl: string): Record<string, unknown> {
+	const baseUrl = siteUrl.replace(/\/+$/, "");
+	const pub: Record<string, unknown> = {
+		"@type": "Organization",
+		name: publisher.name,
+		url: publisher.url ?? baseUrl,
+	};
+	if (publisher.logo) {
+		const logoUrl = publisher.logo.url.startsWith("http")
+			? publisher.logo.url
+			: `${baseUrl}${publisher.logo.url}`;
+		pub.logo = {
+			"@type": "ImageObject",
+			url: logoUrl,
+			...(publisher.logo.width && { width: publisher.logo.width }),
+			...(publisher.logo.height && { height: publisher.logo.height }),
+		};
+	}
+	if (publisher.sameAs?.length) pub.sameAs = publisher.sameAs;
+	return pub;
+}
+
 function buildPublisherJsonLd(config: SeoConfig): object {
 	if (config.publisher) {
-		const pub: Record<string, unknown> = {
-			"@type": "Organization",
-			name: config.publisher.name,
-		};
-		if (config.publisher.url) pub.url = config.publisher.url;
-		if (config.publisher.logo) {
-			pub.logo = {
-				"@type": "ImageObject",
-				url: config.publisher.logo.url,
-				...(config.publisher.logo.width && { width: config.publisher.logo.width }),
-				...(config.publisher.logo.height && { height: config.publisher.logo.height }),
-			};
-		}
-		return pub;
+		return organizationNode(config.publisher, config.siteUrl);
 	}
 
-	// Fallback: use siteName
 	const siteUrl = config.siteUrl.replace(/\/+$/, "");
 	return {
 		"@type": "Organization",
 		name: config.siteName,
 		url: siteUrl,
+	};
+}
+
+/** Standalone Organization JSON-LD for site-wide publisher markup. */
+export function buildOrganizationJsonLd(
+	publisher: OrganizationConfig | undefined,
+	siteUrl: string,
+): object | null {
+	if (!publisher) return null;
+	return {
+		"@context": "https://schema.org",
+		...organizationNode(publisher, siteUrl),
+	};
+}
+
+/** FAQPage JSON-LD from configured question/answer pairs. */
+export function buildFaqPageJsonLd(items: FaqItem[]): object {
+	return {
+		"@context": "https://schema.org",
+		"@type": "FAQPage",
+		mainEntity: items.map((item) => ({
+			"@type": "Question",
+			name: item.question,
+			acceptedAnswer: {
+				"@type": "Answer",
+				text: item.answer,
+			},
+		})),
 	};
 }
 

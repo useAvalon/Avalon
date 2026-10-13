@@ -22,7 +22,14 @@
 		"schema-org"
 	],
 	"exports": {
-		".": "./mod.ts"
+		".": "./mod.ts",
+		"./transform": "./src/transform.ts",
+		"./site-config": "./src/site-config.ts",
+		"./dist-transform": "./src/dist-transform.ts"
+	},
+	"peerDependencies": {
+		"@useavalon/avalon": "^0.6.0",
+		"vite": "^8.0.0"
 	},
 	"scripts": {
 		"build": "bun run scripts/build.ts",
@@ -39,15 +46,13 @@
 	"dependencies": {
 		"zod": "^4.6.5"
 	},
-	"peerDependencies": {
-		"vite": "^8.0.0"
-	},
 	"peerDependenciesMeta": {
 		"vite": {
 			"optional": true
 		}
 	},
 	"devDependencies": {
+		"@useavalon/avalon": "workspace:*",
 		"oxc-minify": "^0.153.0",
 		"oxc-transform": "^0.153.0",
 		"vitest": "^5.0.3"

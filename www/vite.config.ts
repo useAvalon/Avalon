@@ -2,9 +2,17 @@ import { resolve } from "node:path";
 import { agentOptimization } from "@useavalon/agent-optimization";
 import { avalon } from "@useavalon/avalon";
 import { seo } from "@useavalon/seo";
+import { resolveSiteUrl } from "@useavalon/seo/site-config";
 import { defineConfig, type UserConfig } from "vite";
 import { ssrCacheUntilDeploy } from "./deploy-revision.ts";
+import { securityHeaders } from "./security-headers.ts";
+import { wwwSeoConfig } from "./seo.config.ts";
 import { quietDevWarningsPlugin } from "./vite-quiet-dev-warnings.ts";
+
+const isProductionBuild = process.env.NODE_ENV === "production";
+const seoSiteUrl = isProductionBuild
+	? resolveSiteUrl("https://useavalon.dev")
+	: resolveSiteUrl("http://localhost:8012");
 
 export default defineConfig(async (): Promise<UserConfig> => {
 	const avalonPlugins = await avalon({
@@ -30,17 +38,32 @@ export default defineConfig(async (): Promise<UserConfig> => {
 			clientEntry: "app/entry-client",
 			globalCSS: ["app/shared/styles/main.css"],
 			routeRules: {
+				"/**": {
+					headers: securityHeaders,
+				},
 				"/assets/**": {
-					headers: { "Cache-Control": "public, max-age=31536000, immutable" },
+					headers: {
+						...securityHeaders,
+						"Cache-Control": "public, max-age=31536000, immutable",
+					},
 				},
 				"/chunks/**": {
-					headers: { "Cache-Control": "public, max-age=31536000, immutable" },
+					headers: {
+						...securityHeaders,
+						"Cache-Control": "public, max-age=31536000, immutable",
+					},
 				},
 				"/favicon.ico": {
-					headers: { "Cache-Control": "public, max-age=86400" },
+					headers: {
+						...securityHeaders,
+						"Cache-Control": "public, max-age=86400",
+					},
 				},
 				"/syntax-highlighting.css": {
-					headers: { "Cache-Control": "public, max-age=3600, must-revalidate" },
+					headers: {
+						...securityHeaders,
+						"Cache-Control": "public, max-age=3600, must-revalidate",
+					},
 				},
 				// SSR fallback when a route is not prerendered (www-only; see deploy-revision.ts).
 				"/": { cache: ssrCacheUntilDeploy() },
@@ -108,32 +131,16 @@ export default defineConfig(async (): Promise<UserConfig> => {
 
 		plugins: [
 			quietDevWarningsPlugin(),
-			seo({
-				siteUrl: "http://localhost:8012",
-				siteName: "Avalon",
-				defaultDescription:
-					"A multi-framework islands architecture for building fast, modern websites.",
-				defaultOgImage: {
-					url: "/og-image.png",
-					width: 1200,
-					height: 630,
-				},
-				titleSuffix: " — Avalon",
-				searchPath: "/search",
-				searchQueryParam: "q",
-				breadcrumbs: true,
-				speakable: true,
-				fontPreconnect: ["https://fonts.googleapis.com", "https://fonts.gstatic.com"],
-			}),
+			seo({ ...wwwSeoConfig, siteUrl: seoSiteUrl }),
 			agentOptimization({
 				sitemap: {
-					siteUrl: "http://localhost:8012",
+					siteUrl: seoSiteUrl,
 					changefreq: "daily",
 					exclude: ["/admin/**", "/login"],
 				},
 				markdown: true,
 				llms: {
-					siteUrl: "http://localhost:8012",
+					siteUrl: seoSiteUrl,
 					siteName: "Avalon",
 					siteDescription:
 						"A multi-framework islands architecture for building fast, modern websites.",

@@ -26,6 +26,7 @@ export const PersonConfigSchema = z.object({
 export const OrganizationConfigSchema = z.object({
 	name: z.string(),
 	url: z.string().optional(),
+	sameAs: z.array(z.string()).optional(),
 	logo: z
 		.object({
 			url: z.string(),
@@ -33,6 +34,11 @@ export const OrganizationConfigSchema = z.object({
 			height: z.number().optional(),
 		})
 		.optional(),
+});
+
+export const FaqItemSchema = z.object({
+	question: z.string(),
+	answer: z.string(),
 });
 
 // ---------------------------------------------------------------------------
@@ -60,6 +66,16 @@ export const SeoConfigSchema = z.object({
 	twitterCreator: z.string().optional(),
 	/** Default OG locale */
 	locale: z.string().optional().default("en_US"),
+	/** Inject hreflang alternate links for the page locale (monolingual sites use en + x-default) */
+	hreflang: z.boolean().optional().default(false),
+	/** Mobile browser chrome color (theme-color meta) */
+	themeColor: z.string().optional(),
+	/** Apple home-screen icon URL */
+	appleTouchIcon: z.string().optional(),
+	/** First-party stylesheet with @font-face rules (e.g. /font-faces.css) */
+	webFontStylesheet: z.string().optional(),
+	/** ISO date for WebPage dateModified when the page has no article:modified_time */
+	contentModified: z.string().optional(),
 	/** Author info for Article JSON-LD */
 	author: PersonConfigSchema.optional(),
 	/** Publisher info for Article JSON-LD */
@@ -84,9 +100,21 @@ export const SeoConfigSchema = z.object({
 	speakableSelectors: z.array(z.string()).optional().default(["h1", "[data-speakable]"]),
 	/** Font preconnect URLs to inject into <head> */
 	fontPreconnect: z.array(z.string()).optional(),
+	/** dns-prefetch hints for third-party origins */
+	dnsPrefetch: z.array(z.string()).optional(),
+	/** Inject robots meta with max-image-preview:large (default: true) */
+	robotsImagePreview: z.boolean().optional().default(true),
+	/** Homepage FAQ pairs for FAQPage JSON-LD */
+	faq: z.array(FaqItemSchema).optional(),
+	/** Path to web app manifest (e.g. /manifest.webmanifest) */
+	webAppManifest: z.string().optional(),
+	/** RSS or Atom feed URL for <link rel="alternate" type="application/rss+xml"> */
+	feedUrl: z.string().optional(),
 	/** Suffix to append to page titles (e.g., " — My Site"). Set to false to disable. */
 	titleSuffix: z.union([z.string(), z.literal(false)]).optional(),
 });
+
+export type FaqItem = z.infer<typeof FaqItemSchema>;
 
 export type PersonConfig = z.infer<typeof PersonConfigSchema>;
 export type OrganizationConfig = z.infer<typeof OrganizationConfigSchema>;

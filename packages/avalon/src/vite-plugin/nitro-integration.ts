@@ -34,6 +34,7 @@ import {
 	createNitroConfig,
 	type NitroConfigOutput,
 } from "../nitro/config.ts";
+import { getHtmlPostProcessRegisterModuleSource } from "../nitro/html-post-process-register.ts";
 import {
 	createIslandManifestPlugin,
 	createNitroBuildPlugin,
@@ -398,6 +399,7 @@ export const VIRTUAL_MODULE_IDS = {
 	ACTIONS: "virtual:avalon/actions",
 	/** App-facing alias of `virtual:avalon/actions`. */
 	ACTIONS_PUBLIC: "avalon/actions",
+	HTML_POST_PROCESS_REGISTER: "virtual:avalon/html-post-process-register",
 	SSR_DOM: SSR_DOM_VIRTUAL_ID,
 } as const;
 
@@ -414,6 +416,7 @@ export const RESOLVED_VIRTUAL_IDS = {
 	DEV_CSS_HMR: `\0${VIRTUAL_MODULE_IDS.DEV_CSS_HMR}`,
 	INTEGRATION_LOADER: `\0${VIRTUAL_MODULE_IDS.INTEGRATION_LOADER}`,
 	ACTIONS: `\0${VIRTUAL_MODULE_IDS.ACTIONS}`,
+	HTML_POST_PROCESS_REGISTER: `\0${VIRTUAL_MODULE_IDS.HTML_POST_PROCESS_REGISTER}`,
 	SSR_DOM: `\0${VIRTUAL_MODULE_IDS.SSR_DOM}`,
 } as const;
 
@@ -602,6 +605,8 @@ function buildNitroVitePluginOptions(
 			"virtual:server-island-integrations": () =>
 				generateServerIslandIntegrationsModule(avalonConfig.integrations),
 			[SSR_DOM_VIRTUAL_ID]: () => ssrDomSourceForProject(serverIslandProjectRoot),
+			[VIRTUAL_MODULE_IDS.HTML_POST_PROCESS_REGISTER]: () =>
+				getHtmlPostProcessRegisterModuleSource(),
 		},
 		// Ensure undici is always traced — Nitro's server bundle imports it
 		// for its HTTP agent but doesn't always trace it automatically.
@@ -1356,6 +1361,8 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 			const actionsId = actionsModuleResolvedId(id);
 			if (actionsId) return actionsId;
 			if (id === VIRTUAL_MODULE_IDS.SSR_DOM) return RESOLVED_VIRTUAL_IDS.SSR_DOM;
+			if (id === VIRTUAL_MODULE_IDS.HTML_POST_PROCESS_REGISTER)
+				return RESOLVED_VIRTUAL_IDS.HTML_POST_PROCESS_REGISTER;
 			return null;
 		},
 
@@ -1384,6 +1391,8 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 				return generateIntegrationLoaderModule(avalonConfig);
 			if (id === RESOLVED_VIRTUAL_IDS.ACTIONS) return generateActionsClientModule();
 			if (id === RESOLVED_VIRTUAL_IDS.SSR_DOM) return ssrDomSourceForProject();
+			if (id === RESOLVED_VIRTUAL_IDS.HTML_POST_PROCESS_REGISTER)
+				return getHtmlPostProcessRegisterModuleSource();
 			return null;
 		},
 
@@ -2119,6 +2128,7 @@ function generateRendererModule(avalonConfig: ResolvedAvalonConfig): string {
 		`import { loadPage } from 'virtual:avalon/page-loader';`,
 		`import { wrapWithLayouts } from 'virtual:avalon/layouts';`,
 		`import { injectAssets } from 'virtual:avalon/assets';`,
+		`import '${VIRTUAL_MODULE_IDS.HTML_POST_PROCESS_REGISTER}';`,
 		...integrationImports,
 		``,
 		...shellEngineLines,

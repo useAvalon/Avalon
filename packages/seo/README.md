@@ -59,7 +59,7 @@ export default defineConfig(async () => {
 
 ## What It Does
 
-The plugin intercepts every HTML response and auto-injects missing SEO tags. It reads existing tags to avoid duplication — if your layout already sets `og:title`, the plugin won't add another one.
+The plugin intercepts every HTML response and auto-injects missing SEO tags. In development it patches the Vite dev server; in production it registers a Nitro HTML post-process hook (and you can re-apply tags to prerendered files after `runPostBuild` with `applySeoToDist` from `@useavalon/seo/dist-transform`). `transformSeoHtml` is idempotent: HTML that already contains the `<!-- avalon-seo -->` marker is left unchanged, so post-build passes are safe to run more than once. It reads existing tags to avoid duplication — if your layout already sets `og:title`, the plugin won't add another one.
 
 ### Meta Tags
 
