@@ -62,6 +62,7 @@ jobs:
         working-directory: www
         env:
           NITRO_PRESET: node_server
+          AVALON_SITE_URL: https://useavalon.dev
         run: bun run build
 
       - name: Stash node preset client output

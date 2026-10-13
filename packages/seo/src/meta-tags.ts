@@ -60,12 +60,20 @@ interface ExtractedMeta {
  * via frontmatter/metadata. The plugin reads them for JSON-LD generation.
  */
 export function injectMetaTags(html: string, url: string, config: SeoConfig): string {
-	const existing = extractExistingMeta(html);
-	const tags: string[] = [];
 	const siteUrl = config.siteUrl.replace(/\/+$/, "");
 	const pathPart = url === SEO_ERROR_PAGE_PATH ? "/" : url;
 	const fullUrl = url.startsWith("http") ? url : `${siteUrl}${pathPart}`;
 	const skipCanonical = url === SEO_ERROR_PAGE_PATH;
+
+	if (config.canonical && !skipCanonical) {
+		html = replaceCanonicalHref(html, fullUrl, siteUrl);
+	}
+	if (config.openGraph) {
+		html = replaceMetaPropertyContent(html, "og:url", fullUrl, siteUrl);
+	}
+
+	const existing = extractExistingMeta(html);
+	const tags: string[] = [];
 
 	// Canonical URL
 	if (config.canonical && !existing.canonical && !skipCanonical) {
@@ -362,6 +370,35 @@ function extractMetaName(html: string, name: string): string | undefined {
 
 function escapeForRegex(str: string): string {
 	return str.replaceAll(/[.*+?^${}()|[\]\\]/g, (match) => "\\" + match);
+}
+
+function replaceCanonicalHref(html: string, fullUrl: string, siteUrl: string): string {
+	return html.replace(
+		/<link\s+rel=["']canonical["']\s+href=["']([^"']+)["']\s*\/?>/gi,
+		(full, href) => {
+			if (href.startsWith(siteUrl)) return full;
+			return `<link rel="canonical" href="${escapeAttr(fullUrl)}" />`;
+		},
+	);
+}
+
+function replaceMetaPropertyContent(
+	html: string,
+	property: string,
+	fullUrl: string,
+	siteUrl: string,
+): string {
+	const escaped = escapeForRegex(property);
+	const pattern = new RegExp(
+		String.raw`<meta\s+property=["']` +
+			escaped +
+			String.raw`["']\s+content=["']([^"']*)["']\s*\/?>`,
+		"gi",
+	);
+	return html.replace(pattern, (full, content) => {
+		if (content.startsWith(siteUrl)) return full;
+		return `<meta property="${property}" content="${escapeAttr(fullUrl)}" />`;
+	});
 }
 
 function escapeAttr(str: string): string {

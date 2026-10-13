@@ -9,7 +9,10 @@ import { securityHeaders } from "./security-headers.ts";
 import { wwwSeoConfig } from "./seo.config.ts";
 import { quietDevWarningsPlugin } from "./vite-quiet-dev-warnings.ts";
 
-const devSiteUrl = resolveSiteUrl("http://localhost:8012");
+const isProductionBuild = process.env.NODE_ENV === "production";
+const seoSiteUrl = isProductionBuild
+	? resolveSiteUrl("https://useavalon.dev")
+	: resolveSiteUrl("http://localhost:8012");
 
 export default defineConfig(async (): Promise<UserConfig> => {
 	const avalonPlugins = await avalon({
@@ -128,16 +131,16 @@ export default defineConfig(async (): Promise<UserConfig> => {
 
 		plugins: [
 			quietDevWarningsPlugin(),
-			seo({ ...wwwSeoConfig, siteUrl: devSiteUrl }),
+			seo({ ...wwwSeoConfig, siteUrl: seoSiteUrl }),
 			agentOptimization({
 				sitemap: {
-					siteUrl: devSiteUrl,
+					siteUrl: seoSiteUrl,
 					changefreq: "daily",
 					exclude: ["/admin/**", "/login"],
 				},
 				markdown: true,
 				llms: {
-					siteUrl: devSiteUrl,
+					siteUrl: seoSiteUrl,
 					siteName: "Avalon",
 					siteDescription:
 						"A multi-framework islands architecture for building fast, modern websites.",

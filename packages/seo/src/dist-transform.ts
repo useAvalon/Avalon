@@ -1,8 +1,27 @@
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import type { SeoConfig } from "./config.ts";
-import { SEO_ERROR_PAGE_PATH } from "./constants.ts";
+import { SEO_ERROR_PAGE_PATH, SEO_TRANSFORM_MARKER } from "./constants.ts";
 import { transformSeoHtml } from "./transform.ts";
+
+const DEV_SITE_ORIGINS = ["http://localhost:8012", "http://localhost:3000", "http://localhost"];
+
+/** Strip the SEO idempotency marker so post-build can re-apply with production config. */
+export function stripSeoTransformMarker(html: string): string {
+	return html.replaceAll(`${SEO_TRANSFORM_MARKER}\n`, "").replaceAll(SEO_TRANSFORM_MARKER, "");
+}
+
+/** Rewrite dev localhost origins baked in at SSR time to the configured production site URL. */
+export function rewriteDevSiteUrls(html: string, siteUrl: string): string {
+	const target = siteUrl.replace(/\/+$/, "");
+	let out = html;
+	for (const dev of DEV_SITE_ORIGINS) {
+		if (target !== dev && out.includes(dev)) {
+			out = out.replaceAll(dev, target);
+		}
+	}
+	return out;
+}
 
 function walkHtmlFiles(dir: string, files: string[] = []): string[] {
 	if (!statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return files;
@@ -37,7 +56,9 @@ export function applySeoToDist(distDir: string, config: SeoConfig): number {
 	for (const file of walkHtmlFiles(distDir)) {
 		const pathname = htmlFileToPathname(distDir, file);
 		const original = readFileSync(file, "utf-8");
-		const next = transformSeoHtml(original, pathname, config);
+		const next = original.includes(SEO_TRANSFORM_MARKER)
+			? rewriteDevSiteUrls(original, config.siteUrl)
+			: rewriteDevSiteUrls(transformSeoHtml(original, pathname, config), config.siteUrl);
 		if (next !== original) {
 			writeFileSync(file, next, "utf-8");
 			count++;

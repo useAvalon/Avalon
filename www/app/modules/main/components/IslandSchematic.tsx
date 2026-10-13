@@ -39,8 +39,6 @@ export default function IslandSchematic() {
 				role="img"
 				aria-label="Schematic of a web page with three island regions"
 			>
-				<title>Island schematic</title>
-
 				{/* Page frame */}
 				<rect x={2} y={2} width={96} height={104} rx={3} class={styles.pageFrame} />
 

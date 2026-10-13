@@ -117,6 +117,14 @@ describe("injectMetaTags", () => {
 		const result = injectMetaTags(minimalHtml, SEO_ERROR_PAGE_PATH, config);
 		expect(result).toContain('name="robots" content="noindex"');
 	});
+
+	it("replaces canonical and og:url when they still point at a dev origin", () => {
+		const html = `<html><head><title>T</title><meta name="description" content="D" /><link rel="canonical" href="http://localhost:8012/" /><meta property="og:url" content="http://localhost:8012/" /></head><body></body></html>`;
+		const result = injectMetaTags(html, "/", baseSeoConfig);
+		expect(result).toContain('<link rel="canonical" href="https://example.com/" />');
+		expect(result).toContain('<meta property="og:url" content="https://example.com/" />');
+		expect(result).not.toContain("localhost:8012");
+	});
 });
 
 describe("extractMetadataFromHtml", () => {
