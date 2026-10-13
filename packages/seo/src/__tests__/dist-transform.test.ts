@@ -31,4 +31,10 @@ describe("rewriteDevSiteUrls", () => {
 		expect(out).toContain("https://useavalon.dev/");
 		expect(out).not.toContain("localhost:8012");
 	});
+
+	it("does not double-rewrite when target is already a dev origin", () => {
+		const html = '<link rel="canonical" href="http://localhost:8012/" />';
+		const out = rewriteDevSiteUrls(html, "http://localhost:8012");
+		expect(out).toBe(html);
+	});
 });

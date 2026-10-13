@@ -125,6 +125,13 @@ describe("injectMetaTags", () => {
 		expect(result).toContain('<meta property="og:url" content="https://example.com/" />');
 		expect(result).not.toContain("localhost:8012");
 	});
+
+	it("replaces canonical and og:url when attributes are in reverse order", () => {
+		const html = `<html><head><title>T</title><meta name="description" content="D" /><link href="http://localhost:8012/docs/" rel="canonical" /><meta content="http://localhost:8012/docs/" property="og:url" /></head><body></body></html>`;
+		const result = injectMetaTags(html, "/docs/", baseSeoConfig);
+		expect(result).toContain('<link rel="canonical" href="https://example.com/docs/" />');
+		expect(result).toContain('<meta property="og:url" content="https://example.com/docs/" />');
+	});
 });
 
 describe("extractMetadataFromHtml", () => {

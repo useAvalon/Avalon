@@ -373,13 +373,18 @@ function escapeForRegex(str: string): string {
 }
 
 function replaceCanonicalHref(html: string, fullUrl: string, siteUrl: string): string {
-	return html.replace(
-		/<link\s+rel=["']canonical["']\s+href=["']([^"']+)["']\s*\/?>/gi,
-		(full, href) => {
+	const patterns = [
+		/<link\s[^>]*rel\s*=\s*["']canonical["'][^>]*href\s*=\s*["']([^"']*)["'][^>]*\/?>/gi,
+		/<link\s[^>]*href\s*=\s*["']([^"']*)["'][^>]*rel\s*=\s*["']canonical["'][^>]*\/?>/gi,
+	];
+	let out = html;
+	for (const pattern of patterns) {
+		out = out.replaceAll(pattern, (full, href) => {
 			if (href.startsWith(siteUrl)) return full;
 			return `<link rel="canonical" href="${escapeAttr(fullUrl)}" />`;
-		},
-	);
+		});
+	}
+	return out;
 }
 
 function replaceMetaPropertyContent(
@@ -389,16 +394,28 @@ function replaceMetaPropertyContent(
 	siteUrl: string,
 ): string {
 	const escaped = escapeForRegex(property);
-	const pattern = new RegExp(
-		String.raw`<meta\s+property=["']` +
-			escaped +
-			String.raw`["']\s+content=["']([^"']*)["']\s*\/?>`,
-		"gi",
-	);
-	return html.replace(pattern, (full, content) => {
-		if (content.startsWith(siteUrl)) return full;
-		return `<meta property="${property}" content="${escapeAttr(fullUrl)}" />`;
-	});
+	const patterns = [
+		new RegExp(
+			String.raw`<meta\s[^>]*property\s*=\s*["']` +
+				escaped +
+				String.raw`["'][^>]*content\s*=\s*["']([^"']*)["'][^>]*/?>`,
+			"gi",
+		),
+		new RegExp(
+			String.raw`<meta\s[^>]*content\s*=\s*["']([^"']*)["'][^>]*property\s*=\s*["']` +
+				escaped +
+				String.raw`["'][^>]*/?>`,
+			"gi",
+		),
+	];
+	let out = html;
+	for (const pattern of patterns) {
+		out = out.replaceAll(pattern, (full, content) => {
+			if (content.startsWith(siteUrl)) return full;
+			return `<meta property="${property}" content="${escapeAttr(fullUrl)}" />`;
+		});
+	}
+	return out;
 }
 
 function escapeAttr(str: string): string {

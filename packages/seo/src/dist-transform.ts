@@ -4,7 +4,8 @@ import type { SeoConfig } from "./config.ts";
 import { SEO_ERROR_PAGE_PATH, SEO_TRANSFORM_MARKER } from "./constants.ts";
 import { transformSeoHtml } from "./transform.ts";
 
-const DEV_SITE_ORIGINS = ["http://localhost:8012", "http://localhost:3000", "http://localhost"];
+/** Longest first so `http://localhost` never corrupts `http://localhost:8012`. */
+const DEV_SITE_ORIGINS = ["http://localhost:8012", "http://localhost:3000"];
 
 /** Strip the SEO idempotency marker so post-build can re-apply with production config. */
 export function stripSeoTransformMarker(html: string): string {
@@ -16,9 +17,8 @@ export function rewriteDevSiteUrls(html: string, siteUrl: string): string {
 	const target = siteUrl.replace(/\/+$/, "");
 	let out = html;
 	for (const dev of DEV_SITE_ORIGINS) {
-		if (target !== dev && out.includes(dev)) {
-			out = out.replaceAll(dev, target);
-		}
+		if (dev === target || !out.includes(dev)) continue;
+		out = out.replaceAll(dev, target);
 	}
 	return out;
 }
