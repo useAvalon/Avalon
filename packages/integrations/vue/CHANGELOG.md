@@ -1,5 +1,13 @@
 # @useavalon/vue
 
+## 0.1.13
+
+### Patch Changes
+
+- Updated dependencies [[`1709b85`](https://github.com/useAvalon/Avalon/commit/1709b85e990aaf9559ef87a55159347893dd15a4)]:
+  - @useavalon/avalon@0.7.0
+  - @useavalon/core@0.7.0
+
 ## 0.1.12
 
 ### Patch Changes

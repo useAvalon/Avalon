@@ -34,7 +34,7 @@
     },
     "packages/agent-optimization": {
       "name": "@useavalon/agent-optimization",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "dependencies": {
         "@useavalon/avalon": "workspace:^",
         "zod": "^4.6.5",
@@ -54,7 +54,7 @@
     },
     "packages/avalon": {
       "name": "@useavalon/avalon",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "bin": {
         "avalon": "bin/avalon.ts",
       },
@@ -92,7 +92,7 @@
     },
     "packages/create-avalon": {
       "name": "create-avalon",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "bin": {
         "create-avalon": "dist/cli.js",
       },
@@ -106,7 +106,7 @@
     },
     "packages/integrations/core": {
       "name": "@useavalon/core",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "peerDependencies": {
         "vite": "^8.0.0",
       },
@@ -116,7 +116,7 @@
     },
     "packages/integrations/lit": {
       "name": "@useavalon/lit",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "dependencies": {
         "@babel/core": "^8.0.7",
         "@babel/plugin-proposal-decorators": "^8.0.2",
@@ -139,7 +139,7 @@
     },
     "packages/integrations/preact": {
       "name": "@useavalon/preact",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "dependencies": {
         "@preact/preset-vite": "^2.10.6",
         "@useavalon/avalon": "workspace:^",
@@ -156,7 +156,7 @@
     },
     "packages/integrations/qwik": {
       "name": "@useavalon/qwik",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "dependencies": {
         "@useavalon/avalon": "workspace:^",
         "@useavalon/core": "workspace:^",
@@ -171,7 +171,7 @@
     },
     "packages/integrations/react": {
       "name": "@useavalon/react",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "dependencies": {
         "@useavalon/avalon": "workspace:^",
         "@useavalon/core": "workspace:^",
@@ -192,7 +192,7 @@
     },
     "packages/integrations/solid": {
       "name": "@useavalon/solid",
-      "version": "0.1.18",
+      "version": "0.1.19",
       "dependencies": {
         "@useavalon/avalon": "workspace:^",
         "@useavalon/core": "workspace:^",
@@ -208,7 +208,7 @@
     },
     "packages/integrations/svelte": {
       "name": "@useavalon/svelte",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "dependencies": {
         "@sveltejs/vite-plugin-svelte": "^5.0.3",
         "@useavalon/avalon": "workspace:^",
@@ -224,7 +224,7 @@
     },
     "packages/integrations/vue": {
       "name": "@useavalon/vue",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "dependencies": {
         "@useavalon/avalon": "workspace:^",
         "@useavalon/core": "workspace:^",
@@ -251,16 +251,18 @@
     },
     "packages/seo": {
       "name": "@useavalon/seo",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "dependencies": {
         "zod": "^4.6.5",
       },
       "devDependencies": {
+        "@useavalon/avalon": "workspace:*",
         "oxc-minify": "^0.153.0",
         "oxc-transform": "^0.153.0",
         "vitest": "^5.0.3",
       },
       "peerDependencies": {
+        "@useavalon/avalon": "^0.7.0",
         "vite": "^8.0.0",
       },
       "optionalPeers": [
