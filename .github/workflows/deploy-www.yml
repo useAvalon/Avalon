@@ -112,6 +112,15 @@ jobs:
           patchCloudflareRoutesAfterPrerender(process.cwd());
           "
 
+      - name: Build Pagefind index on merged dist
+        working-directory: www
+        run: |
+          set -euo pipefail
+          bunx pagefind --site dist
+          test -f dist/pagefind/pagefind.js
+          test -f dist/pagefind/pagefind-component-ui.js
+          test -f dist/pagefind/pagefind-component-ui.css
+
       - name: Verify Pages HTML artifact
         working-directory: www
         run: |
