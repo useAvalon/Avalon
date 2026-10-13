@@ -126,6 +126,21 @@ describe("injectMetaTags", () => {
 		expect(result).not.toContain("localhost:8012");
 	});
 
+	it("injects hreflang alternates when enabled", () => {
+		const config = { ...baseSeoConfig, hreflang: true, locale: "en_US" };
+		const result = injectMetaTags(minimalHtml, "/docs/", config);
+		expect(result).toContain('hreflang="en"');
+		expect(result).toContain('hreflang="x-default"');
+		expect(result).toContain('href="https://example.com/docs/"');
+	});
+
+	it("does not treat data-rel as canonical when rewriting href", () => {
+		const html = `<html><head><title>T</title><meta name="description" content="D" /><link href="/app.css" data-rel="canonical" rel="stylesheet" /></head><body></body></html>`;
+		const result = injectMetaTags(html, "/", baseSeoConfig);
+		expect(result).toContain('href="/app.css"');
+		expect(result).toContain('rel="stylesheet"');
+	});
+
 	it("replaces canonical and og:url when attributes are in reverse order", () => {
 		const html = `<html><head><title>T</title><meta name="description" content="D" /><link href="http://localhost:8012/docs/" rel="canonical" /><meta content="http://localhost:8012/docs/" property="og:url" /></head><body></body></html>`;
 		const result = injectMetaTags(html, "/docs/", baseSeoConfig);

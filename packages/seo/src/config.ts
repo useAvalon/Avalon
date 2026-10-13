@@ -65,6 +65,8 @@ export const SeoConfigSchema = z.object({
 	twitterCreator: z.string().optional(),
 	/** Default OG locale */
 	locale: z.string().optional().default("en_US"),
+	/** Inject hreflang alternate links for the page locale (monolingual sites use en + x-default) */
+	hreflang: z.boolean().optional().default(false),
 	/** Author info for Article JSON-LD */
 	author: PersonConfigSchema.optional(),
 	/** Publisher info for Article JSON-LD */

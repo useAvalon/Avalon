@@ -1,5 +1,4 @@
 /* Main CSS - shared across all modules */
-@import "./fonts.css";
 @import "./reset.css";
 @import "./tokens.css";
 @import "./syntax-highlighting.css";

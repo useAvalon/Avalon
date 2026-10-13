@@ -1,3 +1,4 @@
+import { fixedSizeSizes, fixedSizeSrcSet } from "@shared/utils/fixed-size-srcset.ts";
 import BentoFeatures from "../components/BentoFeatures.tsx";
 import CompatibilityStrip from "../components/CompatibilityStrip.tsx";
 import HalftoneBg from "../components/HalftoneBg.tsx";
@@ -144,6 +145,8 @@ export default async function HomePage() {
 									aria-hidden="true"
 									width={18}
 									height={18}
+									srcSet={fixedSizeSrcSet(a.icon, 18)}
+									sizes={fixedSizeSizes(18)}
 								/>
 								<span>{a.name}</span>
 							</a>

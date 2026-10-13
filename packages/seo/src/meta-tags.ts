@@ -201,6 +201,14 @@ export function injectMetaTags(html: string, url: string, config: SeoConfig): st
 		tags.push(`<meta name="robots" content="${directives}" />`);
 	}
 
+	if (config.hreflang && !skipCanonical && !html.includes("hreflang")) {
+		const lang = (config.locale ?? "en_US").split(/[-_]/)[0];
+		tags.push(
+			`<link rel="alternate" hreflang="${escapeAttr(lang)}" href="${escapeAttr(fullUrl)}" />`,
+		);
+		tags.push(`<link rel="alternate" hreflang="x-default" href="${escapeAttr(fullUrl)}" />`);
+	}
+
 	if (tags.length === 0) return html;
 
 	// Inject before </head>
@@ -298,11 +306,7 @@ function extractExistingMeta(html: string): ExtractedMeta {
 	meta.description = extractMetaName(html, "description");
 	meta.robots = extractMetaName(html, "robots");
 
-	// Check for canonical link
-	const canonicalMatch = html.match(
-		/<link\s[^>]*rel\s*=\s*["']canonical["'][^>]*href\s*=\s*["']([^"']*)["'][^>]*\/?>/i,
-	);
-	if (canonicalMatch) meta.canonical = canonicalMatch[1];
+	meta.canonical = extractCanonicalHref(html);
 
 	// Open Graph
 	meta.ogTitle = extractMetaProperty(html, "og:title");
@@ -334,19 +338,27 @@ function extractExistingMeta(html: string): ExtractedMeta {
 
 export function extractMetaProperty(html: string, property: string): string | undefined {
 	const escaped = escapeForRegex(property);
-	const patternA =
-		String.raw`<meta\s[^>]*property\s*=\s*["']` +
-		escaped +
-		String.raw`["'][^>]*content\s*=\s*["']([^"']*)["'][^>]*/?>`;
-	const patternB =
-		String.raw`<meta\s[^>]*content\s*=\s*["']([^"']*)["'][^>]*property\s*=\s*["']` +
-		escaped +
-		String.raw`["'][^>]*/?>`;
+	const patternA = new RegExp(
+		String.raw`<meta\s[^>]*` +
+			htmlAttrEquals("property", escaped) +
+			String.raw`[^>]*` +
+			htmlAttrEquals("content") +
+			String.raw`([^"']*)["'][^>]*/?>`,
+		"i",
+	);
+	const patternB = new RegExp(
+		String.raw`<meta\s[^>]*` +
+			htmlAttrEquals("content") +
+			String.raw`([^"']*)["'][^>]*` +
+			htmlAttrEquals("property", escaped) +
+			String.raw`[^>]*/?>`,
+		"i",
+	);
 
-	const m1 = html.match(new RegExp(patternA, "i"));
+	const m1 = html.match(patternA);
 	if (m1) return m1[1];
 
-	const m2 = html.match(new RegExp(patternB, "i"));
+	const m2 = html.match(patternB);
 	return m2 ? m2[1] : undefined;
 }
 
@@ -372,13 +384,44 @@ function escapeForRegex(str: string): string {
 	return str.replaceAll(/[.*+?^${}()|[\]\\]/g, (match) => "\\" + match);
 }
 
-function replaceCanonicalHref(html: string, fullUrl: string, siteUrl: string): string {
-	const patterns = [
-		/<link\s[^>]*rel\s*=\s*["']canonical["'][^>]*href\s*=\s*["']([^"']*)["'][^>]*\/?>/gi,
-		/<link\s[^>]*href\s*=\s*["']([^"']*)["'][^>]*rel\s*=\s*["']canonical["'][^>]*\/?>/gi,
+function htmlAttrEquals(attrName: string, literalValue?: string): string {
+	const name = String.raw`(?<![\w-])${escapeForRegex(attrName)}\s*=\s*["']`;
+	if (literalValue === undefined) return name;
+	return name + escapeForRegex(literalValue) + String.raw`["']`;
+}
+
+function canonicalHrefPatterns(): RegExp[] {
+	return [
+		new RegExp(
+			String.raw`<link\s[^>]*` +
+				htmlAttrEquals("rel", "canonical") +
+				String.raw`[^>]*` +
+				htmlAttrEquals("href") +
+				String.raw`([^"']*)["'][^>]*\/?>`,
+			"gi",
+		),
+		new RegExp(
+			String.raw`<link\s[^>]*` +
+				htmlAttrEquals("href") +
+				String.raw`([^"']*)["'][^>]*` +
+				htmlAttrEquals("rel", "canonical") +
+				String.raw`[^>]*\/?>`,
+			"gi",
+		),
 	];
+}
+
+function extractCanonicalHref(html: string): string | undefined {
+	for (const pattern of canonicalHrefPatterns()) {
+		const match = html.match(new RegExp(pattern.source, "i"));
+		if (match) return match[1];
+	}
+	return undefined;
+}
+
+function replaceCanonicalHref(html: string, fullUrl: string, siteUrl: string): string {
 	let out = html;
-	for (const pattern of patterns) {
+	for (const pattern of canonicalHrefPatterns()) {
 		out = out.replaceAll(pattern, (full, href) => {
 			if (href.startsWith(siteUrl)) return full;
 			return `<link rel="canonical" href="${escapeAttr(fullUrl)}" />`;
@@ -394,27 +437,30 @@ function replaceMetaPropertyContent(
 	siteUrl: string,
 ): string {
 	const escaped = escapeForRegex(property);
-	const patterns = [
-		new RegExp(
-			String.raw`<meta\s[^>]*property\s*=\s*["']` +
-				escaped +
-				String.raw`["'][^>]*content\s*=\s*["']([^"']*)["'][^>]*/?>`,
-			"gi",
-		),
-		new RegExp(
-			String.raw`<meta\s[^>]*content\s*=\s*["']([^"']*)["'][^>]*property\s*=\s*["']` +
-				escaped +
-				String.raw`["'][^>]*/?>`,
-			"gi",
-		),
-	];
-	let out = html;
-	for (const pattern of patterns) {
-		out = out.replaceAll(pattern, (full, content) => {
-			if (content.startsWith(siteUrl)) return full;
-			return `<meta property="${property}" content="${escapeAttr(fullUrl)}" />`;
-		});
-	}
+	const patternA = new RegExp(
+		String.raw`<meta\s[^>]*` +
+			htmlAttrEquals("property", escaped) +
+			String.raw`[^>]*` +
+			htmlAttrEquals("content") +
+			String.raw`([^"']*)["'][^>]*/?>`,
+		"gi",
+	);
+	const patternB = new RegExp(
+		String.raw`<meta\s[^>]*` +
+			htmlAttrEquals("content") +
+			String.raw`([^"']*)["'][^>]*` +
+			htmlAttrEquals("property", escaped) +
+			String.raw`[^>]*/?>`,
+		"gi",
+	);
+	let out = html.replaceAll(patternA, (full, content) => {
+		if (content.startsWith(siteUrl)) return full;
+		return `<meta property="${property}" content="${escapeAttr(fullUrl)}" />`;
+	});
+	out = out.replaceAll(patternB, (full, content) => {
+		if (content.startsWith(siteUrl)) return full;
+		return `<meta property="${property}" content="${escapeAttr(fullUrl)}" />`;
+	});
 	return out;
 }
 

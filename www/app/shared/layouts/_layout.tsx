@@ -2,6 +2,7 @@ import type { LayoutProps } from "@useavalon/avalon";
 import MobileNav from "../components/MobileNav.tsx";
 import SearchModal from "../components/SearchModal.tsx";
 import ThemeToggle from "../components/ThemeToggle.tsx";
+import { fixedSizeSizes, fixedSizeSrcSet } from "../utils/fixed-size-srcset.ts";
 import styles from "./_layout.module.css";
 import "../styles/main.css";
 
@@ -18,6 +19,7 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 				<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 				<title>{title}</title>
 				<link rel="icon" href="/favicon.ico" />
+				<link rel="stylesheet" href="/font-faces.css" />
 				{description && <meta name="description" content={description} />}
 				<script
 					dangerouslySetInnerHTML={{
@@ -48,6 +50,8 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 								class={`${styles.navLogoImg} ${styles.logoDark}`}
 								width={120}
 								height={28}
+								srcSet={fixedSizeSrcSet("/avalon-wordmark.svg", 120)}
+								sizes={fixedSizeSizes(120)}
 							/>
 							<img
 								src="/avalon-wordmark-black.svg"
@@ -55,6 +59,8 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 								class={`${styles.navLogoImg} ${styles.logoLight}`}
 								width={120}
 								height={28}
+								srcSet={fixedSizeSrcSet("/avalon-wordmark-black.svg", 120)}
+								sizes={fixedSizeSizes(120)}
 							/>
 						</a>
 						<div class={styles.navDivider} aria-hidden="true" />

@@ -1,3 +1,4 @@
+import { fixedSizeSizes, fixedSizeSrcSet } from "@shared/utils/fixed-size-srcset.ts";
 import { useEffect, useRef, useState } from "preact/hooks";
 import styles from "./BentoFeatures.module.css";
 
@@ -140,6 +141,8 @@ function FrameworksCard() {
 								width={24}
 								height={24}
 								loading="lazy"
+								srcSet={fixedSizeSrcSet(fw.icon, 24)}
+								sizes={fixedSizeSizes(24)}
 							/>
 						</div>
 					))}
