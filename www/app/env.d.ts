@@ -71,6 +71,8 @@ declare module "*?assets=ssr" {
 // Pagefind Component UI custom elements
 interface PagefindModalElement extends HTMLElement {
 	open(): void;
+	close(): void;
+	readonly isOpen: boolean;
 }
 
 declare global {
