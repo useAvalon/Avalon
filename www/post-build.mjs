@@ -6,7 +6,8 @@
  */
 import { runPostBuild } from '@useavalon/avalon/post-build';
 import { execSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
 await runPostBuild({
 	clientRouter: true,
@@ -26,12 +27,41 @@ await runPostBuild({
 	},
 });
 
+/** Nitro may create an empty `.output/public` before prerender copies HTML into `dist`. */
+function countHtmlFiles(dir) {
+	if (!existsSync(dir)) return 0;
+	let count = 0;
+	const walk = (current) => {
+		for (const name of readdirSync(current)) {
+			const path = join(current, name);
+			const stat = statSync(path);
+			if (stat.isDirectory()) walk(path);
+			else if (name.endsWith(".html")) count++;
+		}
+	};
+	walk(dir);
+	return count;
+}
+
+function pagefindSiteDir() {
+	const candidates = ["dist", ".output/public"];
+	let best = "dist";
+	let bestCount = -1;
+	for (const dir of candidates) {
+		const htmlCount = countHtmlFiles(dir);
+		if (htmlCount > bestCount) {
+			bestCount = htmlCount;
+			best = dir;
+		}
+	}
+	return best;
+}
+
 // Run Pagefind to index prerendered HTML for site search.
-// Pagefind crawls the static output and generates a search index.
-const outputDir = existsSync('.output/public') ? '.output/public' : 'dist';
+const outputDir = pagefindSiteDir();
 try {
-	execSync(`npx pagefind --site ${outputDir}`, { stdio: 'inherit' });
-	console.log('[pagefind] ✅ Search index generated');
+	execSync(`bunx pagefind --site ${outputDir}`, { stdio: "inherit" });
+	console.log(`[pagefind] ✅ Search index generated under ${outputDir}/pagefind`);
 } catch (err) {
-	console.warn('[pagefind] Search indexing skipped:', err.message);
+	console.warn("[pagefind] Search indexing skipped:", err.message);
 }
