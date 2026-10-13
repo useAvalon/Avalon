@@ -1,0 +1,24 @@
+# robots.txt — also generated at build time in dist/
+
+User-agent: *
+Allow: /
+
+Sitemap: https://useavalon.dev/sitemap.xml
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /

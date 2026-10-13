@@ -35,6 +35,11 @@ export const OrganizationConfigSchema = z.object({
 		.optional(),
 });
 
+export const FaqItemSchema = z.object({
+	question: z.string(),
+	answer: z.string(),
+});
+
 // ---------------------------------------------------------------------------
 // SEO Plugin Config
 // ---------------------------------------------------------------------------
@@ -84,9 +89,21 @@ export const SeoConfigSchema = z.object({
 	speakableSelectors: z.array(z.string()).optional().default(["h1", "[data-speakable]"]),
 	/** Font preconnect URLs to inject into <head> */
 	fontPreconnect: z.array(z.string()).optional(),
+	/** dns-prefetch hints for third-party origins */
+	dnsPrefetch: z.array(z.string()).optional(),
+	/** Inject robots meta with max-image-preview:large (default: true) */
+	robotsImagePreview: z.boolean().optional().default(true),
+	/** Homepage FAQ pairs for FAQPage JSON-LD */
+	faq: z.array(FaqItemSchema).optional(),
+	/** Path to web app manifest (e.g. /manifest.webmanifest) */
+	webAppManifest: z.string().optional(),
+	/** RSS or Atom feed URL for <link rel="alternate" type="application/rss+xml"> */
+	feedUrl: z.string().optional(),
 	/** Suffix to append to page titles (e.g., " — My Site"). Set to false to disable. */
 	titleSuffix: z.union([z.string(), z.literal(false)]).optional(),
 });
+
+export type FaqItem = z.infer<typeof FaqItemSchema>;
 
 export type PersonConfig = z.infer<typeof PersonConfigSchema>;
 export type OrganizationConfig = z.infer<typeof OrganizationConfigSchema>;

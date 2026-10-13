@@ -705,4 +705,24 @@
 	flex-wrap: wrap;
 }
 
+.faqList {
+	display: grid;
+	gap: 1.5rem;
+	margin-top: 1.5rem;
+	max-width: 40rem;
+}
+
+.faqItem h3 {
+	font-family: var(--bp-sans);
+	font-size: 1.05rem;
+	margin: 0 0 0.35rem;
+}
+
+.faqItem p {
+	margin: 0;
+	color: var(--bp-ink-70);
+	font-size: 0.95rem;
+	line-height: 1.55;
+}
+
 /* Footer is provided by the shared root layout — no custom footer CSS needed here. */

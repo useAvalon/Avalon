@@ -1,0 +1,17 @@
+{
+	"name": "Avalon",
+	"short_name": "Avalon",
+	"description": "The full-stack islands framework for fast websites.",
+	"start_url": "/",
+	"display": "standalone",
+	"background_color": "#0a0a0a",
+	"theme_color": "#0a0a0a",
+	"icons": [
+		{
+			"src": "/logo.svg",
+			"sizes": "any",
+			"type": "image/svg+xml",
+			"purpose": "any"
+		}
+	]
+}

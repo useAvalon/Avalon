@@ -1,0 +1,19 @@
+.article {
+	max-width: 42rem;
+	margin: 0 auto;
+	padding: 3rem 1.5rem 4rem;
+	line-height: 1.6;
+}
+
+.article h1 {
+	margin-bottom: 1rem;
+}
+
+.article p {
+	margin: 0 0 1rem;
+	color: var(--avalon-fg-muted, #a1a1aa);
+}
+
+.article a {
+	color: var(--avalon-accent, #7c9cff);
+}

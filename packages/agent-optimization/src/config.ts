@@ -10,6 +10,8 @@ export const SitemapConfigSchema = z.object({
 	dynamicPaths: z.record(z.string(), z.array(z.string())).optional(),
 	/** Glob patterns or path prefixes to exclude from the sitemap (e.g. ['/admin/**', '/login']) */
 	exclude: z.array(z.string()).optional(),
+	/** Replace an existing `robots.txt` in the build output (default: preserve project file). */
+	overwriteRobotsTxt: z.boolean().optional().default(false),
 });
 
 export const LlmsConfigSchema = z.object({

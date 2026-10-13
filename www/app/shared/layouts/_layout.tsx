@@ -46,12 +46,14 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 								src="/avalon-wordmark.svg"
 								alt="Avalon"
 								class={`${styles.navLogoImg} ${styles.logoDark}`}
+								width={120}
 								height={28}
 							/>
 							<img
 								src="/avalon-wordmark-black.svg"
 								alt="Avalon"
 								class={`${styles.navLogoImg} ${styles.logoLight}`}
+								width={120}
 								height={28}
 							/>
 						</a>
@@ -191,6 +193,21 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 							</a>
 							<a class={styles.footerLink} href="/blog">
 								Blog
+							</a>
+						</div>
+						<div>
+							<p class={styles.footerColTitle}>Company</p>
+							<a class={styles.footerLink} href="/about">
+								About
+							</a>
+							<a class={styles.footerLink} href="/contact">
+								Contact
+							</a>
+							<a class={styles.footerLink} href="/privacy">
+								Privacy
+							</a>
+							<a class={styles.footerLink} href="/terms">
+								Terms
 							</a>
 						</div>
 					</nav>

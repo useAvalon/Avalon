@@ -16,6 +16,7 @@ import type { LlmsRoute, ResolvedLlmsConfig } from "./llms.ts";
 import { buildLlmsFullTxt, buildLlmsTxt, routesToLlmsEntries } from "./llms.ts";
 import type { PageMetadata } from "./markdown.ts";
 import { buildFrontMatter, htmlToMarkdown, shouldServeMarkdown } from "./markdown.ts";
+import { buildRobotsTxt } from "./robots.ts";
 import type { ResolvedSitemapConfig } from "./sitemap.ts";
 import { buildSitemapXml, routesToSitemapEntries } from "./sitemap.ts";
 
@@ -48,6 +49,7 @@ export function agentOptimization(config: AgentOptimizationConfigInput): PluginO
 				priority: sc.priority,
 				dynamicPaths: sc.dynamicPaths,
 				exclude: sc.exclude,
+				overwriteRobotsTxt: sc.overwriteRobotsTxt,
 			};
 		}
 	}
@@ -167,6 +169,22 @@ export function agentOptimization(config: AgentOptimizationConfigInput): PluginO
 				const xml = buildSitemapXml(entries);
 				await fs.writeFile(path.join(outDir, "sitemap.xml"), xml, "utf-8");
 				console.log(`[agent-optimization] sitemap.xml written to ${outDir}`);
+				const robotsPath = path.join(outDir, "robots.txt");
+				let robotsExists = false;
+				try {
+					await fs.access(robotsPath);
+					robotsExists = true;
+				} catch {
+					robotsExists = false;
+				}
+				const overwriteRobots = resolvedSitemapConfig.overwriteRobotsTxt === true;
+				if (!robotsExists || overwriteRobots) {
+					const robots = buildRobotsTxt(resolvedSitemapConfig.siteUrl);
+					await fs.writeFile(robotsPath, robots, "utf-8");
+					console.log(`[agent-optimization] robots.txt written to ${outDir}`);
+				} else {
+					console.log(`[agent-optimization] robots.txt preserved at ${robotsPath}`);
+				}
 			}
 
 			if (llmsEnabled && resolvedLlmsConfig) {

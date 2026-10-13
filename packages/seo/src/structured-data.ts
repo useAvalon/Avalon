@@ -5,7 +5,7 @@
  * BreadcrumbList, and SearchAction types.
  */
 
-import type { OrganizationConfig, PersonConfig, SeoConfig } from "./config.ts";
+import type { FaqItem, OrganizationConfig, PersonConfig, SeoConfig } from "./config.ts";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -229,30 +229,65 @@ function buildFullPersonJsonLd(person: PersonConfig): object {
 	return jsonLd;
 }
 
+function organizationNode(publisher: OrganizationConfig, siteUrl: string): Record<string, unknown> {
+	const baseUrl = siteUrl.replace(/\/+$/, "");
+	const pub: Record<string, unknown> = {
+		"@type": "Organization",
+		name: publisher.name,
+		url: publisher.url ?? baseUrl,
+	};
+	if (publisher.logo) {
+		const logoUrl = publisher.logo.url.startsWith("http")
+			? publisher.logo.url
+			: `${baseUrl}${publisher.logo.url}`;
+		pub.logo = {
+			"@type": "ImageObject",
+			url: logoUrl,
+			...(publisher.logo.width && { width: publisher.logo.width }),
+			...(publisher.logo.height && { height: publisher.logo.height }),
+		};
+	}
+	return pub;
+}
+
 function buildPublisherJsonLd(config: SeoConfig): object {
 	if (config.publisher) {
-		const pub: Record<string, unknown> = {
-			"@type": "Organization",
-			name: config.publisher.name,
-		};
-		if (config.publisher.url) pub.url = config.publisher.url;
-		if (config.publisher.logo) {
-			pub.logo = {
-				"@type": "ImageObject",
-				url: config.publisher.logo.url,
-				...(config.publisher.logo.width && { width: config.publisher.logo.width }),
-				...(config.publisher.logo.height && { height: config.publisher.logo.height }),
-			};
-		}
-		return pub;
+		return organizationNode(config.publisher, config.siteUrl);
 	}
 
-	// Fallback: use siteName
 	const siteUrl = config.siteUrl.replace(/\/+$/, "");
 	return {
 		"@type": "Organization",
 		name: config.siteName,
 		url: siteUrl,
+	};
+}
+
+/** Standalone Organization JSON-LD for site-wide publisher markup. */
+export function buildOrganizationJsonLd(
+	publisher: OrganizationConfig | undefined,
+	siteUrl: string,
+): object | null {
+	if (!publisher) return null;
+	return {
+		"@context": "https://schema.org",
+		...organizationNode(publisher, siteUrl),
+	};
+}
+
+/** FAQPage JSON-LD from configured question/answer pairs. */
+export function buildFaqPageJsonLd(items: FaqItem[]): object {
+	return {
+		"@context": "https://schema.org",
+		"@type": "FAQPage",
+		mainEntity: items.map((item) => ({
+			"@type": "Question",
+			name: item.question,
+			acceptedAnswer: {
+				"@type": "Answer",
+				text: item.answer,
+			},
+		})),
 	};
 }
 

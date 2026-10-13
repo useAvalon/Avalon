@@ -9,6 +9,7 @@
  */
 
 import type { SeoConfig } from "./config.ts";
+import { SEO_ERROR_PAGE_PATH } from "./constants.ts";
 import type { PageMetadata } from "./structured-data.ts";
 
 // ---------------------------------------------------------------------------
@@ -62,10 +63,12 @@ export function injectMetaTags(html: string, url: string, config: SeoConfig): st
 	const existing = extractExistingMeta(html);
 	const tags: string[] = [];
 	const siteUrl = config.siteUrl.replace(/\/+$/, "");
-	const fullUrl = url.startsWith("http") ? url : `${siteUrl}${url}`;
+	const pathPart = url === SEO_ERROR_PAGE_PATH ? "/" : url;
+	const fullUrl = url.startsWith("http") ? url : `${siteUrl}${pathPart}`;
+	const skipCanonical = url === SEO_ERROR_PAGE_PATH;
 
 	// Canonical URL
-	if (config.canonical && !existing.canonical) {
+	if (config.canonical && !existing.canonical && !skipCanonical) {
 		tags.push(`<link rel="canonical" href="${escapeAttr(fullUrl)}" />`);
 	}
 
@@ -158,6 +161,34 @@ export function injectMetaTags(html: string, url: string, config: SeoConfig): st
 				}
 			}
 		}
+	}
+
+	if (config.dnsPrefetch?.length) {
+		for (const origin of config.dnsPrefetch) {
+			if (!html.includes(origin)) {
+				tags.push(`<link rel="dns-prefetch" href="${escapeAttr(origin)}" />`);
+			}
+		}
+	}
+
+	if (config.webAppManifest && !html.includes('rel="manifest"')) {
+		tags.push(`<link rel="manifest" href="${escapeAttr(config.webAppManifest)}" />`);
+	}
+
+	if (
+		config.feedUrl &&
+		!html.includes("application/rss+xml") &&
+		!html.includes("application/atom+xml")
+	) {
+		tags.push(
+			`<link rel="alternate" type="application/rss+xml" title="${escapeAttr(config.siteName)}" href="${escapeAttr(config.feedUrl)}" />`,
+		);
+	}
+
+	if (config.robotsImagePreview && !existing.robots && !html.includes("max-image-preview")) {
+		tags.push(
+			`<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />`,
+		);
 	}
 
 	if (tags.length === 0) return html;

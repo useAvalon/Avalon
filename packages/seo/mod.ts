@@ -18,6 +18,7 @@ export {
 } from "./src/meta-tags.ts";
 // Plugin entry point
 export { seo } from "./src/plugin.ts";
+export { resolveSiteUrl, withEnvSiteUrl } from "./src/site-config.ts";
 export type { ArticleMetadata, PageMetadata } from "./src/structured-data.ts";
 // Structured data utilities
 export {
@@ -27,3 +28,4 @@ export {
 	buildWebSiteJsonLd,
 	injectJsonLd,
 } from "./src/structured-data.ts";
+export { transformSeoHtml } from "./src/transform.ts";

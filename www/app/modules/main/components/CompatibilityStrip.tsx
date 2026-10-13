@@ -55,7 +55,7 @@ export default function CompatibilityStrip() {
 						{FRAMEWORKS.map((fw) => (
 							<li key={fw.name}>
 								<a href={fw.href} class={styles.chip} title={fw.file}>
-									<img src={fw.icon} alt="" width={18} height={18} />
+									<img src={fw.icon} alt={fw.name} width={18} height={18} />
 									<span>{fw.name}</span>
 								</a>
 							</li>
