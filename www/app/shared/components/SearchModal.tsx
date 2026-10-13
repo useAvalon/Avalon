@@ -52,7 +52,34 @@ export default function SearchModal() {
 			}
 		};
 		document.addEventListener("keydown", handleKeydown);
-		return () => document.removeEventListener("keydown", handleKeydown);
+
+		const modalElement = () =>
+			containerRef.current?.querySelector<PagefindModalElement>("pagefind-modal");
+
+		const closeModal = () => {
+			const modal = modalElement();
+			if (modal?.isOpen) modal.close();
+		};
+
+		// Pagefind does not always close on result navigation (same-page anchors, client router).
+		const handleResultClick = (e: MouseEvent) => {
+			const target = e.target;
+			if (!(target instanceof Element)) return;
+			const anchor = target.closest("a[href]");
+			if (!anchor?.closest("pagefind-modal")) return;
+			closeModal();
+		};
+
+		const handleHashChange = () => closeModal();
+
+		document.addEventListener("click", handleResultClick, true);
+		window.addEventListener("hashchange", handleHashChange);
+
+		return () => {
+			document.removeEventListener("keydown", handleKeydown);
+			document.removeEventListener("click", handleResultClick, true);
+			window.removeEventListener("hashchange", handleHashChange);
+		};
 	}, []);
 
 	return (
