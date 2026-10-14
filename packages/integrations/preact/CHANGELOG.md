@@ -1,5 +1,13 @@
 # @useavalon/preact
 
+## 0.7.1
+
+### Patch Changes
+
+- Updated dependencies [[`353fd2e`](https://github.com/useAvalon/Avalon/commit/353fd2efa7d17c1969384b7e39316a176ecc24c9)]:
+  - @useavalon/avalon@0.7.1
+  - @useavalon/core@0.7.1
+
 ## 0.7.0
 
 ### Patch Changes
