@@ -8,6 +8,9 @@
  */
 /// <reference types="@useavalon/avalon/types" />
 
+/** Injected at build time from `deploy-revision.ts` (Pagefind cache bust). */
+declare const __AVALON_DEPLOY_REVISION__: string;
+
 declare module "*.vue" {
 	import type { ComponentType } from "preact";
 
