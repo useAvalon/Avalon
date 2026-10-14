@@ -25,7 +25,7 @@ bun run build
 bun run preview
 ```
 
-Cloudflare Pages deploys from `main` via `.github/workflows/deploy-www.yml` (`NITRO_PRESET=cloudflare_pages`). Production custom domain `useavalon.dev` uses the same artifact as `useavalon.pages.dev`, but the zone CDN can keep **cached Pagefind worker responses** (including old `Content-Security-Policy` headers) after a deploy. CI purges the `useavalon.dev/pagefind` prefix when `CLOUDFLARE_ZONE_ID` is set and the API token has **Zone → Cache Purge → Edit**. Manual purge: **Caching → Purge Cache → Prefix** with `useavalon.dev/pagefind/`.
+Cloudflare Pages deploys from `main` via `.github/workflows/deploy-www.yml` (`NITRO_PRESET=cloudflare_pages`). **Account ID** (used for Pages deploy) is not a **Zone ID**. A zone exists only when `useavalon.dev` is added under **Websites** in Cloudflare (not only under Workers & Pages → `useavalon`). Then **Overview → API** on that site shows **Zone ID** (optional `CLOUDFLARE_ZONE_ID` secret for automated purge). If you only manage the Pages project, purge manually after deploy: **Websites → useavalon.dev → Caching → Purge Cache → Prefix** `useavalon.dev/pagefind/`.
 
 Local production build:
 

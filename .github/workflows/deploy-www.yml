@@ -4,9 +4,10 @@ name: Deploy www
 # Production: push to main. PR Cloudflare preview: add the "pr preview" label (same as pkg.pr.new Preview).
 #
 # Secrets (repo Settings → Secrets and variables → Actions):
-#   CLOUDFLARE_API_TOKEN   Pages (edit) + Account Settings (read) + Zone Cache Purge (edit)
-#   CLOUDFLARE_ACCOUNT_ID  Right sidebar of the Cloudflare dashboard
-#   CLOUDFLARE_ZONE_ID     Zone ID for useavalon.dev (Caching → Purge); avoids Zone List API
+#   CLOUDFLARE_API_TOKEN   Cloudflare Pages → Edit (+ Account Settings → Read)
+#   CLOUDFLARE_ACCOUNT_ID  Account Home → right sidebar (not the same as a zone / domain ID)
+# Optional (automated CDN purge after deploy — only if useavalon.dev is a Website in this account):
+#   CLOUDFLARE_ZONE_ID     Website → useavalon.dev → Overview → API → Zone ID
 
 on:
   push:
@@ -204,14 +205,14 @@ jobs:
             if [ "$(printf '%s' "$lookup" | jq -r '.success')" != "true" ]; then
               code=$(printf '%s' "$lookup" | jq -r '.errors[0].code // "unknown"')
               msg=$(printf '%s' "$lookup" | jq -r '.errors[0].message // .')
-              echo "::error::Zone lookup failed (${code}): ${msg}. Add CLOUDFLARE_ZONE_ID and grant the API token Zone → Cache Purge → Edit (and Zone → Read, or set the zone ID secret)."
-              exit 1
+              echo "::warning::Skipping CDN purge (${code}): ${msg}. Pages deploy tokens cannot purge cache unless useavalon.dev is a Website in this account (optional CLOUDFLARE_ZONE_ID + Cache Purge permission). Purge manually: Caching → Purge → Prefix useavalon.dev/pagefind/"
+              exit 0
             fi
             zone_id=$(printf '%s' "$lookup" | jq -r '.result[0].id // empty')
           fi
           if [ -z "$zone_id" ]; then
-            echo "::error::Could not resolve Cloudflare zone for useavalon.dev; set CLOUDFLARE_ZONE_ID."
-            exit 1
+            echo "::warning::No Cloudflare zone for useavalon.dev in this account; skipping CDN purge."
+            exit 0
           fi
           payload=$(jq -n --arg prefix 'useavalon.dev/pagefind' '{prefixes: [$prefix]}')
           response=$(curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${zone_id}/purge_cache" \
@@ -221,8 +222,8 @@ jobs:
           if [ "$(printf '%s' "$response" | jq -r '.success')" != "true" ]; then
             code=$(printf '%s' "$response" | jq -r '.errors[0].code // "unknown"')
             msg=$(printf '%s' "$response" | jq -r '.errors[0].message // .')
-            echo "::error::Cloudflare purge_cache failed (${code}): ${msg}. Token needs Zone → Cache Purge → Edit for this zone."
-            exit 1
+            echo "::warning::CDN purge failed (${code}): ${msg}. Deploy succeeded; purge Prefix useavalon.dev/pagefind/ in the dashboard if search CSP looks stale."
+            exit 0
           fi
           echo "Purged CDN prefix useavalon.dev/pagefind on zone ${zone_id}."
 
