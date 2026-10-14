@@ -94,6 +94,7 @@ export default defineConfig(async (): Promise<UserConfig> => {
 				"/demo/**": { headers: securityHeaders, cache: ssrCacheUntilDeploy() },
 				"/search/**": { headers: securityHeaders, cache: ssrCacheUntilDeploy() },
 				"/api/**": { headers: securityHeaders, cache: false },
+				"/_server-islands/**": { headers: securityHeaders, cache: false },
 				"/**": {
 					headers: securityHeadersWithoutCsp,
 				},
