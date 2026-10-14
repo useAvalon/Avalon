@@ -25,7 +25,7 @@ bun run build
 bun run preview
 ```
 
-Cloudflare Pages deploys from `main` via `.github/workflows/deploy-www.yml` (`NITRO_PRESET=cloudflare_pages`). Production custom domain `useavalon.dev` uses the same artifact as `useavalon.pages.dev`, but the zone CDN can keep **cached Pagefind worker responses** (including old `Content-Security-Policy` headers) after a deploy. The deploy workflow purges `dist/pagefind` URLs on the zone; if search breaks with WASM/CSP errors after a manual deploy, use **Caching → Configuration → Purge Cache → Prefix** with `useavalon.dev/pagefind/` (hostname/path prefix, not a full URL wildcard).
+Cloudflare Pages deploys from `main` via `.github/workflows/deploy-www.yml` (`NITRO_PRESET=cloudflare_pages`). Production custom domain `useavalon.dev` uses the same artifact as `useavalon.pages.dev`, but the zone CDN can keep **cached Pagefind worker responses** (including old `Content-Security-Policy` headers) after a deploy. CI purges the `useavalon.dev/pagefind` prefix when `CLOUDFLARE_ZONE_ID` is set and the API token has **Zone → Cache Purge → Edit**. Manual purge: **Caching → Purge Cache → Prefix** with `useavalon.dev/pagefind/`.
 
 Local production build:
 
