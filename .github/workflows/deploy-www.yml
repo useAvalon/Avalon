@@ -4,8 +4,11 @@ name: Deploy www
 # Production: push to main. PR Cloudflare preview: add the "pr preview" label (same as pkg.pr.new Preview).
 #
 # Secrets (repo Settings → Secrets and variables → Actions):
-#   CLOUDFLARE_API_TOKEN   Account → Cloudflare Pages (edit) + Account Settings (read)
-#   CLOUDFLARE_ACCOUNT_ID  Right sidebar of the Cloudflare dashboard
+#   CLOUDFLARE_API_TOKEN   Pages → Edit, Account Settings → Read, Zone → Cache Purge → Edit;
+#                          add Zone → Read only when CLOUDFLARE_ZONE_ID is unset (zone list fallback)
+#   CLOUDFLARE_ACCOUNT_ID  Account Home → right sidebar (not the same as a zone / domain ID)
+# Recommended (skips zone list API; same zone as manual Prefix purge):
+#   CLOUDFLARE_ZONE_ID     Website → useavalon.dev → Overview → API → Zone ID
 
 on:
   push:
@@ -189,50 +192,53 @@ jobs:
       # *.pages.dev serves fresh assets — Pagefind worker scripts cache response headers.
       - name: Purge production CDN cache for Pagefind
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        working-directory: www
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
         run: |
-          set -euo pipefail
-          zone_id=$(curl -fsS \
-            "https://api.cloudflare.com/client/v4/zones?name=useavalon.dev&account.id=${CLOUDFLARE_ACCOUNT_ID}" \
-            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-            | jq -r '.result[0].id // empty')
+          set -uo pipefail
+          zone_id="${CLOUDFLARE_ZONE_ID:-}"
           if [ -z "$zone_id" ]; then
-            echo "::error::Could not resolve Cloudflare zone for useavalon.dev; CDN purge required for Pagefind CSP."
-            exit 1
-          fi
-          purge_pagefind_batch() {
-            local payload="$1"
-            local response
-            response=$(curl -fsS -X POST "https://api.cloudflare.com/client/v4/zones/${zone_id}/purge_cache" \
-              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-              -H "Content-Type: application/json" \
-              -d "$payload")
-            if [ "$(printf '%s' "$response" | jq -r '.success')" != "true" ]; then
-              echo "::error::Cloudflare purge_cache rejected batch: ${response}"
-              exit 1
+            lookup=""
+            lookup_status=0
+            lookup=$(curl -sS \
+              "https://api.cloudflare.com/client/v4/zones?name=useavalon.dev&account.id=${CLOUDFLARE_ACCOUNT_ID}" \
+              -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}") || lookup_status=$?
+            if [ "$lookup_status" -ne 0 ]; then
+              echo "::warning::Skipping CDN purge (curl ${lookup_status}): zone lookup failed. Set CLOUDFLARE_ZONE_ID or purge Prefix useavalon.dev/pagefind/ manually."
+              exit 0
             fi
-          }
-          mapfile -t files < <(find dist/pagefind -type f | sed 's#^dist/#https://useavalon.dev/#')
-          if [ "${#files[@]}" -eq 0 ]; then
-            echo "::error::No Pagefind files under dist/pagefind to purge."
-            exit 1
-          fi
-          # API allows 30 URLs per request.
-          batch=()
-          for url in "${files[@]}"; do
-            batch+=("$url")
-            if [ "${#batch[@]}" -eq 30 ]; then
-              purge_pagefind_batch "$(jq -n --argjson files "$(printf '%s\n' "${batch[@]}" | jq -R . | jq -s .)" '{files: $files}')"
-              batch=()
+            if [ "$(printf '%s' "$lookup" | jq -r '.success')" != "true" ]; then
+              code=$(printf '%s' "$lookup" | jq -r '.errors[0].code // "unknown"')
+              msg=$(printf '%s' "$lookup" | jq -r '.errors[0].message // .')
+              echo "::warning::Skipping CDN purge (${code}): ${msg}. Set CLOUDFLARE_ZONE_ID (+ Cache Purge on the zone) or purge Prefix useavalon.dev/pagefind/ manually."
+              exit 0
             fi
-          done
-          if [ "${#batch[@]}" -gt 0 ]; then
-            purge_pagefind_batch "$(jq -n --argjson files "$(printf '%s\n' "${batch[@]}" | jq -R . | jq -s .)" '{files: $files}')"
+            zone_id=$(printf '%s' "$lookup" | jq -r '.result[0].id // empty')
           fi
-          echo "Purged ${#files[@]} Pagefind URL(s) on useavalon.dev."
+          if [ -z "$zone_id" ]; then
+            echo "::warning::No Cloudflare zone for useavalon.dev in this account; skipping CDN purge."
+            exit 0
+          fi
+          payload=$(jq -n --arg prefix 'useavalon.dev/pagefind' '{prefixes: [$prefix]}')
+          response=""
+          purge_status=0
+          response=$(curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/${zone_id}/purge_cache" \
+            -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "$payload") || purge_status=$?
+          if [ "$purge_status" -ne 0 ]; then
+            echo "::warning::Skipping CDN purge (curl ${purge_status}): purge request failed. Deploy succeeded; purge Prefix useavalon.dev/pagefind/ manually if needed."
+            exit 0
+          fi
+          if [ "$(printf '%s' "$response" | jq -r '.success')" != "true" ]; then
+            code=$(printf '%s' "$response" | jq -r '.errors[0].code // "unknown"')
+            msg=$(printf '%s' "$response" | jq -r '.errors[0].message // .')
+            echo "::warning::CDN purge failed (${code}): ${msg}. Deploy succeeded; purge Prefix useavalon.dev/pagefind/ in the dashboard if search CSP looks stale."
+            exit 0
+          fi
+          echo "Purged CDN prefix useavalon.dev/pagefind on zone ${zone_id}."
 
       - name: Verify production Pagefind CSP
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
