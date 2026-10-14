@@ -5,7 +5,7 @@ import { seo } from "@useavalon/seo";
 import { resolveSiteUrl } from "@useavalon/seo/site-config";
 import { defineConfig, type UserConfig } from "vite";
 import { ssrCacheUntilDeploy } from "./deploy-revision.ts";
-import { securityHeaders } from "./security-headers.ts";
+import { securityHeaders, securityHeadersWithoutCsp } from "./security-headers.ts";
 import { wwwSeoConfig } from "./seo.config.ts";
 import { quietDevWarningsPlugin } from "./vite-quiet-dev-warnings.ts";
 
@@ -38,40 +38,66 @@ export default defineConfig(async (): Promise<UserConfig> => {
 			clientEntry: "app/entry-client",
 			globalCSS: ["app/shared/styles/main.css"],
 			routeRules: {
-				"/**": {
-					headers: securityHeaders,
-				},
+				// Static assets: cache + non-CSP headers only (CSP comes from Cloudflare `_headers`).
 				"/assets/**": {
 					headers: {
-						...securityHeaders,
+						...securityHeadersWithoutCsp,
 						"Cache-Control": "public, max-age=31536000, immutable",
 					},
 				},
 				"/chunks/**": {
 					headers: {
-						...securityHeaders,
+						...securityHeadersWithoutCsp,
 						"Cache-Control": "public, max-age=31536000, immutable",
+					},
+				},
+				"/fonts/**": {
+					headers: {
+						...securityHeadersWithoutCsp,
+						"Cache-Control": "public, max-age=31536000, immutable",
+					},
+				},
+				"/islands/**": {
+					headers: {
+						...securityHeadersWithoutCsp,
+						"Cache-Control": "public, max-age=0, must-revalidate",
 					},
 				},
 				"/favicon.ico": {
 					headers: {
-						...securityHeaders,
+						...securityHeadersWithoutCsp,
+						"Cache-Control": "public, max-age=86400",
+					},
+				},
+				"/font-faces.css": {
+					headers: {
+						...securityHeadersWithoutCsp,
 						"Cache-Control": "public, max-age=86400",
 					},
 				},
 				"/syntax-highlighting.css": {
 					headers: {
-						...securityHeaders,
+						...securityHeadersWithoutCsp,
+						"Cache-Control": "public, max-age=3600, must-revalidate",
+					},
+				},
+				"/pagefind/**": {
+					headers: {
+						...securityHeadersWithoutCsp,
 						"Cache-Control": "public, max-age=3600, must-revalidate",
 					},
 				},
 				// SSR fallback when a route is not prerendered (www-only; see deploy-revision.ts).
-				"/": { cache: ssrCacheUntilDeploy() },
-				"/docs/**": { cache: ssrCacheUntilDeploy() },
-				"/blog/**": { cache: ssrCacheUntilDeploy() },
-				"/demo/**": { cache: ssrCacheUntilDeploy() },
-				"/search/**": { cache: ssrCacheUntilDeploy() },
-				"/api/**": { cache: false },
+				"/": { headers: securityHeaders, cache: ssrCacheUntilDeploy() },
+				"/docs/**": { headers: securityHeaders, cache: ssrCacheUntilDeploy() },
+				"/blog/**": { headers: securityHeaders, cache: ssrCacheUntilDeploy() },
+				"/demo/**": { headers: securityHeaders, cache: ssrCacheUntilDeploy() },
+				"/search/**": { headers: securityHeaders, cache: ssrCacheUntilDeploy() },
+				"/api/**": { headers: securityHeaders, cache: false },
+				"/_server-islands/**": { headers: securityHeaders, cache: false },
+				"/**": {
+					headers: securityHeadersWithoutCsp,
+				},
 			},
 			runtimeConfig: {
 				appName: "Avalon Demo",

@@ -425,9 +425,13 @@ export function createNitroConfig(
 
 	// Create default route rules for static assets
 	const defaultStaticRouteRules = createDefaultStaticAssetRouteRules(staticAssetsConfig);
+	const defaultFrameworkRouteRules = createDefaultFrameworkRouteRules();
 
-	// Merge user route rules with default static asset rules
-	const routeRules = mergeRouteRules(defaultStaticRouteRules, avalonNitroConfig.routeRules ?? {});
+	// Merge user route rules with Avalon defaults (static cache + framework endpoints).
+	const routeRules = mergeRouteRules(
+		defaultStaticRouteRules,
+		mergeRouteRules(defaultFrameworkRouteRules, avalonNitroConfig.routeRules ?? {}),
+	);
 
 	// Configure public assets directories
 	const publicAssets: NitroConfigOutput["publicAssets"] = [
@@ -486,6 +490,18 @@ export function createNitroConfig(
  * @param config - Static assets configuration
  * @returns Route rules for static assets
  */
+/**
+ * Route rules for built-in dynamic endpoints (server islands, server actions).
+ * Apps that attach CSP via `routeRules` should add matching `headers` on these
+ * paths when using a catch-all rule without CSP for static assets.
+ */
+export function createDefaultFrameworkRouteRules(): Record<string, RouteRule> {
+	return {
+		"/_server-islands/**": { cache: false },
+		"/_actions/**": { cache: false },
+	};
+}
+
 export function createDefaultStaticAssetRouteRules(
 	config: StaticAssetsConfig,
 ): Record<string, RouteRule> {
