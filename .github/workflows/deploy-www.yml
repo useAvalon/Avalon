@@ -145,6 +145,14 @@ jobs:
             echo "::error::Expected ssr-index-*.css in dist/assets after merge."
             exit 1
           fi
+          if ! grep -q 'wasm-unsafe-eval' dist/_headers; then
+            echo "::error::dist/_headers missing wasm-unsafe-eval in CSP."
+            exit 1
+          fi
+          if ! grep -q '/pagefind/\*' dist/_headers; then
+            echo "::error::dist/_headers missing /pagefind/* CSP block."
+            exit 1
+          fi
           echo "Prerendered HTML and matching assets merged into Cloudflare dist."
 
       # bunx, not wrangler-action install: `npm i` inside www/ fails on workspace:^ deps.

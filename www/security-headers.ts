@@ -1,7 +1,8 @@
 /** CSP fragments shared with `public/_headers` (keep in sync). */
 export const contentSecurityPolicy =
 	"default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; " +
-	"script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self'; " +
+	// Pagefind WASM workers need wasm-unsafe-eval on the worker script response; some engines still check unsafe-eval.
+	"script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' 'unsafe-eval'; worker-src 'self' blob:; " +
 	"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; " +
 	"connect-src 'self'; upgrade-insecure-requests";
 

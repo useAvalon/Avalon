@@ -65,6 +65,12 @@ export default defineConfig(async (): Promise<UserConfig> => {
 						"Cache-Control": "public, max-age=3600, must-revalidate",
 					},
 				},
+				"/pagefind/**": {
+					headers: {
+						...securityHeaders,
+						"Cache-Control": "public, max-age=3600, must-revalidate",
+					},
+				},
 				// SSR fallback when a route is not prerendered (www-only; see deploy-revision.ts).
 				"/": { cache: ssrCacheUntilDeploy() },
 				"/docs/**": { cache: ssrCacheUntilDeploy() },
