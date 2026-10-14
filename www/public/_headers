@@ -12,6 +12,12 @@
 /pagefind/*
   Cache-Control: public, max-age=3600, must-revalidate
 
+/pagefind/pagefind-worker.js
+  Cache-Control: public, no-cache, must-revalidate
+
+/pagefind/pagefind.js
+  Cache-Control: public, no-cache, must-revalidate
+
 /*.html
   Cache-Control: public, max-age=3600, s-maxage=31536000
 

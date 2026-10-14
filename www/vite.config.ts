@@ -4,7 +4,7 @@ import { avalon } from "@useavalon/avalon";
 import { seo } from "@useavalon/seo";
 import { resolveSiteUrl } from "@useavalon/seo/site-config";
 import { defineConfig, type UserConfig } from "vite";
-import { ssrCacheUntilDeploy } from "./deploy-revision.ts";
+import { deployRevision, ssrCacheUntilDeploy } from "./deploy-revision.ts";
 import { securityHeaders, securityHeadersWithoutCsp } from "./security-headers.ts";
 import { wwwSeoConfig } from "./seo.config.ts";
 import { quietDevWarningsPlugin } from "./vite-quiet-dev-warnings.ts";
@@ -181,6 +181,10 @@ export default defineConfig(async (): Promise<UserConfig> => {
 			}),
 			avalonPlugins,
 		].flat(),
+
+		define: {
+			__AVALON_DEPLOY_REVISION__: JSON.stringify(deployRevision()),
+		},
 
 		build: {
 			outDir: "dist",

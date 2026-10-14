@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "preact/hooks";
+import { pagefindAssetUrl } from "../../../pagefind-assets.ts";
 
 /**
  * Pagefind search modal — loads the Component UI on the client.
@@ -14,11 +15,12 @@ export default function SearchModal() {
 			loaded.current = true;
 
 			// Check if Pagefind assets exist before loading
-			fetch("/pagefind/pagefind-component-ui.js", { method: "HEAD" })
+			const uiJs = pagefindAssetUrl("/pagefind/pagefind-component-ui.js");
+			fetch(uiJs, { method: "HEAD" })
 				.then((res) => {
 					if (!res.ok) return;
 
-					const cssHref = "/pagefind/pagefind-component-ui.css";
+					const cssHref = pagefindAssetUrl("/pagefind/pagefind-component-ui.css");
 					let link = document.querySelector<HTMLLinkElement>(
 						`link[href*="pagefind-component-ui.css"]`,
 					);
@@ -34,7 +36,7 @@ export default function SearchModal() {
 					if (!document.querySelector('script[src*="pagefind-component-ui.js"]')) {
 						const script = document.createElement("script");
 						script.type = "module";
-						script.src = "/pagefind/pagefind-component-ui.js";
+						script.src = uiJs;
 						document.head.appendChild(script);
 					}
 				})
