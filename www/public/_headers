@@ -8,9 +8,8 @@
   Vary: Accept-Encoding
   Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; upgrade-insecure-requests
 
-# Worker scripts must carry the same CSP as HTML or WASM compile fails (ASSETS path).
+# Pagefind assets inherit CSP from /* above; cache only here to avoid duplicate policies.
 /pagefind/*
-  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; upgrade-insecure-requests
   Cache-Control: public, max-age=3600, must-revalidate
 
 /*.html
