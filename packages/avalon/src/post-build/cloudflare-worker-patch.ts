@@ -125,8 +125,11 @@ export function patchCloudflareRoutesForStaticHtml(cwd: string): boolean {
 		exclude: [
 			"/",
 			"/assets/*",
+			"/fonts/*",
 			"/islands/*",
 			"/pagefind/*",
+			"/font-faces.css",
+			"/syntax-highlighting.css",
 			"/*.html",
 			"/*.svg",
 			"/*.ico",

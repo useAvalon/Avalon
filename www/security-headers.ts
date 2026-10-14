@@ -6,13 +6,18 @@ export const contentSecurityPolicy =
 	"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; " +
 	"connect-src 'self'; upgrade-insecure-requests";
 
-/** Shared security headers for Nitro routeRules and static `_headers`. */
-export const securityHeaders: Record<string, string> = {
+/** Headers applied on every response except CSP (see below). */
+export const securityHeadersWithoutCsp: Record<string, string> = {
 	"Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
 	"X-Frame-Options": "DENY",
 	"X-Content-Type-Options": "nosniff",
 	"Referrer-Policy": "strict-origin-when-cross-origin",
 	"Permissions-Policy": "camera=(), microphone=(), geolocation=()",
 	Vary: "Accept-Encoding",
+};
+
+/** Full set for SSR and API responses from the Worker (includes CSP). */
+export const securityHeaders: Record<string, string> = {
+	...securityHeadersWithoutCsp,
 	"Content-Security-Policy": contentSecurityPolicy,
 };
