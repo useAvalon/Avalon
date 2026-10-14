@@ -1,5 +1,13 @@
 # @useavalon/avalon
 
+## 0.7.1
+
+### Patch Changes
+
+- [#125](https://github.com/useAvalon/Avalon/pull/125) [`353fd2e`](https://github.com/useAvalon/Avalon/commit/353fd2efa7d17c1969384b7e39316a176ecc24c9) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Exclude root font and syntax CSS from Cloudflare Pages Functions so static `_headers` CSP applies without duplicate Worker policies. Default Nitro `routeRules` disable cache on `/_server-islands/**` and `/_actions/**`.
+- Updated dependencies []:
+  - @useavalon/core@0.7.1
+
 ## 0.7.0
 
 ### Patch Changes
