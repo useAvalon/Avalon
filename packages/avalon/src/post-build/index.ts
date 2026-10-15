@@ -41,6 +41,7 @@ import { patchSSRBundleCSS } from "./patch-ssr-bundle-css.ts";
 import { type PrerenderConfig, prerenderIfConfigured } from "./prerender.ts";
 
 export { patchCloudflareRoutesAfterPrerender } from "./cloudflare-worker-patch.ts";
+export { optimizePrerenderedHtml } from "./html-optimize.ts";
 export { patchSSRBundleCSS } from "./patch-ssr-bundle-css.ts";
 export { isNetlifyHandler, type PrerenderConfig } from "./prerender.ts";
 

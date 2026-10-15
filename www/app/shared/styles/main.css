@@ -1,4 +1,3 @@
 /* Main CSS - shared across all modules */
 @import "./reset.css";
 @import "./tokens.css";
-@import "./syntax-highlighting.css";
