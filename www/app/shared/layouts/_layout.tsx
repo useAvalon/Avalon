@@ -19,7 +19,29 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 				<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 				<title>{title}</title>
 				<link rel="icon" href="/favicon.ico" />
-				<link rel="stylesheet" href="/font-faces.css" />
+				<link
+					rel="preload"
+					href="/fonts/instrument-sans-400.ttf"
+					as="font"
+					type="font/ttf"
+					crossOrigin="anonymous"
+				/>
+				<link
+					rel="preload"
+					href="/fonts/instrument-sans-700.ttf"
+					as="font"
+					type="font/ttf"
+					crossOrigin="anonymous"
+				/>
+				<link
+					rel="stylesheet"
+					href="/font-faces.css"
+					media="print"
+					{...{ onload: "this.media='all'" }}
+				/>
+				<noscript>
+					<link rel="stylesheet" href="/font-faces.css" />
+				</noscript>
 				{description && <meta name="description" content={description} />}
 				<script
 					dangerouslySetInnerHTML={{
@@ -33,12 +55,15 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 						].join(""),
 					}}
 				/>
-				<link rel="stylesheet" href="/syntax-highlighting.css" data-critical />
 				<link
 					rel="stylesheet"
-					href="/pagefind/pagefind-component-ui.css"
-					data-router-persist="pagefind-ui"
+					href="/syntax-highlighting.css"
+					media="print"
+					{...{ onload: "this.media='all'" }}
 				/>
+				<noscript>
+					<link rel="stylesheet" href="/syntax-highlighting.css" />
+				</noscript>
 			</head>
 			<body class={styles.body}>
 				<header class={styles.nav} data-router-persist="site-nav">
@@ -77,7 +102,9 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 								type="button"
 								class={styles.navSearchBtn}
 								aria-label="Search documentation"
-								{...{ onclick: "document.querySelector('pagefind-modal')?.open?.()" }}
+								{...{
+									onclick: "document.dispatchEvent(new CustomEvent('avalon:open-search'))",
+								}}
 							>
 								<svg
 									class={styles.navSearchIcon}

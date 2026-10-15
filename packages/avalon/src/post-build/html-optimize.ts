@@ -3,8 +3,10 @@ import { join } from "node:path";
 import { collectFiles } from "./fs-utils.ts";
 import { hoistBodyStylesToHead } from "./hoist-body-styles.ts";
 
-/** Maximum CSS size (in bytes) to inline into HTML. */
-const CSS_INLINE_THRESHOLD = 14_336;
+/** Maximum CSS size (in bytes) to inline into HTML (main site bundle is ~17 KiB). */
+const CSS_INLINE_THRESHOLD = 20_480;
+
+const DEFER_SAME_ORIGIN_STYLESHEET = /^\/(?:font-faces|syntax-highlighting)\.css$|^\/pagefind\//;
 
 const GLOBAL_STYLESHEET_LINK_RE =
 	/<link\s+rel="stylesheet"\s+href="(\/assets\/(?:ssr-)?index-[^"]+\.css)">/i;
@@ -111,7 +113,13 @@ function deferNonCriticalStylesheets(html: string): string {
 
 		const href = hrefResult[1];
 		const isExternal = href.startsWith("https://") || href.startsWith("http://");
-		if (!isExternal) {
+		const isMainSsrBundle = /^\/assets\/ssr-index-[^/]+\.css$/i.test(href);
+		const deferSameOrigin = DEFER_SAME_ORIGIN_STYLESHEET.test(href);
+		if (!isExternal && !deferSameOrigin) {
+			result += fullMatch;
+			continue;
+		}
+		if (isMainSsrBundle) {
 			result += fullMatch;
 			continue;
 		}

@@ -1,59 +1,64 @@
 import { useEffect, useRef } from "preact/hooks";
 import { pagefindAssetUrl } from "../../../pagefind-assets.ts";
 
+let pagefindAssetsPromise: Promise<void> | null = null;
+
+function loadPagefindAssets(): Promise<void> {
+	if (pagefindAssetsPromise) return pagefindAssetsPromise;
+
+	pagefindAssetsPromise = (async () => {
+		const uiJs = pagefindAssetUrl("/pagefind/pagefind-component-ui.js");
+		const head = await fetch(uiJs, { method: "HEAD" });
+		if (!head.ok) return;
+
+		const cssHref = pagefindAssetUrl("/pagefind/pagefind-component-ui.css");
+		let link = document.querySelector<HTMLLinkElement>(`link[href*="pagefind-component-ui.css"]`);
+		if (!link) {
+			link = document.createElement("link");
+			link.rel = "stylesheet";
+			link.href = cssHref;
+			document.head.appendChild(link);
+		}
+		link.dataset.routerPersist = "pagefind-ui";
+
+		if (!document.querySelector('script[src*="pagefind-component-ui.js"]')) {
+			const script = document.createElement("script");
+			script.type = "module";
+			script.src = uiJs;
+			document.head.appendChild(script);
+		}
+	})().catch(() => {
+		pagefindAssetsPromise = null;
+	});
+
+	return pagefindAssetsPromise;
+}
+
 /**
- * Pagefind search modal — loads the Component UI on the client.
- * The modal opens when the trigger button is clicked (⌘K).
+ * Pagefind search modal — loads the Component UI on first open (⌘K or search button).
  * Gracefully handles missing Pagefind (dev mode without a build).
  */
 export default function SearchModal() {
 	const containerRef = useRef<HTMLDivElement>(null);
-	const loaded = useRef(false);
 
 	useEffect(() => {
-		if (!loaded.current) {
-			loaded.current = true;
+		const openSearch = () => {
+			void loadPagefindAssets().then(() => {
+				const modal = containerRef.current?.querySelector<PagefindModalElement>("pagefind-modal");
+				modal?.open?.();
+			});
+		};
 
-			// Check if Pagefind assets exist before loading
-			const uiJs = pagefindAssetUrl("/pagefind/pagefind-component-ui.js");
-			fetch(uiJs, { method: "HEAD" })
-				.then((res) => {
-					if (!res.ok) return;
-
-					const cssHref = pagefindAssetUrl("/pagefind/pagefind-component-ui.css");
-					let link = document.querySelector<HTMLLinkElement>(
-						`link[href*="pagefind-component-ui.css"]`,
-					);
-					if (!link) {
-						link = document.createElement("link");
-						link.rel = "stylesheet";
-						link.href = cssHref;
-						document.head.appendChild(link);
-					}
-					// Survive client-router head reconcile — this href is not in SSR HTML.
-					link.dataset.routerPersist = "pagefind-ui";
-
-					if (!document.querySelector('script[src*="pagefind-component-ui.js"]')) {
-						const script = document.createElement("script");
-						script.type = "module";
-						script.src = uiJs;
-						document.head.appendChild(script);
-					}
-				})
-				.catch(() => {
-					// Pagefind not available (dev mode) — silently skip
-				});
-		}
-
-		// Always register keyboard handler (survives StrictMode remount)
 		const handleKeydown = (e: KeyboardEvent) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === "k") {
 				e.preventDefault();
-				const modal = containerRef.current?.querySelector<PagefindModalElement>("pagefind-modal");
-				if (modal?.open) modal.open();
+				openSearch();
 			}
 		};
 		document.addEventListener("keydown", handleKeydown);
+
+		const handleOpenSearch = () => openSearch();
+		document.addEventListener("avalon:open-search", handleOpenSearch);
 
 		const modalElement = () =>
 			containerRef.current?.querySelector<PagefindModalElement>("pagefind-modal");
@@ -63,7 +68,6 @@ export default function SearchModal() {
 			if (modal?.isOpen) modal.close();
 		};
 
-		// Pagefind does not always close on result navigation (same-page anchors, client router).
 		const handleResultClick = (e: MouseEvent) => {
 			const target = e.target;
 			if (!(target instanceof Element)) return;
@@ -79,6 +83,7 @@ export default function SearchModal() {
 
 		return () => {
 			document.removeEventListener("keydown", handleKeydown);
+			document.removeEventListener("avalon:open-search", handleOpenSearch);
 			document.removeEventListener("click", handleResultClick, true);
 			window.removeEventListener("hashchange", handleHashChange);
 		};
