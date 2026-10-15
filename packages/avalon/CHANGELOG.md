@@ -1,5 +1,15 @@
 # @useavalon/avalon
 
+## 0.7.2
+
+### Patch Changes
+
+- [#129](https://github.com/useAvalon/Avalon/pull/129) [`8952ce1`](https://github.com/useAvalon/Avalon/commit/8952ce1e158d6b92dacec9ee43217116dd4a7250) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Improve Cloudflare Pages static routing: emit `404.html` to avoid SPA fallback, exclude all prerendered HTML paths from the Pages Function, and align prerendered route cache headers.
+
+- [#131](https://github.com/useAvalon/Avalon/pull/131) [`d1cf0df`](https://github.com/useAvalon/Avalon/commit/d1cf0df40c10b8bd0dab84eaffa82543816f7e97) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Inline larger SSR CSS bundles in prerendered HTML and defer non-critical first-party stylesheets during post-build optimization.
+- Updated dependencies []:
+  - @useavalon/core@0.7.2
+
 ## 0.7.1
 
 ### Patch Changes
