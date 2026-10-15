@@ -3,13 +3,50 @@ import { pagefindAssetUrl } from "../../../pagefind-assets.ts";
 
 let pagefindAssetsPromise: Promise<void> | null = null;
 
+function isPagefindUnavailableStatus(status: number): boolean {
+	// Built output missing (local dev) — not a transient failure.
+	return status === 404 || status === 405;
+}
+
+function loadPagefindModuleScript(src: string): Promise<void> {
+	const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+	if (existing?.dataset.pagefindLoaded === "true") {
+		return Promise.resolve();
+	}
+
+	return new Promise((resolve, reject) => {
+		const script = existing ?? document.createElement("script");
+		if (!existing) {
+			script.type = "module";
+			script.src = src;
+			document.head.appendChild(script);
+		}
+
+		script.addEventListener(
+			"load",
+			() => {
+				script.dataset.pagefindLoaded = "true";
+				resolve();
+			},
+			{ once: true },
+		);
+		script.addEventListener("error", () => reject(new Error("Pagefind UI script failed to load")), {
+			once: true,
+		});
+	});
+}
+
+/** Loads Pagefind Component UI assets once; rejects on retryable failures so later opens can retry. */
 function loadPagefindAssets(): Promise<void> {
 	if (pagefindAssetsPromise) return pagefindAssetsPromise;
 
 	pagefindAssetsPromise = (async () => {
 		const uiJs = pagefindAssetUrl("/pagefind/pagefind-component-ui.js");
 		const head = await fetch(uiJs, { method: "HEAD" });
-		if (!head.ok) return;
+		if (!head.ok) {
+			if (isPagefindUnavailableStatus(head.status)) return;
+			throw new Error(`Pagefind HEAD failed: ${head.status}`);
+		}
 
 		const cssHref = pagefindAssetUrl("/pagefind/pagefind-component-ui.css");
 		let link = document.querySelector<HTMLLinkElement>(`link[href*="pagefind-component-ui.css"]`);
@@ -21,14 +58,11 @@ function loadPagefindAssets(): Promise<void> {
 		}
 		link.dataset.routerPersist = "pagefind-ui";
 
-		if (!document.querySelector('script[src*="pagefind-component-ui.js"]')) {
-			const script = document.createElement("script");
-			script.type = "module";
-			script.src = uiJs;
-			document.head.appendChild(script);
-		}
-	})().catch(() => {
+		await loadPagefindModuleScript(uiJs);
+		await customElements.whenDefined("pagefind-modal");
+	})().catch((error) => {
 		pagefindAssetsPromise = null;
+		throw error;
 	});
 
 	return pagefindAssetsPromise;
@@ -43,10 +77,14 @@ export default function SearchModal() {
 
 	useEffect(() => {
 		const openSearch = () => {
-			void loadPagefindAssets().then(() => {
-				const modal = containerRef.current?.querySelector<PagefindModalElement>("pagefind-modal");
-				modal?.open?.();
-			});
+			void loadPagefindAssets()
+				.then(() => {
+					const modal = containerRef.current?.querySelector<PagefindModalElement>("pagefind-modal");
+					modal?.open?.();
+				})
+				.catch(() => {
+					// Missing Pagefind in dev or transient CDN error — no modal to open.
+				});
 		};
 
 		const handleKeydown = (e: KeyboardEvent) => {

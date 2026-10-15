@@ -27,7 +27,11 @@ describe("optimizePrerenderedHtml", () => {
 </head><body></body></html>`,
 		);
 		mkdirSync(join(dist, "assets"), { recursive: true });
-		writeFileSync(join(dist, "assets", "ssr-index-abc.css"), "body{color:red}");
+		// Exceeds the previous 14_336-byte inline threshold; still under the new 20_480-byte cap.
+		writeFileSync(
+			join(dist, "assets", "ssr-index-abc.css"),
+			`body{color:red}${"x".repeat(14_337 - 15)}`,
+		);
 
 		optimizePrerenderedHtml(cwd, dist);
 		const html = readFileSync(join(dist, "index.html"), "utf-8");
