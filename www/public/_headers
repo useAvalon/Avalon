@@ -21,6 +21,18 @@
 /*.html
   Cache-Control: public, max-age=3600, s-maxage=31536000
 
+/404.html
+  Cache-Control: public, max-age=3600, s-maxage=31536000
+
+/docs/*
+  Cache-Control: public, max-age=3600, s-maxage=31536000
+
+/blog/*
+  Cache-Control: public, max-age=3600, s-maxage=31536000
+
+/demo/*
+  Cache-Control: public, max-age=3600, s-maxage=31536000
+
 /
   Cache-Control: public, max-age=3600, s-maxage=31536000
 

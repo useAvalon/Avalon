@@ -136,6 +136,10 @@ jobs:
             echo "::error::dist/index.html missing after prerender merge."
             exit 1
           fi
+          if [ ! -f dist/404.html ]; then
+            echo "::error::dist/404.html missing (Cloudflare Pages SPA fallback prevention)."
+            exit 1
+          fi
           if [ ! -f dist/_routes.json ]; then
             echo "::error::dist/_routes.json missing after build."
             exit 1
