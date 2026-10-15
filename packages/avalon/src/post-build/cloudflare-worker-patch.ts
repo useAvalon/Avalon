@@ -110,6 +110,9 @@ export function injectCloudflareDomStub(workerDir: string): boolean {
 	return changed;
 }
 
+/** Cloudflare Pages allows at most 100 `include` + `exclude` rules combined. */
+export const CLOUDFLARE_PAGES_MAX_ROUTE_RULES = 100;
+
 const CLOUDFLARE_STATIC_ASSET_EXCLUDES = [
 	"/",
 	"/assets/*",
@@ -142,7 +145,7 @@ const DIST_NON_PAGE_DIRS = new Set([
 
 /**
  * Collects URL paths for each prerendered index.html (e.g. `/docs/foo`).
- * Cloudflare Pages serves these from ASSETS when the path is listed in `_routes.json` exclude.
+ * Used to derive wildcard `_routes.json` excludes without one rule per page.
  */
 export function collectPrerenderedHtmlPaths(distDir: string): string[] {
 	const paths: string[] = [];
@@ -163,6 +166,48 @@ export function collectPrerenderedHtmlPaths(distDir: string): string[] {
 
 	walk(distDir);
 	return paths;
+}
+
+/**
+ * Collapses prerendered paths into wildcard excludes (`/docs/*` covers nested docs).
+ * Single-segment pages (e.g. `/about`) stay as exact excludes.
+ */
+export function prerenderedPathWildcardExcludes(paths: readonly string[]): string[] {
+	const wildcards = new Set<string>();
+	const exact = new Set<string>();
+
+	for (const path of paths) {
+		if (path === "/") continue;
+		const segments = path.split("/").filter(Boolean);
+		if (segments.length === 0) continue;
+		if (segments.length === 1) {
+			exact.add(`/${segments[0]}`);
+			continue;
+		}
+		wildcards.add(`/${segments[0]}/*`);
+	}
+
+	return [...wildcards, ...exact];
+}
+
+/**
+ * Builds the exclude list for `_routes.json`, staying within Cloudflare's rule cap.
+ * Falls back to static asset excludes only when wildcards would still exceed the limit.
+ */
+export function buildCloudflareRoutesExclude(distDir: string, includeRuleCount: number): string[] {
+	const exclude = new Set<string>(CLOUDFLARE_STATIC_ASSET_EXCLUDES);
+	for (const rule of prerenderedPathWildcardExcludes(collectPrerenderedHtmlPaths(distDir))) {
+		exclude.add(rule);
+	}
+
+	if (includeRuleCount + exclude.size > CLOUDFLARE_PAGES_MAX_ROUTE_RULES) {
+		console.warn(
+			`[cloudflare] _routes.json would exceed ${CLOUDFLARE_PAGES_MAX_ROUTE_RULES} rules (${includeRuleCount + exclude.size}); using static excludes only (narrow include still limits Functions)`,
+		);
+		return [...CLOUDFLARE_STATIC_ASSET_EXCLUDES].sort();
+	}
+
+	return [...exclude].sort();
 }
 
 const MINIMAL_CLOUDFLARE_404_HTML = `<!DOCTYPE html>
@@ -215,15 +260,10 @@ export function patchCloudflareRoutesForStaticHtml(cwd: string): boolean {
 		include.add("/api/*");
 	}
 
-	const exclude = new Set<string>(CLOUDFLARE_STATIC_ASSET_EXCLUDES);
-	for (const path of collectPrerenderedHtmlPaths(distDir)) {
-		exclude.add(path);
-	}
-
 	const next = {
 		version: 1,
 		include: [...include],
-		exclude: [...exclude].sort(),
+		exclude: buildCloudflareRoutesExclude(distDir, include.size),
 	};
 	writeFileSync(routesPath, `${JSON.stringify(next, null, 2)}\n`);
 	return true;

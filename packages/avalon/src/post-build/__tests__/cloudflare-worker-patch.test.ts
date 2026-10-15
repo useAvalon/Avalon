@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+	buildCloudflareRoutesExclude,
+	CLOUDFLARE_PAGES_MAX_ROUTE_RULES,
 	collectPrerenderedHtmlPaths,
 	ensureCloudflarePages404Html,
 	injectCloudflareDomStub,
@@ -10,6 +12,7 @@ import {
 	patchCloudflareRoutesAfterPrerender,
 	patchCloudflareRoutesForStaticHtml,
 	patchCloudflareWranglerJson,
+	prerenderedPathWildcardExcludes,
 } from "../cloudflare-worker-patch.ts";
 
 const dirs: string[] = [];
@@ -127,6 +130,30 @@ describe("patchCloudflareRoutesAfterPrerender", () => {
 	});
 });
 
+describe("prerenderedPathWildcardExcludes", () => {
+	it("collapses nested paths to one wildcard per top-level segment", () => {
+		expect(
+			prerenderedPathWildcardExcludes(["/", "/docs", "/docs/guides", "/about"]).sort(),
+		).toEqual(["/about", "/docs", "/docs/*"].sort());
+	});
+});
+
+describe("buildCloudflareRoutesExclude", () => {
+	it("falls back to static excludes when the rule cap would be exceeded", () => {
+		const cwd = mkdtempSync(join(tmpdir(), "avalon-cf-cap-"));
+		dirs.push(cwd);
+		mkdirSync(cwd, { recursive: true });
+
+		const manyPaths = Array.from(
+			{ length: CLOUDFLARE_PAGES_MAX_ROUTE_RULES },
+			(_, i) => `/${`page-${i}`}`,
+		);
+		const excludes = buildCloudflareRoutesExclude(cwd, manyPaths.length);
+		expect(excludes).not.toContain("/page-0");
+		expect(excludes).toContain("/assets/*");
+	});
+});
+
 describe("collectPrerenderedHtmlPaths", () => {
 	it("collects nested index.html paths", () => {
 		const cwd = mkdtempSync(join(tmpdir(), "avalon-cf-html-"));
@@ -172,6 +199,7 @@ describe("patchCloudflareRoutesForStaticHtml", () => {
 		expect(routes.include).not.toContain("/demo/data-fetching");
 		expect(routes.include).not.toContain("/*");
 		expect(routes.exclude).toContain("/");
-		expect(routes.exclude).toContain("/docs/foo");
+		expect(routes.exclude).toContain("/docs/*");
+		expect(routes.exclude).not.toContain("/docs/foo");
 	});
 });
