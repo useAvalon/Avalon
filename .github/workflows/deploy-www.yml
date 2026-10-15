@@ -115,8 +115,14 @@ jobs:
           mkdir -p dist
           rsync -a --exclude '_worker.js' "$PRERENDER_STASH/client/" dist/
           bun -e "
-          import { patchCloudflareRoutesAfterPrerender } from '@useavalon/avalon/post-build';
-          patchCloudflareRoutesAfterPrerender(process.cwd());
+          import { join } from 'node:path';
+          import {
+            optimizePrerenderedHtml,
+            patchCloudflareRoutesAfterPrerender,
+          } from '@useavalon/avalon/post-build';
+          const cwd = process.cwd();
+          patchCloudflareRoutesAfterPrerender(cwd);
+          optimizePrerenderedHtml(cwd, join(cwd, 'dist'));
           "
 
       - name: Build Pagefind index on merged dist
@@ -155,6 +161,9 @@ jobs:
           if ! grep -q 'wasm-unsafe-eval' dist/_headers; then
             echo "::error::dist/_headers missing wasm-unsafe-eval in CSP."
             exit 1
+          fi
+          if grep -q 'rel="stylesheet" href="/assets/ssr-index-' dist/index.html; then
+            echo "::warning::dist/index.html still has blocking ssr-index stylesheet (inline step may have missed CSS)."
           fi
           if ! grep -q '/pagefind/\*' dist/_headers; then
             echo "::error::dist/_headers missing /pagefind/* CSP block."

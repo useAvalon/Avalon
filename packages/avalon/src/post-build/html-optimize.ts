@@ -3,8 +3,8 @@ import { join } from "node:path";
 import { collectFiles } from "./fs-utils.ts";
 import { hoistBodyStylesToHead } from "./hoist-body-styles.ts";
 
-/** Maximum CSS size (in bytes) to inline into HTML (main site bundle is ~17 KiB). */
-const CSS_INLINE_THRESHOLD = 20_480;
+/** Maximum CSS size (in bytes) to inline into HTML (www ssr-index is ~17–22 KiB minified). */
+const CSS_INLINE_THRESHOLD = 32_768;
 
 const DEFER_SAME_ORIGIN_STYLESHEET = /^\/(?:font-faces|syntax-highlighting)\.css$|^\/pagefind\//;
 
@@ -33,6 +33,27 @@ function buildCSSCache(htmlDirs: string[]): Map<string, string> {
 	return cache;
 }
 
+function escapeRegExp(value: string): string {
+	return value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+}
+
+function stripSsrIndexStylesheetLinks(html: string, href: string): string {
+	const escaped = escapeRegExp(href);
+	return html
+		.replace(
+			new RegExp(String.raw`<link\s+rel="preload"\s+href="${escaped}"\s+as="style"\s*/?>\s*`, "gi"),
+			"",
+		)
+		.replace(
+			new RegExp(String.raw`<link\s+rel="stylesheet"\s+href="${escaped}"\s*/?>\s*`, "gi"),
+			"",
+		);
+}
+
+function asyncStylesheetLink(href: string): string {
+	return `<link rel="preload" href="${href}" as="style" onload="this.onload=null;this.rel='stylesheet'">\n<noscript><link rel="stylesheet" href="${href}"></noscript>`;
+}
+
 function inlineOrPreloadGlobalCSS(html: string, cssCache: Map<string, string>): string {
 	const match = GLOBAL_STYLESHEET_LINK_RE.exec(html);
 	if (!match) return html;
@@ -41,16 +62,20 @@ function inlineOrPreloadGlobalCSS(html: string, cssCache: Map<string, string>): 
 	const cssContent = cssCache.get(href);
 	if (!cssContent) return html;
 
-	if (Buffer.byteLength(cssContent, "utf-8") <= CSS_INLINE_THRESHOLD) {
-		const inlineStyle = `<style data-inlined-from="${href}">${cssContent}</style>`;
-		return html.replace(match[0], inlineStyle);
+	const minified = minifyCSS(cssContent);
+	if (Buffer.byteLength(minified, "utf-8") <= CSS_INLINE_THRESHOLD) {
+		const inlineStyle = `<style data-inlined-from="${href}">${minified}</style>`;
+		let out = html.replace(match[0], inlineStyle);
+		out = stripSsrIndexStylesheetLinks(out, href);
+		return out;
 	}
 
-	const preloadHint = `<link rel="preload" href="${href}" as="style">`;
-	if (html.includes("</title>") && !html.includes(`preload" href="${href}"`)) {
-		return html.replace("</title>", `</title>\n${preloadHint}`);
+	let out = stripSsrIndexStylesheetLinks(html, href);
+	if (!out.includes(`href="${href}"`)) {
+		const insertAt = out.includes("</title>") ? "</title>" : "<head>";
+		out = out.replace(insertAt, `${insertAt}\n${asyncStylesheetLink(href)}`);
 	}
-	return html;
+	return out;
 }
 
 function findLinkTags(html: string): Array<{ start: number; end: number; attrs: string }> {
