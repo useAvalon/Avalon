@@ -115,7 +115,8 @@ export default defineConfig(async (): Promise<UserConfig> => {
 			// Islands still hydrate on the client as normal.
 			prerender: {
 				crawlLinks: true,
-				routes: ["/"],
+				// `/404` is copied to `dist/404.html` for Cloudflare Pages (avoids SPA fallback to index.html).
+				routes: ["/", "/404"],
 				ignore: [],
 				failOnError: true,
 			},

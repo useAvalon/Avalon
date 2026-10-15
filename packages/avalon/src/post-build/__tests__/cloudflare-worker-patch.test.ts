@@ -3,11 +3,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+	buildCloudflareRoutesExclude,
+	CLOUDFLARE_PAGES_MAX_ROUTE_RULES,
+	collectPrerenderedHtmlPaths,
+	ensureCloudflarePages404Html,
 	injectCloudflareDomStub,
 	patchCloudflareCreateRequire,
 	patchCloudflareRoutesAfterPrerender,
 	patchCloudflareRoutesForStaticHtml,
 	patchCloudflareWranglerJson,
+	prerenderedPathWildcardExcludes,
 } from "../cloudflare-worker-patch.ts";
 
 const dirs: string[] = [];
@@ -125,6 +130,55 @@ describe("patchCloudflareRoutesAfterPrerender", () => {
 	});
 });
 
+describe("prerenderedPathWildcardExcludes", () => {
+	it("collapses nested paths to one wildcard per top-level segment", () => {
+		expect(
+			prerenderedPathWildcardExcludes(["/", "/docs", "/docs/guides", "/about"]).sort(),
+		).toEqual(["/about", "/docs", "/docs/*"].sort());
+	});
+});
+
+describe("buildCloudflareRoutesExclude", () => {
+	it("falls back to static excludes when the rule cap would be exceeded", () => {
+		const cwd = mkdtempSync(join(tmpdir(), "avalon-cf-cap-"));
+		dirs.push(cwd);
+		mkdirSync(cwd, { recursive: true });
+
+		const manyPaths = Array.from(
+			{ length: CLOUDFLARE_PAGES_MAX_ROUTE_RULES },
+			(_, i) => `/${`page-${i}`}`,
+		);
+		const excludes = buildCloudflareRoutesExclude(cwd, manyPaths.length);
+		expect(excludes).not.toContain("/page-0");
+		expect(excludes).toContain("/assets/*");
+	});
+});
+
+describe("collectPrerenderedHtmlPaths", () => {
+	it("collects nested index.html paths", () => {
+		const cwd = mkdtempSync(join(tmpdir(), "avalon-cf-html-"));
+		dirs.push(cwd);
+		mkdirSync(join(cwd, "docs", "guides"), { recursive: true });
+		writeFileSync(join(cwd, "index.html"), "<html></html>\n");
+		writeFileSync(join(cwd, "docs", "index.html"), "<html></html>\n");
+		writeFileSync(join(cwd, "docs", "guides", "index.html"), "<html></html>\n");
+
+		expect(collectPrerenderedHtmlPaths(cwd).sort()).toEqual(["/", "/docs", "/docs/guides"].sort());
+	});
+});
+
+describe("ensureCloudflarePages404Html", () => {
+	it("copies prerendered /404 page to 404.html", () => {
+		const cwd = mkdtempSync(join(tmpdir(), "avalon-cf-404-"));
+		dirs.push(cwd);
+		mkdirSync(join(cwd, "404"), { recursive: true });
+		writeFileSync(join(cwd, "404", "index.html"), "<html>custom 404</html>\n");
+
+		expect(ensureCloudflarePages404Html(cwd)).toBe(true);
+		expect(readFileSync(join(cwd, "404.html"), "utf-8")).toContain("custom 404");
+	});
+});
+
 describe("patchCloudflareRoutesForStaticHtml", () => {
 	it("limits Functions include to dynamic SSR paths", () => {
 		const cwd = mkdtempSync(join(tmpdir(), "avalon-cf-r-"));
@@ -135,6 +189,9 @@ describe("patchCloudflareRoutesForStaticHtml", () => {
 			JSON.stringify({ version: 1, include: ["/*"], exclude: ["/favicon.ico"] }),
 		);
 
+		mkdirSync(join(cwd, "dist", "docs", "foo"), { recursive: true });
+		writeFileSync(join(cwd, "dist", "docs", "foo", "index.html"), "<html></html>\n");
+
 		expect(patchCloudflareRoutesForStaticHtml(cwd)).toBe(true);
 		const routes = JSON.parse(readFileSync(join(cwd, "dist", "_routes.json"), "utf-8"));
 		expect(routes.include).toContain("/api/*");
@@ -142,5 +199,7 @@ describe("patchCloudflareRoutesForStaticHtml", () => {
 		expect(routes.include).not.toContain("/demo/data-fetching");
 		expect(routes.include).not.toContain("/*");
 		expect(routes.exclude).toContain("/");
+		expect(routes.exclude).toContain("/docs/*");
+		expect(routes.exclude).not.toContain("/docs/foo");
 	});
 });

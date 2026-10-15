@@ -8,8 +8,15 @@
  *    instead of ASSETS — amplify any SSR boot failure into a site-wide 500.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import {
+	copyFileSync,
+	existsSync,
+	readdirSync,
+	readFileSync,
+	statSync,
+	writeFileSync,
+} from "node:fs";
+import { join, relative } from "node:path";
 import { ssrDomStubFileSource } from "../vite-plugin/ssr-dom-shim-module.ts";
 
 const CREATE_REQUIRE_RE = /createRequire\(\s*import\.meta\.url\s*\)/g;
@@ -103,6 +110,140 @@ export function injectCloudflareDomStub(workerDir: string): boolean {
 	return changed;
 }
 
+/** Cloudflare Pages allows at most 100 `include` + `exclude` rules combined. */
+export const CLOUDFLARE_PAGES_MAX_ROUTE_RULES = 100;
+
+const CLOUDFLARE_STATIC_ASSET_EXCLUDES = [
+	"/",
+	"/assets/*",
+	"/fonts/*",
+	"/islands/*",
+	"/pagefind/*",
+	"/font-faces.css",
+	"/syntax-highlighting.css",
+	"/404.html",
+	"/*.html",
+	"/*.svg",
+	"/*.ico",
+	"/*.txt",
+	"/*.xml",
+	"/*.css",
+	"/*.js",
+	"/*.png",
+	"/*.webmanifest",
+];
+
+/** Directories under `dist/` that are never prerendered page trees. */
+const DIST_NON_PAGE_DIRS = new Set([
+	"assets",
+	"fonts",
+	"islands",
+	"pagefind",
+	"_worker.js",
+	"_routes",
+]);
+
+/**
+ * Collects URL paths for each prerendered index.html (e.g. `/docs/foo`).
+ * Used to derive wildcard `_routes.json` excludes without one rule per page.
+ */
+export function collectPrerenderedHtmlPaths(distDir: string): string[] {
+	const paths: string[] = [];
+	if (!existsSync(distDir)) return paths;
+
+	const walk = (absDir: string) => {
+		const indexPath = join(absDir, "index.html");
+		if (existsSync(indexPath)) {
+			const rel = relative(distDir, absDir).replaceAll("\\", "/");
+			paths.push(rel === "" ? "/" : `/${rel}`);
+		}
+		for (const entry of readdirSync(absDir, { withFileTypes: true })) {
+			if (!entry.isDirectory()) continue;
+			if (DIST_NON_PAGE_DIRS.has(entry.name) || entry.name.startsWith(".")) continue;
+			walk(join(absDir, entry.name));
+		}
+	};
+
+	walk(distDir);
+	return paths;
+}
+
+/**
+ * Collapses prerendered paths into wildcard excludes (`/docs/*` covers nested docs).
+ * Single-segment pages (e.g. `/about`) stay as exact excludes.
+ */
+export function prerenderedPathWildcardExcludes(paths: readonly string[]): string[] {
+	const wildcards = new Set<string>();
+	const exact = new Set<string>();
+
+	for (const path of paths) {
+		if (path === "/") continue;
+		const segments = path.split("/").filter(Boolean);
+		if (segments.length === 0) continue;
+		if (segments.length === 1) {
+			exact.add(`/${segments[0]}`);
+			continue;
+		}
+		wildcards.add(`/${segments[0]}/*`);
+	}
+
+	return [...wildcards, ...exact];
+}
+
+/**
+ * Builds the exclude list for `_routes.json`, staying within Cloudflare's rule cap.
+ * Falls back to static asset excludes only when wildcards would still exceed the limit.
+ */
+export function buildCloudflareRoutesExclude(distDir: string, includeRuleCount: number): string[] {
+	const exclude = new Set<string>(CLOUDFLARE_STATIC_ASSET_EXCLUDES);
+	for (const rule of prerenderedPathWildcardExcludes(collectPrerenderedHtmlPaths(distDir))) {
+		exclude.add(rule);
+	}
+
+	if (includeRuleCount + exclude.size > CLOUDFLARE_PAGES_MAX_ROUTE_RULES) {
+		console.warn(
+			`[cloudflare] _routes.json would exceed ${CLOUDFLARE_PAGES_MAX_ROUTE_RULES} rules (${includeRuleCount + exclude.size}); using static excludes only (narrow include still limits Functions)`,
+		);
+		return [...CLOUDFLARE_STATIC_ASSET_EXCLUDES].sort();
+	}
+
+	return [...exclude].sort();
+}
+
+const MINIMAL_CLOUDFLARE_404_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>404 Not Found</title>
+  <meta name="robots" content="noindex, nofollow">
+</head>
+<body>
+  <h1>404</h1>
+  <p>Page not found.</p>
+</body>
+</html>
+`;
+
+/**
+ * Without `404.html`, Cloudflare Pages assumes an SPA and serves `index.html` (200) for unknown URLs.
+ */
+export function ensureCloudflarePages404Html(distDir: string): boolean {
+	const root404 = join(distDir, "404.html");
+	if (existsSync(root404)) return false;
+
+	const fromPrerender = join(distDir, "404", "index.html");
+	if (existsSync(fromPrerender)) {
+		copyFileSync(fromPrerender, root404);
+		console.log("[cloudflare] Wrote dist/404.html from prerendered /404 page");
+		return true;
+	}
+
+	writeFileSync(root404, MINIMAL_CLOUDFLARE_404_HTML);
+	console.log("[cloudflare] Wrote minimal dist/404.html (add /404 to prerender for a custom page)");
+	return true;
+}
+
 /**
  * Prefer ASSETS for prerendered HTML: only send dynamic routes to the Function.
  * Nitro defaults to `include: ["/*"]`, which forces every page through SSR.
@@ -111,9 +252,10 @@ export function patchCloudflareRoutesForStaticHtml(cwd: string): boolean {
 	const routesPath = join(cwd, "dist", "_routes.json");
 	if (!existsSync(routesPath)) return false;
 
+	const distDir = join(cwd, "dist");
 	const include = new Set<string>(["/api/*", "/_server-islands/*", "/_actions/*"]);
 
-	const apiDir = join(cwd, "dist", "_worker.js", "_routes", "api");
+	const apiDir = join(distDir, "_worker.js", "_routes", "api");
 	if (existsSync(apiDir)) {
 		include.add("/api/*");
 	}
@@ -121,23 +263,7 @@ export function patchCloudflareRoutesForStaticHtml(cwd: string): boolean {
 	const next = {
 		version: 1,
 		include: [...include],
-		// Wrangler requires both keys. Exclude static trees so they never hit the Function.
-		exclude: [
-			"/",
-			"/assets/*",
-			"/fonts/*",
-			"/islands/*",
-			"/pagefind/*",
-			"/font-faces.css",
-			"/syntax-highlighting.css",
-			"/*.html",
-			"/*.svg",
-			"/*.ico",
-			"/*.txt",
-			"/*.xml",
-			"/*.css",
-			"/*.js",
-		],
+		exclude: buildCloudflareRoutesExclude(distDir, include.size),
 	};
 	writeFileSync(routesPath, `${JSON.stringify(next, null, 2)}\n`);
 	return true;
@@ -196,8 +322,14 @@ export function patchCloudflareRoutesAfterPrerender(cwd: string): boolean {
 		);
 		return false;
 	}
+	const distDir = join(cwd, "dist");
+	ensureCloudflarePages404Html(distDir);
+
 	if (patchCloudflareRoutesForStaticHtml(cwd)) {
-		console.log("[cloudflare] Limited _routes.json include to dynamic SSR paths");
+		const pageCount = collectPrerenderedHtmlPaths(distDir).length;
+		console.log(
+			`[cloudflare] Limited _routes.json include to dynamic SSR paths (${pageCount} prerendered HTML path(s) excluded)`,
+		);
 		return true;
 	}
 	return false;

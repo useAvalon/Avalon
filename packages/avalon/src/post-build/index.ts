@@ -28,6 +28,7 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import {
+	collectPrerenderedHtmlPaths,
 	patchCloudflareRoutesAfterPrerender,
 	patchCloudflareWorkerOutput,
 } from "./cloudflare-worker-patch.ts";
@@ -255,16 +256,7 @@ function buildManifestEntries(publicDir: string): string[] {
 }
 
 function findPrerenderedRoutes(publicDir: string): string[] {
-	const routes: string[] = [];
-	if (!existsSync(publicDir)) return routes;
-	for (const entry of readdirSync(publicDir, { withFileTypes: true })) {
-		if (!entry.isDirectory() && entry.name === "index.html") {
-			routes.push("/");
-		} else if (entry.isDirectory() && existsSync(join(publicDir, entry.name, "index.html"))) {
-			routes.push(`/${entry.name}`);
-		}
-	}
-	return routes;
+	return collectPrerenderedHtmlPaths(publicDir);
 }
 
 function patchServerManifest(
@@ -293,7 +285,7 @@ function patchServerManifest(
 	const faviconTag = "u===`/favicon.ico`&&d.unshift({data:e})";
 	for (const route of routes) {
 		if (code.includes(`route:\`${route}\``)) continue;
-		const rule = `[{name:\`headers\`,route:\`${route}\`,handler:x,options:{"Cache-Control":\`public, max-age=0, must-revalidate\`}}]`;
+		const rule = `[{name:\`headers\`,route:\`${route}\`,handler:x,options:{"Cache-Control":\`public, max-age=3600, s-maxage=31536000\`}}]`;
 		code = code.replace(faviconTag, `${faviconTag};u===\`${route}\`&&d.unshift({data:${rule}})`);
 	}
 

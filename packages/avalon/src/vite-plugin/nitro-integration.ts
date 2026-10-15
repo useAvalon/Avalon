@@ -2157,7 +2157,7 @@ function generateRendererModule(avalonConfig: ResolvedAvalonConfig): string {
 		`    const pathname = m ? m[1] : filePath;`,
 		`    const match = loadPage(pathname);`,
 		`    if (match) return match.module;`,
-		`    return { default: () => null, metadata: { title: 'Avalon' } };`,
+		`    throw new Error(\`Page not found: \${pathname}\`);`,
 		`  },`,
 		`  wrapWithLayouts: (pageHtml, pageModule, context) =>`,
 		`    wrapWithLayouts(pageHtml, pageModule, context, injectAssets),`,
