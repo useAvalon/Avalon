@@ -2,6 +2,74 @@ import { useEffect, useRef } from "preact/hooks";
 import { pagefindAssetUrl } from "../../../pagefind-assets.ts";
 
 let pagefindAssetsPromise: Promise<void> | null = null;
+let openGeneration = 0;
+let documentHandlersInstalled = false;
+
+function clearPendingSearch(): void {
+	delete document.documentElement.dataset.avalonOpenSearchPending;
+	try {
+		sessionStorage.removeItem("avalon-open-search-pending");
+	} catch {
+		/* private mode */
+	}
+}
+
+function hasPendingSearch(): boolean {
+	if (document.documentElement.dataset.avalonOpenSearchPending === "1") return true;
+	try {
+		return sessionStorage.getItem("avalon-open-search-pending") === "1";
+	} catch {
+		return false;
+	}
+}
+
+function openSearch(): void {
+	clearPendingSearch();
+	const generation = ++openGeneration;
+	void loadPagefindAssets()
+		.then(() => {
+			if (generation !== openGeneration) return;
+			const modal = findPagefindModal();
+			if (!modal) return;
+			closePagefindModal(modal);
+			modal.open();
+		})
+		.catch(() => {});
+}
+
+function closeModal(): void {
+	const modal = findPagefindModal();
+	if (modal) closePagefindModal(modal);
+}
+
+function closeBeforeNavigation(): void {
+	openGeneration += 1;
+	closeModal();
+}
+
+function handleResultClick(e: MouseEvent): void {
+	const target = e.target;
+	if (!(target instanceof Element)) return;
+	const anchor = target.closest("a[href]");
+	if (!anchor?.closest("pagefind-modal")) return;
+	closeModal();
+}
+
+/**
+ * Router persist detaches this island during a body swap; Preact unmount runs
+ * effect cleanup even though the island is restored and stays hydrated. Keep
+ * document listeners at module scope so ⌘K still works after client navigation.
+ */
+function installDocumentHandlers(): void {
+	if (documentHandlersInstalled) return;
+	documentHandlersInstalled = true;
+
+	document.addEventListener("avalon:open-search", openSearch);
+	document.addEventListener("avalon:before-navigate", closeBeforeNavigation);
+	document.addEventListener("avalon:before-swap", closeBeforeNavigation);
+	document.addEventListener("click", handleResultClick, true);
+	window.addEventListener("hashchange", closeModal);
+}
 
 function isPagefindUnavailableStatus(status: number): boolean {
 	// Built output missing (local dev) — not a transient failure.
@@ -80,7 +148,7 @@ function closePagefindModal(modal: PagefindModalElement): void {
 	} catch {
 		/* custom element may be mid-upgrade */
 	}
-	const dialog = modal.shadowRoot?.querySelector("dialog");
+	const dialog = modal.shadowRoot?.querySelector("dialog") ?? modal.querySelector("dialog");
 	if (dialog instanceof HTMLDialogElement && dialog.open) {
 		dialog.close();
 	}
@@ -94,77 +162,8 @@ export default function SearchModal() {
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		let openGeneration = 0;
-
-		const clearPendingSearch = () => {
-			delete document.documentElement.dataset.avalonOpenSearchPending;
-			try {
-				sessionStorage.removeItem("avalon-open-search-pending");
-			} catch {
-				/* private mode */
-			}
-		};
-
-		const hasPendingSearch = () => {
-			if (document.documentElement.dataset.avalonOpenSearchPending === "1") return true;
-			try {
-				return sessionStorage.getItem("avalon-open-search-pending") === "1";
-			} catch {
-				return false;
-			}
-		};
-
-		const openSearch = () => {
-			clearPendingSearch();
-			const generation = ++openGeneration;
-			void loadPagefindAssets()
-				.then(() => {
-					if (generation !== openGeneration) return;
-					const modal = findPagefindModal();
-					if (!modal) return;
-					closePagefindModal(modal);
-					modal.open();
-				})
-				.catch(() => {});
-		};
-
+		installDocumentHandlers();
 		if (hasPendingSearch()) openSearch();
-
-		const handleOpenSearch = () => openSearch();
-		document.addEventListener("avalon:open-search", handleOpenSearch);
-
-		const closeModal = () => {
-			const modal = findPagefindModal();
-			if (modal) closePagefindModal(modal);
-		};
-
-		const closeBeforeNavigation = () => {
-			openGeneration += 1;
-			closeModal();
-		};
-		document.addEventListener("avalon:before-navigate", closeBeforeNavigation);
-		document.addEventListener("avalon:before-swap", closeBeforeNavigation);
-
-		const handleResultClick = (e: MouseEvent) => {
-			const target = e.target;
-			if (!(target instanceof Element)) return;
-			const anchor = target.closest("a[href]");
-			if (!anchor?.closest("pagefind-modal")) return;
-			closeModal();
-		};
-
-		const handleHashChange = () => closeModal();
-
-		document.addEventListener("click", handleResultClick, true);
-		window.addEventListener("hashchange", handleHashChange);
-
-		return () => {
-			document.removeEventListener("avalon:open-search", handleOpenSearch);
-			document.removeEventListener("avalon:before-navigate", closeBeforeNavigation);
-			document.removeEventListener("avalon:before-swap", closeBeforeNavigation);
-			document.removeEventListener("click", handleResultClick, true);
-			window.removeEventListener("hashchange", handleHashChange);
-		};
 	}, []);
 
 	return (
