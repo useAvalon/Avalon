@@ -1,5 +1,13 @@
 # @useavalon/avalon
 
+## 0.7.3
+
+### Patch Changes
+
+- [#132](https://github.com/useAvalon/Avalon/pull/132) [`4ac6624`](https://github.com/useAvalon/Avalon/commit/4ac662420b34cecb83a50bc62235bccc4e258981) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Keep blocking `ssr-index` stylesheets when CSS exceeds the inline threshold, stop deferring `font-faces.css` in post-build, and support `on:event` in the entry-client hydrator.
+- Updated dependencies []:
+  - @useavalon/core@0.7.3
+
 ## 0.7.2
 
 ### Patch Changes
