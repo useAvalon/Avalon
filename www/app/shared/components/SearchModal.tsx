@@ -88,10 +88,7 @@ function handleResultClick(e: MouseEvent): void {
 	closeModal();
 }
 
-/**
- * Router navigation tears down the search island; keep document listeners at module
- * scope so ⌘K still works after client navigations.
- */
+/** One-time document listeners; survives island dispose between client navigations. */
 function installDocumentHandlers(): void {
 	if (documentHandlersInstalled) return;
 	documentHandlersInstalled = true;
@@ -104,11 +101,7 @@ function installDocumentHandlers(): void {
 		resetPagefindModalHost();
 	});
 	document.addEventListener("click", handleResultClick, true);
-	window.addEventListener("hashchange", closeModal);
-}
-
-if (typeof window !== "undefined") {
-	installDocumentHandlers();
+	window.addEventListener("hashchange", closeBeforeNavigation);
 }
 
 function isPagefindUnavailableStatus(status: number): boolean {
