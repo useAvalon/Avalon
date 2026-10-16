@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { collectFiles } from "./fs-utils.ts";
 import { hoistBodyStylesToHead } from "./hoist-body-styles.ts";
 
-/** Maximum CSS size (in bytes) to inline into HTML (www ssr-index is ~17–22 KiB minified). */
+/** Maximum CSS size (in bytes) to inline into HTML. */
 const CSS_INLINE_THRESHOLD = 32_768;
 
 const DEFER_SAME_ORIGIN_STYLESHEET = /^\/syntax-highlighting\.css$|^\/pagefind\//;
@@ -73,8 +73,6 @@ function inlineOrPreloadGlobalCSS(html: string, cssCache: Map<string, string>): 
 		return out;
 	}
 
-	// Above the inline threshold: keep a render-blocking stylesheet. Async preload
-	// causes visible FOUC/CLS on marketing pages; PSI prefers inlining, not deferring global CSS.
 	let out = stripSsrIndexStylesheetLinks(html, href);
 	const blockingRe = new RegExp(
 		String.raw`<link\s+rel="stylesheet"\s+href="${escapeRegExp(href)}"`,

@@ -52,6 +52,7 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 						__html: [
 							`(function(){`,
 							`function openSearch(){`,
+							`document.documentElement.dataset.avalonOpenSearchPending='1'`,
 							`try{sessionStorage.setItem('avalon-open-search-pending','1')}catch(e){}`,
 							`document.dispatchEvent(new CustomEvent('avalon:open-search'))`,
 							`}`,
@@ -111,7 +112,7 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 								aria-label="Search documentation"
 								{...{
 									onclick:
-										"try{sessionStorage.setItem('avalon-open-search-pending','1')}catch(e){}document.dispatchEvent(new CustomEvent('avalon:open-search'))",
+										"document.documentElement.dataset.avalonOpenSearchPending='1';try{sessionStorage.setItem('avalon-open-search-pending','1')}catch(e){}document.dispatchEvent(new CustomEvent('avalon:open-search'))",
 								}}
 							>
 								<svg

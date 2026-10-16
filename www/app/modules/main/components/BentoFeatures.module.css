@@ -397,7 +397,6 @@
 	transform: scale(1);
 }
 
-/* Remove the separate blur/sharp layers — single element transition is cleaner */
 .imgBlur,
 .imgSharp {
 	display: none;

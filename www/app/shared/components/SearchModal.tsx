@@ -76,31 +76,35 @@ export default function SearchModal() {
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
-		try {
-			if (sessionStorage.getItem("avalon-open-search-pending") === "1") {
+		const clearPendingSearch = () => {
+			delete document.documentElement.dataset.avalonOpenSearchPending;
+			try {
 				sessionStorage.removeItem("avalon-open-search-pending");
-				void loadPagefindAssets()
-					.then(() => {
-						const modal =
-							containerRef.current?.querySelector<PagefindModalElement>("pagefind-modal");
-						modal?.open?.();
-					})
-					.catch(() => {});
+			} catch {
+				/* private mode */
 			}
-		} catch {
-			// sessionStorage unavailable
-		}
+		};
+
+		const hasPendingSearch = () => {
+			if (document.documentElement.dataset.avalonOpenSearchPending === "1") return true;
+			try {
+				return sessionStorage.getItem("avalon-open-search-pending") === "1";
+			} catch {
+				return false;
+			}
+		};
 
 		const openSearch = () => {
+			clearPendingSearch();
 			void loadPagefindAssets()
 				.then(() => {
 					const modal = containerRef.current?.querySelector<PagefindModalElement>("pagefind-modal");
 					modal?.open?.();
 				})
-				.catch(() => {
-					// Missing Pagefind in dev or transient CDN error — no modal to open.
-				});
+				.catch(() => {});
 		};
+
+		if (hasPendingSearch()) openSearch();
 
 		const handleKeydown = (e: KeyboardEvent) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === "k") {

@@ -163,12 +163,12 @@ jobs:
             exit 1
           fi
           html_no_noscript="$(perl -0777 -pe 's/<noscript>[\s\S]*?<\/noscript>//g' dist/index.html)"
-          if printf '%s' "$html_no_noscript" | grep -q 'onload="this.onload=null;this.rel=.stylesheet.'; then
+          if grep -q 'onload="this.onload=null;this.rel=.stylesheet.' <<< "$html_no_noscript"; then
             echo "::error::dist/index.html defers ssr-index CSS via preload onload (causes FOUC/CLS)."
             exit 1
           fi
           if ! grep -q 'data-inlined-from="/assets/ssr-index-' dist/index.html; then
-            if ! printf '%s' "$html_no_noscript" | grep -q 'rel="stylesheet" href="/assets/ssr-index-'; then
+            if ! grep -q 'rel="stylesheet" href="/assets/ssr-index-' <<< "$html_no_noscript"; then
               echo "::error::dist/index.html missing inlined or blocking ssr-index stylesheet."
               exit 1
             fi

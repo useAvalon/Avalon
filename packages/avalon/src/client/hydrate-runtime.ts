@@ -198,27 +198,28 @@ function setupIntersectionObserver(island: HTMLElement, framework: string): void
 
 function setupInteractionObserver(island: HTMLElement, framework: string): void {
 	const events = ["click", "touchstart", "mouseenter", "focusin"] as const;
-	let hydrated = false;
 	const target = island.firstElementChild || island;
 
-	const handleInteraction = () => {
-		if (hydrated) return;
-		hydrated = true;
+	const removeListeners = () => {
 		for (const eventType of events) {
 			target.removeEventListener(eventType, handleInteraction);
 		}
-		hydrateIsland(island, framework);
+	};
+
+	const handleInteraction = () => {
+		if (island.dataset.hydrated) {
+			removeListeners();
+			return;
+		}
+		void hydrateIsland(island, framework).then(removeListeners);
 	};
 
 	try {
 		for (const eventType of events) {
-			target.addEventListener(eventType, handleInteraction, { once: true, passive: true });
+			target.addEventListener(eventType, handleInteraction, { passive: true });
 		}
 		addCleanup(island, () => {
-			hydrated = true;
-			for (const eventType of events) {
-				target.removeEventListener(eventType, handleInteraction);
-			}
+			removeListeners();
 		});
 	} catch (error) {
 		console.error("Failed to setup interaction observer:", error);
@@ -226,17 +227,24 @@ function setupInteractionObserver(island: HTMLElement, framework: string): void 
 	}
 }
 
+const OPEN_SEARCH_PENDING = "avalonOpenSearchPending";
+
 function setupEventHydration(island: HTMLElement, framework: string, eventName?: string): void {
 	if (!eventName) {
 		hydrateIsland(island, framework);
 		return;
 	}
 	const handler = () => {
-		document.removeEventListener(eventName, handler);
 		hydrateIsland(island, framework);
 	};
-	document.addEventListener(eventName, handler);
+	document.addEventListener(eventName, handler, { once: true });
 	addCleanup(island, () => document.removeEventListener(eventName, handler));
+	if (
+		eventName === "avalon:open-search" &&
+		document.documentElement.dataset[OPEN_SEARCH_PENDING] === "1"
+	) {
+		handler();
+	}
 }
 
 function setupIdleCallback(island: HTMLElement, framework: string): void {
