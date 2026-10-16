@@ -107,7 +107,9 @@ function installDocumentHandlers(): void {
 	window.addEventListener("hashchange", closeModal);
 }
 
-installDocumentHandlers();
+if (typeof window !== "undefined") {
+	installDocumentHandlers();
+}
 
 function isPagefindUnavailableStatus(status: number): boolean {
 	// Built output missing (local dev) — not a transient failure.
