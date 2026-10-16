@@ -162,10 +162,15 @@ jobs:
             echo "::error::dist/_headers missing wasm-unsafe-eval in CSP."
             exit 1
           fi
+          html_no_noscript="$(perl -0777 -pe 's/<noscript>[\s\S]*?<\/noscript>//g' dist/index.html)"
+          if printf '%s' "$html_no_noscript" | grep -q 'onload="this.onload=null;this.rel=.stylesheet.'; then
+            echo "::error::dist/index.html defers ssr-index CSS via preload onload (causes FOUC/CLS)."
+            exit 1
+          fi
           if ! grep -q 'data-inlined-from="/assets/ssr-index-' dist/index.html; then
-            html_no_noscript="$(perl -0777 -pe 's/<noscript>[\s\S]*?<\/noscript>//g' dist/index.html)"
-            if printf '%s' "$html_no_noscript" | grep -q 'rel="stylesheet" href="/assets/ssr-index-'; then
-              echo "::warning::dist/index.html still has blocking ssr-index stylesheet outside <noscript> (inline step may have missed CSS)."
+            if ! printf '%s' "$html_no_noscript" | grep -q 'rel="stylesheet" href="/assets/ssr-index-'; then
+              echo "::error::dist/index.html missing inlined or blocking ssr-index stylesheet."
+              exit 1
             fi
           fi
           if ! grep -q '/pagefind/\*' dist/_headers; then

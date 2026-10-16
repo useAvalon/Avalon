@@ -26,9 +26,6 @@
 	border-radius: var(--bp-r);
 	cursor: pointer;
 	color: var(--bp-ink-70);
-	transition:
-		background 0.18s,
-		color 0.18s;
 	font-family: var(--bp-sans);
 	text-align: center;
 }

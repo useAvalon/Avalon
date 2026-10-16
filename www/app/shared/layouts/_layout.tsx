@@ -28,20 +28,12 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 				/>
 				<link
 					rel="preload"
-					href="/fonts/instrument-sans-700.ttf"
+					href="/fonts/instrument-sans-600.ttf"
 					as="font"
 					type="font/ttf"
 					crossOrigin="anonymous"
 				/>
-				<link
-					rel="stylesheet"
-					href="/font-faces.css"
-					media="print"
-					{...{ onload: "this.media='all'" }}
-				/>
-				<noscript>
-					<link rel="stylesheet" href="/font-faces.css" />
-				</noscript>
+				<link rel="stylesheet" href="/font-faces.css" />
 				{description && <meta name="description" content={description} />}
 				<script
 					dangerouslySetInnerHTML={{
@@ -51,6 +43,21 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 							`try{var t=localStorage.getItem('avalon-theme')}catch(e){}`,
 							`if(t==='light'){d.setAttribute('data-theme','light');d.style.colorScheme='light'}`,
 							`else{d.style.colorScheme='dark'}`,
+							`})()`,
+						].join(""),
+					}}
+				/>
+				<script
+					dangerouslySetInnerHTML={{
+						__html: [
+							`(function(){`,
+							`function openSearch(){`,
+							`try{sessionStorage.setItem('avalon-open-search-pending','1')}catch(e){}`,
+							`document.dispatchEvent(new CustomEvent('avalon:open-search'))`,
+							`}`,
+							`document.addEventListener('keydown',function(e){`,
+							`if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();openSearch()}`,
+							`})`,
 							`})()`,
 						].join(""),
 					}}
@@ -103,7 +110,8 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 								class={styles.navSearchBtn}
 								aria-label="Search documentation"
 								{...{
-									onclick: "document.dispatchEvent(new CustomEvent('avalon:open-search'))",
+									onclick:
+										"try{sessionStorage.setItem('avalon-open-search-pending','1')}catch(e){}document.dispatchEvent(new CustomEvent('avalon:open-search'))",
 								}}
 							>
 								<svg
@@ -139,7 +147,7 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 								</svg>
 								GitHub
 							</a>
-							<ThemeToggle island={{ condition: "on:idle", persist: "theme-toggle" }} />
+							<ThemeToggle island={{ condition: "on:interaction", persist: "theme-toggle" }} />
 						</div>
 						<div class={styles.mobileNavWrapper}>
 							<MobileNav island={{ condition: "on:interaction" }} currentPath={currentPath} />
@@ -259,7 +267,13 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 						<p>© 2026 Avalon</p>
 					</div>
 				</footer>
-				<SearchModal island={{ condition: "on:idle", persist: "search-modal" }} />
+				<SearchModal
+					island={{
+						condition: "on:event",
+						conditionArg: "avalon:open-search",
+						persist: "search-modal",
+					}}
+				/>
 			</body>
 		</html>
 	);

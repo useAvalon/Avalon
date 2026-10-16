@@ -76,6 +76,21 @@ export default function SearchModal() {
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
+		try {
+			if (sessionStorage.getItem("avalon-open-search-pending") === "1") {
+				sessionStorage.removeItem("avalon-open-search-pending");
+				void loadPagefindAssets()
+					.then(() => {
+						const modal =
+							containerRef.current?.querySelector<PagefindModalElement>("pagefind-modal");
+						modal?.open?.();
+					})
+					.catch(() => {});
+			}
+		} catch {
+			// sessionStorage unavailable
+		}
+
 		const openSearch = () => {
 			void loadPagefindAssets()
 				.then(() => {

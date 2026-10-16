@@ -226,6 +226,19 @@ function setupInteractionObserver(island: HTMLElement, framework: string): void 
 	}
 }
 
+function setupEventHydration(island: HTMLElement, framework: string, eventName?: string): void {
+	if (!eventName) {
+		hydrateIsland(island, framework);
+		return;
+	}
+	const handler = () => {
+		document.removeEventListener(eventName, handler);
+		hydrateIsland(island, framework);
+	};
+	document.addEventListener(eventName, handler);
+	addCleanup(island, () => document.removeEventListener(eventName, handler));
+}
+
 function setupIdleCallback(island: HTMLElement, framework: string): void {
 	try {
 		if ("requestIdleCallback" in globalThis) {
@@ -308,6 +321,10 @@ function scheduleIsland(island: HTMLElement): void {
 	}
 	if (condition === "on:idle") {
 		setupIdleCallback(island, framework);
+		return;
+	}
+	if (condition === "on:event") {
+		setupEventHydration(island, framework, island.dataset.conditionArg);
 		return;
 	}
 	if (condition.startsWith("media:")) {
