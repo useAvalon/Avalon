@@ -3,10 +3,10 @@ import { join } from "node:path";
 import { collectFiles } from "./fs-utils.ts";
 import { hoistBodyStylesToHead } from "./hoist-body-styles.ts";
 
-/** Maximum CSS size (in bytes) to inline into HTML (www ssr-index is ~17–22 KiB minified). */
+/** Maximum CSS size (in bytes) to inline into HTML. */
 const CSS_INLINE_THRESHOLD = 32_768;
 
-const DEFER_SAME_ORIGIN_STYLESHEET = /^\/(?:font-faces|syntax-highlighting)\.css$|^\/pagefind\//;
+const DEFER_SAME_ORIGIN_STYLESHEET = /^\/syntax-highlighting\.css$|^\/pagefind\//;
 
 const GLOBAL_STYLESHEET_LINK_RE =
 	/<link\s+rel="stylesheet"\s+href="(\/assets\/(?:ssr-)?index-[^"]+\.css)">/i;
@@ -41,7 +41,10 @@ function stripSsrIndexStylesheetLinks(html: string, href: string): string {
 	const escaped = escapeRegExp(href);
 	return html
 		.replace(
-			new RegExp(String.raw`<link\s+rel="preload"\s+href="${escaped}"\s+as="style"\s*/?>\s*`, "gi"),
+			new RegExp(
+				String.raw`<link\s+[^>]*rel=["']preload["'][^>]*href=["']${escaped}["'][^>]*>\s*`,
+				"gi",
+			),
 			"",
 		)
 		.replace(
@@ -50,8 +53,8 @@ function stripSsrIndexStylesheetLinks(html: string, href: string): string {
 		);
 }
 
-function asyncStylesheetLink(href: string): string {
-	return `<link rel="preload" href="${href}" as="style" onload="this.onload=null;this.rel='stylesheet'">\n<noscript><link rel="stylesheet" href="${href}"></noscript>`;
+function blockingStylesheetLink(href: string): string {
+	return `<link rel="stylesheet" href="${href}">`;
 }
 
 function inlineOrPreloadGlobalCSS(html: string, cssCache: Map<string, string>): string {
@@ -71,9 +74,13 @@ function inlineOrPreloadGlobalCSS(html: string, cssCache: Map<string, string>): 
 	}
 
 	let out = stripSsrIndexStylesheetLinks(html, href);
-	if (!out.includes(`href="${href}"`)) {
+	const blockingRe = new RegExp(
+		String.raw`<link\s+rel="stylesheet"\s+href="${escapeRegExp(href)}"`,
+		"i",
+	);
+	if (!blockingRe.test(out)) {
 		const insertAt = out.includes("</title>") ? "</title>" : "<head>";
-		out = out.replace(insertAt, `${insertAt}\n${asyncStylesheetLink(href)}`);
+		out = out.replace(insertAt, `${insertAt}\n${blockingStylesheetLink(href)}`);
 	}
 	return out;
 }

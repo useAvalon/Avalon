@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { disposeIslands, scanAndHydrate, setHydrationLoader } from "../hydrate-runtime.ts";
 
 interface FakeIsland {
@@ -272,5 +272,44 @@ describe("scanAndHydrate", () => {
 		scanAndHydrate(rootOf([chart]));
 		await flush();
 		expect(mounted).toEqual(["/islands/Widget.js", "/islands/Chart.js"]);
+	});
+
+	it("hydrates on on:event when the named document event fires", async () => {
+		const listeners = new Map<string, Set<() => void>>();
+		vi.stubGlobal("document", {
+			addEventListener: (name: string, fn: () => void) => {
+				const set = listeners.get(name) ?? new Set();
+				set.add(fn);
+				listeners.set(name, set);
+			},
+			removeEventListener: (name: string, fn: () => void) => {
+				listeners.get(name)?.delete(fn);
+			},
+			dispatchEvent: (event: { type: string }) => {
+				for (const fn of listeners.get(event.type) ?? []) fn();
+				return true;
+			},
+		});
+
+		let hydrates = 0;
+		setHydrationLoader({
+			loadComponent: async () => ({ default: () => null }),
+			loadIntegrationModule: async () => ({
+				hydrate: () => {
+					hydrates++;
+				},
+			}),
+		});
+		const deferred = island({
+			condition: "on:event",
+			conditionArg: "avalon:open-search",
+		});
+		scanAndHydrate(rootOf([deferred]));
+		await flush();
+		expect(hydrates).toBe(0);
+		document.dispatchEvent(new CustomEvent("avalon:open-search"));
+		await flush();
+		expect(hydrates).toBe(1);
+		vi.unstubAllGlobals();
 	});
 });

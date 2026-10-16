@@ -34,8 +34,7 @@
 	transform: translateY(12px);
 	transition:
 		opacity 0.5s ease,
-		transform 0.5s ease,
-		border-color 0.2s;
+		transform 0.5s ease;
 }
 
 .visible .card {
@@ -164,25 +163,38 @@
 }
 
 .hydrationBlock {
+	position: relative;
 	width: 48px;
 	height: 48px;
 	border-radius: 10px;
 	background: var(--bp-ink-10);
 	transition: transform 0.3s;
+	overflow: visible;
 }
 
 .hydrationActive {
 	background: var(--bp-blue);
+}
+
+.hydrationActive::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: rgba(31, 106, 211, 0.35);
 	animation: hydrationPulse 2.4s ease-in-out infinite;
+	pointer-events: none;
 }
 
 @keyframes hydrationPulse {
 	0%,
 	100% {
-		box-shadow: 0 0 0 0 rgba(31, 106, 211, 0.4);
+		transform: scale(1);
+		opacity: 0.55;
 	}
 	50% {
-		box-shadow: 0 0 0 10px rgba(31, 106, 211, 0);
+		transform: scale(1.35);
+		opacity: 0;
 	}
 }
 
@@ -210,9 +222,7 @@
 	background: var(--bp-bg);
 	border: 1px solid var(--bp-ink-10);
 	border-radius: 12px;
-	transition:
-		transform 0.2s,
-		border-color 0.2s;
+	transition: transform 0.2s;
 }
 
 .fwItem:hover {
@@ -375,15 +385,18 @@
 	border-radius: 10px;
 	overflow: hidden;
 	background: linear-gradient(135deg, var(--bp-blue), var(--bp-cyan, #2ca1b3));
-	filter: blur(8px);
-	transition: filter 1.5s ease-out 0.5s;
+	opacity: 0.55;
+	transform: scale(1.03);
+	transition:
+		opacity 0.8s ease-out 0.35s,
+		transform 0.8s ease-out 0.35s;
 }
 
 .visible .imgDemo {
-	filter: blur(0px);
+	opacity: 1;
+	transform: scale(1);
 }
 
-/* Remove the separate blur/sharp layers — single element transition is cleaner */
 .imgBlur,
 .imgSharp {
 	display: none;

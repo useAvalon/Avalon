@@ -172,11 +172,7 @@
 	border-radius: var(--bp-r);
 	border: 1px solid transparent;
 	text-decoration: none;
-	transition:
-		background 0.15s,
-		color 0.15s,
-		border-color 0.15s,
-		transform 0.15s;
+	transition: transform 0.15s;
 	cursor: pointer;
 }
 
@@ -513,10 +509,7 @@
 	font-family: var(--bp-sans);
 	font-size: 14px;
 	font-weight: 500;
-	transition:
-		border-color 0.18s ease,
-		color 0.18s ease,
-		transform 0.18s ease;
+	transition: transform 0.18s ease;
 }
 
 .adapter img {
@@ -525,9 +518,6 @@
 	height: 18px;
 	filter: grayscale(1);
 	opacity: 0.72;
-	transition:
-		filter 0.18s ease,
-		opacity 0.18s ease;
 }
 
 .adapter:hover {
@@ -613,7 +603,6 @@
 .foundationContent h3 a {
 	color: inherit;
 	text-decoration: none;
-	transition: color 0.15s;
 }
 
 .foundationContent h3 a:hover {
