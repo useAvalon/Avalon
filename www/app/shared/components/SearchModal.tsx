@@ -68,6 +68,22 @@ function loadPagefindAssets(): Promise<void> {
 	return pagefindAssetsPromise;
 }
 
+function findPagefindModal(): PagefindModalElement | null {
+	return document.querySelector("pagefind-modal");
+}
+
+function closePagefindModal(modal: PagefindModalElement): void {
+	try {
+		modal.close();
+	} catch {
+		/* custom element may be mid-upgrade */
+	}
+	const dialog = modal.shadowRoot?.querySelector("dialog");
+	if (dialog instanceof HTMLDialogElement && dialog.open) {
+		dialog.close();
+	}
+}
+
 /**
  * Pagefind search modal — loads the Component UI on first open (⌘K or search button).
  * Gracefully handles missing Pagefind (dev mode without a build).
@@ -98,32 +114,27 @@ export default function SearchModal() {
 			clearPendingSearch();
 			void loadPagefindAssets()
 				.then(() => {
-					const modal = containerRef.current?.querySelector<PagefindModalElement>("pagefind-modal");
-					modal?.open?.();
+					const modal = findPagefindModal();
+					if (!modal) return;
+					closePagefindModal(modal);
+					modal.open();
 				})
 				.catch(() => {});
 		};
 
 		if (hasPendingSearch()) openSearch();
 
-		const handleKeydown = (e: KeyboardEvent) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-				e.preventDefault();
-				openSearch();
-			}
-		};
-		document.addEventListener("keydown", handleKeydown);
-
 		const handleOpenSearch = () => openSearch();
 		document.addEventListener("avalon:open-search", handleOpenSearch);
 
-		const modalElement = () =>
-			containerRef.current?.querySelector<PagefindModalElement>("pagefind-modal");
-
 		const closeModal = () => {
-			const modal = modalElement();
-			if (modal?.isOpen) modal.close();
+			const modal = findPagefindModal();
+			if (modal) closePagefindModal(modal);
 		};
+
+		const closeBeforeNavigation = () => closeModal();
+		document.addEventListener("avalon:before-navigate", closeBeforeNavigation);
+		document.addEventListener("avalon:before-swap", closeBeforeNavigation);
 
 		const handleResultClick = (e: MouseEvent) => {
 			const target = e.target;
@@ -139,8 +150,9 @@ export default function SearchModal() {
 		window.addEventListener("hashchange", handleHashChange);
 
 		return () => {
-			document.removeEventListener("keydown", handleKeydown);
 			document.removeEventListener("avalon:open-search", handleOpenSearch);
+			document.removeEventListener("avalon:before-navigate", closeBeforeNavigation);
+			document.removeEventListener("avalon:before-swap", closeBeforeNavigation);
 			document.removeEventListener("click", handleResultClick, true);
 			window.removeEventListener("hashchange", handleHashChange);
 		};
