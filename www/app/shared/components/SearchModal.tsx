@@ -25,6 +25,21 @@ function hasPendingSearch(): boolean {
 	}
 }
 
+function markSearchPending(): void {
+	document.documentElement.dataset.avalonOpenSearchPending = "1";
+	try {
+		sessionStorage.setItem("avalon-open-search-pending", "1");
+	} catch {
+		/* private mode */
+	}
+}
+
+function isSearchIslandHydrated(): boolean {
+	const island = searchIsland();
+	if (!island) return false;
+	return island.dataset.hydrated === "true";
+}
+
 function searchIsland(): HTMLElement | null {
 	return document.querySelector(SEARCH_ISLAND_SELECTOR);
 }
@@ -49,6 +64,12 @@ function resetPagefindModalHost(): void {
 }
 
 function openSearch(): void {
+	// Global listeners survive navigation; the island stub is new until on:event hydrates.
+	if (!isSearchIslandHydrated()) {
+		markSearchPending();
+		return;
+	}
+
 	clearPendingSearch();
 	const generation = ++openGeneration;
 	void loadPagefindAssets()
