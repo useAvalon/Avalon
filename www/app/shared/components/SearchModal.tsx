@@ -68,10 +68,12 @@ function loadPagefindAssets(): Promise<void> {
 	return pagefindAssetsPromise;
 }
 
+/** Live modal element (may move when the search island is router-persisted). */
 function findPagefindModal(): PagefindModalElement | null {
 	return document.querySelector("pagefind-modal");
 }
 
+/** Closes Pagefind and any open shadow `<dialog>` so backdrops do not linger. */
 function closePagefindModal(modal: PagefindModalElement): void {
 	try {
 		modal.close();
@@ -92,6 +94,8 @@ export default function SearchModal() {
 	const containerRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
+		let openGeneration = 0;
+
 		const clearPendingSearch = () => {
 			delete document.documentElement.dataset.avalonOpenSearchPending;
 			try {
@@ -112,8 +116,10 @@ export default function SearchModal() {
 
 		const openSearch = () => {
 			clearPendingSearch();
+			const generation = ++openGeneration;
 			void loadPagefindAssets()
 				.then(() => {
+					if (generation !== openGeneration) return;
 					const modal = findPagefindModal();
 					if (!modal) return;
 					closePagefindModal(modal);
@@ -132,7 +138,10 @@ export default function SearchModal() {
 			if (modal) closePagefindModal(modal);
 		};
 
-		const closeBeforeNavigation = () => closeModal();
+		const closeBeforeNavigation = () => {
+			openGeneration += 1;
+			closeModal();
+		};
 		document.addEventListener("avalon:before-navigate", closeBeforeNavigation);
 		document.addEventListener("avalon:before-swap", closeBeforeNavigation);
 
