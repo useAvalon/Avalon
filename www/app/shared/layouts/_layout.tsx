@@ -43,7 +43,7 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 							`try{var t=localStorage.getItem('avalon-theme')}catch(e){}`,
 							`if(t==='light'){d.setAttribute('data-theme','light');d.style.colorScheme='light'}`,
 							`else{d.style.colorScheme='dark'}`,
-							`})()`,
+							`})();`,
 						].join(""),
 					}}
 				/>
@@ -52,14 +52,14 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 						__html: [
 							`(function(){`,
 							`function openSearch(){`,
-							`document.documentElement.dataset.avalonOpenSearchPending='1'`,
+							`document.documentElement.dataset.avalonOpenSearchPending='1';`,
 							`try{sessionStorage.setItem('avalon-open-search-pending','1')}catch(e){}`,
-							`document.dispatchEvent(new CustomEvent('avalon:open-search'))`,
+							`document.dispatchEvent(new CustomEvent('avalon:open-search'));`,
 							`}`,
 							`document.addEventListener('keydown',function(e){`,
-							`if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();openSearch()}`,
-							`})`,
-							`})()`,
+							`if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();openSearch();}`,
+							`});`,
+							`})();`,
 						].join(""),
 					}}
 				/>
