@@ -51,11 +51,17 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 					dangerouslySetInnerHTML={{
 						__html: [
 							`(function(){`,
+							`function clearSearchPending(){`,
+							`delete document.documentElement.dataset.avalonOpenSearchPending;`,
+							`try{sessionStorage.removeItem('avalon-open-search-pending')}catch(e){}`,
+							`}`,
 							`function openSearch(){`,
 							`document.documentElement.dataset.avalonOpenSearchPending='1';`,
 							`try{sessionStorage.setItem('avalon-open-search-pending','1')}catch(e){}`,
 							`document.dispatchEvent(new CustomEvent('avalon:open-search'));`,
 							`}`,
+							`document.addEventListener('avalon:before-navigate',clearSearchPending);`,
+							`document.addEventListener('avalon:before-swap',clearSearchPending);`,
 							`document.addEventListener('keydown',function(e){`,
 							`if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();openSearch();}`,
 							`});`,
@@ -272,7 +278,6 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 					island={{
 						condition: "on:event",
 						conditionArg: "avalon:open-search",
-						persist: "search-modal",
 					}}
 				/>
 			</body>

@@ -65,7 +65,6 @@ ol {
 [data-router-persist="site-nav"] {
 	view-transition-name: site-nav;
 }
-[data-router-persist="search-modal"],
 pagefind-modal {
 	view-transition-name: none;
 }
