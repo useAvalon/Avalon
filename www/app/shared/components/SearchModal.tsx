@@ -5,6 +5,8 @@ let pagefindAssetsPromise: Promise<void> | null = null;
 let openGeneration = 0;
 let documentHandlersInstalled = false;
 
+const SEARCH_ISLAND_SELECTOR = 'avalon-island[data-condition-arg="avalon:open-search"]';
+
 function clearPendingSearch(): void {
 	delete document.documentElement.dataset.avalonOpenSearchPending;
 	try {
@@ -23,15 +25,38 @@ function hasPendingSearch(): boolean {
 	}
 }
 
+function searchIsland(): HTMLElement | null {
+	return document.querySelector(SEARCH_ISLAND_SELECTOR);
+}
+
+/** Pagefind can leave closed dialogs and top-layer backdrops after router swaps. */
+function purgePagefindDialogs(): void {
+	for (const dialog of document.querySelectorAll("dialog.pf-modal")) {
+		if (dialog instanceof HTMLDialogElement && dialog.open) {
+			dialog.close();
+		}
+		dialog.remove();
+	}
+}
+
+/** Fresh custom-element host so Pagefind does not nest dialogs inside stale markup. */
+function resetPagefindModalHost(): void {
+	purgePagefindDialogs();
+	const island = searchIsland();
+	const host = island?.querySelector("pagefind-modal");
+	if (!host) return;
+	host.replaceWith(document.createElement("pagefind-modal"));
+}
+
 function openSearch(): void {
 	clearPendingSearch();
 	const generation = ++openGeneration;
 	void loadPagefindAssets()
 		.then(() => {
 			if (generation !== openGeneration) return;
+			resetPagefindModalHost();
 			const modal = findPagefindModal();
 			if (!modal) return;
-			closePagefindModal(modal);
 			modal.open();
 		})
 		.catch(() => {});
@@ -39,19 +64,14 @@ function openSearch(): void {
 
 function closeModal(): void {
 	const modal = findPagefindModal();
-	if (modal) closePagefindModal(modal);
-}
-
-function searchIsland(): HTMLElement | null {
-	return document.querySelector('[data-router-persist="search-modal"]');
-}
-
-/** Pagefind leaves a closed, zero-size dialog after a router swap; a fresh host fixes reopen. */
-function resetPagefindModalHost(): void {
-	const island = searchIsland();
-	const modal = island?.querySelector("pagefind-modal");
-	if (!modal) return;
-	modal.replaceWith(document.createElement("pagefind-modal"));
+	if (modal) {
+		try {
+			modal.close();
+		} catch {
+			/* custom element may be mid-upgrade */
+		}
+	}
+	purgePagefindDialogs();
 }
 
 function closeBeforeNavigation(): void {
@@ -69,9 +89,8 @@ function handleResultClick(e: MouseEvent): void {
 }
 
 /**
- * Router persist detaches this island during a body swap; Preact unmount runs
- * effect cleanup even though the island is restored and stays hydrated. Keep
- * document listeners at module scope so ⌘K still works after client navigation.
+ * Router navigation tears down the search island; keep document listeners at module
+ * scope so ⌘K still works after client navigations.
  */
 function installDocumentHandlers(): void {
 	if (documentHandlersInstalled) return;
@@ -80,7 +99,10 @@ function installDocumentHandlers(): void {
 	document.addEventListener("avalon:open-search", openSearch);
 	document.addEventListener("avalon:before-navigate", closeBeforeNavigation);
 	document.addEventListener("avalon:before-swap", closeBeforeNavigation);
-	document.addEventListener("avalon:page-load", resetPagefindModalHost);
+	document.addEventListener("avalon:page-load", () => {
+		purgePagefindDialogs();
+		resetPagefindModalHost();
+	});
 	document.addEventListener("click", handleResultClick, true);
 	window.addEventListener("hashchange", closeModal);
 }
@@ -152,24 +174,10 @@ function loadPagefindAssets(): Promise<void> {
 	return pagefindAssetsPromise;
 }
 
-/** Live modal element inside the persisted search island. */
 function findPagefindModal(): PagefindModalElement | null {
 	const inIsland = searchIsland()?.querySelector("pagefind-modal");
 	if (inIsland) return inIsland as PagefindModalElement;
 	return document.querySelector("pagefind-modal");
-}
-
-/** Closes Pagefind and any open shadow `<dialog>` so backdrops do not linger. */
-function closePagefindModal(modal: PagefindModalElement): void {
-	try {
-		modal.close();
-	} catch {
-		/* custom element may be mid-upgrade */
-	}
-	const dialog = modal.shadowRoot?.querySelector("dialog") ?? modal.querySelector("dialog");
-	if (dialog instanceof HTMLDialogElement && dialog.open) {
-		dialog.close();
-	}
 }
 
 /**

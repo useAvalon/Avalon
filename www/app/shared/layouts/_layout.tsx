@@ -272,7 +272,6 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 					island={{
 						condition: "on:event",
 						conditionArg: "avalon:open-search",
-						persist: "search-modal",
 					}}
 				/>
 			</body>
