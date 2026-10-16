@@ -42,9 +42,22 @@ function closeModal(): void {
 	if (modal) closePagefindModal(modal);
 }
 
+function searchIsland(): HTMLElement | null {
+	return document.querySelector('[data-router-persist="search-modal"]');
+}
+
+/** Pagefind leaves a closed, zero-size dialog after a router swap; a fresh host fixes reopen. */
+function resetPagefindModalHost(): void {
+	const island = searchIsland();
+	const modal = island?.querySelector("pagefind-modal");
+	if (!modal) return;
+	modal.replaceWith(document.createElement("pagefind-modal"));
+}
+
 function closeBeforeNavigation(): void {
 	openGeneration += 1;
 	closeModal();
+	resetPagefindModalHost();
 }
 
 function handleResultClick(e: MouseEvent): void {
@@ -67,9 +80,12 @@ function installDocumentHandlers(): void {
 	document.addEventListener("avalon:open-search", openSearch);
 	document.addEventListener("avalon:before-navigate", closeBeforeNavigation);
 	document.addEventListener("avalon:before-swap", closeBeforeNavigation);
+	document.addEventListener("avalon:page-load", resetPagefindModalHost);
 	document.addEventListener("click", handleResultClick, true);
 	window.addEventListener("hashchange", closeModal);
 }
+
+installDocumentHandlers();
 
 function isPagefindUnavailableStatus(status: number): boolean {
 	// Built output missing (local dev) — not a transient failure.
@@ -136,8 +152,10 @@ function loadPagefindAssets(): Promise<void> {
 	return pagefindAssetsPromise;
 }
 
-/** Live modal element (may move when the search island is router-persisted). */
+/** Live modal element inside the persisted search island. */
 function findPagefindModal(): PagefindModalElement | null {
+	const inIsland = searchIsland()?.querySelector("pagefind-modal");
+	if (inIsland) return inIsland as PagefindModalElement;
 	return document.querySelector("pagefind-modal");
 }
 
