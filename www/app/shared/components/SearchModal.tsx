@@ -97,6 +97,7 @@ function closeModal(): void {
 
 function closeBeforeNavigation(): void {
 	openGeneration += 1;
+	clearPendingSearch();
 	closeModal();
 	resetPagefindModalHost();
 }
