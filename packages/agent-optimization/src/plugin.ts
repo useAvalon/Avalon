@@ -201,13 +201,36 @@ export function agentOptimization(config: AgentOptimizationConfigInput): PluginO
 // Build-time helpers
 // ---------------------------------------------------------------------------
 
+/** Subset of ResolvedAvalonConfig set on globalThis during Vite configResolved. */
+type AvalonRouteDiscoveryConfig = {
+	pagesDir?: string;
+	modules?: { dir: string; pagesDirName: string; layoutsDirName: string } | null;
+};
+
+function readAvalonRouteDiscoveryConfig(): AvalonRouteDiscoveryConfig | undefined {
+	return (globalThis as { __avalonConfig?: AvalonRouteDiscoveryConfig }).__avalonConfig;
+}
+
+async function discoverProjectRoutes(
+	projectRoot: string,
+	developmentMode?: boolean,
+): Promise<Array<{ pattern: string; type?: string }>> {
+	const avalonConfig = readAvalonRouteDiscoveryConfig();
+	return discoverProjectPageRoutes({
+		projectRoot,
+		developmentMode,
+		pagesDir: avalonConfig?.pagesDir,
+		modules: avalonConfig?.modules,
+	});
+}
+
 async function discoverRoutesForBuild(
 	enabled: boolean,
 ): Promise<Array<{ pattern: string; type?: string }>> {
 	if (!enabled) return [];
 
 	try {
-		const routes = await discoverProjectPageRoutes({ projectRoot: process.cwd() });
+		const routes = await discoverProjectRoutes(process.cwd());
 		if (routes.length === 0) {
 			console.warn("[agent-optimization] No page directories found during build");
 		}
@@ -407,22 +430,7 @@ async function discoverRoutes(
 	server: ViteDevServer,
 ): Promise<Array<{ pattern: string; type?: string }>> {
 	try {
-		const viteRoot = server.config.root;
-
-		// Get Avalon config from global (set by nitro-integration)
-		const avalonConfig = (globalThis as any).__avalonConfig as
-			| {
-					pagesDir?: string;
-					modules?: { dir: string; pagesDirName: string; layoutsDirName: string };
-			  }
-			| undefined;
-
-		const routes = await discoverProjectPageRoutes({
-			projectRoot: viteRoot,
-			developmentMode: true,
-			pagesDir: avalonConfig?.pagesDir,
-			modules: avalonConfig?.modules,
-		});
+		const routes = await discoverProjectRoutes(server.config.root, true);
 		if (routes.length === 0) {
 			console.warn("[agent-optimization] No page directories found");
 		}
