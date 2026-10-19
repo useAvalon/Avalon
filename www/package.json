@@ -31,15 +31,15 @@
 		"h3": "^2.0.2",
 		"lit": "^3.3.3",
 		"preact": "11.0.1",
-		"preact-render-to-string": "6.8.0",
-		"react": "^19.3.0",
-		"react-dom": "^19.3.0",
+		"preact-render-to-string": "6.8.1",
+		"react": "^19.3.1",
+		"react-dom": "^19.3.1",
 		"rehype-highlight": "^7.0.0",
 		"solid-js": "^1.9.17",
 		"svelte": "^5.57.2",
 		"tailwindcss": "^4.3.3",
 		"three": "^0.186.1",
-		"vue": "^3.5.43"
+		"vue": "^3.5.44"
 	},
 	"devDependencies": {
 		"nitro": "3.0.260903-beta",
