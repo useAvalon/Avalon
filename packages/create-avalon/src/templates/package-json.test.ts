@@ -45,6 +45,11 @@ describe("generatePackageJson", () => {
 		expect(pkg.scripts.deploy).toBe("bunx wrangler@4 pages deploy --project-name=cool-app");
 	});
 
+	it("uses netlify dev for preview when deploy is netlify", () => {
+		const pkg = JSON.parse(generatePackageJson({ ...baseConfig, deploy: "netlify" }));
+		expect(pkg.scripts.preview).toBe("bunx netlify-cli@22 dev --offline");
+	});
+
 	it("pins vite, typescript, nitro, and vite-imagetools to Avalon peer ranges", () => {
 		const pkg = JSON.parse(generatePackageJson(baseConfig));
 		expect(pkg.devDependencies.vite).toBe("^8.0.0");

@@ -22,7 +22,11 @@ function deployNextSteps(config: ProjectConfig): string[] {
 		];
 	}
 	if (config.deploy === "netlify") {
-		return ["    bun run build", "    # Connect the repo in Netlify, or see DEPLOY.md"];
+		return [
+			"    bun run build",
+			"    bun run preview   # netlify dev (dist + SSR functions)",
+			"    # Connect the repo in Netlify, or see DEPLOY.md",
+		];
 	}
 	return ["    bun run build"];
 }

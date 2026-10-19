@@ -34,7 +34,7 @@ The CLI walks you through:
 | Choice | What you get |
 |--------|----------------|
 | **Cloudflare Pages** | `wrangler.toml`, `public/_headers`, `DEPLOY.md`, `build` / `preview` / `deploy` scripts. `build.mjs` sets `NITRO_PRESET=cloudflare_pages` when unset. |
-| **Netlify** | `netlify.toml` (`NITRO_PRESET=netlify`), soft SSR redirect, `DEPLOY.md`. |
+| **Netlify** | `netlify.toml` (`NITRO_PRESET=netlify`), soft SSR redirect, `DEPLOY.md`, `preview` via Netlify CLI. |
 | **None** | Node server preset; still gets `build.mjs` + `post-build.mjs`. |
 
 Always run Avalon's post-build (`node post-build.mjs` via `bun run build`) — it patches the Cloudflare worker, CSS manifests, and prerenders HTML.

@@ -1113,7 +1113,7 @@ Interactive by default. Pass \`--yes\` (or run without a TTY) to skip prompts an
 | Styling | \`css-modules\` · \`tailwind\` · \`shadcn\` | \`shadcn\` only offered when core is \`react\` (Radix-based). |
 | Plugins | \`seo\` (default) · \`agent-optimization\` | Multi-select. MDX syntax highlighting is always on. |
 | Middleware | \`h3\` · \`hono\` · \`elysia\` | \`hono\`/\`elysia\` generate a \`server.ts\` entry. |
-| Deploy | \`cloudflare\` · \`netlify\` · \`none\` | \`cloudflare\` emits \`wrangler.toml\`, \`public/_headers\`, \`DEPLOY.md\`, and Wrangler \`preview\`/\`deploy\` scripts. \`netlify\` emits \`netlify.toml\` + \`DEPLOY.md\`. Both always get \`build.mjs\` + \`post-build.mjs\`. |
+| Deploy | \`cloudflare\` · \`netlify\` · \`none\` | \`cloudflare\` emits \`wrangler.toml\`, \`public/_headers\`, \`DEPLOY.md\`, and Wrangler \`preview\`/\`deploy\` scripts. \`netlify\` emits \`netlify.toml\`, \`DEPLOY.md\`, and Netlify CLI \`preview\`. Both always get \`build.mjs\` + \`post-build.mjs\`. |
 | Cron | yes/no (default no) | Scaffolds an example task + \`nitro.cron\` config. |
 
 Generates the module-based layout (\`app/modules/main\` → \`/\`, \`app/modules/about\` → \`/about\`, \`app/shared\`, \`middleware\`, \`routes/api\`, \`server\`, \`public\`) — see the configuration topic.
