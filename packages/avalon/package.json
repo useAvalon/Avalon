@@ -88,7 +88,7 @@
 	],
 	"devDependencies": {
 		"@types/mime-types": "^3.0.1",
-		"oxc-minify": "^0.153.0"
+		"oxc-minify": "^0.154.0"
 	},
 	"peerDependencies": {
 		"vite": "^8.0.0",
@@ -112,16 +112,16 @@
 		"@useavalon/core": "workspace:^",
 		"h3": "^2.0.2",
 		"marked": "^17.0.6",
-		"oxc-parser": "^0.153.0",
-		"oxc-transform": "^0.153.0",
+		"oxc-parser": "^0.154.0",
+		"oxc-transform": "^0.154.0",
 		"preact": "11.0.1",
-		"preact-render-to-string": "6.8.0",
+		"preact-render-to-string": "6.8.1",
 		"remark-frontmatter": "^5.0.0",
 		"remark-gfm": "^4.0.0",
 		"remark-mdx-frontmatter": "^5.2.0",
 		"unified": "^11.0.0",
 		"urlpattern-polyfill": "^10.1.0",
-		"zod": "^4.6.5"
+		"zod": "^4.6.7"
 	},
 	"overrides": {
 		"sharp": ">=0.35.4",

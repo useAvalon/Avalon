@@ -44,7 +44,7 @@
 		"README.md"
 	],
 	"dependencies": {
-		"zod": "^4.6.5"
+		"zod": "^4.6.7"
 	},
 	"peerDependenciesMeta": {
 		"vite": {
@@ -53,8 +53,8 @@
 	},
 	"devDependencies": {
 		"@useavalon/avalon": "workspace:*",
-		"oxc-minify": "^0.153.0",
-		"oxc-transform": "^0.153.0",
-		"vitest": "^5.0.3"
+		"oxc-minify": "^0.154.0",
+		"oxc-transform": "^0.154.0",
+		"vitest": "^5.0.5"
 	}
 }
