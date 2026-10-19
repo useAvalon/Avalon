@@ -32,6 +32,12 @@ export function generateNetlifyToml(_config: ProjectConfig): string {
   from = "/*"
   to = "/.netlify/functions/server"
   status = 200
+
+# After \`bun run build\`, \`bun run preview\` serves \`dist/\` + functions without
+# re-running the Netlify build command from [build] above.
+[dev]
+  framework = "#static"
+  publish = "dist"
 `;
 }
 

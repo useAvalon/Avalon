@@ -9,6 +9,7 @@
 
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
+import { discoverProjectPageRoutes } from "@useavalon/avalon/page-discovery";
 import type { Plugin, PluginOption, ViteDevServer } from "vite";
 import type { AgentOptimizationConfigInput, LlmsConfig, SitemapConfig } from "./config.ts";
 import { validateConfig } from "./config.ts";
@@ -200,109 +201,40 @@ export function agentOptimization(config: AgentOptimizationConfigInput): PluginO
 // Build-time helpers
 // ---------------------------------------------------------------------------
 
+/** Subset of ResolvedAvalonConfig set on globalThis during Vite configResolved. */
+type AvalonRouteDiscoveryConfig = {
+	pagesDir?: string;
+	modules?: { dir: string; pagesDirName: string; layoutsDirName: string } | null;
+};
+
+function readAvalonRouteDiscoveryConfig(): AvalonRouteDiscoveryConfig | undefined {
+	return (globalThis as { __avalonConfig?: AvalonRouteDiscoveryConfig }).__avalonConfig;
+}
+
+async function discoverProjectRoutes(
+	projectRoot: string,
+	developmentMode?: boolean,
+): Promise<Array<{ pattern: string; type?: string }>> {
+	const avalonConfig = readAvalonRouteDiscoveryConfig();
+	return discoverProjectPageRoutes({
+		projectRoot,
+		developmentMode,
+		pagesDir: avalonConfig?.pagesDir,
+		modules: avalonConfig?.modules,
+	});
+}
+
 async function discoverRoutesForBuild(
 	enabled: boolean,
 ): Promise<Array<{ pattern: string; type?: string }>> {
 	if (!enabled) return [];
 
 	try {
-		const projectRoot = process.cwd();
-
-		// Try to import Avalon's route discovery directly using path resolution
-		// In a monorepo, the packages are siblings
-		const avalonPath = path.resolve(projectRoot, "packages/avalon");
-		let routeDiscoveryPath = path.join(avalonPath, "src/nitro/route-discovery.ts");
-		let moduleDiscoveryPath = path.join(avalonPath, "src/vite-plugin/module-discovery.ts");
-
-		// If not found, try relative to this package (for when running from www/)
-		try {
-			await fs.access(routeDiscoveryPath);
-		} catch {
-			routeDiscoveryPath = path.resolve(
-				projectRoot,
-				"../packages/avalon/src/nitro/route-discovery.ts",
-			);
-			moduleDiscoveryPath = path.resolve(
-				projectRoot,
-				"../packages/avalon/src/vite-plugin/module-discovery.ts",
-			);
-		}
-
-		const routeDiscovery = (await import(/* @vite-ignore */ routeDiscoveryPath)) as {
-			discoverPageRoutes: (
-				dir: string,
-				opts?: { developmentMode?: boolean },
-			) => Promise<Array<{ pattern: string; type?: string }>>;
-			discoverPageRoutesFromMultipleDirs?: (
-				dirs: Array<{ dir: string; prefix: string }>,
-				opts?: { developmentMode?: boolean },
-			) => Promise<Array<{ pattern: string; type?: string }>>;
-		};
-		const moduleDiscovery = (await import(/* @vite-ignore */ moduleDiscoveryPath)) as {
-			getAllPageDirs: (
-				pagesDir: string,
-				modulesConfig: unknown,
-				projectRoot: string,
-			) => Promise<Array<{ dir: string; prefix: string }>>;
-		};
-
-		const pageDirs: Array<{ dir: string; prefix: string }> = [];
-
-		// Check for modular architecture (app/modules)
-		const modulesDir = path.resolve(projectRoot, "app/modules");
-		try {
-			const stat = await fs.stat(modulesDir);
-			if (stat.isDirectory()) {
-				// Use modular architecture
-				const modulesConfig = {
-					dir: "app/modules",
-					pagesDirName: "pages",
-					layoutsDirName: "layouts",
-				};
-				const dirs = await moduleDiscovery.getAllPageDirs("src/pages", modulesConfig, projectRoot);
-				pageDirs.push(...dirs);
-			}
-		} catch {
-			// No modular architecture, try traditional
-		}
-
-		// Fall back to traditional pages directory
-		if (pageDirs.length === 0) {
-			const traditionalPagesDir = path.resolve(projectRoot, "src/pages");
-			try {
-				const stat = await fs.stat(traditionalPagesDir);
-				if (stat.isDirectory()) {
-					pageDirs.push({ dir: traditionalPagesDir, prefix: "/" });
-				}
-			} catch {
-				// No pages directory found
-			}
-		}
-
-		if (pageDirs.length === 0) {
+		const routes = await discoverProjectRoutes(process.cwd());
+		if (routes.length === 0) {
 			console.warn("[agent-optimization] No page directories found during build");
-			return [];
 		}
-
-		// Use multi-dir discovery
-		if (routeDiscovery.discoverPageRoutesFromMultipleDirs) {
-			const discovered = await routeDiscovery.discoverPageRoutesFromMultipleDirs(pageDirs);
-			return discovered.filter((r: { type?: string }) => r.type === "page");
-		}
-
-		// Fall back to single-dir discovery
-		const allRoutes: Array<{ pattern: string; type?: string }> = [];
-		for (const { dir, prefix } of pageDirs) {
-			const routes = await routeDiscovery.discoverPageRoutes(dir);
-			for (const route of routes) {
-				if (route.type === "page") {
-					const pattern =
-						prefix === "/" ? route.pattern : prefix + (route.pattern === "/" ? "" : route.pattern);
-					allRoutes.push({ ...route, pattern });
-				}
-			}
-		}
-		return allRoutes;
+		return routes;
 	} catch (err) {
 		console.warn("[agent-optimization] Route discovery failed during build:", err);
 	}
@@ -323,22 +255,27 @@ async function writeLlmsFiles(
 	if (!generateFull) return;
 
 	const projectRoot = process.cwd();
-	const pages: Array<{ route: LlmsRoute; html: string }> = [];
-
-	for (const entry of entries) {
-		const urlPath = new URL(entry.url).pathname;
-		try {
-			const html = await renderPageForLlms(projectRoot, urlPath);
-			if (html) {
-				pages.push({
-					route: { pattern: urlPath, title: entry.name, description: entry.description },
+	const pageResults = await Promise.all(
+		entries.map(async (entry) => {
+			const urlPath = new URL(entry.url).pathname;
+			try {
+				const html = await renderPageForLlms(projectRoot, urlPath);
+				if (!html) return null;
+				return {
+					route: {
+						pattern: urlPath,
+						title: entry.name,
+						description: entry.description,
+					} as LlmsRoute,
 					html,
-				});
+				};
+			} catch (err) {
+				console.warn(`[agent-optimization] Failed to render ${urlPath} for llms-full.txt:`, err);
+				return null;
 			}
-		} catch (err) {
-			console.warn(`[agent-optimization] Failed to render ${urlPath} for llms-full.txt:`, err);
-		}
-	}
+		}),
+	);
+	const pages = pageResults.filter((page) => page !== null);
 
 	if (pages.length > 0) {
 		const fullTxt = buildLlmsFullTxt(pages, config);
@@ -493,95 +430,11 @@ async function discoverRoutes(
 	server: ViteDevServer,
 ): Promise<Array<{ pattern: string; type?: string }>> {
 	try {
-		const viteRoot = server.config.root;
-
-		// Try to load Avalon's route discovery and module discovery
-		const routeDiscoveryModule = (await server.ssrLoadModule(
-			path.resolve(viteRoot, "../packages/avalon/src/nitro/route-discovery.ts"),
-		)) as {
-			discoverPageRoutes?: (
-				dir: string,
-				opts?: { developmentMode?: boolean },
-			) => Promise<Array<{ pattern: string; type?: string }>>;
-			discoverPageRoutesFromMultipleDirs?: (
-				dirs: Array<{ dir: string; prefix: string }>,
-				opts?: { developmentMode?: boolean },
-			) => Promise<Array<{ pattern: string; type?: string }>>;
-		};
-
-		const moduleDiscoveryModule = (await server.ssrLoadModule(
-			path.resolve(viteRoot, "../packages/avalon/src/vite-plugin/module-discovery.ts"),
-		)) as {
-			getAllPageDirs?: (
-				pagesDir: string,
-				modulesConfig: unknown,
-				projectRoot: string,
-			) => Promise<Array<{ dir: string; prefix: string }>>;
-		};
-
-		// Get Avalon config from global (set by nitro-integration)
-		const avalonConfig = (globalThis as any).__avalonConfig as
-			| {
-					pagesDir?: string;
-					modules?: { dir: string; pagesDirName: string; layoutsDirName: string };
-			  }
-			| undefined;
-
-		// Collect all page directories
-		const pageDirs: Array<{ dir: string; prefix: string }> = [];
-
-		// Check for modular architecture first
-		if (avalonConfig?.modules && moduleDiscoveryModule.getAllPageDirs) {
-			const dirs = await moduleDiscoveryModule.getAllPageDirs(
-				avalonConfig.pagesDir || "src/pages",
-				avalonConfig.modules,
-				viteRoot,
-			);
-			pageDirs.push(...dirs);
-		} else {
-			// Fall back to traditional pages directory
-			const traditionalPagesDir = path.resolve(viteRoot, avalonConfig?.pagesDir || "src/pages");
-			try {
-				const stat = await fs.stat(traditionalPagesDir);
-				if (stat.isDirectory()) {
-					pageDirs.push({ dir: traditionalPagesDir, prefix: "/" });
-				}
-			} catch {
-				// Directory doesn't exist
-			}
-		}
-
-		if (pageDirs.length === 0) {
+		const routes = await discoverProjectRoutes(server.config.root, true);
+		if (routes.length === 0) {
 			console.warn("[agent-optimization] No page directories found");
-			return [];
 		}
-
-		// Use multi-dir discovery if available, otherwise fall back to single-dir
-		if (routeDiscoveryModule.discoverPageRoutesFromMultipleDirs && pageDirs.length > 0) {
-			const discovered = await routeDiscoveryModule.discoverPageRoutesFromMultipleDirs(pageDirs, {
-				developmentMode: true,
-			});
-			return discovered.filter((r) => r.type === "page");
-		} else if (routeDiscoveryModule.discoverPageRoutes) {
-			// Fall back to single directory discovery
-			const allRoutes: Array<{ pattern: string; type?: string }> = [];
-			for (const { dir, prefix } of pageDirs) {
-				const routes = await routeDiscoveryModule.discoverPageRoutes(dir, {
-					developmentMode: true,
-				});
-				for (const route of routes) {
-					if (route.type === "page") {
-						// Apply prefix
-						const pattern =
-							prefix === "/"
-								? route.pattern
-								: prefix + (route.pattern === "/" ? "" : route.pattern);
-						allRoutes.push({ ...route, pattern });
-					}
-				}
-			}
-			return allRoutes;
-		}
+		return routes;
 	} catch (err) {
 		console.warn("[agent-optimization] Route discovery failed:", err);
 	}
@@ -610,22 +463,27 @@ async function handleLlmsFullTxt(
 	const routes = await discoverRoutes(server);
 	const filteredRoutes = routesToLlmsEntries(routes as LlmsRoute[], llmsConfig);
 
-	// Render each page to HTML via the dev server, then convert to markdown
-	const pages: Array<{ route: LlmsRoute; html: string }> = [];
-	for (const entry of filteredRoutes) {
-		const urlPath = new URL(entry.url).pathname;
-		try {
-			const html = await renderRouteViaDevServer(server, urlPath);
-			if (html) {
-				pages.push({
-					route: { pattern: urlPath, title: entry.name, description: entry.description },
+	const pageResults = await Promise.all(
+		filteredRoutes.map(async (entry) => {
+			const urlPath = new URL(entry.url).pathname;
+			try {
+				const html = await renderRouteViaDevServer(server, urlPath);
+				if (!html) return null;
+				return {
+					route: {
+						pattern: urlPath,
+						title: entry.name,
+						description: entry.description,
+					} as LlmsRoute,
 					html,
-				});
+				};
+			} catch (err) {
+				console.warn(`[agent-optimization] Failed to render ${urlPath} for llms-full.txt:`, err);
+				return null;
 			}
-		} catch (err) {
-			console.warn(`[agent-optimization] Failed to render ${urlPath} for llms-full.txt:`, err);
-		}
-	}
+		}),
+	);
+	const pages = pageResults.filter((page) => page !== null);
 
 	const txt = buildLlmsFullTxt(pages, llmsConfig);
 
@@ -677,21 +535,23 @@ async function renderRouteViaDevServer(
 // Helpers
 // ---------------------------------------------------------------------------
 
+const TITLE_TAG_RE = /<title[^>]*>([\s\S]*?)<\/title>/i;
+const META_DESCRIPTION_NAME_FIRST_RE =
+	/<meta\s[^>]*name\s*=\s*["']description["'][^>]*content\s*=\s*["']([^"']*)["'][^>]*\/?>/i;
+const META_DESCRIPTION_CONTENT_FIRST_RE =
+	/<meta\s[^>]*content\s*=\s*["']([^"']*)["'][^>]*name\s*=\s*["']description["'][^>]*\/?>/i;
+
 function extractMetadataFromHtml(html: string): PageMetadata {
 	const metadata: PageMetadata = {};
 
-	const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+	const titleMatch = TITLE_TAG_RE.exec(html);
 	if (titleMatch) metadata.title = titleMatch[1].trim();
 
-	const descMatch = html.match(
-		/<meta\s[^>]*name\s*=\s*["']description["'][^>]*content\s*=\s*["']([^"']*)["'][^>]*\/?>/i,
-	);
+	const descMatch = META_DESCRIPTION_NAME_FIRST_RE.exec(html);
 	if (descMatch) {
 		metadata.description = descMatch[1];
 	} else {
-		const descMatch2 = html.match(
-			/<meta\s[^>]*content\s*=\s*["']([^"']*)["'][^>]*name\s*=\s*["']description["'][^>]*\/?>/i,
-		);
+		const descMatch2 = META_DESCRIPTION_CONTENT_FIRST_RE.exec(html);
 		if (descMatch2) metadata.description = descMatch2[1];
 	}
 

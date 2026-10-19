@@ -58,6 +58,7 @@
 		"./nitro/html-post-process-register": "./src/nitro/html-post-process-register.ts",
 		"./nitro/types": "./src/nitro/types.ts",
 		"./nitro/config": "./src/nitro/config.ts",
+		"./page-discovery": "./src/page-discovery.ts",
 		"./types/island-jsx": "./src/types/island-jsx.d.ts",
 		"./types": "./src/types/index.d.ts",
 		"./prerender": "./src/prerender/index.ts",

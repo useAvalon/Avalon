@@ -54,6 +54,8 @@ describe("generateNetlifyToml", () => {
 		expect(toml).toContain('NITRO_PRESET = "netlify"');
 		expect(toml).toContain('publish = "dist"');
 		expect(toml).toContain("/.netlify/functions/server");
+		expect(toml).toContain("[dev]");
+		expect(toml).toContain('framework = "#static"');
 	});
 });
 

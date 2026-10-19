@@ -95,6 +95,11 @@ export function generatePackageJson(config: ProjectConfig): string {
 		scripts.deploy = `bunx wrangler@4 pages deploy --project-name=${name}`;
 	}
 
+	if (config.deploy === "netlify") {
+		// Netlify preset writes the server under .netlify/, not .output/server.
+		scripts.preview = "bunx netlify-cli@22 dev --offline";
+	}
+
 	const pkg = {
 		name: config.projectName,
 		type: "module",
