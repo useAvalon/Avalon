@@ -1,5 +1,13 @@
 # @useavalon/agent-optimization
 
+## 0.2.4
+
+### Patch Changes
+
+- [#137](https://github.com/useAvalon/Avalon/pull/137) [`45087c9`](https://github.com/useAvalon/Avalon/commit/45087c9f10eff959024faa3ebdbca1455f56221c) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Resolve page routes via `@useavalon/avalon/page-discovery` so sitemap and llms.txt work outside the monorepo.
+- Updated dependencies [[`45087c9`](https://github.com/useAvalon/Avalon/commit/45087c9f10eff959024faa3ebdbca1455f56221c)]:
+  - @useavalon/avalon@0.7.4
+
 ## 0.2.3
 
 ### Patch Changes
