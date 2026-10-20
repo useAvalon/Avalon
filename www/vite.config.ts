@@ -163,7 +163,7 @@ export default defineConfig(async (): Promise<UserConfig> => {
 				sitemap: {
 					siteUrl: seoSiteUrl,
 					changefreq: "daily",
-					exclude: ["/admin/**", "/login"],
+					exclude: ["/admin/**", "/login", "/404", "/500"],
 				},
 				markdown: true,
 				llms: {

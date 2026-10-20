@@ -40,7 +40,7 @@ export const wwwSeoConfig: SeoConfigInput = {
 		{
 			question: "What is Avalon?",
 			answer:
-				"Avalon is a full-stack islands framework: static HTML by default, partial hydration per component, and Nitro-powered deployment to any major JavaScript runtime.",
+				"Avalon is a full-stack JavaScript framework built around islands architecture and partial hydration. Pages render as HTML on the server, interactive components hydrate as islands, and deployment runs through Nitro to supported runtimes.",
 		},
 		{
 			question: "How do I get started with Avalon?",
@@ -50,12 +50,12 @@ export const wwwSeoConfig: SeoConfigInput = {
 		{
 			question: "Why does partial hydration matter?",
 			answer:
-				"Experts say most marketing pages do not need a full client bundle. Hydrating only islands keeps first load small and improves Core Web Vitals.",
+				"Most marketing and content pages need little or no client-side JavaScript. Hydrating only islands limits what ships to the browser and can improve Core Web Vitals compared with hydrating the entire page.",
 		},
 		{
-			question: "When should I choose islands over a SPA?",
+			question: "When should I use islands?",
 			answer:
-				"When SEO, time-to-first-byte, and static content matter. On the other hand, a SPA can still make sense for highly interactive dashboards — Avalon lets you mix both on one site.",
+				"When only some of the page needs to be interactive. Mark those components as islands and the rest stays HTML, with no client JavaScript.",
 		},
 	],
 };

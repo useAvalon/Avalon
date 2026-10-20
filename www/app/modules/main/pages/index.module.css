@@ -123,6 +123,7 @@
 	letter-spacing: -0.035em;
 	color: var(--bp-ink);
 	margin: 0 0 32px;
+	text-wrap: balance;
 }
 
 .heroTitle em {
@@ -138,8 +139,14 @@
 	font-weight: 400;
 	line-height: 1.55;
 	color: var(--bp-ink-70);
-	max-width: 52ch;
-	margin: 0 auto 44px;
+	max-width: min(44rem, 100%);
+	margin: 0 auto 32px;
+	text-wrap: balance;
+}
+
+.heroLead strong {
+	font-weight: 600;
+	color: var(--bp-ink);
 }
 
 .heroCta {
@@ -694,24 +701,97 @@
 	flex-wrap: wrap;
 }
 
-.faqList {
-	display: grid;
-	gap: 1.5rem;
-	margin-top: 1.5rem;
-	max-width: 40rem;
+.sectionFaq {
+	max-width: 1240px;
 }
 
-.faqItem h3 {
+.faqDek {
 	font-family: var(--bp-sans);
-	font-size: 1.05rem;
-	margin: 0 0 0.35rem;
+	font-size: clamp(20px, 2.2vw, 28px);
+	font-weight: 500;
+	line-height: 1.35;
+	letter-spacing: -0.025em;
+	color: var(--bp-ink);
+	max-width: 28em;
+	margin: 28px 0 0;
 }
 
-.faqItem p {
+.faqList {
+	margin-top: clamp(40px, 5vw, 64px);
+	display: flex;
+	flex-direction: column;
+	border-top: 1px solid var(--bp-ink-10);
+}
+
+.faqItem {
+	display: grid;
+	grid-template-columns: 48px 1fr auto;
+	gap: 24px;
+	align-items: baseline;
+	padding: 32px 0;
+	border-bottom: 1px solid var(--bp-ink-10);
+}
+
+@media (max-width: 720px) {
+	.faqItem {
+		grid-template-columns: 1fr;
+		gap: 12px;
+	}
+}
+
+.faqNum {
+	font-family: var(--bp-mono);
+	font-size: 12px;
+	font-weight: 500;
+	color: var(--bp-ink-30);
+}
+
+.faqRole {
+	font-family: var(--bp-mono);
+	font-size: 11px;
+	font-weight: 500;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--bp-blue);
+	padding: 4px 10px;
+	background: var(--bp-blue-l);
+	border-radius: 0;
+	white-space: nowrap;
+	align-self: flex-start;
+}
+
+.faqCopy {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	min-width: 0;
+}
+
+.faqCopy h3 {
+	font-family: var(--bp-sans);
+	font-size: 20px;
+	font-weight: 600;
+	color: var(--bp-ink);
 	margin: 0;
-	color: var(--bp-ink-70);
-	font-size: 0.95rem;
+	letter-spacing: -0.02em;
+}
+
+.faqCopy p {
+	font-family: var(--bp-sans);
+	font-size: 15px;
 	line-height: 1.55;
+	color: var(--bp-ink-70);
+	margin: 0;
+	max-width: 52ch;
+}
+
+.faqCopy a {
+	color: var(--bp-blue);
+	text-decoration: none;
+}
+
+.faqCopy a:hover {
+	text-decoration: underline;
 }
 
 /* Footer is provided by the shared root layout — no custom footer CSS needed here. */
