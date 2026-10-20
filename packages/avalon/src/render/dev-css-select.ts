@@ -117,3 +117,48 @@ export function appendDevStyleTags(
 		.join("\n");
 	return html.replace("</head>", `${tags}\n</head>`);
 }
+
+const VITE_CLIENT_TAG = '<script type="module" src="/@vite/client"></script>';
+const LEGACY_MAIN_JS = "/src/client/main.js";
+
+/** Dev script `src` for the project client entry (`app/entry-client` → `/app/entry-client`). */
+export function devClientEntrySrc(clientEntry: string): string {
+	return clientEntry.startsWith("/") ? clientEntry : `/${clientEntry}`;
+}
+
+function devClientEntryTag(clientEntry: string): string {
+	const src = devClientEntrySrc(clientEntry);
+	return `<script type="module" src="${src}"></script>`;
+}
+
+function hasClientEntryScript(html: string, clientEntry: string): boolean {
+	if (html.includes(LEGACY_MAIN_JS) || html.includes("entry-client")) return true;
+	const src = devClientEntrySrc(clientEntry);
+	return html.includes(src);
+}
+
+/**
+ * Ensures Vite HMR and the Avalon client entry load in dev SSR HTML.
+ * `appendDevCssLinks` may inject only `/@vite/client`; Nitro still needs the
+ * project entry (for example `/app/entry-client`) that imports
+ * `virtual:avalon/client-entry`.
+ */
+export function ensureDevClientScripts(html: string, clientEntry = "app/entry-client"): string {
+	let result = html;
+
+	if (!result.includes("/@vite/client") && result.includes("</head>")) {
+		result = result.replace("</head>", `\n${VITE_CLIENT_TAG}\n</head>`);
+	}
+
+	if (!hasClientEntryScript(result, clientEntry)) {
+		const tag = `\n${devClientEntryTag(clientEntry)}\n`;
+		const bodyCloseIndex = result.lastIndexOf("</body>");
+		if (bodyCloseIndex !== -1) {
+			result = result.slice(0, bodyCloseIndex) + tag + result.slice(bodyCloseIndex);
+		} else {
+			result += tag;
+		}
+	}
+
+	return result;
+}

@@ -43,10 +43,12 @@ import {
 } from "../nitro/index.ts";
 import type { PageModule } from "../nitro/types.ts";
 import { collectCssFromModuleGraph, injectSsrCss } from "../render/collect-css.ts";
+import { ensureDevClientScripts } from "../render/dev-css-select.ts";
 import { generateErrorPage, generateFallback404 } from "../render/error-pages.ts";
 import { generateComponentId } from "../server-islands/manifest.ts";
 import { buildDevCssRouteTable } from "./dev-css-graph.ts";
 import { createDevCssHmrPlugin, generateDevCssHmrModule } from "./dev-css-hmr.ts";
+import { createNitroCssStubPlugin } from "./nitro-css-stub.ts";
 import { resolveToRelativePath } from "./server-islands-plugin.ts";
 import { SSR_DOM_VIRTUAL_ID, ssrDomSourceForProject } from "./ssr-dom-shim-module.ts";
 import { createStubBuildTimeBundlerPlugin } from "./stub-build-time-packages.ts";
@@ -770,6 +772,7 @@ export function createNitroIntegration(
 	return {
 		nitroOptions,
 		plugins: [
+			createNitroCssStubPlugin(),
 			createDevCssHmrPlugin(),
 			...(Array.isArray(nitroPlugin) ? nitroPlugin : [nitroPlugin]),
 			coordinationPlugin,
@@ -787,7 +790,8 @@ export function createNitroIntegration(
  * and prewarms core infrastructure modules (fire-and-forget).
  */
 export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOptions): Plugin {
-	const { avalonConfig, verbose } = options;
+	const { avalonConfig, nitroConfig, verbose } = options;
+	const clientEntry = nitroConfig.clientEntry ?? "app/entry-client";
 
 	return {
 		name: "avalon:nitro-coordination",
@@ -1150,11 +1154,17 @@ export function createNitroCoordinationPlugin(options: NitroCoordinationPluginOp
 					if (middlewareHandled) return;
 
 					// Try streaming SSR first (streams shell before page data resolves)
-					const streamed = await handleStreamingSSRRequest(server, url, avalonConfig, res);
+					const streamed = await handleStreamingSSRRequest(
+						server,
+						url,
+						avalonConfig,
+						res,
+						clientEntry,
+					);
 					if (streamed) return;
 
 					// Fallback to buffered SSR for non-modular pages
-					const html = await handleSSRRequest(server, url, avalonConfig);
+					const html = await handleSSRRequest(server, url, avalonConfig, clientEntry);
 					if (html) {
 						res.statusCode = 200;
 						res.setHeader("Content-Type", "text/html");
@@ -1344,6 +1354,30 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 	return {
 		name: "avalon:nitro-virtual-modules",
 		enforce: "pre",
+		applyToEnvironment: () => true,
+
+		configureServer(server) {
+			// Page modules often live only in the Nitro graph; `hotUpdate`
+			// does not always run for them. The watcher covers every save.
+			server.watcher.on("change", (file) => {
+				coordinateDevFileChange(file, server, () => {
+					cachedLayoutsModule = null;
+				});
+			});
+		},
+
+		hotUpdate(ctx) {
+			const { isPage, isComponent, isLayout } = classifyHotFile(ctx.file);
+			if (!isPage && !isComponent && !isLayout) return;
+			const envName = (ctx as { environment?: { name?: string } }).environment?.name;
+			if (!envName || envName === "client") {
+				coordinateDevFileChange(ctx.file, ctx.server, () => {
+					cachedLayoutsModule = null;
+				});
+			}
+			// Stop Vite from re-transforming imported CSS in ssr/nitro (cssModulesCache crash).
+			return [];
+		},
 
 		resolveId(id: string) {
 			if (id === VIRTUAL_MODULE_IDS.PAGE_ROUTES) return RESOLVED_VIRTUAL_IDS.PAGE_ROUTES;
@@ -1394,40 +1428,6 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 			if (id === RESOLVED_VIRTUAL_IDS.HTML_POST_PROCESS_REGISTER)
 				return getHtmlPostProcessRegisterModuleSource();
 			return null;
-		},
-
-		handleHotUpdate({ file, server }) {
-			// Nitro SSR is a separate realm from the Vite client graph, so a
-			// page/component/layout change needs a full reload after the table
-			// rebuilds. CSS-only edits are handled by avalon:dev-css-hmr
-			// (inline <style> + ws payload). Do not full-reload the document.
-			const { isPage, isComponent, isLayout, isCss } = classifyHotFile(file);
-
-			if (isCss) {
-				cachedLayoutsModule = null;
-			}
-
-			if (isPage) {
-				invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
-				invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_LOADER);
-				void reloadNitroPageRoutes(server);
-			}
-
-			if (isPage || isComponent || isLayout) {
-				cachedLayoutsModule = null;
-				invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.LAYOUTS);
-				if (isLayout) {
-					invalidateModuleById(server, RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY);
-				}
-				setTimeout(() => {
-					server.ws.send({ type: "full-reload", path: "*" });
-				}, 500);
-			}
-
-			// Invalidate virtual:avalon/config when config-related files change
-			if (isAvalonConfigFile(file)) {
-				invalidateModuleById(server, RESOLVED_VIRTUAL_IDS.CONFIG);
-			}
 		},
 	};
 }
@@ -1512,14 +1512,66 @@ async function reloadNitroPageRoutes(server: ViteDevServer): Promise<void> {
  * page add and unlink, which Vite's `handleHotUpdate` does not fire for, and
  * for page change.
  */
+let browserReloadTimer: ReturnType<typeof setTimeout> | undefined;
+let lastCoordKey = "";
+let lastCoordAt = 0;
+
+function scheduleBrowserFullReload(server: ViteDevServer): void {
+	if (browserReloadTimer !== undefined) clearTimeout(browserReloadTimer);
+	browserReloadTimer = setTimeout(() => {
+		browserReloadTimer = undefined;
+		server.ws.send({ type: "full-reload", path: "*" });
+	}, 500);
+}
+
 function refreshPageRoutes(server: ViteDevServer): void {
 	invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
 	invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_LOADER);
 	void reloadNitroPageRoutes(server);
-	// Delay the browser reload so the SSR route table can rebuild first.
-	setTimeout(() => {
-		server.ws.send({ type: "full-reload", path: "*" });
-	}, 500);
+	scheduleBrowserFullReload(server);
+}
+
+/**
+ * Nitro SSR runs outside the client module graph, so page/component/layout
+ * edits need virtual-module invalidation and a browser full reload. CSS-only
+ * edits are handled by avalon:dev-css-hmr (no document reload).
+ */
+function coordinateDevFileChange(
+	file: string,
+	server: ViteDevServer,
+	clearLayoutsModuleCache: () => void,
+): void {
+	const { isPage, isComponent, isLayout, isCss } = classifyHotFile(file);
+
+	if (isCss) return;
+
+	const now = Date.now();
+	const key = `${file}:${isPage}:${isComponent}:${isLayout}`;
+	if (key === lastCoordKey && now - lastCoordAt < 250) return;
+	lastCoordKey = key;
+	lastCoordAt = now;
+
+	if (isPage) {
+		invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_ROUTES);
+		invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_LOADER);
+	}
+
+	if (isPage || isComponent || isLayout) {
+		void reloadNitroPageRoutes(server);
+		clearLayoutsModuleCache();
+		invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.LAYOUTS);
+		invalidateVirtualEverywhere(server, RESOLVED_VIRTUAL_IDS.PAGE_LOADER);
+		invalidateModuleById(server, RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY);
+		server.config.logger.info(
+			`hmr ${isPage ? "page" : isComponent ? "component" : "layout"} → full reload`,
+			{ timestamp: true },
+		);
+		scheduleBrowserFullReload(server);
+	}
+
+	if (isAvalonConfigFile(file)) {
+		invalidateModuleById(server, RESOLVED_VIRTUAL_IDS.CONFIG);
+	}
 }
 
 /** Classifies a changed file for HMR handling. */
@@ -1895,17 +1947,19 @@ async function generateLayoutsModule(
 	// The shell engine (Preact by default, React when core: "react") determines
 	// how layout components are created and rendered to HTML.
 	const engineImports = layoutEngineImportLines(avalonConfig.core);
+	const devClientEntryJson = JSON.stringify(nitroConfig.clientEntry ?? "app/entry-client");
 
 	const code = [
 		`// Auto-generated by Avalon — do not edit`,
 		...engineImports,
 		`import { getUniversalCSSForHead } from '@useavalon/avalon/islands/universal-css-collector';`,
 		`import { getUniversalHeadForInjection, injectSolidHydrationScriptIfNeeded } from '@useavalon/avalon/islands/universal-head-collector';`,
-		`import { appendDevCssLinks, layoutPrefixMatches, selectDevCssHrefs } from '@useavalon/avalon/render/dev-css-select';`,
+		`import { appendDevCssLinks, ensureDevClientScripts, layoutPrefixMatches, selectDevCssHrefs } from '@useavalon/avalon/render/dev-css-select';`,
 		...imports,
 		``,
 		`const RootLayoutComponent = ${rootLayoutVar};`,
 		`const _cssTable = ${cssTableJson};`,
+		`const _devClientEntry = ${devClientEntryJson};`,
 		``,
 		`const moduleLayouts = [`,
 		entries.join(",\n"),
@@ -1919,6 +1973,7 @@ async function generateLayoutsModule(
 		`  if (process.env.NODE_ENV !== 'production') {`,
 		`    var hrefs = selectDevCssHrefs(_cssTable, pathname, skipLayouts);`,
 		`    html = appendDevCssLinks(html, hrefs);`,
+		`    html = ensureDevClientScripts(html, _devClientEntry);`,
 		`  }`,
 		`  const universalCSS = getUniversalCSSForHead(true);`,
 		`  if (universalCSS && html.includes('</head>')) {`,
@@ -2722,16 +2777,8 @@ async function applyShellLayout(
 }
 
 /** Injects the dev client scripts before `</body>` if not already present. */
-function injectStreamingClientScripts(tail: string): string {
-	if (tail.includes("/src/client/main.js") || tail.includes("/@vite/client")) return tail;
-	const bodyCloseIndex = tail.lastIndexOf("</body>");
-	if (bodyCloseIndex === -1) return tail;
-	return (
-		tail.slice(0, bodyCloseIndex) +
-		'\n<script type="module" src="/@vite/client"></script>\n' +
-		'<script type="module" src="/src/client/main.js"></script>\n' +
-		tail.slice(bodyCloseIndex)
-	);
+function injectStreamingClientScripts(tail: string, clientEntry: string): string {
+	return ensureDevClientScripts(tail, clientEntry);
 }
 
 async function handleStreamingSSRRequest(
@@ -2739,6 +2786,7 @@ async function handleStreamingSSRRequest(
 	url: string,
 	config: ResolvedAvalonConfig,
 	res: ServerResponse,
+	clientEntry: string,
 ): Promise<boolean> {
 	// Streaming only works with modular layouts (need shell + wrapper separation)
 	if (!config.modules) return false;
@@ -2848,7 +2896,7 @@ async function handleStreamingSSRRequest(
 
 		// ── FLUSH PAGE CONTENT + SHELL TAIL ──
 		// Inject client scripts before closing </body>
-		const tail = injectStreamingClientScripts(content + shellAfter);
+		const tail = injectStreamingClientScripts(content + shellAfter, clientEntry);
 
 		res.end(tail);
 		return true;
@@ -2866,6 +2914,7 @@ async function handleSSRRequest(
 	server: ViteDevServer,
 	url: string,
 	config: ResolvedAvalonConfig,
+	clientEntry: string,
 ): Promise<string | null> {
 	const pathname = url.split("?")[0];
 	const pageFile = await findPageFile(pathname, config, server);
@@ -2901,6 +2950,7 @@ async function handleSSRRequest(
 				pathname,
 				config,
 				server,
+				clientEntry,
 			);
 		} else {
 			html = await renderPageToHtml(PageComponent, pageModule, pathname, config, server);
@@ -2936,6 +2986,7 @@ async function renderPageWithManualLayouts(
 	pathname: string,
 	config: ResolvedAvalonConfig,
 	server: ViteDevServer,
+	clientEntry: string,
 ): Promise<string> {
 	const { h, renderToString: preactRender } = await loadDevShellEngine(server, config.core);
 
@@ -2957,7 +3008,7 @@ async function renderPageWithManualLayouts(
 
 	if (isCompleteDoc) {
 		// Page provides its own HTML structure, inject client script and return
-		return injectClientScript(pageContent);
+		return injectClientScript(pageContent, clientEntry);
 	}
 
 	// Separate layouts into shell (returns <html>) and wrapper (returns <div>) layouts
@@ -3000,7 +3051,7 @@ async function renderPageWithManualLayouts(
 		content.trim().startsWith("<!DOCTYPE html>") || content.trim().startsWith("<html");
 
 	if (isFinalCompleteDoc) {
-		return injectClientScript(content);
+		return injectClientScript(content, clientEntry);
 	}
 
 	// Wrap in basic HTML structure (fallback if no shell layout)
@@ -3028,7 +3079,7 @@ async function renderPageWithManualLayouts(
  * Inject client script into HTML if not already present.
  * Also ensures DOCTYPE is present for valid HTML5.
  */
-function injectClientScript(html: string): string {
+function injectClientScript(html: string, clientEntry: string): string {
 	let result = html;
 
 	// Ensure DOCTYPE is present
@@ -3053,26 +3104,7 @@ function injectClientScript(html: string): string {
 	// Conditionally inject Solid hydration bootstrap only when Solid islands are present
 	result = injectSolidHydrationScriptIfNeeded(result);
 
-	// Skip if scripts already present
-	if (result.includes("/src/client/main.js") || result.includes("/@vite/client")) {
-		return result;
-	}
-
-	// Inject before </body> or at the end
-	const bodyCloseIndex = result.lastIndexOf("</body>");
-	if (bodyCloseIndex !== -1) {
-		return (
-			result.slice(0, bodyCloseIndex) +
-			'\n<script type="module" src="/@vite/client"></script>\n' +
-			'<script type="module" src="/src/client/main.js"></script>\n' +
-			result.slice(bodyCloseIndex)
-		);
-	}
-
-	return (
-		result +
-		'\n<script type="module" src="/@vite/client"></script>\n<script type="module" src="/src/client/main.js"></script>'
-	);
+	return ensureDevClientScripts(result, clientEntry);
 }
 
 /**
