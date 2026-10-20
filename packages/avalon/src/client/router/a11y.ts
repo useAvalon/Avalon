@@ -96,7 +96,7 @@ export function restoreScrollAfterReload(): void {
 		if (!isReloadNavigation()) return;
 		const saved = JSON.parse(raw) as ScrollPosition & { path: string };
 		if (saved.path !== scrollRestorePath()) return;
-		const run = () => applyScroll({ x: saved.x, y: saved.y }, location.hash);
+		const run = () => applyScroll({ x: saved.x, y: saved.y });
 		if (document.readyState === "loading") {
 			document.addEventListener("DOMContentLoaded", run, { once: true });
 			return;
