@@ -34,7 +34,7 @@ export default async function HomePage() {
 						hydration. Create <strong>server-rendered sites</strong> with the UI frameworks you
 						already use, and deploy with Nitro.
 					</p>
-					<HeroInstallCommand island={{ condition: "on:client" }} />
+					<HeroInstallCommand island={{ condition: "on:client", ssr: true }} />
 				</div>
 			</section>
 

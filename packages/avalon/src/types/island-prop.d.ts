@@ -69,6 +69,12 @@ export type IslandDirective = {
 	conditionArg?: string;
 
 	/**
+	 * Render the island during SSR before hydration.
+	 * `on:client` defaults to `false`; other conditions default to `true`.
+	 */
+	ssr?: boolean;
+
+	/**
 	 * Emit `<link rel="modulepreload">` for this island's bundle during SSR.
 	 * Only applies to `on:client` islands. `false` skips the hint so HTML/CSS
 	 * can paint before the browser discovers the island script.

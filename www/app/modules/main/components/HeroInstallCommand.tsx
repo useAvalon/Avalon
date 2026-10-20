@@ -1,20 +1,47 @@
-import { useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import styles from "./HeroInstallCommand.module.css";
 
 const CREATE_COMMAND = "bun create avalon";
+const COPY_RESET_MS = 2000;
+
+type CopyStatus = "idle" | "copied" | "failed";
 
 export default function HeroInstallCommand() {
-	const [copied, setCopied] = useState(false);
+	const [status, setStatus] = useState<CopyStatus>("idle");
+	const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	useEffect(() => {
+		return () => {
+			if (resetTimer.current !== null) clearTimeout(resetTimer.current);
+		};
+	}, []);
+
+	function scheduleReset() {
+		if (resetTimer.current !== null) clearTimeout(resetTimer.current);
+		resetTimer.current = setTimeout(() => {
+			setStatus("idle");
+			resetTimer.current = null;
+		}, COPY_RESET_MS);
+	}
 
 	async function onCopy() {
 		try {
 			await navigator.clipboard.writeText(CREATE_COMMAND);
-			setCopied(true);
-			window.setTimeout(() => setCopied(false), 2000);
+			setStatus("copied");
+			scheduleReset();
 		} catch {
-			setCopied(false);
+			setStatus("failed");
+			scheduleReset();
 		}
 	}
+
+	const copied = status === "copied";
+	const failed = status === "failed";
+	const ariaLabel = copied
+		? "Copied to clipboard"
+		: failed
+			? "Could not copy. Select the command."
+			: "Copy install command";
 
 	return (
 		<div class={styles.root}>
@@ -23,7 +50,7 @@ export default function HeroInstallCommand() {
 				type="button"
 				class={`${styles.copyBtn} ${copied ? styles.copyBtnDone : ""}`}
 				onClick={onCopy}
-				aria-label={copied ? "Copied to clipboard" : "Copy install command"}
+				aria-label={ariaLabel}
 			>
 				{copied ? (
 					<svg
@@ -68,6 +95,9 @@ export default function HeroInstallCommand() {
 					</svg>
 				)}
 			</button>
+			<p class={styles.copyStatus} aria-live="polite">
+				{copied ? "Copied to clipboard" : failed ? "Could not copy. Select the command." : ""}
+			</p>
 		</div>
 	);
 }
