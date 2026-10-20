@@ -6,4 +6,10 @@ describe("buildRobotsTxt", () => {
 		const txt = buildRobotsTxt("https://example.com/");
 		expect(txt).toContain("Sitemap: https://example.com/sitemap.xml");
 	});
+
+	it("allows OAI-SearchBot for ChatGPT Search", () => {
+		const txt = buildRobotsTxt("https://example.com");
+		expect(txt).toContain("User-agent: OAI-SearchBot");
+		expect(txt).toMatch(/User-agent: OAI-SearchBot[\s\S]*Allow: \//);
+	});
 });
