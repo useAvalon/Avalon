@@ -58,6 +58,55 @@ function scrollWindow(x: number, y: number): void {
 	}
 }
 
+const SCROLL_RESTORE_KEY = "avalon:scroll-restore";
+
+export function scrollRestorePath(): string {
+	return `${location.pathname}${location.search}`;
+}
+
+/** Persist scroll for full reloads while `history.scrollRestoration` is manual. */
+export function saveScrollForReload(): void {
+	try {
+		sessionStorage.setItem(
+			SCROLL_RESTORE_KEY,
+			JSON.stringify({ path: scrollRestorePath(), ...readScroll() }),
+		);
+	} catch {
+		// sessionStorage unavailable
+	}
+}
+
+function isReloadNavigation(): boolean {
+	try {
+		const entry = performance.getEntriesByType("navigation")[0] as
+			| PerformanceNavigationTiming
+			| undefined;
+		return entry?.type === "reload";
+	} catch {
+		return false;
+	}
+}
+
+/** Restore scroll after reload when the URL matches the saved entry. */
+export function restoreScrollAfterReload(): void {
+	try {
+		const raw = sessionStorage.getItem(SCROLL_RESTORE_KEY);
+		if (!raw) return;
+		sessionStorage.removeItem(SCROLL_RESTORE_KEY);
+		if (!isReloadNavigation()) return;
+		const saved = JSON.parse(raw) as ScrollPosition & { path: string };
+		if (saved.path !== scrollRestorePath()) return;
+		const run = () => applyScroll({ x: saved.x, y: saved.y }, location.hash);
+		if (document.readyState === "loading") {
+			document.addEventListener("DOMContentLoaded", run, { once: true });
+			return;
+		}
+		requestAnimationFrame(run);
+	} catch {
+		// ignore corrupt storage
+	}
+}
+
 export function applyScroll(position: ScrollPosition | "top", hash?: string): void {
 	if (hash) {
 		const id = decodeURIComponent(hash.slice(1));
