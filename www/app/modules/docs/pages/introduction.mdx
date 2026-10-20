@@ -44,11 +44,13 @@ The core idea is simple: most of your page is static HTML. Only the parts that n
 
 ## How it compares
 
-Avalon is most similar to Astro in its islands-first approach, but differs in a few key ways:
+Avalon shares Astro’s islands-first idea: static HTML by default, interactive regions on the client, for landers, blogs, docs, and product UI. Pages are JSX or MDX on Vite and Nitro, not `.astro` templates. See [Avalon vs Astro](/docs/guides/avalon-vs-astro).
 
-- **Preact-native SSR** — the server renderer is built around Preact, giving you a familiar JSX authoring experience for pages and layouts
-- **Multi-framework islands** — React, Vue, Svelte, Solid, and Lit islands work out of the box with no extra adapters
-- **Nitro backend** — full server capabilities including API routes, middleware, and edge deployment
+Next.js is a React application framework (App Router, Server Components). Avalon is islands: HTML first, JavaScript only where you mark an island. See [Avalon vs Next.js](/docs/guides/avalon-vs-nextjs).
+
+- **JSX and MDX pages** — pages and layouts are JSX (`.tsx`) or MDX, not `.astro` templates
+- **Nitro server** — APIs, middleware, and deployment presets in one full-stack model
+- **Multi-framework** — React, Vue, Svelte, Solid, Lit, and Qwik in one project when your boundaries warrant it ([islands architecture](/docs/islands-architecture))
 
 ## Next steps
 

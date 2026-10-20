@@ -69,7 +69,7 @@ The proxy never throws for action failures — it always resolves to a
 is `undefined` and `error` is an `ActionError` with a `code`, `message`, and
 (for validation failures) `fields`.
 
-<DocsLiveFrame label="Live">
+<DocsLiveFrame label="Live" variant="stack">
   <ActionsDemo island={{ condition: 'on:visible' }} />
   <form class={styles.form} method="POST" action="/_actions/subscribe">
     <input type="email" name="email" placeholder="you@example.com" required />

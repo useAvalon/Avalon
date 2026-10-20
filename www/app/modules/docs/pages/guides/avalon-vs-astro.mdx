@@ -1,0 +1,65 @@
+---
+title: Avalon vs Astro
+description: JSX and MDX pages versus Astro `.astro` templates.
+date: October 2026
+published: "2026-10"
+currentPath: /docs/guides/avalon-vs-astro
+prev:
+  title: Island DOM Structure
+  href: /docs/guides/island-dom-structure
+next:
+  title: Avalon vs Next.js
+  href: /docs/guides/avalon-vs-nextjs
+---
+
+## Short answer
+
+Both build HTML-first sites (blogs, docs, marketing) with islands for the bits that need to be interactive.
+
+Astro pages are `.astro`. Astro includes [content collections](https://docs.astro.build/en/guides/content-collections/) to query files as typed data.
+
+Avalon pages are JSX or MDX. Avalon includes [Nitro](https://nitro.build) so APIs, middleware, and deploy presets sit next to those pages.
+
+## What is similar
+
+- **Islands:** server-rendered HTML first; interactive regions hydrate on the client.
+- **Content-heavy sites:** landers, blogs, docs, and guides with occasional widgets.
+- **File-based routing** and **MDX**.
+
+## Where they diverge
+
+| Dimension | Astro | Avalon |
+| --- | --- | --- |
+| **Page authoring** | `.astro` templates as the default page format | JSX and MDX pages and layouts (`.tsx` / `.mdx`) |
+| **Typed content in the repo** | [Content collections](https://docs.astro.build/en/guides/content-collections/): schemas, `getCollection`, `getEntry` from a `src/content` tree | No first-party collection API. Content is **routes** (`.tsx` / `.mdx` under [modules](/docs/modules) or `src/pages/`), **imports**, or data you [load at build or request time](/docs/guides/data-loading) |
+| **Server / deployment** | Static output by default; server and on-demand output through [deployment adapters](https://docs.astro.build/en/guides/deploy/) (for example [`@astrojs/node`](https://docs.astro.build/en/guides/integrations-guide/node/)) | [**Nitro**](https://nitro.build) presets plus [API routes](/docs/api-routes), [middleware](/docs/middleware), [server actions](/docs/server-actions), and [cron jobs](/docs/cron-jobs) |
+| **Skills and ecosystem** | [Integrations directory](https://astro.build/integrations/) and tutorials centered on **Astro** APIs | **Vite**, **JSX**, and **Nitro** skills that carry over from other app stacks |
+
+## When Astro is the better fit
+
+- Your team wants to **author pages in `.astro`** and embed UI frameworks from that template language.
+- You want Astro’s **content collections** to validate, list, and query markdown/MDX as data, not only as routable pages.
+- You plan to rely on Astro’s **integrations directory** and Astro-oriented guides for setup and deployment.
+
+## When Avalon is the better fit
+
+- You want **JSX and MDX** pages and layouts for marketing, docs, and product UI in one authoring style.
+- You want **Nitro** as the default server and deployment story for APIs, middleware, and presets alongside those pages.
+- You ship **interactive product UI** in the **same repo** as marketing and docs, with JSX, MDX, and Nitro end to end.
+- Your team already works in **Vite + JSX + Nitro** and wants islands without adopting `.astro` or Astro-only content APIs.
+
+## What this guide is not
+
+- A benchmark. No “faster,” “smaller,” or “better SEO” claim. Measure your routes.
+- A migration recipe.
+- An independent review. Check [Astro’s docs](https://docs.astro.build).
+
+## Primary sources
+
+- [Avalon introduction](/docs/introduction)
+- [Islands architecture](/docs/islands-architecture)
+- [Data loading](/docs/guides/data-loading)
+- [Deployment](/docs/guides/deployment)
+- [Astro content collections](https://docs.astro.build/en/guides/content-collections/)
+- [Astro integrations](https://docs.astro.build/en/guides/integrations/)
+- [Astro framework components](https://docs.astro.build/en/guides/framework-components/)
