@@ -10,6 +10,6 @@ describe("buildRobotsTxt", () => {
 	it("allows OAI-SearchBot for ChatGPT Search", () => {
 		const txt = buildRobotsTxt("https://example.com");
 		expect(txt).toContain("User-agent: OAI-SearchBot");
-		expect(txt).toMatch(/User-agent: OAI-SearchBot[\s\S]*Allow: \//);
+		expect(txt).toMatch(/User-agent: OAI-SearchBot\s+Allow: \//);
 	});
 });
