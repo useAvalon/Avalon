@@ -2953,7 +2953,14 @@ async function handleSSRRequest(
 				clientEntry,
 			);
 		} else {
-			html = await renderPageToHtml(PageComponent, pageModule, pathname, config, server);
+			html = await renderPageToHtml(
+				PageComponent,
+				pageModule,
+				pathname,
+				config,
+				server,
+				clientEntry,
+			);
 		}
 
 		// Inject collected CSS into the HTML so styles are present on first paint
@@ -3059,20 +3066,21 @@ async function renderPageWithManualLayouts(
 	const title = fallbackMetadata.title || "Avalon App";
 	const description = fallbackMetadata.description || "";
 
-	return `<!DOCTYPE html>
+	return ensureDevClientScripts(
+		`<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${escapeHtml(title)}</title>
     ${description ? `<meta name="description" content="${escapeHtml(description)}">` : ""}
-    <script type="module" src="/@vite/client"></script>
   </head>
   <body>
     ${content}
-    <script type="module" src="/src/client/main.js"></script>
   </body>
-</html>`;
+</html>`,
+		clientEntry,
+	);
 }
 
 /**
@@ -3454,6 +3462,7 @@ async function renderPageToHtml(
 	pathname: string,
 	config: ResolvedAvalonConfig,
 	server: ViteDevServer,
+	clientEntry: string,
 ): Promise<string> {
 	const metadata = (pageModule.metadata || {}) as { title?: string; description?: string };
 
@@ -3465,27 +3474,28 @@ async function renderPageToHtml(
 		server,
 		metadata,
 	);
-	if (rendered !== null) return rendered;
+	if (rendered !== null) return ensureDevClientScripts(rendered, clientEntry);
 
 	// Fallback: basic HTML template
 	const title = metadata.title || "Avalon App";
 	const description = metadata.description || "";
 	const content = await renderDevFallbackContent(PageComponent, server, config, pathname);
 
-	return `<!DOCTYPE html>
+	return ensureDevClientScripts(
+		`<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>${escapeHtml(title)}</title>
     ${description ? `<meta name="description" content="${escapeHtml(description)}">` : ""}
-    <script type="module" src="/@vite/client"></script>
   </head>
   <body>
     <div id="app">${content}</div>
-    <script type="module" src="/src/client/main.js"></script>
   </body>
-</html>`;
+</html>`,
+		clientEntry,
+	);
 }
 
 function escapeHtml(str: string): string {

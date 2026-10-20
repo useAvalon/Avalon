@@ -131,10 +131,13 @@ function devClientEntryTag(clientEntry: string): string {
 	return `<script type="module" src="${src}"></script>`;
 }
 
+function hasScriptSrc(html: string, src: string): boolean {
+	return html.includes(`src="${src}"`) || html.includes(`src='${src}'`);
+}
+
 function hasClientEntryScript(html: string, clientEntry: string): boolean {
-	if (html.includes(LEGACY_MAIN_JS) || html.includes("entry-client")) return true;
-	const src = devClientEntrySrc(clientEntry);
-	return html.includes(src);
+	if (hasScriptSrc(html, LEGACY_MAIN_JS)) return true;
+	return hasScriptSrc(html, devClientEntrySrc(clientEntry));
 }
 
 /**

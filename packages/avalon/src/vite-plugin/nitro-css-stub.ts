@@ -20,13 +20,48 @@ const STUB_ID_PREFIX = `${NITRO_CSS_STUB_ID}/`;
 const CSS_EXT_RE = /\.(css|scss|sass|less|styl|stylus)$/;
 const CSS_MODULE_RE = /\.module\.(css|scss|sass|less|styl|stylus)$/;
 const LOCAL_CLASS_RE = /(?<![A-Za-z0-9_-])\.(-?[_a-zA-Z]+[_a-zA-Z0-9-]*)/g;
+const PASSTHROUGH_QUERY_RE = /[?&](direct|url|raw|inline)\b/;
+const JS_IDENT_RE = /^[A-Za-z_$][\w$]*$/;
+const JS_RESERVED = new Set([
+	"default",
+	"class",
+	"function",
+	"var",
+	"let",
+	"const",
+	"export",
+	"import",
+	"new",
+	"delete",
+	"in",
+	"if",
+	"for",
+	"while",
+	"do",
+	"return",
+	"switch",
+	"case",
+	"this",
+	"typeof",
+	"void",
+	"with",
+	"yield",
+	"await",
+	"enum",
+	"super",
+	"null",
+	"true",
+	"false",
+	"break",
+	"continue",
+]);
 
 export function isNitroCssStubEnvironment(name: string | undefined): boolean {
 	return name === "nitro" || name === "ssr";
 }
 
 export function isNitroCssStubId(id: string): boolean {
-	if (id.includes("?direct") || id.includes("&direct")) return false;
+	if (PASSTHROUGH_QUERY_RE.test(id)) return false;
 	const clean = id.split("?")[0] ?? id;
 	return CSS_EXT_RE.test(clean);
 }
@@ -131,7 +166,11 @@ export function cssModuleExportMap(file: string, css: string): Record<string, st
 }
 
 function stubModuleSource(map: Record<string, string>): string {
-	return `export default ${JSON.stringify(map)};\n`;
+	const named = Object.entries(map)
+		.filter(([key]) => JS_IDENT_RE.test(key) && !JS_RESERVED.has(key))
+		.map(([key, value]) => `export const ${key} = ${JSON.stringify(value)};\n`)
+		.join("");
+	return `${named}export default ${JSON.stringify(map)};\n`;
 }
 
 /**

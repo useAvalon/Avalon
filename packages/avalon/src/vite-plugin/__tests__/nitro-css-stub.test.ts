@@ -30,6 +30,9 @@ describe("nitro CSS stub", () => {
 		expect(isNitroCssStubId("/app/x.css")).toBe(true);
 		expect(isNitroCssStubId("/app/x.css?direct")).toBe(false);
 		expect(isNitroCssStubId("/app/x.css?direct&t=1")).toBe(false);
+		expect(isNitroCssStubId("/app/x.css?url")).toBe(false);
+		expect(isNitroCssStubId("/app/x.css?raw")).toBe(false);
+		expect(isNitroCssStubId("/app/x.css?inline")).toBe(false);
 		expect(isNitroCssStubId("/app/page.tsx")).toBe(false);
 	});
 
@@ -52,9 +55,23 @@ describe("nitro CSS stub", () => {
 		const file = "/app/modules/main/components/BentoFeatures.module.css";
 		const css = ".grid { display: grid; }\n.cardLg { grid-column: span 2; }\n";
 		const src = generateNitroCssStub(file, css);
-		expect(src).toContain(`"grid":"${stableDevScopedName("grid", file)}"`);
-		expect(src).toContain(`"cardLg":"${stableDevScopedName("cardLg", file)}"`);
+		const grid = stableDevScopedName("grid", file);
+		const cardLg = stableDevScopedName("cardLg", file);
+		expect(src).toContain(`export const grid = ${JSON.stringify(grid)};`);
+		expect(src).toContain(`export const cardLg = ${JSON.stringify(cardLg)};`);
+		expect(src).toContain(`"grid":"${grid}"`);
+		expect(src).toContain(`"cardLg":"${cardLg}"`);
 		expect(localCssModuleClassNames(css)).toEqual(["grid", "cardLg"]);
+	});
+
+	it("skips named exports for reserved or non-identifier locals", () => {
+		const file = "/app/x.module.css";
+		const css = ".class { color: red; }\n.hero-cta { color: blue; }\n";
+		const src = generateNitroCssStub(file, css);
+		expect(src).not.toContain("export const class");
+		expect(src).not.toContain("export const hero-cta");
+		expect(src).toContain(`"class":"${stableDevScopedName("class", file)}"`);
+		expect(src).toContain(`"hero-cta":"${stableDevScopedName("hero-cta", file)}"`);
 	});
 
 	it("skips :global selectors and inlines local composes", () => {
@@ -105,10 +122,10 @@ describe("nitro CSS stub", () => {
 			);
 			expect(result).toMatchObject({ moduleType: "js" });
 			const code = (result as { code: string }).code;
-			const map = JSON.parse(code.replace(/^export default /, "").replace(/;\s*$/, "")) as Record<
-				string,
-				string
-			>;
+			const defaultJson = code.match(/export default (\{.*\});\s*$/s)?.[1];
+			if (!defaultJson) throw new Error(`missing default export in ${code}`);
+			const map = JSON.parse(defaultJson) as Record<string, string>;
+			expect(code).toContain(`export const card = ${JSON.stringify(map.card)};`);
 			expect(map.card).toBe(stableDevScopedName("card", file));
 			expect(map.title).toBe(stableDevScopedName("title", file));
 			expect(map.reset).toBeUndefined();

@@ -38,6 +38,12 @@ describe("ensureDevClientScripts", () => {
 		expect(out).not.toContain("/src/entry-client.ts");
 	});
 
+	it("still injects when page copy mentions entry-client", () => {
+		const html = "<html><head></head><body><p>See app/entry-client in the docs.</p></body></html>";
+		const out = ensureDevClientScripts(html, "app/entry-client");
+		expect(out).toContain('src="/app/entry-client"');
+	});
+
 	it("keeps an explicit client-entry extension", () => {
 		const html = "<html><head></head><body></body></html>";
 		const out = ensureDevClientScripts(html, "app/entry-client.tsx");
