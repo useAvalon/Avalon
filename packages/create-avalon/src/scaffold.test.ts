@@ -385,7 +385,7 @@ describe("scaffoldProject", () => {
 	});
 
 	it("generates netlify.toml, build.mjs, and post-build.mjs when deploy is netlify", async () => {
-		const config: ProjectConfig = { ...baseConfig, deploy: "netlify" };
+		const config: ProjectConfig = { ...baseConfig, deploy: "netlify", packageManager: "npm" };
 		const target = join(tempDir, "out");
 		await scaffoldProject(config, target);
 
