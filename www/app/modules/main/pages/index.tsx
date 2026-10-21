@@ -2,6 +2,7 @@ import { fixedSizeSizes, fixedSizeSrcSet } from "@shared/utils/fixed-size-srcset
 import BentoFeatures from "../components/BentoFeatures.tsx";
 import CompatibilityStrip from "../components/CompatibilityStrip.tsx";
 import HalftoneBg from "../components/HalftoneBg.tsx";
+import HeroInstallCommand from "../components/HeroInstallCommand.tsx";
 import HydrationCycler from "../components/HydrationCycler.tsx";
 import IslandSchematic from "../components/IslandSchematic.tsx";
 import MultiFrameworkSpread from "../components/MultiFrameworkSpread.tsx";
@@ -10,7 +11,7 @@ import styles from "./index.module.css";
 export const metadata = {
 	title: "Avalon: The Full-Stack Islands Framework",
 	description:
-		"Avalon is a full-stack islands framework. Author pages in JSX or MDX, add islands from any supported framework, and deploy to any JavaScript runtime.",
+		"Build fast, server-rendered sites with Avalon: islands architecture, partial hydration, your existing UI frameworks, and Nitro deployment.",
 };
 
 /* ============================================================================
@@ -26,20 +27,14 @@ export default async function HomePage() {
 			<section class={styles.hero}>
 				<div class={styles.heroCopy}>
 					<h1 class={styles.heroTitle}>
-						The full-stack <em>islands</em> framework.
+						Build fast, server-rendered <em>sites</em>.
 					</h1>
 					<p class={styles.heroLead}>
-						Avalon is a full-stack framework for building fast websites. Author pages in JSX, add
-						islands from any supported framework, and deploy to any JavaScript runtime.
+						Avalon is a full-stack JavaScript framework for islands architecture and partial
+						hydration. Create <strong>server-rendered sites</strong> with the UI frameworks you
+						already use, and deploy with Nitro.
 					</p>
-					<div class={styles.heroCta}>
-						<a href="/docs/introduction" class={styles.btnPrimary}>
-							Read the docs
-						</a>
-						<a href="/docs/installation" class={styles.btnGhost}>
-							<code>$ bun create-avalon</code>
-						</a>
-					</div>
+					<HeroInstallCommand island={{ condition: "on:client", ssr: true }} />
 				</div>
 			</section>
 
@@ -109,8 +104,10 @@ export default async function HomePage() {
 					React and Vue on the <em>same route.</em>
 				</h2>
 				<p class={styles.sectionBodyWide}>
-					Each island compiles through its own renderer and ships as its own chunk. Three frameworks
-					on a page is three runtimes, not the union.
+					Each island compiles through its own renderer and ships as its own chunk. Mixing
+					frameworks on one route means multiple runtimes and more total JavaScript than a
+					single-framework page — useful when you need components from different ecosystems, not
+					automatically a smaller bundle.
 				</p>
 				<div class={styles.sectionFigureWide}>
 					<MultiFrameworkSpread island={{ condition: "on:visible" }} />
@@ -210,37 +207,55 @@ export default async function HomePage() {
 				</div>
 			</section>
 
-			{/* ─── FAQ (AEO) ─── */}
-			<section class={styles.section} aria-labelledby="faq-heading" data-speakable>
+			{/* ─── FAQ (AEO): questions stay in HTML; layout matches foundations, not a text dump. */}
+			<section
+				class={`${styles.section} ${styles.sectionFaq}`}
+				aria-labelledby="faq-heading"
+				data-speakable
+			>
 				<h2 id="faq-heading" class={styles.sectionTitle}>
 					What is Avalon?
 				</h2>
-				<p class={styles.sectionBody}>
-					Avalon is a full-stack islands framework: static HTML by default, partial hydration per
-					component, and Nitro-powered deployment to any major JavaScript runtime.
+				<p class={styles.faqDek}>
+					A full-stack JavaScript framework built around islands architecture and partial hydration.
+					Pages render as HTML on the server, interactive components hydrate as islands, and
+					deployment runs through Nitro to supported runtimes.
 				</p>
 				<div class={styles.faqList}>
 					<div class={styles.faqItem}>
-						<h3>How do I get started with Avalon?</h3>
-						<p>
-							Run <code>bun create-avalon</code>, follow the quick start, and add islands with the{" "}
-							<code>island</code> prop when you need interactivity.
-						</p>
+						<span class={styles.faqNum}>01</span>
+						<div class={styles.faqCopy}>
+							<h3>How do I get started with Avalon?</h3>
+							<p>
+								Run <code class={styles.inline}>bun create avalon</code>, follow the{" "}
+								<a href="/docs/quick-start">quick start</a>, and add the{" "}
+								<code class={styles.inline}>island</code> prop when a component needs interactivity.
+							</p>
+						</div>
+						<span class={styles.faqRole}>Install</span>
 					</div>
 					<div class={styles.faqItem}>
-						<h3>Why does partial hydration matter?</h3>
-						<p>
-							Experts say most marketing pages do not need a full client bundle. Hydrating only
-							islands keeps first load small and improves Core Web Vitals.
-						</p>
+						<span class={styles.faqNum}>02</span>
+						<div class={styles.faqCopy}>
+							<h3>Why does partial hydration matter?</h3>
+							<p>
+								Most marketing and content pages need little or no client-side JavaScript. Hydrating
+								only islands limits what ships to the browser and can improve Core Web Vitals
+								compared with hydrating the entire page.
+							</p>
+						</div>
+						<span class={styles.faqRole}>Hydration</span>
 					</div>
 					<div class={styles.faqItem}>
-						<h3>When should I choose islands over a SPA?</h3>
-						<p>
-							When SEO, time-to-first-byte, and static content matter. On the other hand, a SPA can
-							still make sense for highly interactive dashboards — Avalon lets you mix both on one
-							site.
-						</p>
+						<span class={styles.faqNum}>03</span>
+						<div class={styles.faqCopy}>
+							<h3>When should I use islands?</h3>
+							<p>
+								When only some of the page needs to be interactive. Mark those components as islands
+								and the rest stays HTML, with no client JavaScript.
+							</p>
+						</div>
+						<span class={styles.faqRole}>JS</span>
 					</div>
 				</div>
 			</section>

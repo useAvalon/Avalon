@@ -36,7 +36,7 @@ export default function BentoFeatures() {
 	return (
 		<div ref={rootRef} class={`${styles.grid} ${visible ? styles.visible : ""}`}>
 			{/* ── Row 1: 3 cards (2 + 1) ── */}
-			<ZeroJsCard visible={visible} />
+			<ZeroJsCard />
 			<HydrationCard />
 			<FrameworksCard />
 
@@ -54,38 +54,20 @@ export default function BentoFeatures() {
 }
 
 /* ───────────────────── ZERO JS ───────────────────── */
-/* Large card. Animated counter: 847 KB → 0 KB on reveal. */
+/* Large card. Static 0 — no illustrative bundle size that could read as a benchmark. */
 
-function ZeroJsCard({ visible }: Readonly<{ visible: boolean }>) {
-	const [count, setCount] = useState(847);
-
-	useEffect(() => {
-		if (!visible) return;
-		const start = 847;
-		const duration = 1800;
-		const startTime = performance.now();
-
-		const tick = () => {
-			const elapsed = performance.now() - startTime;
-			const progress = Math.min(elapsed / duration, 1);
-			// Ease out cubic
-			const eased = 1 - (1 - progress) ** 3;
-			setCount(Math.round(start * (1 - eased)));
-			if (progress < 1) requestAnimationFrame(tick);
-		};
-		requestAnimationFrame(tick);
-	}, [visible]);
-
+function ZeroJsCard() {
 	return (
 		<article class={`${styles.card} ${styles.cardLg} ${styles.cardZero}`}>
 			<div class={styles.cardVisual}>
-				<span class={styles.zeroNum}>{count}</span>
+				<span class={styles.zeroNum}>0</span>
 				<span class={styles.zeroUnit}>KB</span>
 			</div>
 			<div class={styles.cardCopy}>
 				<h3>Zero JavaScript, by default</h3>
 				<p>
-					Pages ship no client-side JavaScript unless a component is explicitly marked as an island.
+					Static pages ship no client-side JavaScript unless a component is explicitly marked as an
+					island.
 				</p>
 			</div>
 		</article>
@@ -267,7 +249,7 @@ function ImageCard() {
 					<span>·</span>
 					<span>1200×630</span>
 					<span>·</span>
-					<span>42 KB</span>
+					<span>optimized</span>
 				</div>
 			</div>
 			<div class={styles.cardCopy}>

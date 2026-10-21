@@ -8,8 +8,7 @@ import styles from "./MultiFrameworkSpread.module.css";
 
      · Left — a filesystem view showing four islands with mixed extensions
        (.tsx, .vue, .svelte, .solid.tsx).
-     · Right — the compiled bundle list: one line per island with its
-       framework tag and a realistic gzipped runtime size.
+     · Right — the compiled bundle list: one line per island chunk (sizes vary by framework and component).
 
    Hovering an item on either side highlights its pair on the other,
    making the "each island ships only its own runtime" point concrete.
@@ -24,7 +23,6 @@ interface Row {
 	framework: string;
 	color: string;
 	bundle: string;
-	size: string;
 }
 
 const ROWS: Row[] = [
@@ -35,7 +33,6 @@ const ROWS: Row[] = [
 		framework: "react",
 		color: "#61DAFB",
 		bundle: "counter.a7f2.js",
-		size: "~44 KB",
 	},
 	{
 		id: "chart",
@@ -44,7 +41,6 @@ const ROWS: Row[] = [
 		framework: "vue",
 		color: "#41B883",
 		bundle: "chart.38bc.js",
-		size: "~34 KB",
 	},
 	{
 		id: "feed",
@@ -53,7 +49,6 @@ const ROWS: Row[] = [
 		framework: "svelte",
 		color: "#FF3E00",
 		bundle: "feed.9d01.js",
-		size: "~8 KB",
 	},
 	{
 		id: "search",
@@ -62,7 +57,6 @@ const ROWS: Row[] = [
 		framework: "solid",
 		color: "#4F88C6",
 		bundle: "search.c5e4.js",
-		size: "~7 KB",
 	},
 ];
 
@@ -118,7 +112,7 @@ export default function MultiFrameworkSpread() {
 							<span class={styles.itemFile}>
 								<span>{row.bundle}</span>
 							</span>
-							<span class={styles.itemSize}>{row.size}</span>
+							<span class={styles.itemTag}>{row.framework}</span>
 						</li>
 					))}
 				</ul>
