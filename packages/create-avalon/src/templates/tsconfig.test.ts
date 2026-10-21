@@ -212,6 +212,9 @@ describe("generateIslandJsxDts", () => {
 		const result = generateIslandJsxDts("react");
 		expect(result).toContain('from "@useavalon/avalon"');
 		expect(result).toContain("Expand<IslandDirective>");
+		expect(result).toContain("Expand<ReactServerIslandProp>");
+		expect(result).toContain('import("react").ReactElement');
+		expect(result).not.toContain("server?: Expand<ServerIslandProp>");
 		expect(result).toContain('declare module "react"');
 		expect(result).not.toContain('declare module "preact"');
 	});

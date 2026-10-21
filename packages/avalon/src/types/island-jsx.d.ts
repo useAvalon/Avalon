@@ -25,13 +25,19 @@ declare module "preact" {
 	}
 }
 
+// `ServerIslandProp.fallback` is Preact `JSX.Element`. React pages produce
+// `ReactElement`, so the React augmentation remaps only that field.
+type ReactServerIslandProp = Omit<ServerIslandProp, "fallback"> & {
+	fallback?: import("react").ReactElement;
+};
+
 // React 19 exposes the JSX namespace on the `react` module itself (rather than
 // the global `JSX`), so `core: "react"` projects need this augmentation.
 declare module "react" {
 	namespace JSX {
 		interface IntrinsicAttributes {
 			island?: Expand<IslandDirective>;
-			server?: Expand<ServerIslandProp>;
+			server?: Expand<ReactServerIslandProp>;
 		}
 	}
 }

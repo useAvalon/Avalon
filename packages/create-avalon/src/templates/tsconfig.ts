@@ -148,11 +148,15 @@ function generateIslandPropAugmentations(core: "preact" | "react"): string[] {
 	if (core === "react") {
 		return [
 			...header,
+			`type ReactServerIslandProp = Omit<ServerIslandProp, "fallback"> & {`,
+			`\tfallback?: import("react").ReactElement;`,
+			`};`,
+			``,
 			`declare module "react" {`,
 			`\tnamespace JSX {`,
 			`\t\tinterface IntrinsicAttributes {`,
 			`\t\t\tisland?: Expand<IslandDirective>;`,
-			`\t\t\tserver?: Expand<ServerIslandProp>;`,
+			`\t\t\tserver?: Expand<ReactServerIslandProp>;`,
 			`\t\t}`,
 			`\t}`,
 			`}`,
