@@ -134,18 +134,29 @@ export function generateIslandJsxDts(core: "preact" | "react" = "preact"): strin
 }
 
 function generateIslandPropAugmentations(core: "preact" | "react"): string[] {
-	const islandType = `import("${AVALON_TYPES_MODULE}").IslandDirective`;
-	const serverType = `import("${AVALON_TYPES_MODULE}").ServerIslandProp`;
+	// Import from the package root, not `@useavalon/avalon/types`. That entry
+	// triple-slash-references this same JSX augmentation, so `import()` of
+	// `IslandDirective` from it collapses to `any` on hover.
+	const header = [
+		`import type { IslandDirective, ServerIslandProp } from "@useavalon/avalon";`,
+		``,
+		`/** Expand the alias so hover shows the island prop fields, not the type name. */`,
+		`type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;`,
+		``,
+	];
 
 	if (core === "react") {
 		return [
-			`import type {} from "react";`,
+			...header,
+			`type ReactServerIslandProp = Omit<ServerIslandProp, "fallback"> & {`,
+			`\tfallback?: import("react").ReactElement;`,
+			`};`,
 			``,
 			`declare module "react" {`,
 			`\tnamespace JSX {`,
 			`\t\tinterface IntrinsicAttributes {`,
-			`\t\t\tisland?: ${islandType};`,
-			`\t\t\tserver?: ${serverType};`,
+			`\t\t\tisland?: Expand<IslandDirective>;`,
+			`\t\t\tserver?: Expand<ReactServerIslandProp>;`,
 			`\t\t}`,
 			`\t}`,
 			`}`,
@@ -154,17 +165,16 @@ function generateIslandPropAugmentations(core: "preact" | "react"): string[] {
 	}
 
 	return [
-		`import type {} from "preact";`,
-		``,
+		...header,
 		`declare module "preact" {`,
 		`\tinterface Attributes {`,
-		`\t\tisland?: ${islandType};`,
-		`\t\tserver?: ${serverType};`,
+		`\t\tisland?: Expand<IslandDirective>;`,
+		`\t\tserver?: Expand<ServerIslandProp>;`,
 		`\t}`,
 		`\tnamespace JSX {`,
 		`\t\tinterface IntrinsicAttributes {`,
-		`\t\t\tisland?: ${islandType};`,
-		`\t\t\tserver?: ${serverType};`,
+		`\t\t\tisland?: Expand<IslandDirective>;`,
+		`\t\t\tserver?: Expand<ServerIslandProp>;`,
 		`\t\t}`,
 		`\t}`,
 		`}`,

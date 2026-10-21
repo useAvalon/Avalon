@@ -1,4 +1,4 @@
-import preactRenderToString from "preact-render-to-string";
+import { renderShell } from "../render/shell-engine.ts";
 import type { IslandDirective } from "../types/island-prop.d.ts";
 import { encrypt } from "./encryption.ts";
 import type { ServerIslandProp } from "./types.ts";
@@ -117,8 +117,9 @@ export function renderServerIsland(
 	});
 	const encryptedProps = encodeProps(serializedProps);
 
-	// 3. Render fallback content to HTML string
-	const fallbackHtml = serverProp.fallback ? preactRenderToString(serverProp.fallback) : "";
+	// Fallback JSX comes from the page shell. Preact-render-to-string returns
+	// "" for React elements, so use the active shell renderer (Preact or React).
+	const fallbackHtml = serverProp.fallback ? renderShell(serverProp.fallback) : "";
 
 	// 4. Build the timeout value
 	const timeout = serverProp.timeout ?? DEFAULT_TIMEOUT_MS;

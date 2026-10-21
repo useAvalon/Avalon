@@ -111,13 +111,22 @@ describe("formatSummary", () => {
 	});
 
 	it("includes bun install command", () => {
-		const result = formatSummary(baseConfig);
+		const result = formatSummary({ ...baseConfig, packageManager: "bun" });
 		expect(result).toContain("bun install");
 	});
 
 	it("includes bun run dev command", () => {
-		const result = formatSummary(baseConfig);
+		const result = formatSummary({ ...baseConfig, packageManager: "bun" });
 		expect(result).toContain("bun run dev");
+	});
+
+	it("prints npm commands when the installer is npm", () => {
+		const result = formatSummary({ ...baseConfig, packageManager: "npm" });
+		expect(result).toContain("npm install");
+		expect(result).toContain("npm run dev");
+		expect(result).toContain("npm run build");
+		expect(result).toContain("npm run preview");
+		expect(result).not.toContain("bun ");
 	});
 
 	it("mentions Pages CMS for the blog template", () => {
@@ -138,6 +147,12 @@ describe("formatSummary", () => {
 		expect(result).toContain("bun run dev");
 	});
 
+	it("prints npm run preview for a Netlify npm scaffold", () => {
+		const result = formatSummary({ ...baseConfig, deploy: "netlify", packageManager: "npm" });
+		expect(result).toContain("npm run preview   # netlify dev (dist + SSR functions)");
+		expect(result).not.toContain("bun run preview");
+	});
+
 	// --- Full config ---
 
 	it("includes all selections for a fully configured project", () => {
@@ -150,6 +165,7 @@ describe("formatSummary", () => {
 			plugins: ["agent-optimization"],
 			middleware: "hono",
 			deploy: "netlify",
+			packageManager: "bun",
 		};
 		const result = formatSummary(config);
 		expect(result).toContain("full-app");
@@ -160,5 +176,6 @@ describe("formatSummary", () => {
 		expect(result).toContain("cd full-app");
 		expect(result).toContain("bun install");
 		expect(result).toContain("bun run dev");
+		expect(result).toContain("bun run preview");
 	});
 });

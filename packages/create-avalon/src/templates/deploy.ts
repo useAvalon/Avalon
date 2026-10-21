@@ -1,3 +1,4 @@
+import { commandsFor, packageManagerOf } from "../package-manager";
 import type { ProjectConfig } from "../types";
 
 /** Cloudflare Pages project names: lowercase letters, digits, hyphens. */
@@ -10,15 +11,22 @@ export function cloudflareProjectName(projectName: string): string {
 	return slug || "avalon-app";
 }
 
-export function generateNetlifyToml(_config: ProjectConfig): string {
+/** Yarn Berry defaults to PnP; Netlify installs need a `node_modules` layout. */
+export function generateYarnRcYml(): string {
+	return "nodeLinker: node-modules\n";
+}
+
+export function generateNetlifyToml(config: ProjectConfig): string {
+	const pm = packageManagerOf(config);
+	const { install, run } = commandsFor(pm);
+	const bunEnv = pm === "bun" ? `\n  BUN_VERSION = "latest"` : "";
 	return `[build]
   base = "."
-  command = "bun install && bun build.mjs"
+  command = "${install} && ${run("build")}"
   publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "22"
-  BUN_VERSION = "latest"
+  NODE_VERSION = "22"${bunEnv}
   NITRO_PRESET = "netlify"
 
 [functions]
@@ -33,7 +41,7 @@ export function generateNetlifyToml(_config: ProjectConfig): string {
   to = "/.netlify/functions/server"
   status = 200
 
-# After \`bun run build\`, \`bun run preview\` serves \`dist/\` + functions without
+# After \`${run("build")}\`, \`${run("preview")}\` serves \`dist/\` + functions without
 # re-running the Netlify build command from [build] above.
 [dev]
   framework = "#static"
@@ -75,6 +83,7 @@ export function generateCloudflareHeaders(): string {
  * Keep factual — mirrors what Avalon's post-build expects.
  */
 export function generateDeployReadme(config: ProjectConfig): string {
+	const { run, exec } = commandsFor(packageManagerOf(config));
 	if (config.deploy === "cloudflare") {
 		const name = cloudflareProjectName(config.projectName);
 		return `# Deploying to Cloudflare Pages
@@ -84,7 +93,7 @@ This project is set up for \`NITRO_PRESET=cloudflare_pages\`.
 ## Build
 
 \`\`\`bash
-bun run build
+${run("build")}
 \`\`\`
 
 \`build.mjs\` detects \`wrangler.toml\` and sets the Nitro preset when \`NITRO_PRESET\` is unset.
@@ -93,7 +102,7 @@ Avalon's post-build patches the Cloudflare worker (DOM stub, CSS manifest, \`_ro
 ## Preview locally
 
 \`\`\`bash
-bun run preview
+${run("preview")}
 \`\`\`
 
 ## Deploy
@@ -103,7 +112,7 @@ bun run preview
 3. Create the Pages project once (Wrangler 4 does not auto-create):
 
 \`\`\`bash
-bunx wrangler@4 pages project create ${name} \\
+${exec("wrangler@4")} pages project create ${name} \\
   --production-branch=main \\
   --compatibility-flags=nodejs_compat \\
   --compatibility-date=2026-09-04
@@ -112,7 +121,7 @@ bunx wrangler@4 pages project create ${name} \\
 4. Deploy:
 
 \`\`\`bash
-bun run deploy
+${run("deploy")}
 \`\`\`
 
 Prefer **one** deployer (e.g. GitHub Actions with Wrangler). If you also connect the
@@ -125,6 +134,7 @@ Do not rely on Cloudflare's Git integration to run \`vite build\` without Avalon
 	}
 
 	if (config.deploy === "netlify") {
+		const { install } = commandsFor(packageManagerOf(config));
 		return `# Deploying to Netlify
 
 This project is set up for \`NITRO_PRESET=netlify\` via \`netlify.toml\`.
@@ -132,16 +142,16 @@ This project is set up for \`NITRO_PRESET=netlify\` via \`netlify.toml\`.
 ## Build
 
 \`\`\`bash
-bun run build
+${run("build")}
 \`\`\`
 
-Or connect the repo in Netlify — \`netlify.toml\` runs \`bun install && bun build.mjs\`
+Or connect the repo in Netlify — \`netlify.toml\` runs \`${install} && ${run("build")}\`
 and publishes \`dist/\`. Avalon's post-build copies the server function and prerenders routes.
 
 ## Preview locally
 
 \`\`\`bash
-bun run preview
+${run("preview")}
 \`\`\`
 
 ## Notes
@@ -157,7 +167,7 @@ bun run preview
 No platform config was generated. Build with:
 
 \`\`\`bash
-bun run build
+${run("build")}
 \`\`\`
 
 Default Nitro preset is \`node_server\` (\`.output/server\`). Set \`NITRO_PRESET\` for
@@ -166,7 +176,8 @@ platform config — or re-run \`create-avalon\` with a deploy target.
 `;
 }
 
-export function generateBuildMjs(): string {
+export function generateBuildMjs(config?: ProjectConfig): string {
+	const runBuild = commandsFor(packageManagerOf(config ?? {})).run("build");
 	return `/**
  * Build wrapper.
  *
@@ -175,12 +186,15 @@ export function generateBuildMjs(): string {
  * output is ready, kills the entire process group, then runs post-build.
  *
  * When NITRO_PRESET is unset, defaults from wrangler.toml / netlify.toml
- * so local \`bun run build\` matches the chosen create-avalon deploy target.
+ * so local \`${runBuild}\` matches the chosen create-avalon deploy target.
  */
 
 import { spawn, execSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { existsSync, rmSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+
+const require = createRequire(import.meta.url);
 
 const CWD = process.cwd();
 const NITRO_JSON = join(CWD, '.netlify', 'functions-internal', 'nitro.json');
@@ -223,7 +237,8 @@ for (const dir of ['.netlify', '.output', 'netlify', 'dist']) {
   }
 }
 
-const child = spawn('bunx', ['--bun', 'vite', 'build'], {
+const viteCli = join(dirname(require.resolve('vite/package.json')), 'bin', 'vite.js');
+const child = spawn(process.execPath, [viteCli, 'build'], {
   cwd: CWD,
   stdio: 'inherit',
   detached: true,

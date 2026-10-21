@@ -1,3 +1,4 @@
+import { commandsFor, packageManagerOf } from "../package-manager";
 import type { Integration, ProjectConfig } from "../types";
 import { INTEGRATION_PACKAGES } from "../types";
 import { cloudflareProjectName } from "./deploy";
@@ -83,24 +84,30 @@ export function generatePackageJson(config: ProjectConfig): string {
 			break;
 	}
 
+	const pm = packageManagerOf(config);
+	const exec = commandsFor(pm).exec;
+	// Local `vite` so npm/pnpm/yarn/bun all run the same script. Bun keeps
+	// `--bun` so Vite executes with the Bun runtime.
+	const vite = pm === "bun" ? "bunx --bun vite" : "vite";
 	const scripts: Record<string, string> = {
-		dev: "bunx --bun vite dev",
+		dev: `${vite} dev`,
 		build: "node build.mjs",
+		// Nitro `node_server` listener — `vite preview` only serves `dist/` static files.
 		preview: "node .output/server/index.mjs",
 	};
 
 	if (config.deploy === "cloudflare") {
 		const name = cloudflareProjectName(config.projectName);
-		scripts.preview = "bunx wrangler@4 pages dev dist";
-		scripts.deploy = `bunx wrangler@4 pages deploy --project-name=${name}`;
+		scripts.preview = `${exec("wrangler@4")} pages dev dist`;
+		scripts.deploy = `${exec("wrangler@4")} pages deploy --project-name=${name}`;
 	}
 
 	if (config.deploy === "netlify") {
 		// Netlify preset writes the server under .netlify/, not .output/server.
-		scripts.preview = "bunx netlify-cli@22 dev --offline";
+		scripts.preview = `${exec("netlify-cli@22")} dev --offline`;
 	}
 
-	const pkg = {
+	const pkg: Record<string, unknown> = {
 		name: config.projectName,
 		type: "module",
 		private: true,
@@ -108,6 +115,11 @@ export function generatePackageJson(config: ProjectConfig): string {
 		dependencies,
 		devDependencies,
 	};
+
+	// Corepack pin so Netlify (and other hosts) use Berry instead of Yarn Classic.
+	if (pm === "yarn" && config.packageManagerVersion) {
+		pkg.packageManager = `yarn@${config.packageManagerVersion}`;
+	}
 
 	return JSON.stringify(pkg, null, 2);
 }

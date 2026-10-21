@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { packageManagerOf } from "./package-manager";
 import { generateHelloRoute } from "./templates/api-routes";
 import {
 	generateBlogHomePage,
@@ -15,6 +16,7 @@ import {
 	generateNetlifyToml,
 	generateRobotsTxt,
 	generateWranglerToml,
+	generateYarnRcYml,
 } from "./templates/deploy";
 import { getFaviconBuffer } from "./templates/favicon";
 import { generateAboutLayout, generateRootLayout } from "./templates/layouts";
@@ -192,13 +194,16 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 	);
 
 	// Write deployment files
-	await writeFile(join(targetDir, "build.mjs"), generateBuildMjs());
+	await writeFile(join(targetDir, "build.mjs"), generateBuildMjs(config));
 	await writeFile(join(targetDir, "post-build.mjs"), generatePostBuildMjs(config));
 	await writeFile(join(targetDir, ".gitignore"), generateGitignore(config));
 	await writeFile(join(targetDir, "DEPLOY.md"), generateDeployReadme(config));
 
 	if (config.deploy === "netlify") {
 		await writeFile(join(targetDir, "netlify.toml"), generateNetlifyToml(config));
+		if (packageManagerOf(config) === "yarn") {
+			await writeFile(join(targetDir, ".yarnrc.yml"), generateYarnRcYml());
+		}
 	}
 
 	if (config.deploy === "cloudflare") {

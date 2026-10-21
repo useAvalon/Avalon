@@ -1,3 +1,7 @@
+import type { PackageManager } from "./package-manager";
+
+export type { PackageManager };
+
 export type Integration = "preact" | "react" | "vue" | "svelte" | "solid" | "lit" | "qwik";
 
 /** Core rendering engine for the page/layout shell. */
@@ -63,6 +67,10 @@ export interface ProjectConfig {
 	deploy: DeployTarget;
 	/** Scaffold scheduled jobs (cron): an example task + `nitro.cron` config. */
 	cron?: boolean;
+	/** Installer that launched create-avalon. Detected from `npm_config_user_agent`. */
+	packageManager?: PackageManager;
+	/** Yarn Berry version from the user agent, used as Corepack `packageManager`. */
+	packageManagerVersion?: string;
 }
 
 export const INTEGRATION_PACKAGES: Record<Integration, string> = {

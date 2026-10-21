@@ -9,7 +9,7 @@ import type { JSX } from "preact";
  * personalized or dynamic content without sacrificing cacheability.
  */
 export interface ServerIslandProp {
-	/** JSX to render as placeholder until the server response arrives */
+	/** Placeholder until the island HTML arrives. Rendered with the page shell engine. */
 	fallback?: JSX.Element;
 	/** Cache-Control header for the island endpoint response */
 	cache?: string;

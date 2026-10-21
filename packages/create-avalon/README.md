@@ -37,7 +37,7 @@ The CLI walks you through:
 | **Netlify** | `netlify.toml` (`NITRO_PRESET=netlify`), soft SSR redirect, `DEPLOY.md`, `preview` via Netlify CLI. |
 | **None** | Node server preset; still gets `build.mjs` + `post-build.mjs`. |
 
-Always run Avalon's post-build (`node post-build.mjs` via `bun run build`) — it patches the Cloudflare worker, CSS manifests, and prerenders HTML.
+Always run Avalon's post-build (`node post-build.mjs` via the project's `build` script) — it patches the Cloudflare worker, CSS manifests, and prerenders HTML.
 
 ## What you get
 
