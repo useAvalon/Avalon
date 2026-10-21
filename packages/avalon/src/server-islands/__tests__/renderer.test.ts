@@ -1,5 +1,7 @@
-import { h } from "preact";
-import { describe, expect, it } from "vitest";
+import { h, type VNode } from "preact";
+import preactRenderToString from "preact-render-to-string";
+import { afterEach, describe, expect, it } from "vitest";
+import { setShellRenderToString } from "../../render/shell-engine.ts";
 import { decrypt, generateKey } from "../encryption.ts";
 import { renderServerIsland } from "../renderer.ts";
 
@@ -11,6 +13,10 @@ const originalKey = process.env.AVALON_KEY;
 process.env.AVALON_KEY = testKey;
 
 describe("renderServerIsland", () => {
+	afterEach(() => {
+		setShellRenderToString((vnode) => preactRenderToString(vnode as VNode));
+	});
+
 	it("renders a wrapper element with the correct id", () => {
 		const html = renderServerIsland("abc123", { userId: 1 }, {});
 		// Element IDs include a per-instance suffix (si-<componentId>-<n>)
@@ -57,6 +63,17 @@ describe("renderServerIsland", () => {
 
 		expect(html).toContain("Loading...");
 		expect(html).toContain('class="skeleton"');
+	});
+
+	it("renders fallback with the active shell engine, not Preact-only", () => {
+		setShellRenderToString(() => '<span class="react-fallback">Loading...</span>');
+		const html = renderServerIsland(
+			"comp2b",
+			{},
+			{ fallback: { $$typeof: Symbol.for("react.transitional.element") } as never },
+		);
+		expect(html).toContain('class="react-fallback"');
+		expect(html).toContain("Loading...");
 	});
 
 	it("renders empty fallback when none is provided", () => {
