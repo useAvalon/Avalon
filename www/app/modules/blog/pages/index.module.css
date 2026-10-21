@@ -42,10 +42,6 @@
 	border-bottom: 1px solid var(--surface-border);
 }
 
-.item:first-child {
-	border-top: 1px solid var(--surface-border);
-}
-
 .postLink {
 	display: block;
 	padding: clamp(var(--space-8), 4vh, var(--space-12)) 0;
