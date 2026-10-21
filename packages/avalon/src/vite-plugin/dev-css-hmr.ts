@@ -187,11 +187,16 @@ function clearPendingCssRequests(
 	for (const url of extraUrls) pending.delete(url);
 }
 
+function isClientCssEnvironment(name: string | undefined): boolean {
+	return !name || name === "client";
+}
+
 export function invalidateCssFile(server: ViteDevServer, file: string): void {
 	const href = server.config?.root ? fileToDevHref(server.config.root, file) : "";
 	const extraUrls = href ? [href, `${href}?direct`] : [];
 
-	for (const env of Object.values(server.environments ?? {})) {
+	for (const [name, env] of Object.entries(server.environments ?? {})) {
+		if (!isClientCssEnvironment(name)) continue;
 		const graph = env.moduleGraph as unknown as GraphWithUrlMap;
 		for (const mod of collectCssGraphModules(graph, file, extraUrls)) {
 			graph.invalidateModule(mod);

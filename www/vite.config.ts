@@ -198,7 +198,6 @@ export default defineConfig(async (): Promise<UserConfig> => {
 		server: {
 			port: 8012,
 			strictPort: false,
-			hmr: { port: 8013 },
 		},
 
 		resolve: {

@@ -81,30 +81,23 @@ describe("dev CSS HMR", () => {
 		expect(src).toContain("?direct&v=");
 	});
 
-	it("invalidates the CSS module in every Vite environment", () => {
+	it("invalidates CSS only in the client environment (ssr/nitro recompile crashes Vite 8)", () => {
 		const invalidated: string[] = [];
 		const mod = { id: "/app/x.css" };
+		const graph = {
+			getModulesByFile: (file: string) => (file.endsWith("x.css") ? new Set([mod]) : null),
+			invalidateModule: (m: { id: string }) => {
+				invalidated.push(m.id);
+			},
+		};
 		const server = {
 			environments: {
-				client: {
-					moduleGraph: {
-						getModulesByFile: (file: string) => (file.endsWith("x.css") ? new Set([mod]) : null),
-						invalidateModule: (m: { id: string }) => {
-							invalidated.push(`client:${m.id}`);
-						},
-					},
-				},
-				ssr: {
-					moduleGraph: {
-						getModulesByFile: (file: string) => (file.endsWith("x.css") ? new Set([mod]) : null),
-						invalidateModule: (m: { id: string }) => {
-							invalidated.push(`ssr:${m.id}`);
-						},
-					},
-				},
+				client: { moduleGraph: graph },
+				ssr: { moduleGraph: graph },
+				nitro: { moduleGraph: graph },
 			},
 		};
 		invalidateCssFile(server as never, "/proj/app/x.css");
-		expect(invalidated).toEqual(["client:/app/x.css", "ssr:/app/x.css"]);
+		expect(invalidated).toEqual(["/app/x.css"]);
 	});
 });
