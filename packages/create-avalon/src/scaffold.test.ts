@@ -349,7 +349,9 @@ describe("scaffoldProject", () => {
 
 		const content = await read("app/island-jsx.d.ts");
 		expect(content).toContain('declare module "preact"');
-		expect(content).toContain("island?:");
+		expect(content).toContain('from "@useavalon/avalon"');
+		expect(content).toContain("Expand<IslandDirective>");
+		expect(content).not.toContain("@useavalon/avalon/types");
 	});
 
 	it("creates server/renderer.ts with virtual module export", async () => {
