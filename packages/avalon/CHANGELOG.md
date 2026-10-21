@@ -1,5 +1,21 @@
 # @useavalon/avalon
 
+## 0.7.5
+
+### Patch Changes
+
+- [#141](https://github.com/useAvalon/Avalon/pull/141) [`ea5e87d`](https://github.com/useAvalon/Avalon/commit/ea5e87d80afb142f256c98cc900c5c4aa9d7105c) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Add `ssr` to the public `island` prop type so islands can opt into server HTML while hydrating on the client.
+
+- [#139](https://github.com/useAvalon/Avalon/pull/139) [`ab358be`](https://github.com/useAvalon/Avalon/commit/ab358be5aca33ef4eca91d83ecf2495a5bba9410) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Stop Vite CSS-module compile in the Nitro environment during dev and keep CSS HMR on the client graph.
+
+- [#140](https://github.com/useAvalon/Avalon/pull/140) [`027abad`](https://github.com/useAvalon/Avalon/commit/027abad1330b871bdb8de0ba2c3d137ae627a2c5) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Restore window scroll after a full document reload when history.scrollRestoration is manual.
+
+- [#146](https://github.com/useAvalon/Avalon/pull/146) [`0be2a67`](https://github.com/useAvalon/Avalon/commit/0be2a6760862e480e4cdc01cc269a943bcf254b7) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Print scaffold next steps for the installer that launched create-avalon, and preview the Nitro Node server instead of Vite's static preview.
+  
+  Render React `server.fallback` JSX with the page shell engine so placeholders are not empty HTML.
+- Updated dependencies [[`ea5e87d`](https://github.com/useAvalon/Avalon/commit/ea5e87d80afb142f256c98cc900c5c4aa9d7105c), [`0be2a67`](https://github.com/useAvalon/Avalon/commit/0be2a6760862e480e4cdc01cc269a943bcf254b7)]:
+  - @useavalon/core@0.7.5
+
 ## 0.7.4
 
 ### Patch Changes
