@@ -8,7 +8,14 @@
 
 import { disposeIslands, scanAndHydrate } from "../hydrate-runtime.ts";
 import { bootServerIslands } from "../server-islands-boot.ts";
-import { announceRoute, applyScroll, readScroll, restoreFocus } from "./a11y.ts";
+import {
+	announceRoute,
+	applyScroll,
+	readScroll,
+	restoreFocus,
+	restoreScrollAfterReload,
+	saveScrollForReload,
+} from "./a11y.ts";
 import {
 	clickModifiersFromEvent,
 	eligibleNavigationUrl,
@@ -452,6 +459,8 @@ export function installClientRouter(): void {
 	if (installed || typeof document === "undefined") return;
 	installed = true;
 	history.scrollRestoration = "manual";
+	restoreScrollAfterReload();
+	window.addEventListener("pagehide", saveScrollForReload);
 	document.addEventListener("click", onClick);
 	document.addEventListener("submit", onSubmit);
 	window.addEventListener("popstate", onPopState);
