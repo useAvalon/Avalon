@@ -75,6 +75,8 @@ export const SIDEBAR: SidebarCategory[] = [
 			{ title: "Caching", href: "/docs/guides/caching" },
 			{ title: "Performance", href: "/docs/guides/performance" },
 			{ title: "Island DOM Structure", href: "/docs/guides/island-dom-structure" },
+			{ title: "Avalon vs Astro", href: "/docs/guides/avalon-vs-astro" },
+			{ title: "Avalon vs Next.js", href: "/docs/guides/avalon-vs-nextjs" },
 		],
 	},
 	{

@@ -8,6 +8,8 @@ interface DocsFrontmatter {
 	title?: string;
 	heading?: string;
 	description?: string;
+	date?: string;
+	published?: string;
 	currentPath?: string;
 	prev?: { title: string; href: string };
 	next?: { title: string; href: string };
@@ -51,8 +53,27 @@ export default async function DocsLayout({ children, frontmatter }: Readonly<Lay
 			<main class={styles.content} data-pagefind-body data-router-outlet="docs-page">
 				{(fm?.heading || fm?.title) && (
 					<header class={styles.pageHeader}>
+						{fm.date && (
+							<time
+								class={styles.pageDate}
+								datetime={String(fm.published ?? fm.date)}
+								style={{ color: "var(--color-text-muted)" }}
+							>
+								{String(fm.date)}
+							</time>
+						)}
 						<h1 class={styles.pageTitle}>{fm.heading || fm.title}</h1>
-						{fm.description && <p class={styles.pageDesc}>{fm.description}</p>}
+						{fm.description && (
+							<div class={styles.pageDesc}>
+								{fm.description
+									.split(/\n+/)
+									.map((para) => para.trim())
+									.filter(Boolean)
+									.map((para) => (
+										<p key={para}>{para}</p>
+									))}
+							</div>
+						)}
 					</header>
 				)}
 				<div class={styles.prose} data-toc-content>

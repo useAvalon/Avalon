@@ -1,0 +1,74 @@
+---
+title: Avalon vs Next.js
+description: Islands versus the Next.js App Router.
+date: October 2026
+published: "2026-10"
+currentPath: /docs/guides/avalon-vs-nextjs
+prev:
+  title: Avalon vs Astro
+  href: /docs/guides/avalon-vs-astro
+next:
+  title: SEO
+  href: /docs/plugins/seo
+---
+
+## Short answer
+
+Next.js is a **React application framework**. The [App Router](https://nextjs.org/docs/app) defaults to Server Components, with Client Components where you opt in.
+
+Avalon is an **islands framework**. Pages and layouts are **server-rendered HTML**. Interactive UI opts into client [islands](/docs/islands-architecture). Personalized or uncached regions can be [server islands](/docs/server-islands) (HTML from the server, no client runtime unless you also hydrate). APIs, actions, and deploy sit on Nitro.
+
+Both can ship JSX pages, file-based routing, and a server. Avalon does not implement React Server Components.
+
+## What is similar
+
+- **Pages:** Both use JSX pages and file-based routing.
+- **React UI:** Next.js pages and layouts are React. Avalon pages and layouts are Preact unless you set [`core: 'react'`](/docs/frameworks/react). Set that when the page itself needs React libraries (Radix, shadcn). If only a widget needs React, keep Preact pages and add a `*.react.tsx` island.
+- **MDX:** Both can use MDX as a page. Next.js adds that with [`@next/mdx`](https://nextjs.org/docs/app/guides/mdx). Avalon includes MDX.
+- **Server work:** Both have server functions, HTTP handlers, and middleware. In Avalon those are [server actions](/docs/server-actions), [API routes](/docs/api-routes), and [middleware](/docs/middleware). Next.js HTTP handlers are [Route Handlers](https://nextjs.org/docs/app/building-your-application/routing/route-handlers).
+- **One repo:** Marketing and product UI can live in the same repo on either stack. Dashboards and login flows are not Next-only.
+
+## Where they diverge
+
+| Dimension | Next.js | Avalon |
+| --- | --- | --- |
+| **Default model** | React tree: Server Components plus Client Components | Server-rendered pages and layouts. Interactive UI is [islands](/docs/islands-architecture). Dynamic or personalized UI can be [server islands](/docs/server-islands) |
+| **UI library** | React only | Default page shell is Preact. Optional **`core: 'react'`** for React pages and layouts. Islands can be React (`*.react.tsx`), Vue, Svelte, Solid, Lit, or Qwik. Mixing frameworks on one route loads multiple client runtimes |
+| **Client JavaScript** | Client Components include a React runtime | No client JavaScript until a **client island**. Server-only islands stay HTML |
+| **Routing and data** | App Router; data fetching in Server Components | File-based routing; [data loading](/docs/guides/data-loading) at build or request time |
+| **Server / deployment** | Next.js server. [Vercel](https://nextjs.org/docs/app/getting-started/deploying) is the first-party host; other hosts use Next adapters or community runtimes | [**Nitro**](https://nitro.build) presets plus API routes, middleware, server actions, and [cron jobs](/docs/cron-jobs) |
+| **Skills and ecosystem** | Next.js APIs and Vercel-oriented guides. **React** libraries are not Next-only | **Vite**, **JSX** / **React**, and **Nitro**. React hiring and React packages transfer. Next-specific APIs do not |
+
+## When Next.js is the better fit
+
+- Your team builds in the **App Router** and wants **React Server Components** as the page model.
+- You depend on **Next.js APIs** (routing, images, fonts, Next-oriented auth).
+- Your job posts and internal examples ask for Next.js, not for React in general.
+- You want **Vercel** (or a Next-oriented host) as the default path.
+
+## When Avalon is the better fit
+
+- You want **server-rendered** marketing, docs, and product UI in one repo, with **client JavaScript only on islands** (and [server islands](/docs/server-islands) when a region should stay on the server).
+- You want a **React** UI without the App Router: [`core: 'react'`](/docs/frameworks/react) for pages, or React islands, plus Vite and Nitro.
+- You want **Vite + JSX + Nitro** instead of Next.js as the compiler and server.
+- You need **islands from more than React** (Vue, Svelte, and others) on the same site, and you accept the extra runtime cost of mixing.
+- You do **not** need React Server Components as the page runtime.
+
+## What this guide is not
+
+- A benchmark. No “faster,” “smaller,” or “better SEO” claim. Measure your routes.
+- A migration recipe.
+- An independent review. Check [Next.js docs](https://nextjs.org/docs).
+- A claim that Avalon implements React Server Components. It does not.
+
+## Primary sources
+
+- [Avalon introduction](/docs/introduction)
+- [React](/docs/frameworks/react)
+- [Islands architecture](/docs/islands-architecture)
+- [Server islands](/docs/server-islands)
+- [Data loading](/docs/guides/data-loading)
+- [Deployment](/docs/guides/deployment)
+- [Next.js App Router](https://nextjs.org/docs/app)
+- [Server and Client Components](https://nextjs.org/docs/app/getting-started/server-and-client-components)
+- [Deploying Next.js](https://nextjs.org/docs/app/getting-started/deploying)
