@@ -50,12 +50,20 @@ describe("generateCloudflareHeaders", () => {
 
 describe("generateNetlifyToml", () => {
 	it("sets NITRO_PRESET and soft SSR redirect", () => {
-		const toml = generateNetlifyToml({ ...baseConfig, deploy: "netlify" });
+		const toml = generateNetlifyToml({ ...baseConfig, deploy: "netlify", packageManager: "bun" });
 		expect(toml).toContain('NITRO_PRESET = "netlify"');
 		expect(toml).toContain('publish = "dist"');
 		expect(toml).toContain("/.netlify/functions/server");
 		expect(toml).toContain("[dev]");
 		expect(toml).toContain('framework = "#static"');
+		expect(toml).toContain('command = "bun install && bun run build"');
+		expect(toml).toContain('BUN_VERSION = "latest"');
+	});
+
+	it("uses npm install in netlify.toml when the installer is npm", () => {
+		const toml = generateNetlifyToml({ ...baseConfig, deploy: "netlify", packageManager: "npm" });
+		expect(toml).toContain('command = "npm install && npm run build"');
+		expect(toml).not.toContain("BUN_VERSION");
 	});
 });
 
@@ -67,6 +75,9 @@ describe("generateBuildMjs", () => {
 		expect(src).toContain("netlify.toml");
 		expect(src).toContain("isCloudflareWorkerReady");
 		expect(src).toContain("post-build failed");
+		expect(src).toContain("vite/package.json");
+		expect(src).toContain("bin', 'vite.js'");
+		expect(src).not.toContain("bunx");
 	});
 });
 

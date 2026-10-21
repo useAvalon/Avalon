@@ -1,3 +1,4 @@
+import { commandsFor, packageManagerOf } from "./package-manager";
 import type { ProjectConfig } from "./types";
 import { projectTemplate } from "./types";
 
@@ -14,21 +15,22 @@ const DEPLOY_LABELS: Record<string, string> = {
 };
 
 function deployNextSteps(config: ProjectConfig): string[] {
+	const run = commandsFor(packageManagerOf(config)).run;
 	if (config.deploy === "cloudflare") {
 		return [
-			"    bun run build",
-			"    bun run preview   # wrangler pages dev",
+			`    ${run("build")}`,
+			`    ${run("preview")}   # wrangler pages dev`,
 			"    # See DEPLOY.md for Cloudflare Pages deploy steps",
 		];
 	}
 	if (config.deploy === "netlify") {
 		return [
-			"    bun run build",
-			"    bun run preview   # netlify dev (dist + SSR functions)",
+			`    ${run("build")}`,
+			`    ${run("preview")}   # netlify dev (dist + SSR functions)`,
 			"    # Connect the repo in Netlify, or see DEPLOY.md",
 		];
 	}
-	return ["    bun run build"];
+	return [`    ${run("build")}`, `    ${run("preview")}`];
 }
 
 export function formatSummary(config: ProjectConfig, scaffoldedInPlace = false): string {
@@ -43,6 +45,7 @@ export function formatSummary(config: ProjectConfig, scaffoldedInPlace = false):
 			: template === "storefront"
 				? "storefront (Atelier Kō catalogue)"
 				: "default";
+	const { install, run } = commandsFor(packageManagerOf(config));
 
 	const cmsSteps =
 		template === "blog"
@@ -55,11 +58,11 @@ export function formatSummary(config: ProjectConfig, scaffoldedInPlace = false):
 				: [];
 
 	const nextSteps = scaffoldedInPlace
-		? ["    bun install", "    bun run dev", ...cmsSteps, ...deployNextSteps(config)]
+		? [`    ${install}`, `    ${run("dev")}`, ...cmsSteps, ...deployNextSteps(config)]
 		: [
 				`    cd ${config.projectName}`,
-				"    bun install",
-				"    bun run dev",
+				`    ${install}`,
+				`    ${run("dev")}`,
 				...cmsSteps,
 				...deployNextSteps(config),
 			];

@@ -192,7 +192,7 @@ export async function scaffoldProject(config: ProjectConfig, targetDir: string):
 	);
 
 	// Write deployment files
-	await writeFile(join(targetDir, "build.mjs"), generateBuildMjs());
+	await writeFile(join(targetDir, "build.mjs"), generateBuildMjs(config));
 	await writeFile(join(targetDir, "post-build.mjs"), generatePostBuildMjs(config));
 	await writeFile(join(targetDir, ".gitignore"), generateGitignore(config));
 	await writeFile(join(targetDir, "DEPLOY.md"), generateDeployReadme(config));

@@ -8,6 +8,7 @@ import {
 	resolveConfigNonInteractive,
 	validateDirectory,
 } from "./cli-utils";
+import { detectPackageManager } from "./package-manager";
 import { collectProjectConfig } from "./prompts";
 import { scaffoldProject } from "./scaffold";
 import { printSummary } from "./summary";
@@ -75,6 +76,7 @@ async function main(): Promise<void> {
 			? resolveConfigNonInteractive(args)
 			: await collectProjectConfig(args.projectName, parseTemplateFlag(args.template)),
 	);
+	config.packageManager = detectPackageManager();
 
 	// If the project name came from the prompt (not CLI arg), validate now
 	if (!args.projectName && config.projectName !== ".") {

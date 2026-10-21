@@ -31,23 +31,50 @@ describe("generatePackageJson", () => {
 	});
 
 	it("includes preview script for node_server by default", () => {
-		const pkg = JSON.parse(generatePackageJson(baseConfig));
+		const pkg = JSON.parse(generatePackageJson({ ...baseConfig, packageManager: "bun" }));
 		expect(pkg.scripts.dev).toBe("bunx --bun vite dev");
 		expect(pkg.scripts.build).toBe("node build.mjs");
 		expect(pkg.scripts.preview).toBe("node .output/server/index.mjs");
 	});
 
+	it("uses vite scripts when the installer is npm", () => {
+		const pkg = JSON.parse(generatePackageJson({ ...baseConfig, packageManager: "npm" }));
+		expect(pkg.scripts.dev).toBe("vite dev");
+		expect(pkg.scripts.preview).toBe("node .output/server/index.mjs");
+	});
+
 	it("uses wrangler pages scripts when deploy is cloudflare", () => {
 		const pkg = JSON.parse(
-			generatePackageJson({ ...baseConfig, projectName: "Cool App", deploy: "cloudflare" }),
+			generatePackageJson({
+				...baseConfig,
+				projectName: "Cool App",
+				deploy: "cloudflare",
+				packageManager: "bun",
+			}),
 		);
 		expect(pkg.scripts.preview).toBe("bunx wrangler@4 pages dev dist");
 		expect(pkg.scripts.deploy).toBe("bunx wrangler@4 pages deploy --project-name=cool-app");
+		const npm = JSON.parse(
+			generatePackageJson({
+				...baseConfig,
+				projectName: "Cool App",
+				deploy: "cloudflare",
+				packageManager: "npm",
+			}),
+		);
+		expect(npm.scripts.preview).toBe("npx wrangler@4 pages dev dist");
+		expect(npm.scripts.deploy).toBe("npx wrangler@4 pages deploy --project-name=cool-app");
 	});
 
 	it("uses netlify dev for preview when deploy is netlify", () => {
-		const pkg = JSON.parse(generatePackageJson({ ...baseConfig, deploy: "netlify" }));
+		const pkg = JSON.parse(
+			generatePackageJson({ ...baseConfig, deploy: "netlify", packageManager: "bun" }),
+		);
 		expect(pkg.scripts.preview).toBe("bunx netlify-cli@22 dev --offline");
+		const npm = JSON.parse(
+			generatePackageJson({ ...baseConfig, deploy: "netlify", packageManager: "npm" }),
+		);
+		expect(npm.scripts.preview).toBe("npx netlify-cli@22 dev --offline");
 	});
 
 	it("pins vite, typescript, nitro, and vite-imagetools to Avalon peer ranges", () => {
