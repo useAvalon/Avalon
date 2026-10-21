@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commandsFor, detectPackageManager } from "./package-manager";
+import { commandsFor, detectPackageManager, detectPackageManagerVersion } from "./package-manager";
 
 describe("detectPackageManager", () => {
 	it("reads bun from the user agent even when npm/ is present", () => {
@@ -20,6 +20,21 @@ describe("detectPackageManager", () => {
 	it("falls back to the current runtime when the user agent is empty", () => {
 		expect(detectPackageManager("", true)).toBe("bun");
 		expect(detectPackageManager("", false)).toBe("npm");
+	});
+});
+
+describe("detectPackageManagerVersion", () => {
+	it("keeps the Yarn Berry version from the user agent", () => {
+		expect(detectPackageManagerVersion("yarn/4.5.0 npm/? node/v22.11.0 darwin arm64")).toBe(
+			"4.5.0",
+		);
+	});
+
+	it("omits a version for Classic Yarn and other installers", () => {
+		expect(
+			detectPackageManagerVersion("yarn/1.22.22 npm/? node/v16.20.0 darwin x64"),
+		).toBeUndefined();
+		expect(detectPackageManagerVersion("npm/10.9.0 node/v22.11.0 darwin arm64")).toBeUndefined();
 	});
 });
 

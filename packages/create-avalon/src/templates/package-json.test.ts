@@ -41,6 +41,18 @@ describe("generatePackageJson", () => {
 		const pkg = JSON.parse(generatePackageJson({ ...baseConfig, packageManager: "npm" }));
 		expect(pkg.scripts.dev).toBe("vite dev");
 		expect(pkg.scripts.preview).toBe("node .output/server/index.mjs");
+		expect(pkg.packageManager).toBeUndefined();
+	});
+
+	it("pins Corepack to the detected Yarn Berry version", () => {
+		const pkg = JSON.parse(
+			generatePackageJson({
+				...baseConfig,
+				packageManager: "yarn",
+				packageManagerVersion: "4.5.0",
+			}),
+		);
+		expect(pkg.packageManager).toBe("yarn@4.5.0");
 	});
 
 	it("uses wrangler pages scripts when deploy is cloudflare", () => {

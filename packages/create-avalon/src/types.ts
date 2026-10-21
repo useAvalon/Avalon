@@ -69,6 +69,8 @@ export interface ProjectConfig {
 	cron?: boolean;
 	/** Installer that launched create-avalon. Detected from `npm_config_user_agent`. */
 	packageManager?: PackageManager;
+	/** Yarn Berry version from the user agent, used as Corepack `packageManager`. */
+	packageManagerVersion?: string;
 }
 
 export const INTEGRATION_PACKAGES: Record<Integration, string> = {

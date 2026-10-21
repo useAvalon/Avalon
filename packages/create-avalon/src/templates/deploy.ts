@@ -11,6 +11,11 @@ export function cloudflareProjectName(projectName: string): string {
 	return slug || "avalon-app";
 }
 
+/** Yarn Berry defaults to PnP; Netlify installs need a `node_modules` layout. */
+export function generateYarnRcYml(): string {
+	return "nodeLinker: node-modules\n";
+}
+
 export function generateNetlifyToml(config: ProjectConfig): string {
 	const pm = packageManagerOf(config);
 	const { install, run } = commandsFor(pm);

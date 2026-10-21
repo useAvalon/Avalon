@@ -8,6 +8,7 @@ import {
 	generateGitignore,
 	generateNetlifyToml,
 	generateWranglerToml,
+	generateYarnRcYml,
 } from "./deploy";
 
 const baseConfig: ProjectConfig = {
@@ -64,6 +65,12 @@ describe("generateNetlifyToml", () => {
 		const toml = generateNetlifyToml({ ...baseConfig, deploy: "netlify", packageManager: "npm" });
 		expect(toml).toContain('command = "npm install && npm run build"');
 		expect(toml).not.toContain("BUN_VERSION");
+	});
+});
+
+describe("generateYarnRcYml", () => {
+	it("forces a node_modules linker", () => {
+		expect(generateYarnRcYml()).toBe("nodeLinker: node-modules\n");
 	});
 });
 

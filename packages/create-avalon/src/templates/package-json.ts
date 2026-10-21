@@ -107,7 +107,7 @@ export function generatePackageJson(config: ProjectConfig): string {
 		scripts.preview = `${exec("netlify-cli@22")} dev --offline`;
 	}
 
-	const pkg = {
+	const pkg: Record<string, unknown> = {
 		name: config.projectName,
 		type: "module",
 		private: true,
@@ -115,6 +115,11 @@ export function generatePackageJson(config: ProjectConfig): string {
 		dependencies,
 		devDependencies,
 	};
+
+	// Corepack pin so Netlify (and other hosts) use Berry instead of Yarn Classic.
+	if (pm === "yarn" && config.packageManagerVersion) {
+		pkg.packageManager = `yarn@${config.packageManagerVersion}`;
+	}
 
 	return JSON.stringify(pkg, null, 2);
 }

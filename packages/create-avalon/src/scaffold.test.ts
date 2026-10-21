@@ -400,6 +400,21 @@ describe("scaffoldProject", () => {
 
 		const deployMd = await read("DEPLOY.md");
 		expect(deployMd).toContain("Netlify");
+		expect(await exists(join(target, ".yarnrc.yml"))).toBe(false);
+	});
+
+	it("writes .yarnrc.yml with node-modules when Yarn Berry deploys to Netlify", async () => {
+		const config: ProjectConfig = {
+			...baseConfig,
+			deploy: "netlify",
+			packageManager: "yarn",
+			packageManagerVersion: "4.5.0",
+		};
+		const target = join(tempDir, "out");
+		await scaffoldProject(config, target);
+
+		expect(await read(".yarnrc.yml")).toBe("nodeLinker: node-modules\n");
+		expect(JSON.parse(await read("package.json")).packageManager).toBe("yarn@4.5.0");
 	});
 
 	it("generates wrangler.toml, _headers, and CF scripts when deploy is cloudflare", async () => {

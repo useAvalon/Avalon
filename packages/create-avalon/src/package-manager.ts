@@ -25,6 +25,14 @@ export function detectPackageManager(
 	return bunRuntime ? "bun" : "npm";
 }
 
+/** Yarn Berry version from the user agent (`yarn/4.5.0 …`), for Corepack `packageManager`. */
+export function detectPackageManagerVersion(
+	userAgent = process.env.npm_config_user_agent ?? "",
+): string | undefined {
+	if (detectPackageManager(userAgent, false) !== "yarn") return undefined;
+	return /\byarn\/(\S+)/i.exec(userAgent)?.[1];
+}
+
 export function commandsFor(pm: PackageManager): PackageManagerCommands {
 	switch (pm) {
 		case "npm":
