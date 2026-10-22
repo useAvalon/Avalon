@@ -2,13 +2,16 @@ import { describe, expect, it } from "vitest";
 import { islandSsrExpression, isStaticallyClientOnly } from "../island-ssr-flag.ts";
 
 describe("isStaticallyClientOnly", () => {
-	it("detects clientOnly: true in an object literal", () => {
-		expect(isStaticallyClientOnly("{ clientOnly: true }")).toBe(true);
-		expect(isStaticallyClientOnly("{ condition: 'on:idle', clientOnly: true }")).toBe(true);
-	});
-
 	it("detects ssr: false in an object literal", () => {
 		expect(isStaticallyClientOnly("{ ssr: false }")).toBe(true);
+		expect(isStaticallyClientOnly("{ condition: 'on:idle', ssr: false }")).toBe(true);
+		expect(isStaticallyClientOnly("{ ...defaults, ssr: false }")).toBe(true);
+	});
+
+	it("ignores nested ssr and a later spread that can override", () => {
+		expect(isStaticallyClientOnly("{ nested: { ssr: false } }")).toBe(false);
+		expect(isStaticallyClientOnly("{ ssr: false, ...overrides }")).toBe(false);
+		expect(isStaticallyClientOnly("{ ssr: true }")).toBe(false);
 	});
 
 	it("rejects runtime values and SSR islands", () => {
@@ -19,13 +22,8 @@ describe("isStaticallyClientOnly", () => {
 });
 
 describe("islandSsrExpression", () => {
-	it("prefers clientOnly over the page SSR default", () => {
-		const expr = islandSsrExpression("{ clientOnly: true }");
-		expect(expr).toContain("clientOnly === true ? false");
-		expect(expr).toContain("{ clientOnly: true }");
-	});
-
-	it("still reads an explicit ssr field", () => {
+	it("reads an explicit ssr field", () => {
 		expect(islandSsrExpression("{ ssr: false }")).toContain("__i.ssr !== undefined");
+		expect(islandSsrExpression("{ ssr: false }")).not.toContain("clientOnly");
 	});
 });

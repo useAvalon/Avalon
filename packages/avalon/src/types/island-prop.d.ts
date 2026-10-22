@@ -69,8 +69,18 @@ export type IslandDirective = {
 	conditionArg?: string;
 
 	/**
-	 * Render the island during SSR before hydration.
-	 * `on:client` defaults to `false`; other conditions default to `true`.
+	 * Render the island to HTML during SSR.
+	 * `false` skips the component on the server: Avalon emits an empty
+	 * `<avalon-island>` placeholder and the browser mounts it. Props are still
+	 * serialized. Combine with `condition` for when to mount.
+	 *
+	 * @default true for page islands (`on:client` still SSRs unless this is `false`)
+	 *
+	 * @example
+	 * ```tsx
+	 * <Chart island={{ ssr: false }} userId={user.id} />
+	 * <Map island={{ ssr: false, condition: 'on:idle' }} />
+	 * ```
 	 */
 	ssr?: boolean;
 
@@ -89,17 +99,4 @@ export type IslandDirective = {
 	 * @default undefined (browser default)
 	 */
 	fetchPriority?: "high" | "low" | "auto";
-
-	/**
-	 * Skip server rendering of this component. Avalon emits an empty
-	 * `<avalon-island>` placeholder and mounts the component in the browser.
-	 * Props are still serialized. Combines with `condition` for when to mount.
-	 *
-	 * @example
-	 * ```tsx
-	 * <Chart island={{ clientOnly: true }} userId={user.id} />
-	 * <Chart island={{ clientOnly: true, condition: 'on:idle' }} />
-	 * ```
-	 */
-	clientOnly?: boolean;
 };

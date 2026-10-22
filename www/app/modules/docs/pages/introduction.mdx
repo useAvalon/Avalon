@@ -13,7 +13,7 @@ next:
 Avalon is a multi-framework islands architecture framework. Pages are static HTML by default; interactive components ("islands") hydrate selectively on the client.
 
 **Core primitives:**
-- `island` prop — added to any component to make it an island; `condition` controls when it hydrates, `clientOnly: true` skips SSR and mounts in the browser
+- `island` prop — added to any component to make it an island; `condition` controls when it hydrates, `ssr: false` skips SSR and mounts in the browser
 - Hydration conditions: `on:client` (immediate), `on:visible` (IntersectionObserver), `on:interaction` (first click/hover), `on:idle` (requestIdleCallback), `media:<query>` (CSS media query)
 - File-system routing — scaffolded apps use `app/modules/<name>/pages/` (the **main** module is `/`); without `modules` in config, routes come from `src/pages/`
 - Optional client navigation — `clientRouter: true` fetches the next SSR HTML document and swaps it in without a full reload

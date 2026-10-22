@@ -39,7 +39,7 @@ export const DIRECTIVE_MAP: DirectiveMapping[] = [
 	},
 	{
 		astro: "client:only={FRAMEWORK}",
-		avalon: "island={{ clientOnly: true }}",
+		avalon: "island={{ ssr: false }}",
 		note: "Skip SSR and mount on the client. The framework is auto-detected from the component file — do not pass a framework string. Combine with `condition` if you also want deferred loading.",
 	},
 	{
@@ -156,7 +156,7 @@ export function convertClientDirective(match: string): string {
 		case "load":
 			return "island={{ condition: 'on:client' }}";
 		case "only":
-			return "island={{ clientOnly: true }}";
+			return "island={{ ssr: false }}";
 		case "visible":
 			return "island={{ condition: 'on:visible' }}";
 		case "idle":
@@ -172,7 +172,7 @@ export function convertClientDirective(match: string): string {
 
 function lintReasonForClientDirective(kind: string | undefined): string {
 	if (kind === "only") {
-		return "Astro's `client:only` is Avalon's `island={{ clientOnly: true }}`. Skip SSR and mount in the browser. The framework comes from the filename, not a directive argument.";
+		return "Astro's `client:only` is Avalon's `island={{ ssr: false }}`. Skip SSR and mount in the browser. The framework comes from the filename, not a directive argument.";
 	}
 	return "Astro uses `client:*` template attributes. Avalon uses a single `island={{ condition: '...' }}` prop instead.";
 }
@@ -221,6 +221,15 @@ export function lintForAstroisms(snippet: string): LintFinding[] {
 				found: match[0],
 				suggestion: convertClientDirective(match[0]),
 				reason: lintReasonForClientDirective(match[1]),
+				line: lineNo,
+			});
+		}
+
+		if (/\bclientOnly\s*:/.test(lineText)) {
+			findings.push({
+				found: "clientOnly",
+				suggestion: "island={{ ssr: false }}",
+				reason: "Skip SSR with `ssr: false`. There is no `clientOnly` field on the island prop.",
 				line: lineNo,
 			});
 		}

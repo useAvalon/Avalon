@@ -57,7 +57,7 @@ const toKebab = (name: string): string => {
 
 type IslandMode = { kind: "client-only" } | { kind: "condition"; condition: string };
 
-const CLIENT_ONLY = /^client[:-]?only$/i;
+const CLIENT_ONLY = /^(?:client[:-]?only|ssr:false)$/i;
 
 const BUILTIN_HYDRATION_CONDITIONS = new Set([
 	"on:client",
@@ -75,7 +75,7 @@ function validateHydrationCondition(condition: string): void {
 	}
 	if (/^on:[A-Za-z][\w-]*$/.test(condition)) return;
 	throw new Error(
-		`Unknown hydration condition ${JSON.stringify(condition)}. Expected on:client, on:visible, on:interaction, on:idle, media:<query>, client-only, or a custom on:<name> directive.`,
+		`Unknown hydration condition ${JSON.stringify(condition)}. Expected on:client, on:visible, on:interaction, on:idle, media:<query>, ssr: false, client-only, or a custom on:<name> directive.`,
 	);
 }
 
@@ -90,7 +90,7 @@ function parseIslandMode(raw: string): IslandMode {
 
 function islandUsageProp(mode: IslandMode): string {
 	return mode.kind === "client-only"
-		? "island={{ clientOnly: true }}"
+		? "island={{ ssr: false }}"
 		: `island={{ condition: ${JSON.stringify(mode.condition)} }}`;
 }
 

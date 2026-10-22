@@ -19,13 +19,13 @@ describe("convertClientDirective", () => {
 		expect(convertClientDirective("client:idle")).toBe("island={{ condition: 'on:idle' }}");
 	});
 
-	it("maps client:only to clientOnly: true", () => {
-		expect(convertClientDirective('client:only="preact"')).toBe("island={{ clientOnly: true }}");
+	it("maps client:only to ssr: false", () => {
+		expect(convertClientDirective('client:only="preact"')).toBe("island={{ ssr: false }}");
 	});
 
 	it("documents client:only as a mount, not on:client", () => {
 		const mapping = DIRECTIVE_MAP.find((m) => m.astro.startsWith("client:only"));
-		expect(mapping?.avalon).toBe("island={{ clientOnly: true }}");
+		expect(mapping?.avalon).toBe("island={{ ssr: false }}");
 		expect(mapping?.note.toLowerCase()).toContain("mount");
 		expect(mapping?.note).not.toMatch(/no client-only/i);
 	});
@@ -43,7 +43,7 @@ describe("convertSnippet", () => {
 		const out = convertSnippet(input);
 		expect(out).toContain("island={{ condition: 'on:client' }}");
 		expect(out).toContain("island={{ condition: 'on:visible' }}");
-		expect(out).toContain("island={{ clientOnly: true }}");
+		expect(out).toContain("island={{ ssr: false }}");
 		expect(out).not.toContain("client:");
 	});
 });
@@ -105,11 +105,11 @@ describe("lintForAstroisms", () => {
 		expect(found).toContain("transition:animate");
 	});
 
-	it("flags client:only with a clientOnly mount suggestion", () => {
+	it("flags client:only with an ssr: false mount suggestion", () => {
 		const findings = lintForAstroisms('<Chart client:only="react" />');
 		expect(findings).toHaveLength(1);
-		expect(findings[0]?.suggestion).toBe("island={{ clientOnly: true }}");
-		expect(findings[0]?.reason).toContain("clientOnly");
+		expect(findings[0]?.suggestion).toBe("island={{ ssr: false }}");
+		expect(findings[0]?.reason).toContain("ssr: false");
 		expect(findings[0]?.reason).toContain("filename");
 	});
 
@@ -118,8 +118,14 @@ describe("lintForAstroisms", () => {
 		expect(lintForAstroisms(clean)).toHaveLength(0);
 	});
 
-	it("returns nothing for a clientOnly island prop", () => {
-		expect(lintForAstroisms("<Chart island={{ clientOnly: true }} />")).toHaveLength(0);
+	it("returns nothing for an ssr: false island prop", () => {
+		expect(lintForAstroisms("<Chart island={{ ssr: false }} />")).toHaveLength(0);
+	});
+
+	it("flags leftover clientOnly on the island prop", () => {
+		const findings = lintForAstroisms("<Chart island={{ clientOnly: true }} />");
+		expect(findings).toHaveLength(1);
+		expect(findings[0]?.suggestion).toBe("island={{ ssr: false }}");
 	});
 
 	it("does not flag Avalon clientRouter or data-router-transition", () => {

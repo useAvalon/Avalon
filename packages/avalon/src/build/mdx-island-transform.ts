@@ -18,7 +18,7 @@
 
 import { dirname } from "node:path";
 import type { Plugin } from "vite";
-import { islandSsrExpression } from "./island-ssr-flag.ts";
+import { islandSsrExpression, isStaticallyClientOnly } from "./island-ssr-flag.ts";
 
 export interface MDXIslandTransformOptions {
 	islandPathPatterns?: RegExp[];
@@ -410,7 +410,7 @@ function buildIslandRenderCall(
 ): string {
 	const hasOtherProps = otherProps.trim() !== "{}" && otherProps.trim() !== "";
 	const propsArg = hasOtherProps ? `props: ${otherProps},` : "";
-	const omitComponent = /\bclientOnly\s*:\s*true\b/.test(islandValue);
+	const omitComponent = isStaticallyClientOnly(islandValue);
 	const compArg = omitComponent ? "" : `component: ${componentName},`;
 	return `(await __AvalonRenderIsland({ src: "${srcPath}", ${fwArg} ${compArg} ...(${islandValue}), ${propsArg} ssr: ${islandSsrExpression(islandValue)} }))`;
 }

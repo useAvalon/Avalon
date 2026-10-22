@@ -37,11 +37,11 @@ describe("directives knowledge", () => {
 		expect(findCondition("on:nope")).toBeUndefined();
 	});
 
-	it("documents clientOnly on the island prop", () => {
-		const field = ISLAND_PROP_REFERENCE.fields.find((f) => f.name === "clientOnly");
+	it("documents ssr on the island prop", () => {
+		const field = ISLAND_PROP_REFERENCE.fields.find((f) => f.name === "ssr");
 		expect(field?.type).toBe("boolean");
 		expect(field?.description.toLowerCase()).toContain("mount");
-		expect(ISLAND_PROP_REFERENCE.summary).toContain("clientOnly: true");
+		expect(ISLAND_PROP_REFERENCE.summary).toContain("ssr: false");
 	});
 });
 
@@ -123,13 +123,12 @@ describe("docs knowledge", () => {
 		const islands = getDoc("islands-architecture")?.content ?? "";
 		expect(islands).toContain(".react.tsx");
 		expect(islands.toLowerCase()).toContain("statically");
-		expect(islands).toContain("clientOnly: true");
+		expect(islands).toContain("ssr: false");
 		expect(islands).toContain("data-render-strategy");
 	});
 
-	it("search ranks islands for clientOnly and client-only queries", () => {
+	it("search ranks islands for clientOnly queries", () => {
 		expect(searchDocs("clientOnly")[0]?.id).toBe("islands-architecture");
-		expect(searchDocs("client-only")[0]?.id).toBe("islands-architecture");
 	});
 
 	it("routing documents both module-based and flat conventions", () => {
@@ -153,6 +152,15 @@ describe("docs knowledge", () => {
 		expect(cli).toContain("--yes");
 		expect(cli).toContain("MDX syntax highlighting is always on");
 		expect(cli).not.toMatch(/Plugins \|.*syntax-highlighting/);
+	});
+
+	it("cli matches scaffold scripts to the installer and Nitro preview", () => {
+		const cli = getDoc("cli")?.content ?? "";
+		expect(cli).toContain("npm_config_user_agent");
+		expect(cli).toContain("node .output/server/index.mjs");
+		expect(cli).toContain("nodeLinker: node-modules");
+		expect(cli).toContain("vite preview");
+		expect(cli).toContain("Do **not** use `vite preview`");
 	});
 
 	it("state topic states there is no built-in shared store", () => {
@@ -187,11 +195,18 @@ describe("scaffold knowledge", () => {
 		expect(() => scaffold("island-usage", "X", "onvisble")).toThrow(/Unknown hydration condition/);
 	});
 
-	it("generates island-usage with clientOnly when asked to skip SSR", () => {
+	it("generates island-usage with ssr: false when asked to skip SSR", () => {
 		const t = scaffold("island-usage", "Chart", "clientOnly");
-		expect(t.code).toContain("island={{ clientOnly: true }}");
+		expect(t.code).toContain("island={{ ssr: false }}");
 		expect(t.code).not.toContain("client:only");
+		expect(t.code).not.toContain("clientOnly");
 		expect(t.description.toLowerCase()).toContain("client-only");
+	});
+
+	it("accepts ssr: false as the documented skip-SSR condition string", () => {
+		const t = scaffold("island-usage", "Map", "ssr: false");
+		expect(t.code).toContain("island={{ ssr: false }}");
+		expect(t.code).not.toContain("condition:");
 	});
 
 	it("generates an action using @useavalon/avalon/actions", () => {

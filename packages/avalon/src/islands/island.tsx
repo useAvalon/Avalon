@@ -42,6 +42,17 @@ export type HydrationCondition =
 /** Supported framework identifiers (without "unknown") */
 export type FrameworkId = Exclude<Framework, "unknown">;
 
+/** `ssr: false` always skips the server. `ssrOnly` forces SSR only when `ssr` is not false. */
+function resolveIslandSsr(
+	ssrProp: boolean | undefined,
+	condition: HydrationCondition,
+	ssrOnly: boolean,
+): boolean {
+	if (ssrProp === false) return false;
+	if (ssrOnly) return true;
+	return ssrProp ?? condition !== "on:client";
+}
+
 /** Preact's `ComponentChildren` already includes `undefined`; keep `?` without repeating it. */
 type IslandChildren = Exclude<import("preact").ComponentChildren, undefined>;
 
@@ -58,8 +69,6 @@ export interface IslandProps {
 	children?: IslandChildren;
 	/** Whether to render server-side (default: true unless condition is 'on:client') */
 	ssr?: boolean;
-	/** Skip component SSR and mount on the client. Forces `ssr: false`. */
-	clientOnly?: boolean;
 	/** Framework hint for client hydration */
 	framework?: FrameworkId;
 	/** Force SSR-only rendering without hydration */
@@ -409,8 +418,8 @@ function renderIslandClientOnly(opts: {
 	hydrationData: Record<string, unknown>;
 	conditionArg?: string;
 	persist?: string | true;
-	/** Intentional client-only (no SSR), not an empty SSR fallthrough. */
-	clientOnly?: boolean;
+	/** No SSR HTML — mount in the browser (`data-render-strategy="client-only"`). */
+	skipSsr?: boolean;
 	preload?: boolean;
 	fetchPriority?: ModulePreloadFetchPriority;
 }): JSX.Element {
@@ -424,7 +433,7 @@ function renderIslandClientOnly(opts: {
 		hydrationData,
 		conditionArg,
 		persist,
-		clientOnly,
+		skipSsr,
 		preload,
 		fetchPriority,
 	} = opts;
@@ -445,7 +454,7 @@ function renderIslandClientOnly(opts: {
 		"data-condition": condition,
 		"data-src": getIslandBundlePath(src),
 		"data-props": serializeIslandProps(props),
-		"data-render-strategy": clientOnly ? "client-only" : "hydrate",
+		"data-render-strategy": skipSsr ? "client-only" : "hydrate",
 		"data-framework": detectedFramework,
 		...buildHydrationDataAttrs(hydrationData),
 	};
@@ -494,7 +503,6 @@ export default function Island({
 	props = {},
 	children,
 	ssr: ssrProp,
-	clientOnly,
 	framework,
 	ssrOnly = false,
 	renderOptions = {},
@@ -504,7 +512,7 @@ export default function Island({
 	preload,
 	fetchPriority,
 }: IslandProps): JSX.Element {
-	const ssr = clientOnly === true ? false : (ssrProp ?? condition !== "on:client");
+	const ssr = resolveIslandSsr(ssrProp, condition, false);
 	const islandId = toIslandId(src, id);
 	const shouldSkipHydration = ssrOnly || !!renderOptions.forceSSROnly;
 	const detectedFramework = framework || detectFrameworkFromPath(src);
@@ -551,7 +559,7 @@ export default function Island({
 		hydrationData,
 		conditionArg,
 		persist,
-		clientOnly: !ssr,
+		skipSsr: !ssr,
 		preload,
 		fetchPriority,
 	});
@@ -849,7 +857,6 @@ export async function renderIsland({
 	props = {},
 	children,
 	ssr: ssrProp,
-	clientOnly,
 	framework,
 	ssrOnly = false,
 	renderOptions = {},
@@ -862,7 +869,7 @@ export async function renderIsland({
 	preload,
 	fetchPriority,
 }: IslandProps): Promise<JSX.Element> {
-	let ssr = clientOnly === true ? false : (ssrProp ?? condition !== "on:client");
+	const ssr = resolveIslandSsr(ssrProp, condition, ssrOnly);
 	const startTime = isDev() ? performance.now() : 0;
 	const logPrefix = `🏝️ [${src}]`;
 
@@ -898,12 +905,6 @@ export async function renderIsland({
 				),
 				key,
 			);
-		}
-
-		// If ssrOnly is true we MUST enable SSR to render the component.
-		// clientOnly wins — a client-only island never executes on the server.
-		if (ssrOnly && !ssr && clientOnly !== true) {
-			ssr = true;
 		}
 
 		// Fast path: explicit framework skips all analysis/detection
@@ -997,6 +998,24 @@ async function renderIslandSlowPath(opts: {
 		hasChildren: !!children,
 		condition,
 	});
+
+	// `ssr: false` must mount, not take the SSR-only path (that sets ssrOnly and
+	// can skip emitting a client placeholder). Do not analyze the component file.
+	if (!ssr) {
+		return Island({
+			src,
+			condition,
+			conditionArg,
+			props,
+			children,
+			ssr: false,
+			renderOptions,
+			id,
+			persist,
+			preload,
+			fetchPriority,
+		});
+	}
 
 	const shouldSkipHydration = await analyzeHydrationStrategy(
 		src,
