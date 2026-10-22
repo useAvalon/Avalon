@@ -514,7 +514,7 @@ export default function Island({
 }: IslandProps): JSX.Element {
 	const ssr = resolveIslandSsr(ssrProp, condition, false);
 	const islandId = toIslandId(src, id);
-	const shouldSkipHydration = ssrOnly || !!renderOptions.forceSSROnly;
+	const shouldSkipHydration = ssr && (ssrOnly || !!renderOptions.forceSSROnly);
 	const detectedFramework = framework || detectFrameworkFromPath(src);
 	const hasValidChildren = children !== undefined && children !== null && children !== "";
 

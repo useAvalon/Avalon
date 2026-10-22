@@ -57,6 +57,21 @@ describe("client-only island SSR", () => {
 		expect(html).not.toContain("<svg");
 	});
 
+	it("still mounts when ssr is false even if ssrOnly is set", () => {
+		const html = render(
+			Island({
+				src: "/islands/Chart.tsx",
+				framework: "preact",
+				ssr: false,
+				ssrOnly: true,
+				props: { n: 1 },
+			}),
+		);
+		expect(html).toContain('data-render-strategy="client-only"');
+		expect(html).toContain("data-src=");
+		expect(html).not.toContain('data-render-strategy="ssr-only"');
+	});
+
 	it("is valid HTML with no component output (JS-disabled)", () => {
 		const html = render(
 			Island({
