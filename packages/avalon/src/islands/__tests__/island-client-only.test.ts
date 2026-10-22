@@ -16,7 +16,7 @@ describe("client-only island SSR", () => {
 		const vnode = await renderIsland({
 			src: "/islands/BrowserWidget.tsx",
 			framework: "preact",
-			clientOnly: true,
+			ssr: false,
 			component: BrowserWidget,
 			props: { userId: "u1" },
 		});
@@ -30,6 +30,17 @@ describe("client-only island SSR", () => {
 		expect(html).toContain("u1");
 		expect(html).not.toContain("window.innerWidth must not run");
 		expect(html).not.toMatch(/<div>\d+<\/div>/);
+	});
+
+	it("skips analysis and SSR-only when framework is omitted and ssr is false", async () => {
+		const vnode = await renderIsland({
+			src: "/islands/MissingOnDisk.tsx",
+			ssr: false,
+			props: { n: 1 },
+		});
+		const html = render(vnode);
+		expect(html).toContain('data-render-strategy="client-only"');
+		expect(html).not.toContain('data-render-strategy="ssr-only"');
 	});
 
 	it("emits an empty placeholder from Island() when ssr is false", () => {
@@ -46,12 +57,27 @@ describe("client-only island SSR", () => {
 		expect(html).not.toContain("<svg");
 	});
 
+	it("still mounts when ssr is false even if ssrOnly is set", () => {
+		const html = render(
+			Island({
+				src: "/islands/Chart.tsx",
+				framework: "preact",
+				ssr: false,
+				ssrOnly: true,
+				props: { n: 1 },
+			}),
+		);
+		expect(html).toContain('data-render-strategy="client-only"');
+		expect(html).toContain("data-src=");
+		expect(html).not.toContain('data-render-strategy="ssr-only"');
+	});
+
 	it("is valid HTML with no component output (JS-disabled)", () => {
 		const html = render(
 			Island({
 				src: "/islands/Chart.tsx",
 				framework: "vue",
-				clientOnly: true,
+				ssr: false,
 			}),
 		);
 		expect(html).toMatch(/<avalon-island\b[^>]*><\/avalon-island>/);

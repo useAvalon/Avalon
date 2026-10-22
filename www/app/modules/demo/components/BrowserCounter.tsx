@@ -2,7 +2,7 @@ import { useState } from "preact/hooks";
 
 /**
  * Reads `window` during render. This would throw during SSR;
- * the page mounts it with `island={{ clientOnly: true }}`.
+ * the page mounts it with `island={{ ssr: false }}`.
  */
 export default function BrowserCounter() {
 	const width = window.innerWidth;

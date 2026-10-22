@@ -72,10 +72,10 @@ export default function MDXContent(props = {}) {
 		expect(out).not.toMatch(/_jsxDEV\(QwikCounter/);
 	});
 
-	it("omits the component binding for client-only islands", () => {
+	it("omits the component binding for ssr: false islands", () => {
 		const code = `import BrowserCounter from "../demo/components/BrowserCounter.tsx";
 function _createMdxContent(props) {
-  return _jsxDEV(BrowserCounter, { island: { clientOnly: true } });
+  return _jsxDEV(BrowserCounter, { island: { ssr: false } });
 }
 export default function MDXContent(props = {}) {
   return _createMdxContent(props);
@@ -84,6 +84,6 @@ export default function MDXContent(props = {}) {
 		const out = runTransform(code);
 		expect(out).toContain("__AvalonRenderIsland");
 		expect(out).not.toContain("component: BrowserCounter");
-		expect(out).toContain("clientOnly: true");
+		expect(out).toContain("ssr: false");
 	});
 });

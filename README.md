@@ -74,7 +74,7 @@ Also works with `npm create avalon@latest`, `pnpm create avalon@latest` and `yar
 
 | | |
 |---|---|
-| **Islands** | [Islands architecture](https://useavalon.dev/docs/islands-architecture) · [Hydration strategies](https://useavalon.dev/docs/hydration-strategies) · [Server islands](https://useavalon.dev/docs/server-islands) · [Cross-island state](https://useavalon.dev/docs/guides/cross-island-state) · `clientOnly` islands |
+| **Islands** | [Islands architecture](https://useavalon.dev/docs/islands-architecture) · [Hydration strategies](https://useavalon.dev/docs/hydration-strategies) · [Server islands](https://useavalon.dev/docs/server-islands) · [Cross-island state](https://useavalon.dev/docs/guides/cross-island-state) · `ssr: false` islands |
 | **Routing and pages** | [File-system routing](https://useavalon.dev/docs/file-system-routing) with modules · [Nested layouts](https://useavalon.dev/docs/layouts) · [MDX pages](https://useavalon.dev/docs/mdx) · [Client navigation](https://useavalon.dev/docs/client-navigation) with View Transitions · [Metadata](https://useavalon.dev/docs/metadata) · [Error handling](https://useavalon.dev/docs/error-handling) |
 | **Rendering** | [Streaming SSR](https://useavalon.dev/docs/streaming-ssr) · [Prerendering](https://useavalon.dev/docs/guides/prerendering) · [Caching](https://useavalon.dev/docs/guides/caching) · [Image optimization](https://useavalon.dev/docs/image-optimization) with WebP/AVIF and responsive `srcset` |
 | **Server** | [API routes](https://useavalon.dev/docs/api-routes) · [Server actions](https://useavalon.dev/docs/server-actions) with Zod validation · [Middleware](https://useavalon.dev/docs/middleware) · [Cron jobs](https://useavalon.dev/docs/cron-jobs) |

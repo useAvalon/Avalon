@@ -71,6 +71,18 @@ describe("MCP protocol handling", () => {
 });
 
 describe("tools/call", () => {
+	it("maps ssr: false via avalon_hydration_directive", async () => {
+		const res = resultOf(
+			await call("tools/call", {
+				name: "avalon_hydration_directive",
+				arguments: { behavior: "ssr: false" },
+			}),
+		);
+		const text = (res.content as Array<{ text: string }>)[0].text;
+		expect(text).toContain("island={{ ssr: false }}");
+		expect(text).not.toContain("Avalon Hydration Conditions");
+	});
+
 	it("converts an Astro directive via avalon_hydration_directive", async () => {
 		const res = resultOf(
 			await call("tools/call", {

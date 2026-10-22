@@ -45,7 +45,7 @@ The element still exists in the DOM. `document.getElementById()` finds it, `data
 
 ## Client-only islands are `display: block`
 
-`island={{ clientOnly: true }}` emits an empty placeholder with `data-render-strategy="client-only"`. An empty `display: contents` host has no box, so `on:visible` and `on:interaction` could never attach. Avalon overrides that case:
+`island={{ ssr: false }}` emits an empty placeholder with `data-render-strategy="client-only"`. An empty `display: contents` host has no box, so `on:visible` and `on:interaction` could never attach. Avalon overrides that case:
 
 ```css
 avalon-island[data-render-strategy=client-only] {

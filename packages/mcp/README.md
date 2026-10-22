@@ -74,10 +74,10 @@ import Counter from "../components/Counter.tsx";
 | `client:visible`     | `island={{ condition: 'on:visible' }}`                           |
 | `client:idle`        | `island={{ condition: 'on:idle' }}`                              |
 | `client:media={"…"}` | `island={{ condition: 'media:…' }}`                              |
-| `client:only`        | `island={{ clientOnly: true }}` |
+| `client:only`        | `island={{ ssr: false }}` |
 
-`clientOnly: true` skips SSR and **mounts** the component. Combine it with
-`condition` to defer that mount (`island={{ clientOnly: true, condition: 'on:idle' }}`).
+`ssr: false` skips SSR and **mounts** the component. Combine it with
+`condition` to defer that mount (`island={{ ssr: false, condition: 'on:idle' }}`).
 The framework comes from the filename, not a directive argument.
 
 Avalon also supports interaction-based (`on:interaction`) and custom directives

@@ -29,7 +29,7 @@ Avalon is a multi-framework islands-architecture web framework built on **Vite 8
 
 Key differences from Astro (the most common source of agent confusion):
 - **No \`.astro\` files.** Pages and components are ordinary framework files (\`.tsx\`, \`.jsx\`, \`.vue\`, \`.svelte\`, etc.).
-- **No \`client:*\` template attributes.** Hydration is controlled by a single \`island={{ condition: '...' }}\` prop on an imported component. \`island={{ clientOnly: true }}\` skips SSR and mounts in the browser.
+- **No \`client:*\` template attributes.** Hydration is controlled by a single \`island={{ condition: '...' }}\` prop on an imported component. \`island={{ ssr: false }}\` skips SSR and mounts in the browser.
 - **No \`Astro\` global.** Pages receive an H3 \`event\` prop; props are read like ordinary function arguments.
 
 Islands are discovered by usage — adding the \`island\` prop to any imported component turns it into an island.`,
@@ -83,12 +83,12 @@ export default function Page() {
 <Chart island={{ condition: 'on:visible' }} />
 <Dropdown island={{ condition: 'on:interaction' }} />
 <MobileMenu island={{ condition: 'media:(max-width: 768px)' }} />
-<BrowserWidget island={{ clientOnly: true }} />
+<BrowserWidget island={{ ssr: false }} />
 \`\`\`
 
 ## Client-only islands
 
-\`island={{ clientOnly: true }}\` skips server rendering. Avalon emits an empty \`<avalon-island data-render-strategy="client-only">\` placeholder and the browser **mounts** the component (it does not hydrate SSR HTML). Props are still serialized. There is no SSR HTML and no no-JS fallback for that component. Combine with \`condition\` to control when the mount runs.
+\`island={{ ssr: false }}\` skips server rendering. Avalon emits an empty \`<avalon-island data-render-strategy="client-only">\` placeholder and the browser **mounts** the component (it does not hydrate SSR HTML). Props are still serialized. There is no SSR HTML and no no-JS fallback for that component. Combine with \`condition\` to control when the mount runs.
 
 Do not write \`<Widget client:only />\` — Avalon has no \`client:*\` attributes.
 
@@ -234,11 +234,11 @@ Not for client islands — for passing data through the request lifecycle:
 		],
 		content: `# Hydration Strategies
 
-\`clientOnly: true\` is a rendering mode, not a condition. It skips SSR and **mounts** the component in the browser (\`data-render-strategy="client-only"\`). Combine it with any \`condition\` or custom directive to control when the mount runs:
+\`ssr: false\` skips SSR and **mounts** the component in the browser (\`data-render-strategy="client-only"\`). Combine it with any \`condition\` or custom directive to control when the mount runs:
 
 \`\`\`tsx
-<Chart island={{ clientOnly: true }} />
-<Map island={{ clientOnly: true, condition: 'on:visible' }} />
+<Chart island={{ ssr: false }} />
+<Map island={{ ssr: false, condition: 'on:visible' }} />
 \`\`\`
 
 Beyond the five core conditions, Avalon ships built-in **custom directives** that follow the \`on:<name>\` pattern and accept an optional \`conditionArg\`. Enable them with \`registerBuiltinDirectives()\` in your server entry.
@@ -271,7 +271,7 @@ registerHydrationDirective('on:countdown', {
 });
 \`\`\`
 
-The \`script\` receives \`(el, hydrate, arg)\` and must call \`hydrate()\` exactly once. For a \`clientOnly\` island that callback mounts instead of hydrating SSR HTML.`,
+The \`script\` receives \`(el, hydrate, arg)\` and must call \`hydrate()\` exactly once. For an \`ssr: false\` island that callback mounts instead of hydrating SSR HTML.`,
 	},
 	{
 		id: "server-islands",
@@ -803,7 +803,7 @@ import '../styles/main.css';
 
 ## Islands & CSS-in-JS
 
-Most islands are server-rendered first, so styles must exist before JS loads. **Avoid runtime CSS-in-JS** (styled-components, Emotion) — they don't produce styles during SSR. Use CSS Modules or plain CSS. Conditional classes: concatenate \`className\` strings. \`clientOnly: true\` islands have no SSR HTML; their styles apply only after the browser mounts them.`,
+Most islands are server-rendered first, so styles must exist before JS loads. **Avoid runtime CSS-in-JS** (styled-components, Emotion) — they don't produce styles during SSR. Use CSS Modules or plain CSS. Conditional classes: concatenate \`className\` strings. \`ssr: false\` islands have no SSR HTML; their styles apply only after the browser mounts them.`,
 	},
 	{
 		id: "metadata",
@@ -906,7 +906,7 @@ import Counter from '../components/Counter.tsx';
 		],
 		content: `# Configuration & Project Setup
 
-Scaffold a project with \`bun create avalon my-app\`, then \`bun install && bun run dev\`.
+Scaffold a project with \`npm create avalon@latest my-app\` (or bun / pnpm / yarn). Next steps and scripts match the installer that launched the CLI.
 
 Avalon is configured through the async \`avalon()\` Vite plugin. The plugin is a **named export of \`@useavalon/avalon\`** — there is no \`@useavalon/avalon/vite\` subpath.
 
@@ -1094,15 +1094,21 @@ Use \`core: 'react'\` when your **pages/layouts** (not just islands) need real R
 			"shadcn",
 			"middleware",
 			"deploy",
+			"preview",
+			"package manager",
+			"yarn",
+			"netlify",
 		],
 		content: `# CLI
 
 ## \`create-avalon\` — scaffold a project
 
 \`\`\`bash
-bun create avalon my-app
-# or: npm create avalon@latest my-app
+npm create avalon@latest my-app
+# or: bun create avalon / pnpm create avalon / yarn create avalon
 \`\`\`
+
+The CLI detects the installer from \`npm_config_user_agent\` (npm, pnpm, Yarn Berry, Yarn Classic, bun). Printed Next steps and generated \`package.json\` scripts use that manager — do not rewrite them to bun.
 
 Interactive by default. Pass \`--yes\` (or run without a TTY) to skip prompts and use flags + defaults:
 
@@ -1116,7 +1122,15 @@ Interactive by default. Pass \`--yes\` (or run without a TTY) to skip prompts an
 | Deploy | \`cloudflare\` · \`netlify\` · \`none\` | \`cloudflare\` emits \`wrangler.toml\`, \`public/_headers\`, \`DEPLOY.md\`, and Wrangler \`preview\`/\`deploy\` scripts. \`netlify\` emits \`netlify.toml\`, \`DEPLOY.md\`, and Netlify CLI \`preview\`. Both always get \`build.mjs\` + \`post-build.mjs\`. |
 | Cron | yes/no (default no) | Scaffolds an example task + \`nitro.cron\` config. |
 
-Generates the module-based layout (\`app/modules/main\` → \`/\`, \`app/modules/about\` → \`/about\`, \`app/shared\`, \`middleware\`, \`routes/api\`, \`server\`, \`public\`) — see the configuration topic.
+Generated scripts:
+
+- \`dev\` — \`vite\` (\`bunx --bun vite\` when the installer is bun).
+- \`build\` — \`node build.mjs\` (runs the local Vite CLI with Node, then post-build).
+- \`preview\` (default / no deploy target) — \`node .output/server/index.mjs\` (Nitro Node server). Do **not** use \`vite preview\`; that only serves static \`dist/\` files.
+- Cloudflare: \`preview\` / \`deploy\` use Wrangler via the installer's exec (\`npx\`, \`pnpm dlx\`, \`yarn dlx\`, \`bunx\`; Yarn Classic uses \`npx\`).
+- Netlify: \`preview\` uses Netlify CLI the same way. The Netlify preset writes the server under \`.netlify/\`, not \`.output/server\`. Yarn Berry + Netlify also gets Corepack \`packageManager: yarn@<detected>\` and \`.yarnrc.yml\` with \`nodeLinker: node-modules\` (Netlify does not support Plug'n'Play).
+
+Generates the module-based layout (\`app/modules/main\` → \`/\`, \`app/modules/about\` → \`/about\`, \`app/shared\`, \`middleware\`, \`routes/api\`, \`server\`, \`public\`) plus \`app/island-jsx.d.ts\` for \`island\` / \`server\` prop types — see the configuration topic.
 
 ## \`avalon\` — project CLI
 
