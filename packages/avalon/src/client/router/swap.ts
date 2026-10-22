@@ -19,6 +19,8 @@ const SKIP_HTML_ATTRS = new Set([
 	"data-router-navigating",
 	"style",
 	"data-router-transition",
+	// SSR layouts stamp a default; the live document owns the user's choice.
+	"data-theme",
 ]);
 
 function attr(el: Element, name: string): string | null {

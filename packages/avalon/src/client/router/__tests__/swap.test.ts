@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	attachDeclarativeShadowRoots,
+	copyHtmlAttributes,
 	isHtmlResponse,
 	outletKeyOf,
 	reconcileHead,
@@ -355,5 +356,42 @@ describe("replaceOutlets", () => {
 		const live = outlet("docs-page");
 		expect(replaceOutlets(doc([live]), doc([outlet()]))).toBeNull();
 		expect(live.replacedWith).toBeNull();
+	});
+});
+
+describe("copyHtmlAttributes", () => {
+	function htmlDoc(attrs: Record<string, string>) {
+		const dataset: Record<string, string | undefined> = {};
+		if (attrs["data-client-navigation"] === "false") {
+			dataset.clientNavigation = "false";
+		}
+		const el = {
+			lang: attrs.lang ?? "",
+			dataset,
+			getAttributeNames: () => Object.keys(attrs),
+			getAttribute(name: string) {
+				return attrs[name] ?? null;
+			},
+			setAttribute(name: string, value: string) {
+				attrs[name] = value;
+				if (name === "lang") el.lang = value;
+				if (name === "data-client-navigation") dataset.clientNavigation = value;
+			},
+		};
+		return { documentElement: el };
+	}
+
+	it("copies route html attrs without overwriting the live color scheme", () => {
+		const current = htmlDoc({ lang: "en", "data-theme": "light", class: "home" });
+		const next = htmlDoc({
+			lang: "en",
+			"data-theme": "dark",
+			class: "docs",
+			style: "color-scheme: dark",
+		});
+		copyHtmlAttributes(current as unknown as Document, next as unknown as Document);
+		expect(current.documentElement.getAttribute("data-theme")).toBe("light");
+		expect(current.documentElement.getAttribute("class")).toBe("docs");
+		expect(current.documentElement.getAttribute("style")).toBeNull();
 	});
 });
