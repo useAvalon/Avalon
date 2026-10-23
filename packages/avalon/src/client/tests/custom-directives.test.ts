@@ -41,6 +41,22 @@ describe("executeCustomDirective", () => {
 		expect(hydrated).toBe(true);
 	});
 
+	it("does not let a global copy replace a client-registered handler", () => {
+		let from = "";
+		registerClientDirective("on:keep", (_el, hydrate) => {
+			from = "client";
+			hydrate();
+		});
+		globalThis.__AVALON_DIRECTIVES__ = {
+			"on:keep": (_el: HTMLElement, hydrate: () => void) => {
+				from = "global";
+				hydrate();
+			},
+		};
+		executeCustomDirective({ dataset: {} } as HTMLElement, "on:keep", () => {});
+		expect(from).toBe("client");
+	});
+
 	it("returns false for an unknown directive", () => {
 		const island = { dataset: {} } as HTMLElement;
 		expect(executeCustomDirective(island, "on:missing", () => {})).toBe(false);

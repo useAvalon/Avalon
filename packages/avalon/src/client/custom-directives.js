@@ -31,7 +31,7 @@ function ingestGlobalDirectives() {
 	if (!bag || typeof bag !== "object") return;
 	for (const name of Object.keys(bag)) {
 		const fn = bag[name];
-		if (typeof fn === "function") directives.set(name, fn);
+		if (typeof fn === "function" && !directives.has(name)) directives.set(name, fn);
 	}
 }
 

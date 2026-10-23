@@ -139,6 +139,23 @@ describe("injectHydrationScript — custom directive bootstrap", () => {
 		expect(result).toContain("globalThis.__AVALON_DIRECTIVES__");
 	});
 
+	it("inserts bootstrap source with $& literally", () => {
+		clearDirectives();
+		registerHydrationDirective("on:dollar", {
+			name: "on:dollar",
+			script: (_el, hydrate) => {
+				const marker = "$&";
+				void marker;
+				hydrate();
+			},
+		});
+		const html = `<html><body><div>Home</div></body></html>`;
+		const result = injectHydrationScript(html, false);
+		expect(result).toContain("$&");
+		expect(result).toContain("</body>");
+		expect(result).not.toContain("$&</body>");
+	});
+
 	it("puts a nonce on the inline bootstrap when scriptNonce is set", () => {
 		const html = `<html><body><div>Home</div></body></html>`;
 		const result = injectHydrationScript(html, false, { scriptNonce: "n-1" });

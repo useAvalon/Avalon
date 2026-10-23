@@ -655,7 +655,7 @@ function injectCustomDirectiveBootstrap(
 		return `${html.slice(0, entryIdx)}${snippet}\n${html.slice(entryIdx)}`;
 	}
 	if (html.includes("</body>")) {
-		return html.replace("</body>", `${snippet}\n</body>`);
+		return html.replace("</body>", () => `${snippet}\n</body>`);
 	}
 	return html + snippet;
 }

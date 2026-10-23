@@ -141,6 +141,29 @@ export function serializeDirectiveScript(name: string): string | null {
 	return directive.script.toString();
 }
 
+/**
+ * Turn a serialized `script` into a function expression so it is valid as an
+ * object-literal value. String bodies and method-shorthand `toString()` output
+ * are not safe to wrap in bare parentheses.
+ */
+function asFunctionExpression(source: string): string {
+	const trimmed = source.trim();
+	if (
+		trimmed.startsWith("function") ||
+		trimmed.startsWith("async function") ||
+		trimmed.startsWith("(") ||
+		trimmed.includes("=>")
+	) {
+		return `(${trimmed})`;
+	}
+	const method = trimmed.match(/^(async\s+)?[\w$]+\s*\([^)]*\)\s*\{/);
+	if (method) {
+		const asyncKw = method[1] ? "async " : "";
+		return `(${asyncKw}function${trimmed.slice(trimmed.indexOf("("))})`;
+	}
+	return `(function(el,hydrate,arg){${trimmed}})`;
+}
+
 /** Keep `</script` / `<!--` from breaking out of the bootstrap module. */
 function escapeInlineModule(source: string): string {
 	return source
@@ -167,7 +190,9 @@ export function customDirectiveBootstrapModule(): string | null {
 	for (const name of getRegisteredDirectives()) {
 		const src = serializeDirectiveScript(name);
 		if (!src) continue;
-		parts.push(`${escapeInlineModule(JSON.stringify(name))}:(${escapeInlineModule(src)})`);
+		parts.push(
+			`${escapeInlineModule(JSON.stringify(name))}:${escapeInlineModule(asFunctionExpression(src))}`,
+		);
 	}
 	if (parts.length === 0) return null;
 	return `globalThis.__AVALON_DIRECTIVES__=Object.assign(globalThis.__AVALON_DIRECTIVES__||{},{${parts.join(",")}});`;

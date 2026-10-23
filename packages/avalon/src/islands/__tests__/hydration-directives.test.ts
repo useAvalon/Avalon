@@ -82,6 +82,31 @@ describe("customDirectiveBootstrapScript", () => {
 		expect(html).toContain("globalThis.__AVALON_DIRECTIVES__");
 	});
 
+	it("wraps a string body in a function expression", () => {
+		registerHydrationDirective("on:delay", {
+			name: "on:delay",
+			script: "setTimeout(hydrate, 1000)",
+		});
+		const html = customDirectiveBootstrapScript();
+		expect(html).toContain("(function(el,hydrate,arg){setTimeout(hydrate, 1000)})");
+		expect(html).not.toContain(":(setTimeout(hydrate, 1000))");
+	});
+
+	it("rewrites method-shorthand toString output into a function expression", () => {
+		const method = {
+			script(_el: HTMLElement, hydrate: () => void) {
+				hydrate();
+			},
+		}.script;
+		registerHydrationDirective("on:method", {
+			name: "on:method",
+			script: method,
+		});
+		const html = customDirectiveBootstrapScript();
+		expect(html).toContain("(function(");
+		expect(html).not.toMatch(/:\(script\(/);
+	});
+
 	it("emits an external module tag when src is set", () => {
 		registerHydrationDirective("on:delay", {
 			name: "on:delay",
