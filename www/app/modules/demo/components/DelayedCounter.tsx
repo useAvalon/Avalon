@@ -1,7 +1,11 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 
 export default function DelayedCounter() {
 	const [count, setCount] = useState(0);
+	const [live, setLive] = useState(false);
+	useEffect(() => {
+		setLive(true);
+	}, []);
 
 	return (
 		<div
@@ -52,10 +56,11 @@ export default function DelayedCounter() {
 				<h3 style={{ margin: "0 0 0.25rem", color: "#3b82f6", fontSize: "1rem" }}>
 					Delayed Counter
 				</h3>
-				{/* The countdown badge is updated by the on:countdown directive script before hydration */}
-				<p data-countdown style={{ margin: "0 0 1rem", fontSize: "0.75rem", color: "#f59e0b" }}>
-					Hydrates in 5s...
-				</p>
+				{!live && (
+					<p data-countdown style={{ margin: "0 0 1rem", fontSize: "0.75rem", color: "#f59e0b" }}>
+						Hydrates in 5s...
+					</p>
+				)}
 				<div
 					style={{ fontSize: "2.5rem", fontWeight: 700, margin: "1rem 0", fontFamily: "monospace" }}
 				>

@@ -35,6 +35,7 @@ import {
 	stampClientNavigationOptOut,
 } from "../client/router/opt-out.ts";
 import { inlineCriticalCSS } from "../islands/critical-css.ts";
+import { customDirectiveBootstrapScript } from "../islands/hydration-directives.ts";
 import { injectModulepreloadLinks } from "../islands/modulepreload-collector.ts";
 import { discoverScopedMiddleware, executeScopedMiddleware } from "../middleware/index.ts";
 import type { MiddlewareRoute } from "../middleware/types.ts";
@@ -627,6 +628,39 @@ function unwrapPerIslandScripts(html: string): string {
 }
 
 /**
+ * Place the directive module before the shared client entry so it runs first.
+ * Module scripts execute in document order.
+ */
+function injectCustomDirectiveBootstrap(
+	html: string,
+	options: { nonce?: string; src?: string } = {},
+): string {
+	const g = globalThis as typeof globalThis & {
+		__avalonScriptNonce?: string;
+		__avalonDirectiveBootstrapSrc?: string;
+	};
+	const src = options.src ?? g.__avalonDirectiveBootstrapSrc;
+	const snippet = customDirectiveBootstrapScript({
+		nonce: options.nonce ?? g.__avalonScriptNonce,
+		src,
+	});
+	if (!snippet) return html;
+	if (html.includes("globalThis.__AVALON_DIRECTIVES__")) return html;
+	if (src && html.includes(src)) return html;
+
+	const entryIdx = html.search(
+		/<script[^>]+src="[^"]*(?:entry-client|\/src\/client\/main\.js|\/app\/entry-client)[^"]*"/i,
+	);
+	if (entryIdx >= 0) {
+		return `${html.slice(0, entryIdx)}${snippet}\n${html.slice(entryIdx)}`;
+	}
+	if (html.includes("</body>")) {
+		return html.replace("</body>", `${snippet}\n</body>`);
+	}
+	return html + snippet;
+}
+
+/**
  * Injects the client hydration script into HTML
  * Requirements: 2.6, 9.4
  *
@@ -650,6 +684,10 @@ export function injectHydrationScript(
 		additionalScripts?: string[];
 		/** Whether to force injection even without islands */
 		forceInject?: boolean;
+		/** CSP nonce for the custom-directive bootstrap `<script>` */
+		scriptNonce?: string;
+		/** Same-origin URL that serves {@link customDirectiveBootstrapModule} */
+		directiveBootstrapSrc?: string;
 	} = {},
 ): string {
 	html = unwrapPerIslandScripts(html);
@@ -662,6 +700,11 @@ export function injectHydrationScript(
 	if (isPerIsland) {
 		return html;
 	}
+
+	html = injectCustomDirectiveBootstrap(html, {
+		nonce: options.scriptNonce,
+		src: options.directiveBootstrapSrc,
+	});
 
 	// Check if there are any islands that need hydration
 	const hasIslands = html.includes("data-framework=") || html.includes("data-src=");

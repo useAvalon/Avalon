@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { clearDirectives, registerHydrationDirective } from "../../islands/hydration-directives.ts";
 import { injectHydrationScript } from "../renderer.ts";
 
 describe("injectHydrationScript — per-island mode", () => {
@@ -98,5 +99,63 @@ describe("injectHydrationScript — entry-client mode (dev mode default)", () =>
 
 		const result = injectHydrationScript(html, false);
 		expect(result).toBe(html);
+	});
+});
+
+describe("injectHydrationScript — custom directive bootstrap", () => {
+	const savedMode = globalThis.__avalonHydrationMode;
+
+	beforeEach(() => {
+		globalThis.__avalonHydrationMode = "entry-client";
+		registerHydrationDirective("on:countdown", {
+			name: "on:countdown",
+			script: (_el, hydrate) => {
+				hydrate();
+			},
+		});
+	});
+
+	afterEach(() => {
+		clearDirectives();
+		globalThis.__avalonHydrationMode = savedMode;
+	});
+
+	it("injects the directive module before the hashed entry-client script", () => {
+		const html = `<html><body>
+<avalon-island data-framework="preact"></avalon-island>
+<script type="module" src="/assets/entry-client-abc.js"></script>
+</body></html>`;
+		const result = injectHydrationScript(html, false);
+		const bootstrapAt = result.indexOf("globalThis.__AVALON_DIRECTIVES__");
+		const entryAt = result.indexOf("/assets/entry-client-abc.js");
+		expect(bootstrapAt).toBeGreaterThan(-1);
+		expect(entryAt).toBeGreaterThan(bootstrapAt);
+		expect(result).toContain('"on:countdown"');
+	});
+
+	it("injects the bootstrap even when the page has no islands", () => {
+		const html = `<html><body><div>Home</div></body></html>`;
+		const result = injectHydrationScript(html, false);
+		expect(result).toContain("globalThis.__AVALON_DIRECTIVES__");
+	});
+
+	it("puts a nonce on the inline bootstrap when scriptNonce is set", () => {
+		const html = `<html><body><div>Home</div></body></html>`;
+		const result = injectHydrationScript(html, false, { scriptNonce: "n-1" });
+		expect(result).toContain('<script type="module" nonce="n-1">');
+	});
+
+	it("loads the bootstrap from a same-origin src when set", () => {
+		const html = `<html><body>
+<script type="module" src="/assets/entry-client-abc.js"></script>
+</body></html>`;
+		const result = injectHydrationScript(html, false, {
+			directiveBootstrapSrc: "/_avalon/directives.js",
+		});
+		expect(result).toContain('<script type="module" src="/_avalon/directives.js"></script>');
+		expect(result.indexOf("/_avalon/directives.js")).toBeLessThan(
+			result.indexOf("/assets/entry-client-abc.js"),
+		);
+		expect(result).not.toContain("globalThis.__AVALON_DIRECTIVES__");
 	});
 });
