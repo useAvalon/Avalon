@@ -1,9 +1,9 @@
 /**
  * Client-side custom hydration directives.
  *
- * Server-registered directives are serialized onto the island as
- * `data-directive-script`. App code can also register handlers at runtime
- * with `registerClientDirective`.
+ * Server-registered directives are assigned on `globalThis.__AVALON_DIRECTIVES__`
+ * by an inline module (parsed as script, not eval). App code can also register
+ * handlers at runtime with `registerClientDirective`.
  */
 
 /** @type {Map<string, (el: HTMLElement, hydrate: () => void, arg?: string) => void>} */
@@ -22,7 +22,17 @@ export function registerClientDirective(name, fn) {
  * @returns {boolean}
  */
 export function hasClientDirective(name) {
+	ingestGlobalDirectives();
 	return directives.has(name);
+}
+
+function ingestGlobalDirectives() {
+	const bag = globalThis.__AVALON_DIRECTIVES__;
+	if (!bag || typeof bag !== "object") return;
+	for (const name of Object.keys(bag)) {
+		const fn = bag[name];
+		if (typeof fn === "function" && !directives.has(name)) directives.set(name, fn);
+	}
 }
 
 /**
@@ -32,23 +42,9 @@ export function hasClientDirective(name) {
  * @returns {boolean}
  */
 export function executeCustomDirective(island, directiveName, hydrateFn) {
+	ingestGlobalDirectives();
 	const registered = directives.get(directiveName);
-	const arg = island.dataset.conditionArg;
-	if (registered) {
-		registered(island, hydrateFn, arg);
-		return true;
-	}
-
-	const serialized = island.dataset.directiveScript;
-	if (!serialized) return false;
-
-	try {
-		const dir = new Function(`return (${serialized})`)();
-		if (typeof dir !== "function") return false;
-		dir(island, hydrateFn, arg);
-		return true;
-	} catch (error) {
-		console.warn(`[avalon] Failed to execute custom directive "${directiveName}":`, error);
-		return false;
-	}
+	if (!registered) return false;
+	registered(island, hydrateFn, island.dataset.conditionArg);
+	return true;
 }

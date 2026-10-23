@@ -271,7 +271,7 @@ registerHydrationDirective('on:countdown', {
 });
 \`\`\`
 
-The \`script\` receives \`(el, hydrate, arg)\` and must call \`hydrate()\` exactly once. For an \`ssr: false\` island that callback mounts instead of hydrating SSR HTML.`,
+The \`script\` receives \`(el, hydrate, arg)\` and must call \`hydrate()\` exactly once. For an \`ssr: false\` island that callback mounts instead of hydrating SSR HTML. Avalon does not \`eval\` the function. The default bootstrap is an inline module, so \`script-src 'self'\` alone does not run it — use \`'unsafe-inline'\`, a matching nonce/hash, \`registerClientDirective\` in the client entry, or a same-origin bootstrap \`src\`.`,
 	},
 	{
 		id: "server-islands",
