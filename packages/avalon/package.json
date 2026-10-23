@@ -1,6 +1,6 @@
 {
 	"name": "@useavalon/avalon",
-	"version": "0.7.5",
+	"version": "0.8.0",
 	"description": "Multi-framework islands architecture for the modern web",
 	"license": "MIT",
 	"type": "module",
