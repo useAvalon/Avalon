@@ -1,5 +1,13 @@
 # @useavalon/vue
 
+## 0.1.14
+
+### Patch Changes
+
+- Updated dependencies [[`a2d015a`](https://github.com/useAvalon/Avalon/commit/a2d015a52526402d63d683e9cd74611398f8c312), [`bb9208c`](https://github.com/useAvalon/Avalon/commit/bb9208c8cbae4d57b2af8c958b35fb190e51a07f), [`3a4bc3a`](https://github.com/useAvalon/Avalon/commit/3a4bc3abefe679a8b06621ab29ab833e3d8735f2)]:
+  - @useavalon/avalon@0.8.0
+  - @useavalon/core@0.8.0
+
 ## 0.1.13
 
 ### Patch Changes
