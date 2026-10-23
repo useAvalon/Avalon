@@ -466,6 +466,8 @@ Default is \`false\`. When it is off, Avalon ships no extra client navigation Ja
 
 A same-origin link click or \`navigate()\` fetches the destination as HTML (the same document a full load would return). Title, meta, and other head tags update from that response; matching stylesheet \`href\`s are reused (no FOUC). Persist-marked islands are lifted out, everything else is disposed, the new body is swapped in, persist slots are restored, and the remaining islands hydrate. Deferred server islands boot afterward.
 
+\`data-theme\` on \`<html>\` is not copied from the next document so a layout's SSR default does not overwrite the live color scheme.
+
 ## Links
 
 \`\`\`tsx

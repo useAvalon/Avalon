@@ -40,9 +40,13 @@ export default async function RootLayout({ children, frontmatter }: Readonly<Lay
 						__html: [
 							`(function(){`,
 							`var d=document.documentElement;`,
-							`try{var t=localStorage.getItem('avalon-theme')}catch(e){}`,
-							`if(t==='light'){d.setAttribute('data-theme','light');d.style.colorScheme='light'}`,
+							`function apply(){`,
+							`var t;try{t=localStorage.getItem('avalon-theme')}catch(e){}`,
+							`if(t==='light'||t==='dark'){d.setAttribute('data-theme',t);d.style.colorScheme=t}`,
 							`else{d.style.colorScheme='dark'}`,
+							`}`,
+							`apply();`,
+							`document.addEventListener('avalon:after-swap',apply);`,
 							`})();`,
 						].join(""),
 					}}
