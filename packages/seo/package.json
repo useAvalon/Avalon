@@ -53,8 +53,8 @@
 	},
 	"devDependencies": {
 		"@useavalon/avalon": "workspace:*",
-		"oxc-minify": "^0.154.0",
-		"oxc-transform": "^0.154.0",
+		"oxc-minify": "^0.155.0",
+		"oxc-transform": "^0.155.0",
 		"vitest": "^5.0.5"
 	}
 }
