@@ -16,7 +16,10 @@ import { cloudflareProjectName } from "./deploy";
  * framework (mirrors each integration's peerDependencies).
  */
 const INTEGRATION_RUNTIME_DEPS: Record<Integration, Record<string, string>> = {
-	preact: { preact: "^11.0.0", "preact-render-to-string": "^6.8.0" },
+	preact: {
+		preact: THIRD_PARTY_VERSIONS.preact,
+		"preact-render-to-string": THIRD_PARTY_VERSIONS["preact-render-to-string"],
+	},
 	react: { react: THIRD_PARTY_VERSIONS.react, "react-dom": THIRD_PARTY_VERSIONS["react-dom"] },
 	vue: { vue: "^3.4.0" },
 	svelte: { svelte: "^5.0.0" },

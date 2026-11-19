@@ -185,8 +185,8 @@ describe("generatePackageJson", () => {
 	it("always installs the core engine integration and runtime", () => {
 		const pkg = JSON.parse(generatePackageJson(baseConfig));
 		expect(pkg.dependencies["@useavalon/preact"]).toBe(`^${OWN_VERSION}`);
-		expect(pkg.dependencies.preact).toBe("^11.0.0");
-		expect(pkg.dependencies["preact-render-to-string"]).toBe("^6.8.0");
+		expect(pkg.dependencies.preact).toBe("11.0.1");
+		expect(pkg.dependencies["preact-render-to-string"]).toBe("6.8.1");
 		expect(pkg.dependencies.react).toBeUndefined();
 		expect(pkg.dependencies.vue).toBeUndefined();
 	});
@@ -270,5 +270,16 @@ describe("generatePackageJson", () => {
 				admits: true,
 			});
 		}
+	});
+
+	it("installs the same Preact as @useavalon/avalon, so the app has one copy", () => {
+		const avalon = JSON.parse(
+			readFileSync(join(PACKAGES_DIR, "avalon", "package.json"), "utf-8"),
+		) as { dependencies: Record<string, string> };
+		const pkg = JSON.parse(generatePackageJson(baseConfig));
+		expect(pkg.dependencies.preact).toBe(avalon.dependencies.preact);
+		expect(pkg.dependencies["preact-render-to-string"]).toBe(
+			avalon.dependencies["preact-render-to-string"],
+		);
 	});
 });
