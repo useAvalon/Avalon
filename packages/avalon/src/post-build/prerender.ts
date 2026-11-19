@@ -7,6 +7,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
+import { normalizePresetName } from "../nitro/config.ts";
 import { extractLinks } from "./extract-links.ts";
 import { fetchHandlerWrapperSource, projectHasLitDomShim } from "./fetch-handler-wrapper.ts";
 import { isFile } from "./fs-utils.ts";
@@ -27,13 +28,42 @@ export function isNetlifyHandler(serverEntryPath: string): boolean {
 	return serverEntryPath.split(/[/\\]/).includes(".netlify");
 }
 
-function resolveCloudflareWorker(cwd: string): string | null {
+/** Nitro's preset name from `.output/nitro.json`, in underscore form. */
+export function readNitroOutputPreset(cwd: string): string | null {
+	const path = join(cwd, ".output", "nitro.json");
+	if (!isFile(path)) return null;
+	try {
+		const { preset } = JSON.parse(readFileSync(path, "utf-8")) as { preset?: unknown };
+		return typeof preset === "string" ? normalizePresetName(preset) : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Fetch-handler entry of a Cloudflare build, or null for other presets.
+ *
+ * - `cloudflare_pages`: `dist/_worker.js` (file or directory).
+ * - `cloudflare_module` / `cloudflare_durable`: `.output/server/index.mjs`,
+ *   identified by the preset Nitro wrote to `.output/nitro.json`.
+ *
+ * Both export a Workers `fetch` handler instead of starting a listener, so
+ * prerender must run them behind the Node HTTP wrapper.
+ */
+export function resolveCloudflareWorker(cwd: string): string | null {
 	const root = join(cwd, "dist", "_worker.js");
 	if (isFile(root)) return root;
-	if (!existsSync(root)) return null;
-	for (const name of ["index.js", "index.mjs"]) {
-		const nested = join(root, name);
-		if (isFile(nested)) return nested;
+	if (existsSync(root)) {
+		for (const name of ["index.js", "index.mjs"]) {
+			const nested = join(root, name);
+			if (isFile(nested)) return nested;
+		}
+	}
+
+	const preset = readNitroOutputPreset(cwd);
+	if (preset?.startsWith("cloudflare") && preset !== "cloudflare_pages") {
+		const moduleEntry = join(cwd, ".output", "server", "index.mjs");
+		if (isFile(moduleEntry)) return moduleEntry;
 	}
 	return null;
 }
@@ -48,6 +78,13 @@ function writeFetchHandlerWrapper(modulePath: string, port: number, cwd: string)
 		}),
 	);
 	return wrapperPath;
+}
+
+/** Deletes the generated wrapper so it does not ship with the server output. */
+function removeWrapper(actualEntry: string, serverEntry: string): void {
+	if (actualEntry === serverEntry || !existsSync(actualEntry)) return;
+	unlinkSync(actualEntry);
+	console.log("[prerender] Cleaned up wrapper script");
 }
 
 function patchServerHtmlAssetEntries(cwd: string, serverEntry: string): void {
@@ -128,18 +165,38 @@ async function fetchRouteWithRetry(
 	return null;
 }
 
-async function waitForServer(baseUrl: string, timeoutMs: number): Promise<boolean> {
+/** Exit status of the prerender server process; both null while it runs. */
+export interface ServerExitStatus {
+	exitCode: number | null;
+	signalCode: string | null;
+}
+
+/**
+ * Polls the server until it answers or `timeoutMs` passes. Throws as soon as
+ * the server process exits, so a server that cannot start (wrong entry, crash
+ * at import) fails right away instead of after the full timeout.
+ */
+export async function waitForServer(
+	baseUrl: string,
+	timeoutMs: number,
+	server: ServerExitStatus = { exitCode: null, signalCode: null },
+): Promise<void> {
 	const startWait = Date.now();
 	while (Date.now() - startWait < timeoutMs) {
+		if (server.exitCode !== null || server.signalCode !== null) {
+			const status =
+				server.signalCode === null ? `code ${server.exitCode}` : `signal ${server.signalCode}`;
+			throw new Error(`Server process exited with ${status} before it was ready`);
+		}
 		try {
 			const res = await fetch(`${baseUrl}/`);
-			if (res.ok || res.status < 500) return true;
+			if (res.ok || res.status < 500) return;
 		} catch {
 			// Server not ready yet.
 		}
 		await new Promise((r) => setTimeout(r, 200));
 	}
-	return false;
+	throw new Error(`Server did not become ready within ${Math.round(timeoutMs / 1000)}s`);
 }
 
 function copyPrerenderedToAltDirs(
@@ -215,7 +272,9 @@ export async function prerenderIfConfigured(
 
 	if (isCloudflareWorker) {
 		actualEntry = writeFetchHandlerWrapper(serverEntry, port, cwd);
-		console.log("[prerender] Cloudflare worker detected — using wrapper");
+		console.log(
+			`[prerender] Cloudflare worker detected (${relative(cwd, serverEntry)}) — using wrapper`,
+		);
 	} else if (isNetlifyHandler(serverEntry)) {
 		const mainMjsPath = join(dirname(serverEntry), "main.mjs");
 		if (!existsSync(mainMjsPath)) {
@@ -252,13 +311,11 @@ export async function prerenderIfConfigured(
 			const msg = data.toString().trim();
 			if (msg) console.error(`[prerender:server:err] ${msg}`);
 		});
-
-		if (!(await waitForServer(baseUrl, 15_000))) {
-			throw new Error("Server did not become ready within 15s");
-		}
+		await waitForServer(baseUrl, 15_000, serverProcess);
 		console.log(`[prerender] Server ready at ${baseUrl}`);
 	} catch (err) {
 		serverProcess?.kill("SIGKILL");
+		removeWrapper(actualEntry, serverEntry);
 		console.error("[prerender] Failed to start server:", (err as Error).message);
 		return;
 	}
@@ -325,13 +382,7 @@ export async function prerenderIfConfigured(
 			(errors.length > 0 ? `, ${errors.length} error(s)` : ""),
 	);
 
-	if (isCloudflareWorker || isNetlifyHandler(serverEntry)) {
-		const wrapperPath = join(dirname(serverEntry), "_prerender-server.mjs");
-		if (existsSync(wrapperPath)) {
-			unlinkSync(wrapperPath);
-			console.log("[prerender] Cleaned up wrapper script");
-		}
-	}
+	removeWrapper(actualEntry, serverEntry);
 
 	if (prerendered.length > 0) {
 		copyPrerenderedToAltDirs(cwd, distDir, outputDir, prerendered);

@@ -14,7 +14,7 @@
 import type { BuildOptions, Plugin, UserConfig } from "vite";
 import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
 import type { AvalonNitroConfig } from "./config.ts";
-import { DEFAULT_NITRO_CONFIG, VALID_V3_PRESETS } from "./config.ts";
+import { DEFAULT_NITRO_CONFIG, normalizePresetName, VALID_V3_PRESETS } from "./config.ts";
 
 /**
  * Build mode for the Avalon application
@@ -258,7 +258,7 @@ export function createServerBuildConfig(
 ): BuildOptions {
 	const config = { ...DEFAULT_BUILD_CONFIG, ...buildConfig };
 	const preset = nitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset;
-	const presetConfig = PRESET_OUTPUT_CONFIGS[preset] ?? PRESET_OUTPUT_CONFIGS["node_server"];
+	const presetConfig = getPresetOutputConfig(preset);
 
 	return {
 		outDir: config.serverOutDir,
@@ -311,7 +311,7 @@ function getServerExternals(preset: string): (string | RegExp)[] {
  * @returns Preset output configuration
  */
 export function getPresetOutputConfig(preset: string): PresetOutputConfig {
-	return PRESET_OUTPUT_CONFIGS[preset] ?? PRESET_OUTPUT_CONFIGS["node_server"];
+	return PRESET_OUTPUT_CONFIGS[normalizePresetName(preset)] ?? PRESET_OUTPUT_CONFIGS["node_server"];
 }
 
 /**
@@ -442,7 +442,7 @@ export function validateBuildConfig(config: Partial<AvalonBuildConfig>): {
 	const errors: string[] = [];
 
 	if (config.preset) {
-		if (!VALID_V3_PRESETS.includes(config.preset)) {
+		if (!VALID_V3_PRESETS.includes(normalizePresetName(config.preset))) {
 			errors.push(
 				`Unknown preset: ${config.preset}. Valid presets: ${VALID_V3_PRESETS.join(", ")}`,
 			);
