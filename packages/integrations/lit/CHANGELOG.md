@@ -1,5 +1,14 @@
 # @useavalon/lit
 
+## 0.1.16
+
+### Patch Changes
+
+- [#161](https://github.com/useAvalon/Avalon/pull/161) [`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Update dependencies: Preact 11.2.0 and preact-render-to-string 6.8.3 (also the versions `create-avalon` now scaffolds), h3 2.0.8, oxc 0.158, `@babel/core` 8.1.2 and linkedom 0.18.15 for Lit, and vite-plugin-solid 2.11.16.
+- Updated dependencies [[`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2), [`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2), [`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2), [`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2), [`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2), [`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2), [`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2)]:
+  - @useavalon/avalon@0.8.1
+  - @useavalon/core@0.8.1
+
 ## 0.1.15
 
 ### Patch Changes
