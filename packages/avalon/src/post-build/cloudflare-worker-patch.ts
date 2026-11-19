@@ -17,10 +17,11 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { join, relative } from "node:path";
+import { parseSync } from "oxc-parser";
 import { ssrDomStubFileSource } from "../vite-plugin/ssr-dom-shim-module.ts";
 
-const CREATE_REQUIRE_RE = /createRequire\(\s*import\.meta\.url\s*\)/g;
-const CREATE_REQUIRE_SAFE = 'createRequire(import.meta.url || "file:///")';
+const CREATE_REQUIRE_HINT_RE = /createRequire\(\s*import\.meta\.url\s*\)/;
+const IMPORT_META_URL_SAFE = 'import.meta.url || "file:///"';
 const DOM_STUB_NAME = "_dom_stub.mjs";
 
 function collectJsFiles(dir: string, out: string[] = []): string[] {
@@ -36,15 +37,96 @@ function collectJsFiles(dir: string, out: string[] = []): string[] {
 	return out;
 }
 
+interface AstNode {
+	type: string;
+	start: number;
+	end: number;
+	[key: string]: unknown;
+}
+
+function isAstNode(value: unknown): value is AstNode {
+	return typeof value === "object" && value !== null && typeof (value as AstNode).type === "string";
+}
+
+function isImportMetaUrl(node: unknown): boolean {
+	if (!isAstNode(node) || node.type !== "MemberExpression" || node.computed) return false;
+	const object = node.object as AstNode | undefined;
+	const property = node.property as AstNode | undefined;
+	return (
+		object?.type === "MetaProperty" &&
+		(object.meta as AstNode | undefined)?.name === "import" &&
+		(object.property as AstNode | undefined)?.name === "meta" &&
+		property?.name === "url"
+	);
+}
+
+function isCreateRequireCallee(node: unknown): boolean {
+	if (!isAstNode(node)) return false;
+	if (node.type === "Identifier") return node.name === "createRequire";
+	if (node.type !== "MemberExpression" || node.computed) return false;
+	return (node.property as AstNode | undefined)?.name === "createRequire";
+}
+
+/** Spans of the `import.meta.url` argument in every `createRequire(import.meta.url)` call. */
+function collectCreateRequireArgs(root: AstNode): Array<{ start: number; end: number }> {
+	const spans: Array<{ start: number; end: number }> = [];
+	const stack: unknown[] = [root];
+	while (stack.length > 0) {
+		const value = stack.pop();
+		if (Array.isArray(value)) {
+			for (const item of value) stack.push(item);
+			continue;
+		}
+		if (!isAstNode(value)) continue;
+		if (value.type === "CallExpression" && isCreateRequireCallee(value.callee)) {
+			const args = value.arguments as unknown[];
+			if (args.length === 1 && isImportMetaUrl(args[0])) {
+				const arg = args[0] as AstNode;
+				spans.push({ start: arg.start, end: arg.end });
+			}
+		}
+		for (const key in value) {
+			if (key === "type" || key === "start" || key === "end") continue;
+			const child = value[key];
+			if (typeof child === "object" && child !== null) stack.push(child);
+		}
+	}
+	return spans;
+}
+
+/**
+ * Rewrites `createRequire(import.meta.url)` call expressions to
+ * `createRequire(import.meta.url || "file:///")`. Text that only looks like the
+ * call (inside strings, template literals, comments or regexes) is left alone,
+ * since a textual replace there would close the literal early.
+ *
+ * Returns null when nothing changed or the file does not parse.
+ */
+export function rewriteCreateRequireCalls(code: string, filename: string): string | null {
+	if (!CREATE_REQUIRE_HINT_RE.test(code)) return null;
+	const result = parseSync(filename, code, { sourceType: "module" });
+	if (result.errors.length > 0) {
+		console.warn(
+			`[cloudflare] Skipped createRequire patch in ${filename}: ${result.errors[0]?.message ?? "parse error"}`,
+		);
+		return null;
+	}
+	const spans = collectCreateRequireArgs(result.program as unknown as AstNode);
+	if (spans.length === 0) return null;
+	spans.sort((a, b) => b.start - a.start);
+	let out = code;
+	for (const { start, end } of spans) {
+		out = `${out.slice(0, start)}${IMPORT_META_URL_SAFE}${out.slice(end)}`;
+	}
+	return out;
+}
+
 /** Rewrite createRequire(import.meta.url) so workerd can boot the worker. */
 export function patchCloudflareCreateRequire(workerDir: string): number {
 	let patched = 0;
 	for (const file of collectJsFiles(workerDir)) {
-		const before = readFileSync(file, "utf-8");
-		if (!CREATE_REQUIRE_RE.test(before)) continue;
-		CREATE_REQUIRE_RE.lastIndex = 0;
-		const after = before.replaceAll(CREATE_REQUIRE_RE, CREATE_REQUIRE_SAFE);
-		if (after === before) continue;
+		const after = rewriteCreateRequireCalls(readFileSync(file, "utf-8"), file);
+		if (after === null) continue;
 		writeFileSync(file, after);
 		patched += 1;
 	}
