@@ -1,6 +1,26 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { ProjectConfig } from "../types";
 import { generatePackageJson } from "./package-json";
+
+const PACKAGES_DIR = join(import.meta.dirname, "..", "..", "..");
+
+function workspaceVersion(relDir: string): string {
+	const pkg = JSON.parse(readFileSync(join(PACKAGES_DIR, relDir, "package.json"), "utf-8"));
+	return pkg.version as string;
+}
+
+const OWN_VERSION = workspaceVersion("create-avalon");
+
+/** True when `^x.y.z` admits `version` (0.x carets stay within the minor). */
+function caretAdmits(range: string, version: string): boolean {
+	const [rMaj, rMin, rPat] = range.slice(1).split(".").map(Number);
+	const [vMaj, vMin, vPat] = version.split(".").map(Number);
+	if (rMaj !== vMaj) return false;
+	if (rMaj === 0) return rMin === vMin && (vPat ?? 0) >= (rPat ?? 0);
+	return (vMin ?? 0) > (rMin ?? 0) || (vMin === rMin && (vPat ?? 0) >= (rPat ?? 0));
+}
 
 describe("generatePackageJson", () => {
 	const baseConfig: ProjectConfig = {
@@ -22,12 +42,12 @@ describe("generatePackageJson", () => {
 
 	it("always includes @useavalon/avalon as dependency", () => {
 		const pkg = JSON.parse(generatePackageJson(baseConfig));
-		expect(pkg.dependencies["@useavalon/avalon"]).toBe("latest");
+		expect(pkg.dependencies["@useavalon/avalon"]).toBe(`^${OWN_VERSION}`);
 	});
 
 	it("always includes rehype-highlight for MDX code blocks", () => {
 		const pkg = JSON.parse(generatePackageJson(baseConfig));
-		expect(pkg.dependencies["rehype-highlight"]).toBe("latest");
+		expect(pkg.dependencies["rehype-highlight"]).toBe("^7.0.2");
 	});
 
 	it("includes preview script for node_server by default", () => {
@@ -89,11 +109,11 @@ describe("generatePackageJson", () => {
 		expect(npm.scripts.preview).toBe("npx netlify-cli@22 dev --offline");
 	});
 
-	it("pins vite, typescript, nitro, and vite-imagetools to Avalon peer ranges", () => {
+	it("pins vite, typescript, nitro, and vite-imagetools to versions tested with this release", () => {
 		const pkg = JSON.parse(generatePackageJson(baseConfig));
-		expect(pkg.devDependencies.vite).toBe("^8.0.0");
+		expect(pkg.devDependencies.vite).toBe("~8.3.2");
 		expect(pkg.devDependencies.typescript).toBe("^5.0.0");
-		expect(pkg.devDependencies.nitro).toBe("^3.0.260903-beta");
+		expect(pkg.devDependencies.nitro).toBe("3.0.260903-beta");
 		expect(pkg.devDependencies["vite-imagetools"]).toBe("^11.0.0");
 		expect(pkg.devDependencies["@types/node"]).toBe("^22.0.0");
 	});
@@ -101,13 +121,13 @@ describe("generatePackageJson", () => {
 	it("adds hono dependency when hono middleware selected", () => {
 		const config: ProjectConfig = { ...baseConfig, middleware: "hono" };
 		const pkg = JSON.parse(generatePackageJson(config));
-		expect(pkg.dependencies.hono).toBe("latest");
+		expect(pkg.dependencies.hono).toBe("^4.13.0");
 	});
 
 	it("adds elysia dependency when elysia middleware selected", () => {
 		const config: ProjectConfig = { ...baseConfig, middleware: "elysia" };
 		const pkg = JSON.parse(generatePackageJson(config));
-		expect(pkg.dependencies.elysia).toBe("latest");
+		expect(pkg.dependencies.elysia).toBe("^1.4.0");
 	});
 
 	it("does not add extra middleware dep for h3 (included via nitro)", () => {
@@ -120,16 +140,16 @@ describe("generatePackageJson", () => {
 	it("adds tailwindcss devDependencies when tailwind styling selected", () => {
 		const config: ProjectConfig = { ...baseConfig, styling: "tailwind" };
 		const pkg = JSON.parse(generatePackageJson(config));
-		expect(pkg.devDependencies.tailwindcss).toBe("latest");
-		expect(pkg.devDependencies["@tailwindcss/vite"]).toBe("latest");
+		expect(pkg.devDependencies.tailwindcss).toBe("~4.3.2");
+		expect(pkg.devDependencies["@tailwindcss/vite"]).toBe("~4.3.2");
 	});
 
 	it("adds tailwindcss and @shadcn/ui when shadcn styling selected", () => {
 		const config: ProjectConfig = { ...baseConfig, styling: "shadcn" };
 		const pkg = JSON.parse(generatePackageJson(config));
-		expect(pkg.devDependencies.tailwindcss).toBe("latest");
-		expect(pkg.devDependencies["@tailwindcss/vite"]).toBe("latest");
-		expect(pkg.dependencies["@shadcn/ui"]).toBe("latest");
+		expect(pkg.devDependencies.tailwindcss).toBe("~4.3.2");
+		expect(pkg.devDependencies["@tailwindcss/vite"]).toBe("~4.3.2");
+		expect(pkg.dependencies["@shadcn/ui"]).toBe("0.0.4");
 	});
 
 	it("does not add tailwind deps for css-modules styling", () => {
@@ -144,12 +164,12 @@ describe("generatePackageJson", () => {
 			integrations: ["react", "vue"],
 		};
 		const pkg = JSON.parse(generatePackageJson(config));
-		expect(pkg.dependencies["@useavalon/react"]).toBe("latest");
-		expect(pkg.dependencies["@useavalon/vue"]).toBe("latest");
+		expect(pkg.dependencies["@useavalon/react"]).toBe("^0.1.14");
+		expect(pkg.dependencies["@useavalon/vue"]).toBe("^0.1.14");
 		// Framework runtimes are peer deps of the @useavalon/* wrappers, so the
 		// scaffolded app must install them directly.
-		expect(pkg.dependencies.react).toBe("^19.0.0");
-		expect(pkg.dependencies["react-dom"]).toBe("^19.0.0");
+		expect(pkg.dependencies.react).toBe("~19.2.7");
+		expect(pkg.dependencies["react-dom"]).toBe("~19.2.7");
 		expect(pkg.dependencies.vue).toBe("^3.4.0");
 	});
 
@@ -164,7 +184,7 @@ describe("generatePackageJson", () => {
 
 	it("always installs the core engine integration and runtime", () => {
 		const pkg = JSON.parse(generatePackageJson(baseConfig));
-		expect(pkg.dependencies["@useavalon/preact"]).toBe("latest");
+		expect(pkg.dependencies["@useavalon/preact"]).toBe(`^${OWN_VERSION}`);
 		expect(pkg.dependencies.preact).toBe("^11.0.0");
 		expect(pkg.dependencies["preact-render-to-string"]).toBe("^6.8.0");
 		expect(pkg.dependencies.react).toBeUndefined();
@@ -177,7 +197,7 @@ describe("generatePackageJson", () => {
 			plugins: ["agent-optimization"],
 		};
 		const pkg = JSON.parse(generatePackageJson(config));
-		expect(pkg.dependencies["@useavalon/agent-optimization"]).toBe("latest");
+		expect(pkg.dependencies["@useavalon/agent-optimization"]).toBe("^0.2.6");
 	});
 
 	it("does not include @useavalon/agent-optimization when plugin not selected", () => {
@@ -191,7 +211,7 @@ describe("generatePackageJson", () => {
 			plugins: ["seo"],
 		};
 		const pkg = JSON.parse(generatePackageJson(config));
-		expect(pkg.dependencies["@useavalon/seo"]).toBe("latest");
+		expect(pkg.dependencies["@useavalon/seo"]).toBe(`^${OWN_VERSION}`);
 	});
 
 	it("does not include @useavalon/seo when plugin not selected", () => {
@@ -204,5 +224,51 @@ describe("generatePackageJson", () => {
 		expect(() => JSON.parse(result)).not.toThrow();
 		// Verify 2-space indentation
 		expect(result).toContain('  "name"');
+	});
+
+	it("never writes latest, for any combination of options", () => {
+		const pkg = JSON.parse(
+			generatePackageJson({
+				...baseConfig,
+				core: "react",
+				integrations: ["preact", "react", "vue", "svelte", "solid", "lit", "qwik"],
+				styling: "shadcn",
+				plugins: ["seo", "agent-optimization"],
+				middleware: "hono",
+			}),
+		);
+		const all = { ...pkg.dependencies, ...pkg.devDependencies } as Record<string, string>;
+		expect(Object.entries(all).filter(([, v]) => v === "latest" || v === "*")).toEqual([]);
+	});
+
+	it("pins @useavalon packages to ranges that admit the workspace versions", () => {
+		const pkg = JSON.parse(
+			generatePackageJson({
+				...baseConfig,
+				integrations: ["preact", "react", "vue", "svelte", "solid", "lit", "qwik"],
+				plugins: ["seo", "agent-optimization"],
+			}),
+		);
+		const dirs: Record<string, string> = {
+			"@useavalon/avalon": "avalon",
+			"@useavalon/seo": "seo",
+			"@useavalon/agent-optimization": "agent-optimization",
+			"@useavalon/preact": "integrations/preact",
+			"@useavalon/react": "integrations/react",
+			"@useavalon/vue": "integrations/vue",
+			"@useavalon/svelte": "integrations/svelte",
+			"@useavalon/solid": "integrations/solid",
+			"@useavalon/lit": "integrations/lit",
+			"@useavalon/qwik": "integrations/qwik",
+		};
+		for (const [name, dir] of Object.entries(dirs)) {
+			const range = pkg.dependencies[name] as string;
+			const version = workspaceVersion(dir);
+			expect({ name, range, admits: caretAdmits(range, version) }).toEqual({
+				name,
+				range,
+				admits: true,
+			});
+		}
 	});
 });

@@ -1,4 +1,10 @@
 import { commandsFor, packageManagerOf } from "../package-manager";
+import {
+	AGENT_OPTIMIZATION_VERSION,
+	avalonReleaseRange,
+	INTEGRATION_PACKAGE_VERSIONS,
+	THIRD_PARTY_VERSIONS,
+} from "../template-versions";
 import type { Integration, ProjectConfig } from "../types";
 import { INTEGRATION_PACKAGES } from "../types";
 import { cloudflareProjectName } from "./deploy";
@@ -11,7 +17,7 @@ import { cloudflareProjectName } from "./deploy";
  */
 const INTEGRATION_RUNTIME_DEPS: Record<Integration, Record<string, string>> = {
 	preact: { preact: "^11.0.0", "preact-render-to-string": "^6.8.0" },
-	react: { react: "^19.0.0", "react-dom": "^19.0.0" },
+	react: { react: THIRD_PARTY_VERSIONS.react, "react-dom": THIRD_PARTY_VERSIONS["react-dom"] },
 	vue: { vue: "^3.4.0" },
 	svelte: { svelte: "^5.0.0" },
 	solid: { "solid-js": "^1.8.0" },
@@ -24,9 +30,16 @@ const INTEGRATION_RUNTIME_DEPS: Record<Integration, Record<string, string>> = {
 	qwik: { "@builder.io/qwik": "^1.5.0" },
 };
 
+/** Version range for an `@useavalon/<integration>` wrapper. */
+function integrationPackageVersion(integration: Integration): string {
+	if (integration === "preact") return avalonReleaseRange();
+	return INTEGRATION_PACKAGE_VERSIONS[integration];
+}
+
 export function generatePackageJson(config: ProjectConfig): string {
+	const avalonRange = avalonReleaseRange();
 	const dependencies: Record<string, string> = {
-		"@useavalon/avalon": "latest",
+		"@useavalon/avalon": avalonRange,
 	};
 
 	// The page shell always needs its core engine, even when the user did not
@@ -35,50 +48,51 @@ export function generatePackageJson(config: ProjectConfig): string {
 	selectedIntegrations.add(config.core);
 
 	for (const integration of selectedIntegrations) {
-		dependencies[INTEGRATION_PACKAGES[integration]] = "latest";
+		dependencies[INTEGRATION_PACKAGES[integration]] = integrationPackageVersion(integration);
 		Object.assign(dependencies, INTEGRATION_RUNTIME_DEPS[integration]);
 	}
 
 	if (config.plugins.includes("seo")) {
-		dependencies["@useavalon/seo"] = "latest";
+		dependencies["@useavalon/seo"] = avalonRange;
 	}
 
 	if (config.plugins.includes("agent-optimization")) {
-		dependencies["@useavalon/agent-optimization"] = "latest";
+		dependencies["@useavalon/agent-optimization"] = AGENT_OPTIMIZATION_VERSION;
 	}
 
-	dependencies["rehype-highlight"] = "latest";
+	dependencies["rehype-highlight"] = THIRD_PARTY_VERSIONS["rehype-highlight"];
 
 	// Middleware dependencies
 	switch (config.middleware) {
 		case "hono":
-			dependencies.hono = "latest";
+			dependencies.hono = THIRD_PARTY_VERSIONS.hono;
 			break;
 		case "elysia":
-			dependencies.elysia = "latest";
+			dependencies.elysia = THIRD_PARTY_VERSIONS.elysia;
 			break;
 		// h3 is included via nitro, no extra dep needed
 	}
 
-	// Pin to Avalon's peer ranges. `latest` can resolve a major the published
-	// package does not support (vite-imagetools 12 vs peer ^11).
+	// Versions tested with this Avalon release (see template-versions.ts).
+	// `latest` can resolve a release the published package does not support
+	// (vite-imagetools 12 vs peer ^11).
 	const devDependencies: Record<string, string> = {
-		vite: "^8.0.0",
+		vite: THIRD_PARTY_VERSIONS.vite,
 		typescript: "^5.0.0",
-		nitro: "^3.0.260903-beta",
+		nitro: THIRD_PARTY_VERSIONS.nitro,
 		"vite-imagetools": "^11.0.0",
 		"@types/node": "^22.0.0",
 	};
 
 	switch (config.styling) {
 		case "tailwind":
-			devDependencies.tailwindcss = "latest";
-			devDependencies["@tailwindcss/vite"] = "latest";
+			devDependencies.tailwindcss = THIRD_PARTY_VERSIONS.tailwindcss;
+			devDependencies["@tailwindcss/vite"] = THIRD_PARTY_VERSIONS["@tailwindcss/vite"];
 			break;
 		case "shadcn":
-			devDependencies.tailwindcss = "latest";
-			devDependencies["@tailwindcss/vite"] = "latest";
-			dependencies["@shadcn/ui"] = "latest";
+			devDependencies.tailwindcss = THIRD_PARTY_VERSIONS.tailwindcss;
+			devDependencies["@tailwindcss/vite"] = THIRD_PARTY_VERSIONS["@tailwindcss/vite"];
+			dependencies["@shadcn/ui"] = THIRD_PARTY_VERSIONS["@shadcn/ui"];
 			dependencies["tailwind-merge"] = "^3.5.0";
 			dependencies.clsx = "^2.1.1";
 			break;
