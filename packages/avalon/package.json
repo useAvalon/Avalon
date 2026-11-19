@@ -48,7 +48,9 @@
 		"./client/router": "./src/client/router/index.ts",
 		"./client/strategies": "./src/client/strategies.js",
 		"./client/hmr": "./src/client/framework-adapter.ts",
+		"./islands/builtin-directives": "./src/islands/builtin-directives.ts",
 		"./islands/framework-detection": "./src/islands/framework-detection.ts",
+		"./islands/island": "./src/islands/island.tsx",
 		"./islands/integration-registry": "./src/core/integrations/registry.ts",
 		"./islands/universal-css-collector": "./src/islands/universal-css-collector.ts",
 		"./islands/universal-head-collector": "./src/islands/universal-head-collector.ts",
@@ -88,7 +90,7 @@
 	],
 	"devDependencies": {
 		"@types/mime-types": "^3.0.1",
-		"oxc-minify": "^0.154.0"
+		"oxc-minify": "^0.158.0"
 	},
 	"peerDependencies": {
 		"vite": "^8.0.0",
@@ -110,12 +112,12 @@
 		"@mdx-js/rollup": "^3.0.0",
 		"rehype-highlight": "^7.0.0",
 		"@useavalon/core": "workspace:^",
-		"h3": "^2.0.2",
+		"h3": "^2.0.8",
 		"marked": "^17.0.6",
-		"oxc-parser": "^0.154.0",
-		"oxc-transform": "^0.154.0",
-		"preact": "11.0.1",
-		"preact-render-to-string": "6.8.1",
+		"oxc-parser": "^0.158.0",
+		"oxc-transform": "^0.158.0",
+		"preact": "11.2.0",
+		"preact-render-to-string": "6.8.3",
 		"remark-frontmatter": "^5.0.0",
 		"remark-gfm": "^4.0.0",
 		"remark-mdx-frontmatter": "^5.2.0",

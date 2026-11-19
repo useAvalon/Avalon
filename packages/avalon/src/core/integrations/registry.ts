@@ -1,5 +1,6 @@
 import { statSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { pathToFileURL } from "node:url";
 import type { Integration } from "@useavalon/core";
 
 /**
@@ -30,6 +31,57 @@ function findMonorepoRoot(): string {
 
 	// Fallback to cwd
 	return process.cwd();
+}
+
+function isFile(path: string): boolean {
+	try {
+		return statSync(path).isFile();
+	} catch {
+		return false;
+	}
+}
+
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+const MODULE_NOT_FOUND_CODES = new Set(["ERR_MODULE_NOT_FOUND", "MODULE_NOT_FOUND"]);
+
+/** Specifier named in a "Cannot find module/package '<x>'" message (Node and Bun). */
+const NOT_FOUND_SPECIFIER_RE = /Cannot find (?:module|package) ['"]([^'"]+)['"]/;
+
+/**
+ * True when `error` says `specifier` itself cannot be resolved. Only the
+ * specifier in the "Cannot find ..." clause counts: a missing transitive
+ * dependency (for example `react-dom` under `@useavalon/react`) names that
+ * dependency there, and the importer named later in the message is ignored.
+ */
+export function isModuleNotFound(error: unknown, specifier: string): boolean {
+	if (!(error instanceof Error)) return false;
+	const missing = NOT_FOUND_SPECIFIER_RE.exec(error.message)?.[1];
+	if (missing !== undefined) return missing === specifier;
+	const code = (error as Error & { code?: unknown }).code;
+	if (typeof code !== "string" || !MODULE_NOT_FOUND_CODES.has(code)) return false;
+	return error.message.includes(`'${specifier}'`) || error.message.includes(`"${specifier}"`);
+}
+
+/**
+ * Error for a failed integration import. Suggests installing the package only
+ * when the package itself is missing; any other failure keeps the original
+ * error as `cause` and repeats its message.
+ */
+export function integrationLoadError(name: string, packageName: string, cause: unknown): Error {
+	if (isModuleNotFound(cause, packageName)) {
+		return new Error(
+			`Failed to load integration for framework '${name}': ${packageName} is not installed.\n` +
+				`Install it with: bun add ${packageName}`,
+			{ cause },
+		);
+	}
+	return new Error(
+		`Failed to load integration for framework '${name}': importing ${packageName} threw: ${errorMessage(cause)}`,
+		{ cause },
+	);
 }
 
 /**
@@ -96,34 +148,37 @@ export class IntegrationRegistry {
 
 	private async loadIntegration(name: string): Promise<Integration> {
 		const integrationKey = `${name}Integration`;
+		const packageName = `@useavalon/${name}`;
 
-		// 1. Try loading from the installed npm package first (@useavalon/<name>)
+		// 1. Installed npm package (@useavalon/<name>)
+		let packageError: unknown;
 		try {
-			const packageName = `@useavalon/${name}`;
 			const module = await import(/* @vite-ignore */ packageName);
 			const integration = module[integrationKey] || module.default;
 			if (integration) return integration as Integration;
-		} catch {
-			// Package not installed or import failed — try monorepo path
+			packageError = new Error(
+				`${packageName} does not export '${integrationKey}' or a default export`,
+			);
+		} catch (error) {
+			packageError = error;
 		}
 
-		// 2. Monorepo fallback: resolve via packages/integrations/<name>/mod.ts
-		try {
-			const monorepoRoot = findMonorepoRoot();
-			const integrationPath = join(monorepoRoot, "packages", "integrations", name, "mod.ts");
-			const fileUrl = `file://${integrationPath}`;
-			const module = await import(/* @vite-ignore */ fileUrl);
-			const integration = module[integrationKey] || module.default;
-			if (integration) return integration as Integration;
-		} catch {
-			// Monorepo path also failed
+		// 2. Monorepo fallback: packages/integrations/<name>/mod.ts
+		const integrationPath = join(findMonorepoRoot(), "packages", "integrations", name, "mod.ts");
+		if (isModuleNotFound(packageError, packageName) && isFile(integrationPath)) {
+			try {
+				const module = await import(/* @vite-ignore */ pathToFileURL(integrationPath).href);
+				const integration = module[integrationKey] || module.default;
+				if (integration) return integration as Integration;
+			} catch (error) {
+				throw new Error(
+					`Failed to load integration '${name}' from ${integrationPath}: ${errorMessage(error)}`,
+					{ cause: error },
+				);
+			}
 		}
 
-		throw new Error(
-			`Failed to load integration for framework '${name}'. ` +
-				`Make sure @useavalon/${name} is installed.\n` +
-				`Install it with: bun add @useavalon/${name}`,
-		);
+		throw integrationLoadError(name, packageName, packageError);
 	}
 
 	/**

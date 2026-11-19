@@ -2148,7 +2148,7 @@ function generateAssetsModule(nitroConfig: AvalonNitroConfig): string {
  *
  * Consumer usage: `export { default } from 'virtual:avalon/renderer';`
  */
-function generateRendererModule(avalonConfig: ResolvedAvalonConfig): string {
+export function generateRendererModule(avalonConfig: ResolvedAvalonConfig): string {
 	// Statically import and pre-register integrations so the SSR bundle
 	// can render islands without relying on dynamic imports (which fail
 	// in the bundled Nitro environment).
@@ -2177,7 +2177,9 @@ function generateRendererModule(avalonConfig: ResolvedAvalonConfig): string {
 		`import "urlpattern-polyfill";`,
 		...(integrations.includes("lit") ? [`import "${SSR_DOM_VIRTUAL_ID}";`] : []),
 		`import { createNitroRenderer } from '@useavalon/avalon/nitro/renderer';`,
-		`import { registerBuiltinDirectives } from '@useavalon/avalon';`,
+		// Subpath, not the package barrel: the barrel re-exports the Vite plugin,
+		// which would pull Vite, nitro/vite and rolldown into the server bundle.
+		`import { registerBuiltinDirectives } from '@useavalon/avalon/islands/builtin-directives';`,
 		`import { registry } from '@useavalon/avalon/islands/integration-registry';`,
 		`import avalonConfig from 'virtual:avalon/config';`,
 		`import { loadPage } from 'virtual:avalon/page-loader';`,

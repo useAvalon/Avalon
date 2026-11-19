@@ -25,6 +25,9 @@
 import type { CronConfig } from "../schemas/cron.ts";
 import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
 import { resolveCronConfig } from "./cron.ts";
+import { normalizePresetName } from "./preset-name.ts";
+
+export { normalizePresetName } from "./preset-name.ts";
 
 /**
  * Cache configuration options for route rules
@@ -349,14 +352,15 @@ export const VALID_V3_PRESETS: string[] = [
  * Validates a preset name against the v3 preset list.
  * Returns the preset name if valid, throws if unrecognized.
  *
- * @param preset - The preset name to validate (must be a v3 name)
- * @returns The validated v3 preset name
+ * @param preset - The preset name to validate (underscore or hyphen spelling)
+ * @returns The validated v3 preset name, in underscore form
  * @throws Error if the preset is not recognized
  */
 export function resolvePresetName(preset: string): string {
-	if (VALID_V3_PRESETS.includes(preset)) return preset;
+	const normalized = normalizePresetName(preset);
+	if (VALID_V3_PRESETS.includes(normalized)) return normalized;
 	throw new Error(
-		`Unknown Nitro preset: "${preset}". Valid presets: ${VALID_V3_PRESETS.join(", ")}`,
+		`Unknown Nitro preset: "${preset}". Valid presets: ${VALID_V3_PRESETS.join(", ")} (hyphenated spellings such as "cloudflare-module" are accepted too)`,
 	);
 }
 

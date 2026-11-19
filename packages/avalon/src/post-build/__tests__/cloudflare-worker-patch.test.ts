@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { parseSync } from "oxc-parser";
 import { afterEach, describe, expect, it } from "vitest";
 import {
 	buildCloudflareRoutesExclude,
@@ -13,6 +14,7 @@ import {
 	patchCloudflareRoutesForStaticHtml,
 	patchCloudflareWranglerJson,
 	prerenderedPathWildcardExcludes,
+	rewriteCreateRequireCalls,
 } from "../cloudflare-worker-patch.ts";
 
 const dirs: string[] = [];
@@ -37,6 +39,52 @@ describe("patchCloudflareCreateRequire", () => {
 		const out = readFileSync(file, "utf-8");
 		expect(out).toContain('createRequire(import.meta.url || "file:///")');
 		expect(out).not.toContain("createRequire(import.meta.url);");
+	});
+});
+
+describe("rewriteCreateRequireCalls", () => {
+	it("leaves createRequire text inside string and template literals alone", () => {
+		// Shape of Nitro's preset code, which patches chunks by text.
+		const code = [
+			'import { createRequire } from "node:module";',
+			"const require = createRequire(import.meta.url);",
+			'if (chunk.code.includes("createRequire(import.meta.url)")) chunk.code = chunk.code.replace("createRequire(import.meta.url)", "x");',
+			// A template literal with a real call in its substitution.
+			"const tpl = `createRequire(import.meta.url) $" +
+				"{createRequire(import.meta.url).resolve('a')}`;",
+			"// createRequire(import.meta.url) in a comment",
+			"const re = /createRequire\\(import\\.meta\\.url\\)/;",
+			"const nested = mod.createRequire(import.meta.url);",
+			"const ü = 'naïve';",
+			"",
+		].join("\n");
+		const out = rewriteCreateRequireCalls(code, "_presets.mjs");
+		expect(out).not.toBeNull();
+		const safe = 'createRequire(import.meta.url || "file:///")';
+		expect(out).toContain(`const require = ${safe};`);
+		expect(out).toContain(`\${${safe}.resolve('a')}`);
+		expect(out).toContain(`mod.${safe};`);
+		expect(out).toContain('chunk.code.includes("createRequire(import.meta.url)")');
+		expect(out).toContain('replace("createRequire(import.meta.url)", "x")');
+		expect(out).toContain("`createRequire(import.meta.url) $");
+		expect(out).toContain("// createRequire(import.meta.url) in a comment");
+		expect(out).toContain("const ü = 'naïve';");
+		// The result still parses: no literal was closed early.
+		expect(parseSync("out.mjs", out ?? "", { sourceType: "module" }).errors).toEqual([]);
+		expect(rewriteCreateRequireCalls(out ?? "", "again.mjs")).toBeNull();
+	});
+
+	it("keeps offsets right after non-ASCII text", () => {
+		const code = 'const s = "naïve — 😀 ü";\nconst r = createRequire(import.meta.url);\n';
+		const out = rewriteCreateRequireCalls(code, "a.mjs") ?? "";
+		expect(out.startsWith('const s = "naïve — 😀 ü";\n')).toBe(true);
+		expect(out).toContain('const r = createRequire(import.meta.url || "file:///");');
+		expect(parseSync("out.mjs", out, { sourceType: "module" }).errors).toEqual([]);
+	});
+
+	it("returns null when the only matches are inside literals", () => {
+		const code = 'const s = "createRequire(import.meta.url)";\n';
+		expect(rewriteCreateRequireCalls(code, "a.mjs")).toBeNull();
 	});
 });
 
