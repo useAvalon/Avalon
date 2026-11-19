@@ -487,8 +487,12 @@ function replaceJsxCalls(
 	return result;
 }
 
+/** An import declaration that binds `renderIsland` as `__AvalonRenderIsland`. */
+const RENDER_ISLAND_IMPORT_RE =
+	/^\s*import\s*\{[^}]*\brenderIsland\s+as\s+__AvalonRenderIsland\b[^}]*\}\s*from\s*["'][^"']+["']/m;
+
 function ensureRenderIslandImport(code: string): string {
-	if (code.includes("as __AvalonRenderIsland")) return code;
+	if (RENDER_ISLAND_IMPORT_RE.test(code)) return code;
 
 	const firstImport = FIRST_IMPORT_LINE_RE.exec(code);
 	if (!firstImport) return code;

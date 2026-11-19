@@ -74,6 +74,14 @@ describe("rewriteCreateRequireCalls", () => {
 		expect(rewriteCreateRequireCalls(out ?? "", "again.mjs")).toBeNull();
 	});
 
+	it("keeps offsets right after non-ASCII text", () => {
+		const code = 'const s = "naïve — 😀 ü";\nconst r = createRequire(import.meta.url);\n';
+		const out = rewriteCreateRequireCalls(code, "a.mjs") ?? "";
+		expect(out.startsWith('const s = "naïve — 😀 ü";\n')).toBe(true);
+		expect(out).toContain('const r = createRequire(import.meta.url || "file:///");');
+		expect(parseSync("out.mjs", out, { sourceType: "module" }).errors).toEqual([]);
+	});
+
 	it("returns null when the only matches are inside literals", () => {
 		const code = 'const s = "createRequire(import.meta.url)";\n';
 		expect(rewriteCreateRequireCalls(code, "a.mjs")).toBeNull();

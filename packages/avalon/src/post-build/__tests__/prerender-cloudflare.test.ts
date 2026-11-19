@@ -2,7 +2,9 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { createServerBuildConfig } from "../../nitro/build-config.ts";
 import { normalizePresetName, resolvePresetName } from "../../nitro/config.ts";
+import type { ResolvedAvalonConfig } from "../../vite-plugin/types.ts";
 import { readNitroOutputPreset, resolveCloudflareWorker, waitForServer } from "../prerender.ts";
 
 const dirs: string[] = [];
@@ -45,6 +47,14 @@ describe("resolveCloudflareWorker", () => {
 		expect(resolveCloudflareWorker(cwd)).toBe(join(cwd, ".output", "server", "index.mjs"));
 	});
 
+	it("does not wrap cloudflare_durable output, which needs cloudflare:workers", () => {
+		const cwd = project({
+			".output/nitro.json": JSON.stringify({ preset: "cloudflare-durable" }),
+			".output/server/index.mjs": "export default {};",
+		});
+		expect(resolveCloudflareWorker(cwd)).toBeNull();
+	});
+
 	it("leaves node_server output to the Node listener path", () => {
 		const cwd = project({
 			".output/nitro.json": JSON.stringify({ preset: "node-server" }),
@@ -81,5 +91,18 @@ describe("preset names", () => {
 		expect(() => resolvePresetName("cloudflare-nope")).toThrow(
 			'Unknown Nitro preset: "cloudflare-nope"',
 		);
+	});
+
+	it("gives hyphenated Node presets the same server externals", () => {
+		const externals = (preset: string) =>
+			JSON.stringify(
+				(
+					createServerBuildConfig({} as ResolvedAvalonConfig, { preset }).rolldownOptions as {
+						external: unknown[];
+					}
+				).external.map(String),
+			);
+		expect(externals("node-server")).toBe(externals("node_server"));
+		expect(externals("node_server")).toContain("[a-z@]");
 	});
 });

@@ -257,7 +257,7 @@ export function createServerBuildConfig(
 	buildConfig: Partial<AvalonBuildConfig> = {},
 ): BuildOptions {
 	const config = { ...DEFAULT_BUILD_CONFIG, ...buildConfig };
-	const preset = nitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset;
+	const preset = normalizePresetName(nitroConfig.preset ?? DEFAULT_NITRO_CONFIG.preset);
 	const presetConfig = getPresetOutputConfig(preset);
 
 	return {

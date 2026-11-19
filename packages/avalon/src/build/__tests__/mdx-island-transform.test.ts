@@ -87,3 +87,31 @@ export default function MDXContent(props = {}) {
 		expect(out).toContain("ssr: false");
 	});
 });
+
+describe("mdxIslandTransform — renderIsland import", () => {
+	const body = `function _createMdxContent(props) {
+  return _jsxDEV(Counter, { island: { condition: "on:visible" } });
+}
+export default function MDXContent(props = {}) {
+  return _createMdxContent(props);
+}
+`;
+
+	it("adds the import when the binding name only appears inside a string", () => {
+		const code = `import Counter from "../components/Counter.tsx";
+const note = "import { renderIsland as __AvalonRenderIsland } from somewhere";
+${body}`;
+		const out = runTransform(code);
+		expect(out).toContain(
+			'import { renderIsland as __AvalonRenderIsland } from "@useavalon/avalon/islands/island";',
+		);
+	});
+
+	it("does not add a second import when the binding is already imported", () => {
+		const code = `import Counter from "../components/Counter.tsx";
+import { renderIsland as __AvalonRenderIsland } from "@useavalon/avalon/islands/island";
+${body}`;
+		const out = runTransform(code);
+		expect(out.match(/as __AvalonRenderIsland \}/g)).toHaveLength(1);
+	});
+});

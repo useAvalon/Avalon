@@ -47,24 +47,22 @@ function errorMessage(error: unknown): string {
 
 const MODULE_NOT_FOUND_CODES = new Set(["ERR_MODULE_NOT_FOUND", "MODULE_NOT_FOUND"]);
 
+/** Specifier named in a "Cannot find module/package '<x>'" message (Node and Bun). */
+const NOT_FOUND_SPECIFIER_RE = /Cannot find (?:module|package) ['"]([^'"]+)['"]/;
+
 /**
- * True when `error` says `specifier` itself cannot be resolved. A missing
- * transitive dependency (for example `react-dom` under `@useavalon/react`)
- * is reported with that dependency's name and does not count.
+ * True when `error` says `specifier` itself cannot be resolved. Only the
+ * specifier in the "Cannot find ..." clause counts: a missing transitive
+ * dependency (for example `react-dom` under `@useavalon/react`) names that
+ * dependency there, and the importer named later in the message is ignored.
  */
 export function isModuleNotFound(error: unknown, specifier: string): boolean {
 	if (!(error instanceof Error)) return false;
+	const missing = NOT_FOUND_SPECIFIER_RE.exec(error.message)?.[1];
+	if (missing !== undefined) return missing === specifier;
 	const code = (error as Error & { code?: unknown }).code;
-	const looksNotFound =
-		(typeof code === "string" && MODULE_NOT_FOUND_CODES.has(code)) ||
-		/Cannot find (?:module|package)/.test(error.message);
-	if (!looksNotFound) return false;
-	return (
-		error.message.includes(`'${specifier}'`) ||
-		error.message.includes(`"${specifier}"`) ||
-		error.message.includes(`${specifier} `) ||
-		error.message.endsWith(specifier)
-	);
+	if (typeof code !== "string" || !MODULE_NOT_FOUND_CODES.has(code)) return false;
+	return error.message.includes(`'${specifier}'`) || error.message.includes(`"${specifier}"`);
 }
 
 /**

@@ -158,11 +158,13 @@ export default function Page() {
 		const mdx = mdxIslandTransform() as { transform: (code: string, id: string) => unknown };
 		const out = mdx.transform.call(
 			{},
-			`import Counter from "../components/Counter.tsx";\nfunction _createMdxContent(props) { return <Counter island={{ condition: "on:visible" }} />; }\nexport default function MDXContent(props) { return _createMdxContent(props); }\n`,
+			// Compiled MDX output: islands are jsx/jsxDEV calls by now.
+			`import Counter from "../components/Counter.tsx";\nfunction _createMdxContent(props) { return _jsxDEV(Counter, { island: { condition: "on:visible" } }); }\nexport default function MDXContent(props) { return _createMdxContent(props); }\n`,
 			"/project/app/modules/main/pages/post.mdx",
 		) as { code: string } | string | null;
 		const mdxCode = typeof out === "string" ? out : (out?.code ?? "");
-		expect(mdxCode).toContain("__AvalonRenderIsland");
+		expect(mdxCode).toContain("__AvalonRenderIsland({");
+		expect(mdxCode).not.toContain("_jsxDEV(Counter");
 		expect(avalonSpecifiers(mdxCode)).toEqual(["@useavalon/avalon/islands/island"]);
 	});
 

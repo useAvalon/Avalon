@@ -28,6 +28,21 @@ describe("isModuleNotFound", () => {
 		).toBe(false);
 	});
 
+	it("ignores the importer named after the missing specifier", () => {
+		expect(
+			isModuleNotFound(
+				notFound("Cannot find package 'react-dom' imported from '@useavalon/react'"),
+				"@useavalon/react",
+			),
+		).toBe(false);
+		expect(
+			isModuleNotFound(
+				notFound('Cannot find module "react-dom/server" from "@useavalon/react"'),
+				"@useavalon/react",
+			),
+		).toBe(false);
+	});
+
 	it("does not match other import errors", () => {
 		expect(
 			isModuleNotFound(

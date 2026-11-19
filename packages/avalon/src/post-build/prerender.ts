@@ -44,8 +44,9 @@ export function readNitroOutputPreset(cwd: string): string | null {
  * Fetch-handler entry of a Cloudflare build, or null for other presets.
  *
  * - `cloudflare_pages`: `dist/_worker.js` (file or directory).
- * - `cloudflare_module` / `cloudflare_durable`: `.output/server/index.mjs`,
- *   identified by the preset Nitro wrote to `.output/nitro.json`.
+ * - `cloudflare_module`: `.output/server/index.mjs`, identified by the preset
+ *   Nitro wrote to `.output/nitro.json`. `cloudflare_durable` is left out: its
+ *   entry imports `cloudflare:workers`, which plain Node cannot load.
  *
  * Both export a Workers `fetch` handler instead of starting a listener, so
  * prerender must run them behind the Node HTTP wrapper.
@@ -61,7 +62,7 @@ export function resolveCloudflareWorker(cwd: string): string | null {
 	}
 
 	const preset = readNitroOutputPreset(cwd);
-	if (preset?.startsWith("cloudflare") && preset !== "cloudflare_pages") {
+	if (preset === "cloudflare_module") {
 		const moduleEntry = join(cwd, ".output", "server", "index.mjs");
 		if (isFile(moduleEntry)) return moduleEntry;
 	}
