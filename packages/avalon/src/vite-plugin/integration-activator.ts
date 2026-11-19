@@ -35,6 +35,15 @@ export function isValidIntegrationName(name: string): name is IntegrationName {
 }
 
 /**
+ * Wraps a load failure without guessing its cause: the loader's message
+ * already says whether the package is missing or its import threw.
+ */
+function activationError(name: string, error: unknown): IntegrationError {
+	const cause = error instanceof Error ? error : new Error(String(error));
+	return new IntegrationError(`Failed to activate integration: ${cause.message}`, name, cause);
+}
+
+/**
  * Activates the specified integrations
  *
  * Uses the existing integration loader and registry to load and activate
@@ -76,11 +85,7 @@ export async function activateIntegrations(
 			await loadIntegration(name);
 			activeIntegrations.add(name);
 		} catch (error) {
-			throw new IntegrationError(
-				`Failed to activate integration. Is @useavalon/${name} installed?`,
-				name,
-				error as Error,
-			);
+			throw activationError(name, error);
 		}
 	}
 }
@@ -117,10 +122,6 @@ export async function activateSingleIntegration(
 		activeIntegrations.add(name);
 		return true;
 	} catch (error) {
-		throw new IntegrationError(
-			`Failed to activate integration. Is @useavalon/${name} installed?`,
-			name,
-			error as Error,
-		);
+		throw activationError(name, error);
 	}
 }

@@ -37,10 +37,10 @@ export async function loadIntegration(framework: string) {
 		frameworkCache.set(framework, integration);
 		return integration;
 	} catch (error) {
-		throw new Error(
-			`Integration '${framework}' could not be loaded. Make sure @useavalon/${framework} is installed.`,
-			{ cause: error },
-		);
+		const reason = error instanceof Error ? error.message : String(error);
+		throw new Error(`Integration '${framework}' could not be loaded: ${reason}`, {
+			cause: error,
+		});
 	}
 }
 
