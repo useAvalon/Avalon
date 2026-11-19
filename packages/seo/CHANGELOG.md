@@ -1,5 +1,23 @@
 # @useavalon/seo
 
+## 0.8.1
+
+### Patch Changes
+
+- [#161](https://github.com/useAvalon/Avalon/pull/161) [`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - The scaffolded `build.mjs` detects finished `cloudflare_pages` (`dist/nitro.json` + `dist/_worker.js`) and `cloudflare_module` (`.output/server/index.mjs` + `nitro.json`) output, so Cloudflare builds finish without waiting for the 240s timeout.
+
+- [#161](https://github.com/useAvalon/Avalon/pull/161) [`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Update dependencies: Preact 11.2.0 and preact-render-to-string 6.8.3 (also the versions `create-avalon` now scaffolds), h3 2.0.8, oxc 0.158, `@babel/core` 8.1.2 and linkedom 0.18.15 for Lit, and vite-plugin-solid 2.11.16.
+
+- [#161](https://github.com/useAvalon/Avalon/pull/161) [`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - The Cloudflare post-build patch rewrites `createRequire(import.meta.url)` only in real calls. Text inside strings, template literals, comments and regexes is left alone, so it can no longer break a Worker with a SyntaxError.
+
+- [#161](https://github.com/useAvalon/Avalon/pull/161) [`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - `create-avalon` writes versions tested with the Avalon release instead of `latest`: Avalon packages at the release's caret range, and pinned or tilde ranges for React, Vite, Nitro and Tailwind.
+
+- [#161](https://github.com/useAvalon/Avalon/pull/161) [`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Keep build tooling out of the server bundle. Generated renderer, page and MDX code imports Avalon through runtime subpaths (`@useavalon/avalon/islands/island`, `@useavalon/avalon/islands/builtin-directives`) instead of the package barrel, which re-exports the Vite plugin. Edge builds (`cloudflare_module`, `cloudflare_pages`) no longer contain Vite, `nitro/vite`, rolldown or `@vercel/nft`, or the unused framework integrations, and render on workerd.
+
+- [#161](https://github.com/useAvalon/Avalon/pull/161) [`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Integration load errors keep the original import error as `cause` and repeat its message. "Is it installed?" is suggested only when `@useavalon/<name>` itself cannot be found.
+
+- [#161](https://github.com/useAvalon/Avalon/pull/161) [`05c607e`](https://github.com/useAvalon/Avalon/commit/05c607e50543f4eececb46a454375301eaee7dc2) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Prerender runs `cloudflare_module` output (`.output/server/index.mjs` with a `cloudflare-module` `nitro.json`) behind the Worker wrapper, so Workers builds get static-first HTML. Prerender stops as soon as the server process exits instead of waiting 15s. Preset names accept both spellings (`cloudflare-module` and `cloudflare_module`).
+
 ## 0.8.0
 
 ### Minor Changes
