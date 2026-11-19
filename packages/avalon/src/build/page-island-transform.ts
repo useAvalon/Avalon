@@ -237,6 +237,16 @@ function isLayoutFile(
 
 /** Frameworks that are auto-wrapped as islands without requiring the `island` prop.
  *  Qwik components are auto-wrapped with ssrOnly — Qwik's qwikloader handles resumability natively. */
+/**
+ * Injected into page modules. A subpath, not the package barrel: the barrel
+ * re-exports the Vite plugin, which would pull Vite, nitro/vite and rolldown
+ * into the server bundle.
+ */
+const RENDER_ISLAND_IMPORT =
+	"import { renderIsland as __pageRenderIsland } from '@useavalon/avalon/islands/island';";
+const RENDER_ISLAND_KEYED_IMPORT =
+	"import { renderIsland as __pageRenderIsland, withListKey as __pageKeyed } from '@useavalon/avalon/islands/island';";
+
 const AUTO_ISLAND_FRAMEWORKS = new Set(["qwik"]);
 
 /** Check if a component import is for an auto-island framework */
@@ -973,7 +983,7 @@ export function pageIslandTransform(options: PageIslandTransformOptions = {}): P
 			if (islandMeta.size === 0) return null;
 			const clientOnlyOnlyNames = collectClientOnlyOnlyNames(code, [...islandMeta.keys()]);
 
-			let transformed = `import { renderIsland as __pageRenderIsland } from '@useavalon/avalon';\n${code}`;
+			let transformed = `${RENDER_ISLAND_IMPORT}\n${code}`;
 
 			for (const [name, meta] of islandMeta) {
 				transformed = replaceIslandJSX(
@@ -1000,10 +1010,7 @@ export function pageIslandTransform(options: PageIslandTransformOptions = {}): P
 			}
 
 			if (transformed.includes("__pageKeyed(")) {
-				transformed = transformed.replace(
-					"import { renderIsland as __pageRenderIsland } from '@useavalon/avalon';",
-					"import { renderIsland as __pageRenderIsland, withListKey as __pageKeyed } from '@useavalon/avalon';",
-				);
+				transformed = transformed.replace(RENDER_ISLAND_IMPORT, RENDER_ISLAND_KEYED_IMPORT);
 			}
 
 			return { code: transformed, map: null };

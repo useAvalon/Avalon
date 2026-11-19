@@ -488,15 +488,16 @@ function replaceJsxCalls(
 }
 
 function ensureRenderIslandImport(code: string): string {
-	const hasAvalonImport =
-		code.includes('from "@useavalon/avalon"') || code.includes("from '@useavalon/avalon'");
-	if (hasAvalonImport) return code;
+	if (code.includes("as __AvalonRenderIsland")) return code;
 
 	const firstImport = FIRST_IMPORT_LINE_RE.exec(code);
 	if (!firstImport) return code;
 
 	const pos = firstImport.index + firstImport[0].length;
-	const line = 'import { renderIsland as __AvalonRenderIsland } from "@useavalon/avalon";\n';
+	// Subpath, not the package barrel: the barrel re-exports the Vite plugin,
+	// which would pull build tooling into the server bundle.
+	const line =
+		'import { renderIsland as __AvalonRenderIsland } from "@useavalon/avalon/islands/island";\n';
 	return code.slice(0, pos) + line + code.slice(pos);
 }
 
