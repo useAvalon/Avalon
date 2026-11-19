@@ -252,16 +252,16 @@ function isCloudflareModuleReady() {
   );
 }
 
-const targetsCloudflare = normalizePreset(process.env.NITRO_PRESET).startsWith('cloudflare');
-
 /** Which finished output is on disk, or null while the build is still running. */
 function detectReadyOutput() {
   if (existsSync(CF_PAGES_NITRO_JSON) && isCloudflareWorkerReady()) return 'cloudflare-pages';
   if (isCloudflareModuleReady()) return 'cloudflare-module';
   if (existsSync(NITRO_JSON) && existsSync(SERVER_MJS)) return 'netlify';
-  // A Cloudflare build also writes .output/server/_ssr/ssr.mjs before it is
-  // done, so only treat that file as finished output for Node presets.
-  if (!targetsCloudflare && existsSync(OUTPUT_SSR)) return 'node-server';
+  // .output/server/_ssr/ssr.mjs is written before a build finishes, for
+  // Cloudflare presets too (which vite.config can select without NITRO_PRESET).
+  // Count it as Node output only once nitro.json names a non-Cloudflare preset.
+  const preset = outputPreset();
+  if (preset && !preset.startsWith('cloudflare') && existsSync(OUTPUT_SSR)) return 'node-server';
   return null;
 }
 
@@ -288,7 +288,10 @@ const child = spawn(process.execPath, [viteCli, 'build'], {
 
 const childPid = child.pid;
 let done = false;
-let killedEarly = false;
+// Set only when the wrapper kills Vite (open handles after a finished build, or
+// the timeout). A natural exit keeps Vite's own exit code.
+let killedByWrapper = false;
+let viteExited = false;
 let viteExitCode = 0;
 
 function killTree() {
@@ -302,7 +305,8 @@ function finish() {
   clearInterval(poll);
   clearTimeout(absoluteTimeout);
 
-  if (killedEarly) killTree();
+  if (!viteExited) killedByWrapper = true;
+  killTree();
 
   setTimeout(() => {
     console.log('[build] Running post-build...');
@@ -331,13 +335,14 @@ function finish() {
 
     if (!ok) process.exit(1);
     console.log('[build] ✅ Complete');
-    process.exit(killedEarly || viteExitCode === 0 ? 0 : viteExitCode);
+    process.exit(killedByWrapper || viteExitCode === 0 ? 0 : viteExitCode);
   }, 500);
 }
 
 child.on('exit', (code) => {
   console.log(\`[build] vite build exited with code \${code}\`);
-  viteExitCode = code ?? (killedEarly ? 0 : 1);
+  viteExited = true;
+  viteExitCode = code ?? (killedByWrapper ? 0 : 1);
   finish();
 });
 
@@ -351,7 +356,6 @@ const poll = setInterval(() => {
   // build counts as done only once Nitro has written dist/nitro.json.
   const kind = detectReadyOutput();
   if (kind) {
-    killedEarly = true;
     console.log(\`[build] Output detected (\${kind}), waiting 3s for final writes...\`);
     clearInterval(poll);
     setTimeout(finish, 3_000);
@@ -360,7 +364,6 @@ const poll = setInterval(() => {
 
 const absoluteTimeout = setTimeout(() => {
   console.error('[build] Timeout — killing build');
-  killedEarly = true;
   finish();
 }, 240_000);
 `;
