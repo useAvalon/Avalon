@@ -66,6 +66,23 @@ function resolveRelative(from: string, specifier: string): string | null {
 	return null;
 }
 
+/** Every local module reachable through static value imports from `entry`. */
+function reachableFiles(entry: string): string[] {
+	const seen = new Set<string>();
+	const stack = [entry];
+	while (stack.length > 0) {
+		const file = stack.pop() as string;
+		if (seen.has(file)) continue;
+		seen.add(file);
+		for (const specifier of runtimeImports(file)) {
+			if (!specifier.startsWith(".")) continue;
+			const next = resolveRelative(file, specifier);
+			if (next) stack.push(next);
+		}
+	}
+	return [...seen].map((file) => file.slice(PKG_ROOT.length + 1));
+}
+
 /** Walks the static import graph and returns every bare specifier reached, with its importer. */
 function reachableBareImports(entry: string): Array<{ specifier: string; from: string }> {
 	const seen = new Set<string>();
@@ -161,5 +178,18 @@ export default function Page() {
 			}
 		}
 		expect(leaks).toEqual([]);
+	});
+});
+
+describe("post-build imports", () => {
+	it("does not load modules that need URLPattern at import time", () => {
+		// post-build runs under plain Node; Node 22 has no global URLPattern.
+		const needsUrlPattern = [
+			"src/schemas/layout.ts",
+			"src/middleware/discovery.ts",
+			"src/core/layout/layout-discovery.ts",
+		];
+		const files = reachableFiles(join(PKG_ROOT, "src", "post-build", "index.ts"));
+		expect(files.filter((file) => needsUrlPattern.includes(file))).toEqual([]);
 	});
 });

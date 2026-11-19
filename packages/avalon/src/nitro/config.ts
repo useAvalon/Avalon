@@ -25,6 +25,9 @@
 import type { CronConfig } from "../schemas/cron.ts";
 import type { ResolvedAvalonConfig } from "../vite-plugin/types.ts";
 import { resolveCronConfig } from "./cron.ts";
+import { normalizePresetName } from "./preset-name.ts";
+
+export { normalizePresetName } from "./preset-name.ts";
 
 /**
  * Cache configuration options for route rules
@@ -344,15 +347,6 @@ export const VALID_V3_PRESETS: string[] = [
 	"static",
 	"browser",
 ];
-
-/**
- * Nitro accepts both `cloudflare-module` (its own name, also written to
- * `nitro.json`) and `cloudflare_module`. Avalon compares presets in the
- * underscore form.
- */
-export function normalizePresetName(preset: string): string {
-	return preset.trim().toLowerCase().replaceAll("-", "_");
-}
 
 /**
  * Validates a preset name against the v3 preset list.

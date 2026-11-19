@@ -7,7 +7,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { basename, dirname, join, relative } from "node:path";
-import { normalizePresetName } from "../nitro/config.ts";
+import { normalizePresetName } from "../nitro/preset-name.ts";
 import { extractLinks } from "./extract-links.ts";
 import { fetchHandlerWrapperSource, projectHasLitDomShim } from "./fetch-handler-wrapper.ts";
 import { isFile } from "./fs-utils.ts";
