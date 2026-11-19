@@ -191,7 +191,7 @@ export function generateBuildMjs(config?: ProjectConfig): string {
 
 import { spawn, execSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { existsSync, rmSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 const require = createRequire(import.meta.url);
@@ -200,7 +200,11 @@ const CWD = process.cwd();
 const NITRO_JSON = join(CWD, '.netlify', 'functions-internal', 'nitro.json');
 const SERVER_MJS = join(CWD, '.netlify', 'functions-internal', 'server', 'server.mjs');
 const OUTPUT_SSR = join(CWD, '.output', 'server', '_ssr', 'ssr.mjs');
+const OUTPUT_NITRO_JSON = join(CWD, '.output', 'nitro.json');
+const OUTPUT_SERVER_ENTRY = join(CWD, '.output', 'server', 'index.mjs');
 const CF_WORKER = join(CWD, 'dist', '_worker.js');
+// Nitro writes nitro.json last, so it marks a finished build.
+const CF_PAGES_NITRO_JSON = join(CWD, 'dist', 'nitro.json');
 
 if (!process.env.NITRO_PRESET) {
   if (existsSync(join(CWD, 'wrangler.toml'))) {
@@ -222,6 +226,43 @@ function isCloudflareWorkerReady() {
     return false;
   }
   return false;
+}
+
+/** Nitro preset in underscore form; Nitro itself writes \`cloudflare-module\`. */
+function normalizePreset(preset) {
+  return typeof preset === 'string' ? preset.trim().toLowerCase().replaceAll('-', '_') : '';
+}
+
+/** Preset Nitro recorded in .output/nitro.json, once the build has written it. */
+function outputPreset() {
+  try {
+    return normalizePreset(JSON.parse(readFileSync(OUTPUT_NITRO_JSON, 'utf-8')).preset);
+  } catch {
+    return '';
+  }
+}
+
+/** Cloudflare Workers (module) output: .output/server/index.mjs + nitro.json. */
+function isCloudflareModuleReady() {
+  const preset = outputPreset();
+  return (
+    preset.startsWith('cloudflare') &&
+    preset !== 'cloudflare_pages' &&
+    existsSync(OUTPUT_SERVER_ENTRY)
+  );
+}
+
+const targetsCloudflare = normalizePreset(process.env.NITRO_PRESET).startsWith('cloudflare');
+
+/** Which finished output is on disk, or null while the build is still running. */
+function detectReadyOutput() {
+  if (existsSync(CF_PAGES_NITRO_JSON) && isCloudflareWorkerReady()) return 'cloudflare-pages';
+  if (isCloudflareModuleReady()) return 'cloudflare-module';
+  if (existsSync(NITRO_JSON) && existsSync(SERVER_MJS)) return 'netlify';
+  // A Cloudflare build also writes .output/server/_ssr/ssr.mjs before it is
+  // done, so only treat that file as finished output for Node presets.
+  if (!targetsCloudflare && existsSync(OUTPUT_SSR)) return 'node-server';
+  return null;
 }
 
 console.log('[build] Starting vite build...');
@@ -274,12 +315,15 @@ function finish() {
 
     const V1_SERVER = join(CWD, '.netlify', 'v1', 'functions', 'server', 'server.mjs');
     const cloudflareReady = isCloudflareWorkerReady();
+    const cloudflareModuleReady = isCloudflareModuleReady();
     const ok =
       cloudflareReady ||
+      cloudflareModuleReady ||
       existsSync(V1_SERVER) ||
       existsSync(SERVER_MJS) ||
       existsSync(OUTPUT_SSR);
     if (cloudflareReady) console.log('[build] ✅ Cloudflare worker found (dist/_worker.js)');
+    else if (cloudflareModuleReady) console.log('[build] ✅ Cloudflare worker found (.output/server/index.mjs)');
     else if (existsSync(V1_SERVER)) console.log('[build] ✅ Server function found (v1 API)');
     else if (existsSync(SERVER_MJS)) console.log('[build] ✅ Server function found (legacy)');
     else if (existsSync(OUTPUT_SSR)) console.log('[build] ✅ SSR bundle found');
@@ -303,13 +347,11 @@ child.on('error', (err) => {
 });
 
 const poll = setInterval(() => {
-  // Cloudflare \`_worker.js\` appears during the client build; killing then
-  // aborts SSR. Only force-stop the Netlify/Node hang.
-  const netlifyReady = existsSync(NITRO_JSON) && existsSync(SERVER_MJS);
-  const nodeServerReady = existsSync(OUTPUT_SSR);
-  if (netlifyReady || nodeServerReady) {
+  // Cloudflare \`dist/_worker.js\` appears during the client build, so a Pages
+  // build counts as done only once Nitro has written dist/nitro.json.
+  const kind = detectReadyOutput();
+  if (kind) {
     killedEarly = true;
-    const kind = netlifyReady ? 'netlify' : 'node-server';
     console.log(\`[build] Output detected (\${kind}), waiting 3s for final writes...\`);
     clearInterval(poll);
     setTimeout(finish, 3_000);
