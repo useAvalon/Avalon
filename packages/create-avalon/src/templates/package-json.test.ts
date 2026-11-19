@@ -185,8 +185,8 @@ describe("generatePackageJson", () => {
 	it("always installs the core engine integration and runtime", () => {
 		const pkg = JSON.parse(generatePackageJson(baseConfig));
 		expect(pkg.dependencies["@useavalon/preact"]).toBe(`^${OWN_VERSION}`);
-		expect(pkg.dependencies.preact).toBe("11.0.1");
-		expect(pkg.dependencies["preact-render-to-string"]).toBe("6.8.1");
+		expect(pkg.dependencies.preact).toBe("11.2.0");
+		expect(pkg.dependencies["preact-render-to-string"]).toBe("6.8.3");
 		expect(pkg.dependencies.react).toBeUndefined();
 		expect(pkg.dependencies.vue).toBeUndefined();
 	});

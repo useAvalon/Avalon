@@ -53,8 +53,8 @@ export const THIRD_PARTY_VERSIONS = {
 	// Exactly what @useavalon/avalon depends on. A different Preact in the app
 	// gives the page and the shell renderer two Preact copies, and pages then
 	// render empty.
-	preact: "11.0.1",
-	"preact-render-to-string": "6.8.1",
+	preact: "11.2.0",
+	"preact-render-to-string": "6.8.3",
 	react: "~19.2.7",
 	"react-dom": "~19.2.7",
 	vite: "~8.3.2",

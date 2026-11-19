@@ -31,10 +31,10 @@
 		"prepublishOnly": "bun run build"
 	},
 	"dependencies": {
-		"@clack/prompts": "^1.1.0"
+		"@clack/prompts": "^1.9.0"
 	},
 	"devDependencies": {
 		"fast-check": "^4.10.2",
-		"vitest": "^5.0.5"
+		"vitest": "^5.1.0"
 	}
 }
