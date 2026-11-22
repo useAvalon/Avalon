@@ -12,6 +12,7 @@ import type {
 	AvalonPluginConfig,
 	ImageConfig,
 	ModulesConfig,
+	RenderEngine,
 	ResolvedAvalonConfig,
 	ResolvedImageConfig,
 	ResolvedMDXConfig,
