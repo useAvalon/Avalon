@@ -54,6 +54,31 @@ describe("generatePerIslandScript", () => {
 		expect(result).toContain('dataset.hydrated="true"');
 	});
 
+	it("emits a script that parses as valid JavaScript for every framework and condition", () => {
+		const frameworks = ["preact", "react", "solid", "qwik", "lit"];
+		const conditions = [
+			"on:client",
+			"on:visible",
+			"on:idle",
+			"on:interaction",
+			"media:(min-width: 600px)",
+		];
+		for (const framework of frameworks) {
+			for (const condition of conditions) {
+				const result = generatePerIslandScript(makeOpts({ framework, condition }));
+				const body = result.replace(/^<script type="module">/, "").replace(/<\/script>$/, "");
+				// Function construction parses the source without running it, so a missing
+				// statement terminator in the hydrate call fails here rather than in the browser.
+				expect(() => new Function(body), `${framework} ${condition}`).not.toThrow();
+			}
+		}
+	});
+
+	it("terminates the hydrate call before marking the island hydrated", () => {
+		const result = generatePerIslandScript(makeOpts());
+		expect(result).toContain('await fn(e,C,p);e.dataset.hydrated="true"');
+	});
+
 	describe("on:client strategy", () => {
 		it("hydrates immediately when the module loads", () => {
 			const result = generatePerIslandScript(makeOpts({ condition: "on:client" }));
