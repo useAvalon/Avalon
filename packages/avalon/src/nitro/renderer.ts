@@ -520,7 +520,12 @@ async function respondWithPartsPage(
 			parts.before.includes("</head>") &&
 			!LINK_TAG.test(parts.after);
 
-		if (fragment.stream && headSplittable) {
+		// A stylesheet link in the shell needs the whole-document passes, so that case drains instead.
+		if (
+			fragment.stream &&
+			headSplittable &&
+			!LINK_TAG.test(textDecoder.decode(fragment.stream.first))
+		) {
 			// The layout head carries the island CSS and modulepreloads collected while the page was
 			// awaited, so it is final here and can go out before the deferred boundaries resolve.
 			const before = injectModulepreloadLinks(inlineCriticalCSS(parts.before));

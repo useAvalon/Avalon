@@ -58,7 +58,7 @@ avalon({ nitro: { streaming: false } });
 
 ## Apps without layouts
 
-Without layouts, the H3 handler has a separate fixed-shell streaming path. It sends a built-in document shell first and does not await async pages (the response contains an empty `<div id="app">` placeholder). Use a layout, or turn streaming off, for pages that fetch data.
+Without layouts, the H3 handler has a separate fixed-shell streaming path. It sends a built-in document shell, awaits an async page and streams its rendered HTML inside `<div id="app">`. If the page component is not a function or its promise rejects, the response contains a client-rendered `<div id="app">` placeholder with `data-page` and `data-props` attributes.
 
 ## What this means for Core Web Vitals
 

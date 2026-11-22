@@ -127,22 +127,63 @@ describe("layout streaming", () => {
 		expect(seen.endsWith(AFTER)).toBe(true);
 	});
 
-	it("closes the layout when a streamed boundary fails after the flush", async () => {
+	it("leaves a boundary that fails after the flush to the client and still closes the layout", async () => {
 		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		let reject!: (reason: Error) => void;
+		const pending = new Promise<void>((_, r) => {
+			reject = r;
+		});
 		function Broken(): never {
-			throw Promise.reject(new Error("boom"));
+			throw pending;
 		}
 		const page = {
-			default: () => h("div", null, h(Suspense, { fallback: "wait" }, h(Broken, null))),
+			default: () =>
+				h("div", null, h(Suspense, { fallback: h("span", null, "loading") }, h(Broken, null))),
 		} as unknown as PageModule;
 		const response = await makeRenderer(page, true).renderer.fetch(request());
-		const text = await response.text();
+		expect(response.headers.get("x-accel-buffering")).toBe("no");
+
+		const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+		const decoder = new TextDecoder();
+		let text = "";
+		while (!text.includes("loading")) {
+			text += decoder.decode((await reader.read()).value);
+		}
+		expect(text).toContain("</head>");
+
+		reject(new Error("boom"));
+		for (;;) {
+			const { done, value } = await reader.read();
+			if (done) break;
+			text += decoder.decode(value);
+		}
+		const logged = error.mock.calls.length;
 		error.mockRestore();
-		expect(text.startsWith("<!DOCTYPE html><html><head>")).toBe(true);
+		expect(logged).toBeGreaterThan(0);
 		expect(text.endsWith(AFTER)).toBe(true);
 		expect((text.match(/<div hidden>/g) ?? []).length).toBe(
 			(text.match(/<\/div>/g) ?? []).length - 1,
 		);
+	});
+
+	it("drains and uses the full pipeline when the shell contains a stylesheet link", async () => {
+		const { Slow, release } = deferred();
+		const page = {
+			default: () =>
+				h(
+					"div",
+					null,
+					h("link", { rel: "stylesheet", href: "/a.css" }),
+					h(Suspense, { fallback: "wait" }, h(Slow, null)),
+				),
+		} as unknown as PageModule;
+		const { renderer, parts } = makeRenderer(page, true);
+		// The response is only returned once the drained page has resolved.
+		setTimeout(release, 20);
+		const response = await renderer.fetch(request());
+		expect(response.headers.get("x-accel-buffering")).toBeNull();
+		expect(await response.text()).toContain("resolved");
+		expect(parts).toHaveBeenCalledOnce();
 	});
 
 	it("renders a Suspense page without streaming when streaming is off", async () => {
