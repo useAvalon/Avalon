@@ -28,6 +28,8 @@ describe("ssrCacheUntilDeploy", () => {
 	it("scopes entries to the deploy revision", () => {
 		vi.stubEnv("NODE_ENV", "production");
 		vi.stubEnv("NITRO_PRESET", "");
+		// CF_PAGES_COMMIT_SHA is read first; unset it so the test does not depend on the CI environment.
+		vi.stubEnv("CF_PAGES_COMMIT_SHA", undefined);
 		vi.stubEnv("GITHUB_SHA", "abc123");
 		const rule = ssrCacheUntilDeploy();
 		expect(rule === false ? null : rule.integrity).toBe("abc123");
