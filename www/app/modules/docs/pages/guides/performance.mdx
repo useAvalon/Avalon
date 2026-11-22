@@ -62,7 +62,7 @@ The component converts images to modern formats (WebP, AVIF), generates multiple
 
 ## Streaming SSR
 
-Avalon streams the layout shell to the browser before page data resolves. This dramatically improves FCP on pages with async data fetching — the user sees the navigation and layout instantly while the server waits on API calls. Streaming is automatic for all pages using the modular layout system. See [Streaming SSR](/docs/streaming-ssr) for details.
+Pages with layouts stream when they use `Suspense`: the layout head is sent first and each boundary follows as it resolves. Work outside `Suspense`, including `getServerSideProps` and async page components, still runs before the first byte, so cache it, parallelise it, or prerender the page. Pages with nothing pending are sent as one complete document. Set `streaming: false` to always send complete documents. See [Streaming SSR](/docs/streaming-ssr) for details.
 
 ## Caching
 

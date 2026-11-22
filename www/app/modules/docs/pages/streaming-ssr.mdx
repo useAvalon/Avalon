@@ -1,70 +1,65 @@
 ---
 title: Streaming SSR
-description: Avalon streams the layout shell to the browser before page data resolves, so users see content instantly.
+description: How Avalon sends HTML to the browser today, when the streaming path applies, and what it does not do yet.
 ---
 
-Avalon renders HTML in two phases. The layout shell — head, CSS, navigation — is flushed to the browser immediately. The page content renders in the background while the browser is already painting. No configuration, no special APIs.
+Avalon has two ways of sending a page: a buffered response and an experimental streaming response. Which one runs depends on whether your app uses layouts.
+
+Avalon streams pages that use layouts. The layout head is sent first and `Suspense` content follows as it resolves. A page with nothing to wait for is sent as one complete document, exactly like a buffered response.
+
+## How a layout response is sent
+
+1. Avalon runs `getServerSideProps` and awaits the page component, including its islands. Errors here still produce a normal error response, because nothing has been sent yet.
+2. The page markup is rendered with Preact's `renderToReadableStream` (from `preact-render-to-string/stream`). If it has no pending `Suspense` boundary, the whole document is sent in one piece.
+3. If a `Suspense` boundary is still pending, Avalon sends the layout head and everything before the page (doctype, `<head>`, CSS, navigation) together with the page shell, where each boundary shows its `fallback`. Each boundary is then streamed when it resolves, and the layout's closing markup is sent last.
+
+Island CSS and modulepreload links are collected while the page is awaited, so the flushed head is complete.
 
 ```tsx
-export default async function BlogIndex() {
-  // The shell is already in the browser by the time this fetch starts
-  const posts = await fetch('https://api.example.com/posts').then(r => r.json());
+import { Suspense } from 'preact/compat';
 
+export default function Dashboard() {
   return (
-    <ul>
-      {posts.map((post: any) => (
-        <li key={post.id}>{post.title}</li>
-      ))}
-    </ul>
+    <main>
+      <h1>Dashboard</h1>
+      <Suspense fallback={<p>Loading stats…</p>}>
+        <Stats />
+      </Suspense>
+    </main>
   );
 }
 ```
 
-## The first chunk
+Streamed responses carry `X-Accel-Buffering: no` so nginx-style proxies do not hold the body back. Avalon sets no other streaming header; a `Transfer-Encoding: chunked` header alone does not prove streaming, because proxies and CDNs add it. Check your CDN and compression settings: anything that buffers the whole body also removes the benefit.
 
-The browser receives everything from the shell layout before the page component even starts executing:
+## When Avalon buffers instead
 
-- `<!DOCTYPE html>` and `<html>`
-- The entire `<head>` — meta tags, stylesheets, font links, preload hints
-- Navigation, header, sidebar — anything the shell layout renders before `{children}`
-- All collected CSS from CSS Modules and global imports
+Avalon sends a buffered response, with the same output, when:
 
-This means fonts and stylesheets start downloading while the server is still waiting on your API calls.
+- `streaming` is `false`.
+- The app runs in development, uses the client router, or registers an HTML post-process hook (these need the whole document).
+- The layout document cannot be split around the page, or the page contains a `<link>` stylesheet that the whole-document passes would inline.
+- The app uses `core: "react"`. Streaming uses Preact's renderer.
 
-## Enabled by default
+Async page components are awaited before anything is sent, so slow data in the page component itself still delays the first byte. Wrap slow parts in `Suspense` to send the rest of the page first.
 
-If your page has a shell layout (one that returns `<html>`), Avalon streams it. There's nothing to turn on.
+## If a streamed boundary fails
 
-## Verifying in DevTools
+Once the head has been sent the status code cannot change. A boundary that throws is left to the client, as in Preact's streaming renderer. If rendering fails outright, Avalon logs the error, writes an error fragment and ends the document with the layout's closing tags.
 
-Streamed responses include these headers:
+## Turning streaming off
 
+`streaming` is `true` by default. To always send complete documents:
+
+```ts
+// vite.config.ts
+avalon({ nitro: { streaming: false } });
 ```
-Transfer-Encoding: chunked
-X-Avalon-Streaming: 1
-```
 
-`X-Avalon-Streaming: 1` is the Avalon-specific signal. `Transfer-Encoding: chunked` alone doesn't prove streaming — proxies and CDNs add that too.
+## Apps without layouts
 
-You can also check the Network tab's waterfall: if sub-resources (CSS, fonts, scripts) start downloading before the document finishes, the shell was flushed early.
+Without layouts, the H3 handler has a separate fixed-shell streaming path. It sends a built-in document shell, awaits an async page and streams its rendered HTML inside `<div id="app">`. If the page component is not a function or its promise rejects, the response contains a client-rendered `<div id="app">` placeholder with `data-page` and `data-props` attributes.
 
-## Fallback to buffered rendering
+## What this means for Core Web Vitals
 
-Avalon sends the full HTML in one shot when:
-
-- No shell layout exists (no layout returns `<html>`)
-- The page skips all layouts via `layoutConfig.skipLayouts`
-- The page returns a complete HTML document itself
-- The page is outside the modular layout system
-
-Buffered pages still render on the server — they just don't get the two-phase flush.
-
-## Impact on Core Web Vitals
-
-| Metric | Without streaming | With streaming |
-|---|---|---|
-| FCP | Blocked until data resolves | Near-instant (shell only) |
-| LCP | Depends on data | Same — content still waits for data |
-| TTFB | After full render | After shell render |
-
-Streaming improves FCP and TTFB. LCP stays the same because the largest element (usually the page body) still depends on the data fetch. But the perceived performance is dramatically better — layout instead of a blank screen.
+Streaming lowers TTFB only for the parts of a page you put behind `Suspense`. Work done before the page component returns still happens before the first byte, so keep it fast: cache it, load it in parallel, or prerender the page.
