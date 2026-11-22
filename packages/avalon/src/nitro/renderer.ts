@@ -39,7 +39,7 @@ import { customDirectiveBootstrapScript } from "../islands/hydration-directives.
 import { injectModulepreloadLinks } from "../islands/modulepreload-collector.ts";
 import { discoverScopedMiddleware, executeScopedMiddleware } from "../middleware/index.ts";
 import type { MiddlewareRoute } from "../middleware/types.ts";
-import { renderShell } from "../render/shell-engine.ts";
+import { renderShell, renderShellToStream } from "../render/shell-engine.ts";
 import {
 	discoverErrorPages,
 	type ErrorHandlerOptions,
@@ -288,6 +288,7 @@ async function respondWithBufferedPage(
 	isDev: boolean,
 	wrapWithLayouts?: WrapWithLayouts,
 	wrapWithLayoutsParts?: WrapWithLayoutsParts,
+	streamLayouts = false,
 ): Promise<Response> {
 	if (wrapWithLayouts && wrapWithLayoutsParts && canRespondWithParts(pageModule, isDev)) {
 		return respondWithPartsPage(
@@ -296,6 +297,7 @@ async function respondWithBufferedPage(
 			isDev,
 			wrapWithLayouts,
 			wrapWithLayoutsParts,
+			streamLayouts,
 		);
 	}
 	const result = await renderPage(pageModule, renderContext, {}, wrapWithLayouts);
@@ -346,18 +348,163 @@ function encodeParts(parts: string[]): Uint8Array<ArrayBuffer> {
 /** Whether a fragment contains a `<link>` element the head passes would process. */
 const LINK_TAG = /<link[\s>]/i;
 
+/** `X-Accel-Buffering: no` keeps nginx-style proxies from holding a streamed body back. */
+const STREAMED_HEADERS = { "X-Accel-Buffering": "no" };
+
+/** Result of rendering the page fragment: finished HTML, or a render still waiting on `Suspense`. */
+type PageFragment =
+	| { html: string; stream?: undefined }
+	| {
+			html?: undefined;
+			stream: PendingPageStream;
+	  };
+
+interface PendingPageStream {
+	reader: ReadableStreamDefaultReader<Uint8Array>;
+	/** The first chunk: the synchronous shell, with `Suspense` fallbacks in place. */
+	first: Uint8Array;
+	allReady: Promise<void>;
+}
+
+const textDecoder = new TextDecoder();
+
+/** Reads the rest of the stream (after `first`) and decodes the whole page to a string. */
+async function drainPageStream(pending: PendingPageStream): Promise<string> {
+	const chunks = [pending.first];
+	for (;;) {
+		const { done, value } = await pending.reader.read();
+		if (done) break;
+		chunks.push(value);
+	}
+	let html = "";
+	for (const chunk of chunks) html += textDecoder.decode(chunk, { stream: true });
+	return html + textDecoder.decode();
+}
+
+/** Resolves true when `promise` settles before the next macrotask, false when it is still pending. */
+function settlesImmediately(promise: Promise<void>): Promise<boolean> {
+	return Promise.race([
+		promise.then(
+			() => true,
+			() => true,
+		),
+		new Promise<boolean>((resolve) => setTimeout(resolve, 0, false)),
+	]);
+}
+
+/**
+ * Renders the page fragment for a layout response. With streaming enabled the page goes through
+ * Preact's stream renderer: a page with no pending `Suspense` boundary finishes before the next
+ * tick and is returned as a plain string (identical to the buffered output); otherwise the open
+ * stream is returned so the caller can flush the layout head first.
+ */
+async function renderPageForLayout(
+	pageModule: PageModule,
+	pageProps: Record<string, unknown>,
+	stream: boolean,
+): Promise<PageFragment> {
+	const vnode = await callPageComponent(pageModule, pageProps);
+	if (vnode === PAGE_CALL_FAILED) return { html: PAGE_ERROR_HTML };
+	const rendered = stream ? renderShellToStream(vnode, logStreamRenderError) : null;
+	if (!rendered) {
+		try {
+			return { html: renderShell(vnode) };
+		} catch (err) {
+			console.error("[renderer] Error rendering page shell:", err);
+			return { html: PAGE_ERROR_HTML };
+		}
+	}
+	const reader = rendered.getReader();
+	let first: Awaited<ReturnType<typeof reader.read>>;
+	try {
+		first = await reader.read();
+	} catch {
+		// The shell itself failed to render, which is reported before any byte is sent.
+		return { html: PAGE_ERROR_HTML };
+	}
+	if (first.done) return { html: "" };
+	const pending: PendingPageStream = {
+		reader,
+		first: first.value,
+		allReady: rendered.allReady,
+	};
+	if (await settlesImmediately(pending.allReady)) {
+		try {
+			return { html: await drainPageStream(pending) };
+		} catch {
+			return { html: PAGE_ERROR_HTML };
+		}
+	}
+	return { stream: pending };
+}
+
+function logStreamRenderError(error: unknown): void {
+	console.error("[renderer] Error rendering streamed page content:", error);
+}
+
+/** Preact writes `<div hidden>` and `</div>` as chunks of their own around the deferred boundaries. */
+const HIDDEN_OPEN_LENGTH = "<div hidden>".length;
+const HIDDEN_CLOSE_LENGTH = "</div>".length;
+
+/**
+ * Builds the streamed body: the layout head and the page shell go out together, then each
+ * `Suspense` boundary as it resolves, then the rest of the layout. A render failure after the
+ * first byte cannot change the status, so the open container is closed, an error fragment is
+ * written and the document is ended with its closing tags.
+ */
+function streamLayoutBody(
+	before: string,
+	pending: PendingPageStream,
+	after: string,
+): ReadableStream<Uint8Array> {
+	const { reader, first } = pending;
+	let hiddenOpen = false;
+	return new ReadableStream<Uint8Array>({
+		start(controller) {
+			controller.enqueue(textEncoder.encode(before));
+			controller.enqueue(first);
+		},
+		async pull(controller) {
+			try {
+				const { done, value } = await reader.read();
+				if (done) {
+					controller.enqueue(textEncoder.encode(after));
+					controller.close();
+					return;
+				}
+				if (value.length === HIDDEN_OPEN_LENGTH && textDecoder.decode(value) === "<div hidden>") {
+					hiddenOpen = true;
+				} else if (value.length === HIDDEN_CLOSE_LENGTH && textDecoder.decode(value) === "</div>") {
+					hiddenOpen = false;
+				}
+				controller.enqueue(value);
+			} catch (err) {
+				console.error("[SSR Error] Page stream failed after the response started:", err);
+				controller.enqueue(
+					textEncoder.encode((hiddenOpen ? "</div>" : "") + PAGE_ERROR_HTML + after),
+				);
+				controller.close();
+			}
+		},
+		cancel(reason) {
+			return reader.cancel(reason);
+		},
+	});
+}
+
 async function respondWithPartsPage(
 	pageModule: PageModule,
 	renderContext: NitroRenderContext,
 	isDev: boolean,
 	wrapWithLayouts: WrapWithLayouts,
 	wrapWithLayoutsParts: WrapWithLayoutsParts,
+	streamLayouts = false,
 ): Promise<Response> {
 	try {
 		const pageProps = pageModule.getServerSideProps
 			? await pageModule.getServerSideProps(renderContext)
 			: {};
-		const pageHtml = await renderPageFragment(pageModule, pageProps);
+		const fragment = await renderPageForLayout(pageModule, pageProps, streamLayouts);
 		const parts = await wrapWithLayoutsParts(pageModule, renderContext);
 		const headers = pageHtmlHeaders(pageModule);
 		const pathname = renderContext.url?.pathname ?? "/";
@@ -366,13 +513,24 @@ async function respondWithPartsPage(
 		// and no HTML hook. A hook can be registered while the page renders, so this is checked now,
 		// after rendering, and the finished document goes through the full pipeline without rendering again.
 		// A stylesheet link outside the head part (in the page or after it) needs the whole-document passes.
-		if (
-			!parts ||
-			hasHtmlPostProcessHooks() ||
-			!parts.before.includes("</head>") ||
-			LINK_TAG.test(pageHtml) ||
-			LINK_TAG.test(parts.after)
-		) {
+		// A page still waiting on Suspense is checked for the links that are already in its shell only.
+		const headSplittable =
+			parts !== null &&
+			!hasHtmlPostProcessHooks() &&
+			parts.before.includes("</head>") &&
+			!LINK_TAG.test(parts.after);
+
+		if (fragment.stream && headSplittable) {
+			// The layout head carries the island CSS and modulepreloads collected while the page was
+			// awaited, so it is final here and can go out before the deferred boundaries resolve.
+			const before = injectModulepreloadLinks(inlineCriticalCSS(parts.before));
+			const body = streamLayoutBody(before, fragment.stream, parts.after);
+			return new Response(body, { status: 200, headers: { ...headers, ...STREAMED_HEADERS } });
+		}
+
+		const pageHtml = fragment.stream ? await drainPageStream(fragment.stream) : fragment.html;
+
+		if (!headSplittable || LINK_TAG.test(pageHtml)) {
 			const html = parts
 				? parts.before + pageHtml + parts.after
 				: await wrapWithLayouts(pageHtml, pageModule, renderContext);
@@ -415,7 +573,9 @@ async function respondWithPage(
 	event?: H3Event,
 	wrapWithLayoutsParts?: WrapWithLayoutsParts,
 ): Promise<Response> {
-	if (streaming && event) {
+	// Apps without layouts use the fixed-shell stream; apps with layouts stream the page between
+	// the layout head and tail when the document can be split.
+	if (streaming && event && !wrapWithLayouts) {
 		return respondWithStreamingPage(pageModule, renderContext, event);
 	}
 	return respondWithBufferedPage(
@@ -424,6 +584,7 @@ async function respondWithPage(
 		isDev,
 		wrapWithLayouts,
 		wrapWithLayoutsParts,
+		streaming,
 	);
 }
 
@@ -1666,7 +1827,7 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 				renderContext,
 				isDev,
 				options.wrapWithLayouts,
-				Boolean(avalonConfig.streaming && !options.wrapWithLayouts),
+				Boolean(avalonConfig.streaming),
 				event,
 				options.wrapWithLayoutsParts,
 			);
@@ -1722,6 +1883,7 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 					isDev,
 					options.wrapWithLayouts,
 					options.wrapWithLayoutsParts,
+					Boolean(avalonConfig.streaming),
 				);
 			} catch (error) {
 				console.error("[Nitro Renderer .fetch() Error]", error);
@@ -1959,7 +2121,7 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 				renderContext,
 				isDev,
 				options.wrapWithLayouts,
-				Boolean(avalonConfig.streaming && !options.wrapWithLayouts),
+				Boolean(avalonConfig.streaming),
 				event,
 				options.wrapWithLayoutsParts,
 			);
@@ -2004,6 +2166,7 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 					isDev,
 					options.wrapWithLayouts,
 					options.wrapWithLayoutsParts,
+					Boolean(avalonConfig.streaming),
 				);
 			} catch (error) {
 				console.error("[Nitro CatchAll .fetch() Error]", error);

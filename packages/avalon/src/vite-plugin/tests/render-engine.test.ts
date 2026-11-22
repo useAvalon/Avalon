@@ -2,6 +2,7 @@ import { render as preactRenderToString } from "preact-render-to-string";
 import { describe, expect, it } from "vitest";
 import {
 	renderShell,
+	renderShellToStream,
 	setShellRenderToString,
 	shellFragment,
 	shellH,
@@ -53,6 +54,8 @@ describe("shell-engine", () => {
 	it("setShellRenderToString overrides the renderer, then can be restored", () => {
 		setShellRenderToString(() => "<custom></custom>");
 		expect(renderShell(shellH("div", null))).toBe("<custom></custom>");
+		// An overridden engine has no Suspense-aware stream, so callers fall back to string rendering.
+		expect(renderShellToStream(shellH("div", null))).toBeNull();
 
 		// Restore the Preact default so other suites are unaffected.
 		setShellRenderToString((vnode) =>

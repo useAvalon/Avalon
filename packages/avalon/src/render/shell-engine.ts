@@ -15,6 +15,7 @@
 
 import { Fragment as preactFragment, h as preactH, type VNode } from "preact";
 import preactRenderToString from "preact-render-to-string";
+import { renderToReadableStream as preactRenderToReadableStream } from "preact-render-to-string/stream";
 
 /** A function that renders a shell vnode/element to an HTML string. */
 export type ShellRenderToString = (vnode: unknown) => string;
@@ -30,6 +31,10 @@ export type ShellCreateElement = (type: unknown, props?: unknown, ...children: u
 // so the default engine works with zero additional configuration.
 let renderToStringImpl: ShellRenderToString = (vnode) => preactRenderToString(vnode as VNode);
 
+// Streaming is only available for the default Preact engine; an overridden renderer
+// (React) has no Suspense-aware stream wired in here.
+let usesDefaultRenderer = true;
+
 let createElementImpl: ShellCreateElement = preactH as unknown as ShellCreateElement;
 let fragmentImpl: unknown = preactFragment;
 
@@ -39,6 +44,7 @@ let fragmentImpl: unknown = preactFragment;
  */
 export function setShellRenderToString(fn: ShellRenderToString): void {
 	renderToStringImpl = fn;
+	usesDefaultRenderer = false;
 }
 
 /**
@@ -54,6 +60,19 @@ export function setShellElementFactory(createElement: ShellCreateElement, fragme
 /** Render a shell vnode/element to an HTML string using the active engine. */
 export function renderShell(vnode: unknown): string {
 	return renderToStringImpl(vnode);
+}
+
+/**
+ * Render a shell vnode to a byte stream that flushes the synchronous markup first and then
+ * each `Suspense` boundary as it resolves. Returns `null` when the active engine is not the
+ * default Preact one, so callers fall back to {@link renderShell}.
+ */
+export function renderShellToStream(
+	vnode: unknown,
+	onError?: (error: unknown) => void,
+): (ReadableStream<Uint8Array> & { allReady: Promise<void> }) | null {
+	if (!usesDefaultRenderer) return null;
+	return preactRenderToReadableStream(vnode as VNode, { onError });
 }
 
 /** Create a shell element (delegates to the active engine's createElement/h). */
