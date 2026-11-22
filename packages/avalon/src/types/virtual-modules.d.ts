@@ -34,6 +34,11 @@ declare module "virtual:avalon/layouts" {
 		context: NitroRenderContext,
 		injectAssets?: (html: string) => string,
 	): Promise<string>;
+	export function wrapWithLayoutsParts(
+		pageModule: PageModule,
+		context: NitroRenderContext,
+		injectAssets?: (html: string) => string,
+	): Promise<{ before: string; after: string } | null>;
 }
 
 declare module "virtual:avalon/assets" {

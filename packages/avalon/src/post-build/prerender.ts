@@ -229,6 +229,13 @@ function copyPrerenderedToAltDirs(
 	}
 }
 
+/** Names each route that failed and why, so a stale route list or a broken link is easy to find. */
+function reportPrerenderErrors(errors: ReadonlyArray<{ route: string; error: string }>): void {
+	for (const { route, error } of errors) {
+		console.warn(`[prerender] ❌ ${route}: ${error}`);
+	}
+}
+
 export async function prerenderIfConfigured(
 	cwd: string,
 	distDir: string,
@@ -382,6 +389,7 @@ export async function prerenderIfConfigured(
 		`[prerender] Done: ${prerendered.length} page(s) prerendered` +
 			(errors.length > 0 ? `, ${errors.length} error(s)` : ""),
 	);
+	reportPrerenderErrors(errors);
 
 	removeWrapper(actualEntry, serverEntry);
 

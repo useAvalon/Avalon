@@ -116,6 +116,36 @@ export default createNitroRenderer({
 
 If you only need a custom directive or a response wrapper, do not copy this block. The virtual renderer already does it.
 
+## Precompiled JSX
+
+Avalon precompiles the static markup in your page and layout files. Preact normally builds a virtual node for every element and walks the tree to render it. For markup that never changes between requests that work is wasted, so the build rewrites those elements into constant strings and only the dynamic parts (`{expressions}` and components) run per request.
+
+```tsx
+// What you write
+export default function Row({ id }: { id: string }) {
+  return <tr class="row"><td>{id}</td><td><a href="/view">View →</a></td></tr>;
+}
+```
+
+The `<tr>`, the `<td>` wrappers and the link are emitted as fixed text. Only `id` is evaluated and escaped on each request.
+
+The output HTML is the same as without it, apart from attribute order (see below), and everything that works today keeps working: components, hooks, context and async components all render through Preact as before. It applies to server-rendered files only (pages and layouts) and never to islands.
+
+An element stays normal JSX, and so renders through Preact as usual, when it is:
+
+- a component, or JSX handed straight to a component as a child or prop value (written as is, in a conditional or logical expression, or in an array), so components can still inspect `children`. JSX returned from a callback such as `items.map(...)` is compiled;
+- given a spread (`{...props}`), `dangerouslySetInnerHTML`, an event handler or any camelCase prop;
+- an `svg` or `foreignObject`, which change how the renderer treats everything inside them, or a `select`, `option`, `textarea` or `noscript`, which Preact renders specially;
+- using a character reference outside the common set (`&amp;`, `&lt;`, `&gt;`, `&quot;`, `&apos;`, `&nbsp;` and numeric references).
+
+`key` and `ref` never appear in the HTML. An expression that calls something, such as `key={next()}`, still runs.
+
+Precompiled elements write their attributes in the order you wrote them. Preact's own renderer can move `class` to the end once `preact/compat` has been loaded (which happens the first time a React island renders), so attribute order is the one thing that may differ; the HTML means the same.
+
+To turn it off, set `precompileJsx: false` in the Avalon config, or run with `AVALON_PRECOMPILE=0` to compare output.
+
+If a project has two copies of `preact` installed, templates cannot render, and the server stops at startup with a message that says so. Install a single copy, or disable precompiled JSX.
+
 ## Related
 
 - [Layouts](/docs/layouts) — how layouts nest and how to skip them

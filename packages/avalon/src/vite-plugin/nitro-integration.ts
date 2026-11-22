@@ -1343,6 +1343,56 @@ async function prewarmCoreModules(
 }
 
 /**
+ * True when the client entry chunk (the one named after `clientEntry`) is empty JavaScript. Pages
+ * then need no entry script or modulepreload for it; any CSS it carries is listed separately.
+ * Island chunks are entries too, so they are not considered here.
+ */
+export function isClientEntryEmpty(
+	bundle: Record<string, { type: string; isEntry?: boolean; name?: string; code?: string }>,
+	clientEntry: string,
+): boolean {
+	const entryName = (clientEntry.split("/").pop() ?? clientEntry).replace(/\.[cm]?[jt]sx?$/, "");
+	// Chunks are emitted as `<name>-<hash>.js`; the chunk `name` is not always set, so the file name counts too.
+	const isClientEntry = (fileName: string, name?: string): boolean => {
+		const base = fileName.split("/").pop() ?? fileName;
+		return name === entryName || base === `${entryName}.js` || base.startsWith(`${entryName}-`);
+	};
+	const chunks = Object.entries(bundle).filter(
+		([fileName, item]) =>
+			item.type === "chunk" && item.isEntry && isClientEntry(fileName, item.name),
+	);
+	return chunks.length > 0 && chunks.every(([, chunk]) => (chunk.code ?? "").trim() === "");
+}
+
+/**
+ * Whether each project's client entry chunk compiled to nothing, by project root. Vite builds every
+ * environment with its own plugin instance, so the client build cannot hand its result to the SSR
+ * build through a closure. The environments of one build run one after another (client first), and
+ * keying by root keeps two projects built in one process from reading each other's result.
+ */
+const clientEntryEmptyByRoot = new Map<string, boolean>();
+
+/** Whether the last client build of this project produced an empty entry (false until one has run). */
+function clientEntryWasEmpty(root: string): boolean {
+	return clientEntryEmptyByRoot.get(root) ?? false;
+}
+
+/** A new client build starts from "unknown", so a result from an earlier build is never reused. */
+function resetClientEntryState(root: string, environment: string | undefined): void {
+	if (environment === "client") clientEntryEmptyByRoot.set(root, false);
+}
+
+function recordClientEntryState(
+	root: string,
+	environment: string | undefined,
+	bundle: Parameters<typeof isClientEntryEmpty>[0],
+	clientEntry: string | undefined,
+): void {
+	if (environment !== "client") return;
+	clientEntryEmptyByRoot.set(root, isClientEntryEmpty(bundle, clientEntry ?? "app/entry-client"));
+}
+
+/**
  * Virtual modules plugin — page routes, island manifest, runtime config.
  */
 export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptions): Plugin {
@@ -1350,7 +1400,7 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 
 	// Cache generated layouts module to avoid repeated async filesystem scans
 	let cachedLayoutsModule: string | null = null;
-
+	let projectRoot = process.cwd();
 	return {
 		name: "avalon:nitro-virtual-modules",
 		enforce: "pre",
@@ -1377,6 +1427,18 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 			}
 			// Stop Vite from re-transforming imported CSS in ssr/nitro (cssModulesCache crash).
 			return [];
+		},
+
+		configResolved(config) {
+			projectRoot = config.root;
+		},
+
+		buildStart() {
+			resetClientEntryState(projectRoot, this.environment?.name);
+		},
+
+		generateBundle(_options, bundle) {
+			recordClientEntryState(projectRoot, this.environment?.name, bundle, nitroConfig.clientEntry);
 		},
 
 		resolveId(id: string) {
@@ -1416,7 +1478,8 @@ export function createVirtualModulesPlugin(options: NitroCoordinationPluginOptio
 				}
 				return cachedLayoutsModule;
 			}
-			if (id === RESOLVED_VIRTUAL_IDS.ASSETS) return generateAssetsModule(nitroConfig);
+			if (id === RESOLVED_VIRTUAL_IDS.ASSETS)
+				return generateAssetsModule(nitroConfig, clientEntryWasEmpty(projectRoot));
 			if (id === RESOLVED_VIRTUAL_IDS.RENDERER) return generateRendererModule(avalonConfig);
 			if (id === RESOLVED_VIRTUAL_IDS.CLIENT_ENTRY)
 				return await generateClientEntryModule(avalonConfig, nitroConfig);
@@ -1987,7 +2050,7 @@ async function generateLayoutsModule(
 		`  return html;`,
 		`}`,
 		``,
-		`export async function wrapWithLayouts(pageHtml, pageModule, context, injectAssets) {`,
+		`async function composeDocument(pageHtml, pageModule, context) {`,
 		`  const pathname = context.url.pathname;`,
 		`  const frontmatter = {`,
 		`    ...(pageModule.frontmatter || {}),`,
@@ -2000,6 +2063,8 @@ async function generateLayoutsModule(
 		`  const layoutEntry = getLayoutsForPath(pathname);`,
 		`  const routeInfo = { path: pathname, params: context.params, query: context.url.searchParams };`,
 		`  let html;`,
+		`  // True when the page content sits inside a layout's <avalon-page> element, so it can be spliced in later.`,
+		`  let slotted = true;`,
 		``,
 		`  if (!layoutEntry || skipAll) {`,
 		`    if (RootLayoutComponent && !skipAll) {`,
@@ -2014,6 +2079,7 @@ async function generateLayoutsModule(
 		String.raw`      html = '<!DOCTYPE html>\n' + preactRenderToString(resolvedRoot);`,
 		`    } else {`,
 		`      // skipAll is true — page provides its own HTML shell or needs a minimal one`,
+		`      slotted = false;`,
 		`      if (pageHtml.trimStart().startsWith('<html')) {`,
 		String.raw`        html = '<!DOCTYPE html>\n' + pageHtml;`,
 		`      } else {`,
@@ -2063,13 +2129,46 @@ async function generateLayoutsModule(
 		String.raw`    html = '<!DOCTYPE html>\n' + wrappedHtml;`,
 		`  }`,
 		``,
-		`  if (injectAssets) {`,
-		`    html = injectAssets(html);`,
-		`  }`,
-		`  return injectUniversalAssets(html, pathname, skipAll);`,
+		`  return { html, pathname, skipAll, slotted };`,
 		`}`,
 		``,
-		`export default { wrapWithLayouts };`,
+		`export async function wrapWithLayouts(pageHtml, pageModule, context, injectAssets) {`,
+		`  const { html, pathname, skipAll } = await composeDocument(pageHtml, pageModule, context);`,
+		`  return injectUniversalAssets(injectAssets ? injectAssets(html) : html, pathname, skipAll);`,
+		`}`,
+		``,
+		`/** A marker no layout, collected head content or page can contain: it is random per call. */`,
+		`function newPageSlot() {`,
+		`  const id = globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2) + Date.now().toString(36);`,
+		`  return '<!--avalon:page-slot:' + id + '-->';`,
+		`}`,
+		``,
+		`/**`,
+		` * Builds the document around a placeholder instead of the page HTML and returns it`,
+		` * split at that placeholder. Every layout and asset injection then runs on the small`,
+		` * layout markup, and the renderer joins the (possibly large) page HTML in once.`,
+		` * Returns null when the document cannot be split, so callers use wrapWithLayouts.`,
+		` */`,
+		`export async function wrapWithLayoutsParts(pageModule, context, injectAssets) {`,
+		`  // Dev injects per-request CSS and scripts, and Solid's hydration script depends on the page markup.`,
+		`  if (process.env.NODE_ENV !== 'production' || globalThis.__solidHydrationScript) return null;`,
+		`  const slot = newPageSlot();`,
+		`  const { html, pathname, skipAll, slotted } = await composeDocument(slot, pageModule, context);`,
+		`  if (!slotted) return null;`,
+		`  // Checked before injection: the injectors take the collected head content, so once they have run`,
+		`  // the caller can no longer start over with wrapWithLayouts without losing it.`,
+		`  const first = html.indexOf(slot);`,
+		`  if (first === -1 || html.indexOf(slot, first + slot.length) !== -1) return null;`,
+		`  const doc = injectUniversalAssets(injectAssets ? injectAssets(html) : html, pathname, skipAll);`,
+		`  // Injection only adds markup around the head and body, so the marker is still there exactly once.`,
+		`  const at = doc.indexOf(slot);`,
+		`  if (at === -1 || doc.indexOf(slot, at + slot.length) !== -1) {`,
+		`    throw new Error('[avalon] The page slot was lost while injecting layout assets.');`,
+		`  }`,
+		`  return { before: doc.slice(0, at), after: doc.slice(at + slot.length) };`,
+		`}`,
+		``,
+		`export default { wrapWithLayouts, wrapWithLayoutsParts };`,
 		``,
 	].join("\n");
 
@@ -2085,13 +2184,16 @@ async function generateLayoutsModule(
  * The ?assets=client suffix is resolved by Nitro's Vite assets plugin
  * which reads the client build manifest and provides CSS/JS metadata.
  */
-function generateAssetsModule(nitroConfig: AvalonNitroConfig): string {
+function generateAssetsModule(nitroConfig: AvalonNitroConfig, entryIsEmpty = false): string {
 	const clientEntry = nitroConfig.clientEntry ?? "app/entry-client";
 	const importPath = clientEntry.startsWith("/") ? clientEntry : `/${clientEntry}`;
 	return [
 		`// Auto-generated by Avalon — do not edit`,
 		`// @ts-ignore — virtual import resolved by Nitro's Vite assets plugin at build time`,
 		`import clientAssets from '${importPath}?assets=client';`,
+		``,
+		`// The client entry compiled to nothing (no client router, no user code), so it needs no script tag or preload.`,
+		`const entryIsEmpty = ${entryIsEmpty};`,
 		``,
 		`function buildAssetTags() {`,
 		`  const cssLinks = (clientAssets?.css ?? [])`,
@@ -2110,21 +2212,35 @@ function generateAssetsModule(nitroConfig: AvalonNitroConfig): string {
 		`    .map(attr => '<link rel="stylesheet" href="' + attr.href + '">')`,
 		String.raw`    .join('\n');`,
 		`  const jsPreloads = (clientAssets?.js ?? [])`,
+		`    .filter(attr => !(entryIsEmpty && attr.href === clientAssets?.entry))`,
 		`    .map(attr => '<link rel="modulepreload" href="' + attr.href + '">')`,
 		String.raw`    .join('\n');`,
-		`  const entryScript = clientAssets?.entry`,
+		`  const entryScript = clientAssets?.entry && !entryIsEmpty`,
 		`    ? '<script type="module" src="' + clientAssets.entry + '"></script>'`,
 		`    : '';`,
 		`  return { cssLinks, jsPreloads, entryScript };`,
 		`}`,
 		``,
+		`let _assetTags;`,
+		``,
 		`export function injectAssets(html) {`,
-		`  const { cssLinks, jsPreloads, entryScript } = buildAssetTags();`,
-		`  if (html.includes('</head>')) {`,
-		String.raw`    html = html.replace('</head>', cssLinks + '\n' + jsPreloads + '\n</head>');`,
+		`  // The asset set is fixed for the lifetime of the bundle, so build the tags once.`,
+		`  const { cssLinks, jsPreloads, entryScript } = (_assetTags ??= buildAssetTags());`,
+		`  const headEnd = html.indexOf('</head>');`,
+		`  const bodyEnd = html.indexOf('</body>');`,
+		`  const headInsert = cssLinks + '\\n' + jsPreloads + '\\n';`,
+		`  const bodyInsert = entryScript + '\\n';`,
+		`  // One splice instead of two replace() calls: each replace rebuilds the whole`,
+		`  // document string, which is expensive for large pages.`,
+		`  if (headEnd !== -1 && bodyEnd > headEnd) {`,
+		`    return html.slice(0, headEnd) + headInsert + html.slice(headEnd, bodyEnd) + bodyInsert + html.slice(bodyEnd);`,
 		`  }`,
-		`  if (html.includes('</body>')) {`,
-		String.raw`    html = html.replace('</body>', entryScript + '\n</body>');`,
+		`  if (headEnd !== -1) {`,
+		`    html = html.slice(0, headEnd) + headInsert + html.slice(headEnd);`,
+		`  }`,
+		`  const lateBodyEnd = html.indexOf('</body>');`,
+		`  if (lateBodyEnd !== -1) {`,
+		`    html = html.slice(0, lateBodyEnd) + bodyInsert + html.slice(lateBodyEnd);`,
 		`  }`,
 		`  return html;`,
 		`}`,
@@ -2183,7 +2299,7 @@ export function generateRendererModule(avalonConfig: ResolvedAvalonConfig): stri
 		`import { registry } from '@useavalon/avalon/islands/integration-registry';`,
 		`import avalonConfig from 'virtual:avalon/config';`,
 		`import { loadPage } from 'virtual:avalon/page-loader';`,
-		`import { wrapWithLayouts } from 'virtual:avalon/layouts';`,
+		`import { wrapWithLayouts, wrapWithLayoutsParts } from 'virtual:avalon/layouts';`,
 		`import { injectAssets } from 'virtual:avalon/assets';`,
 		`import '${VIRTUAL_MODULE_IDS.HTML_POST_PROCESS_REGISTER}';`,
 		...integrationImports,
@@ -2218,6 +2334,8 @@ export function generateRendererModule(avalonConfig: ResolvedAvalonConfig): stri
 		`  },`,
 		`  wrapWithLayouts: (pageHtml, pageModule, context) =>`,
 		`    wrapWithLayouts(pageHtml, pageModule, context, injectAssets),`,
+		`  wrapWithLayoutsParts: (pageModule, context) =>`,
+		`    wrapWithLayoutsParts(pageModule, context, injectAssets),`,
 		`});`,
 		``,
 	].join("\n");

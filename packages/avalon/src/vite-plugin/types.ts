@@ -165,6 +165,15 @@ export interface AvalonPluginConfig {
 	core?: RenderEngine;
 
 	/**
+	 * Precompile static markup in page and layout files into constant templates, which the server
+	 * renders without building a virtual DOM for it. Output is identical to normal rendering and
+	 * hooks, context and async components keep working. Applies when `core` is `"preact"`.
+	 *
+	 * @default true
+	 */
+	precompileJsx?: boolean;
+
+	/**
 	 * Directory containing page components for file-system routing
 	 * @default "src/pages"
 	 */
@@ -333,6 +342,7 @@ export interface ResolvedModulesConfig {
  */
 export interface ResolvedAvalonConfig {
 	core: RenderEngine;
+	precompileJsx: boolean;
 	pagesDir: string;
 	layoutsDir: string;
 	modules: ResolvedModulesConfig | null;

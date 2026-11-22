@@ -24,6 +24,7 @@ import type { NitroConfigOutput } from "../nitro/config.ts";
 import { discoverIntegrationsFromIslandUsage } from "./auto-discover.ts";
 import { checkDirectoriesExist, resolveConfig } from "./config.ts";
 import { shouldSetDevScopedName, stableDevScopedName } from "./dev-css-modules.ts";
+import { hasDuplicatePreact } from "./duplicate-preact.ts";
 import {
 	asNoExternalList,
 	getFrameworkViteDefaults,
@@ -35,6 +36,7 @@ import { activateIntegrations, activateSingleIntegration } from "./integration-a
 import { islandSidecarPlugin } from "./island-sidecar-plugin.ts";
 import { jsxImportSourceForFilename, withJsxImportSource } from "./jsx-import-source.ts";
 import { createNitroIntegration } from "./nitro-integration.ts";
+import { precompileJsxPlugin } from "./precompile-jsx-plugin.ts";
 import { serverIslandsPlugin } from "./server-islands-plugin.ts";
 import {
 	STUB_BUILD_TIME_MODULE,
@@ -518,6 +520,23 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 		verbose: preResolvedConfig.verbose,
 	});
 
+	// Static JSX in pages and layouts becomes templates. Must follow the island transform.
+	// Two copies of Preact would render every template empty, so fall back to normal JSX instead.
+	const duplicatePreact = preResolvedConfig.precompileJsx && hasDuplicatePreact();
+	if (duplicatePreact && preResolvedConfig.showWarnings) {
+		console.warn(
+			"⚠️  Avalon: more than one copy of `preact` is installed, so precompiled JSX is turned off. " +
+				"Install a single version to enable it.",
+		);
+	}
+	const precompilePlugin = precompileJsxPlugin({
+		enabled: preResolvedConfig.precompileJsx && !duplicatePreact,
+		core: preResolvedConfig.core,
+		pagesDir: preResolvedConfig.pagesDir,
+		layoutsDir: preResolvedConfig.layoutsDir,
+		modules: preResolvedConfig.modules,
+	});
+
 	// Island client bundler: emits island components as separate client chunks
 	const islandBundler = islandClientBundlerPlugin(preResolvedConfig, config?.nitro);
 
@@ -541,6 +560,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 		preactCompatResolver,
 		stubBuildTimePlugins,
 		pageTransformPlugin,
+		precompilePlugin,
 		islandBundler,
 		codeSplitting,
 		...imagePlugins,

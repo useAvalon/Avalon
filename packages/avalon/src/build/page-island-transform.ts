@@ -182,7 +182,7 @@ function detectFramework(src: string): string | undefined {
 	return undefined;
 }
 
-function isPageFile(
+export function isPageFile(
 	id: string,
 	pagesDir: string,
 	modules?: PageIslandTransformOptions["modules"],
@@ -209,7 +209,7 @@ function isPageFile(
 }
 
 /** Check whether a file is inside the layouts directory */
-function isLayoutFile(
+export function isLayoutFile(
 	id: string,
 	layoutsDir: string,
 	modules?: PageIslandTransformOptions["modules"],
