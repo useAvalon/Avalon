@@ -63,6 +63,14 @@ export interface PerIslandScriptOptions {
  * and framework adapter, then hydrates the island based on its condition.
  */
 export function generatePerIslandScript(opts: PerIslandScriptOptions): string {
+	return `<script type="module">${generatePerIslandScriptBody(opts)}</script>`;
+}
+
+/**
+ * The JavaScript inside {@link generatePerIslandScript}'s `<script>` tag. Lets a
+ * renderer emit the script as a real element instead of a raw HTML string.
+ */
+export function generatePerIslandScriptBody(opts: PerIslandScriptOptions): string {
 	const {
 		islandId,
 		componentSrc,
@@ -87,7 +95,7 @@ export function generatePerIslandScript(opts: PerIslandScriptOptions): string {
 		directiveScript,
 	);
 
-	return `<script type="module">${strategyCode}</script>`;
+	return strategyCode;
 }
 
 /**

@@ -32,7 +32,7 @@ import {
 	patchCloudflareRoutesAfterPrerender,
 	patchCloudflareWorkerOutput,
 } from "./cloudflare-worker-patch.ts";
-import { copySSRCSSToClient } from "./copy-ssr-css.ts";
+import { copySSRCSSToClient, registerSsrCssInManifest } from "./copy-ssr-css.ts";
 import { collectFiles, isFile } from "./fs-utils.ts";
 import { optimizePrerenderedHtml } from "./html-optimize.ts";
 import { injectIslandDepsPreloads } from "./inject-island-preloads.ts";
@@ -363,7 +363,12 @@ export async function runPostBuild(options: PostBuildOptions = {}): Promise<void
 	injectIslandDepsPreloads(cwd, distDir);
 	optimizePrerenderedHtml(cwd, distDir);
 	await recompressPublicAssets(cwd);
+	registerSsrCssInManifest(cwd);
 	patchNitroAssetManifest(cwd);
+
+	// The Netlify v1 copy made earlier predates compression and the manifest updates above, so it
+	// would serve a server bundle that does not know the stylesheet. Copy the finished files again.
+	copyToNetlifyPaths(cwd);
 
 	console.log("[post-build] ✅ Complete");
 }

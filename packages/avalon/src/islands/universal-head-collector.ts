@@ -170,6 +170,13 @@ export function setSolidHydrationScript(script: string): void {
  * @returns The HTML with the Solid hydration script injected if needed
  */
 export function injectSolidHydrationScriptIfNeeded(html: string): string {
+	// Without a registered Solid script there is nothing to inject. Checking this
+	// first spares apps that do not use Solid a scan of the whole document.
+	const script = globalThis.__solidHydrationScript;
+	if (!script) {
+		return html;
+	}
+
 	// Only inject if Solid islands are present on the page
 	const hasSolidIslands = html.includes('data-framework="solid"');
 	if (!hasSolidIslands) {
@@ -178,11 +185,6 @@ export function injectSolidHydrationScriptIfNeeded(html: string): string {
 
 	// Don't inject if already present
 	if (html.includes("window._$HY") || html.includes("_$HY=")) {
-		return html;
-	}
-
-	const script = globalThis.__solidHydrationScript;
-	if (!script) {
 		return html;
 	}
 

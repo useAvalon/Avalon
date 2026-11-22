@@ -65,7 +65,7 @@ src/layouts/
     _layout.tsx        ← wraps src/pages/docs/* (nested inside root)
 ```
 
-The nesting is automatic — inner layouts render inside the root layout's `{children}`.
+The nesting is automatic — inner layouts render inside the root layout's `{children}`. `children` is opaque: place it where the page should go, but do not read or transform the page's rendered HTML from a layout.
 
 
 ## Skipping layouts

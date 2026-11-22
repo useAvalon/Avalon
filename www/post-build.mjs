@@ -15,15 +15,7 @@ import { wwwSeoConfig } from './seo.config.ts';
 await runPostBuild({
 	clientRouter: true,
 	prerender: {
-		routes: [
-			"/",
-			"/demo",
-			"/demo/data-fetching",
-			"/demo/server-islands",
-			"/demo/server-island-pure",
-			"/demo/server-island-hydrated",
-			"/demo/server-actions",
-		],
+		routes: ["/"],
 		crawlLinks: true,
 		ignore: [],
 		failOnError: false,

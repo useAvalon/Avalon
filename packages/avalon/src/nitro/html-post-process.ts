@@ -14,6 +14,11 @@ export function registerHtmlPostProcess(fn: HtmlPostProcessFn): void {
 	hooks.push(fn);
 }
 
+/** True when a plugin registered a transform that needs the full document. */
+export function hasHtmlPostProcessHooks(): boolean {
+	return hooks.length > 0;
+}
+
 /** Apply all registered HTML post-process hooks. */
 export function applyHtmlPostProcess(html: string, pathname: string): string {
 	let out = html;

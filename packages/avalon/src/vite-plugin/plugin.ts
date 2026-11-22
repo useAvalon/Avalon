@@ -35,6 +35,7 @@ import { activateIntegrations, activateSingleIntegration } from "./integration-a
 import { islandSidecarPlugin } from "./island-sidecar-plugin.ts";
 import { jsxImportSourceForFilename, withJsxImportSource } from "./jsx-import-source.ts";
 import { createNitroIntegration } from "./nitro-integration.ts";
+import { precompileJsxPlugin } from "./precompile-jsx-plugin.ts";
 import { serverIslandsPlugin } from "./server-islands-plugin.ts";
 import {
 	STUB_BUILD_TIME_MODULE,
@@ -518,6 +519,15 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 		verbose: preResolvedConfig.verbose,
 	});
 
+	// Static JSX in pages and layouts becomes templates. Must follow the island transform.
+	const precompilePlugin = precompileJsxPlugin({
+		enabled: preResolvedConfig.precompileJsx,
+		core: preResolvedConfig.core,
+		pagesDir: preResolvedConfig.pagesDir,
+		layoutsDir: preResolvedConfig.layoutsDir,
+		modules: preResolvedConfig.modules,
+	});
+
 	// Island client bundler: emits island components as separate client chunks
 	const islandBundler = islandClientBundlerPlugin(preResolvedConfig, config?.nitro);
 
@@ -541,6 +551,7 @@ export async function avalon(config?: AvalonPluginConfig): Promise<PluginOption[
 		preactCompatResolver,
 		stubBuildTimePlugins,
 		pageTransformPlugin,
+		precompilePlugin,
 		islandBundler,
 		codeSplitting,
 		...imagePlugins,

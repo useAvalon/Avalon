@@ -14,7 +14,7 @@ import { detectFramework } from "./framework-detection.ts";
 import { isCustomDirective, serializeDirectiveScript } from "./hydration-directives.ts";
 import { detectFrameworkFromPath, loadIntegration } from "./integration-loader.ts";
 import { addModulepreload, type ModulePreloadFetchPriority } from "./modulepreload-collector.ts";
-import { generatePerIslandScript } from "./per-island-script.ts";
+import { generatePerIslandScriptBody } from "./per-island-script.ts";
 import type { Framework } from "./types.ts";
 import { addUniversalCSS } from "./universal-css-collector.ts";
 import { addUniversalHead } from "./universal-head-collector.ts";
@@ -202,7 +202,7 @@ function wrapWithPerIslandScript(
 	const isCustom = isCustomDirective(opts.condition);
 	const directiveScript = isCustom ? serializeDirectiveScript(opts.condition) : undefined;
 
-	const scriptHtml = generatePerIslandScript({
+	const scriptBody = generatePerIslandScriptBody({
 		islandId: opts.islandId,
 		componentSrc,
 		framework: opts.framework,
@@ -214,18 +214,13 @@ function wrapWithPerIslandScript(
 	});
 
 	// Emit the island element followed by its self-contained hydration script.
-	// We use a Fragment so both are siblings in the DOM output.
-	// The wrapper <div data-island-script> is stripped from the final HTML by
-	// `unwrapPerIslandScripts` in the renderer; the global framework baseline
-	// CSS would also make it transparent if it ever leaked through.
+	// We use a Fragment so both are siblings in the DOM output. The script is a
+	// real element, so the HTML needs no wrapper and no cleanup pass afterwards.
 	return h(
 		shellFragment(),
 		null,
 		islandElement,
-		h("div", {
-			dangerouslySetInnerHTML: { __html: scriptHtml },
-			"data-island-script": "",
-		}),
+		h("script", { type: "module", dangerouslySetInnerHTML: { __html: scriptBody } }),
 	);
 }
 

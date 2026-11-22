@@ -165,6 +165,22 @@ export function deferNonCriticalStylesheets(html: string): string {
  * @returns The HTML with critical CSS inlined and external stylesheets deferred
  */
 export function inlineCriticalCSS(html: string): string {
+	// Every step below only edits the document head, so run them on the head
+	// alone and stitch the untouched remainder back on once. Rewriting the whole
+	// document per step is costly for large pages.
+	const headEnd = html.indexOf("</head>");
+	if (headEnd === -1) return inlineCriticalCSSInHead(html, false);
+
+	const rest = html.slice(headEnd);
+	// A stylesheet link outside the head is rare; only then does the remainder need the full pass.
+	// Tag names are case-insensitive in HTML, and the regex scan is faster than `includes` here.
+	if (/<link/i.test(rest)) return inlineCriticalCSSInHead(html, false);
+
+	return inlineCriticalCSSInHead(html.slice(0, headEnd), true) + rest;
+}
+
+/** `headOnly` means `html` ends right before `</head>`, so the style is appended rather than inserted. */
+function inlineCriticalCSSInHead(html: string, headOnly: boolean): string {
 	// Step 0: Inject framework baseline CSS so <avalon-island>, <avalon-page>,
 	// and <avalon-page-content> are transparent in flex/grid layouts.
 	let result = injectFrameworkBaseCSS(html);
@@ -174,7 +190,9 @@ export function inlineCriticalCSS(html: string): string {
 
 	if (criticalStyle) {
 		// Inject the critical CSS into <head>, before </head>
-		if (result.includes("</head>")) {
+		if (headOnly) {
+			result += `${criticalStyle}\n`;
+		} else if (result.includes("</head>")) {
 			result = result.replace("</head>", `${criticalStyle}\n</head>`);
 		}
 	}

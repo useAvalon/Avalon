@@ -19,6 +19,25 @@ describe("isModuleNotFound", () => {
 		).toBe(true);
 	});
 
+	it("matches Bun's ResolveMessage, which is not an Error instance", () => {
+		// Bun reports unresolved imports as a plain object with `message` and `code`.
+		const resolveMessage = {
+			message: "Cannot find module '@useavalon/preact' from '/app/registry.ts'",
+			code: "ERR_MODULE_NOT_FOUND",
+		};
+		expect(resolveMessage instanceof Error).toBe(false);
+		expect(isModuleNotFound(resolveMessage, "@useavalon/preact")).toBe(true);
+		expect(isModuleNotFound(resolveMessage, "@useavalon/react")).toBe(false);
+	});
+
+	it("does not match values without a message", () => {
+		expect(isModuleNotFound({ code: "ERR_MODULE_NOT_FOUND" }, "@useavalon/preact")).toBe(false);
+		expect(isModuleNotFound(undefined, "@useavalon/preact")).toBe(false);
+		expect(isModuleNotFound("Cannot find module '@useavalon/preact'", "@useavalon/preact")).toBe(
+			false,
+		);
+	});
+
 	it("does not match a missing transitive dependency", () => {
 		expect(
 			isModuleNotFound(

@@ -9,6 +9,13 @@ export function deployRevision(): string {
 	);
 }
 
+/**
+ * Longest cache lifetime, in seconds, that survives the in-memory cache's expiry timer. The cache
+ * calls `setTimeout(ttl * 1000)`, and Node clamps anything above 2^31 - 1 ms (about 24.8 days) to
+ * 1 ms, which deletes every entry immediately.
+ */
+export const MAX_CACHE_SECONDS = Math.floor((2 ** 31 - 1) / 1000);
+
 /** Nitro route-rule cache for pages that only change when you ship a new build. */
 export function ssrCacheUntilDeploy(options?: { stream?: boolean }) {
 	if (process.env.NODE_ENV !== "production") {
@@ -20,7 +27,8 @@ export function ssrCacheUntilDeploy(options?: { stream?: boolean }) {
 	}
 
 	return {
-		maxAge: 60 * 60 * 24 * 365,
+		// Entries are keyed by `integrity`, so a new deploy still invalidates them before this expires.
+		maxAge: MAX_CACHE_SECONDS,
 		swr: false,
 		stream: options?.stream ?? true,
 		integrity: deployRevision(),

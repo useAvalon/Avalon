@@ -47,6 +47,7 @@ export const DEFAULT_IMAGE_CONFIG: ResolvedImageConfig = {
  */
 export const DEFAULT_CONFIG: Omit<ResolvedAvalonConfig, "isDev"> = {
 	core: "preact",
+	precompileJsx: true,
 	pagesDir: "src/pages",
 	layoutsDir: "src/layouts",
 	modules: null,
@@ -133,6 +134,15 @@ function resolveImageConfig(image: boolean | ImageConfig | undefined): ResolvedI
  * // resolved.isDev === true
  * ```
  */
+/**
+ * Precompiled JSX is a Preact feature, so it only applies to the Preact engine. Setting
+ * `AVALON_PRECOMPILE=0` switches it off without editing the config, for debugging.
+ */
+function resolvePrecompileJsx(setting: boolean | undefined, core: RenderEngine): boolean {
+	if (core !== "preact" || process.env.AVALON_PRECOMPILE === "0") return false;
+	return setting ?? DEFAULT_CONFIG.precompileJsx;
+}
+
 export function resolveConfig(
 	userConfig: AvalonPluginConfig | undefined,
 	isDev: boolean,
@@ -144,6 +154,7 @@ export function resolveConfig(
 
 	return {
 		core,
+		precompileJsx: resolvePrecompileJsx(config.precompileJsx, core),
 		pagesDir: config.pagesDir ?? DEFAULT_CONFIG.pagesDir,
 		layoutsDir: config.layoutsDir ?? DEFAULT_CONFIG.layoutsDir,
 		modules,

@@ -45,7 +45,7 @@ import {
 	type ErrorHandlerOptions,
 	handleRenderError as handleRenderErrorWithCustomPages,
 } from "./error-handler.ts";
-import { applyHtmlPostProcess } from "./html-post-process.ts";
+import { applyHtmlPostProcess, hasHtmlPostProcessHooks } from "./html-post-process.ts";
 import type {
 	AvalonRuntimeConfig,
 	HttpError,
@@ -114,6 +114,19 @@ export interface RenderHandlerOptions {
 		context: NitroRenderContext,
 	) => Promise<string> | string;
 	/**
+	 * Optional companion to `wrapWithLayouts` that returns the document split
+	 * around the page content (`before + pageHtml + after`), with layout and
+	 * asset injection already applied. Lets the renderer keep the (often large)
+	 * page HTML out of every string pass and encode it once.
+	 *
+	 * Return `null` when the document cannot be split cleanly; the renderer then
+	 * falls back to `wrapWithLayouts`.
+	 */
+	wrapWithLayoutsParts?: (
+		pageModule: PageModule,
+		context: NitroRenderContext,
+	) => Promise<DocumentParts | null> | DocumentParts | null;
+	/**
 	 * Enable custom error pages (404.tsx, 500.tsx, _error.tsx)
 	 * When enabled, the renderer will look for custom error pages in the pages directory
 	 * Requirements: 10.5
@@ -122,6 +135,13 @@ export interface RenderHandlerOptions {
 }
 
 type WrapWithLayouts = NonNullable<RenderHandlerOptions["wrapWithLayouts"]>;
+type WrapWithLayoutsParts = NonNullable<RenderHandlerOptions["wrapWithLayoutsParts"]>;
+
+/** A document split around the page content: `before + pageHtml + after`. */
+export interface DocumentParts {
+	before: string;
+	after: string;
+}
 
 /**
  * Merges route params from Nitro's routing with Avalon's own route resolution.
@@ -267,13 +287,98 @@ async function respondWithBufferedPage(
 	renderContext: NitroRenderContext,
 	isDev: boolean,
 	wrapWithLayouts?: WrapWithLayouts,
+	wrapWithLayoutsParts?: WrapWithLayoutsParts,
 ): Promise<Response> {
+	if (wrapWithLayouts && wrapWithLayoutsParts && canRespondWithParts(pageModule, isDev)) {
+		return respondWithPartsPage(
+			pageModule,
+			renderContext,
+			isDev,
+			wrapWithLayouts,
+			wrapWithLayoutsParts,
+		);
+	}
 	const result = await renderPage(pageModule, renderContext, {}, wrapWithLayouts);
 	const pathname = renderContext.url?.pathname ?? "/";
 	return new Response(finalizePageHtml(result.html as string, isDev, pathname), {
 		status: result.statusCode,
 		headers: result.headers,
 	});
+}
+
+/**
+ * The split-document path only skips whole-document passes that are no-ops in
+ * production per-island mode, so it is limited to that configuration and to
+ * apps without HTML post-process hooks (which need the full string).
+ */
+function canRespondWithParts(pageModule: PageModule, isDev: boolean): boolean {
+	if (isDev || hasHtmlPostProcessHooks() || isClientNavigationDisabled(pageModule)) return false;
+	const mode = globalThis.__avalonHydrationMode;
+	return mode === "per-island" || mode === undefined;
+}
+
+const textEncoder = new TextEncoder();
+
+/** Small pieces are batched to about this many characters before each encode call. */
+const ENCODE_BATCH_CHARS = 8192;
+
+/**
+ * Encodes the parts into one byte array. Pieces are batched into modest strings and
+ * written straight into a single buffer, so no large intermediate string is built.
+ */
+function encodeParts(parts: string[]): Uint8Array<ArrayBuffer> {
+	let chars = 0;
+	for (const part of parts) chars += part.length;
+	// A UTF-16 code unit becomes at most three UTF-8 bytes.
+	const buffer = new Uint8Array(chars * 3);
+	let offset = 0;
+	let batch = "";
+	for (const part of parts) {
+		batch += part;
+		if (batch.length < ENCODE_BATCH_CHARS) continue;
+		offset += textEncoder.encodeInto(batch, buffer.subarray(offset)).written;
+		batch = "";
+	}
+	if (batch) offset += textEncoder.encodeInto(batch, buffer.subarray(offset)).written;
+	return buffer.subarray(0, offset);
+}
+
+async function respondWithPartsPage(
+	pageModule: PageModule,
+	renderContext: NitroRenderContext,
+	isDev: boolean,
+	wrapWithLayouts: WrapWithLayouts,
+	wrapWithLayoutsParts: WrapWithLayoutsParts,
+): Promise<Response> {
+	try {
+		const pageProps = pageModule.getServerSideProps
+			? await pageModule.getServerSideProps(renderContext)
+			: {};
+		const pageHtml = await renderPageFragment(pageModule, pageProps);
+		const parts = await wrapWithLayoutsParts(pageModule, renderContext);
+		const headers = pageHtmlHeaders(pageModule);
+		const pathname = renderContext.url?.pathname ?? "/";
+
+		// The split path runs the head passes on the first part only, so it needs the whole head there
+		// and no HTML hook. A hook can be registered while the page renders, so this is checked now,
+		// after rendering, and the finished document goes through the full pipeline without rendering again.
+		if (!parts || hasHtmlPostProcessHooks() || !parts.before.includes("</head>")) {
+			const html = parts
+				? parts.before + pageHtml + parts.after
+				: await wrapWithLayouts(pageHtml, pageModule, renderContext);
+			return new Response(finalizePageHtml(html, isDev, pathname), { status: 200, headers });
+		}
+
+		// Islands emit their script as a real element, so per-island mode has no
+		// whole-document pass left; the head passes touch just the layout part and
+		// the page HTML is never rescanned or copied.
+		const before = injectModulepreloadLinks(inlineCriticalCSS(parts.before));
+		const body = encodeParts([before, pageHtml, parts.after]);
+		return new Response(body, { status: 200, headers });
+	} catch (error) {
+		console.error("[SSR Error]", error);
+		throw error;
+	}
 }
 
 async function respondWithStreamingPage(
@@ -298,11 +403,18 @@ async function respondWithPage(
 	wrapWithLayouts: WrapWithLayouts | undefined,
 	streaming: boolean,
 	event?: H3Event,
+	wrapWithLayoutsParts?: WrapWithLayoutsParts,
 ): Promise<Response> {
 	if (streaming && event) {
 		return respondWithStreamingPage(pageModule, renderContext, event);
 	}
-	return respondWithBufferedPage(pageModule, renderContext, isDev, wrapWithLayouts);
+	return respondWithBufferedPage(
+		pageModule,
+		renderContext,
+		isDev,
+		wrapWithLayouts,
+		wrapWithLayoutsParts,
+	);
 }
 
 async function tryLoadPageModule(
@@ -621,6 +733,8 @@ export function ensureHydrationMarkers(element: string, marker: Partial<IslandMa
 function unwrapPerIslandScripts(html: string): string {
 	// Strip the wrapper <div data-island-script> around per-island <script> tags,
 	// leaving just the <script> elements in the HTML output.
+	// A substring search is much cheaper than the regex when no island emitted a wrapper.
+	if (!html.includes("data-island-script")) return html;
 	return html.replaceAll(
 		/<div[^>]*\bdata-island-script\b[^>]*>(<script[\s\S]*?<\/script>)<\/div>/g,
 		"$1",
@@ -877,6 +991,44 @@ export async function renderPage(
 	}
 }
 
+const PAGE_ERROR_HTML = "<div>Error rendering page</div>";
+
+/** Marker for a page component that threw, so callers can render the error fragment. */
+const PAGE_CALL_FAILED = Symbol("page-call-failed");
+
+/** Calls the page component (sync or async) and returns its vnode, or {@link PAGE_CALL_FAILED}. */
+async function callPageComponent(
+	pageModule: PageModule,
+	pageProps: Record<string, unknown>,
+): Promise<unknown> {
+	const Component = pageModule.default as (props?: Record<string, unknown>) => unknown;
+	try {
+		const result = Component(pageProps);
+		return result instanceof Promise ? await result : result;
+	} catch (err) {
+		console.error("[renderer] Error calling page component:", err);
+		return PAGE_CALL_FAILED;
+	}
+}
+
+/**
+ * Calls the page component and renders its output to an HTML fragment using
+ * the active shell engine (Preact by default, React when core: "react").
+ */
+async function renderPageFragment(
+	pageModule: PageModule,
+	pageProps: Record<string, unknown>,
+): Promise<string> {
+	const vnode = await callPageComponent(pageModule, pageProps);
+	if (vnode === PAGE_CALL_FAILED) return PAGE_ERROR_HTML;
+	try {
+		return renderShell(vnode);
+	} catch (err) {
+		console.error("[renderer] Error rendering page shell:", err);
+		return PAGE_ERROR_HTML;
+	}
+}
+
 /**
  * Renders a page component to HTML
  * Uses Preact SSR to render the actual component content.
@@ -888,34 +1040,10 @@ async function renderPageComponent(
 	_options: SSRRenderOptions,
 	wrapWithLayouts?: RenderHandlerOptions["wrapWithLayouts"],
 ): Promise<string> {
-	const Component = pageModule.default as (props?: Record<string, unknown>) => unknown;
 	const metadata = pageModule.metadata || {};
 	const isDev = process.env.NODE_ENV !== "production";
 
-	// Call the page component (supports async components)
-	let vnode: unknown;
-	let pageErrored = false;
-	try {
-		const result = Component(pageProps);
-		vnode = result instanceof Promise ? await result : result;
-	} catch (err) {
-		console.error("[renderer] Error calling page component:", err);
-		pageErrored = true;
-	}
-
-	// Render the vnode to HTML string using the active shell engine
-	// (Preact by default, React when core: "react").
-	let pageHtml: string;
-	if (pageErrored) {
-		pageHtml = "<div>Error rendering page</div>";
-	} else {
-		try {
-			pageHtml = renderShell(vnode);
-		} catch (err) {
-			console.error("[renderer] Error rendering page shell:", err);
-			pageHtml = "<div>Error rendering page</div>";
-		}
-	}
+	const pageHtml = await renderPageFragment(pageModule, pageProps);
 
 	// If a layout wrapper is provided, delegate full HTML generation to it
 	if (wrapWithLayouts) {
@@ -1530,6 +1658,7 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 				options.wrapWithLayouts,
 				Boolean(avalonConfig.streaming && !options.wrapWithLayouts),
 				event,
+				options.wrapWithLayoutsParts,
 			);
 		} catch (error) {
 			console.error("[Nitro Renderer Error]", error);
@@ -1577,7 +1706,13 @@ export function createNitroRenderer(options: RenderHandlerOptions) {
 				// Create render context directly from the Request
 				const renderContext = createRenderContextFromRequest(request, route.params);
 
-				return respondWithBufferedPage(pageModule, renderContext, isDev, options.wrapWithLayouts);
+				return respondWithBufferedPage(
+					pageModule,
+					renderContext,
+					isDev,
+					options.wrapWithLayouts,
+					options.wrapWithLayoutsParts,
+				);
 			} catch (error) {
 				console.error("[Nitro Renderer .fetch() Error]", error);
 				const err = error instanceof Error ? error : new Error(String(error));
@@ -1674,6 +1809,7 @@ export interface NitroCatchAllOptions {
 	resolveLayouts?: (routePath: string, config: AvalonRuntimeConfig) => Promise<string[]>;
 	/** Wrap rendered page HTML with layout components (same as RenderHandlerOptions) */
 	wrapWithLayouts?: WrapWithLayouts;
+	wrapWithLayoutsParts?: WrapWithLayoutsParts;
 	/**
 	 * Enable custom error pages (404.tsx, 500.tsx, _error.tsx)
 	 * When enabled, the renderer will look for custom error pages in the pages directory
@@ -1815,6 +1951,7 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 				options.wrapWithLayouts,
 				Boolean(avalonConfig.streaming && !options.wrapWithLayouts),
 				event,
+				options.wrapWithLayoutsParts,
 			);
 		} catch (error) {
 			console.error("[Nitro Catch-All Renderer Error]", error);
@@ -1851,7 +1988,13 @@ export function createNitroCatchAllRenderer(options: NitroCatchAllOptions) {
 				// Create render context directly from the Request
 				const renderContext = createRenderContextFromRequest(request);
 
-				return respondWithBufferedPage(pageModule, renderContext, isDev, options.wrapWithLayouts);
+				return respondWithBufferedPage(
+					pageModule,
+					renderContext,
+					isDev,
+					options.wrapWithLayouts,
+					options.wrapWithLayoutsParts,
+				);
 			} catch (error) {
 				console.error("[Nitro CatchAll .fetch() Error]", error);
 				const err = error instanceof Error ? error : new Error(String(error));

@@ -57,12 +57,24 @@ const NOT_FOUND_SPECIFIER_RE = /Cannot find (?:module|package) ['"]([^'"]+)['"]/
  * dependency there, and the importer named later in the message is ignored.
  */
 export function isModuleNotFound(error: unknown, specifier: string): boolean {
-	if (!(error instanceof Error)) return false;
-	const missing = NOT_FOUND_SPECIFIER_RE.exec(error.message)?.[1];
+	const message = errorLikeMessage(error);
+	if (message === undefined) return false;
+	const missing = NOT_FOUND_SPECIFIER_RE.exec(message)?.[1];
 	if (missing !== undefined) return missing === specifier;
-	const code = (error as Error & { code?: unknown }).code;
+	const code = (error as { code?: unknown }).code;
 	if (typeof code !== "string" || !MODULE_NOT_FOUND_CODES.has(code)) return false;
-	return error.message.includes(`'${specifier}'`) || error.message.includes(`"${specifier}"`);
+	return message.includes(`'${specifier}'`) || message.includes(`"${specifier}"`);
+}
+
+/**
+ * Message of an error or error-like object. Bun reports unresolved imports as a
+ * `ResolveMessage`, which has `message` and `code` but is not an `Error` instance.
+ */
+function errorLikeMessage(error: unknown): string | undefined {
+	if (error instanceof Error) return error.message;
+	if (typeof error !== "object" || error === null) return undefined;
+	const message = (error as { message?: unknown }).message;
+	return typeof message === "string" ? message : undefined;
 }
 
 /**
