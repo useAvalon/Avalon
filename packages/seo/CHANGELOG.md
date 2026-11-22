@@ -1,5 +1,11 @@
 # @useavalon/seo
 
+## 0.8.2
+
+### Patch Changes
+
+- [#163](https://github.com/useAvalon/Avalon/pull/163) [`46ebf42`](https://github.com/useAvalon/Avalon/commit/46ebf4292d04266231a2e64d9dcdf234f419aa1f) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Fix the per-island inline hydration script. The hydrate call was missing a statement terminator, so the generated code read `await fn(e,C,p)e.dataset.hydrated="true"` and the browser rejected the whole script with a syntax error, leaving islands unhydrated.
+
 ## 0.8.1
 
 ### Patch Changes
