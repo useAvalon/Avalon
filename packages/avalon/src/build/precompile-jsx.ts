@@ -121,9 +121,13 @@ function decodeEntities(text: string): string | null {
 	return supported ? decoded : null;
 }
 
-/** True when the element's own text or attribute strings use a character reference we do not decode. */
-function hasUnsupportedEntities(node: Node): boolean {
+/**
+ * True when the element has content a template cannot reproduce exactly: a character reference we do
+ * not decode, or a spread child (`{...items}`), which only the JSX transform can lower.
+ */
+function cannotReproduce(node: Node): boolean {
 	for (const child of node.children ?? []) {
+		if (child.type === "JSXSpreadChild") return true;
 		if (child.type === "JSXText" && decodeEntities(child.value as string) === null) return true;
 	}
 	for (const attribute of node.openingElement?.attributes ?? []) {
@@ -157,10 +161,19 @@ class TemplateBuilder {
  * A prefix for generated identifiers that appears nowhere in the module, so a helper or template
  * constant can never be shadowed or collide, whatever scope the source declares names in.
  */
-function pickPrefix(code: string): string {
+function pickPrefix(code: string, identifiers: Set<string>): string {
 	let prefix = "_$";
-	while (code.includes(prefix)) prefix += "$";
+	const taken = () =>
+		code.includes(prefix) || [...identifiers].some((name) => name.startsWith(prefix));
+	while (taken()) prefix += "$";
 	return prefix;
+}
+
+/** Every identifier name in the tree, decoded: `\\u005f$t` is `_$t` whatever the source text says. */
+function collectIdentifierNames(node: Node, into: Set<string>): Set<string> {
+	if (node.type === "Identifier" || node.type === JSX_IDENTIFIER) into.add(node.name as string);
+	for (const child of childNodes(node)) collectIdentifierNames(child, into);
+	return into;
 }
 
 class Compiler {
@@ -168,8 +181,11 @@ class Compiler {
 	private readonly sources: string[] = [];
 	private readonly prefix: string;
 
-	constructor(private readonly code: string) {
-		this.prefix = pickPrefix(code);
+	constructor(
+		private readonly code: string,
+		program: Node,
+	) {
+		this.prefix = pickPrefix(code, collectIdentifierNames(program, new Set()));
 	}
 
 	/** Hoisted template constants, in declaration order. */
@@ -235,7 +251,7 @@ class Compiler {
 
 	/** Compiles a JSX element or fragment found in an expression position. */
 	compileRoot(node: Node): string {
-		if (node.type === JSX_FRAGMENT && !hasUnsupportedEntities(node)) {
+		if (node.type === JSX_FRAGMENT && !cannotReproduce(node)) {
 			const builder = new TemplateBuilder();
 			this.addChildren(builder, node.children);
 			return this.emit(builder);
@@ -298,7 +314,9 @@ class Compiler {
 				this.collectInspectable(node.alternate, edits);
 				return;
 			case "LogicalExpression":
-				this.collectRoots(node.left, edits);
+				// `a || b` and `a ?? b` can hand either side to the component; `a && b` only the right.
+				if (node.operator === "&&") this.collectRoots(node.left, edits);
+				else this.collectInspectable(node.left, edits);
 				this.collectInspectable(node.right, edits);
 				return;
 			case "ArrayExpression":
@@ -357,7 +375,7 @@ class Compiler {
 		const name = node.openingElement.name;
 		if (name.type !== JSX_IDENTIFIER || KEPT_TAGS.has(name.name)) return false;
 		const attributes: Node[] = node.openingElement.attributes;
-		if (!attributes.every(isCompilableAttribute) || hasUnsupportedEntities(node)) return false;
+		if (!attributes.every(isCompilableAttribute) || cannotReproduce(node)) return false;
 		// Both spellings of one attribute (`class` and `className`, `for` and `htmlFor`): Preact picks
 		// one by rule, which is not worth reproducing.
 		const names = attributes.map((attribute) => attribute.name.name as string);
@@ -422,7 +440,8 @@ class Compiler {
 		for (const child of children) {
 			switch (child.type) {
 				case "JSXText": {
-					const text = cleanJsxText(decodeEntities(child.value as string) ?? "");
+					// Whitespace rules apply to the source text, so `&#10;` stays a real newline.
+					const text = decodeEntities(cleanJsxText(child.value as string)) ?? "";
 					if (text) builder.text(String(jsxEscape(text)));
 					break;
 				}
@@ -430,7 +449,7 @@ class Compiler {
 					this.addExpression(builder, child.expression);
 					break;
 				case JSX_FRAGMENT:
-					if (hasUnsupportedEntities(child)) builder.dynamic(this.keep(child));
+					if (cannotReproduce(child)) builder.dynamic(this.keep(child));
 					else this.addChildren(builder, child.children);
 					break;
 				case JSX_ELEMENT:
@@ -494,12 +513,15 @@ function* childNodes(node: Node): Generator<Node> {
 function isCompilableAttribute(attribute: Node): boolean {
 	if (attribute.type !== JSX_ATTRIBUTE || attribute.name.type !== JSX_IDENTIFIER) return false;
 	const attributeName = attribute.name.name as string;
+	if (attributeName === "key") return !hasCalls(attribute.value);
 	if (DROPPED_ATTRIBUTES.has(attributeName)) return true;
 	if (attributeName === "children" || attributeName === "dangerouslySetInnerHTML") return false;
 	if (KEPT_ATTRIBUTES.has(attributeName)) return false;
 	const mapped = ATTRIBUTE_ALIASES[attributeName] ?? attributeName;
 	// Anything but a plain lowercase name (event handlers, camelCase props, `on*`) keeps Preact's own handling.
 	if (!PLAIN_ATTRIBUTE_NAME.test(mapped) || mapped.startsWith("on")) return false;
+	// The one lowercase name the renderer rewrites (`panose-1`) inside SVG.
+	if (mapped === "panose1") return false;
 	return isCompilableValue(mapped, attribute.value);
 }
 
@@ -544,6 +566,14 @@ const SIDE_EFFECT_NODES = new Set([
 	"TaggedTemplateExpression",
 	"ImportExpression",
 ]);
+
+/**
+ * The automatic JSX runtime evaluates `key` after the props and children. A template runs it in
+ * source position, so an element whose key calls something stays JSX to keep that order.
+ */
+function hasCalls(value: Node | null): boolean {
+	return value?.type === EXPRESSION_CONTAINER && mayHaveSideEffects(value.expression);
+}
 
 const FUNCTION_NODES = new Set(["ArrowFunctionExpression", "FunctionExpression"]);
 
@@ -596,25 +626,50 @@ function countNewlines(text: string): number {
 	return count;
 }
 
-/** Where to insert the header: after a leading `@jsxImportSource` pragma comment when present. */
-function headerPosition(code: string): number {
-	const match = /^\s*\/\*[\s\S]*?\*\//.exec(code);
-	return match?.[0].includes("@jsxImportSource") ? match[0].length : 0;
+/** Any `@jsx*` pragma other than `@jsxImportSource preact` selects a runtime the templates bypass. */
+function hasCustomJsxPragma(comments: Array<{ value: string }>): boolean {
+	return comments.some((comment) =>
+		[...comment.value.matchAll(/@jsx\w*\s*(\S*)/g)].some(
+			(m) => !m[0].startsWith("@jsxImportSource") || m[1] !== "preact",
+		),
+	);
+}
+
+/**
+ * Where to insert the header: after a hashbang, directives such as `"use strict"`, and the
+ * `@jsxImportSource` pragma comment, which the JSX transform only reads before the first statement.
+ */
+function headerPosition(program: Node, comments: Array<{ value: string; end: number }>): number {
+	let end = program.hashbang?.end ?? 0;
+	let firstStatement = Number.POSITIVE_INFINITY;
+	for (const statement of program.body as Node[]) {
+		firstStatement = Math.min(firstStatement, statement.start);
+		if (statement.type !== "ExpressionStatement" || typeof statement.directive !== "string") break;
+		end = statement.end;
+	}
+	for (const comment of comments) {
+		if (comment.end <= firstStatement && comment.value.includes("@jsxImportSource")) {
+			end = Math.max(end, comment.end);
+		}
+	}
+	return end;
 }
 
 /**
  * Rewrites the JSX in `code` to precompiled templates. Returns null when the file has no JSX to
- * rewrite or cannot be parsed, so the normal transform handles it.
+ * rewrite, cannot be parsed or selects its own JSX runtime with a pragma, so the normal transform
+ * handles it.
  */
 export function precompileJsx(code: string, filename: string): PrecompileResult | null {
 	if (!code.includes("<")) return null;
 	const parsed = parseSync(filename, code, { lang: "tsx" });
-	if (parsed.errors.length > 0) return null;
+	if (parsed.errors.length > 0 || hasCustomJsxPragma(parsed.comments)) return null;
 
-	const compiler = new Compiler(code);
-	const rewritten = compiler.rewrite(parsed.program as unknown as Node);
+	const program = parsed.program as unknown as Node;
+	const compiler = new Compiler(code, program);
+	const rewritten = compiler.rewrite(program);
 	if (!compiler.usedTemplates) return null;
 
-	const at = headerPosition(rewritten);
+	const at = headerPosition(program, parsed.comments);
 	return { code: rewritten.slice(0, at) + compiler.header() + rewritten.slice(at) };
 }

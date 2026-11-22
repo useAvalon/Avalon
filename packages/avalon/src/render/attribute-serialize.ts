@@ -10,12 +10,19 @@ import { jsxEscape } from "preact/jsx-runtime";
 /** Enumerated attributes that Preact's renderer writes as strings (`draggable="true"`). */
 const ENUMERATED_ATTRIBUTES = new Set(["draggable", "spellcheck"]);
 
+/** The renderer's own test for a signal: an object with a callable `peek` and a `value`. */
+export function isSignal(value: unknown): value is { value: unknown } {
+	return (
+		typeof value === "object" &&
+		value !== null &&
+		typeof (value as { peek?: unknown }).peek === "function" &&
+		"value" in value
+	);
+}
+
 /** Signals expose their current value as `.value`; the renderer reads it. */
 function unwrapSignal(value: unknown): unknown {
-	if (typeof value === "object" && value !== null && "peek" in value && "value" in value) {
-		return (value as { value: unknown }).value;
-	}
-	return value;
+	return isSignal(value) ? value.value : value;
 }
 
 /**

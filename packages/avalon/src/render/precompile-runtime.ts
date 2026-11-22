@@ -6,18 +6,22 @@
  * components, hooks and context keep working around them; only the static HTML is skipped over.
  */
 
-import { jsxEscape, jsxTemplate } from "preact/jsx-runtime";
+import { Fragment, jsx, jsxEscape, jsxTemplate } from "preact/jsx-runtime";
 import renderToString from "preact-render-to-string";
-import { serializeAttribute } from "./attribute-serialize.ts";
+import { isSignal, serializeAttribute } from "./attribute-serialize.ts";
 
 export { jsxEscape, jsxTemplate };
 
 /**
  * Called by compiled templates for a dynamic child. Arrays go to the renderer untouched, which
- * escapes their strings once and never modifies the caller's array; everything else is escaped here.
+ * escapes their strings once and never modifies the caller's array; signals are wrapped in a vnode so
+ * they render as they would anywhere else; everything else is escaped here.
  */
 export function child(value: unknown): unknown {
-	return Array.isArray(value) ? value : jsxEscape(value);
+	if (Array.isArray(value)) return value;
+	// A signal is wrapped in a vnode so the renderer treats it exactly as it would as a normal child.
+	if (isSignal(value)) return jsx(Fragment, { children: value });
+	return jsxEscape(value);
 }
 
 /** Evaluates a dropped `key` or `ref` expression for its side effects and renders nothing. */

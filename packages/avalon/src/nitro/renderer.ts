@@ -343,6 +343,9 @@ function encodeParts(parts: string[]): Uint8Array<ArrayBuffer> {
 	return buffer.subarray(0, offset);
 }
 
+/** Whether a fragment contains a `<link>` element the head passes would process. */
+const LINK_TAG = /<link[\s>]/i;
+
 async function respondWithPartsPage(
 	pageModule: PageModule,
 	renderContext: NitroRenderContext,
@@ -362,7 +365,14 @@ async function respondWithPartsPage(
 		// The split path runs the head passes on the first part only, so it needs the whole head there
 		// and no HTML hook. A hook can be registered while the page renders, so this is checked now,
 		// after rendering, and the finished document goes through the full pipeline without rendering again.
-		if (!parts || hasHtmlPostProcessHooks() || !parts.before.includes("</head>")) {
+		// A stylesheet link outside the head part (in the page or after it) needs the whole-document passes.
+		if (
+			!parts ||
+			hasHtmlPostProcessHooks() ||
+			!parts.before.includes("</head>") ||
+			LINK_TAG.test(pageHtml) ||
+			LINK_TAG.test(parts.after)
+		) {
 			const html = parts
 				? parts.before + pageHtml + parts.after
 				: await wrapWithLayouts(pageHtml, pageModule, renderContext);

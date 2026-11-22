@@ -456,4 +456,63 @@ export const marker = 1;`;
 		const line = (code: string) => code.split("\n").findIndex((l) => l.includes("marker"));
 		expect(line(result?.code ?? "")).toBe(line(source));
 	});
+
+	it("skips files that select another JSX runtime with a pragma", () => {
+		const source = "/** @jsxImportSource preact/compat */\nexport default () => <div>x</div>;";
+		expect(precompileJsx(source, "/a.tsx")).toBeNull();
+		expect(precompileJsx("/** @jsx h */\nexport const a = <div>x</div>;", "/a.tsx")).toBeNull();
+	});
+
+	it("places the header after a hashbang and directives", () => {
+		const result = precompileJsx(
+			'#!/usr/bin/env node\n"use client";\nexport default () => <div>x</div>;',
+			"/a.tsx",
+		);
+		expect(result?.code).toMatch(/^#!\/usr\/bin\/env node\n"use client";import\{/);
+	});
+});
+
+describe("precompileJsx review edge cases", () => {
+	it("avoids generated names that match escaped identifiers", async () => {
+		const result = await expectParity(
+			'export default () => { const \\u005f$t = "original"; return <p>{\\u005f$t}</p>; };',
+		);
+		expect(result.compiled).toBe("<p>original</p>");
+	});
+
+	it("keeps a left || operand passed to a component inspectable", async () => {
+		const source = `const Probe = (p: { header: any }) => <i>{p.header.type}</i>;
+export default () => <Probe header={<h1>Title</h1> || "x"} />;`;
+		const result = await expectParity(source);
+		expect(result.compiled).toBe("<i>h1</i>");
+	});
+
+	it("keeps effectful keys on the JSX path so evaluation order holds", async () => {
+		const source = `export default () => {
+	const log: string[] = [];
+	const record = (v: string) => { log.push(v); return v; };
+	return <ul><li key={record("key")}>{record("child")}</li><b>{log.join(",")}</b></ul>;
+};`;
+		await expectParity(source);
+	});
+
+	it("does not template panose1, which the renderer rewrites in SVG", async () => {
+		await expectParity('export default () => <svg><font-face panose1="1" /></svg>;');
+	});
+
+	it("decodes character references after whitespace rules", async () => {
+		await expectParity("export default () => <pre>x&#10;y</pre>;");
+	});
+
+	it("keeps spread children as JSX", async () => {
+		await expectParity(
+			"export default () => { const items = ['a', 'b']; return <div>{...items}</div>; };",
+		);
+	});
+
+	it("renders signal children and attributes like the normal path", async () => {
+		const signal = `{ peek() { return 0; }, value: false }`;
+		await expectParity(`const flag = ${signal};
+export default () => <p title={{ peek: 0, value: "internal", toString: () => "display" } as any}>{flag as any}</p>;`);
+	});
 });
