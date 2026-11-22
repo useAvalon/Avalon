@@ -1,5 +1,13 @@
 # @useavalon/react
 
+## 0.1.15
+
+### Patch Changes
+
+- Updated dependencies [[`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb), [`3e95951`](https://github.com/useAvalon/Avalon/commit/3e95951eef7c7bd0f8b7ca46a2d0f8d09747fa37), [`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb), [`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb), [`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb), [`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb)]:
+  - @useavalon/avalon@0.9.0
+  - @useavalon/core@0.9.0
+
 ## 0.1.14
 
 ### Patch Changes

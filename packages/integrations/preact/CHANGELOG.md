@@ -1,5 +1,26 @@
 # @useavalon/preact
 
+## 0.9.0
+
+### Minor Changes
+
+- [#167](https://github.com/useAvalon/Avalon/pull/167) [`3e95951`](https://github.com/useAvalon/Avalon/commit/3e95951eef7c7bd0f8b7ca46a2d0f8d09747fa37) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Stream pages that use layouts. When a page has a pending `Suspense` boundary, the layout head and page shell are flushed first and each boundary follows as it resolves, using Preact's `renderToReadableStream`. Pages with nothing pending, development, the client router, HTML post-process hooks, `core: "react"` and `streaming: false` keep the buffered response with identical output. Streamed responses send `X-Accel-Buffering: no`.
+
+- [#165](https://github.com/useAvalon/Avalon/pull/165) [`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Precompile static JSX in page and layout files into constant templates. Preact renders them without building a virtual DOM for the static markup, which makes server rendering of large pages much faster. Output is unchanged, and components, hooks, context and async components keep working. Turn it off with `precompileJsx: false` (or `AVALON_PRECOMPILE=0`).
+
+### Patch Changes
+
+- [#165](https://github.com/useAvalon/Avalon/pull/165) [`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Fall back to the monorepo copy of an integration when Bun reports an unresolved import. Bun throws a `ResolveMessage`, which is not an `Error` instance, so the not-found check returned false and `@useavalon/preact` could not be loaded from `packages/integrations`.
+
+- [#165](https://github.com/useAvalon/Avalon/pull/165) [`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - List each route that failed during prerender with its reason. The summary used to print only "N error(s)", which made a stale route list or a broken link impossible to track down.
+
+- [#165](https://github.com/useAvalon/Avalon/pull/165) [`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Serve the copied SSR stylesheet in production. The post-build step only recognised the old compact Nitro asset manifest, so with the current pretty-printed format `ssr-index-*.css` was copied to disk but never registered, and the page linked a stylesheet that returned 404. Both formats are handled, including the `.br` and `.gz` variants.
+
+- [#165](https://github.com/useAvalon/Avalon/pull/165) [`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Render responses without repeatedly copying the page HTML. Layout and asset injection run on the small layout markup around the page, the page is encoded once, and the head passes only scan the head. Islands emit their hydration script as a real `<script>` element, and pages with no client code no longer load an empty entry script.
+- Updated dependencies [[`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb), [`3e95951`](https://github.com/useAvalon/Avalon/commit/3e95951eef7c7bd0f8b7ca46a2d0f8d09747fa37), [`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb), [`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb), [`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb), [`9f5eb19`](https://github.com/useAvalon/Avalon/commit/9f5eb194b762606f09eb8f74ece6a8d7bed969cb)]:
+  - @useavalon/avalon@0.9.0
+  - @useavalon/core@0.9.0
+
 ## 0.8.2
 
 ### Patch Changes
