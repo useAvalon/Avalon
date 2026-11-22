@@ -126,7 +126,7 @@ function generateHydrateCall(
 		`var i;if(!m.__hydrateIsland&&!m.__mountIsland&&m.loadIntegrationModule){i=await m.loadIntegrationModule(${JSON.stringify(framework)})}`,
 		`var fn=e.dataset.renderStrategy==="client-only"?(m.__mountIsland||(i&&i.mount)):(m.__hydrateIsland||(i&&i.hydrate));`,
 		`if(!fn)throw new Error("Integration does not export "+(e.dataset.renderStrategy==="client-only"?"mount":"hydrate"));`,
-		`await fn(e,C,p)`,
+		`await fn(e,C,p);`,
 		`e.dataset.hydrated="true";`,
 		`}catch(err){console.error("Hydration error:",err)}`,
 		`}`,
