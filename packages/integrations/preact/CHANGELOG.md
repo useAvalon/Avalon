@@ -1,5 +1,13 @@
 # @useavalon/preact
 
+## 0.9.3
+
+### Patch Changes
+
+- Updated dependencies [[`ca910bc`](https://github.com/useAvalon/Avalon/commit/ca910bc869546220da497d1b79927f4b6769f6d3)]:
+  - @useavalon/avalon@0.9.3
+  - @useavalon/core@0.9.3
+
 ## 0.9.2
 
 ### Patch Changes
