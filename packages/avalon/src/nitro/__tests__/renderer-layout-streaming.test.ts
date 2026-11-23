@@ -77,6 +77,18 @@ describe("layout streaming", () => {
 		expect(streamed.headers.get("x-accel-buffering")).toBeNull();
 	});
 
+	it("renders a page without a pending boundary once, on the synchronous renderer", async () => {
+		const Inner = vi.fn(() => h("b", null, "once"));
+		const page = {
+			default: () => h("div", null, h(Suspense, { fallback: "wait" }, h(Inner, null))),
+		} as unknown as PageModule;
+		const response = await makeRenderer(page, true).renderer.fetch(request());
+		expect(Inner).toHaveBeenCalledOnce();
+		expect(response.headers.get("x-accel-buffering")).toBeNull();
+		expect(response.headers.get("content-length")).toBeNull();
+		expect(await response.text()).toContain("<b>once</b>");
+	});
+
 	it("awaits an async page component before rendering", async () => {
 		const page = {
 			default: async () => {
