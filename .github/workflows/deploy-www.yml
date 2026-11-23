@@ -61,11 +61,12 @@ jobs:
 
       # Server islands encrypt their props into the HTML. The page is prerendered by the node build
       # and served next to the worker from the Cloudflare build, so both builds must embed the same key
-      # or the island endpoint cannot decrypt the props and answers 400. The key has to stay the same
-      # across deploys too, because pages cached from an earlier deploy carry props encrypted with the
-      # old key. Order: the AVALON_KEY secret, else a key derived from the Cloudflare API token (stable,
-      # and the token cannot be recovered from it). Only pull request previews may fall back to a
-      # per-run key; a production deploy fails instead of publishing a new one.
+      # or the island endpoint cannot decrypt the props and answers 400. Production also needs a key
+      # that never changes by accident, because pages cached from an earlier deploy carry props encrypted
+      # with the old one. So a push requires the dedicated AVALON_KEY secret
+      # (generate one with `openssl rand -base64 32`), and rotating it is a deliberate act that must be
+      # followed by a CDN purge. Pull request previews are short-lived and use a key derived from the
+      # Cloudflare token, or a per-run key when no secrets are available.
       - name: Share one server island key between both builds
         env:
           AVALON_KEY_SECRET: ${{ secrets.AVALON_KEY }}
@@ -73,14 +74,14 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
         run: |
           key="${AVALON_KEY_SECRET:-}"
+          if [ -z "$key" ] && [ "$EVENT_NAME" = "push" ]; then
+            echo "::error::Set the AVALON_KEY repository secret (openssl rand -base64 32): a production deploy needs a stable server island key."
+            exit 1
+          fi
           if [ -z "$key" ] && [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
             key="$(printf 'avalon-server-islands-v1' | openssl dgst -sha256 -hmac "$CLOUDFLARE_API_TOKEN" -binary | openssl base64 -A)"
           fi
           if [ -z "$key" ]; then
-            if [ "$EVENT_NAME" = "push" ]; then
-              echo "::error::Set the AVALON_KEY secret (or CLOUDFLARE_API_TOKEN): a production deploy must not publish a new server island key."
-              exit 1
-            fi
             key="$(openssl rand -base64 32)"
           fi
           echo "::add-mask::$key"
