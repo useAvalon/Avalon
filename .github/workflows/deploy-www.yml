@@ -59,6 +59,21 @@ jobs:
 
       - run: bun install
 
+      # Server islands encrypt their props into the HTML. The page is prerendered by the node build
+      # and served next to the worker from the Cloudflare build, so both builds must embed the same key
+      # or the island endpoint cannot decrypt the props and answers 400. Use the AVALON_KEY secret when
+      # it is set (stable across deploys, so cached pages keep working); otherwise one key per run.
+      - name: Share one server island key between both builds
+        env:
+          AVALON_KEY_SECRET: ${{ secrets.AVALON_KEY }}
+        run: |
+          key="${AVALON_KEY_SECRET:-}"
+          if [ -z "$key" ]; then
+            key="$(openssl rand -base64 32)"
+          fi
+          echo "::add-mask::$key"
+          echo "AVALON_KEY=$key" >> "$GITHUB_ENV"
+
       # Cloudflare worker cannot boot under Node for post-build prerender (rolldown WASI bindings).
       # Prerender with node_server, then merge HTML into the Cloudflare Pages output.
       - name: Prerender www (node preset)
