@@ -1,8 +1,7 @@
 <p align="center">
   <a href="https://useavalon.dev">
-    <!-- The fragments follow GitHub's own theme setting; prefers-color-scheme follows the OS, which can differ. -->
-    <img alt="Avalon" src="./www/public/avalon-wordmark-black.svg#gh-light-mode-only" height="56">
-    <img alt="Avalon" src="./www/public/avalon-wordmark.svg#gh-dark-mode-only" height="56">
+    <!-- One image with a light halo around the black lettering, so it reads on any GitHub theme. -->
+    <img alt="Avalon" src="./www/public/avalon-wordmark-readme.svg" height="56">
   </a>
 </p>
 
