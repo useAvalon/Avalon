@@ -1,7 +1,6 @@
 <p align="center">
   <a href="https://useavalon.dev">
-    <!-- One image with a light halo around the black lettering, so it reads on any GitHub theme. -->
-    <img alt="Avalon" src="./www/public/avalon-wordmark-readme.svg" height="56">
+    <img alt="Avalon" src="./www/public/avalon-banner.svg" width="100%">
   </a>
 </p>
 
