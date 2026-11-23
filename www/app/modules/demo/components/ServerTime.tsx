@@ -2,7 +2,9 @@ export default function ServerTime() {
 	const now = new Date();
 	return (
 		<div class="server-time">
-			<span class="server-time__value">Server Time: {now.toLocaleTimeString()}</span>
+			<span class="server-time__value">
+				Server Time: {now.toLocaleTimeString("en-US", { timeZone: "UTC", timeZoneName: "short" })}
+			</span>
 			<small class="server-time__note">Rendered on-demand by the server</small>
 			<style>{`
 				.server-time {

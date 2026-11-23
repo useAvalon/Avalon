@@ -177,4 +177,37 @@ function _createMdxContent(props) {
 		expect(out).not.toMatch(/src: "[^"]*Frame\.tsx"/);
 		expect(out).toMatch(/src: "[^"]*ServerTime\.tsx"/);
 	});
+
+	it("does not read a conditional value as a server prop", () => {
+		const code = `import Panel from "../demo/components/Panel.tsx";
+function _createMdxContent(props) {
+  return _jsxDEV(Panel, { label: online ? server : "offline", island: { condition: "on:client" } });
+}
+`;
+		const out = runTransform(code);
+		expect(out).toContain('props: { label: online ? server : "offline"}');
+		expect(out).not.toContain("server: (");
+	});
+
+	it("keeps a nested island key inside another prop", () => {
+		const out = runTransform(
+			wrap(
+				`_jsxDEV(ServerTime, { server: {}, settings: { island: "nested" }, island: { condition: "on:client" } })`,
+			),
+		);
+		expect(out).toContain('island: ({ condition: "on:client" })');
+		expect(out).toContain('settings: { island: "nested" }');
+	});
+
+	it("still auto-wraps a plain Qwik call when another call of it has a server prop", () => {
+		const code = `import Q from "../demo/components/Counter.qwik.tsx";
+function _createMdxContent(props) {
+  return [_jsxDEV(Q, { server: {} }), _jsxDEV(Q, { start: 1 })];
+}
+`;
+		const out = runTransform(code);
+		expect(out).toContain("server: ({})");
+		expect(out).toContain("ssr: true, ssrOnly: true");
+		expect(out).not.toContain("_jsxDEV(Q");
+	});
 });

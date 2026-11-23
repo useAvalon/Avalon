@@ -58,7 +58,6 @@ const FALLBACK_ALIASES: Array<{ prefix: string; map: (rest: string) => string }>
 	{ prefix: "~/", map: (rest) => `/src/${rest}` },
 ];
 
-const ISLAND_PROP_IN_PROPS_RE = /\bisland\s*:\s*/;
 const FIRST_IMPORT_LINE_RE = /^import [^\n]+from [^\n]+\n/m;
 function compiledJsxStartRe(): RegExp {
 	return /(?:_?jsxs?(?:DEV)?)\s*\(\s*([A-Z]\w*)\s*,/g;
@@ -82,8 +81,10 @@ function isTopLevelPropertyKey(propsStr: string, pos: number, key: string): bool
 	const rest = propsStr.slice(pos);
 	if (!rest.startsWith(key)) return false;
 	if (!/^\s*:/.test(rest.slice(key.length))) return false;
-	const prev = propsStr[pos - 1];
-	return pos === 1 || !/\w/.test(prev);
+	// A property key follows `{` or `,`; a `:` after `?` belongs to a conditional expression.
+	let before = pos - 1;
+	while (before >= 0 && /\s/.test(propsStr[before])) before--;
+	return before >= 0 && (propsStr[before] === "{" || propsStr[before] === ",");
 }
 
 /**
@@ -191,8 +192,7 @@ function findIslandImports(code: string, patterns: RegExp[]): IslandImport[] {
 		const autoIsland =
 			Boolean(framework && AUTO_ISLAND_FRAMEWORKS.has(framework)) &&
 			jsxComponents.has(localName) &&
-			!hasIslandProp &&
-			!hasServerProp;
+			!hasIslandProp;
 
 		if (isFromIslandsDir || hasIslandProp || hasServerProp || autoIsland) {
 			imports.push({
@@ -392,9 +392,8 @@ function mergePropsWithoutProp(propsStr: string, propIndex: number, propEnd: num
  * `{ condition: 'on:interaction' }` plus the remaining props.
  */
 function extractProp(propsStr: string, key: string): { value: string; otherProps: string } | null {
-	const keyIndex = key === "island" ? ISLAND_PROP_IN_PROPS_RE.exec(propsStr)?.index : undefined;
-	const index = keyIndex ?? findTopLevelKeyIndex(propsStr, key);
-	if (index === undefined || index === -1) return null;
+	const index = findTopLevelKeyIndex(propsStr, key);
+	if (index === -1) return null;
 	const match = new RegExp(String.raw`^${key}\s*:\s*`).exec(propsStr.slice(index));
 	if (!match) return null;
 
@@ -465,10 +464,6 @@ function renderCallForJsxMatch(
 	const propsStr = fullCall.slice(propsStart, skipBracedExpression(fullCall, propsStart));
 	const fwArg = framework ? `framework: "${framework}",` : "";
 
-	if (autoIsland) {
-		return buildAutoIslandRenderCall(componentName, srcPath, fwArg, propsStr);
-	}
-
 	const server = fullCall.includes("server") ? extractProp(propsStr, "server") : null;
 	if (server) {
 		// A server island may also carry an `island` prop, which hydrates it once it has loaded.
@@ -483,10 +478,11 @@ function renderCallForJsxMatch(
 		);
 	}
 
-	if (!fullCall.includes("island")) return null;
-
-	const extracted = extractProp(propsStr, "island");
-	if (!extracted) return null;
+	// Decided per call: an auto-island component without a `server` or `island` prop on this call.
+	const extracted = fullCall.includes("island") ? extractProp(propsStr, "island") : null;
+	if (!extracted) {
+		return autoIsland ? buildAutoIslandRenderCall(componentName, srcPath, fwArg, propsStr) : null;
+	}
 
 	return buildIslandRenderCall(
 		componentName,
