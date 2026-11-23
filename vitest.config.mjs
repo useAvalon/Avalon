@@ -14,6 +14,9 @@ export default defineConfig({
 		include: ["zod"],
 	},
 	test: {
+		// Under Bun, vitest's default forks pool calls `child.channel.unref()`, which Bun's child
+		// processes do not implement, so no worker starts. Worker threads run the same suites.
+		pool: "threads",
 		setupFiles: ["./packages/avalon/vitest.setup.ts"],
 		include: [
 			"packages/avalon/src/**/tests/**/*.test.ts",

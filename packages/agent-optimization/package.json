@@ -45,9 +45,9 @@
 		}
 	},
 	"devDependencies": {
-		"fast-check": "^4.8.0",
-		"oxc-minify": "^0.158.0",
-		"oxc-transform": "^0.158.0",
-		"vitest": "^5.1.0"
+		"fast-check": "^4.10.3",
+		"oxc-minify": "^0.159.0",
+		"oxc-transform": "^0.159.0",
+		"vitest": "^5.1.1"
 	}
 }
