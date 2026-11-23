@@ -1,5 +1,13 @@
 # @useavalon/avalon
 
+## 0.9.3
+
+### Patch Changes
+
+- [#175](https://github.com/useAvalon/Avalon/pull/175) [`ca910bc`](https://github.com/useAvalon/Avalon/commit/ca910bc869546220da497d1b79927f4b6769f6d3) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Fix builds under pnpm's strict `node_modules` layout: the generated server entry imported `urlpattern-polyfill` from the app, which does not declare it. It now loads the polyfill through the new `@useavalon/avalon/polyfills/urlpattern` subpath, so a fresh `create-avalon` project builds with pnpm without adding the dependency by hand.
+- Updated dependencies []:
+  - @useavalon/core@0.9.3
+
 ## 0.9.2
 
 ### Patch Changes
