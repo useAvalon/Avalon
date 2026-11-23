@@ -1,9 +1,8 @@
 <p align="center">
   <a href="https://useavalon.dev">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./www/public/avalon-wordmark.svg">
-      <img alt="Avalon" src="./www/public/avalon-wordmark-black.svg" height="56">
-    </picture>
+    <!-- The fragments follow GitHub's own theme setting; prefers-color-scheme follows the OS, which can differ. -->
+    <img alt="Avalon" src="./www/public/avalon-wordmark-black.svg#gh-light-mode-only" height="56">
+    <img alt="Avalon" src="./www/public/avalon-wordmark.svg#gh-dark-mode-only" height="56">
   </a>
 </p>
 
