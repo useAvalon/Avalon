@@ -198,6 +198,28 @@ describe("layout streaming", () => {
 		expect(parts).toHaveBeenCalledOnce();
 	});
 
+	it("keeps the rest of the page when a child inside Suspense throws", async () => {
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		function Broken(): never {
+			throw new Error("boom");
+		}
+		const page = {
+			default: () =>
+				h(
+					"div",
+					null,
+					h("p", null, "sibling"),
+					h(Suspense, { fallback: h("span", null, "fallback") }, h(Broken, null)),
+				),
+		} as unknown as PageModule;
+		const text = await (await makeRenderer(page, true).renderer.fetch(request())).text();
+		error.mockRestore();
+		expect(text).toContain("<p>sibling</p>");
+		expect(text).toContain("fallback");
+		expect(text).not.toContain("Error rendering page");
+		expect(text.endsWith(AFTER)).toBe(true);
+	});
+
 	it("renders a Suspense page without streaming when streaming is off", async () => {
 		const page = {
 			default: () => h("div", null, h(Suspense, { fallback: "wait" }, h("b", null, "ready"))),

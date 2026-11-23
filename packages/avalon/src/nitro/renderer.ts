@@ -380,15 +380,10 @@ async function drainPageStream(pending: PendingPageStream): Promise<string> {
 	return html + textDecoder.decode();
 }
 
-/** The error Preact's synchronous renderer throws when a `Suspense` boundary is pending. */
-function needsAsyncRender(error: unknown): boolean {
-	return error instanceof Error && error.message.includes("renderToStringAsync");
-}
-
 /**
  * Renders the page fragment for a layout response. The synchronous renderer runs first, so a page
  * with no pending `Suspense` boundary costs exactly what the buffered path costs and returns the
- * same string. Only when a boundary is pending does the render restart on Preact's stream renderer,
+ * same string. Only when that throws (a pending boundary, or an error the stream renderer can recover from) does the render restart on Preact's stream renderer,
  * and the open stream is returned so the caller can flush the layout head first. (Components that
  * suspend are called again by the stream render; a render with side effects is therefore repeated.)
  */
@@ -402,8 +397,10 @@ async function renderPageForLayout(
 	try {
 		return { html: renderShell(vnode) };
 	} catch (err) {
-		const rendered =
-			stream && needsAsyncRender(err) ? renderShellToStream(vnode, logStreamRenderError) : null;
+		// Any synchronous failure retries on the stream renderer, which handles a pending boundary and
+		// also recovers from an error thrown inside `Suspense` by rendering that boundary's fallback
+		// and keeping the rest of the page. A failure outside a boundary surfaces from the first read.
+		const rendered = stream ? renderShellToStream(vnode, logStreamRenderError) : null;
 		if (!rendered) {
 			console.error("[renderer] Error rendering page shell:", err);
 			return { html: PAGE_ERROR_HTML };
