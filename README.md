@@ -1,9 +1,6 @@
 <p align="center">
   <a href="https://useavalon.dev">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./www/public/avalon-wordmark.svg">
-      <img alt="Avalon" src="./www/public/avalon-wordmark-black.svg" height="56">
-    </picture>
+    <img alt="Avalon" src="./www/public/avalon-banner.svg" width="100%">
   </a>
 </p>
 
