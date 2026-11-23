@@ -28,4 +28,4 @@ Merging to `main` opens a **Version packages** PR; merging that PR runs **`build
 
 Not npm. Install the [pkg.pr.new app](https://github.com/apps/pkg-pr-new) on **`useAvalon/Avalon`**. Add the **`pr preview`** label on the PR to run the Preview workflow.
 
-The pkg.pr.new PR comment (and its StackBlitz link) is disabled: StackBlitz installs every package with npm into one project, and npm cannot reconcile Avalon's Vite 8 with the Vite <8 peer of `@builder.io/qwik`. Take the install URLs from the Preview job log or the **Continuous Releases** check and install the packages you need in a project that already uses Vite 8.
+The "Open in StackBlitz" link opens the app in `examples/starter` with the preview packages substituted in. The default all-packages project is disabled because npm cannot reconcile Avalon's Vite 8 with the Vite <8 peer of `@builder.io/qwik`. To try another package, install its preview URL in a project that already uses Vite 8.

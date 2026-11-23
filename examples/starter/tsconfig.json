@@ -1,0 +1,34 @@
+{
+	"compilerOptions": {
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"allowArbitraryExtensions": true,
+		"allowImportingTsExtensions": true,
+		"noEmit": true,
+		"jsx": "react-jsx",
+		"jsxImportSource": "preact",
+		"types": ["@useavalon/avalon/types"],
+		"paths": {
+			"@shared/*": ["./app/shared/*"],
+			"@modules/*": ["./app/modules/*"]
+		}
+	},
+	"include": [
+		"app/**/*.ts",
+		"app/**/*.tsx",
+		"app/**/*.d.ts",
+		"app/env.d.ts",
+		"app/island-jsx.d.ts",
+		"server/**/*.ts",
+		"routes/**/*.ts",
+		"middleware/**/*.ts",
+		"vite.config.ts",
+		"vite-env.d.ts"
+	],
+	"exclude": [],
+	"references": []
+}
