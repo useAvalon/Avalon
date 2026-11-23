@@ -37,9 +37,9 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      # Workspace packages export TypeScript sources; the build rewrites them to dist so the
+      # Workspace packages export TypeScript sources; the build (with its rewritten package.json kept) points them at dist so the
       # previews install and run under Node (which refuses to strip types inside node_modules).
-      - run: bun run build:packages
+      - run: bun scripts/build-packages.ts --keep-manifest
 
       - name: Publish package previews
         env:
