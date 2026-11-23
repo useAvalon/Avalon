@@ -1,11 +1,17 @@
 /**
  * Build every workspace package that defines a `build` script (prepublish dist).
+ *
+ * The build rewrites each package.json to point at `dist/`. By default the source manifest is
+ * restored afterwards (publishing rewrites it again); `--keep-manifest` leaves the rewritten one
+ * in place for tools that pack the working tree directly, such as the pkg.pr.new previews.
  */
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { restoreSourceManifest } from "./publish-packages.ts";
+
+const keepManifest = process.argv.includes("--keep-manifest");
 
 const ROOTS = [
 	"packages/avalon",
@@ -33,5 +39,5 @@ for (const dir of ROOTS) {
 	if (result.status !== 0) {
 		process.exit(result.status ?? 1);
 	}
-	restoreSourceManifest(dir);
+	if (!keepManifest) restoreSourceManifest(dir);
 }
