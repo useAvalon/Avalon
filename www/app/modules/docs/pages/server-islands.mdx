@@ -49,7 +49,7 @@ export default function Page() {
 The component won't render during the initial page build. Instead, the fallback content is shown while the browser fetches the rendered HTML from the server.
 
 <DocsLiveFrame label="Pure server island">
-  <ServerTime />
+  <ServerTime server={{ fallback: <p>Loading server time…</p> }} />
 </DocsLiveFrame>
 <DocsLiveFrame label="Server plus hydrate">
   <NotificationBell island={{ condition: 'on:client' }} userId="docs-user" />
