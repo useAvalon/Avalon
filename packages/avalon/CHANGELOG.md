@@ -1,5 +1,13 @@
 # @useavalon/avalon
 
+## 0.9.2
+
+### Patch Changes
+
+- [#173](https://github.com/useAvalon/Avalon/pull/173) [`26f3146`](https://github.com/useAvalon/Avalon/commit/26f3146e72ccf84022ca1762de8c8f20c19fc6ee) Thanks [@MadsHaerup](https://github.com/MadsHaerup)! - Support the `server` prop in MDX files. A component with `server={{ ... }}` in an `.mdx` page was rendered inline at build time, so its output was frozen into the static HTML. It is now rendered as a server island, optionally combined with an `island` prop.
+- Updated dependencies [[`26f3146`](https://github.com/useAvalon/Avalon/commit/26f3146e72ccf84022ca1762de8c8f20c19fc6ee)]:
+  - @useavalon/core@0.9.2
+
 ## 0.9.1
 
 ### Patch Changes
