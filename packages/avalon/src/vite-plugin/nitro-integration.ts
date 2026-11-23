@@ -64,7 +64,7 @@ import type { ResolvedAvalonConfig } from "./types.ts";
  * IMPORTANT: this MUST NOT depend on Vite `transform`-hook timing. The Nitro
  * env evaluates this virtual module BEFORE the page-transform registrations run,
  * so reading the in-memory `getManifest()` Map returns 0 entries at eval time.
- * Instead we recompute the manifest by scanning `.tsx`/`.jsx` files under the
+ * Instead we recompute the manifest by scanning `.tsx`/`.jsx`/`.mdx` files under the
  * project's `app/` and `src/` dirs, mirroring the detection logic in
  * `serverIslandsPlugin` (PascalCase default imports used with a `server` prop).
  *
@@ -72,7 +72,7 @@ import type { ResolvedAvalonConfig } from "./types.ts";
  * runtime uses, so `generateComponentId(relativePath)` here matches the id that
  * `island.tsx` computes at runtime from `src`.
  */
-function generateServerIslandManifestModule(projectRoot: string): string {
+export function generateServerIslandManifestModule(projectRoot: string): string {
 	const manifest = scanServerIslandManifest(projectRoot);
 	const entries = Object.entries(manifest);
 	let code = `export const serverIslandManifest = ${JSON.stringify(manifest)};\n\n`;
@@ -161,17 +161,20 @@ function usesServerProp(code: string, localName: string): boolean {
 	return pattern.test(code);
 }
 
-/** True for `.tsx`/`.jsx` source files that aren't tests. */
+/** True for `.tsx`/`.jsx`/`.mdx` source files that aren't tests. */
 function isCollectableSourceFile(name: string, full: string): boolean {
-	if (!/\.(tsx|jsx)$/.test(name)) return false;
+	if (!/\.(tsx|jsx|mdx)$/.test(name)) return false;
 	// Skip test files
 	if (/\.(test|spec)\.[jt]sx$/.test(name)) return false;
 	if (full.includes("__tests__")) return false;
 	return true;
 }
 
+/** Fenced code blocks and inline code in MDX: examples there are text, not component usage. */
+const MDX_CODE_RE = /^[ \t]*(`{3,}|~{3,})[^\n]*\n[\s\S]*?^[ \t]*\1[ \t]*$|`[^`\n]+`/gm;
+
 /**
- * Recursively collects `.tsx`/`.jsx` source files under `dir`, skipping build
+ * Recursively collects `.tsx`/`.jsx`/`.mdx` source files under `dir`, skipping build
  * output, dependency, and test files.
  */
 function collectSourceFiles(dir: string, out: string[]): void {
@@ -197,10 +200,12 @@ function collectSourceFiles(dir: string, out: string[]): void {
  */
 function collectIslandsFromFile(
 	file: string,
-	code: string,
+	rawCode: string,
 	projectRoot: string,
 	manifest: Record<string, string>,
 ): void {
+	const isMdx = file.endsWith(".mdx");
+	const code = isMdx ? rawCode.replace(MDX_CODE_RE, "") : rawCode;
 	PASCAL_DEFAULT_IMPORT_RE.lastIndex = 0;
 	let m: RegExpExecArray | null = PASCAL_DEFAULT_IMPORT_RE.exec(code);
 	for (; m !== null; m = PASCAL_DEFAULT_IMPORT_RE.exec(code)) {
@@ -209,6 +214,8 @@ function collectIslandsFromFile(
 		if (!usesServerProp(code, localName)) continue;
 
 		const relativePath = resolveToRelativePath(importPath, file, projectRoot);
+		// A page can only import files that exist, so a missing path is not a real import.
+		if (isMdx && !existsSync(join(projectRoot, relativePath.replace(/^\//, "")))) continue;
 		const componentId = generateComponentId(relativePath);
 		// De-duplicate by componentId (first writer wins; paths are identical).
 		if (!(componentId in manifest)) {

@@ -18,6 +18,7 @@
 
 import { dirname } from "node:path";
 import type { Plugin } from "vite";
+import { addToManifest, generateComponentId } from "../server-islands/manifest.ts";
 import { islandSsrExpression, isStaticallyClientOnly } from "./island-ssr-flag.ts";
 
 export interface MDXIslandTransformOptions {
@@ -38,6 +39,8 @@ interface IslandImport {
 	localName: string;
 	importPath: string;
 	islandPropUsage: boolean;
+	/** The component is used with a `server` prop (a server island). */
+	serverPropUsage: boolean;
 	autoIsland: boolean;
 }
 
@@ -55,7 +58,6 @@ const FALLBACK_ALIASES: Array<{ prefix: string; map: (rest: string) => string }>
 	{ prefix: "~/", map: (rest) => `/src/${rest}` },
 ];
 
-const ISLAND_PROP_IN_PROPS_RE = /\bisland\s*:\s*/;
 const FIRST_IMPORT_LINE_RE = /^import [^\n]+from [^\n]+\n/m;
 function compiledJsxStartRe(): RegExp {
 	return /(?:_?jsxs?(?:DEV)?)\s*\(\s*([A-Z]\w*)\s*,/g;
@@ -79,20 +81,22 @@ function isTopLevelPropertyKey(propsStr: string, pos: number, key: string): bool
 	const rest = propsStr.slice(pos);
 	if (!rest.startsWith(key)) return false;
 	if (!/^\s*:/.test(rest.slice(key.length))) return false;
-	const prev = propsStr[pos - 1];
-	return pos === 1 || !/\w/.test(prev);
+	// A property key follows `{` or `,`; a `:` after `?` belongs to a conditional expression.
+	let before = pos - 1;
+	while (before >= 0 && /\s/.test(propsStr[before])) before--;
+	return before >= 0 && (propsStr[before] === "{" || propsStr[before] === ",");
 }
 
 /**
- * True when `key` is a top-level property of a `{ ... }` object literal.
+ * Index of `key` as a top-level property of a `{ ... }` object literal, or -1.
  * Nested objects (including compiled child JSX props) do not count.
  */
-function hasTopLevelKey(propsStr: string, key: string): boolean {
+function findTopLevelKeyIndex(propsStr: string, key: string): number {
 	let pos = 1;
 	let depth = 1;
 	while (pos < propsStr.length && depth > 0) {
 		if (depth === 1 && isTopLevelPropertyKey(propsStr, pos, key)) {
-			return true;
+			return pos;
 		}
 		const ch = propsStr[pos];
 		if (ch === "{" || ch === "(" || ch === "[") {
@@ -107,11 +111,16 @@ function hasTopLevelKey(propsStr: string, key: string): boolean {
 			pos++;
 		}
 	}
-	return false;
+	return -1;
 }
 
-/** Raw MDX/JSX tags whose attributes include an `island` prop. */
-function findRawJsxIslandComponents(code: string): Set<string> {
+function hasTopLevelKey(propsStr: string, key: string): boolean {
+	return findTopLevelKeyIndex(propsStr, key) !== -1;
+}
+
+/** Raw MDX/JSX tags whose attributes include the given prop (`island` or `server`). */
+function findRawJsxComponentsWithProp(code: string, prop: string): Set<string> {
+	const propRe = new RegExp(String.raw`\b${prop}\s*[={]`);
 	const components = new Set<string>();
 	const tagStartRe = /<([A-Z]\w*)\b/g;
 	for (let m = tagStartRe.exec(code); m !== null; m = tagStartRe.exec(code)) {
@@ -127,7 +136,7 @@ function findRawJsxIslandComponents(code: string): Set<string> {
 			i++;
 		}
 		const attrs = code.slice(m.index + m[0].length, i);
-		if (/\bisland\s*[={]/.test(attrs)) {
+		if (propRe.test(attrs)) {
 			components.add(m[1]);
 		}
 	}
@@ -135,13 +144,13 @@ function findRawJsxIslandComponents(code: string): Set<string> {
 }
 
 /**
- * Find components used with the island prop in the code
+ * Find components used with the given prop (`island` or `server`) in the code.
  * Handles both raw JSX (<Component island={...}) and compiled JSX (_jsxDEV(Component, { island:)
  */
-function findIslandPropUsage(code: string): Set<string> {
-	const components = findRawJsxIslandComponents(code);
+function findPropUsage(code: string, prop: string): Set<string> {
+	const components = findRawJsxComponentsWithProp(code, prop);
 
-	// Match each compiled jsx(Component, { ... }) and only count a top-level island key.
+	// Match each compiled jsx(Component, { ... }) and only count a top-level key.
 	// A flat `[^}]*island` scan would also match a child's island inside `children:`.
 	const compiledJsxRe = compiledJsxStartRe();
 	for (let m = compiledJsxRe.exec(code); m !== null; m = compiledJsxRe.exec(code)) {
@@ -149,7 +158,7 @@ function findIslandPropUsage(code: string): Set<string> {
 		while (pos < code.length && /\s/.test(code[pos])) pos++;
 		if (code[pos] !== "{") continue;
 		const propsEnd = skipBracedExpression(code, pos);
-		if (hasTopLevelKey(code.slice(pos, propsEnd), "island")) {
+		if (hasTopLevelKey(code.slice(pos, propsEnd), prop)) {
 			components.add(m[1]);
 		}
 	}
@@ -170,21 +179,29 @@ function findCompiledJsxUsage(code: string): Set<string> {
 function findIslandImports(code: string, patterns: RegExp[]): IslandImport[] {
 	const imports: IslandImport[] = [];
 	const allImports = findAllDefaultImports(code);
-	const islandPropComponents = findIslandPropUsage(code);
+	const islandPropComponents = findPropUsage(code, "island");
+	const serverPropComponents = findPropUsage(code, "server");
 	const jsxComponents = findCompiledJsxUsage(code);
 
 	for (const [localName, importPath] of allImports) {
 		const quotedPath = `"${importPath}"`;
 		const isFromIslandsDir = patterns.some((p) => p.test(quotedPath));
 		const hasIslandProp = islandPropComponents.has(localName);
+		const hasServerProp = serverPropComponents.has(localName);
 		const framework = detectFramework(importPath);
 		const autoIsland =
 			Boolean(framework && AUTO_ISLAND_FRAMEWORKS.has(framework)) &&
 			jsxComponents.has(localName) &&
 			!hasIslandProp;
 
-		if (isFromIslandsDir || hasIslandProp || autoIsland) {
-			imports.push({ localName, importPath, islandPropUsage: hasIslandProp, autoIsland });
+		if (isFromIslandsDir || hasIslandProp || hasServerProp || autoIsland) {
+			imports.push({
+				localName,
+				importPath,
+				islandPropUsage: hasIslandProp,
+				serverPropUsage: hasServerProp,
+				autoIsland,
+			});
 		}
 	}
 
@@ -357,33 +374,35 @@ function findIslandValueEnd(propsStr: string, islandStart: number): number {
 	return pos;
 }
 
-function mergePropsWithoutIsland(propsStr: string, islandIndex: number, islandEnd: number): string {
-	const beforeIsland = propsStr.slice(0, islandIndex).trim();
-	const afterIsland = propsStr.slice(islandEnd).trim();
-	let otherProps = beforeIsland;
-	if (afterIsland.startsWith(",")) {
-		otherProps += afterIsland.slice(1);
+function mergePropsWithoutProp(propsStr: string, propIndex: number, propEnd: number): string {
+	const before = propsStr.slice(0, propIndex).trim();
+	const after = propsStr.slice(propEnd).trim();
+	let otherProps = before;
+	if (after.startsWith(",")) {
+		otherProps += after.slice(1);
 	} else {
-		otherProps += afterIsland;
+		otherProps += after;
 	}
 	return otherProps.replace(/,\s*}$/, "}").replace(/{\s*,/, "{");
 }
 
 /**
- * Extract the island prop value from a JSX props object.
- * Given `{ island: { condition: 'on:interaction' }, other: 1 }`, returns `{ condition: 'on:interaction' }`
+ * Extract a prop value from a JSX props object.
+ * Given `{ island: { condition: 'on:interaction' }, other: 1 }` and `island`, returns
+ * `{ condition: 'on:interaction' }` plus the remaining props.
  */
-function extractIslandProp(propsStr: string): { islandValue: string; otherProps: string } | null {
-	const islandMatch = ISLAND_PROP_IN_PROPS_RE.exec(propsStr);
-	if (!islandMatch) return null;
+function extractProp(propsStr: string, key: string): { value: string; otherProps: string } | null {
+	const index = findTopLevelKeyIndex(propsStr, key);
+	if (index === -1) return null;
+	const match = new RegExp(String.raw`^${key}\s*:\s*`).exec(propsStr.slice(index));
+	if (!match) return null;
 
-	const islandIndex = islandMatch.index;
-	const islandStart = islandIndex + islandMatch[0].length;
-	const islandEnd = findIslandValueEnd(propsStr, islandStart);
-	const islandValue = propsStr.slice(islandStart, islandEnd).trim();
-	const otherProps = mergePropsWithoutIsland(propsStr, islandIndex, islandEnd);
-
-	return { islandValue, otherProps };
+	const valueStart = index + match[0].length;
+	const valueEnd = findIslandValueEnd(propsStr, valueStart);
+	return {
+		value: propsStr.slice(valueStart, valueEnd).trim(),
+		otherProps: mergePropsWithoutProp(propsStr, index, valueEnd),
+	};
 }
 
 function jsxCallPatternFor(componentName: string): RegExp {
@@ -415,6 +434,23 @@ function buildIslandRenderCall(
 	return `(await __AvalonRenderIsland({ src: "${srcPath}", ${fwArg} ${compArg} ...(${islandValue}), ${propsArg} ssr: ${islandSsrExpression(islandValue)} }))`;
 }
 
+function buildServerIslandRenderCall(
+	componentName: string,
+	srcPath: string,
+	fwArg: string,
+	serverValue: string,
+	islandValue: string | null,
+	otherProps: string,
+): string {
+	const hasOtherProps = otherProps.trim() !== "{}" && otherProps.trim() !== "";
+	const propsArg = hasOtherProps ? `props: ${otherProps},` : "";
+	const islandArg = islandValue ? `island: (${islandValue}),` : "";
+	// Register at transform time, on the same path the runtime hashes, so the server bundle's
+	// island manifest knows the component before the endpoint is generated.
+	addToManifest(generateComponentId(srcPath), srcPath);
+	return `(await __AvalonRenderIsland({ src: "${srcPath}", ${fwArg} component: ${componentName}, server: (${serverValue}), ${islandArg} ${propsArg} }))`;
+}
+
 function renderCallForJsxMatch(
 	fullCall: string,
 	componentName: string,
@@ -428,20 +464,31 @@ function renderCallForJsxMatch(
 	const propsStr = fullCall.slice(propsStart, skipBracedExpression(fullCall, propsStart));
 	const fwArg = framework ? `framework: "${framework}",` : "";
 
-	if (autoIsland) {
-		return buildAutoIslandRenderCall(componentName, srcPath, fwArg, propsStr);
+	const server = fullCall.includes("server") ? extractProp(propsStr, "server") : null;
+	if (server) {
+		// A server island may also carry an `island` prop, which hydrates it once it has loaded.
+		const island = extractProp(server.otherProps, "island");
+		return buildServerIslandRenderCall(
+			componentName,
+			srcPath,
+			fwArg,
+			server.value,
+			island?.value ?? null,
+			island?.otherProps ?? server.otherProps,
+		);
 	}
 
-	if (!fullCall.includes("island")) return null;
-
-	const extracted = extractIslandProp(propsStr);
-	if (!extracted) return null;
+	// Decided per call: an auto-island component without a `server` or `island` prop on this call.
+	const extracted = fullCall.includes("island") ? extractProp(propsStr, "island") : null;
+	if (!extracted) {
+		return autoIsland ? buildAutoIslandRenderCall(componentName, srcPath, fwArg, propsStr) : null;
+	}
 
 	return buildIslandRenderCall(
 		componentName,
 		srcPath,
 		fwArg,
-		extracted.islandValue,
+		extracted.value,
 		extracted.otherProps,
 	);
 }

@@ -115,3 +115,99 @@ ${body}`;
 		expect(out.match(/as __AvalonRenderIsland \}/g)).toHaveLength(1);
 	});
 });
+
+describe("mdxIslandTransform — server islands", () => {
+	const wrap = (call: string) => `import ServerTime from "../demo/components/ServerTime.tsx";
+import Bell from "../demo/components/Bell.react.tsx";
+function _createMdxContent(props) {
+  return ${call};
+}
+export default function MDXContent(props = {}) {
+  return _createMdxContent(props);
+}
+`;
+
+	it("turns a component with a server prop into a server island render call", () => {
+		const out = runTransform(
+			wrap(`_jsxDEV(ServerTime, { server: { timeout: 5000 }, label: "now" })`),
+		);
+		expect(out).toContain("await __AvalonRenderIsland");
+		expect(out).toMatch(/src: "[^"]*ServerTime\.tsx"/);
+		expect(out).toContain("component: ServerTime");
+		expect(out).toContain("server: ({ timeout: 5000 })");
+		expect(out).toContain('props: { label: "now" }');
+		expect(out).not.toContain("_jsxDEV(ServerTime");
+		expect(out).toContain("async function _createMdxContent(");
+	});
+
+	it("keeps JSX in the fallback", () => {
+		const out = runTransform(
+			wrap(`_jsxDEV(ServerTime, { server: { fallback: _jsxDEV("p", { children: "Loading" }) } })`),
+		);
+		expect(out).toContain('server: ({ fallback: _jsxDEV("p", { children: "Loading" }) })');
+	});
+
+	it("passes an island prop alongside the server prop", () => {
+		const out = runTransform(
+			wrap(
+				`_jsxDEV(Bell, { server: { fallback: null }, island: { condition: "on:client" }, userId: "u" })`,
+			),
+		);
+		expect(out).toContain("server: ({ fallback: null })");
+		expect(out).toContain('island: ({ condition: "on:client" })');
+		expect(out).toContain('props: { userId: "u" }');
+		expect(out).toContain('framework: "react"');
+	});
+
+	it("registers the component in the server island manifest", async () => {
+		const { getManifest } = await import("../../server-islands/manifest.ts");
+		runTransform(wrap(`_jsxDEV(ServerTime, { server: {} })`));
+		expect(Object.values(getManifest()).some((src) => src.endsWith("/ServerTime.tsx"))).toBe(true);
+	});
+
+	it("ignores a server key that belongs to a child component", () => {
+		const code = `import Frame from "../components/Frame.tsx";
+import ServerTime from "../demo/components/ServerTime.tsx";
+function _createMdxContent(props) {
+  return _jsxDEV(Frame, { label: "x", children: _jsxDEV(ServerTime, { server: {} }) });
+}
+`;
+		const out = runTransform(code);
+		expect(out).toContain("_jsxDEV(Frame");
+		expect(out).not.toMatch(/src: "[^"]*Frame\.tsx"/);
+		expect(out).toMatch(/src: "[^"]*ServerTime\.tsx"/);
+	});
+
+	it("does not read a conditional value as a server prop", () => {
+		const code = `import Panel from "../demo/components/Panel.tsx";
+function _createMdxContent(props) {
+  return _jsxDEV(Panel, { label: online ? server : "offline", island: { condition: "on:client" } });
+}
+`;
+		const out = runTransform(code);
+		expect(out).toContain('props: { label: online ? server : "offline"}');
+		expect(out).not.toContain("server: (");
+	});
+
+	it("keeps a nested island key inside another prop", () => {
+		const out = runTransform(
+			wrap(
+				`_jsxDEV(ServerTime, { server: {}, settings: { island: "nested" }, island: { condition: "on:client" } })`,
+			),
+		);
+		expect(out).toContain('island: ({ condition: "on:client" })');
+		expect(out).toContain('settings: { island: "nested" }');
+	});
+
+	it("still auto-wraps a plain Qwik call when another call of it has a server prop", () => {
+		const code = `import Q from "../demo/components/Counter.qwik.tsx";
+function _createMdxContent(props) {
+  return [_jsxDEV(Q, { server: {} }), _jsxDEV(Q, { start: 1 })];
+}
+`;
+		const out = runTransform(code);
+		expect(out).toContain("server: ({})");
+		expect(out).toContain("ssr: true, ssrOnly: true");
+		expect(out).not.toContain("_jsxDEV(Q");
+	});
+});
