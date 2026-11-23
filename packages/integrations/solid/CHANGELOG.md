@@ -1,5 +1,14 @@
 # @useavalon/solid
 
+## 0.1.23
+
+### Patch Changes
+
+- [#168](https://github.com/useAvalon/Avalon/pull/168) [`a81fd54`](https://github.com/useAvalon/Avalon/commit/a81fd54a66f929b7b3a7b3cf5bfcaae60309f8c1) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update runtime dependencies: `oxc-parser` and `oxc-transform` to 0.159 and `vite-plugin-solid` to 2.11.17.
+- Updated dependencies [[`a81fd54`](https://github.com/useAvalon/Avalon/commit/a81fd54a66f929b7b3a7b3cf5bfcaae60309f8c1), [`9fceb7b`](https://github.com/useAvalon/Avalon/commit/9fceb7b6e925ab679341da823e2449ee2e591543)]:
+  - @useavalon/avalon@0.9.1
+  - @useavalon/core@0.9.1
+
 ## 0.1.22
 
 ### Patch Changes
