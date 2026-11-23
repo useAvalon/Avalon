@@ -77,6 +77,18 @@ describe("layout streaming", () => {
 		expect(streamed.headers.get("x-accel-buffering")).toBeNull();
 	});
 
+	it("renders a page without a pending boundary once, on the synchronous renderer", async () => {
+		const Inner = vi.fn(() => h("b", null, "once"));
+		const page = {
+			default: () => h("div", null, h(Suspense, { fallback: "wait" }, h(Inner, null))),
+		} as unknown as PageModule;
+		const response = await makeRenderer(page, true).renderer.fetch(request());
+		expect(Inner).toHaveBeenCalledOnce();
+		expect(response.headers.get("x-accel-buffering")).toBeNull();
+		expect(response.headers.get("content-length")).toBeNull();
+		expect(await response.text()).toContain("<b>once</b>");
+	});
+
 	it("awaits an async page component before rendering", async () => {
 		const page = {
 			default: async () => {
@@ -184,6 +196,28 @@ describe("layout streaming", () => {
 		expect(response.headers.get("x-accel-buffering")).toBeNull();
 		expect(await response.text()).toContain("resolved");
 		expect(parts).toHaveBeenCalledOnce();
+	});
+
+	it("keeps the rest of the page when a child inside Suspense throws", async () => {
+		const error = vi.spyOn(console, "error").mockImplementation(() => {});
+		function Broken(): never {
+			throw new Error("boom");
+		}
+		const page = {
+			default: () =>
+				h(
+					"div",
+					null,
+					h("p", null, "sibling"),
+					h(Suspense, { fallback: h("span", null, "fallback") }, h(Broken, null)),
+				),
+		} as unknown as PageModule;
+		const text = await (await makeRenderer(page, true).renderer.fetch(request())).text();
+		error.mockRestore();
+		expect(text).toContain("<p>sibling</p>");
+		expect(text).toContain("fallback");
+		expect(text).not.toContain("Error rendering page");
+		expect(text.endsWith(AFTER)).toBe(true);
 	});
 
 	it("renders a Suspense page without streaming when streaming is off", async () => {

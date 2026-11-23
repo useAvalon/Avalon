@@ -363,7 +363,6 @@ interface PendingPageStream {
 	reader: ReadableStreamDefaultReader<Uint8Array>;
 	/** The first chunk: the synchronous shell, with `Suspense` fallbacks in place. */
 	first: Uint8Array;
-	allReady: Promise<void>;
 }
 
 const textDecoder = new TextDecoder();
@@ -381,22 +380,12 @@ async function drainPageStream(pending: PendingPageStream): Promise<string> {
 	return html + textDecoder.decode();
 }
 
-/** Resolves true when `promise` settles before the next macrotask, false when it is still pending. */
-function settlesImmediately(promise: Promise<void>): Promise<boolean> {
-	return Promise.race([
-		promise.then(
-			() => true,
-			() => true,
-		),
-		new Promise<boolean>((resolve) => setTimeout(resolve, 0, false)),
-	]);
-}
-
 /**
- * Renders the page fragment for a layout response. With streaming enabled the page goes through
- * Preact's stream renderer: a page with no pending `Suspense` boundary finishes before the next
- * tick and is returned as a plain string (identical to the buffered output); otherwise the open
- * stream is returned so the caller can flush the layout head first.
+ * Renders the page fragment for a layout response. The synchronous renderer runs first, so a page
+ * with no pending `Suspense` boundary costs exactly what the buffered path costs and returns the
+ * same string. Only when that throws (a pending boundary, or an error the stream renderer can recover from) does the render restart on Preact's stream renderer,
+ * and the open stream is returned so the caller can flush the layout head first. (Components that
+ * suspend are called again by the stream render; a render with side effects is therefore repeated.)
  */
 async function renderPageForLayout(
 	pageModule: PageModule,
@@ -405,37 +394,31 @@ async function renderPageForLayout(
 ): Promise<PageFragment> {
 	const vnode = await callPageComponent(pageModule, pageProps);
 	if (vnode === PAGE_CALL_FAILED) return { html: PAGE_ERROR_HTML };
-	const rendered = stream ? renderShellToStream(vnode, logStreamRenderError) : null;
-	if (!rendered) {
-		try {
-			return { html: renderShell(vnode) };
-		} catch (err) {
+	try {
+		return { html: renderShell(vnode) };
+	} catch (err) {
+		// Any synchronous failure retries on the stream renderer, which handles a pending boundary and
+		// also recovers from an error thrown inside `Suspense` by rendering that boundary's fallback
+		// and keeping the rest of the page. A failure outside a boundary surfaces from the first read.
+		const rendered = stream ? renderShellToStream(vnode, logStreamRenderError) : null;
+		if (!rendered) {
 			console.error("[renderer] Error rendering page shell:", err);
 			return { html: PAGE_ERROR_HTML };
 		}
+		return await openPageStream(rendered);
 	}
+}
+
+/** Reads the shell chunk, so a shell failure is still reported before any byte is sent. */
+async function openPageStream(rendered: ReadableStream<Uint8Array>): Promise<PageFragment> {
 	const reader = rendered.getReader();
-	let first: Awaited<ReturnType<typeof reader.read>>;
 	try {
-		first = await reader.read();
+		const first = await reader.read();
+		if (first.done) return { html: "" };
+		return { stream: { reader, first: first.value } };
 	} catch {
-		// The shell itself failed to render, which is reported before any byte is sent.
 		return { html: PAGE_ERROR_HTML };
 	}
-	if (first.done) return { html: "" };
-	const pending: PendingPageStream = {
-		reader,
-		first: first.value,
-		allReady: rendered.allReady,
-	};
-	if (await settlesImmediately(pending.allReady)) {
-		try {
-			return { html: await drainPageStream(pending) };
-		} catch {
-			return { html: PAGE_ERROR_HTML };
-		}
-	}
-	return { stream: pending };
 }
 
 function logStreamRenderError(error: unknown): void {
