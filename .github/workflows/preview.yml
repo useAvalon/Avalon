@@ -1,5 +1,8 @@
 # Publishes pkg.pr.new previews when the PR has the "pr preview" label (not npm).
 # Requires the pkg.pr.new GitHub App on useAvalon/Avalon.
+# The PR comment is off: its "Open in StackBlitz" link installs every package into one npm project,
+# which cannot resolve (Vite 8 for Avalon vs the Vite <8 peer of @builder.io/qwik). Install URLs are
+# in the job log and the "Continuous Releases" check.
 name: Preview
 
 on:
@@ -34,4 +37,4 @@ jobs:
       - name: Publish package previews
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bunx pkg-pr-new publish --bun --compact './packages/*' './packages/integrations/*'
+        run: bunx pkg-pr-new publish --bun --compact --comment=off './packages/*' './packages/integrations/*'
