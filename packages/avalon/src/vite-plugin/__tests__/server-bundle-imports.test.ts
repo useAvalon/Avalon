@@ -132,6 +132,13 @@ function transformPage(code: string): string {
 }
 
 describe("server bundle imports", () => {
+	it("the renderer virtual module loads the URLPattern polyfill through Avalon, not a bare import", () => {
+		const code = rendererCode(["preact"]);
+		// A bare `urlpattern-polyfill` resolves from the app, which under pnpm does not have it.
+		expect(code).not.toMatch(/["']urlpattern-polyfill["']/);
+		expect(avalonSpecifiers(code)).toContain("@useavalon/avalon/polyfills/urlpattern");
+	});
+
 	it("the renderer virtual module does not import the package barrel", () => {
 		const specifiers = avalonSpecifiers(rendererCode(["react"], "react"));
 		expect(specifiers.length).toBeGreaterThan(0);

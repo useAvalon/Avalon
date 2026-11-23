@@ -49,6 +49,7 @@
 		"./client/strategies": "./src/client/strategies.js",
 		"./client/hmr": "./src/client/framework-adapter.ts",
 		"./islands/builtin-directives": "./src/islands/builtin-directives.ts",
+		"./polyfills/urlpattern": "./src/polyfills/urlpattern.ts",
 		"./islands/framework-detection": "./src/islands/framework-detection.ts",
 		"./islands/island": "./src/islands/island.tsx",
 		"./islands/integration-registry": "./src/core/integrations/registry.ts",
